@@ -31,6 +31,27 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after per-coefficient degrees of freedom in the result class
+
+- **Commits.** `bcc3070c` (`sp.difference_in_means`, exact CR2 degrees of
+  freedom, `sp.panel` formula terms, Bacon summary). The traces, schemas and
+  parity index are re-recorded in the commit that follows it, which carries
+  this entry.
+- **Reason.** `core/results.py` gained `_coefficient_df`, which reads
+  `data_info['df_by_coefficient']` when a fit records it. Only `sp.cr2_se`
+  records it. The file is on the estimation path of every module, so both
+  ledgers were re-recorded in full. `panel/panel_reg.py`, `did/bacon.py`,
+  `iv/iv_diag.py` and `registry.py` changed in the same commit.
+- **Effect on the paper.** None. Module `53_cr2` is the only one that
+  calls `sp.cr2_se`, and it records the standard errors, which did not
+  change (the degrees of freedom did). Without the new key the result class
+  returns the scalar it returned before. No result file changed. No implementation classification moved
+  in either ledger. The registered-function count goes from 1,280 to 1,281,
+  which the paper does not track between anchors.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — parity index: `sp.ttest` gained a reference test
 
 - **Commit.** `606fb6c3` added

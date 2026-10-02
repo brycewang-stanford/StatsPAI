@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 364 |
 | | aligned | 53 |
 | | **subtotal** | **417** |
-| **No external software reference** | analytical-only (T1) | 328 |
+| **No external software reference** | analytical-only (T1) | 329 |
 | | external-replication (published numbers) | 5 |
-| | **subtotal** | **333** |
+| | **subtotal** | **334** |
 | No numerical evidence yet | unverified | 530 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 417 | 738 | 739 | 56.4% |
+| estimator callables | 417 | 739 | 740 | 56.4% |
 | infrastructure (parity N/A) | 0 | 9 | 217 | 0.0% |
 | result / exception classes | 0 | 3 | 324 | 0.0% |
-| **all registered** | 417 | 750 | 1280 | 32.6% |
+| **all registered** | 417 | 751 | 1281 | 32.6% |
 
 ### Coverage by estimator family
 
@@ -56,7 +56,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | regression | 32 | 36 | 36 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 29 | 29 |
-| inference | 18 | 26 | 26 |
+| inference | 18 | 27 | 27 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
 | diagnostics | 17 | 22 | 22 |
@@ -538,7 +538,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 | `unitroot` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
 
-## analytical-only — 328 functions
+## analytical-only — 329 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -640,6 +640,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `did_misclassified` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `did_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `did_summary` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
+| `difference_in_means` | [`test_difference_in_means_estimatr.py`](../tests/reference_parity/test_difference_in_means_estimatr.py) |
 | `discos_test` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `disparity_decompose` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `dist_iv` | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) (+1) |
@@ -857,7 +858,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `translog_design` | [`test_translog_design_parity.py`](../tests/reference_parity/test_translog_design_parity.py) |
 | `transport_generalize` | [`test_transport_parity.py`](../tests/reference_parity/test_transport_parity.py) |
 | `trimming` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
-| `ttest` | [`test_ttest_known_values.py`](../tests/reference_parity/test_ttest_known_values.py) |
+| `ttest` | [`test_difference_in_means_estimatr.py`](../tests/reference_parity/test_difference_in_means_estimatr.py) (+1) |
 | `twfe_decomposition` | [`test_did_synth_R_parity.py`](../tests/reference_parity/test_did_synth_R_parity.py) |
 | `uniform_bands` | [`test_event_study_vcov_R_parity.py`](../tests/reference_parity/test_event_study_vcov_R_parity.py) (+1) |
 | `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+2) |

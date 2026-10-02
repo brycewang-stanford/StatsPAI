@@ -8227,6 +8227,52 @@
     "name": "did_timevarying_covariates"
   },
   {
+    "description": "Design-based difference in means for a randomized experiment (Neyman; R estimatr::difference_in_means). The variance follows the design: complete randomization (s1^2/n1 + s0^2/n0, Satterthwaite df), blocks (size-weighted block estimates, N - 2J df), matched pairs (J - 1 df), clusters (CR2 with Bell-McCaffrey df), blocks of clusters and matched pairs of clusters. estimand='ATT' weights blocks by their treated units. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Treatment was randomized, within blocks and by cluster as declared in blocks= and cluster=; No interference between units (between clusters when clustered). Pre-conditions: treat takes exactly two values; every cluster lies in one arm and in one block; every block has at least two treated and two control units (or clusters), or every block is a pair. Failure modes: A block has fewer than two treated or two control units -> Merge thin blocks, or drop them and say so; the variance inside such a block is not identified; A cluster contains both treated and control units -> Treatment varies inside the group, so it is a block, not a cluster: pass it as blocks=;...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "blocks": {
+          "description": "Blocks within which treatment was randomized; blocks of two units (or two clusters) are matched pairs",
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Clusters assigned to treatment as a whole",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "estimand": {
+          "default": "ATE",
+          "description": "Block weights: units (ATE) or treated units (ATT)",
+          "enum": [
+            "ATE",
+            "ATT"
+          ],
+          "type": "string"
+        },
+        "treat": {
+          "description": "Two-valued treatment; the estimate is mean(larger value) - mean(smaller value)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "difference_in_means"
+  },
+  {
     "description": "Direct outcome regression (plug-in Q-model) OPE. Validation: certified parity evidence. Assumptions: Plug-in outcome regression (Q-model) is correctly specified; No unmeasured confounding in the logged data. Pre-conditions: X (context), A (logged action), R (reward) are available to fit the outcome model. Failure modes: Model misspecification bias -- the Q-model extrapolates outside the logged action support -> Prefer the doubly-robust estimator, which is robust to Q-model misspecification. Alternatives: sp.doubly_robust, sp.ips, sp.snips. Typical minimum N: 500.",
     "input_schema": {
       "properties": {

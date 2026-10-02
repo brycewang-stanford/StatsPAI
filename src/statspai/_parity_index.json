@@ -3321,6 +3321,12 @@
       "tolerance": "fixed theta: beta and SE 1e-9, integrated log likelihood 1e-10 (observed 4e-14); theta maximiser 1e-6 vs R optimize (observed 5e-8) and 5e-5 vs Stata e(theta) (observed 7.5e-6)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_difference_in_means_estimatr.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "evidence_grade": "T2",
       "function": "cr2_se",
       "headline": {
@@ -4477,6 +4483,23 @@
         "tests/reference_parity/_fixtures/did_synth_didvar_R.json"
       ],
       "tolerance": "ATT(g,t) and overall ATT 1e-9 rel (observed 3.8e-15)"
+    },
+    {
+      "function": "difference_in_means",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_difference_in_means_estimatr.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -15462,6 +15485,7 @@
         "tests/reference_parity/test_cross_estimator_parity.py",
         "tests/reference_parity/test_did2x2_wild_parity.py",
         "tests/reference_parity/test_did_synth_shiftshare_parity.py",
+        "tests/reference_parity/test_difference_in_means_estimatr.py",
         "tests/reference_parity/test_feols_bias_reduced_parity.py",
         "tests/reference_parity/test_hdfe_ols_se_menu_parity.py",
         "tests/reference_parity/test_imputation_parity.py",
@@ -19097,6 +19121,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_difference_in_means_estimatr.py",
         "tests/reference_parity/test_ttest_known_values.py"
       ],
       "tolerance": ""

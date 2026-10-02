@@ -4390,6 +4390,58 @@
     }
   },
   {
+    "description": "Design-based difference in means for a randomized experiment (Neyman; R estimatr::difference_in_means). The variance follows the design: complete randomization (s1^2/n1 + s0^2/n0, Satterthwaite df), blocks (size-weighted block estimates, N - 2J df), matched pairs (J - 1 df), clusters (CR2 with Bell-McCaffrey df), blocks of clusters and matched pairs of clusters. estimand='ATT' weights blocks by their treated units. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "difference_in_means",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "blocks": {
+          "description": "Blocks within which treatment was randomized; blocks of two units (or two clusters) are matched pairs",
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Clusters assigned to treatment as a whole",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "estimand": {
+          "default": "ATE",
+          "description": "Block weights: units (ATE) or treated units (ATT)",
+          "enum": [
+            "ATE",
+            "ATT"
+          ],
+          "type": "string"
+        },
+        "treat": {
+          "description": "Two-valued treatment; the estimate is mean(larger value) - mean(smaller value)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Balance / mean-comparison table -- Mean (SD) per group, difference, and t-test/ranksum/chi2 p-value. Renders to text/LaTeX/HTML/Markdown/Excel/Word.",
     "name": "mean_comparison",
     "parameters": {
