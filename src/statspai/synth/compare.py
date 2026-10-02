@@ -46,6 +46,7 @@ _METHOD_REGISTRY: List[Tuple[str, int]] = [
     ("scpi", 12),
     ("penscm", 13),
     ("fdid", 14),
+    ("rcm", 21),
     ("sparse", 15),
     ("cluster", 16),
     ("kernel", 17),

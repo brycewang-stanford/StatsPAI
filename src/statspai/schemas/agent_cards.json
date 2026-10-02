@@ -2983,6 +2983,10 @@
               "pairwise",
               "fdid",
               "forward_did",
+              "rcm",
+              "hcw",
+              "regression_control",
+              "pda",
               "cluster",
               "sparse",
               "lasso",
@@ -8957,6 +8961,815 @@
       "API/unit contract evidence: tests/test_cite_inline.py"
     ],
     "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [
+      "Covariance-stationary series",
+      "Equally spaced observations in time order",
+      "The Q statistic's chi-squared reference assumes a raw series; on residuals of a fitted ARMA(p, q) the degrees of freedom fall by p + q"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). The Q test's chi-squared reference ignores that regression residuals were estimated: after a fit use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.corrgram(df, \"resid\", lags=12)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "corrgram",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "ljung1978measure",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). The Q test's chi-squared reference ignores that regression residuals were estimated: after a fit use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "corrgram",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "The series, in time order",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "lags": {
+            "description": "Number of lags; default min(floor(n / 2) - 2, 40)",
+            "type": "integer"
+          },
+          "pac": {
+            "default": "regression",
+            "description": "How the partial autocorrelations are computed",
+            "enum": [
+              "regression",
+              "yw"
+            ],
+            "type": "string"
+          },
+          "y": {
+            "description": "Column, when data is a DataFrame",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [
+      "Linear model with strictly exogenous regressors: a lagged dependent variable makes the estimate of rho, and with it the FGLS estimate, inconsistent",
+      "Errors follow a stationary AR(1); higher-order or seasonal correlation is not removed",
+      "Equally spaced observations in time order, no gaps"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.prais(\"consumption ~ income + price\", data=df, method=\"corc\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "prais",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "cochrane1949application",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "prais",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "data": {
+            "description": "One row per period, no missing values, no gaps",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "y ~ x1 + x2",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "maxiter": {
+            "default": 100,
+            "description": "Iteration limit",
+            "type": "integer"
+          },
+          "method": {
+            "default": "prais",
+            "description": "Prais-Winsten or Cochrane-Orcutt",
+            "enum": [
+              "prais",
+              "corc"
+            ],
+            "type": "string"
+          },
+          "rhotype": {
+            "default": "regress",
+            "description": "How rho is computed from the residuals",
+            "enum": [
+              "regress",
+              "freg",
+              "tscorr",
+              "dw",
+              "theil",
+              "nagar"
+            ],
+            "type": "string"
+          },
+          "time": {
+            "description": "Column to sort by first",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "tol": {
+            "default": 1e-06,
+            "description": "Convergence of rho",
+            "type": "number"
+          },
+          "twostep": {
+            "default": false,
+            "description": "Stop after one update",
+            "type": "boolean"
+          },
+          "vce": {
+            "default": "ols",
+            "description": "Covariance of the transformed regression",
+            "enum": [
+              "ols",
+              "robust",
+              "hc2",
+              "hc3"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [
+      "Every lag order is fitted on the same sample, the one the longest lag allows",
+      "Stationary VAR, or a VAR in levels where the rank of cointegration is not the question",
+      "The likelihood-ratio column assumes Gaussian errors"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Lag-order selection for a VAR: log likelihood, sequential likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders 0..maxlag, all fitted on the same observations (Stata varsoc). attrs['selected'] gives the order each criterion picks. SBIC and HQIC are consistent; AIC and FPE tend to pick longer lags. Check the residuals of the chosen model with sp.estat(fit, 'varlmar'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.varsoc(df, [\"inflation\", \"unemployment\"], maxlag=8)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "varsoc",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "lutkepohl2005new",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Lag-order selection for a VAR: log likelihood, sequential likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders 0..maxlag, all fitted on the same observations (Stata varsoc). attrs['selected'] gives the order each criterion picks. SBIC and HQIC are consistent; AIC and FPE tend to pick longer lags. Check the residuals of the chosen model with sp.estat(fit, 'varlmar'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "varsoc",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the LR test",
+            "type": "number"
+          },
+          "data": {
+            "description": "Series in time order",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "maxlag": {
+            "default": 4,
+            "description": "Highest order considered",
+            "type": "integer"
+          },
+          "trend": {
+            "default": "c",
+            "description": "Deterministic terms",
+            "enum": [
+              "c",
+              "ct",
+              "n"
+            ],
+            "type": "string"
+          },
+          "variables": {
+            "description": "Endogenous variables",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [
+      "Every series is I(1) and the cointegrating rank passed is the true one (test it with sp.johansen first)",
+      "Gaussian errors for the likelihood and the reported standard errors",
+      "The lag order is that of the VAR in levels; the VECM has one lag fewer",
+      "Johansen's normalisation identifies beta; other restrictions on beta are not imposed"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Vector error-correction model by Johansen maximum likelihood for a given cointegration rank: adjustment coefficients (alpha), cointegrating vectors (beta, Johansen normalisation, with standard errors), short-run dynamics, log likelihood and information criteria; reproduces Stata vec. Methods: equation_table(), lm_test() (veclmar), stability() (vecstable). Choose the rank with sp.johansen first; lags counts lagged differences (Stata's lags(p) is lags = p - 1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.vec(df, [\"log_m\", \"log_y\", \"r\"], lags=1, rank=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "vec",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "johansen1991estimation",
+    "returns": {
+      "class": "VECResult",
+      "description": "VECResult",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Vector error-correction model by Johansen maximum likelihood for a given cointegration rank: adjustment coefficients (alpha), cointegrating vectors (beta, Johansen normalisation, with standard errors), short-run dynamics, log likelihood and information criteria; reproduces Stata vec. Methods: equation_table(), lm_test() (veclmar), stability() (vecstable). Choose the rank with sp.johansen first; lags counts lagged differences (Stata's lags(p) is lags = p - 1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "vec",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "data": {
+            "description": "Levels, in time order",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "lags": {
+            "default": 1,
+            "description": "Number of lagged differences",
+            "type": "integer"
+          },
+          "rank": {
+            "default": 1,
+            "description": "Cointegration rank, 1..K-1",
+            "type": "integer"
+          },
+          "trend": {
+            "default": "c",
+            "description": "Deterministic terms: unrestricted constant, constant in the relation, none, trend in the relation, unrestricted trend",
+            "enum": [
+              "c",
+              "rc",
+              "n",
+              "rt",
+              "ct"
+            ],
+            "type": "string"
+          },
+          "variables": {
+            "description": "Series of the system; the first `rank` are normalised on",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [
+      "Both estimators are consistent under the null and the second is efficient there",
+      "The difference of the two covariance matrices is positive semi-definite; with robust or clustered covariances it need not be, and the statistic is then not chi-squared",
+      "Both models are fitted on the same sample with the same coefficient names"
+    ],
+    "category": "diagnostics",
+    "cost_profile": "",
+    "description": "Hausman specification test between two fitted models: one consistent under both hypotheses (IV, fixed effects), one efficient under the null (OLS, random effects). Compares the coefficients they share with a generalised inverse of V_b - V_B; degrees of freedom are its rank. sigmamore=True bases both covariances on the efficient model's variance, the form to use for IV against OLS (Stata hausman, sigmamore). Not valid with robust or clustered covariances: use sp.estat(iv, 'endogenous') or sp.xtoverid instead. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.hausman(iv_fit, ols_fit, sigmamore=True)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "hausman",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hausman1978specification",
+    "returns": {
+      "class": "dict",
+      "description": "dict",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Hausman specification test between two fitted models: one consistent under both hypotheses (IV, fixed effects), one efficient under the null (OLS, random effects). Compares the coefficients they share with a generalised inverse of V_b - V_B; degrees of freedom are its rank. sigmamore=True bases both covariances on the efficient model's variance, the form to use for IV against OLS (Stata hausman, sigmamore). Not valid with robust or clustered covariances: use sp.estat(iv, 'endogenous') or sp.xtoverid instead. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "hausman",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the decision",
+            "type": "number"
+          },
+          "consistent": {
+            "description": "IV / FE fit",
+            "type": "string"
+          },
+          "constant": {
+            "default": false,
+            "description": "Compare the constant too",
+            "type": "boolean"
+          },
+          "efficient": {
+            "description": "OLS / RE fit",
+            "type": "string"
+          },
+          "sigmaless": {
+            "default": false,
+            "description": "Use the consistent model's disturbance variance for both",
+            "type": "boolean"
+          },
+          "sigmamore": {
+            "default": false,
+            "description": "Use the efficient model's disturbance variance for both",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "consistent",
+          "efficient"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [
+      "Long panel, one row per unit and period",
+      "The within deviation adds the grand mean back, as Stata does, so it is comparable with the overall column"
+    ],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.xtsum(df, [\"wage\", \"tenure\"], id=\"person\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "xtsum",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "assumptions": "curated",
+      "example": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "xtsum",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Long panel",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "id": {
+            "description": "Panel identifier",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "variables": {
+            "description": "Variables to describe",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [
+      "Linear panel model with time-varying regressors",
+      "Under the null the idiosyncratic errors are serially uncorrelated, which makes the first-differenced errors correlated at -0.5",
+      "Many panels: the variance is clustered on the panel",
+      "Integer time index; a gap removes the differences that span it"
+    ],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.xtserial(df, \"y\", [\"x1\", \"x2\"], id=\"firm\", time=\"year\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "xtserial",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "wooldridge2010econometric; drukker2003testing",
+    "returns": {
+      "class": "dict",
+      "description": "dict",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "xtserial",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the decision",
+            "type": "number"
+          },
+          "data": {
+            "description": "Long panel",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "id": {
+            "description": "Panel identifier",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "time": {
+            "description": "Period counter (integers)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "x": {
+            "description": "Time-varying regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x",
+          "id",
+          "time"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "assumptions": [
+      "Random-effects model with at least one time-varying regressor",
+      "Null: the regressors are uncorrelated with the unit effect, which is what makes random effects consistent",
+      "Many panels: the test is robust to heteroskedasticity and within-panel correlation, unlike the classical Hausman test"
+    ],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.xtoverid(df, \"y\", [\"x1\", \"x2\"], id=\"firm\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "xtoverid",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "arellano1993testing; wooldridge2010econometric",
+    "returns": {
+      "class": "dict",
+      "description": "dict",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "xtoverid",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the decision",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster variable (default id)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "Long panel",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "id": {
+            "description": "Panel identifier",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "x": {
+            "description": "Regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -82574,6 +83387,7 @@
       "R parity module 33_var",
       "Stata parity module 33_var",
       "Cross-language parity (bit-exact) vs vars::VAR [R version 4.5.2 (2025-10-31), vars 1.6.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 33_var -- tests/r_parity/33_var.py",
+      "tests/reference_parity/test_textbook_methods_stata_parity.py",
       "tests/reference_parity/test_timeseries_R_parity.py",
       "tests/reference_parity/test_timeseries_parity.py"
     ],
@@ -87004,6 +87818,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs urca::ca.jo 1.3.4; Stata 18 vecrank [R version 4.5.2 (2025-10-31), Stata 18, urca 1.3.4]; tolerance eigenvalues, trace & max-eigenvalue statistics 1e-11 rel vs ca.jo, 1e-10 vs vecrank (observed 8.2e-14); Osterwald-Lenum table equal to Stata _vecgetcv cell by cell -- tests/reference_parity/test_timeseries_R_parity.py",
+      "tests/reference_parity/test_textbook_methods_stata_parity.py",
       "tests/reference_parity/test_timeseries_parity.py"
     ],
     "validation_status": "certified"
@@ -93351,6 +94166,14 @@
             "description": "Accepted for API symmetry with :func:`synth_sensitivity`; it does not affect any returned column.",
             "type": "number"
           },
+          "covariates": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples, ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "data": {
             "description": "Long-format panel.",
             "type": "object",
@@ -93369,6 +94192,13 @@
             "default": 0.0,
             "description": "Ridge penalty forwarded to SCM.",
             "type": "number"
+          },
+          "special_predictors": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples, ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "time": {
             "description": "Time column.",
@@ -93391,6 +94221,10 @@
             ],
             "x-canonical": "id",
             "x-statspai-role": "column"
+          },
+          "v_method": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples, ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+            "type": "string"
           }
         },
         "required": [
@@ -93526,6 +94360,14 @@
             "description": "Accepted for API symmetry with :func:`synth_sensitivity`; it does not affect any returned column.",
             "type": "number"
           },
+          "covariates": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples (for each placebo date only the periods before it are used; a predictor left with none is dropped), ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "data": {
             "description": "Long-format panel.",
             "type": "object",
@@ -93549,6 +94391,13 @@
             "description": "Ridge penalty forwarded to SCM.",
             "type": "number"
           },
+          "special_predictors": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples (for each placebo date only the periods before it are used; a predictor left with none is dropped), ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "time": {
             "description": "Time column.",
             "type": "string",
@@ -93570,6 +94419,10 @@
             ],
             "x-canonical": "id",
             "x-statspai-role": "column"
+          },
+          "v_method": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples (for each placebo date only the periods before it are used; a predictor left with none is dropped), ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+            "type": "string"
           }
         },
         "required": [
@@ -93700,6 +94553,14 @@
       "name": "synth_donor_sensitivity",
       "parameters": {
         "properties": {
+          "covariates": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "data": {
             "description": "Long-format panel.",
             "type": "object",
@@ -93732,6 +94593,13 @@
             "description": "Random seed for reproducibility.",
             "type": "integer"
           },
+          "special_predictors": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "time": {
             "description": "Time column.",
             "type": "string",
@@ -93753,6 +94621,10 @@
             ],
             "x-canonical": "id",
             "x-statspai-role": "column"
+          },
+          "v_method": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+            "type": "string"
           }
         },
         "required": [
@@ -93884,6 +94756,14 @@
       "name": "synth_rmspe_filter",
       "parameters": {
         "properties": {
+          "covariates": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "data": {
             "description": "Long-format panel.",
             "type": "object",
@@ -93921,6 +94801,13 @@
             ],
             "type": "string"
           },
+          "special_predictors": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "thresholds": {
             "description": "Cut-off multiples of the treated unit's pre-treatment fit; a placebo is kept when its fit is ``<= threshold x`` the treated unit's. Default ``[1, 2, 5, 10, 20, np.inf]``.",
             "items": {
@@ -93949,6 +94836,10 @@
             ],
             "x-canonical": "id",
             "x-statspai-role": "column"
+          },
+          "v_method": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+            "type": "string"
           }
         },
         "required": [

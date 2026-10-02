@@ -17,6 +17,51 @@ entry of its `to_dict()`. Code that printed the strings should print
 
 ---
 
+<a id="oct2026-intro-textbook-fixes"></a>
+
+## Unreleased: ⚠️ model F under robust errors, fit statistics without a constant, AIC / BIC, `sp.estat` defaults
+
+**`sp.regress(..., robust=...)` / `cluster=`.** `diagnostics['F-statistic']`
+and its p-value change whenever the covariance is not the classical one.
+They were the classical F. They are now the Wald test of all slopes on the
+covariance of the fit, the number Stata and R print. Coefficients, standard
+errors and `sp.test` are unchanged. If you need the old number, fit without
+`robust=`.
+
+**`sp.regress("y ~ x - 1")`.** `r2`, `r2_adj`, the F statistic and
+`data_info['df_model']` change to the uncentred versions. The old centred
+R-squared is `1 - RSS / sum((y - ybar)^2)` from `result.data_info`.
+
+**`diagnostics['AIC']` / `['BIC']` of `sp.regress`, and `sp.estat(...,
+'ic')`.** Both shift by the constant `N (log(2 pi) + 1)` and now equal
+`-2 log L + 2K` / `-2 log L + K log N`. Comparisons between models fitted on
+the same sample are unaffected. Code that compared these numbers with an
+externally computed criterion on the old scale needs the constant added.
+
+**`sp.estat(result, 'bgodfrey')`.** The default keeps every observation
+(`fill='zero'`). Pass `fill='drop'` for the previous statistic.
+
+**`sp.estat(result, 'white')`.** `df` and the p-value change when a
+regressor is a dummy or the square of another regressor.
+
+**`sp.estat(result, 'vif')`.** `vif_table` is no longer rounded.
+
+**`result.bp_lm_test()` on unbalanced panels.** The statistic is smaller;
+balanced panels are unchanged.
+
+**`sp.estat(..., lags=)`.** The default is now `None` (1 for `'bgodfrey'`,
+2 for `'varlmar'`) instead of 1. Calls that pass `lags` are unaffected.
+
+**`sp.from_stata` / `sp.stata`.**
+
+| Stata line | Before | Now |
+| --- | --- | --- |
+| `reg y x, noconstant` | refused (`untranslated_options`) | `sp.regress('y ~ x - 1')` |
+| `xtreg y x` / `, re` / `, be` / `, mle` | refused | `sp.panel(method='re' / 'be' / 'mle', ssc='stata')` |
+| `synth ...` | `sp.synth(...)` with the in-space placebo | `placebo=False`, as Stata |
+| `tsset t` / `xtset id t` | recorded | recorded, and the data are sorted |
+| `estimates clear` | skipped | clears the stored models |
+
 <a id="oct2026-dbe-textbook-fixes"></a>
 
 ## Unreleased: ⚠️ `sp.etwfe` without an untreated group, RD pilot bandwidth, LIML `kappa`, CR2 degrees of freedom

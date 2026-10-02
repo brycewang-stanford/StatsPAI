@@ -97,6 +97,11 @@ class VARResult(ResultProtocolMixin):
         self._trend: Optional[str] = None
         self._XtX_inv: Optional[np.ndarray] = None
         self._coef_sigma_u: Optional[np.ndarray] = None
+        self._X: Optional[np.ndarray] = None
+        self._Y: Optional[np.ndarray] = None
+        self._levels: Optional[np.ndarray] = None
+        #: final prediction error, |Sigma_ml| ((T + m) / (T - m))^K
+        self.fpe: float = float("nan")
 
     def summary(self) -> str:
         k = len(self.var_names)
@@ -147,6 +152,46 @@ class VARResult(ResultProtocolMixin):
     def granger_test(self, caused: str, causing: str) -> Dict[str, Any]:
         """Test Granger causality."""
         return granger_causality(self, caused=caused, causing=causing)
+
+    def granger_table(self) -> pd.DataFrame:
+        """Granger-causality Wald tests for every equation (Stata
+        ``vargranger``)."""
+        from .var_diagnostics import granger_table
+
+        return granger_table(self)
+
+    def lag_exclusion(self) -> pd.DataFrame:
+        """Wald tests that a whole lag can be dropped (Stata ``varwle``)."""
+        from .var_diagnostics import lag_exclusion
+
+        return lag_exclusion(self)
+
+    def lm_test(self, lags: int = 2) -> pd.DataFrame:
+        """LM test for residual autocorrelation at each lag order up to
+        ``lags`` (Stata ``varlmar``)."""
+        from .var_diagnostics import lm_autocorrelation
+
+        return lm_autocorrelation(self, lags=lags)
+
+    def stability(self) -> pd.DataFrame:
+        """Eigenvalues of the companion matrix (Stata ``varstable``);
+        ``attrs['stable']`` is True when all lie inside the unit circle."""
+        from .var_diagnostics import stability
+
+        return stability(self)
+
+    def equation_table(self) -> pd.DataFrame:
+        """Root MSE, R-squared and Wald chi-squared of each equation."""
+        from .var_diagnostics import equation_table
+
+        return equation_table(self)
+
+    def forecast(self, steps: int = 1, alpha: float = 0.05) -> pd.DataFrame:
+        """Dynamic forecasts ``steps`` periods past the sample, with
+        standard errors that take the coefficients as known."""
+        from .var_diagnostics import forecast
+
+        return forecast(self, steps=steps, alpha=alpha)
 
     def plot_irf(
         self,
@@ -346,6 +391,8 @@ def var(
     # covariance σ²·(X'X)^{-1} for its Wald test (not just the SE diagonal).
     result._XtX_inv = XtX_inv
     result._coef_sigma_u = coef_sigma_u
+    result._X, result._Y, result._levels = X, Y, var_data
+    result.fpe = float(det_sigma * ((T + n_params) / (T - n_params)) ** k)
 
     return result
 

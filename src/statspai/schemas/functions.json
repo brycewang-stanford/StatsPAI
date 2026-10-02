@@ -1287,6 +1287,10 @@
             "pairwise",
             "fdid",
             "forward_did",
+            "rcm",
+            "hcw",
+            "regression_control",
+            "pda",
             "cluster",
             "sparse",
             "lasso",
@@ -4329,6 +4333,383 @@
       },
       "required": [
         "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). The Q test's chi-squared reference ignores that regression residuals were estimated: after a fit use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "corrgram",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "The series, in time order",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "lags": {
+          "description": "Number of lags; default min(floor(n / 2) - 2, 40)",
+          "type": "integer"
+        },
+        "pac": {
+          "default": "regression",
+          "description": "How the partial autocorrelations are computed",
+          "enum": [
+            "regression",
+            "yw"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Column, when data is a DataFrame",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "prais",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "data": {
+          "description": "One row per period, no missing values, no gaps",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "y ~ x1 + x2",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "maxiter": {
+          "default": 100,
+          "description": "Iteration limit",
+          "type": "integer"
+        },
+        "method": {
+          "default": "prais",
+          "description": "Prais-Winsten or Cochrane-Orcutt",
+          "enum": [
+            "prais",
+            "corc"
+          ],
+          "type": "string"
+        },
+        "rhotype": {
+          "default": "regress",
+          "description": "How rho is computed from the residuals",
+          "enum": [
+            "regress",
+            "freg",
+            "tscorr",
+            "dw",
+            "theil",
+            "nagar"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Column to sort by first",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "tol": {
+          "default": 1e-06,
+          "description": "Convergence of rho",
+          "type": "number"
+        },
+        "twostep": {
+          "default": false,
+          "description": "Stop after one update",
+          "type": "boolean"
+        },
+        "vce": {
+          "default": "ols",
+          "description": "Covariance of the transformed regression",
+          "enum": [
+            "ols",
+            "robust",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Lag-order selection for a VAR: log likelihood, sequential likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders 0..maxlag, all fitted on the same observations (Stata varsoc). attrs['selected'] gives the order each criterion picks. SBIC and HQIC are consistent; AIC and FPE tend to pick longer lags. Check the residuals of the chosen model with sp.estat(fit, 'varlmar'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "varsoc",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the LR test",
+          "type": "number"
+        },
+        "data": {
+          "description": "Series in time order",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "maxlag": {
+          "default": 4,
+          "description": "Highest order considered",
+          "type": "integer"
+        },
+        "trend": {
+          "default": "c",
+          "description": "Deterministic terms",
+          "enum": [
+            "c",
+            "ct",
+            "n"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Endogenous variables",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Vector error-correction model by Johansen maximum likelihood for a given cointegration rank: adjustment coefficients (alpha), cointegrating vectors (beta, Johansen normalisation, with standard errors), short-run dynamics, log likelihood and information criteria; reproduces Stata vec. Methods: equation_table(), lm_test() (veclmar), stability() (vecstable). Choose the rank with sp.johansen first; lags counts lagged differences (Stata's lags(p) is lags = p - 1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "vec",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "data": {
+          "description": "Levels, in time order",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "lags": {
+          "default": 1,
+          "description": "Number of lagged differences",
+          "type": "integer"
+        },
+        "rank": {
+          "default": 1,
+          "description": "Cointegration rank, 1..K-1",
+          "type": "integer"
+        },
+        "trend": {
+          "default": "c",
+          "description": "Deterministic terms: unrestricted constant, constant in the relation, none, trend in the relation, unrestricted trend",
+          "enum": [
+            "c",
+            "rc",
+            "n",
+            "rt",
+            "ct"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Series of the system; the first `rank` are normalised on",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Hausman specification test between two fitted models: one consistent under both hypotheses (IV, fixed effects), one efficient under the null (OLS, random effects). Compares the coefficients they share with a generalised inverse of V_b - V_B; degrees of freedom are its rank. sigmamore=True bases both covariances on the efficient model's variance, the form to use for IV against OLS (Stata hausman, sigmamore). Not valid with robust or clustered covariances: use sp.estat(iv, 'endogenous') or sp.xtoverid instead. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "hausman",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the decision",
+          "type": "number"
+        },
+        "consistent": {
+          "description": "IV / FE fit",
+          "type": "string"
+        },
+        "constant": {
+          "default": false,
+          "description": "Compare the constant too",
+          "type": "boolean"
+        },
+        "efficient": {
+          "description": "OLS / RE fit",
+          "type": "string"
+        },
+        "sigmaless": {
+          "default": false,
+          "description": "Use the consistent model's disturbance variance for both",
+          "type": "boolean"
+        },
+        "sigmamore": {
+          "default": false,
+          "description": "Use the efficient model's disturbance variance for both",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "consistent",
+        "efficient"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "xtsum",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Long panel",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "variables": {
+          "description": "Variables to describe",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data",
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "xtserial",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the decision",
+          "type": "number"
+        },
+        "data": {
+          "description": "Long panel",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "time": {
+          "description": "Period counter (integers)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "x": {
+          "description": "Time-varying regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "x",
+        "id",
+        "time"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "xtoverid",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the decision",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster variable (default id)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "Long panel",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "x",
+        "id"
       ],
       "type": "object"
     }
@@ -29919,14 +30300,22 @@
           "description": "Significance level for interpretation strings.",
           "type": "number"
         },
+        "fill": {
+          "default": "zero",
+          "description": "``'bgodfrey'`` only: the lagged residual of the first ``lags`` observations is set to zero (the default of Stata and of R's ``lmtest::bgtest``) or those observations are dropped (Stata's ``nomiss0``).",
+          "enum": [
+            "zero",
+            "drop"
+          ],
+          "type": "string"
+        },
         "lags": {
-          "default": 1,
-          "description": "Number of lags for the Breusch-Godfrey test.",
+          "description": "Number of lags: of the Breusch-Godfrey test (default 1), or the highest lag order of ``'varlmar'`` (default 2).",
           "type": "integer"
         },
         "powers": {
           "default": 3,
-          "description": "Highest power of y-hat for the RESET test.",
+          "description": "Highest power added by the RESET test (``3`` adds the square and the cube, as R's ``lmtest::resettest``; Stata's ``estat ovtest`` is ``powers=4``).",
           "type": "integer"
         },
         "print_results": {
@@ -29938,12 +30327,18 @@
           "description": "A fitted result object with ``params``, ``data_info``, etc.",
           "type": "string"
         },
+        "rhs": {
+          "default": false,
+          "description": "``'reset'`` only: add powers of the regressors instead of powers of the fitted values (Stata's ``estat ovtest, rhs``).",
+          "type": "boolean"
+        },
         "test": {
           "default": "all",
-          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'all'``.",
+          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``.",
           "enum": [
             "hettest",
             "white",
+            "imtest",
             "reset",
             "ovtest",
             "bgodfrey",
@@ -29956,7 +30351,33 @@
             "endogenous",
             "overid",
             "firststage",
+            "classification",
             "all"
+          ],
+          "type": "string"
+        },
+        "threshold": {
+          "description": "``'classification'`` only: the probability above which an observation is classified as a positive. Default 0.5.",
+          "type": "number"
+        },
+        "variables": {
+          "description": "``'hettest'`` only: what the error variance may depend on. Default ``'rhs'``, every regressor (R's ``lmtest::bptest``). ``'fitted'`` is the default of Stata's ``estat hettest``; a list names regressors of the model.",
+          "items": {
+            "enum": [
+              "rhs",
+              "fitted"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "version": {
+          "default": "iid",
+          "description": "``'hettest'`` only. ``'iid'`` is Koenker's N R-squared, valid without normal errors; ``'normal'`` is the original score statistic, the default of Stata's ``estat hettest``.",
+          "enum": [
+            "iid",
+            "normal",
+            "fstat"
           ],
           "type": "string"
         }
@@ -43485,6 +43906,14 @@
           "description": "Accepted for API symmetry with :func:`synth_sensitivity`; it does not affect any returned column.",
           "type": "number"
         },
+        "covariates": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples, ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "data": {
           "description": "Long-format panel.",
           "type": "object",
@@ -43503,6 +43932,13 @@
           "default": 0.0,
           "description": "Ridge penalty forwarded to SCM.",
           "type": "number"
+        },
+        "special_predictors": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples, ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "time": {
           "description": "Time column.",
@@ -43525,6 +43961,10 @@
           ],
           "x-canonical": "id",
           "x-statspai-role": "column"
+        },
+        "v_method": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples, ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+          "type": "string"
         }
       },
       "required": [
@@ -43547,6 +43987,14 @@
           "default": 0.05,
           "description": "Accepted for API symmetry with :func:`synth_sensitivity`; it does not affect any returned column.",
           "type": "number"
+        },
+        "covariates": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples (for each placebo date only the periods before it are used; a predictor left with none is dropped), ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
         },
         "data": {
           "description": "Long-format panel.",
@@ -43571,6 +44019,13 @@
           "description": "Ridge penalty forwarded to SCM.",
           "type": "number"
         },
+        "special_predictors": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples (for each placebo date only the periods before it are used; a predictor left with none is dropped), ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "time": {
           "description": "Time column.",
           "type": "string",
@@ -43592,6 +44047,10 @@
           ],
           "x-canonical": "id",
           "x-statspai-role": "column"
+        },
+        "v_method": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples (for each placebo date only the periods before it are used; a predictor left with none is dropped), ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+          "type": "string"
         }
       },
       "required": [
@@ -43610,6 +44069,14 @@
     "name": "synth_donor_sensitivity",
     "parameters": {
       "properties": {
+        "covariates": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "data": {
           "description": "Long-format panel.",
           "type": "object",
@@ -43642,6 +44109,13 @@
           "description": "Random seed for reproducibility.",
           "type": "integer"
         },
+        "special_predictors": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "time": {
           "description": "Time column.",
           "type": "string",
@@ -43663,6 +44137,10 @@
           ],
           "x-canonical": "id",
           "x-statspai-role": "column"
+        },
+        "v_method": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+          "type": "string"
         }
       },
       "required": [
@@ -43681,6 +44159,14 @@
     "name": "synth_rmspe_filter",
     "parameters": {
       "properties": {
+        "covariates": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "data": {
           "description": "Long-format panel.",
           "type": "object",
@@ -43718,6 +44204,13 @@
           ],
           "type": "string"
         },
+        "special_predictors": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "thresholds": {
           "description": "Cut-off multiples of the treated unit's pre-treatment fit; a placebo is kept when its fit is ``<= threshold x`` the treated unit's. Default ``[1, 2, 5, 10, 20, np.inf]``.",
           "items": {
@@ -43746,6 +44239,10 @@
           ],
           "x-canonical": "id",
           "x-statspai-role": "column"
+        },
+        "v_method": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+          "type": "string"
         }
       },
       "required": [

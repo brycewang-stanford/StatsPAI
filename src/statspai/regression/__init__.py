@@ -2,19 +2,21 @@
 Regression module initialization
 """
 
-from .ols import regress, OLSRegression, OLSEstimator
-from .iv import iv, ivreg, IVRegression, IVEstimator
+from .count import nbreg, poisson, ppmlhdfe, xtnbreg
+from .glm import GLMEstimator, GLMRegression, glm
 from .heckman import heckman
+from .iv import IVEstimator, IVRegression, iv, ivreg
+from .logit_probit import cloglog, logit, probit
+from .multinomial import clogit, mlogit, ologit, oprobit
+from .ols import OLSEstimator, OLSRegression, regress
+from .prais import prais
 from .quantile import qreg, sqreg
 from .tobit import tobit
-from .logit_probit import logit, probit, cloglog
-from .glm import glm, GLMRegression, GLMEstimator
-from .zeroinflated import zip_model, zinb, hurdle
-from .count import poisson, nbreg, xtnbreg, ppmlhdfe
-from .multinomial import mlogit, ologit, oprobit, clogit
+from .zeroinflated import hurdle, zinb, zip_model
 
 __all__ = [
     "regress",
+    "prais",
     "OLSRegression",
     "OLSEstimator",
     "iv",

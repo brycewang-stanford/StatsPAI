@@ -139,6 +139,19 @@ def _h_regress(cmd: StataCommand) -> Dict[str, Any]:
     if y is None:
         return _emit_error("regress requires an outcome variable", command="regress")
     formula = _build_formula(y, xs)
+    semantics: List[str] = []
+    if "noconstant" in cmd.options:
+        if not xs:
+            return _emit_error(
+                "regress, noconstant needs at least one regressor",
+                command="regress",
+                suggestions=[],
+            )
+        formula += " - 1"
+        semantics.append(
+            "noconstant -> `- 1` in the formula. R-squared is then the "
+            "uncentred one (1 - RSS / sum of y squared), as Stata reports."
+        )
     cluster = _vce_cluster(cmd)
     robust = _robust_kind(cmd)
     args: Dict[str, Any] = {"formula": formula}
@@ -158,7 +171,7 @@ def _h_regress(cmd: StataCommand) -> Dict[str, Any]:
         )
     if cmd.in_range:
         notes.append(f"Stata `in {cmd.in_range}` dropped — use df.iloc[...].")
-    return _emit("regress", args, python, notes)
+    return _emit("regress", args, python, notes, semantics=semantics)
 
 
 def _pyfixest_fml(
@@ -193,20 +206,18 @@ def _h_xtreg(cmd: StataCommand) -> Dict[str, Any]:
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
         return _emit_error("xtreg requires an outcome variable", command="xtreg")
-    for model in ("re", "be", "fd"):
+    for model in ("fd", "pa"):
         if model in cmd.options:
             return _emit_error(
-                f"xtreg, {model} is not translated — call "
-                f"sp.panel(method={model!r}) directly.",
+                f"xtreg, {model} is not translated"
+                + (" — call sp.panel(method='fd') directly." if model == "fd" else "."),
                 command="xtreg",
             )
     if "fe" not in cmd.options:
-        return _emit_error(
-            "xtreg without `fe` is Stata's random-effects estimator, which is "
-            "not translated — call sp.panel(method='re') directly, or add "
-            "`fe` for the fixed-effects model.",
-            command="xtreg",
-        )
+        # xtreg without `fe` is the random-effects estimator
+        from ._stata_panel import xtreg_random
+
+        return xtreg_random(cmd, y, xs)
 
     # Stata convention: panel id set via ``xtset id [t]``; we can't see
     # that here, so the user must supply ``id`` via the option or we
@@ -536,6 +547,15 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
         "treat=, cluster=, n_perms=, stat=callable) with a statistic that "
         "refits the model on the permuted treatment.",
         ["ri_test"],
+    ),
+    "synth2": (
+        "`synth2` is `synth` followed by placebo and leave-one-out runs. "
+        "Fit with sp.synth(..., placebo=True) (the in-space placebo p-value "
+        "is result.pvalue), then sp.synth_loo(...) for the leave-one-out "
+        "range and sp.synth_time_placebo(...) for a pretend treatment date. "
+        "With `nested` each placebo run repeats the predictor-weight search, "
+        "which takes minutes per unit.",
+        ["synth", "synth_loo", "synth_time_placebo"],
     ),
     "esttab": (
         "`esttab` tabulates stored estimates; pass the fitted results to "
@@ -1175,6 +1195,9 @@ def _h_synth(cmd: StataCommand) -> Dict[str, Any]:
         "treated_unit": _coerce_scalar(trunit),
         "treatment_time": _coerce_scalar(trperiod),
         "method": "classic",
+        # Stata's synth fits the treated unit only; the in-space placebo
+        # runs are a separate step there (synth_runner, synth2)
+        "placebo": False,
     }
     if covariates:
         args["covariates"] = covariates
@@ -2125,9 +2148,20 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
                 "sp.match has the Abadie-Imbens (2016) standard error for the "
                 "ATET only; its ATE standard error is not Stata's."
             )
-        for name in ("osample", "generate"):
-            if opts.get(name) is not None:
-                lost.append(name)
+        if opts.get("generate") is not None:
+            notes.append(
+                "generate(): sp.stata creates the match variables (the row "
+                "numbers of each treated unit's nearest controls); from the "
+                "call itself they are in "
+                "result.model_info['matched_data'] (_n1, _n2, ...)."
+            )
+        if opts.get("osample") is not None:
+            notes.append(
+                "osample(): sp.stata creates the variable and stops, as "
+                "Stata does, when an observation has too few matches within "
+                "the caliper; the call itself keeps the treated units it "
+                "can match."
+            )
         kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
         out = _emit("match", args, f"sp.match(data=df, {kw})", notes)
         out["untranslated_options"] = lost
@@ -2367,10 +2401,23 @@ def _h_test(cmd: StataCommand) -> Dict[str, Any]:
             "sp.test(result, hypothesis) directly.",
             command="test",
         )
-    args: Dict[str, Any] = {"hypothesis": " ".join(cmd.varlist)}
+    hypothesis = _FV_COEFFICIENT.sub(_fv_coefficient, " ".join(cmd.varlist))
+    args: Dict[str, Any] = {"hypothesis": hypothesis}
     notes = ["sp.test takes a fitted result; pipe the previous estimator's result_id."]
     python = f"sp.test(result, hypothesis={args['hypothesis']!r})"
     return _emit("test", args, python, notes)
+
+
+#: An interaction of continuous variables named the way Stata prints it,
+#: ``c.x#c.z``: the fitted result calls that coefficient ``x:z``.
+_FV_COEFFICIENT = re.compile(r"(?<![\w.])c\.[^\W\d]\w*(?:#c\.[^\W\d]\w*)+(?![\w.(])")
+
+
+def _fv_coefficient(m: "re.Match[str]") -> str:
+    parts = [p[2:] for p in m.group(0).split("#")]
+    if len(set(parts)) == 1:
+        return f"I({parts[0]}**{len(parts)})"
+    return ":".join(parts)
 
 
 def _h_lincom(cmd: StataCommand) -> Dict[str, Any]:
@@ -3086,6 +3133,25 @@ def _split_fv_operators(tok: str) -> Tuple[List[str], List[str]]:
     return parts, ops
 
 
+def _expand_prefixed_list(
+    text: str, columns: Optional[Sequence[str]]
+) -> Tuple[Optional[str], List[str]]:
+    """``c.x1-x9 i.g`` -> ``['c.x1', ..., 'c.x9', 'i.g']``: in a
+    parenthesised list each term keeps its own operator, and a range takes
+    the operator of its first variable."""
+    out: List[str] = []
+    for item in _join_spaced_ranges(text.split()):
+        m = re.fullmatch(r"((?:i|c|ibn|ib\d+)\.)?(.+)", item, re.I)
+        prefix, rest = (m.group(1) or "", m.group(2)) if m else ("", item)
+        err, names = _expand_abbreviations([rest], columns)
+        if err is not None:
+            return err, []
+        if not names or not all(_NAME.match(nm) for nm in names):
+            return f"factor-variable term {item!r} is not translated", []
+        out.extend(prefix + nm for nm in names)
+    return None, out
+
+
 def _expand_fv_groups(
     tok: str, columns: Optional[Sequence[str]]
 ) -> Tuple[Optional[str], List[str]]:
@@ -3103,6 +3169,15 @@ def _expand_fv_groups(
     for part in parts:
         m = _FV_GROUP.match(part)
         if not m:
+            bare = re.fullmatch(r"\((.*)\)", part, re.S)
+            if bare:
+                # a list of terms that carry their own prefix:
+                # (c.x1-x9) is c.x1 c.x2 ... c.x9
+                err, terms = _expand_prefixed_list(bare.group(1), columns)
+                if err is not None:
+                    return err, [tok]
+                choices.append(terms)
+                continue
             if "(" in part:
                 return f"factor-variable term {tok!r} is not translated", [tok]
             choices.append([part])
@@ -3193,7 +3268,14 @@ def _normalise_command(
         info["weight"] = (m.group(1).lower()[:2], m.group(2))
         joined = (joined[: m.start()] + " " + joined[m.end() :]).strip()
     elif "[" in joined:
-        return "unrecognised weight clause in " + repr(joined), info
+        return (
+            "the weight clause in "
+            + repr(joined)
+            + " is an expression or an unknown weight type; sp.stata evaluates "
+            "a weight expression, a single translated line cannot -- create "
+            "the weight as a column first",
+            info,
+        )
     toks = _tokenise_head(joined)
     err, toks = _expand_abbreviations(toks, columns)
     if err is not None:
@@ -3307,6 +3389,18 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
     return payload
 
 
+# Handlers kept in their own modules register here. They import the helpers
+# above, so the import has to come after them.
+from . import _stata_design as _design  # noqa: E402
+from . import _stata_panel as _panel  # noqa: E402
+from . import _stata_postest as _postest  # noqa: E402
+from . import _stata_ts as _ts  # noqa: E402
+
+STATA_COMMAND_MAP.update(_postest.HANDLERS)
+STATA_COMMAND_MAP.update(_ts.HANDLERS)
+STATA_COMMAND_MAP.update(_panel.HANDLERS)
+STATA_COMMAND_MAP.update(_design.HANDLERS)
+
 _POSTEST_HANDLERS = frozenset(
     {
         _h_margins,
@@ -3318,6 +3412,8 @@ _POSTEST_HANDLERS = frozenset(
         _h_boottest,
         _h_ttest,
     }
+    | _postest.POSTEST
+    | _ts.POSTEST
 )
 
 
@@ -3381,8 +3477,10 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
     "sp.hdfe_ols('y ~ x | id + year', data=df, cluster='id')"
     >>> sp.from_stata("qui reghdfe y x, a(id year) cl(id)")["python_code"]
     "sp.hdfe_ols('y ~ x | id + year', data=df, cluster='id')"
-    >>> sp.from_stata("reg y x, nocons")["untranslated_options"]
-    ['noconstant']
+    >>> sp.from_stata("reg y x, nocons")["python_code"]
+    "sp.regress('y ~ x - 1', data=df)"
+    >>> sp.from_stata("reg y x, hascons")["untranslated_options"]
+    ['hascons']
     >>> sp.from_stata("notacommand y x")["ok"]
     False
     """

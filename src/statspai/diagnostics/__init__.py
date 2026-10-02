@@ -6,23 +6,23 @@ Provides:
 - McCrary (2008) density discontinuity test for RD manipulation
 """
 
-from .sensitivity import oster_bounds, mccrary_test
-from .tests import diagnose, het_test, reset_test, vif
-from .sensemakr import sensemakr
+from .battery import diagnose_result
+from .estat import estat
+from .evalue import bias_factor, evalue, evalue_from_result, evalue_rd
+from .hausman import hausman, hausman_test
+from .late_test import KitagawaResult, kitagawa_test
 from .rddensity import rddensity
-from .hausman import hausman_test
+from .rosenbaum import RosenbaumResult, rosenbaum_bounds, rosenbaum_gamma
+from .sensemakr import sensemakr
+from .sensitivity import mccrary_test, oster_bounds
+from .tests import diagnose, het_test, reset_test, vif
 from .weak_iv import (
+    WeakRobustResult,
     anderson_rubin_test,
     effective_f_test,
     tF_critical_value,
     weakrobust,
-    WeakRobustResult,
 )
-from .evalue import evalue, evalue_from_result, evalue_rd, bias_factor
-from .battery import diagnose_result
-from .estat import estat
-from .late_test import kitagawa_test, KitagawaResult
-from .rosenbaum import rosenbaum_bounds, rosenbaum_gamma, RosenbaumResult
 
 __all__ = [
     "oster_bounds",
@@ -33,6 +33,7 @@ __all__ = [
     "vif",
     "sensemakr",
     "rddensity",
+    "hausman",
     "hausman_test",
     "anderson_rubin_test",
     "effective_f_test",

@@ -117,6 +117,7 @@ nav:
       - "Repeated cross-sections": guides/repeated_cross_sections.md
       - "Randomised rollouts (design-based DiD)": guides/randomized_rollout.md
       - "Stock & Watson 4th edition: run the do-files, check the numbers, what to add": guides/stock_watson_4e.md
+      - "陈强《计量经济学及Stata应用》第2版：运行 do 文件、核对数字、今天该补什么": guides/chen_qiang_2e.md
       - "Design-Based Econometrics (Zhao, 2nd edition): the Stata do-files, chapter by chapter": guides/design_based_econometrics.md
       - "Mixtape replication suite — overview": guides/mixtape_replications.md
       - "Mixtape Ch. 9 DiD — full replication": guides/mixtape_ch09_did.md

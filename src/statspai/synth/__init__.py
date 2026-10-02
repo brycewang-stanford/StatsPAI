@@ -22,6 +22,7 @@ Variants (20 methods)
 - **bsts / causal_impact** — Bayesian Structural Time Series (Brodersen et al. 2015)
 - **penscm / abadie_lhour** — Penalized SCM with pairwise discrepancy (Abadie & L'Hour 2021)
 - **fdid / forward_did** — Forward DID with optimal donor selection (Li 2024)
+- **rcm / hcw** — regression control method (Hsiao, Ching & Wan 2012)
 - **cluster** — Cluster SCM with donor grouping (Rho et al. 2025, arXiv:2503.21629) [@rho2025clustersc]
 - **sparse / lasso** — Sparse SCM with L1 penalties (Amjad, Shah & Shen 2018)
 - **kernel / kernel_ridge** — Kernel-based nonlinear SCM
@@ -94,6 +95,7 @@ from .plots import synthplot
 
 # Power analysis & sample size planning
 from .power import synth_mde, synth_power, synth_power_plot
+from .rcm import rcm
 
 # Report generator
 from .report import synth_report, synth_report_to_file
@@ -166,6 +168,7 @@ __all__ = [
     "bsts_synth",
     "penalized_synth",
     "fdid",
+    "rcm",
     "cluster_synth",
     "sparse_synth",
     "kernel_synth",

@@ -41,6 +41,12 @@ class StataCommand:
     raw: str = ""
 
 
+_WEIGHT_CLAUSE = re.compile(
+    r"\[\s*(?:aw|aweights?|pw|pweights?|fw|fweights?|iw|iweights?)\s*=[^\]]*\]",
+    re.I,
+)
+
+
 def parse(line: str) -> StataCommand:
     """Tokenise and parse a single Stata command.
 
@@ -84,6 +90,13 @@ def parse(line: str) -> StataCommand:
         post = line[prefix_match.end() :]
         head, opts = _split_options(post)
 
+    # The weight clause comes after ``if`` / ``in`` (``sum y if d [fw=n]``);
+    # it is not part of the condition. It is moved to the end of the varlist,
+    # where the translator looks for it.
+    weight = _WEIGHT_CLAUSE.search(head)
+    if weight:
+        head = (head[: weight.start()] + " " + head[weight.end() :]).strip()
+
     tokens = head.split()
     if not tokens:
         raise StataParseError("empty command head")
@@ -126,6 +139,8 @@ def parse(line: str) -> StataCommand:
         i += 1
 
     options = _parse_options(opts) if opts else {}
+    if weight:
+        varlist.append(re.sub(r"\s+", "", weight.group(0)))
 
     return StataCommand(
         command=command,

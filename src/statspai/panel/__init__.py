@@ -93,6 +93,8 @@ _PANEL_METHOD_ALIASES: Dict[str, str] = {
     "be": "be",
     "between": "be",
     "between_effects": "be",
+    "mle": "mle",
+    "re_mle": "mle",
     "fd": "fd",
     "first_difference": "fd",
     "first_diff": "fd",
@@ -135,6 +137,7 @@ _CLASSICAL_PANEL_METHODS = frozenset(
         "fe",
         "re",
         "be",
+        "mle",
         "fd",
         "pooled",
         "twoway",
@@ -293,7 +296,12 @@ def panel(
     )
 
 
+from .xt_tools import xtoverid, xtserial, xtsum  # noqa: E402
+
 __all__ = [
+    "xtsum",
+    "xtserial",
+    "xtoverid",
     "panel",
     "panel_compare",
     "balance_panel",

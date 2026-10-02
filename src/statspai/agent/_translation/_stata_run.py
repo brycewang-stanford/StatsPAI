@@ -22,6 +22,15 @@ import pandas as pd
 from ...exceptions import MethodIncompatibility
 from ._stata_datastep import DataSteps, row_mask
 from ._stata_expr import StataExprError, evaluate
+from ._stata_session import (
+    absorbed_constant,
+    expand_frequency,
+    prepare_weights,
+    run_session_command,
+    teffects_after,
+    teffects_before,
+    xtreg_extras,
+)
 from ._stata_tsops import has_ts_operator, rewrite_ts_operators
 
 __all__ = ["stata", "StataSession"]
@@ -29,16 +38,23 @@ __all__ = ["stata", "StataSession"]
 #: Tools that describe the data without fitting anything. As in Stata,
 #: where ``summarize`` is r-class and leaves ``e()`` alone, they do not
 #: replace the estimation result later post-estimation commands apply to.
-_DESCRIPTIVE_TOOLS = frozenset({"sumstats", "pwcorr", "ttest", "unitroot"})
+_DESCRIPTIVE_TOOLS = frozenset(
+    {
+        "sumstats", "pwcorr", "ttest", "unitroot", "corrgram", "varsoc",
+        "xtsum", "xtserial",
+    }  # fmt: skip
+)
 
 #: Commands that set up the session or only print: skipping them leaves
 #: every later estimate unchanged. (``use`` is not here: it replaces the
 #: data, so a snippet containing it is refused.)
 _SKIPPED = re.compile(
-    r"\s*(?:set\s+(?:more|linesize|matsize|scheme|type\s+double)|"
+    r"\s*(?:set\s+(?:more|linesize|matsize|scheme|graphics|type\s+double)|"
     r"log\s|cap(?:ture)?\s+log\s|label\s|format\s|describe\b|desc\b|"
     r"list\b|browse\b|notes?\b|version\s|clear\s+(?:all|matrix|mata)\s*$|"
-    r"macro\s+drop|eststo\s+clear|estimates\s+clear|graph\s+(?:export|save)|"
+    r"macro\s+drop|eststo\s+clear|graph\s+(?:export|save)|"
+    r"return\s+list\b|ereturn\s+list\b|sysdir\b|help\s|xtdes(?:cribe)?\b|"
+    r"irf\s+(?:create|set|drop|describe)\b|"
     r"pause\b)",
     re.I,
 )
@@ -49,10 +65,18 @@ _EXIT = re.compile(r"\s*exit\s*(?:,\s*clear\s*)?$", re.I)
 #: Commands that draw or write a file. They do not change any estimate, so
 #: the snippet goes on; a warning says the graph or file was not produced.
 _NOT_PRODUCED = re.compile(
-    r"\s*(?:twoway|scatter|line|histogram|hist|kdensity|tsline|graph\s+"
+    r"\s*(?:(?:twoway|tw|scatter|line|histogram|hist|kdensity|tsline|xtline|"
+    r"ac|pac|rvfplot|rvpplot|avplots?|lvr2plot|qnorm|pnorm|coefplot|"
+    r"teoverlap)\b|tebalance\s+(?:box|density)\b|"
+    r"(?:irf|fcast)\s+(?:c?graph|ograph)\b|graph\s+"
     r"(?:twoway|bar|box|combine)|export\s|outsheet\s|save\s|saveold\s)",
     re.I,
 )
+
+#: predict's options, each with the abbreviations Stata accepts
+_PREDICT_KINDS: Dict[str, str] = {"xb": "xb", "pr": "pr", "p": "pr", "hat": "leverage"}
+_PREDICT_KINDS.update({"residuals"[:k]: "residuals" for k in range(1, 10)})
+_PREDICT_KINDS.update({"leverage"[:k]: "leverage" for k in range(3, 9)})
 
 _SCALAR = re.compile(
     r"\s*sca(?:l(?:a(?:r)?)?)?\s+(?:define\s+)?([A-Za-z_]\w*)\s*=(?!=)\s*(.+)\Z",
@@ -76,6 +100,28 @@ _FILTER_NOTE = re.compile(r"pre-filter df|filter df first")
 
 _PLACEHOLDER = re.compile(r"<[A-Za-z_][A-Za-z0-9_ ]*>")
 _PIPE_NOTE = re.compile(r"\bpipe\b")
+
+
+def _e_scalars(result: Any) -> Dict[str, float]:
+    """``e(rss)``, ``e(mss)``, ``e(rmse)``, ``e(df_r)``, ``e(df_m)``, ``e(F)``
+    and ``e(ll)`` where the result carries what they are computed from."""
+    out: Dict[str, float] = {}
+    info = getattr(result, "data_info", None) or {}
+    diag = getattr(result, "diagnostics", None) or {}
+    for key, name in (("df_r", "df_resid"), ("df_m", "df_model")):
+        got = info.get(name)
+        if isinstance(got, (int, float, np.integer, np.floating)):
+            out[key] = float(got)
+    rss, tss = info.get("rss"), info.get("tss")
+    if isinstance(rss, float) and isinstance(tss, float):
+        out["rss"], out["mss"] = rss, tss - rss
+        if out.get("df_r", 0) > 0:
+            out["rmse"] = float(np.sqrt(rss / out["df_r"]))
+    for key, name in (("F", "F-statistic"), ("ll", "Log-Likelihood")):
+        got = diag.get(name)
+        if isinstance(got, (int, float, np.integer, np.floating)) and np.isfinite(got):
+            out[key] = float(got)
+    return out
 
 
 def _accepts(fn: Any, name: str) -> bool:
@@ -268,12 +314,61 @@ class StataSession:
         self.last_data = data
         self.output: Any = result
         self._last_call: Optional[Dict[str, Any]] = None
-        #: what earlier commands left behind: r(), e(), _b[], _se[], scalars
-        self.stored: Dict[str, Any] = {"r": {}, "scalars": {}}
+        #: models named by `estimates store`: name -> (result, data, call)
+        self.estimates: Dict[str, Tuple[Any, Any, Any]] = {}
+        #: columns a command needed for its own run (a weight expression)
+        self._scratch: list = []
+        #: True while the data in memory hold random draws
+        self.simulated = False
+        #: programs defined by `program name ... end`: name -> body lines
+        self.programs: Dict[str, list] = {}
+        self._defining: Optional[Tuple[str, list]] = None
+        #: `return scalar` values of the program being run
+        self._returned: Optional[Dict[str, float]] = None
+        self._translations: Dict[Any, Dict[str, Any]] = {}
+        #: what earlier commands left behind: r(), e(), _b[], _se[], scalars.
+        #: "rng" feeds rnormal() / runiform(); `set seed` reseeds it.
+        self.stored: Dict[str, Any] = {
+            "r": {},
+            "scalars": {},
+            "rng": np.random.default_rng(),
+        }
         if self._steps is not None:
             self._steps.stored = self.stored
         if result is not None:
             self._store_estimates(result)
+
+    def warn(self, message: str) -> None:
+        warnings.warn(message, UserWarning, stacklevel=4)
+
+    def use(self, data: pd.DataFrame) -> None:
+        """Replace the data in memory, as Stata's ``use file, clear`` does.
+
+        ``sp.stata`` itself never reads a file; a caller that has loaded one
+        hands it over here. The panel declaration is dropped with the data.
+        """
+        if self._steps is None:
+            self._steps = DataSteps(data)
+            self._steps.stored = self.stored
+        else:
+            self._steps.replace_data(data.copy())
+            self._steps._float = set()
+        self.simulated = False
+        self.panel = (None, None)
+        self.stored.pop("time_var", None)
+        self.stored.pop("panel_var", None)
+
+    def append(self, other: pd.DataFrame) -> None:
+        """Add the rows of ``other`` below the data (``append using``).
+
+        Variables present on one side only are missing on the other.
+        """
+        if self._steps is None:
+            self.use(other)
+            return
+        self._steps.replace_data(
+            pd.concat([self._steps.data, other], ignore_index=True, sort=False)
+        )
 
     def value(self, expr: str) -> float:
         """A scalar Stata expression, e.g. ``_b[x] * r(mean)``."""
@@ -300,6 +395,7 @@ class StataSession:
             got = getattr(result, attr, None)
             if isinstance(got, (int, float, np.integer, np.floating)):
                 e[key] = float(got)
+        e.update(_e_scalars(result))
         self.stored["_b"], self.stored["_se"], self.stored["e"] = b, se, e
 
     def _store_r(self, tool: str, arguments: Dict[str, Any], frame: Any) -> None:
@@ -339,11 +435,37 @@ class StataSession:
     def run(self, line: str) -> bool:
         """Run one command. Returns ``False`` for a line that produces no
         output (a macro definition, ``xtset``, a data step, a setting)."""
+        try:
+            return self._run(line)
+        finally:
+            if self._scratch and self._steps is not None:
+                held = [c for c in self._scratch if c in self._steps.data.columns]
+                if held:
+                    self._steps.data = self._steps.data.drop(columns=held)
+                self._scratch = []
+            if self.stored.pop("random_draws", False):
+                self.simulated = True
+                warnings.warn(
+                    "sp.stata: the random numbers come from numpy, not from "
+                    "Stata's generator, so a simulated dataset differs from "
+                    "Stata's draw by draw (same design, another sample).",
+                    UserWarning,
+                    stacklevel=3,
+                )
+
+    def _run(self, line: str) -> bool:
         import statspai as sp
 
         from ._stata import from_stata
+        from ._stata_programs import program_line, run_simulate
         from ._stata_script import ScriptError, control_flow, panel_declaration
 
+        handled_program = program_line(self, line)
+        if handled_program is not None:
+            return handled_program
+        simulated = run_simulate(self, line)
+        if simulated is not None:
+            return simulated
         data = self.data
         columns = None if data is None else list(data.columns)
         flow = control_flow(line)
@@ -370,6 +492,12 @@ class StataSession:
         if declared is not None:
             self.panel = declared
             self.stored["time_var"] = declared[1]
+            self.stored["panel_var"] = declared[0]
+            if self._steps is not None:
+                # tsset / xtset leave the data sorted by panel and time
+                keys = [k for k in declared if k and k in self._steps.data.columns]
+                if keys and not self._steps.data.empty:
+                    self._steps._sort(keys, None)
             return False
         if _SKIPPED.match(line):
             # session settings and output-only commands: nothing to run
@@ -382,6 +510,22 @@ class StataSession:
                 stacklevel=3,
             )
             return False
+        fweight: Optional[str] = None
+        try:
+            handled = run_session_command(self, line)
+            if handled is None:
+                line, fweight = prepare_weights(self, line)
+        except StataExprError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                recovery_hint="Do this step in pandas and pass the prepared "
+                "DataFrame as data=.",
+                diagnostics={"command": line},
+            ) from exc
+        if handled is not None:
+            return handled
+        data = self.data
+        columns = None if data is None else list(data.columns)
         if self.panel[1] is not None and has_ts_operator(line):
             # L.x / D.x / L(1/4).x against the declared time variable
             naming_only = re.match(r"\s*(?:test|lincom)\b", line) is not None
@@ -434,7 +578,15 @@ class StataSession:
                     diagnostics={"command": line},
                 ) from exc
         line = self._scalars_in_restriction(line)
-        out = _with_panel(line, from_stata(line, columns=columns), self.panel, columns)
+        key = (line, tuple(columns or ()), self.panel)
+        out = self._translations.get(key)
+        if out is None:
+            out = _with_panel(
+                line, from_stata(line, columns=columns), self.panel, columns
+            )
+            if len(self._translations) < 512:
+                self._translations[key] = out
+        out = dict(out)
         if not out.get("ok"):
             suggestions = out.get("suggestions") or []
             raise MethodIncompatibility(
@@ -477,6 +629,15 @@ class StataSession:
                 ) from exc
             sample = None
             notes = [n for n in notes if not _FILTER_NOTE.search(n)]
+        if fweight is not None and run_data is not None and not chained:
+            try:
+                run_data = expand_frequency(run_data, fweight)
+            except StataExprError as exc:
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: {exc}.",
+                    recovery_hint="Check the frequency-weight variable.",
+                    diagnostics={"command": line},
+                ) from exc
         if lost or sample:
             what = []
             if lost:
@@ -538,12 +699,37 @@ class StataSession:
         else:
             if run_data is None:
                 raise TypeError(f"sp.stata: {line!r} needs data=<DataFrame>.")
+            is_teffects = re.match(r"\s*(?:\w+\s+)*teffects\b", line) is not None
+            if is_teffects:
+                try:
+                    teffects_before(self, line, out, run_data)
+                except StataExprError as exc:
+                    raise MethodIncompatibility(
+                        f"sp.stata: cannot run {line!r}: {exc}.",
+                        recovery_hint="Drop the flagged observations "
+                        "(`... if name == 0`) and run the command again.",
+                        diagnostics={"command": line},
+                    ) from exc
             self.output = fn(data=run_data, **arguments)
             if out["tool"] not in _DESCRIPTIVE_TOOLS:
                 self.last = self.output
                 self.last_data = run_data
                 self._last_call = out
                 self._store_estimates(self.output)
+                if re.match(r"\s*(?:\w+\s*:\s*)*(?:qui\w*\s+)?xtreg\b", line):
+                    xtreg_extras(self, out, run_data)
+                if out["tool"] == "hdfe_ols":
+                    absorbed_constant(self, out, run_data)
+                if is_teffects:
+                    try:
+                        teffects_after(self, line, out, run_data)
+                    except StataExprError as exc:
+                        raise MethodIncompatibility(
+                            f"sp.stata: cannot run {line!r}: {exc}.",
+                            recovery_hint="Drop generate() and read the "
+                            "matches from result.model_info['matched_data'].",
+                            diagnostics={"command": line},
+                        ) from exc
             else:
                 self._store_r(str(out["tool"]), arguments, run_data)
         return True
@@ -568,13 +754,17 @@ class StataSession:
         return line
 
     def _predict(self, line: str) -> bool:
-        """``predict [type] newvar [, xb | residuals]`` after a linear fit.
+        """``predict [type] newvar [if] [, xb | residuals | leverage | pr]``.
 
         Stata predicts for every row whose regressors are observed, not only
-        the estimation sample; so does this. Only linear models whose
-        coefficients are plain columns are covered -- with factor variables,
-        absorbed effects or a nonlinear link the line is refused.
+        the estimation sample; so does this. Covered: the linear prediction,
+        residuals and leverage after a linear fit, and the linear index or
+        the probability (the default) after ``logit`` / ``probit``. The
+        coefficients must be plain columns -- with factor variables or
+        absorbed effects the line is refused.
         """
+        from scipy import stats as _stats
+
         from ._stata_lexer import StataParseError
         from ._stata_lexer import parse as _parse
 
@@ -586,17 +776,14 @@ class StataSession:
             return False
         if self.last is None or self._last_call is None or self._steps is None:
             raise StataExprError("`predict` needs an estimation command before it")
-        if cmd.if_cond or cmd.in_range:
-            raise StataExprError("`predict` with if / in is not implemented")
-        kinds = [k for k in cmd.options if k]
-        resid = any("residuals".startswith(k) for k in kinds)
-        if (
-            any(k != "xb" and not "residuals".startswith(k) for k in kinds)
-            or len(kinds) > 1
-        ):
+        if (self._last_call or {}).get("tool") == "match":
+            return self._predict_pscore(cmd)
+        kinds = [_PREDICT_KINDS.get(k, k) for k in cmd.options if k]
+        unknown = [k for k in kinds if k not in _PREDICT_KINDS.values()]
+        if unknown or len(kinds) > 1:
             raise StataExprError(
-                f"`predict` option(s) {sorted(kinds)} are not implemented; "
-                "only xb and residuals are"
+                f"`predict` option(s) {sorted(cmd.options)} are not implemented; "
+                "xb, residuals, leverage and pr are"
             )
         names = list(cmd.varlist)
         double = False
@@ -606,30 +793,82 @@ class StataSession:
         if len(names) != 1:
             raise StataExprError("expected `predict [type] newvar`")
         tool = self._last_call.get("tool")
-        formula = str((self._last_call.get("arguments") or {}).get("formula") or "")
-        if tool not in ("regress", "ivreg") or "~" not in formula:
+        arguments = self._last_call.get("arguments") or {}
+        formula = str(arguments.get("formula") or "")
+        binary = tool in ("logit", "probit")
+        if tool not in ("regress", "ivreg", "logit", "probit") or "~" not in formula:
             raise StataExprError(
-                f"`predict` after sp.{tool} is not implemented (linear models only)"
+                f"`predict` after sp.{tool} is not implemented (linear, logit "
+                "and probit models only)"
             )
+        kind = kinds[0] if kinds else ("pr" if binary else "xb")
+        if (kind == "pr") != binary and kind in ("pr", "residuals", "leverage"):
+            raise StataExprError(f"`predict, {kind}` does not apply after sp.{tool}")
         data = self._steps.data
         params = getattr(self.last, "params")
         total: np.ndarray = np.zeros(len(data))
+        design = []
         for term, beta in params.items():
             if term in ("Intercept", "const", "_cons"):
-                total = total + float(beta)
+                column = np.ones(len(data))
             elif term in data.columns:
-                total = total + float(beta) * data[term].to_numpy(
-                    dtype=float, na_value=np.nan
-                )
+                column = data[term].to_numpy(dtype=float, na_value=np.nan)
             else:
                 raise StataExprError(
                     f"`predict`: coefficient {term!r} is not a column of the "
                     "data (factor variables and interactions are not covered)"
                 )
-        if resid:
+            design.append(column)
+            total = total + float(beta) * column
+        if kind == "residuals":
             outcome = formula.split("~", 1)[0].strip()
             if outcome not in data.columns:
                 raise StataExprError(f"`predict`: outcome {outcome!r} is not a column")
             total = data[outcome].to_numpy(dtype=float, na_value=np.nan) - total
+        elif kind == "leverage":
+            info = getattr(self.last, "data_info", None) or {}
+            X = info.get("X")
+            if X is None or arguments.get("weights") or tool != "regress":
+                raise StataExprError(
+                    "`predict, leverage` needs an unweighted sp.regress fit"
+                )
+            X = np.asarray(X, dtype=float)
+            rows = np.column_stack(design)
+            if X.shape[1] != rows.shape[1]:
+                raise StataExprError("`predict, leverage`: design does not match")
+            inverse = np.linalg.pinv(X.T @ X)
+            total = np.einsum("ij,jk,ik->i", rows, inverse, rows)
+        elif kind == "pr":
+            link = _stats.logistic.cdf if tool == "logit" else _stats.norm.cdf
+            total = link(total)
+        if cmd.if_cond or cmd.in_range:
+            keep = row_mask(data, cmd.if_cond, cmd.in_range, self.stored)
+            total = np.where(keep, total, np.nan)
         self._steps.add_column(names[0], total, double=double)
+        return True
+
+    def _predict_pscore(self, cmd: Any) -> bool:
+        """``predict newvar, ps [tlevel(#)]`` after ``teffects psmatch``:
+        the estimated propensity score (of treatment level 1 by default)."""
+        options = dict(cmd.options)
+        level = str(options.pop("tlevel", "1") or "1").strip()
+        if set(options) != {"ps"} or level not in ("0", "1") or len(cmd.varlist) != 1:
+            raise StataExprError(
+                "after teffects psmatch only `predict newvar, ps [tlevel(0|1)]` "
+                "is implemented"
+            )
+        info = getattr(self.last, "model_info", None) or {}
+        matched = info.get("matched_data")
+        data = self.last_data
+        if matched is None or "_pscore" not in matched or data is None:
+            raise StataExprError("`predict, ps` follows `teffects psmatch`")
+        if len(matched) != len(data) or self._steps is None:
+            raise StataExprError("`predict, ps`: the fit dropped rows")
+        ps = matched["_pscore"].to_numpy(dtype=float)
+        column = pd.Series(np.nan, index=self._steps.data.index)
+        shared = data.index.intersection(column.index)
+        if len(shared) != len(data):
+            raise StataExprError("`predict, ps`: the data changed since the fit")
+        column.loc[data.index] = ps if level == "1" else 1.0 - ps
+        self._steps.add_column(cmd.varlist[0], column.to_numpy(), double=False)
         return True

@@ -8,14 +8,19 @@ lines that follow see the data Stata would have had:
     generate [type] newvar = exp [if] [in]
     replace var = exp [if] [in]
     keep / drop  if exp | in range | varlist
-    sort varlist
+    sort varlist            gsort [+|-]var ...
+    rename old new
+    tabulate var, generate(stub)
+    collapse (stat) [new=]var ... [if] [, by(varlist)]
+    ipolate y x, generate(new) [epolate]
     mvdecode varlist, mv(#)
     encode strvar, generate(newvar)
     preserve / restore
+    set obs #               clear / drop _all
 
 Expressions go through :mod:`._stata_expr` (Stata's missing-value rules).
-Anything else -- ``egen``, ``merge``, ``reshape``, ``collapse``, ``by:`` --
-is not a data step here, and ``sp.stata`` refuses the snippet.
+Anything else -- ``egen``, ``merge``, ``reshape``, ``by:`` -- is not a data
+step here, and ``sp.stata`` refuses the snippet.
 
 Storage follows Stata: ``generate`` without a type stores a ``float`` (single
 precision), so ``gen x = 0.1`` holds 0.100000001490116 and a regression on it
@@ -45,17 +50,54 @@ def _is_generate(word: str) -> bool:
     return bool(word) and "generate".startswith(word)
 
 
+def _is_tabulate(word: str) -> bool:
+    return len(word) >= 2 and "tabulate".startswith(word)
+
+
 def is_data_step(command: str) -> bool:
-    return _is_generate(command) or command in (
-        "replace",
-        "keep",
-        "drop",
-        "sort",
-        "preserve",
-        "restore",
-        "mvdecode",
-        "encode",
+    return (
+        _is_generate(command)
+        or command
+        in (
+            "replace",
+            "keep",
+            "drop",
+            "sort",
+            "gsort",
+            "preserve",
+            "restore",
+            "mvdecode",
+            "encode",
+            "collapse",
+            "ipolate",
+        )
+        or command in ("ren", "rena", "renam", "rename")
     )
+
+
+def _generate_option(options: dict) -> Optional[str]:
+    """The value of ``generate(...)``, however it was abbreviated."""
+    for key in list(options):
+        if key and "generate".startswith(key):
+            return str(options.pop(key) or "").strip() or None
+    return None
+
+
+#: collapse statistics -> the pandas reduction (missing values are skipped,
+#: and an all-missing group gives missing, as in Stata)
+_COLLAPSE = {
+    "mean": "mean",
+    "median": "median",
+    "p50": "median",
+    "sd": "std",
+    "sum": "sum",
+    "rawsum": "sum",
+    "count": "count",
+    "max": "max",
+    "min": "min",
+    "first": "first",
+    "last": "last",
+}
 
 
 def row_mask(
@@ -105,6 +147,12 @@ class DataSteps:
         if cmd.command == "encode":
             self._encode(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
             return True
+        if cmd.command == "collapse":
+            self._collapse(cmd.varlist, dict(cmd.options), cmd.if_cond, cmd.in_range)
+            return True
+        if cmd.command == "ipolate":
+            self._ipolate(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
+            return True
         if cmd.options:
             raise StataExprError(
                 f"options {sorted(cmd.options)} of `{cmd.command}` are not "
@@ -119,6 +167,10 @@ class DataSteps:
             )
         elif cmd.command == "sort":
             self._sort(cmd.varlist, cmd.if_cond or cmd.in_range)
+        elif cmd.command == "gsort":
+            self._gsort(cmd.varlist, cmd.if_cond or cmd.in_range)
+        elif cmd.command.startswith("ren"):
+            self._rename(cmd.varlist, cmd.if_cond or cmd.in_range)
         elif cmd.command == "preserve":
             self._stack.append((self.data.copy(), set(self._float)))
         else:  # restore
@@ -257,6 +309,11 @@ class DataSteps:
             return
         if not varlist:
             raise StataExprError("`keep` / `drop` need a variable list or a qualifier")
+        if varlist == ["_all"]:
+            if keep:
+                return
+            self.reset(0)
+            return
         unknown = [v for v in varlist if v not in self.data.columns]
         if unknown:
             raise StataExprError(
@@ -284,3 +341,204 @@ class DataSteps:
         self.data = self.data.sort_values(
             varlist, kind="stable", na_position="last"
         ).reset_index(drop=True)
+
+    def _gsort(self, varlist: List[str], qualifier: Optional[str]) -> None:
+        """``gsort [+|-]var ...``: descending on the variables marked ``-``.
+
+        A missing value is the largest number, so it comes first in a
+        descending key and last in an ascending one.
+        """
+        if qualifier:
+            raise StataExprError("`gsort` with if / in is not implemented")
+        keys: List[str] = []
+        ascending: List[bool] = []
+        for tok in varlist:
+            keys.append(tok.lstrip("+-"))
+            ascending.append(not tok.startswith("-"))
+        if not keys or any(not _NAME.match(k) for k in keys):
+            raise StataExprError("`gsort` needs a list of [+|-]variable names")
+        unknown = [k for k in keys if k not in self.data.columns]
+        if unknown:
+            raise StataExprError(f"variable(s) {unknown} are not in the data")
+        self._own()
+        frame = self.data
+        # sort by the last key first; a stable sort keeps the earlier keys' order
+        for key, asc in reversed(list(zip(keys, ascending))):
+            frame = frame.sort_values(
+                key,
+                ascending=asc,
+                kind="stable",
+                na_position="last" if asc else "first",
+            )
+        self.data = frame.reset_index(drop=True)
+
+    def _rename(self, varlist: List[str], qualifier: Optional[str]) -> None:
+        if qualifier or len(varlist) != 2:
+            raise StataExprError("only `rename old new` is implemented")
+        old, new = varlist
+        if old not in self.data.columns:
+            raise StataExprError(f"rename: variable {old!r} is not in the data")
+        if not _NAME.match(new):
+            raise StataExprError(f"rename: {new!r} is not a variable name")
+        if new in self.data.columns:
+            raise StataExprError(f"rename: variable {new!r} already exists")
+        self._own()
+        self.data = self.data.rename(columns={old: new})
+        if old in self._float:
+            self._float.discard(old)
+            self._float.add(new)
+
+    def tabulate_generate(self, var: str, stub: str, mask: np.ndarray) -> List[str]:
+        """``tabulate var, generate(stub)``: one indicator per value.
+
+        ``stub1`` marks the smallest value, ``stub2`` the next, and so on;
+        an indicator is missing where ``var`` is missing or the row is
+        outside the ``if`` sample.
+        """
+        if var not in self.data.columns:
+            raise StataExprError(f"tabulate: variable {var!r} is not in the data")
+        if not _NAME.match(stub):
+            raise StataExprError(f"tabulate: generate({stub}) is not a name stub")
+        col = self.data[var]
+        used = mask & col.notna().to_numpy()
+        levels = sorted(pd.unique(col[used]))
+        names = [f"{stub}{k + 1}" for k in range(len(levels))]
+        taken = [n for n in names if n in self.data.columns]
+        if taken:
+            raise StataExprError(f"tabulate: variable {taken[0]!r} already exists")
+        self._own()
+        new = {
+            name: np.where(used, (col == level).to_numpy().astype(float), np.nan)
+            for name, level in zip(names, levels)
+        }
+        self.data = pd.concat(
+            [self.data, pd.DataFrame(new, index=self.data.index)], axis=1
+        )
+        return names
+
+    def _collapse(
+        self,
+        varlist: List[str],
+        options: dict,
+        if_cond: Optional[str],
+        in_range: Optional[str],
+    ) -> None:
+        """``collapse (stat) [new=]var ... , by(varlist)``."""
+        by = str(options.pop("by", "") or "").split()
+        if options:
+            raise StataExprError(
+                f"collapse: option(s) {sorted(options)} are not implemented"
+            )
+        if "[" in " ".join(varlist):
+            raise StataExprError("collapse with weights is not implemented")
+        stat = "mean"
+        targets: List[tuple] = []
+        for tok in varlist:
+            m = re.fullmatch(r"\((\w+)\)", tok)
+            if m:
+                stat = m.group(1).lower()
+                if stat not in _COLLAPSE:
+                    raise StataExprError(
+                        f"collapse: statistic ({stat}) is not implemented"
+                    )
+                continue
+            new, _, source = tok.rpartition("=")
+            new = new or source
+            if not _NAME.match(new) or source not in self.data.columns:
+                raise StataExprError(f"collapse: cannot read {tok!r}")
+            targets.append((new, source, _COLLAPSE[stat]))
+        unknown = [b for b in by if b not in self.data.columns]
+        if unknown or not targets:
+            raise StataExprError(
+                f"collapse: variable(s) {unknown} are not in the data"
+                if unknown
+                else "collapse needs at least one variable"
+            )
+        names = [t[0] for t in targets]
+        if len(set(names)) != len(names) or set(names) & set(by):
+            raise StataExprError("collapse: a result name is used twice")
+        frame = self.data.loc[row_mask(self.data, if_cond, in_range, self.stored)]
+        if by:
+            frame = frame.dropna(subset=by)
+            grouped = frame.groupby(by, sort=True, dropna=False)
+            cols = {}
+            for new, source, how in targets:
+                if how == "sum":
+                    cols[new] = grouped[source].sum(min_count=0)
+                else:
+                    cols[new] = getattr(grouped[source], how)()
+            out = pd.DataFrame(cols).reset_index()
+        else:
+            out = pd.DataFrame(
+                {
+                    new: [
+                        (
+                            frame[source].sum()
+                            if how == "sum"
+                            else getattr(frame[source], how)()
+                        )
+                    ]
+                    for new, source, how in targets
+                }
+            )
+        self._own()
+        self.data = out
+        self._float = set()
+
+    def _ipolate(self, varlist: List[str], options: dict, qualifier: Any) -> None:
+        """``ipolate y x, generate(new) [epolate]``: linear interpolation of
+        ``y`` on ``x``; without ``epolate`` nothing is filled outside the
+        range of the observed ``x``."""
+        new = _generate_option(options)
+        epolate = any(k and "epolate".startswith(k) for k in list(options))
+        rest = [k for k in options if not (k and "epolate".startswith(k))]
+        if qualifier or rest or new is None or len(varlist) != 2:
+            raise StataExprError(
+                "only `ipolate y x, generate(new) [epolate]` is implemented"
+            )
+        yname, xname = varlist
+        unknown = [v for v in varlist if v not in self.data.columns]
+        if unknown:
+            raise StataExprError(f"ipolate: variable(s) {unknown} are not in the data")
+        if new in self.data.columns:
+            raise StataExprError(f"ipolate: variable {new!r} already exists")
+        y = self.data[yname].to_numpy(dtype=float, na_value=np.nan)
+        x = self.data[xname].to_numpy(dtype=float, na_value=np.nan)
+        known = ~np.isnan(y) & ~np.isnan(x)
+        out = np.full(len(y), np.nan)
+        if known.any():
+            # repeated x values enter as their mean y, as in Stata
+            pts = pd.Series(y[known]).groupby(x[known]).mean()
+            xs, ys = pts.index.to_numpy(dtype=float), pts.to_numpy(dtype=float)
+            ok = ~np.isnan(x)
+            inside = ok & (x >= xs[0]) & (x <= xs[-1])
+            out[inside] = np.interp(x[inside], xs, ys)
+            if epolate and len(xs) > 1:
+                lo, hi = ok & (x < xs[0]), ok & (x > xs[-1])
+                out[lo] = ys[0] + (x[lo] - xs[0]) * (ys[1] - ys[0]) / (xs[1] - xs[0])
+                out[hi] = ys[-1] + (x[hi] - xs[-1]) * (ys[-1] - ys[-2]) / (
+                    xs[-1] - xs[-2]
+                )
+        self.add_column(new, out, double=True)
+
+    def reset(self, n_obs: int) -> None:
+        """An empty dataset of ``n_obs`` rows (``clear``, then ``set obs``)."""
+        self.data = pd.DataFrame(index=pd.RangeIndex(n_obs))
+        self._owned = True
+        self._float = set()
+
+    def set_obs(self, n_obs: int) -> None:
+        """``set obs #``: lengthen the data to # rows of missing values."""
+        if n_obs < len(self.data):
+            raise StataExprError(
+                f"set obs {n_obs}: the data already hold {len(self.data)} "
+                "observations and `set obs` cannot shorten them"
+            )
+        self._own()
+        self.data = self.data.reset_index(drop=True).reindex(pd.RangeIndex(n_obs))
+
+    def replace_data(self, data: pd.DataFrame) -> None:
+        """Take ``data`` as the dataset in memory (``use``, ``append``)."""
+        self.data = data.reset_index(drop=True)
+        self._owned = True
+        self._float &= set(self.data.columns)

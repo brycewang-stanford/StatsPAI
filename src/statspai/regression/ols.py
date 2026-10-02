@@ -691,26 +691,33 @@ class OLSEstimator(BaseEstimator):
 
         # Model diagnostics. For WLS, report fitted/residuals on the ORIGINAL
         # scale and use weighted TSS/RSS so R²/RMSE match Stata's aweight output.
+        # Without a constant the total sum of squares is taken about zero:
+        # R-squared, its adjustment and the F statistic are the uncentred
+        # ones (Stata `regress, noconstant`, R `lm(y ~ x - 1)`). Measured
+        # about the mean, a line through the origin can have a negative
+        # R-squared.
+        has_const = _detect_constant_column(X_orig) is not None
         if sw is not None:
             fitted_values = X_orig @ params
             residuals = y_orig - fitted_values
             wn = sw**2
-            ybar_w = np.sum(wn * y_orig) / np.sum(wn)
+            ybar_w = np.sum(wn * y_orig) / np.sum(wn) if has_const else 0.0
             tss = np.sum(wn * (y_orig - ybar_w) ** 2)
             rss = np.sum(wn * residuals**2)
         else:
-            tss = np.sum((y - np.mean(y)) ** 2)
+            tss = np.sum((y - np.mean(y)) ** 2) if has_const else np.sum(y**2)
             rss = np.sum(residuals**2)
+        df_model = k - 1 if has_const else k
         if tss <= 0:
             r_squared = np.nan
             adj_r_squared = np.nan
         else:
             r_squared = 1 - rss / tss
-            adj_r_squared = 1 - (rss / (n - k)) / (tss / (n - 1))
+            adj_r_squared = 1 - (rss / (n - k)) / (tss / (n - 1 if has_const else n))
 
-        # F-statistic (assuming constant in first column)
-        if k > 1 and np.isfinite(r_squared):
-            r_squared_restricted = 0  # R² from constant-only model
+        # F statistic: every slope is zero (with a constant), every
+        # coefficient is zero (without one).
+        if df_model > 0 and n > k and np.isfinite(r_squared):
             denom = (1 - r_squared) / (n - k)
             if denom <= 0:
                 # Exact fit (R² == 1): F diverges. NIST StRD certifies this as
@@ -719,10 +726,45 @@ class OLSEstimator(BaseEstimator):
                 f_stat = np.inf
                 f_pvalue = 0.0
             else:
-                f_stat = ((r_squared - r_squared_restricted) / (k - 1)) / denom
-                f_pvalue = stats.f.sf(f_stat, k - 1, n - k)
+                f_stat = (r_squared / df_model) / denom
+                f_pvalue = stats.f.sf(f_stat, df_model, n - k)
         else:
             f_stat = f_pvalue = np.nan
+
+        # With a robust, clustered or HAC covariance the classical F (a ratio
+        # of sums of squares) is not a test of anything: the model F is the
+        # Wald statistic b'V^{-1}b / q on that covariance, as Stata and
+        # R's lmtest::waldtest(vcov=) report it. Its denominator degrees of
+        # freedom are N - K, or G - 1 with G clusters.
+        if (
+            (robust_key != "nonrobust" or cluster is not None)
+            and df_model > 0
+            and n > k
+        ):
+            const_col = _detect_constant_column(X_orig)
+            tested = [j for j in range(k) if j != const_col]
+            df2 = n - k
+            if cluster is not None:
+                df2 = int(len(pd.unique(np.asarray(cluster).ravel()))) - 1
+            f_stat = f_pvalue = np.nan
+            if df2 >= len(tested):
+                b_t = params[tested]
+                v_t = var_cov[np.ix_(tested, tested)]
+                try:
+                    wald = float(b_t @ np.linalg.solve(v_t, b_t))
+                except np.linalg.LinAlgError:
+                    wald = np.nan
+                q = len(tested)
+                if np.isfinite(wald) and wald >= 0 and robust_key == "ewc":
+                    # B cosine terms: the Wald statistic is Hotelling's
+                    # T^2(q, B), and (B - q + 1) / (B q) W is F(q, B - q + 1)
+                    df_ewc = ewc_df - q + 1
+                    if df_ewc >= 1:
+                        f_stat = wald * df_ewc / (ewc_df * q)
+                        f_pvalue = float(stats.f.sf(f_stat, q, df_ewc))
+                elif np.isfinite(wald) and wald >= 0:
+                    f_stat = wald / q
+                    f_pvalue = float(stats.f.sf(f_stat, q, df2))
 
         return {
             "params": params,
@@ -735,7 +777,7 @@ class OLSEstimator(BaseEstimator):
             "f_statistic": f_stat,
             "f_pvalue": f_pvalue,
             "nobs": n,
-            "df_model": k - 1,
+            "df_model": df_model,
             "df_resid": n - k,
             "rss": rss,
             "tss": tss,
@@ -1110,6 +1152,10 @@ class OLSRegression(BaseModel):
             "y": self.y,
             "var_cov": results.get("var_cov"),
             "var_names": self.var_names,
+            # sums of squares on the scale the R-squared uses (weighted, with
+            # analytic weights normalised to sum to N)
+            "rss": float(results["rss"]),
+            "tss": float(results["tss"]),
         }
         if cluster_var is not None:
             # Stata ``regress, vce(cluster)``: t / F with G - 1 degrees of
@@ -1131,10 +1177,12 @@ class OLSRegression(BaseModel):
             log_likelihood = (
                 -0.5 * results["nobs"] * (np.log(2 * np.pi * rss_per_obs) + 1)
             )
-            aic = results["nobs"] * np.log(rss_per_obs) + 2 * (results["df_model"] + 1)
-            bic = results["nobs"] * np.log(rss_per_obs) + np.log(results["nobs"]) * (
-                results["df_model"] + 1
-            )
+            # -2 log L + 2k and -2 log L + k log N with k the number of
+            # coefficients: Stata's `estat ic`. (R's AIC() counts the error
+            # variance as one more parameter.)
+            n_coef = len(params)
+            aic = -2.0 * log_likelihood + 2 * n_coef
+            bic = -2.0 * log_likelihood + np.log(results["nobs"]) * n_coef
 
         diagnostics = {
             "R-squared": results["r_squared"],

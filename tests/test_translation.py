@@ -881,6 +881,64 @@ TIER3_ROUND_TRIPS = [
     ),
     # mi estimate: passes through with a translation note.
     ("mi estimate: reg y x", "mi_estimate", {}),
+    # estat: Stata's default written out where sp.estat's differs
+    (
+        "estat hettest",
+        "estat",
+        {"test": "hettest", "variables": "fitted", "version": "normal"},
+    ),
+    ("estat ovtest, rhs", "estat", {"test": "reset", "powers": 4, "rhs": True}),
+    ("estat bgodfrey, lags(2) nomiss0", "estat", {"lags": 2, "fill": "drop"}),
+    # time series
+    ("prais y x, corc", "prais", {"formula": "y ~ x", "method": "corc"}),
+    ("corrgram y, lags(5)", "corrgram", {"y": "y", "lags": 5}),
+    ("var y1 y2, lags(1/3)", "var", {"variables": ["y1", "y2"], "lags": 3}),
+    ("varsoc y1 y2, maxlag(6)", "varsoc", {"variables": ["y1", "y2"], "maxlag": 6}),
+    ("varlmar, mlag(3)", "estat", {"test": "varlmar", "lags": 3}),
+    # Stata counts lags of the levels, sp lagged differences
+    (
+        "vecrank y1 y2, lags(3) trend(rconstant)",
+        "johansen",
+        {"variables": ["y1", "y2"], "lags": 2, "trend": "rc"},
+    ),
+    (
+        "vec y1 y2, lags(2) rank(1)",
+        "vec",
+        {"variables": ["y1", "y2"], "lags": 1, "rank": 1},
+    ),
+    # panel
+    (
+        "xtreg y x, re vce(robust) i(id) t(year)",
+        "panel",
+        {
+            "formula": "y ~ x",
+            "entity": "id",
+            "time": "year",
+            "method": "re",
+            "ssc": "stata",
+            "robust": "robust",
+        },
+    ),
+    ("xtsum y x, i(id)", "xtsum", {"id": "id", "variables": ["y", "x"]}),
+    (
+        "xtserial y x, output i(id) t(year)",
+        "xtserial",
+        {"y": "y", "x": ["x"], "id": "id", "time": "year"},
+    ),
+    # regression control method
+    (
+        "rcm gdp, trunit(9) trperiod(150) counit(4 10/12) placebo(unit cut(2)) "
+        "i(region) t(time)",
+        "synth",
+        {
+            "method": "rcm",
+            "treated_unit": 9,
+            "treatment_time": 150,
+            "donors": [4, 10, 11, 12],
+            "placebo": True,
+            "placebo_cutoff": 2.0,
+        },
+    ),
 ]
 
 
@@ -1074,6 +1132,7 @@ _NON_EXECUTABLE_TOOLS = frozenset(
         "lincom",
         "wild_cluster_bootstrap",
         "mi_estimate",
+        "estat",
         # setup / declaration — no estimator target (no-op)
         "xtset",
     }
@@ -1470,6 +1529,7 @@ def test_python_code_and_arguments_describe_the_same_call(command, channel):
         "test",
         "lincom",
         "wild_cluster_bootstrap",
+        "estat",
         "mi_estimate",
     }
     allow = out.get("tool") in POSTEST
@@ -1506,6 +1566,7 @@ POSTEST_TOOLS = {
     "lincom",
     "wild_cluster_bootstrap",
     "mi_estimate",
+    "estat",
 }
 
 

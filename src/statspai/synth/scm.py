@@ -19,6 +19,7 @@ Provides ``synth()`` as a single dispatcher for 20 SCM variants:
 * **bsts / causal_impact** — Bayesian Structural Time Series (Brodersen et al. 2015)
 * **penscm / abadie_lhour** — Penalized SCM (Abadie & L'Hour 2021)
 * **fdid / forward_did** — Forward DID (Li 2024)
+* **rcm / hcw** — regression control method (Hsiao, Ching & Wan 2012)
 * **cluster** — Cluster SCM (Rho et al. 2025, arXiv:2503.21629)
 * **sparse / lasso** — Sparse SCM (Amjad, Shah & Shen 2018)
 * **kernel** — Kernel-based nonlinear SCM
@@ -390,6 +391,11 @@ def _dispatch_synth_impl(
           pairwise discrepancy (Abadie & L'Hour 2021).
         * ``'fdid'`` / ``'forward_did'`` — Forward DID
           (Li 2024).
+        * ``'rcm'`` / ``'hcw'`` — regression control method, the panel
+          data approach of Hsiao, Ching & Wan (2012): an unrestricted
+          regression on control units chosen by best subset and AICc.
+          Keywords ``donors=``, ``selection=``, ``criterion=``,
+          ``placebo_cutoff=``, ``placebo_time=``.
         * ``'cluster'`` — Cluster SCM (Rho et al. 2025, arXiv:2503.21629). [@rho2025clustersc]
         * ``'sparse'`` / ``'lasso'`` — Sparse SCM
           (Amjad, Shah & Shen 2018).
@@ -862,6 +868,21 @@ def _dispatch_synth_impl(
             **kwargs,
         )
 
+    if method in ("rcm", "hcw", "regression_control", "pda"):
+        from .rcm import rcm as _rcm
+
+        return _rcm(
+            data=data,
+            outcome=outcome,
+            unit=unit,
+            time=time,
+            treated_unit=treated_unit,
+            treatment_time=treatment_time,
+            placebo=placebo,
+            alpha=alpha,
+            **kwargs,
+        )
+
     if method == "cluster":
         from .cluster import cluster_synth
 
@@ -932,7 +953,7 @@ def _dispatch_synth_impl(
         f"'augmented', 'ascm', 'sdid', 'factor', 'gsynth', 'staggered', "
         f"'mc', 'discos', 'multi_outcome', 'scpi', "
         f"'bayesian', 'bsts', 'causal_impact', 'penscm', 'abadie_lhour', "
-        f"'fdid', 'forward_did', 'cluster', 'sparse', 'lasso', "
+        f"'fdid', 'forward_did', 'rcm', 'hcw', 'cluster', 'sparse', 'lasso', "
         f"'kernel', 'kernel_ridge'.",
         diagnostics={"method": method},
         alternative_functions=["sp.synth_compare", "sp.synth"],

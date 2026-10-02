@@ -26,7 +26,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats
+from scipy import special, stats
 
 __all__ = ["StataExprError", "evaluate", "sample_mask", "in_range_mask"]
 
@@ -231,6 +231,207 @@ def _f_mod(*args: Value) -> Any:
         return _clean(np.where(y > 0, x - y * np.floor(x / y), np.nan))
 
 
+def _f_normalden(*args: Value) -> Any:
+    """``normalden(z)``, ``normalden(x, sd)`` or ``normalden(x, mean, sd)``."""
+    if len(args) not in (1, 2, 3):
+        raise StataExprError("normalden() takes one to three arguments")
+    vals = [np.asarray(_num(a, "normalden()"), dtype=float) for a in args]
+    x = vals[0]
+    mean = vals[1] if len(args) == 3 else 0.0
+    sd = vals[-1] if len(args) > 1 else 1.0
+    with np.errstate(all="ignore"):
+        return _clean(np.where(sd > 0, stats.norm.pdf(x, mean, sd), np.nan))
+
+
+def _f_running_sum(*args: Value) -> Any:
+    """``sum(x)``: the running sum down the rows; a missing value adds zero."""
+    if len(args) != 1:
+        raise StataExprError("sum() takes one argument")
+    x = np.asarray(_num(args[0], "sum()"), dtype=float)
+    if x.ndim == 0:
+        raise StataExprError("sum() of a constant needs the data's rows")
+    return np.cumsum(np.where(np.isnan(x), 0.0, x))
+
+
+def _quantile(dist: Any, n_shape: int, upper: bool) -> Callable[..., Any]:
+    """Inverse distribution functions: degrees of freedom first, then p."""
+
+    def call(*args: Value) -> Any:
+        if len(args) != n_shape + 1:
+            raise StataExprError(f"this function takes {n_shape + 1} arguments")
+        vals = [
+            np.asarray(_num(a, "a distribution function"), dtype=float) for a in args
+        ]
+        with np.errstate(all="ignore"):
+            fn = dist.isf if upper else dist.ppf
+            return _clean(fn(vals[-1], *vals[:-1]))
+
+    return call
+
+
+def _density(dist: Any, n_shape: int) -> Callable[..., Any]:
+    def call(*args: Value) -> Any:
+        if len(args) != n_shape + 1:
+            raise StataExprError(f"this function takes {n_shape + 1} arguments")
+        vals = [np.asarray(_num(a, "a density function"), dtype=float) for a in args]
+        with np.errstate(all="ignore"):
+            return _clean(dist.pdf(vals[-1], *vals[:-1]))
+
+    return call
+
+
+# ---- dates: a Stata date is a count of periods since 1960 ---------------
+_EPOCH = np.datetime64("1960-01-01", "D")
+
+
+def _days(v: Value, what: str) -> Tuple[np.ndarray, np.ndarray]:
+    """Daily dates as numpy days, with the mask of the usable ones."""
+    x = np.asarray(_num(v, what), dtype=float)
+    ok = np.isfinite(x)
+    return _EPOCH + np.where(ok, np.floor(x), 0).astype("timedelta64[D]"), ok
+
+
+def _date_part(part: str) -> Callable[..., Any]:
+    def call(*args: Value) -> Any:
+        if len(args) != 1:
+            raise StataExprError(f"{part}() takes one argument")
+        days, ok = _days(args[0], f"{part}()")
+        months = days.astype("datetime64[M]")
+        years = months.astype("datetime64[Y]")
+        if part == "year":
+            out = years.astype(int) + 1970
+        elif part == "month":
+            out = (months - years.astype("datetime64[M]")).astype(int) + 1
+        elif part == "quarter":
+            out = (months - years.astype("datetime64[M]")).astype(int) // 3 + 1
+        elif part == "day":
+            out = (days - months.astype("datetime64[D]")).astype(int) + 1
+        elif part == "dow":  # 0 = Sunday; 1 January 1960 was a Friday
+            out = np.mod((days - _EPOCH).astype(int) + 5, 7)
+        elif part == "mofd":
+            out = months.astype(int) - (1960 - 1970) * 12
+        elif part == "qofd":
+            out = np.floor_divide(months.astype(int) - (1960 - 1970) * 12, 3)
+        else:  # yofd
+            out = years.astype(int) + 1970
+        return np.where(ok, out.astype(float), np.nan)
+
+    return call
+
+
+def _periods_to_days(per_year: int) -> Callable[..., Any]:
+    """``dofm()`` / ``dofq()`` / ``dofy()``: first day of the period."""
+
+    def call(*args: Value) -> Any:
+        if len(args) != 1:
+            raise StataExprError("this function takes one argument")
+        x = np.asarray(_num(args[0], "a date function"), dtype=float)
+        ok = np.isfinite(x)
+        whole = np.where(ok, np.floor(x), 0).astype(int)
+        if per_year == 1:  # a yearly date is the year itself
+            months = (whole - 1960) * 12
+        else:
+            months = whole * (12 // per_year)
+        first = (
+            np.datetime64("1960-01", "M") + months.astype("timedelta64[M]")
+        ).astype("datetime64[D]")
+        return np.where(ok, (first - _EPOCH).astype(float), np.nan)
+
+    return call
+
+
+def _f_mdy(*args: Value) -> Any:
+    if len(args) != 3:
+        raise StataExprError("mdy() takes three arguments")
+    m, d, y = np.broadcast_arrays(
+        *[np.asarray(_num(a, "mdy()"), dtype=float) for a in args]
+    )
+    ok = np.isfinite(m) & np.isfinite(d) & np.isfinite(y)
+    ok &= (m >= 1) & (m <= 12) & (d >= 1) & (d <= 31)
+    months = np.where(ok, (y - 1960) * 12 + (m - 1), 0).astype(int)
+    first = (np.datetime64("1960-01", "M") + months.astype("timedelta64[M]")).astype(
+        "datetime64[D]"
+    )
+    day = first + np.where(ok, d - 1, 0).astype("timedelta64[D]")
+    # 31 February is not a date: the day must stay inside its month
+    ok &= day.astype("datetime64[M]") == first.astype("datetime64[M]")
+    return np.where(ok, (day - _EPOCH).astype(float), np.nan)
+
+
+def _f_periodic(per_year: int) -> Callable[..., Any]:
+    """``ym(y, m)`` / ``yq(y, q)``."""
+
+    def call(*args: Value) -> Any:
+        if len(args) != 2:
+            raise StataExprError("this function takes two arguments")
+        y, sub = (np.asarray(_num(a, "a date function"), dtype=float) for a in args)
+        with np.errstate(all="ignore"):
+            out = (y - 1960) * per_year + sub - 1
+            return _clean(np.where((sub >= 1) & (sub <= per_year), out, np.nan))
+
+    return call
+
+
+#: Functions that draw random numbers. Stata's generator (a 64-bit Mersenne
+#: Twister with its own transformations) is not reproduced: the draws come
+#: from numpy, seeded by ``set seed``, so a simulation has the same design
+#: and a different sample.
+_RANDOM = frozenset(
+    {"rnormal", "runiform", "rchi2", "rt", "rbinomial", "rpoisson", "rexponential",
+     "runiformint", "rbeta", "rgamma", "uniform"}
+)  # fmt: skip
+
+
+def _draw(name: str, args: List[Any], n: int, rng: np.random.Generator) -> Any:
+    a = [np.asarray(_num(v, f"{name}()"), dtype=float) for v in args]
+
+    def arity(*allowed: int) -> None:
+        if len(a) not in allowed:
+            raise StataExprError(
+                f"{name}() takes {' or '.join(str(k) for k in allowed)} argument(s)"
+            )
+
+    with np.errstate(all="ignore"):
+        if name == "rnormal":
+            arity(0, 1, 2)
+            mean = a[0] if a else 0.0
+            sd = a[1] if len(a) == 2 else 1.0
+            return _clean(mean + sd * rng.standard_normal(n))
+        if name in ("runiform", "uniform"):
+            arity(0, 2)
+            lo, hi = (a[0], a[1]) if a else (0.0, 1.0)
+            return _clean(lo + (hi - lo) * rng.random(n))
+        if name == "runiformint":
+            arity(2)
+            return _clean(np.floor(a[0] + (a[1] - a[0] + 1) * rng.random(n)))
+        if name == "rchi2":
+            arity(1)
+            return _clean(rng.chisquare(np.broadcast_to(a[0], (n,))))
+        if name == "rt":
+            arity(1)
+            return _clean(rng.standard_t(np.broadcast_to(a[0], (n,))))
+        if name == "rbinomial":
+            arity(2)
+            return _clean(
+                rng.binomial(
+                    np.broadcast_to(a[0], (n,)).astype(int), np.broadcast_to(a[1], (n,))
+                ).astype(float)
+            )
+        if name == "rpoisson":
+            arity(1)
+            return _clean(rng.poisson(np.broadcast_to(a[0], (n,))).astype(float))
+        if name == "rexponential":
+            arity(1)
+            return _clean(rng.exponential(np.broadcast_to(a[0], (n,))))
+        if name == "rbeta":
+            arity(2)
+            return _clean(rng.beta(np.broadcast_to(a[0], (n,)), a[1]))
+        if name == "rgamma":
+            arity(2)
+            return _clean(rng.gamma(np.broadcast_to(a[0], (n,)), a[1]))
+    raise StataExprError(f"function {name}() is not implemented")
+
+
 _FUNCTIONS: Dict[str, Callable[..., Any]] = {
     "ln": _unary(np.log),
     "log": _unary(np.log),
@@ -244,9 +445,10 @@ _FUNCTIONS: Dict[str, Callable[..., Any]] = {
     "trunc": _unary(np.trunc),
     "sign": _unary(np.sign),
     "normal": _unary(stats.norm.cdf),
-    "normalden": _unary(stats.norm.pdf),
+    "normalden": _f_normalden,
     "invnormal": _unary(stats.norm.ppf),
     "normprob": _unary(stats.norm.cdf),  # pre-Stata-7 name of normal()
+    "invnorm": _unary(stats.norm.ppf),  # pre-Stata-10 name of invnormal()
     "chi2": _tail(stats.chi2, 1, upper=False),
     "chi2tail": _tail(stats.chi2, 1, upper=True),
     "chiprob": _tail(stats.chi2, 1, upper=True),  # old name of chi2tail()
@@ -264,6 +466,45 @@ _FUNCTIONS: Dict[str, Callable[..., Any]] = {
     "inrange": _f_inrange,
     "cond": _f_cond,
     "mod": _f_mod,
+    "sin": _unary(np.sin),
+    "cos": _unary(np.cos),
+    "tan": _unary(np.tan),
+    "asin": _unary(np.arcsin),
+    "acos": _unary(np.arccos),
+    "atan": _unary(np.arctan),
+    "sinh": _unary(np.sinh),
+    "cosh": _unary(np.cosh),
+    "tanh": _unary(np.tanh),
+    "asinh": _unary(np.arcsinh),
+    "acosh": _unary(np.arccosh),
+    "atanh": _unary(np.arctanh),
+    "lngamma": _unary(special.gammaln),
+    "logit": _unary(special.logit),
+    "invlogit": _unary(special.expit),
+    "sum": _f_running_sum,
+    "t": _tail(stats.t, 1, upper=False),
+    "tden": _density(stats.t, 1),
+    "chi2den": _density(stats.chi2, 1),
+    "Fden": _density(stats.f, 2),
+    "invt": _quantile(stats.t, 1, upper=False),
+    "invchi2": _quantile(stats.chi2, 1, upper=False),
+    "invchi2tail": _quantile(stats.chi2, 1, upper=True),
+    "invF": _quantile(stats.f, 2, upper=False),
+    "invFtail": _quantile(stats.f, 2, upper=True),
+    "year": _date_part("year"),
+    "month": _date_part("month"),
+    "quarter": _date_part("quarter"),
+    "day": _date_part("day"),
+    "dow": _date_part("dow"),
+    "mofd": _date_part("mofd"),
+    "qofd": _date_part("qofd"),
+    "yofd": _date_part("yofd"),
+    "dofm": _periods_to_days(12),
+    "dofq": _periods_to_days(4),
+    "dofy": _periods_to_days(1),
+    "mdy": _f_mdy,
+    "ym": _f_periodic(12),
+    "yq": _f_periodic(4),
 }
 
 
@@ -300,6 +541,10 @@ def _date_literal(text: str, column: pd.Series) -> Any:
                 f"cannot compare the date {text!r} with a numeric time variable"
             ) from None
     raise StataExprError("the time variable is neither a date nor a number")
+
+
+_DATE_LITERALS = frozenset({"tq", "tm", "td", "ty"})
+_TS_PREFIX = re.compile(r"(?:[LlFfDd]\d*)+\Z")
 
 
 # ------------------------------------------------------------------ parser
@@ -467,19 +712,18 @@ class _Parser:
             return self._stored(name, key, f"{name}({key})")
         if name in ("_b", "_se") and nxt == ("op", "["):
             self._expect("[")
-            kind, key = self._take()
-            if kind != "name":
-                raise StataExprError(f"expected a coefficient name inside {name}[]")
-            self._expect("]")
+            key = self._coefficient_name(name)
             return self._stored(name, key, f"{name}[{key}]")
         if name == "tin" and nxt == ("op", "("):
             return self._tin()
+        if name in _DATE_LITERALS and nxt == ("op", "("):
+            return self._date_function(name)
         if nxt == ("op", "("):
             return self._call(name)
         if nxt == ("op", "."):
-            raise StataExprError(
-                f"time-series operator or stored result {name}.… is not implemented"
-            )
+            if _TS_PREFIX.match(name):
+                return self._ts_operator(name)
+            raise StataExprError(f"{name}.… is not a time-series operator")
         if name == "_n":
             return np.arange(1.0, self.n + 1.0)
         if name == "_N":
@@ -495,6 +739,72 @@ class _Parser:
             self._expect("]")
             return self._subscript(column, index)
         return column
+
+    def _coefficient_name(self, kind: str) -> str:
+        """The name inside ``_b[...]``; ``_b[L.y]`` is the coefficient the
+        session stored as ``y_L1``."""
+        text = ""
+        while True:
+            tok_kind, val = self._take()
+            if tok_kind == "end":
+                raise StataExprError(f"unclosed {kind}[")
+            if tok_kind == "op" and val == "]":
+                break
+            text += val
+        if not text:
+            raise StataExprError(f"expected a coefficient name inside {kind}[]")
+        m = re.fullmatch(r"((?:[LlFfDd]\d*)+)\.([A-Za-z_]\w*)", text)
+        if m:
+            from ._stata_tsops import _name, _parse_ops
+
+            return _name(m.group(2), _parse_ops(m.group(1)))
+        return text
+
+    def _ts_operator(self, ops: str) -> Value:
+        """``l.y`` / ``d.lny`` / ``L2.x`` inside an expression."""
+        from ._stata_tsops import _apply, _Clock, _parse_ops
+
+        self._expect(".")
+        kind, var = self._take()
+        if kind != "name":
+            raise StataExprError(f"expected a variable after {ops}.")
+        time_var = self.stored.get("time_var")
+        if not time_var:
+            raise StataExprError(
+                f"the time-series operator {ops}.{var} needs the time variable: "
+                "put `tsset time` or `xtset id time` before it"
+            )
+        clock = _Clock(self.data, self.stored.get("panel_var"), time_var)
+        return _apply(
+            clock, np.asarray(self._column(var), dtype=float), _parse_ops(ops)
+        )
+
+    def _date_function(self, name: str) -> Value:
+        """``tq(1999q1)`` / ``tm(1999m3)`` / ``td(01jan1999)`` / ``ty(1999)``."""
+        self._expect("(")
+        text = ""
+        while True:
+            kind, val = self._take()
+            if kind == "end":
+                raise StataExprError(f"unclosed {name}(")
+            if kind == "op" and val == ")":
+                break
+            text += val
+        text = text.strip().lower()
+        if name == "td":
+            if not _DAILY.match(text):
+                raise StataExprError(f"cannot read the date {text!r} in td()")
+            day = pd.to_datetime(text, format="%d%b%Y")
+            return float((day - pd.Timestamp("1960-01-01")).days)
+        if name == "ty":
+            if not re.fullmatch(r"\d{4}", text):
+                raise StataExprError(f"cannot read the year {text!r} in ty()")
+            return float(text)
+        letter, per_year = ("q", 4) if name == "tq" else ("m", 12)
+        m = re.fullmatch(rf"(\d{{4}}){letter}(\d{{1,2}})", text)
+        if m is None or not 1 <= int(m.group(2)) <= per_year:
+            raise StataExprError(f"cannot read the period {text!r} in {name}()")
+        return float((int(m.group(1)) - 1960) * per_year + int(m.group(2)) - 1)
 
     def _tin(self) -> Value:
         """``tin(d1, d2)``: the time variable is within the two dates."""
@@ -526,7 +836,7 @@ class _Parser:
     def _call(self, name: str) -> Value:
         self._expect("(")
         fn = _FUNCTIONS.get(name)
-        if fn is None:
+        if fn is None and name not in _RANDOM:
             raise StataExprError(f"function {name}() is not implemented")
         args: List[Value] = []
         if not self._accept(")"):
@@ -534,6 +844,15 @@ class _Parser:
             while self._accept(","):
                 args.append(self._or())
             self._expect(")")
+        if fn is None:
+            rng = self.stored.get("rng")
+            if rng is None:
+                raise StataExprError(
+                    f"{name}() draws random numbers, which needs a session "
+                    "(sp.stata), not a single translated line"
+                )
+            self.stored["random_draws"] = True
+            return _draw(name, args, self.n, rng)
         return fn(*args)
 
     def _column(self, name: str) -> Value:

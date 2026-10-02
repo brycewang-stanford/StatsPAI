@@ -67,12 +67,13 @@ from __future__ import annotations
 
 import re
 import textwrap
-from itertools import combinations
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
+
+from . import _estat_regression as _reg
 
 # ======================================================================
 #  Line characters for pretty-printing
@@ -91,9 +92,14 @@ def estat(
     test: str = "all",
     *,
     print_results: bool = True,
-    lags: int = 1,
+    lags: Optional[int] = None,
     powers: int = 3,
     alpha: float = 0.05,
+    variables: Union[None, str, Sequence[str], np.ndarray] = None,
+    version: str = "iid",
+    rhs: bool = False,
+    fill: str = "zero",
+    threshold: Optional[float] = None,
 ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
     """
     Unified post-estimation diagnostics dispatcher.
@@ -104,17 +110,47 @@ def estat(
         A fitted result object with ``params``, ``data_info``, etc.
     test : str
         Name of the diagnostic test.  One of ``'hettest'``, ``'white'``,
+        ``'imtest'`` (White's test with the skewness and kurtosis parts),
         ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``,
         ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``,
-        ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'all'``.
+        ``'endogenous'``, ``'overid'``, ``'firststage'``,
+        ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``.
+        After ``sp.var``: ``'varlmar'`` (LM test for residual
+        autocorrelation, at lag orders 1 .. ``lags``),
+        ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues),
+        ``'vargranger'`` (Granger causality); after ``sp.vec``:
+        ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``.
     print_results : bool, default True
         If True, print a formatted table to stdout.
-    lags : int, default 1
-        Number of lags for the Breusch-Godfrey test.
+    lags : int, optional
+        Number of lags: of the Breusch-Godfrey test (default 1), or the
+        highest lag order of ``'varlmar'`` (default 2).
     powers : int, default 3
-        Highest power of y-hat for the RESET test.
+        Highest power added by the RESET test (``3`` adds the square and the
+        cube, as R's ``lmtest::resettest``; Stata's ``estat ovtest`` is
+        ``powers=4``).
     alpha : float, default 0.05
         Significance level for interpretation strings.
+    variables : {'rhs', 'fitted'}, list of str or ndarray, optional
+        ``'hettest'`` only: what the error variance may depend on. Default
+        ``'rhs'``, every regressor (R's ``lmtest::bptest``). ``'fitted'``
+        is the default of Stata's ``estat hettest``; a list names
+        regressors of the model.
+    version : {'iid', 'normal', 'fstat'}, default 'iid'
+        ``'hettest'`` only. ``'iid'`` is Koenker's N R-squared, valid
+        without normal errors; ``'normal'`` is the original score statistic,
+        the default of Stata's ``estat hettest``.
+    rhs : bool, default False
+        ``'reset'`` only: add powers of the regressors instead of powers of
+        the fitted values (Stata's ``estat ovtest, rhs``).
+    fill : {'zero', 'drop'}, default 'zero'
+        ``'bgodfrey'`` only: the lagged residual of the first ``lags``
+        observations is set to zero (the default of Stata and of R's
+        ``lmtest::bgtest``) or those observations are dropped (Stata's
+        ``nomiss0``).
+    threshold : float, optional
+        ``'classification'`` only: the probability above which an
+        observation is classified as a positive. Default 0.5.
 
     Returns
     -------
@@ -143,6 +179,8 @@ def estat(
     False
     """
     test = test.strip().lower()
+    var_lags = lags
+    lags = 1 if lags is None else lags
 
     # Alias
     if test == "ovtest":
@@ -168,13 +206,17 @@ def estat(
         "abond": lambda: estat_abond(result, alpha=alpha),
         "sargan": lambda: estat_sargan(result, alpha=alpha),
         "difhansen": lambda: estat_difference_in_hansen(result, alpha=alpha),
-        "hettest": lambda: _estat_hettest(result, alpha=alpha),
-        "white": lambda: _estat_white(result, alpha=alpha),
-        "reset": lambda: _estat_reset(result, powers=powers, alpha=alpha),
-        "bgodfrey": lambda: _estat_bgodfrey(result, lags=lags, alpha=alpha),
+        "hettest": lambda: _reg.hettest(
+            result, variables=variables, version=version, alpha=alpha
+        ),
+        "white": lambda: _reg.white(result, alpha=alpha),
+        "imtest": lambda: _reg.imtest(result, alpha=alpha),
+        "reset": lambda: _reg.reset(result, powers=powers, rhs=rhs, alpha=alpha),
+        "bgodfrey": lambda: _reg.bgodfrey(result, lags=lags, fill=fill, alpha=alpha),
         "dwatson": lambda: _estat_dwatson(result, alpha=alpha),
-        "vif": lambda: _estat_vif(result, alpha=alpha),
-        "ic": lambda: _estat_ic(result),
+        "vif": lambda: _reg.vif(result, alpha=alpha),
+        "ic": lambda: _reg.information_criteria(result),
+        "classification": lambda: _reg.classification(result, threshold=threshold),
         "linktest": lambda: _estat_linktest(result, alpha=alpha),
         "normality": lambda: _estat_normality(result, alpha=alpha),
         "leverage": lambda: _estat_leverage(result, alpha=alpha),
@@ -182,6 +224,34 @@ def estat(
         "overid": lambda: _estat_overid(result, alpha=alpha),
         "firststage": lambda: _estat_firststage(result, alpha=alpha),
     }
+
+    # A VAR has its own post-estimation suite (Stata: varlmar, varwle,
+    # varstable, vargranger); each returns a table.
+    _var_tests = {
+        "varlmar": lambda: result.lm_test(lags=2 if var_lags is None else var_lags),
+        "varwle": lambda: result.lag_exclusion(),
+        "varstable": lambda: result.stability(),
+        "vargranger": lambda: result.granger_table(),
+        "veclmar": lambda: result.lm_test(lags=2 if var_lags is None else var_lags),
+        "vecstable": lambda: result.stability(),
+    }
+    if test in _var_tests:
+        needs = "companion" if test.startswith("vec") else "lag_exclusion"
+        if not hasattr(result, needs):
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"sp.estat: {test!r} applies to a model fitted by "
+                + ("sp.vec." if test.startswith("vec") else "sp.var."),
+                recovery_hint="Pass the result of sp.var(...) / sp.vec(...).",
+            )
+        table = _var_tests[test]()
+        out_var: Dict[str, Any] = {"test": test, "table": table}
+        if test in ("varstable", "vecstable"):
+            out_var["stable"] = bool(table.attrs.get("stable"))
+        if print_results:
+            print(table.to_string(index=False))
+        return out_var
 
     if test == "all" and is_dynamic_panel_result(result):
         # 'all' on an OLS/IV fit means the regression diagnostics; on a
@@ -281,230 +351,6 @@ def _r_squared(y: np.ndarray, resid: np.ndarray) -> float:
 # ======================================================================
 
 # ------------------------------------------------------------------
-#  Breusch-Pagan heteroskedasticity test
-# ------------------------------------------------------------------
-
-
-def _estat_hettest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
-    """Breusch-Pagan / Cook-Weisberg test for heteroskedasticity."""
-    resid = _get_residuals(result)
-    X = _get_X(result)
-    n, k = X.shape
-
-    e2 = resid**2
-    _, aux_resid, _ = _ols_fit(X, e2)
-    tss_e2 = np.sum((e2 - e2.mean()) ** 2)
-    rss_e2 = np.sum(aux_resid**2)
-    r2 = 1.0 - rss_e2 / tss_e2 if tss_e2 > 0 else 0.0
-
-    lm = n * r2
-    df = k - 1  # regressors excl. constant
-    pval = float(sp_stats.chi2.sf(lm, df))
-
-    reject = pval < alpha
-    interp = (
-        f"REJECT H0 at {alpha:.0%}: evidence of heteroskedasticity. "
-        "Consider robust standard errors."
-        if reject
-        else f"Cannot reject H0 at {alpha:.0%}: no evidence of heteroskedasticity."
-    )
-
-    return {
-        "test": "Breusch-Pagan test for heteroskedasticity",
-        "H0": "Constant variance (homoskedasticity)",
-        "H1": "Variance depends on regressors",
-        "statistic": float(lm),
-        "statistic_label": f"chi2({df})",
-        "df": df,
-        "pvalue": pval,
-        "interpretation": interp,
-    }
-
-
-# ------------------------------------------------------------------
-#  White's general heteroskedasticity test
-# ------------------------------------------------------------------
-
-
-def _estat_white(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
-    """White's test: regress e^2 on X, X^2, and cross-products."""
-    resid = _get_residuals(result)
-    X = _get_X(result)
-    n, k = X.shape
-
-    e2 = resid**2
-
-    # Build auxiliary regressors: original X, squares, cross-products
-    # Skip constant column (assume col 0 is constant if all-ones)
-    cols = list(range(k))
-    const_col = None
-    for j in range(k):
-        if np.allclose(X[:, j], 1.0):
-            const_col = j
-            break
-
-    var_cols = [j for j in cols if j != const_col]
-
-    aux_parts = [np.ones((n, 1))]  # constant
-    # Original regressors (excl. constant)
-    for j in var_cols:
-        aux_parts.append(X[:, j : j + 1])
-    # Squared terms
-    for j in var_cols:
-        aux_parts.append((X[:, j] ** 2).reshape(-1, 1))
-    # Cross-products
-    for j1, j2 in combinations(var_cols, 2):
-        aux_parts.append((X[:, j1] * X[:, j2]).reshape(-1, 1))
-
-    X_aux = np.column_stack(aux_parts)
-    k_aux = X_aux.shape[1]
-
-    _, aux_resid, _ = _ols_fit(X_aux, e2)
-    tss_e2 = np.sum((e2 - e2.mean()) ** 2)
-    rss_e2 = np.sum(aux_resid**2)
-    r2 = 1.0 - rss_e2 / tss_e2 if tss_e2 > 0 else 0.0
-
-    lm = n * r2
-    df = k_aux - 1
-    pval = float(sp_stats.chi2.sf(lm, df))
-
-    reject = pval < alpha
-    interp = (
-        f"REJECT H0 at {alpha:.0%}: evidence of heteroskedasticity "
-        "(general form). Consider robust or HC standard errors."
-        if reject
-        else f"Cannot reject H0 at {alpha:.0%}: no evidence of heteroskedasticity."
-    )
-
-    return {
-        "test": "White's test for heteroskedasticity",
-        "H0": "Homoskedasticity",
-        "H1": "Unrestricted heteroskedasticity",
-        "statistic": float(lm),
-        "statistic_label": f"chi2({df})",
-        "df": df,
-        "pvalue": pval,
-        "interpretation": interp,
-    }
-
-
-# ------------------------------------------------------------------
-#  Ramsey RESET
-# ------------------------------------------------------------------
-
-
-def _estat_reset(
-    result: Any, *, powers: int = 3, alpha: float = 0.05
-) -> Dict[str, Any]:
-    """Ramsey RESET: add yhat^2, yhat^3, ... to detect misspecification."""
-    y = _get_y(result)
-    X = _get_X(result)
-    resid = _get_residuals(result)
-    yhat = _get_fitted(result)
-    n, k = X.shape
-
-    # Augmented design: original X + yhat^2 ... yhat^powers
-    aug_cols = [X]
-    for p in range(2, powers + 1):
-        aug_cols.append((yhat**p).reshape(-1, 1))
-    X_aug = np.column_stack(aug_cols)
-    k_aug = X_aug.shape[1]
-
-    _, resid_aug, _ = _ols_fit(X_aug, y)
-
-    rss_r = np.sum(resid**2)
-    rss_u = np.sum(resid_aug**2)
-    df1 = k_aug - k
-    df2 = n - k_aug
-
-    if rss_u > 0 and df1 > 0 and df2 > 0:
-        f_stat = ((rss_r - rss_u) / df1) / (rss_u / df2)
-        pval = float(sp_stats.f.sf(f_stat, df1, df2))
-    else:
-        f_stat = 0.0
-        pval = 1.0
-
-    reject = pval < alpha
-    interp = (
-        f"REJECT H0 at {alpha:.0%}: functional form may be misspecified. "
-        "Consider adding nonlinear terms or transformations."
-        if reject
-        else f"Cannot reject H0 at {alpha:.0%}: no evidence of misspecification."
-    )
-
-    return {
-        "test": "Ramsey RESET test",
-        "H0": "Model has no omitted nonlinearities",
-        "H1": "Nonlinear terms of fitted values are significant",
-        "statistic": float(f_stat),
-        "statistic_label": f"F({df1}, {df2})",
-        "df1": df1,
-        "df2": df2,
-        "pvalue": pval,
-        "interpretation": interp,
-    }
-
-
-# ------------------------------------------------------------------
-#  Breusch-Godfrey serial correlation
-# ------------------------------------------------------------------
-
-
-def _estat_bgodfrey(
-    result: Any, *, lags: int = 1, alpha: float = 0.05
-) -> Dict[str, Any]:
-    """Breusch-Godfrey LM test for serial correlation up to *lags* lags."""
-    resid = _get_residuals(result)
-    X = _get_X(result)
-    n, k = X.shape
-
-    # Auxiliary regression: e_t on X, e_{t-1}, ..., e_{t-lags}
-    # We lose the first `lags` observations
-    e_trimmed = resid[lags:]
-    X_trimmed = X[lags:]
-
-    lag_cols: List[np.ndarray] = []
-    for lag in range(1, lags + 1):
-        lag_cols.append(resid[lags - lag : n - lag].reshape(-1, 1))
-
-    aux_cols: List[np.ndarray] = [X_trimmed]
-    aux_cols.extend(lag_cols)
-    X_aux = np.column_stack(aux_cols)
-    n_aux = X_aux.shape[0]
-
-    _, aux_resid, _ = _ols_fit(X_aux, e_trimmed)
-    tss = np.sum((e_trimmed - e_trimmed.mean()) ** 2)
-    rss = np.sum(aux_resid**2)
-    r2 = 1.0 - rss / tss if tss > 0 else 0.0
-
-    lm = n_aux * r2
-    df = lags
-    pval = float(sp_stats.chi2.sf(lm, df))
-
-    reject = pval < alpha
-    lag_label = "lag" if lags == 1 else "lags"
-    interp = (
-        f"REJECT H0 at {alpha:.0%}: evidence of serial correlation "
-        f"up to {lags} {lag_label}. Consider Newey-West SEs."
-        if reject
-        else f"Cannot reject H0 at {alpha:.0%}: no evidence of serial correlation "
-        f"up to {lags} {lag_label}."
-    )
-
-    return {
-        "test": f"Breusch-Godfrey LM test ({lags} {lag_label})",
-        "H0": "No serial correlation",
-        "H1": f"Serial correlation up to order {lags}",
-        "statistic": float(lm),
-        "statistic_label": f"chi2({df})",
-        "df": df,
-        "pvalue": pval,
-        "lags": lags,
-        "interpretation": interp,
-    }
-
-
-# ------------------------------------------------------------------
 #  Durbin-Watson
 # ------------------------------------------------------------------
 
@@ -541,106 +387,6 @@ def _estat_dwatson(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
         "statistic_label": "d",
         "range": "[0, 4]; d = 2 means no autocorrelation",
         "interpretation": interp,
-    }
-
-
-# ------------------------------------------------------------------
-#  Variance Inflation Factors
-# ------------------------------------------------------------------
-
-
-def _estat_vif(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
-    """Compute VIF for each regressor (excluding constant)."""
-    X = _get_X(result)
-    n, k = X.shape
-
-    # Identify constant column
-    const_col = None
-    for j in range(k):
-        if np.allclose(X[:, j], 1.0):
-            const_col = j
-            break
-
-    var_cols = [j for j in range(k) if j != const_col]
-
-    # Variable names from params index
-    var_names = list(result.params.index)
-
-    rows = []
-    for j in var_cols:
-        y_j = X[:, j]
-        other_cols = [c for c in var_cols if c != j]
-        X_other = np.column_stack([np.ones(n)] + [X[:, c] for c in other_cols])
-        _, resid_j, _ = _ols_fit(X_other, y_j)
-        tss_j = np.sum((y_j - y_j.mean()) ** 2)
-        rss_j = np.sum(resid_j**2)
-        r2_j = 1.0 - rss_j / tss_j if tss_j > 0 else 0.0
-        vif_j = 1.0 / (1.0 - r2_j) if r2_j < 1.0 else np.inf
-
-        name = var_names[j] if j < len(var_names) else f"x{j}"
-        rows.append(
-            {
-                "variable": name,
-                "VIF": round(vif_j, 2),
-                "1/VIF": round(1.0 / vif_j, 4) if np.isfinite(vif_j) else 0.0,
-            }
-        )
-
-    vif_df = pd.DataFrame(rows)
-    max_vif = vif_df["VIF"].max() if len(vif_df) > 0 else 0.0
-
-    if max_vif > 10:
-        interp = (
-            f"Max VIF = {max_vif:.2f}: serious multicollinearity. "
-            "Consider dropping or combining variables."
-        )
-    elif max_vif > 5:
-        interp = (
-            f"Max VIF = {max_vif:.2f}: moderate multicollinearity. "
-            "Monitor but may be acceptable."
-        )
-    else:
-        interp = f"Max VIF = {max_vif:.2f}: no multicollinearity concern."
-
-    return {
-        "test": "Variance Inflation Factors",
-        "vif_table": vif_df,
-        "mean_vif": float(vif_df["VIF"].mean()) if len(vif_df) > 0 else 0.0,
-        "max_vif": float(max_vif),
-        "interpretation": interp,
-    }
-
-
-# ------------------------------------------------------------------
-#  Information criteria
-# ------------------------------------------------------------------
-
-
-def _estat_ic(result: Any) -> Dict[str, Any]:
-    """AIC, BIC, and HQIC."""
-    resid = _get_residuals(result)
-    n = _get_nobs(result)
-    X = _get_X(result)
-    k = X.shape[1]
-
-    rss = float(np.sum(resid**2))
-    ll_term = n * np.log(rss / n) if rss > 0 else 0.0
-
-    aic = ll_term + 2.0 * k
-    bic = ll_term + k * np.log(n)
-    hqic = ll_term + 2.0 * k * np.log(np.log(n)) if n > 1 else ll_term
-
-    return {
-        "test": "Information Criteria",
-        "AIC": float(aic),
-        "BIC": float(bic),
-        "HQIC": float(hqic),
-        "n": n,
-        "k": k,
-        "interpretation": (
-            "Lower values indicate better fit-complexity trade-off. "
-            "BIC penalises complexity more than AIC."
-        ),
     }
 
 
@@ -936,7 +682,7 @@ def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
             out["robust_score_pvalue"] = float(score_p) if score_p is not None else None
         return out
 
-    return {
+    out = {
         "test": "Durbin-Wu-Hausman endogeneity test",
         "H0": "Regressors are exogenous",
         "H1": "Regressors are endogenous",
@@ -945,6 +691,24 @@ def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
         "pvalue": float(dwh_pval) if dwh_pval is not None else None,
         "interpretation": interp,
     }
+    # Durbin's score form of the same test: with q endogenous regressors and
+    # the Wu-Hausman F on (q, m) degrees of freedom, D = N q F / (m + q F),
+    # chi-squared with q degrees of freedom.
+    info = getattr(result, "data_info", None) or {}
+    q = _iv_stat(result, "N endogenous")
+    n, k = info.get("nobs"), len(getattr(result, "params", []))
+    if q and n and k:
+        q, m = int(q), int(n) - k - int(q)
+        if m > 0:
+            durbin = int(n) * q * float(dwh) / (m + q * float(dwh))
+            out.update(
+                df1=q,
+                df2=m,
+                statistic_label=f"F({q}, {m})",
+                durbin=durbin,
+                durbin_pvalue=float(sp_stats.chi2.sf(durbin, q)),
+            )
+    return out
 
 
 # ------------------------------------------------------------------
@@ -1076,16 +840,16 @@ def _estat_all(
     has_fitted = result.data_info.get("fitted_values") is not None
 
     if has_resid and has_X:
-        outputs.append(_estat_hettest(result, alpha=alpha))
-        outputs.append(_estat_white(result, alpha=alpha))
-        outputs.append(_estat_bgodfrey(result, lags=lags, alpha=alpha))
+        outputs.append(_reg.hettest(result, alpha=alpha))
+        outputs.append(_reg.white(result, alpha=alpha))
+        outputs.append(_reg.bgodfrey(result, lags=lags, alpha=alpha))
         outputs.append(_estat_dwatson(result, alpha=alpha))
-        outputs.append(_estat_vif(result, alpha=alpha))
-        outputs.append(_estat_ic(result))
+        outputs.append(_reg.vif(result, alpha=alpha))
+        outputs.append(_reg.information_criteria(result))
         outputs.append(_estat_normality(result, alpha=alpha))
 
     if has_y and has_X and has_resid and has_fitted:
-        outputs.append(_estat_reset(result, powers=powers, alpha=alpha))
+        outputs.append(_reg.reset(result, powers=powers, alpha=alpha))
         outputs.append(_estat_linktest(result, alpha=alpha))
         outputs.append(_estat_leverage(result, alpha=alpha))
 
@@ -1195,12 +959,24 @@ def _print_result(out: Dict[str, Any]) -> None:
     # VIF table
     if "vif_table" in out:
         vif_df = out["vif_table"]
-        print(vif_df.to_string(index=False))
+        print(vif_df.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
         print(f"\n  Mean VIF = {out.get('mean_vif', 0):.2f}")
+        print()
+
+    elif "table" in out and "sensitivity" in out:
+        print(out["table"].to_string())
+        print()
+        for key in ("sensitivity", "specificity", "ppv", "npv"):
+            print(f"  {key:<22} = {100 * out[key]:>8.2f}%")
+        print(
+            f"  {'correctly classified':<22} = {100 * out['correctly_classified']:>8.2f}%"
+        )
         print()
 
     # Information criteria
     elif "AIC" in out:
+        if "ll" in out:
+            print(f"  {'ll':<10} = {out['ll']:>12.4f}")
         print(f"  {'AIC':<10} = {out['AIC']:>12.4f}")
         print(f"  {'BIC':<10} = {out['BIC']:>12.4f}")
         print(f"  {'HQIC':<10} = {out['HQIC']:>12.4f}")

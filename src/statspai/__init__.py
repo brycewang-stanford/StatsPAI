@@ -103,6 +103,7 @@ from .diagnostics import (
     evalue,
     evalue_from_result,
     evalue_rd,
+    hausman,
     hausman_test,
     het_test,
     kitagawa_test,
@@ -465,6 +466,7 @@ from .rd.rdrobust import rdrobust  # noqa: E402
 from .regression.interflex import interflex, interflex_plot
 from .regression.iv import IVRegression, ivreg
 from .regression.ols import regress
+from .regression.prais import prais
 from .synth import (
     SynthComparison,
     SyntheticControl,
@@ -855,6 +857,7 @@ from .panel.panel_fgls import panel_fgls
 
 # Panel Unit Root Tests
 from .panel.unit_root import PanelUnitRootResult, panel_unitroot
+from .panel.xt_tools import xtoverid, xtserial, xtsum
 from .parity import ParityStatus, parity_matrix, parity_status, parity_summary
 from .plots import (  # noqa: E402
     binscatter,
@@ -1046,9 +1049,11 @@ from .timeseries import (
     StructuralBreakResult,
     UnitRootResult,
     VARResult,
+    VECResult,
     ardl,
     arima,
     bvar,
+    corrgram,
     cusum_test,
     engle_granger,
     garch,
@@ -1060,6 +1065,8 @@ from .timeseries import (
     structural_break,
     unitroot,
     var,
+    varsoc,
+    vec,
 )
 
 # Eager: ``tmle`` collides (function + subpackage of same name).
@@ -1545,7 +1552,11 @@ __all__ = [
     "vif",
     "sensemakr",
     "rddensity",
+    "hausman",
     "hausman_test",
+    "xtsum",
+    "xtserial",
+    "xtoverid",
     "anderson_rubin_test",
     "effective_f_test",
     "tF_critical_value",
@@ -1926,6 +1937,11 @@ __all__ = [
     "UnitRootResult",
     "ardl",
     "ARDLResult",
+    "corrgram",
+    "prais",
+    "varsoc",
+    "vec",
+    "VECResult",
     "engle_granger",
     "johansen",
     "CointegrationResult",

@@ -6218,6 +6218,354 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="corrgram",
+            category="timeseries",
+            description=(
+                "Correlogram of one series: autocorrelations, partial "
+                "autocorrelations and the Ljung-Box portmanteau Q statistic "
+                "with its p-value at every lag (Stata corrgram; the last row "
+                "is wntestq at that lag). The partial autocorrelation is the "
+                "regression coefficient on the k-th lag by default, or the "
+                "Yule-Walker solution with pac='yw' (R pacf). The Q test's "
+                "chi-squared reference ignores that regression residuals "
+                "were estimated: after a fit use sp.estat(result, 'bgodfrey')."
+            ),
+            params=[
+                ParamSpec(
+                    "data",
+                    "DataFrame|Series|array",
+                    True,
+                    None,
+                    "The series, in time order",
+                ),
+                ParamSpec("y", "str", False, None, "Column, when data is a DataFrame"),
+                ParamSpec(
+                    "lags",
+                    "int",
+                    False,
+                    None,
+                    "Number of lags; default min(floor(n / 2) - 2, 40)",
+                ),
+                ParamSpec(
+                    "pac",
+                    "str",
+                    False,
+                    "regression",
+                    "How the partial autocorrelations are computed",
+                    ["regression", "yw"],
+                ),
+            ],
+            returns="DataFrame",
+            example='sp.corrgram(df, "resid", lags=12)',
+            tags=["timeseries", "autocorrelation", "ljung-box", "white-noise"],
+            reference="ljung1978measure",
+            assumptions=[
+                "Covariance-stationary series",
+                "Equally spaced observations in time order",
+                "The Q statistic's chi-squared reference assumes a raw series; on residuals of a fitted ARMA(p, q) the degrees of freedom fall by p + q",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="prais",
+            category="regression",
+            description=(
+                "Linear regression with AR(1) errors by feasible GLS: "
+                "Prais-Winsten (keeps the first observation) or "
+                "Cochrane-Orcutt (drops it), iterated until rho converges or "
+                "two-step. Six estimators of rho (regress, freg, tscorr, dw, "
+                "theil, nagar) and robust covariances; reproduces Stata "
+                "prais. Reports rho and the Durbin-Watson statistic before "
+                "and after the transformation. A rho near one points to a "
+                "unit root: test with sp.unitroot before reading the fit."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, None, "y ~ x1 + x2"),
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    True,
+                    None,
+                    "One row per period, no missing values, no gaps",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "prais",
+                    "Prais-Winsten or Cochrane-Orcutt",
+                    ["prais", "corc"],
+                ),
+                ParamSpec(
+                    "rhotype",
+                    "str",
+                    False,
+                    "regress",
+                    "How rho is computed from the residuals",
+                    ["regress", "freg", "tscorr", "dw", "theil", "nagar"],
+                ),
+                ParamSpec("twostep", "bool", False, False, "Stop after one update"),
+                ParamSpec("time", "str", False, None, "Column to sort by first"),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "ols",
+                    "Covariance of the transformed regression",
+                    ["ols", "robust", "hc2", "hc3"],
+                ),
+                ParamSpec("tol", "float", False, 1e-6, "Convergence of rho"),
+                ParamSpec("maxiter", "int", False, 100, "Iteration limit"),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="EconometricResults",
+            example='sp.prais("consumption ~ income + price", data=df, method="corc")',
+            tags=["regression", "timeseries", "serial-correlation", "fgls", "ar1"],
+            reference="cochrane1949application",
+            assumptions=[
+                "Linear model with strictly exogenous regressors: a lagged dependent variable makes the estimate of rho, and with it the FGLS estimate, inconsistent",
+                "Errors follow a stationary AR(1); higher-order or seasonal correlation is not removed",
+                "Equally spaced observations in time order, no gaps",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="varsoc",
+            category="timeseries",
+            description=(
+                "Lag-order selection for a VAR: log likelihood, sequential "
+                "likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders "
+                "0..maxlag, all fitted on the same observations (Stata "
+                "varsoc). attrs['selected'] gives the order each criterion "
+                "picks. SBIC and HQIC are consistent; AIC and FPE tend to "
+                "pick longer lags. Check the residuals of the chosen model "
+                "with sp.estat(fit, 'varlmar')."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Series in time order"),
+                ParamSpec("variables", "list", False, None, "Endogenous variables"),
+                ParamSpec("maxlag", "int", False, 4, "Highest order considered"),
+                ParamSpec(
+                    "trend",
+                    "str",
+                    False,
+                    "c",
+                    "Deterministic terms",
+                    ["c", "ct", "n"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the LR test"),
+            ],
+            returns="DataFrame",
+            example='sp.varsoc(df, ["inflation", "unemployment"], maxlag=8)',
+            tags=["timeseries", "var", "lag-selection", "information-criteria"],
+            reference="lutkepohl2005new",
+            assumptions=[
+                "Every lag order is fitted on the same sample, the one the longest lag allows",
+                "Stationary VAR, or a VAR in levels where the rank of cointegration is not the question",
+                "The likelihood-ratio column assumes Gaussian errors",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="vec",
+            category="timeseries",
+            description=(
+                "Vector error-correction model by Johansen maximum "
+                "likelihood for a given cointegration rank: adjustment "
+                "coefficients (alpha), cointegrating vectors (beta, Johansen "
+                "normalisation, with standard errors), short-run dynamics, "
+                "log likelihood and information criteria; reproduces Stata "
+                "vec. Methods: equation_table(), lm_test() (veclmar), "
+                "stability() (vecstable). Choose the rank with sp.johansen "
+                "first; lags counts lagged differences (Stata's lags(p) is "
+                "lags = p - 1)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Levels, in time order"),
+                ParamSpec(
+                    "variables",
+                    "list",
+                    False,
+                    None,
+                    "Series of the system; the first `rank` are normalised on",
+                ),
+                ParamSpec("lags", "int", False, 1, "Number of lagged differences"),
+                ParamSpec("rank", "int", False, 1, "Cointegration rank, 1..K-1"),
+                ParamSpec(
+                    "trend",
+                    "str",
+                    False,
+                    "c",
+                    "Deterministic terms: unrestricted constant, constant in "
+                    "the relation, none, trend in the relation, unrestricted "
+                    "trend",
+                    ["c", "rc", "n", "rt", "ct"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="VECResult",
+            example='sp.vec(df, ["log_m", "log_y", "r"], lags=1, rank=1)',
+            tags=["timeseries", "cointegration", "vecm", "johansen"],
+            reference="johansen1991estimation",
+            assumptions=[
+                "Every series is I(1) and the cointegrating rank passed is the true one (test it with sp.johansen first)",
+                "Gaussian errors for the likelihood and the reported standard errors",
+                "The lag order is that of the VAR in levels; the VECM has one lag fewer",
+                "Johansen's normalisation identifies beta; other restrictions on beta are not imposed",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="hausman",
+            category="diagnostics",
+            description=(
+                "Hausman specification test between two fitted models: one "
+                "consistent under both hypotheses (IV, fixed effects), one "
+                "efficient under the null (OLS, random effects). Compares "
+                "the coefficients they share with a generalised inverse of "
+                "V_b - V_B; degrees of freedom are its rank. sigmamore=True "
+                "bases both covariances on the efficient model's variance, "
+                "the form to use for IV against OLS (Stata hausman, "
+                "sigmamore). Not valid with robust or clustered covariances: "
+                "use sp.estat(iv, 'endogenous') or sp.xtoverid instead."
+            ),
+            params=[
+                ParamSpec("consistent", "result", True, None, "IV / FE fit"),
+                ParamSpec("efficient", "result", True, None, "OLS / RE fit"),
+                ParamSpec("constant", "bool", False, False, "Compare the constant too"),
+                ParamSpec(
+                    "sigmamore",
+                    "bool",
+                    False,
+                    False,
+                    "Use the efficient model's disturbance variance for both",
+                ),
+                ParamSpec(
+                    "sigmaless",
+                    "bool",
+                    False,
+                    False,
+                    "Use the consistent model's disturbance variance for both",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the decision"),
+            ],
+            returns="dict",
+            example="sp.hausman(iv_fit, ols_fit, sigmamore=True)",
+            tags=["diagnostics", "specification", "endogeneity", "panel", "iv"],
+            reference="hausman1978specification",
+            assumptions=[
+                "Both estimators are consistent under the null and the second is efficient there",
+                "The difference of the two covariance matrices is positive semi-definite; with robust or clustered covariances it need not be, and the statistic is then not chi-squared",
+                "Both models are fitted on the same sample with the same coefficient names",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="xtsum",
+            category="panel",
+            description=(
+                "Overall, between and within summary statistics of panel "
+                "variables (Stata xtsum): the standard deviation of the "
+                "panel means and of the deviations from them. A regressor "
+                "with little within variation is barely identified under "
+                "fixed effects."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Long panel"),
+                ParamSpec("variables", "list", False, None, "Variables to describe"),
+                ParamSpec("id", "str", True, None, "Panel identifier"),
+            ],
+            returns="DataFrame",
+            example='sp.xtsum(df, ["wage", "tenure"], id="person")',
+            tags=["panel", "descriptive", "within", "between"],
+            assumptions=[
+                "Long panel, one row per unit and period",
+                "The within deviation adds the grand mean back, as Stata does, so it is comparable with the overall column",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="xtserial",
+            category="panel",
+            description=(
+                "Wooldridge test for first-order serial correlation in the "
+                "errors of a linear panel model (Stata xtserial): the model "
+                "is estimated in first differences and the residuals' "
+                "autocorrelation is tested against -0.5 with a "
+                "panel-clustered variance. Works with unbalanced panels and "
+                "gaps. Rejection means cluster the standard errors on the "
+                "panel or model the dynamics."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Long panel"),
+                ParamSpec("y", "str", True, None, "Outcome"),
+                ParamSpec("x", "list", True, None, "Time-varying regressors"),
+                ParamSpec("id", "str", True, None, "Panel identifier"),
+                ParamSpec("time", "str", True, None, "Period counter (integers)"),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the decision"),
+            ],
+            returns="dict",
+            example='sp.xtserial(df, "y", ["x1", "x2"], id="firm", time="year")',
+            tags=["panel", "serial-correlation", "diagnostics", "wooldridge"],
+            reference="wooldridge2010econometric; drukker2003testing",
+            assumptions=[
+                "Linear panel model with time-varying regressors",
+                "Under the null the idiosyncratic errors are serially uncorrelated, which makes the first-differenced errors correlated at -0.5",
+                "Many panels: the variance is clustered on the panel",
+                "Integer time index; a gap removes the differences that span it",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="xtoverid",
+            category="panel",
+            description=(
+                "Cluster-robust test of random effects against fixed "
+                "effects (Stata xtoverid after xtreg, re): the random-effects "
+                "equation is augmented with the regressors in "
+                "deviation-from-panel-mean form and the added terms are "
+                "tested jointly. Unlike the classical Hausman test it is "
+                "valid under heteroskedasticity and within-panel "
+                "correlation and cannot be negative."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Long panel"),
+                ParamSpec("y", "str", True, None, "Outcome"),
+                ParamSpec("x", "list", True, None, "Regressors"),
+                ParamSpec("id", "str", True, None, "Panel identifier"),
+                ParamSpec(
+                    "cluster", "str", False, None, "Cluster variable (default id)"
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the decision"),
+            ],
+            returns="dict",
+            example='sp.xtoverid(df, "y", ["x1", "x2"], id="firm")',
+            tags=["panel", "specification", "random-effects", "hausman", "robust"],
+            reference="arellano1993testing; wooldridge2010econometric",
+            assumptions=[
+                "Random-effects model with at least one time-varying regressor",
+                "Null: the regressors are uncorrelated with the unit effect, which is what makes random effects consistent",
+                "Many panels: the test is robust to heteroskedasticity and within-panel correlation, unlike the classical Hausman test",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="ttest",
             category="inference",
             description=(

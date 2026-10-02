@@ -223,6 +223,16 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "synth": (("figure", 3),),
     "ttest": (("unpaired", 3), ("unequal", 3), ("welch", 1)),
     "tabstat": (("statistics", 1), ("columns", 1), ("format", 1)),
+    "dfuller": (("regress", 3), ("trend", 2), ("drift", 2), ("lags", 1)),
+    "estat": (("nomiss0", 4), ("lags", 1), ("cutoff", 3)),
+    "prais": (("rhotype", 3), ("twostep", 3)),
+    "corrgram": (("lags", 1),),
+    "varsoc": (("maxlag", 1),),
+    "varlmar": (("mlag", 2),),
+    "veclmar": (("mlag", 2),),
+    "vec": (("rank", 1), ("lags", 1), ("trend", 1)),
+    "vecrank": (("lags", 1), ("trend", 1), ("max", 1)),
+    "wntestq": (("lags", 1),),
 }
 
 
@@ -285,7 +295,8 @@ _DISPLAY_BY_COMMAND = {
     # `all` also prints the conventional statistic; the robust one, which
     # is the test, is unchanged.
     "rddensity": {"plot", "plot_range", "hist_range", "graph_opt", "all"},
-    "synth": {"figure", "keep"},
+    # sigf() / margin() / maxiter() tune Stata's optimiser, not the estimand
+    "synth": {"figure", "keep", "sigf", "margin", "maxiter", "replace"},
     "sdid": {"graph", "g1on", "g1_opt", "g2_opt", "graph_export", "msize"},
     "bacondecomp": {"ddetail", "nograph", "stub", "gropt"},
     "mediate": {
@@ -300,6 +311,13 @@ _DISPLAY_BY_COMMAND = {
     },
     "boottest": {"nograph"},
     "dfuller": {"regress"},
+    "xtreg": {"theta"},
+    "xtserial": {"output"},
+    "rcm": {"nofigure", "savegraph", "frame", "seed"},
+    "varbasic": {"irf", "oirf", "fevd", "nograph", "step"},
+    "varstable": {"graph"},
+    "vecstable": {"graph"},
+    "vecrank": {"max", "ic", "notrace"},
     "tabstat": {"columns", "format", "longstub", "labelwidth", "varwidth"},
     # reghdfe's way of saying "no fixed effects": what the call does without absorb()
     "reghdfe": {"noabsorb"},

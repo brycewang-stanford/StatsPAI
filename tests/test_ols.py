@@ -473,5 +473,54 @@ class TestOLSRegression:
             assert lower < estimate < upper
 
 
+import statspai as sp  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"robust": "hc1"},
+        {"robust": "hc3"},
+        {"robust": "hac", "hac_lags": 3},
+        {"robust": "ewc"},
+        {"cluster": "g"},
+    ],
+)
+def test_model_f_is_the_wald_test_of_all_slopes(kwargs):
+    """With a robust covariance the reported F is `sp.test` of every slope
+    on that covariance, not the ratio of sums of squares."""
+    rng = np.random.default_rng(7)
+    n = 240
+    df = pd.DataFrame(
+        {"x": rng.normal(size=n), "z": rng.normal(size=n), "g": np.arange(n) % 40}
+    )
+    df["y"] = 1 + 0.4 * df.x + rng.normal(size=n) * (1 + 0.5 * np.abs(df.x))
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.regress("y ~ x + z", data=df, **kwargs)
+        joint = sp.test(fit, "x z")
+    assert np.isclose(fit.diagnostics["F-statistic"], joint["statistic"])
+    assert np.isclose(fit.diagnostics["Prob (F-statistic)"], joint["pvalue"])
+    classical = sp.regress("y ~ x + z", data=df).diagnostics["F-statistic"]
+    assert not np.isclose(fit.diagnostics["F-statistic"], classical)
+
+
+def test_no_constant_fit_statistics_are_uncentred():
+    rng = np.random.default_rng(8)
+    df = pd.DataFrame({"x": rng.normal(2, 1, 100)})
+    df["y"] = 3 * df.x + rng.normal(size=100)
+    fit = sp.regress("y ~ x - 1", data=df)
+    resid = np.asarray(fit.data_info["residuals"])
+    y = df.y.to_numpy()
+    assert np.isclose(fit.diagnostics["R-squared"], 1 - resid @ resid / (y @ y))
+    assert fit.data_info["df_model"] == 1
+    assert 0 < fit.diagnostics["R-squared"] <= 1
+    # F tests the single coefficient: the square of its t statistic
+    t = fit.params["x"] / fit.std_errors["x"]
+    assert np.isclose(fit.diagnostics["F-statistic"], t**2)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

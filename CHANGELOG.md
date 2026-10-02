@@ -4,6 +4,134 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### An undergraduate textbook's do-files, replayed against Stata
+
+The 18 chapter do-files of Chen Qiang's *Econometrics and Stata
+Applications* (2nd edition) were run in Stata 18 with a log, and every
+logged command was replayed through one `sp.stata` session
+(`scripts/stata_log_replay.py`). At the start 607 printed numbers were
+reproduced and about 230 commands were refused. Now 2,911 numbers are
+reproduced, 17 differ for documented reasons and three `synth2` commands are
+declined. The findings are in
+`docs/dev/2026-10-03-chen-qiang-2e-review.md`, the reader's guide in
+`docs/guides/chen_qiang_2e.md`. The textbook's programs and data are not
+redistributed. Everything below is pinned against real Stata 18 output on
+four committed synthetic datasets
+(`tests/reference_parity/test_textbook_methods_stata_parity.py`, 40 blocks).
+
+#### ⚠️ Correctness
+
+- **`sp.regress` reported the classical F statistic under a robust,
+  clustered or HAC covariance.** `diagnostics['F-statistic']` was the ratio
+  of sums of squares whatever the covariance. On the Nerlove cost function
+  with `robust='hc1'` it was 437.9 where the Wald F on the robust covariance
+  is 177.19 (Stata `regress, robust`). It is now that Wald statistic, with
+  `N - K` denominator degrees of freedom, `G - 1` under clustering and the
+  rescaled `F(q, B - q + 1)` under `robust='ewc'`, and equals `sp.test` of
+  all slopes. Classical fits are unchanged.
+- **Fit statistics of a regression without a constant.** `y ~ x - 1`
+  reported the centred R-squared (negative when the line through the origin
+  fits worse than the mean), an F statistic that assumed an intercept and
+  `df_model = K - 1`. They are now the uncentred R-squared, the F test of
+  all `K` coefficients and `df_model = K`, as Stata `regress, noconstant`
+  and R `lm(y ~ x - 1)`.
+- **`AIC` / `BIC` of `sp.regress` and `sp.estat(..., 'ic')`** were
+  `N log(RSS / N) + 2K`, without the constant `N (log 2 pi + 1)`, so they
+  disagreed with the log likelihood reported next to them and with Stata and
+  R. They are now `-2 log L + 2K` and `-2 log L + K log N`. Differences
+  between models, and therefore every model choice, are unchanged.
+  `sp.estat(..., 'ic')` also returns `ll` and uses the model's own
+  likelihood after `sp.logit` / `sp.probit`.
+- **`sp.estat(..., 'white')` degrees of freedom.** Squares and
+  cross-products that duplicate another term (the square of a dummy) were
+  counted as restrictions. The statistic was right, the p-value too large.
+- **`sp.estat(..., 'bgodfrey')` default.** The first `lags` observations
+  were dropped. Stata's `estat bgodfrey` and R's `lmtest::bgtest` both keep
+  them with the missing lagged residuals set to zero. That is now the
+  default (`fill='zero'`); `fill='drop'` is the old behaviour and Stata's
+  `nomiss0`.
+- **`sp.estat(..., 'vif')`** returned the factors rounded to two decimals
+  and `1/VIF` to four. They are returned at full precision.
+- **Breusch-Pagan LM test for random effects on an unbalanced panel**
+  (`result.bp_lm_test()`). The scale factor used the average panel length.
+  It is now the Baltagi-Li form with `sum T_i^2`, which is Stata's
+  `xttest0` (274.68 where the old formula gave 277.21 on the test panel).
+  Balanced panels are unchanged.
+- **`sp.from_stata("synth ...")`** now passes `placebo=False`. Stata's
+  `synth` fits the treated unit only; the translation ran the in-space
+  placebo as well, minutes per donor with `nested`.
+
+#### Added
+
+- **`sp.prais`**: Prais-Winsten and Cochrane-Orcutt regression with AR(1)
+  errors, iterated or two-step, six estimators of `rho`, robust
+  covariances. All 24 combinations agree with Stata `prais` to 1e-9
+  (two-step) or to Stata's own convergence tolerance (iterated).
+- **`sp.corrgram`**: autocorrelations, partial autocorrelations
+  (regression or Yule-Walker) and Ljung-Box Q statistics; Stata `corrgram`
+  and `wntestq`.
+- **`sp.varsoc`** and, on the result of `sp.var`, `lag_exclusion()`,
+  `lm_test()`, `stability()`, `granger_table()`, `equation_table()`,
+  `forecast()` and `fpe`: Stata's `varsoc`, `varwle`, `varlmar`,
+  `varstable`, `vargranger` and `fcast compute`. Also reachable as
+  `sp.estat(fit, 'varlmar' | 'varwle' | 'varstable' | 'vargranger')`.
+- **`sp.vec`**: vector error-correction model by Johansen maximum
+  likelihood with all five trend specifications, standard errors of the
+  cointegrating vectors, `lm_test()` and `stability()`. Agrees with Stata
+  `vec`, `veclmar` and `vecstable` to 1e-8.
+- **`sp.hausman(consistent, efficient)`**: the Hausman test between two
+  fitted models, with `constant=`, `sigmamore=` and `sigmaless=`, a
+  generalised inverse and rank degrees of freedom, as Stata `hausman`.
+- **`sp.panel(method='mle')`**: random effects by Gaussian maximum
+  likelihood with observed-information standard errors (Stata `xtreg, mle`).
+- **`sp.xtsum`, `sp.xtserial`, `sp.xtoverid`**: within and between
+  summary statistics, Wooldridge's test for serial correlation, and the
+  cluster-robust test of random against fixed effects.
+- **`sp.synth(method='rcm')`**: the regression control method (the panel
+  data approach of Hsiao, Ching and Wan) with exact best-subset, forward or
+  backward selection, AICc / AIC / BIC / MBIC, placebo runs in space with
+  period-by-period p-values and a placebo in time. The best subset is found
+  by branch and bound: the 24-donor Hong Kong example with a placebo run per
+  donor takes about a second and reproduces every digit the Stata command
+  `rcm` prints.
+- **`sp.estat`**: `'imtest'` (White's test with Cameron and Trivedi's
+  skewness and kurtosis parts), `'classification'` after `sp.logit` /
+  `sp.probit`, the Durbin score form in `'endogenous'`, and the options
+  `variables=` / `version=` (`'hettest'`), `rhs=` (`'reset'`), `fill=`
+  (`'bgodfrey'`), `threshold=`.
+- **`sp.synth_loo`, `sp.synth_time_placebo`, `sp.synth_rmspe_filter`,
+  `sp.synth_donor_sensitivity`** take `covariates=`, `special_predictors=`
+  and `v_method=`, so a robustness check runs on the specification of the
+  estimate it checks. They matched on pre-treatment outcomes only.
+- **`sp.stata` runs much more of a do-file.** `regress, noconstant`;
+  weight expressions (`[aw=1/v]`), frequency weights (expanded rows) and a
+  weight clause after `if`; `gsort`, `rename`, `tabulate` with
+  `generate()`, `collapse`, `ipolate`, `set obs`, `set seed`, `clear`;
+  `asinh()`, running `sum()`, date functions, densities and quantiles,
+  random draws and time-series operators inside `generate`; `e(rss)`,
+  `e(mss)`, `e(rmse)`, `e(df_r)`, `e(df_m)`, `e(F)`, `e(ll)`; `predict,
+  leverage`, `predict` after `logit` / `probit`, `predict ... if`;
+  `estimates store / restore / table`, `esttab`, `hausman`; `bysort:
+  summarize`; `estat` and its subcommands; `prais`, `corrgram`, `wntestq`,
+  the `var` and `vec` families, `fcast compute`; `xtreg, re | be | mle`
+  with `sigma_u`, `sigma_e`, `rho`, the three R-squared and the constant of
+  `xtreg, fe`; `xttest0`, `xtoverid`, `xtserial`, `xtsum`; the `_cons` that
+  `reghdfe` prints; `teffects psmatch` with `generate()` and `osample()`,
+  `predict, ps`, `tebalance summarize`; `c.x#(c.z1-z9)` and `test
+  c.x#c.z`; `rcm`; and `program ... end` with `simulate`. `tsset` / `xtset`
+  now sort the data, as in Stata. Random numbers come from numpy, so a
+  simulation has Stata's design and another sample; a warning says so.
+- `scripts/stata_log_replay.py` compares regression headers, `estat`,
+  `margins`, `hausman`, `corrgram`, the `var` / `vec` suites, the `xt`
+  commands, `teffects`, `tebalance`, `rdrobust`, `rddensity`, `synth` and
+  `rcm` output, reads the `tsset` declaration and value labels stored in a
+  `.dta` file, and marks numbers computed on simulated data.
+
+refs verified via Crossref and OpenAlex: `cochrane1949application`,
+`ljung1978measure`, `hsiao2012panel`, `drukker2003testing`,
+`arellano1993testing`, `baltagi1990lagrange`, `yan2022rcm`,
+`yan2023synth2`.
+
 ### A design-based textbook's do-files, run against Stata
 
 The do-files of Zhao Xiliang's *Design-Based Econometrics* (2nd edition,

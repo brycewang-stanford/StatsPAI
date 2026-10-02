@@ -521,6 +521,8 @@ _METHOD_ALIASES = {
     "random_effects": "re",
     "be": "be",
     "between": "be",
+    "mle": "mle",
+    "re_mle": "mle",
     "fd": "fd",
     "first_difference": "fd",
     "pooled": "pooled",
@@ -807,6 +809,11 @@ def _dispatch_panel_impl(
         - ``'fe'``          Fixed Effects (within estimator)
         - ``'re'``          Random Effects (GLS)
         - ``'be'``          Between estimator
+        - ``'mle'``         Random Effects by Gaussian maximum likelihood
+          (Stata ``xtreg, mle``; native). Standard errors from the observed
+          information of the full likelihood; ``model_info`` carries
+          ``sigma_u``, ``sigma_e``, ``rho``, the log likelihood and the
+          likelihood-ratio test of ``sigma_u = 0``.
         - ``'fd'``          First Differences
         - ``'pooled'``      Pooled OLS
         - ``'twoway'``      Two-way FE (entity + time effects)
@@ -1059,6 +1066,24 @@ def _dispatch_panel_impl(
             recovery_hint="Drop cluster= or pass cluster='entity'.",
         )
 
+    if canonical == "mle":
+        if robust != "nonrobust" or cluster is not None or weights is not None:
+            raise _panel_method_error(
+                "sp.panel(method='mle') reports observed-information standard "
+                "errors only; robust=, cluster= and weights= are not supported.",
+                diagnostics={"method": canonical},
+                recovery_hint="Use method='re' with cluster= for a robust "
+                "random-effects fit.",
+            )
+        return _fit_re_mle(
+            data=data,
+            dep_var=dep_var,
+            indep_vars=indep_vars,
+            entity=entity,
+            time=time,
+            formula=formula,
+            alpha=alpha,
+        )
     if canonical in _GMM_METHODS:
         return _fit_gmm(
             data=data,
@@ -1104,6 +1129,59 @@ def _dispatch_panel_impl(
             alpha=alpha,
             ssc=ssc_key,
         )
+
+
+def _fit_re_mle(
+    data: pd.DataFrame,
+    dep_var: str,
+    indep_vars: List[str],
+    entity: str,
+    time: str,
+    formula: str,
+    alpha: float,
+) -> PanelResults:
+    """Random effects by Gaussian maximum likelihood (Stata ``xtreg, mle``)."""
+    from ._re_mle import fit_re_mle
+
+    fit = fit_re_mle(data, dep_var, indep_vars, entity, alpha)
+    index = pd.Index(fit["names"])
+    cov = pd.DataFrame(fit["cov"], index=index, columns=index)
+    info = dict(fit["model_info"])
+    info.update(
+        model_type="Panel RE (ML)", method="mle", robust="nonrobust", alpha=alpha
+    )
+    return PanelResults(
+        params=pd.Series(fit["beta"], index=index),
+        std_errors=pd.Series(np.sqrt(np.diag(fit["cov"])), index=index),
+        model_info=info,
+        data_info={
+            "nobs": fit["nobs"],
+            "df_model": len(indep_vars),
+            "df_resid": fit["nobs"] - len(index),
+            "dependent_var": dep_var,
+            "fitted_values": fit["fitted"],
+            "residuals": fit["residuals"],
+            "vcov": cov,
+            "inference": "z",
+        },
+        diagnostics={
+            "Log-Likelihood": info["ll"],
+            "LR chi2": info["lr_chi2"],
+            "Prob > chi2": info["lr_pvalue"],
+            "sigma_u": info["sigma_u"],
+            "sigma_e": info["sigma_e"],
+            "rho": info["rho"],
+            "N entities": float(fit["n_groups"]),
+        },
+        _panel_data=data,
+        _formula=formula,
+        _entity=entity,
+        _time=time,
+        _dep_var=dep_var,
+        _indep_vars=list(indep_vars),
+        _method="mle",
+        _lm_result=None,
+    )
 
 
 # ======================================================================

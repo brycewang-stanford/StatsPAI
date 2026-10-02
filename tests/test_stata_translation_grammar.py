@@ -80,7 +80,7 @@ def test_a_full_name_wins_over_an_abbreviation_of_it():
     "line, lost",
     [
         ("reg y x, foobar(3)", ["foobar"]),
-        ("reg y x, nocons", ["noconstant"]),
+        ("reg y x, hascons", ["hascons"]),
         ("reghdfe y x, absorb(id) dofadjustments(none)", ["dofadjustments"]),
         ("reg y x, small", ["small"]),
         ("reg y x, vce(bootstrap)", ["vce"]),
@@ -172,8 +172,16 @@ def test_prefixes_that_change_the_estimate_are_refused(line):
 
 def test_xtreg_needs_fe_and_robust_means_clustering_on_the_panel():
     # xtreg's default estimator is random effects, not the within estimator
-    assert not sp.from_stata("xtreg y x, i(id)")["ok"]
-    assert not sp.from_stata("xtreg y x, be i(id)")["ok"]
+    out = sp.from_stata("xtreg y x, i(id) t(year)")
+    assert (out["tool"], out["arguments"]["method"]) == ("panel", "re")
+    assert out["arguments"]["ssc"] == "stata"
+    out = sp.from_stata("xtreg y x, be i(id) t(year)")
+    assert out["arguments"]["method"] == "be"
+    out = sp.from_stata("xtreg y x, mle i(id) t(year)")
+    assert out["arguments"]["method"] == "mle"
+    # without the panel declaration the call is not runnable, and says so
+    out = sp.from_stata("xtreg y x")
+    assert any("<panel_id>" in note for note in out["notes"])
     out = sp.from_stata("xtreg y x, fe r i(id)")
     assert out["arguments"] == {"fml": "y ~ x | id", "cluster": "id"}
     # an explicit cluster variable is kept
@@ -346,7 +354,7 @@ def test_the_abbreviated_absorb_changes_the_point_estimate(df):
         ("reg y x if e(sample)", "is not applied"),
         ("reg y x if strlen(g) > 1", "is not applied"),
         ("reg y x in 1/100000", "is not applied"),
-        ("reg y x, nocons", "noconstant"),
+        ("reg y x, hascons", "hascons"),
         ("reg y x, foobar(1)", "foobar"),
         ("reghdfe y x, absorb(id) dofadjustments(none)", "dofadjustments"),
         ("reg y x, vce(bootstrap)", "vce"),
