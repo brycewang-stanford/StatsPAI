@@ -5,7 +5,7 @@
   "n_with_defects": 0,
   "enum_values": {
     "ok": 249,
-    "precondition": 34,
+    "precondition": 40,
     "rejected": 0
   },
   "functions": [
@@ -1720,6 +1720,22 @@
           "forward_did": {
             "status": "ok"
           },
+          "rcm": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.\n  -> re"
+          },
+          "hcw": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.\n  -> re"
+          },
+          "regression_control": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.\n  -> re"
+          },
+          "pda": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.\n  -> re"
+          },
           "cluster": {
             "status": "ok"
           },
@@ -1813,6 +1829,16 @@
           },
           "r": {
             "status": "ok"
+          }
+        },
+        "covariate_method": {
+          "projected": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: sdid: se_method='noinference' and covariate_method= are available with treat= only.\n  -> recovery: Declare treatment with treat='<0/1 column"
+          },
+          "optimized": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: sdid: se_method='noinference' and covariate_method= are available with treat= only.\n  -> recovery: Declare treatment with treat='<0/1 column"
           }
         }
       },

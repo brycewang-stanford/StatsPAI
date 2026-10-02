@@ -652,7 +652,7 @@ changes its numbers.
 - **Agent card audit of the 30 most-used entry points**
   (`scripts/agent_card_audit.py`, `docs/dev/agent_card_audit.md`). Each
   card is checked against a real call: required arguments, result class,
-  all 283 schema enum values, recommended alternatives. See Fixed for
+  all 289 schema enum values, recommended alternatives. See Fixed for
   what it found.
 - **Stata translation holdout** (`tests/stata_translation_holdout/`): 39
   commands written against Stata's documented grammar, with the numbers

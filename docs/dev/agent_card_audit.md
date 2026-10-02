@@ -6,7 +6,7 @@ Each card is checked against a real call on small data: the required arguments, 
 
 - functions audited: **30**
 - functions with a card defect: **0**
-- enum values tried: **283** (249 accepted, 34 need a precondition, 0 refused by the function)
+- enum values tried: **289** (249 accepted, 40 need a precondition, 0 refused by the function)
 
 `precondition` means the call failed for a reason other than the value itself: it needs other arguments, other data or an optional package. Those are listed below so the card can say what the value needs. `rejected` means the schema advertises a value the function does not accept, which is a defect.
 
@@ -32,8 +32,8 @@ Each card is checked against a real call on small data: the required arguments, 
 | `bacon_decomposition` | dict | 2 / 0 / 0 | 10 / 0 / 0 | none |
 | `rdrobust` | CausalResult | 16 / 0 / 0 | 10 / 0 / 0 | none |
 | `rddensity` | CausalResult | 2 / 0 / 0 | 6 / 0 / 2 | none |
-| `synth` | CausalResult | 33 / 3 / 0 | 10 / 0 / 0 | none |
-| `sdid` | CausalResult | 9 / 1 / 0 | 3 / 0 / 7 | none |
+| `synth` | CausalResult | 33 / 7 / 0 | 10 / 0 / 0 | none |
+| `sdid` | CausalResult | 9 / 3 / 0 | 3 / 0 / 7 | none |
 | `dml` | CausalResult | 6 / 2 / 0 | 10 / 0 / 0 | none |
 | `metalearner` | CausalResult | 5 / 0 / 0 | 8 / 0 / 0 | none |
 | `causal_forest` | CausalForest | 2 / 3 / 0 | 8 / 0 / 0 | none |
@@ -77,7 +77,19 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.synth(method='staggered')`: MethodIncompatibility: method='staggered' requires the `treatment` parameter (binary treatment indicator column name)
 - `sp.synth(method='multi_outcome')`: ValueError: Need at least 2 outcome columns for multi-outcome SCM.
 - `sp.synth(method='multi')`: ValueError: Need at least 2 outcome columns for multi-outcome SCM.
+- `sp.synth(method='rcm')`: MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.
+  -> re
+- `sp.synth(method='hcw')`: MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.
+  -> re
+- `sp.synth(method='regression_control')`: MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.
+  -> re
+- `sp.synth(method='pda')`: MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.
+  -> re
 - `sp.sdid(se_method='noinference')`: MethodIncompatibility: sdid: se_method='noinference' and covariate_method= are available with treat= only.
+  -> recovery: Declare treatment with treat='<0/1 column
+- `sp.sdid(covariate_method='projected')`: MethodIncompatibility: sdid: se_method='noinference' and covariate_method= are available with treat= only.
+  -> recovery: Declare treatment with treat='<0/1 column
+- `sp.sdid(covariate_method='optimized')`: MethodIncompatibility: sdid: se_method='noinference' and covariate_method= are available with treat= only.
   -> recovery: Declare treatment with treat='<0/1 column
 - `sp.dml(model='pliv')`: MethodIncompatibility: dml.pliv: model='pliv' requires an 'instrument' argument
 - `sp.dml(model='iivm')`: MethodIncompatibility: dml.iivm: model='iivm' requires an 'instrument' argument
