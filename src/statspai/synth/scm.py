@@ -1519,18 +1519,9 @@ class SyntheticControl:
         )
 
         if getattr(self, "v_method", "auto") == "regression":
-            try:
-                V, scale = regression_based_v(
-                    X_treated, X_donors, Y_treated_pre, Y_donors_pre
-                )
-            except ValueError as exc:
-                raise MethodIncompatibility(
-                    f"synth(v_method='regression'): {exc}",
-                    recovery_hint=(
-                        "Use fewer predictors, or v_method='nested' / 'equal'."
-                    ),
-                    diagnostics={"n_predictors": int(X_donors.shape[0])},
-                ) from exc
+            V, scale = regression_based_v(
+                X_treated, X_donors, Y_treated_pre, Y_donors_pre
+            )
             X1s = X_treated / scale
             X0s = X_donors / scale[:, None]
             w = _inner_w_given_v(V, X1s, X0s, penalization=self.penalization)

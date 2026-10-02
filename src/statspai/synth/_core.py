@@ -47,7 +47,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from scipy import optimize
 
-from ..exceptions import ConvergenceFailure, MethodIncompatibility
+from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
 # ---------------------------------------------------------------------------
 # Basic simplex solver (inner W problem, reused across module)
@@ -481,14 +481,21 @@ def regression_based_v(
     design = np.column_stack([np.ones(J + 1), (X_all / scale[:, None]).T])
     outcomes = np.column_stack([Z1[:, None], Z0]).T  # (J + 1, T0)
     if J + 1 <= K + 1:
-        raise ValueError(
-            "regression-based V needs more units than predictors: "
-            f"{J + 1} units, {K} predictors."
+        raise DataInsufficient(
+            "synth(v_method='regression'): regression-based V needs more "
+            f"units than predictors: {J + 1} units, {K} predictors.",
+            recovery_hint="Use fewer predictors, or v_method='nested' / 'equal'.",
+            diagnostics={"n_units": int(J + 1), "n_predictors": int(K)},
         )
     coef = np.linalg.lstsq(design, outcomes, rcond=None)[0][1:]  # (K, T0)
     v = np.einsum("kt,kt->k", coef, coef)
     if not np.all(np.isfinite(v)) or v.sum() <= 0:
-        raise ValueError("regression-based V is degenerate (no predictor moves Y).")
+        raise DataInsufficient(
+            "synth(v_method='regression'): no predictor explains the "
+            "pre-treatment outcomes, so regression-based V is undefined.",
+            recovery_hint="Use v_method='nested' or 'equal'.",
+            diagnostics={"n_predictors": int(K)},
+        )
     return np.asarray(K * v / v.sum()), scale
 
 

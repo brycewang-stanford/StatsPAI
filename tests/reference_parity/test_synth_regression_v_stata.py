@@ -30,7 +30,7 @@ import numpy as np
 import pytest
 
 import statspai as sp
-from statspai.exceptions import MethodIncompatibility
+from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
 SPEC = [
     ("packspercapita", 1975, "mean"),
@@ -180,7 +180,7 @@ def test_requires_predictors(df):
 
 def test_more_predictors_than_units_is_refused(df):
     few = df[df["state"].isin(["California", "Nevada", "Utah", "Colorado"])]
-    with pytest.raises(MethodIncompatibility, match="more units than predictors"):
+    with pytest.raises(DataInsufficient, match="more units than predictors"):
         sp.synth(
             few,
             "packspercapita",
