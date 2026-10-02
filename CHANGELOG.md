@@ -14509,7 +14509,7 @@ Three independent hardening tracks land together:
   [`tests/perf/_common.py`](tests/perf/_common.py) shared utilities;
   `tests/perf/05_feols_jax_bootstrap_bench.py` rewritten on top.
 - Full-suite validation snapshot refreshed in
-  [`test_results_full_suite.md`](test_results_full_suite.md).
+  [`docs/test_results_full_suite.md`](docs/test_results_full_suite.md).
 
 ## [1.15.1] — 2026-05-07
 

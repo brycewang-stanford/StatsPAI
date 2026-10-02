@@ -29,7 +29,7 @@ mechanisms make the breadth auditable rather than assertable:
    - Monte-Carlo coverage checks (`tests/coverage_monte_carlo/`),
    - original-paper replays (`tests/orig_parity/`).
    The archived full-suite report records **5,200 passed** on Python 3.9
-   (`test_results_full_suite.md`).
+   ([`docs/test_results_full_suite.md`](test_results_full_suite.md)).
 3. **Coverage is honest and rising.** The CI line-coverage gate was lifted
    from a 15% placeholder to **60%** against a measured **70.5%** baseline
    (historical full-suite coverage XML snapshot). The current CI gate uses the

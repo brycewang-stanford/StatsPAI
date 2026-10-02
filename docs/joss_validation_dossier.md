@@ -52,7 +52,7 @@ The archived local full-suite report records:
 ```
 
 on Python 3.9.6 for the default local suite as of 2026-05-17. The exact report
-is stored in `test_results_full_suite.md`.
+is stored in [`docs/test_results_full_suite.md`](test_results_full_suite.md).
 
 ## Parity And Replication Anchors
 
