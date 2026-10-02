@@ -7081,6 +7081,33 @@ def _build_registry() -> None:
                     "n_boot", "int", False, 1000, "Bootstrap reps for NDE/NIE CIs"
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "inference",
+                    "str",
+                    False,
+                    "bootstrap",
+                    "Standard errors. 'robust' estimates potential-outcome "
+                    "means and takes the sandwich of the stacked estimating "
+                    "equations (Stata 18 mediate); it is required for "
+                    "interaction=True and a logit / probit mediator.",
+                    ["bootstrap", "delta", "robust"],
+                ),
+                ParamSpec(
+                    "interaction",
+                    "bool",
+                    False,
+                    False,
+                    "Treatment-by-mediator interaction in the outcome model "
+                    "(inference='robust'); reports NIE, NDE, PNIE, TNDE, TE.",
+                ),
+                ParamSpec(
+                    "mediator_model",
+                    "str",
+                    False,
+                    "linear",
+                    "Mediator model (inference='robust').",
+                    ["linear", "logit", "probit"],
+                ),
             ],
             returns="MediationAnalysis with .NDE, .NIE, .total, .proportion_mediated",
             example='sp.mediate(df, y="y", treat="d", mediator="m")',
