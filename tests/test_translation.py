@@ -130,12 +130,25 @@ TIER1_ROUND_TRIPS = [
         {"formula": "y ~ x | id", "vce": "robust"},
     ),
     # ivreg2
-    ("ivreg2 y x1 (d = z1 z2)", "ivreg", {"formula": "y ~ x1 + (d ~ z1 + z2)"}),
+    # Without `small`, ivreg2 / ivregress report large-sample statistics:
+    # the call goes to sp.iv, which takes small=False.
     (
-        # without `small`, ivreg2's robust VCE has no N/(N-K) factor
+        "ivreg2 y x1 (d = z1 z2)",
+        "iv",
+        {"formula": "y ~ x1 + (d ~ z1 + z2)", "small": False},
+    ),
+    (
+        # without `small`, ivreg2's robust VCE has no N/(N-K) factor:
+        # small=False turns the hc1 request into that
         "ivreg2 y x1 x2 (d = z1 z2), robust",
+        "iv",
+        {"formula": "y ~ x1 + x2 + (d ~ z1 + z2)", "robust": "hc1", "small": False},
+    ),
+    # Equation punctuation and varlists need no blanks.
+    (
+        "ivreg2 y x1 (d=z1 z2)x2, robust small",
         "ivreg",
-        {"formula": "y ~ x1 + x2 + (d ~ z1 + z2)", "robust": "hc0"},
+        {"formula": "y ~ x1 + x2 + (d ~ z1 + z2)", "robust": "hc1"},
     ),
     (
         "ivreg2 y x1 x2 (d = z1 z2), robust small",
@@ -148,18 +161,31 @@ TIER1_ROUND_TRIPS = [
         "ivreg",
         {"formula": "y ~ x1 + x2 + (d ~ z1 + z2)", "robust": "hc1"},
     ),
+    (
+        "ivregress 2sls y (d=i.q) x1 i.g, small",
+        "ivreg",
+        {"formula": "y ~ x1 + C(g) + (d ~ C(q))", "method": "2sls"},
+    ),
     # Stata accepts exogenous regressors after the parenthesised block too.
     (
         "ivregress 2sls y (d = z) x1 x2",
-        "ivreg",
-        {"formula": "y ~ x1 + x2 + (d ~ z)", "method": "2sls"},
+        "iv",
+        {"formula": "y ~ x1 + x2 + (d ~ z)", "method": "2sls", "small": False},
     ),
     (
         "ivregress 2sls y x1 (d1 d2 = z1 z2 z3) x2",
-        "ivreg",
-        {"formula": "y ~ x1 + x2 + (d1 + d2 ~ z1 + z2 + z3)", "method": "2sls"},
+        "iv",
+        {
+            "formula": "y ~ x1 + x2 + (d1 + d2 ~ z1 + z2 + z3)",
+            "method": "2sls",
+            "small": False,
+        },
     ),
-    ("ivregress y (d = z), cluster(id)", "ivreg", {"formula": "y ~ (d ~ z)"}),
+    (
+        "ivregress y (d = z), cluster(id)",
+        "iv",
+        {"formula": "y ~ (d ~ z)", "small": False},
+    ),
     (
         "ivregress 2sls y x1 (d = z), robust small",
         "ivreg",
@@ -167,11 +193,12 @@ TIER1_ROUND_TRIPS = [
     ),
     (
         "ivregress liml y x1 (d = z1 z2), vce(cluster firm)",
-        "ivreg",
+        "iv",
         {
             "formula": "y ~ x1 + (d ~ z1 + z2)",
             "method": "liml",
             "cluster": "firm",
+            "small": False,
         },
     ),
     (
@@ -615,7 +642,7 @@ TIER2_ROUND_TRIPS = [
         },
     ),
     (
-        "teffects aipw (y x1 x2) (treat z1 z2), atet",
+        "teffects aipw (y z1 z2) (treat z1 z2), atet",
         "aipw",
         {
             "y": "y",
@@ -627,7 +654,41 @@ TIER2_ROUND_TRIPS = [
     (
         "teffects nnmatch (y x1) (treat)",
         "match",
-        {"y": "y", "treat": "treat", "method": "nn", "estimand": "ATE"},
+        {
+            "y": "y",
+            "treat": "treat",
+            "covariates": ["x1"],
+            "method": "nnmatch",
+            "estimand": "ATE",
+        },
+    ),
+    (
+        "teffects nnmatch (y x1 x2)(treat), atet nn(2) biasadj(x1) ematch(g) "
+        "metric(ivar) vce(robust, nn(3))",
+        "match",
+        {
+            "covariates": ["x1", "x2"],
+            "method": "nnmatch",
+            "estimand": "ATT",
+            "n_matches": 2,
+            "bias_adjust": ["x1"],
+            "exact": ["g"],
+            "metric": "ivariance",
+            "vce": "robust",
+            "vce_nn": 3,
+        },
+    ),
+    (
+        "teffects psmatch (y) (treat x1 x2, logit), atet nn(2)",
+        "match",
+        {
+            "covariates": ["x1", "x2"],
+            "distance": "propensity",
+            "ties": "all",
+            "n_matches": 2,
+            "estimand": "ATT",
+            "se_method": "abadie_imbens_2016",
+        },
     ),
     # Stata psmatch2 migration
     (
@@ -1589,7 +1650,7 @@ class TestStataIVTranslationRuns:
                 ),
             ),
             (
-                "ivreg2 lwage exper (educ black = nearc4 nearc2 south)",
+                "ivreg2 lwage exper (educ black = nearc4 nearc2 south), small",
                 ("lwage ~ exper + (educ + black ~ nearc4 + nearc2 + south)", {}),
             ),
         ],
@@ -1628,17 +1689,25 @@ class TestStataIVTranslationRuns:
         assert "could not parse ivregress syntax" in out["error"]
 
     def test_small_convention_note_only_without_small(self):
-        # robust without `small` is matched exactly (hc0): no note needed
-        robust_large = from_stata("ivregress 2sls y (d = z) x, vce(robust)")
-        assert robust_large["arguments"]["robust"] == "hc0"
-        assert not any("sqrt(N/(N-K))" in n for n in robust_large["notes"])
-        # the default and the cluster VCE have no large-sample counterpart
+        # Without `small`, 2SLS and LIML have an exact large-sample
+        # counterpart whatever the VCE: sp.iv(small=False).
         for line in (
+            "ivregress 2sls y (d = z) x, vce(robust)",
             "ivregress 2sls y (d = z) x",
             "ivregress 2sls y (d = z) x, vce(cluster g)",
+            "ivregress liml y (d = z) x, vce(robust)",
             "ivreg2 y (d = z) x",
         ):
-            assert any("sqrt(N/(N-K))" in n for n in from_stata(line)["notes"]), line
+            out = from_stata(line)
+            assert out["tool"] == "iv" and out["arguments"]["small"] is False, line
+            assert not any("sqrt(N/(N-K))" in n for n in out["notes"]), line
+            assert out["untranslated_options"] == [], line
+        # GMM: only the robust VCE has one (HC0); the others say so.
+        gmm_robust = from_stata("ivregress gmm y (d = z) x, vce(robust)")
+        assert gmm_robust["arguments"]["robust"] == "hc0"
+        assert not any("sqrt(N/(N-K))" in n for n in gmm_robust["notes"])
+        gmm_cluster = from_stata("ivregress gmm y (d = z) x, vce(cluster g)")
+        assert any("sqrt(N/(N-K))" in n for n in gmm_cluster["notes"])
         for line in (
             "ivregress 2sls y (d = z) x, vce(robust) small",
             "ivregress 2sls y (d = z) x, small",

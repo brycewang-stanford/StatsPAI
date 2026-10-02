@@ -28,6 +28,7 @@ References
   Estimation. *Journal of Applied Econometrics*, 14(1), 57-67.
 """
 
+import re
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -275,37 +276,41 @@ def _liml_kappa(
 
     This is the Anderson (1951) / Anderson-Rubin LIML formulation.
     """
-    W_full = np.column_stack([X_exog, Z])  # all instruments
-
-    # W0 = [y, X_endog]
+    # W0 = [y, X_endog], and the excluded instruments, both with the
+    # exogenous regressors partialled out.
     W0 = np.column_stack([y, X_endog])
+    if X_exog.size:
+        W0 = W0 - X_exog @ np.linalg.lstsq(X_exog, W0, rcond=None)[0]
+        Zt = Z - X_exog @ np.linalg.lstsq(X_exog, Z, rcond=None)[0]
+    else:
+        Zt = Z
 
-    # Matrices for generalized eigenvalue problem
-    # A = W0' M_full W0  (residuals from full model)
-    # B = W0' M_exog W0  (residuals from exog-only model)
-    # computed as W0'W0 - (Q'W0)'(Q'W0)-type cross products, never forming
-    # the n x n annihilators.
-    W0W0 = W0.T @ W0
-    XeW0 = X_exog.T @ W0
-    WfW0 = W_full.T @ W0
-    A = W0W0 - WfW0.T @ np.linalg.solve(W_full.T @ W_full, WfW0)
-    B = W0W0 - XeW0.T @ np.linalg.solve(X_exog.T @ X_exog, XeW0)
+    # B = W0' M_exog W0 and A = W0' M_full W0 = B - D, where
+    # D = W0' P_Zt W0 is the part of W0 the excluded instruments explain.
+    # kappa solves B v = kappa A v, i.e. D v = (kappa - 1) A v.
+    #
+    # D is formed directly. Forming A and B each as "cross product minus
+    # projection" and taking their generalized eigenvalue loses as many
+    # digits as kappa is close to 1: with weak instruments kappa - 1 is
+    # 1e-5 or less, and the result was good to 1e-9 only (kappa
+    # 1.00000662005 where ivregress and ivreg2 both give 1.00000661921 on
+    # the Angrist-Krueger sample, moving the coefficient by 1e-6).
+    B = W0.T @ W0
+    # An orthonormal basis of the instruments' column space; singular
+    # directions (collinear instruments) are left out rather than given an
+    # arbitrary direction.
+    Q, sv, _ = np.linalg.svd(Zt, full_matrices=False)
+    if sv.size:
+        Q = Q[:, sv > sv.max() * max(Zt.shape) * np.finfo(float).eps]
+    QW = Q.T @ W0
+    D = QW.T @ QW
+    A = B - D
 
-    # kappa_LIML solves the generalized symmetric eigenvalue problem
-    #     B v = kappa A v
-    # with A = W0' M_full W0, B = W0' M_exog W0 (both symmetric PSD).
-    # Because B >= A in the Loewner order (extra residualisation shrinks
-    # SSR), all eigenvalues are >= 1, and kappa_LIML is the *smallest*.
-    # NOTE: the previous implementation used ``np.linalg.eigvalsh`` on the
-    # non-symmetric product ``inv(A) @ B`` which silently returned garbage
-    # (often negative or complex real parts) — always bug, flipping
-    # LIML into a biased direction. Fixed by using the proper generalized
-    # eigendecomposition via ``scipy.linalg.eigh(B, A)``.
     try:
         from scipy.linalg import eigh as _sp_eigh
 
-        eigvals = _sp_eigh(B, A, eigvals_only=True)
-        kappa = float(np.min(eigvals))
+        eigvals = _sp_eigh(D, A, eigvals_only=True)
+        kappa = 1.0 + float(np.min(eigvals))
         if not np.isfinite(kappa) or kappa < 1 - 1e-8:
             # Numerical pathology — fall back to 2SLS rather than produce a
             # demonstrably wrong kappa.
@@ -1209,8 +1214,8 @@ class IVRegression(BaseModel):
                     "has_data": self.data is not None,
                 },
             )
-        data = self.data
-        parsed = parse_formula(self.formula)
+        formula, data = _materialise_formula_terms(self.formula, self.data)
+        parsed = parse_formula(formula)
 
         if not parsed["endogenous"] or not parsed["instruments"]:
             raise MethodIncompatibility(
@@ -1966,6 +1971,7 @@ def _iv_absorb_preprocess(
 
     cluster_names = list(cluster_names or [])
 
+    formula, data = _materialise_formula_terms(formula, data)
     parsed = parse_formula(formula)
     if not parsed["endogenous"] or not parsed["instruments"]:
         raise MethodIncompatibility(
@@ -2265,6 +2271,135 @@ def _scale_vcov_for_fe_dof(
         result.std_errors = result.std_errors * sqrt_factor
     if hasattr(result, "data_info") and isinstance(result.data_info, dict):
         result.data_info["df_resid"] = int(df_resid_new)
+
+
+_PLAIN_NAME = re.compile(r"[^\W\d]\w*$")
+
+
+def _top_level_terms(text: str) -> List[str]:
+    """Split on ``+`` outside parentheses and brackets."""
+    terms: List[str] = []
+    depth, start = 0, 0
+    for i, ch in enumerate(text):
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        elif ch == "+" and depth == 0:
+            terms.append(text[start:i].strip())
+            start = i + 1
+    terms.append(text[start:].strip())
+    return [t for t in terms if t]
+
+
+def _safe_term_name(name: str) -> str:
+    """A design-matrix column name that the formula parser can read back:
+    ``C(g)[T.2]`` -> ``g[2]``, ``C(g)[T.2]:x`` -> ``g[2]:x``,
+    ``I(x ** 2)`` -> ``I[x ** 2]``."""
+    name = re.sub(r"C\(([^(),]+)(?:,[^\[\]]*)?\)\[T\.([^\]]+)\]", r"\1[\2]", name)
+    name = re.sub(r"C\(([^(),]+)(?:,[^\[\]]*)?\)\[([^\]]+)\]", r"\1[\2]", name)
+    return (
+        name.replace("(", "[").replace(")", "]").replace("+", " plus ").replace("~", "")
+    )
+
+
+def _materialise_formula_terms(
+    formula: str, data: pd.DataFrame
+) -> Tuple[str, pd.DataFrame]:
+    """Turn categorical, transformed and interaction terms of an IV formula
+    into columns.
+
+    The IV formula parser reads column names only. A term such as
+    ``C(region)``, ``C(g, Treatment(2))``, ``x:z`` or ``I(x**2)`` -- among
+    the exogenous regressors or the instruments -- is expanded here with
+    the same rules ``sp.regress`` uses (treatment coding, the lowest level
+    omitted), the columns are added to a copy of the data, and the formula
+    is rewritten in terms of them. A formula of plain names is returned
+    untouched, with the data it came with.
+    """
+    if "|" in formula or "~" not in formula:
+        return formula, data
+    dep, rhs = formula.split("~", 1)
+    # "- 1" / "- 0" drop the intercept; read them as terms of their own
+    rhs = re.sub(r"(?<!^)\s*-\s*(?=[01](?:\b|$))", "+ -", rhs)
+    # the parenthesised (endog ~ instruments) block
+    depth, lo, hi = 0, -1, -1
+    for i, ch in enumerate(rhs):
+        if ch == "(":
+            if depth == 0:
+                lo = i
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0 and "~" in rhs[lo:i]:
+                hi = i
+                break
+    if lo < 0 or hi < 0:
+        return formula, data
+    endog_part, inst_part = rhs[lo + 1 : hi].split("~", 1)
+    exog_terms = _top_level_terms(rhs[:lo] + " + " + rhs[hi + 1 :])
+    inst_terms = _top_level_terms(inst_part)
+    endog_terms = _top_level_terms(endog_part)
+    controls = {"1", "0", "-1", "+1", "-0"}
+
+    def plain(term: str) -> bool:
+        compact = term.replace(" ", "")
+        return compact in controls or bool(_PLAIN_NAME.match(compact))
+
+    if all(plain(t) for t in exog_terms + inst_terms + endog_terms):
+        return formula, data
+    if not all(plain(t) for t in endog_terms):
+        raise MethodIncompatibility(
+            "IV formula: endogenous regressors must be columns of the data, "
+            f"got {endog_part.strip()!r}.",
+            recovery_hint=(
+                "Create the transformed or interacted endogenous regressor as "
+                "a column first; each one needs its own instruments."
+            ),
+            diagnostics={"formula": formula},
+        )
+
+    from patsy import NAAction, dmatrix
+
+    from ..core.utils import _coerce_string_extension_dtypes
+
+    frame = _coerce_string_extension_dtypes(data).copy()
+
+    def expand(terms: List[str]) -> List[str]:
+        keep = [t for t in terms if t.replace(" ", "") in controls]
+        build = [t for t in terms if t.replace(" ", "") not in controls]
+        if all(plain(t) for t in build):
+            return keep + build
+        try:
+            design = dmatrix(
+                "1 + " + " + ".join(build),
+                frame,
+                return_type="dataframe",
+                NA_action=NAAction(on_NA="drop"),
+            )
+        except Exception as exc:
+            raise MethodIncompatibility(
+                f"IV formula: could not build the term(s) {build!r}: {exc}",
+                recovery_hint="Check the column names inside C(...) / I(...).",
+                diagnostics={"formula": formula},
+            ) from exc
+        names: List[str] = []
+        for col in design.columns:
+            if col == "Intercept":
+                continue
+            safe = _safe_term_name(str(col))
+            # rows patsy dropped for a missing value stay missing here, and
+            # are dropped with the rest of the estimation sample downstream
+            frame[safe] = design[col].reindex(frame.index)
+            names.append(safe)
+        return keep + names
+
+    exog_names = expand(exog_terms)
+    inst_names = expand(inst_terms)
+    new_rhs = " + ".join(
+        exog_names + [f"({' + '.join(endog_terms)} ~ {' + '.join(inst_names)})"]
+    )
+    return f"{dep.strip()} ~ {new_rhs}", frame
 
 
 def _apply_small(

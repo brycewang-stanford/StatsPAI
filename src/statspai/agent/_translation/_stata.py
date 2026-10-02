@@ -529,34 +529,27 @@ def _parse_iv_varlist(
     as valid as ``y x1 x2 (d = z)`` -- and every list may hold several
     variables. Returns an ``_emit_error`` payload when the shape is wrong.
     """
-    # A factor-variable term arrives already translated and may hold blanks
-    # (``c.x##c.z`` -> ``x + z + x:z``); protect them so that splitting the
-    # varlist on blanks keeps each term in one piece.
-    shield = {f"\x00{i}\x00": tok for i, tok in enumerate(tokens) if " " in tok}
-    back = {tok: key for key, tok in shield.items()}
-    joined = " ".join(back.get(tok, tok) for tok in tokens)
-
-    def words(text: str) -> List[str]:
-        return [shield.get(w, w) for w in text.split()]
-
-    blocks = list(_IV_BLOCK.finditer(joined))
     expected = "expected `y [exog...] (endog... = instruments...) [exog...]`"
     shown = " ".join(tokens)
-    if len(blocks) != 1:
+
+    def bad() -> Dict[str, Any]:
         return _emit_error(
             f"could not parse {command} syntax {shown!r}; {expected}",
             command=command,
         )
-    block = blocks[0]
-    before = words(joined[: block.start()])
-    after = words(joined[block.end() :])
-    endog = words(block.group(1))
-    instruments = words(block.group(2))
-    if not before or not endog or not instruments or "(" in after or ")" in after:
-        return _emit_error(
-            f"could not parse {command} syntax {shown!r}; {expected}",
-            command=command,
-        )
+
+    # The head arrives tokenised: the equation's "(", "=" and ")" are tokens
+    # of their own, and a translated factor term (``C(g)``, ``x + z + x:z``)
+    # is one token whatever it contains.
+    if tokens.count("(") != 1 or tokens.count(")") != 1 or tokens.count("=") != 1:
+        return bad()
+    lo, eq, hi = tokens.index("("), tokens.index("="), tokens.index(")")
+    if not lo < eq < hi:
+        return bad()
+    before, after = tokens[:lo], tokens[hi + 1 :]
+    endog, instruments = tokens[lo + 1 : eq], tokens[eq + 1 : hi]
+    if not before or not endog or not instruments or "," in tokens:
+        return bad()
     return before[0], before[1:] + after, endog, instruments
 
 
@@ -596,9 +589,19 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
     # ``ivreg`` is small-sample by construction; the other two only with
     # ``small``. Read the option either way so it is accounted for.
     small = "small" in cmd.options or command == "ivreg"
-    if robust == "hc1" and not small and not cluster:
-        # large-sample robust: no degrees-of-freedom factor
-        robust = "hc0"
+    # Without `small`, ivregress and ivreg2 report large-sample statistics:
+    # RSS / N, HC0 for `robust`, no finite-sample factor on clustered SEs,
+    # z rather than t. sp.iv(small=False) reproduces all of that for 2SLS
+    # and LIML; for the other estimators only the robust case has an exact
+    # counterpart (HC0).
+    large_sample_lost = False
+    if not small:
+        if method in (None, "2sls", "liml"):
+            args["small"] = False
+        elif robust == "hc1" and not cluster:
+            robust = "hc0"
+        else:
+            large_sample_lost = True
     if robust != "nonrobust":
         args["robust"] = robust
     if cluster:
@@ -611,14 +614,18 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
             "`first` (first-stage display) not translated; the sp "
             "result already exposes first_stage_F via diagnostics."
         )
-    if not small and (cluster or robust == "nonrobust"):
+    if args.get("small") is False:
+        notes.append(
+            "small=False: large-sample standard errors, as Stata reports "
+            "without the `small` option."
+        )
+    if large_sample_lost:
         notes.append(
             f"sp.ivreg standard errors follow `{command} ..., small` (N-K "
             "divisor; cluster SEs add (N-1)/(N-K)). Without `small`, Stata "
-            "reports large-sample SEs, so these differ by a "
-            "degrees-of-freedom factor of about sqrt(N/(N-K)). "
-            "(vce(robust) without `small` is matched exactly by "
-            "robust='hc0'.)"
+            "reports large-sample SEs, which sp.iv(small=False) reproduces "
+            f"for 2SLS and LIML only; for {method} they differ by a "
+            "degrees-of-freedom factor of about sqrt(N/(N-K))."
         )
     if method in {"liml", "gmm"}:
         notes.append(
@@ -626,11 +633,14 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
             f"sp.ivreg(..., method={method!r})."
         )
     code_pairs = ["data=df"]
-    for key in ("method", "robust", "cluster"):
+    for key in ("method", "robust", "cluster", "small"):
         if key in args:
             code_pairs.append(f"{key}={args[key]!r}")
-    python = f"sp.ivreg({formula!r}, {', '.join(code_pairs)})"
-    return _emit("ivreg", args, python, notes)
+    # small= is an argument of sp.iv; sp.ivreg always reports the `small`
+    # convention.
+    tool = "iv" if args.get("small") is False else "ivreg"
+    python = f"sp.{tool}({formula!r}, {', '.join(code_pairs)})"
+    return _emit(tool, args, python, notes)
 
 
 def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
@@ -776,25 +786,13 @@ def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
     official Stata treatment-status form through ``method='twfe'`` and emits a
     note rather than silently treating a 0/1 treatment indicator as a cohort.
     """
-    raw = cmd.raw or ""
-    import re
-
-    prefix = r"(?:by\s+[^:]*?:|capture\s*:|quietly\s*:|qui\s*:|noisily\s*:)?"
-    pattern = (
-        r"^\s*"
-        + prefix
-        + r"\s*(?:didregress|xtdidregress)\s+"
-        + r"\((.+?)\)\s+\((.+?)\)"
-    )
-    m = re.match(pattern, raw, flags=re.I | re.S)
-    if not m:
+    eqs = _equations(list(cmd.varlist))
+    if not eqs or len(eqs) != 2 or eqs[0][1] or eqs[1][1]:
         return _emit_error(
             "didregress expects `(outcome [covariates]) (treatment)` equations.",
             command=cmd.command,
         )
-
-    outcome_tokens = [tok for tok in m.group(1).split() if tok]
-    treat_tokens = [tok for tok in m.group(2).split() if tok]
+    outcome_tokens, treat_tokens = eqs[0][0], eqs[1][0]
     if not outcome_tokens or not treat_tokens:
         return _emit_error(
             "didregress outcome and treatment equations must be non-empty.",
@@ -1424,87 +1422,281 @@ def _h_rddensity(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("rddensity", args, python)
 
 
-def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
-    """``teffects ipw (y) (treat z1 z2)`` / ``teffects nnmatch (y x) (treat)``
-    / ``teffects psmatch (y) (treat z)``.
+def _equations(tokens: List[str]) -> Optional[List[Tuple[List[str], List[str]]]]:
+    """Parenthesised equations of a tokenised head.
 
-    The Stata grammar nests parens around outcome-eq and treatment-eq
-    blocks; we parse them via the original raw line rather than the
-    flat varlist (which loses parenthesis structure).
+    ``( y x1 x2 ) ( treat z , logit )`` -> ``[(['y', 'x1', 'x2'], []),
+    (['treat', 'z'], ['logit'])]``: the variables and the words after the
+    equation's own comma. ``None`` when the tokens are not a sequence of
+    equations.
     """
-    raw = cmd.raw or ""
-    import re
+    eqs: List[Tuple[List[str], List[str]]] = []
+    i = 0
+    while i < len(tokens):
+        if tokens[i] != "(":
+            return None
+        try:
+            j = tokens.index(")", i)
+        except ValueError:
+            return None
+        body = tokens[i + 1 : j]
+        if "(" in body:
+            return None
+        if "," in body:
+            k = body.index(",")
+            eqs.append((body[:k], [t for t in body[k + 1 :] if t != ","]))
+        else:
+            eqs.append((body, []))
+        i = j + 1
+    return eqs
 
-    m = re.match(r"^\s*teffects\s+(\w+)\s+\((.+?)\)\s+\((.+?)\)(.*)$", raw, flags=re.I)
-    if not m:
+
+def _vce_nn(vce: Optional[str]) -> Tuple[Optional[str], Optional[int]]:
+    """``vce(robust, nn(3))`` -> ``('robust', 3)``; ``vce(iid)`` -> ``('iid', None)``."""
+    if not vce:
+        return None, None
+    kind = vce.replace(",", " ").split()[0].lower()
+    m = re.search(r"nn\(\s*(\d+)\s*\)", vce, flags=re.I)
+    return kind, (int(m.group(1)) if m else None)
+
+
+def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
+    """``teffects nnmatch (y x) (treat)`` / ``teffects psmatch (y) (treat z)``
+    / ``teffects ipw`` / ``teffects aipw``.
+
+    ``nnmatch`` goes to ``sp.match(method='nnmatch')``, the same estimator
+    (ties kept, Abadie-Imbens variance, ``biasadj()`` / ``ematch()``).
+    ``psmatch`` goes to propensity-score matching with ties kept and, for
+    the ATET, the Abadie-Imbens (2016) standard error Stata reports.
+    ``ra`` and ``ipwra`` fit a separate outcome model in each treatment arm,
+    which no single sp call reproduces, so they are refused.
+    """
+    if not cmd.varlist:
         return _emit_error(
             "teffects: expected `teffects <method> (out_eq) (treat_eq) [, opts]`",
             command="teffects",
         )
-    method = m.group(1).lower()
-    out_eq_tokens = m.group(2).split()
-    treat_eq_tokens = m.group(3).split()
-    if not out_eq_tokens or not treat_eq_tokens:
+    method = cmd.varlist[0].lower()
+    eqs = _equations(list(cmd.varlist[1:]))
+    if not eqs or len(eqs) != 2 or not eqs[0][0] or not eqs[1][0]:
         return _emit_error(
-            "teffects: outcome / treatment equations are empty", command="teffects"
+            "teffects: expected `teffects <method> (out_eq) (treat_eq) [, opts]`",
+            command="teffects",
         )
-    y = out_eq_tokens[0]
-    out_xs = out_eq_tokens[1:]
-    treat = treat_eq_tokens[0]
-    treat_xs = treat_eq_tokens[1:]
-    estimand = "ATT" if "atet" in cmd.options else "ATE"
+    (out_vars, out_opts), (treat_vars, treat_opts) = eqs
+    y, out_xs = out_vars[0], out_vars[1:]
+    treat, treat_xs = treat_vars[0], treat_vars[1:]
+    opts = cmd.options
+    estimand = "ATT" if "atet" in opts else "ATE"
+    "ate" in opts  # the default; reading it marks it as handled
+    notes: List[str] = []
+    lost: List[str] = []
 
-    # Choose the closest sp helper per teffects method.
-    if method in {"ipw", "ipwra"}:
-        sp_fn = "ipw"
+    if method in {"ra", "ipwra"}:
+        return _emit_error(
+            f"teffects {method} fits a separate outcome regression in each "
+            "treatment arm and averages its predictions"
+            + (" with inverse-probability weights" if method == "ipwra" else "")
+            + "; it is not translated line by line. sp.aipw is the doubly "
+            "robust estimator on the same two models.",
+            command="teffects",
+            suggestions=[],
+        )
+    if out_opts:
+        return _emit_error(
+            f"teffects: the outcome-model option {' '.join(out_opts)!r} is "
+            "not translated.",
+            command="teffects",
+            suggestions=[],
+        )
+
+    if method == "nnmatch":
+        if treat_xs or treat_opts:
+            return _emit_error(
+                "teffects nnmatch takes the matching covariates in the outcome "
+                "equation: `teffects nnmatch (y x1 x2) (treat)`.",
+                command="teffects",
+            )
+        if not out_xs:
+            return _emit_error(
+                "teffects nnmatch needs matching covariates: "
+                "`teffects nnmatch (y x1 x2) (treat)`.",
+                command="teffects",
+            )
         args: Dict[str, Any] = {
             "y": y,
             "treat": treat,
-            "covariates": treat_xs,
+            "covariates": out_xs,
+            "method": "nnmatch",
             "estimand": estimand,
         }
+        raw_nn = opts.get("nneighbor")
+        if raw_nn is not None:
+            try:
+                args["n_matches"] = int(raw_nn)
+            except (TypeError, ValueError):
+                lost.append("nneighbor")
+        metric = opts.get("metric")
+        if metric is not None:
+            head = metric.split()[0].lower() if metric.split() else ""
+            full = next(
+                (
+                    m
+                    for m in ("mahalanobis", "ivariance", "euclidean")
+                    if head and m.startswith(head) and len(head) >= 3
+                ),
+                None,
+            )
+            if full is None:
+                lost.append("metric")
+                notes.append(
+                    f"metric({metric}) is not one sp.match(method='nnmatch') has."
+                )
+            else:
+                args["metric"] = full
+        if opts.get("ematch"):
+            args["exact"] = (opts.get("ematch") or "").split()
+        if opts.get("biasadj"):
+            args["bias_adjust"] = (opts.get("biasadj") or "").split()
+        if opts.get("caliper") is not None:
+            try:
+                args["caliper"] = float(opts.get("caliper") or "")
+            except ValueError:
+                lost.append("caliper")
+        if opts.get("dtolerance") is not None:
+            try:
+                args["dtol"] = float(opts.get("dtolerance") or "")
+            except ValueError:
+                lost.append("dtolerance")
+        kind, h = _vce_nn(opts.get("vce"))
+        if kind == "iid":
+            args["vce"] = "iid"
+        elif kind == "robust":
+            args["vce"] = "robust"
+            if h is not None:
+                args["vce_nn"] = h
+        elif kind is not None:
+            lost.append("vce")
+        if opts.get("osample") is not None:
+            notes.append(
+                "osample(): sp.match raises when a unit has no admissible "
+                "match; the exception's `unmatched` attribute is the flag "
+                "Stata would store. For the ATET only treated units are "
+                "flagged, whereas Stata also flags controls no treated unit "
+                "can use."
+            )
+        if opts.get("generate") is not None:
+            notes.append(
+                "generate(): the matching weights are in "
+                "result.model_info['match_weights']."
+            )
+        kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+        out = _emit("match", args, f"sp.match(data=df, {kw})", notes)
+        out["untranslated_options"] = lost
+        return out
+
+    if method == "psmatch":
+        if out_xs:
+            return _emit_error(
+                "teffects psmatch takes only the outcome in its first "
+                "equation: `teffects psmatch (y) (treat x1 x2)`.",
+                command="teffects",
+            )
+        if not treat_xs:
+            return _emit_error(
+                "teffects psmatch needs propensity-score covariates: "
+                "`teffects psmatch (y) (treat x1 x2)`.",
+                command="teffects",
+            )
+        model = treat_opts[0].lower() if treat_opts else "logit"
+        if model != "logit" or len(treat_opts) > 1:
+            return _emit_error(
+                f"teffects psmatch with the treatment model "
+                f"{' '.join(treat_opts)!r} is not translated; sp.match "
+                "estimates the propensity score by logit.",
+                command="teffects",
+                suggestions=[],
+            )
+        args = {
+            "y": y,
+            "treat": treat,
+            "covariates": treat_xs,
+            "distance": "propensity",
+            "estimand": estimand,
+            "ties": "all",
+        }
+        raw_nn = opts.get("nneighbor")
+        if raw_nn is not None:
+            try:
+                args["n_matches"] = int(raw_nn)
+            except (TypeError, ValueError):
+                lost.append("nneighbor")
+        if opts.get("caliper") is not None:
+            try:
+                args["caliper"] = float(opts.get("caliper") or "")
+            except ValueError:
+                lost.append("caliper")
+        kind, h = _vce_nn(opts.get("vce"))
+        if kind not in (None, "robust"):
+            lost.append("vce")
+        if estimand == "ATT":
+            args["se_method"] = "abadie_imbens_2016"
+            if h is not None:
+                args["ai_matches"] = max(h - 1, 1)
+            notes.append(
+                "Standard error: Abadie-Imbens (2016), which charges for the "
+                "estimated propensity score, as teffects psmatch reports."
+            )
+        else:
+            lost.append("ate")
+            notes.append(
+                "The ATE point estimate is the same matching estimator, but "
+                "sp.match has the Abadie-Imbens (2016) standard error for the "
+                "ATET only; its ATE standard error is not Stata's."
+            )
+        for name in ("osample", "generate"):
+            if opts.get(name) is not None:
+                lost.append(name)
+        kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+        out = _emit("match", args, f"sp.match(data=df, {kw})", notes)
+        out["untranslated_options"] = lost
+        return out
+
+    if treat_opts and [t.lower() for t in treat_opts] != ["logit"]:
+        return _emit_error(
+            f"teffects {method} with the treatment model "
+            f"{' '.join(treat_opts)!r} is not translated.",
+            command="teffects",
+            suggestions=[],
+        )
+    if method == "ipw":
+        args = {"y": y, "treat": treat, "covariates": treat_xs, "estimand": estimand}
         python = (
             f"sp.ipw(data=df, y={y!r}, treat={treat!r}, "
             f"covariates={treat_xs!r}, estimand={estimand!r})"
         )
-    elif method in {"nnmatch", "psmatch", "match"}:
-        sp_fn = "match"
-        args = {
-            "y": y,
-            "treat": treat,
-            "covariates": treat_xs or out_xs,
-            "method": ("ps" if method == "psmatch" else "nn"),
-            "estimand": estimand,
-        }
-        python = (
-            f"sp.match(data=df, y={y!r}, treat={treat!r}, "
-            f"covariates={args['covariates']!r}, "
-            f"method={args['method']!r}, estimand={estimand!r})"
-        )
-    elif method == "ra":
-        sp_fn = "regress"
-        formula = _build_formula(y, [treat] + out_xs)
-        args = {"formula": formula}
-        python = f"sp.regress({formula!r}, data=df)"
-    elif method in {"aipw", "drdid"}:
-        sp_fn = "aipw"
-        args = {
-            "y": y,
-            "treat": treat,
-            "covariates": treat_xs,
-            "estimand": estimand,
-        }
+        return _emit("ipw", args, python)
+    if method == "aipw":
+        if out_xs and treat_xs and out_xs != treat_xs:
+            return _emit_error(
+                "teffects aipw with different covariates in the outcome and "
+                "treatment models is not translated: sp.aipw takes one "
+                "covariate list for both.",
+                command="teffects",
+                suggestions=[],
+            )
+        covs = treat_xs or out_xs
+        args = {"y": y, "treat": treat, "covariates": covs, "estimand": estimand}
         python = (
             f"sp.aipw(data=df, y={y!r}, treat={treat!r}, "
-            f"covariates={treat_xs!r}, estimand={estimand!r})"
+            f"covariates={covs!r}, estimand={estimand!r})"
         )
-    else:
-        return _emit_error(
-            f"teffects method {method!r} not supported "
-            f"(known: ipw / nnmatch / psmatch / ra / aipw)",
-            command="teffects",
-        )
-    return _emit(sp_fn, args, python)
+        return _emit("aipw", args, python)
+    return _emit_error(
+        f"teffects method {method!r} not supported "
+        f"(known: nnmatch / psmatch / ipw / aipw)",
+        command="teffects",
+    )
 
 
 def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
@@ -2226,7 +2418,7 @@ _WEIGHT_RE = re.compile(
 _TS_OP_RE = re.compile(r"^(?:[LDFS]\d*|[LDF]\([^)]*\))\.[A-Za-z_]", re.I)
 #: Tokens that use factor-variable syntax (anything else -- plain names,
 #: lincom / test expressions -- passes through untouched).
-_FV_RE = re.compile(r"^(?:i|c|ibn|ib\d+)\.|#", re.I)
+_FV_RE = re.compile(r"^(?:i|c|ibn|ib\d+|\d+)\.[A-Za-z_(]|#", re.I)
 
 
 def _fv_part(tok: str) -> Optional[str]:
@@ -2243,6 +2435,11 @@ def _fv_part(tok: str) -> Optional[str]:
     m = re.fullmatch(r"c\.([A-Za-z_]\w*)", tok)
     if m:
         return m.group(1)
+    m = re.fullmatch(r"(\d+)\.([A-Za-z_]\w*)", tok)
+    if m:
+        # 1.post: the indicator of that level, as a number so that it stays
+        # one column inside an interaction.
+        return f"I(1 * ({m.group(2)} == {m.group(1)}))"
     if re.fullmatch(r"[A-Za-z_]\w*", tok):
         return tok
     return None
@@ -2265,6 +2462,13 @@ def _fv_token(tok: str) -> Optional[str]:
         return " + ".join(terms)
     if "#" in tok:
         raw = tok.split("#")
+        # In `a#b` a variable without a prefix is a factor (i.a). Next to a
+        # single level (`treat#1.pre`) Stata then builds one column per level
+        # of `a`, which a product of two columns does not reproduce.
+        if any(re.fullmatch(r"\d+\.[A-Za-z_]\w*", t) for t in raw) and any(
+            re.fullmatch(r"(?:i\.)?[A-Za-z_]\w*", t) for t in raw
+        ):
+            return None
         parts = [_fv_part(t) for t in raw]
         if None in parts:
             return None
@@ -2276,6 +2480,179 @@ def _fv_token(tok: str) -> Optional[str]:
 
 
 _VARLIST_RANGE = re.compile(r"^([^\W\d]\w*)-([^\W\d]\w*)$")
+_NAME = re.compile(r"[^\W\d]\w*$")
+
+
+def _tokenise_head(text: str) -> List[str]:
+    """Split a command's varlist into tokens, equation punctuation apart.
+
+    A parenthesis that opens an *equation* -- ``(d = z1 z2)``,
+    ``(y x1 x2) (treat)`` -- becomes a token of its own, as do the ``=`` and
+    ``,`` inside it and the closing parenthesis, so ``(y x)(treat)`` and
+    ``(d=z)`` read the same as their spaced-out spellings. A parenthesis
+    attached to what precedes it belongs to that token and is kept whole,
+    blanks included: ``cigsale(1988)``, ``beer(1984(1)1988)``,
+    ``c.(x x2)``, ``d##c.(x x2)#i.g``.
+    """
+    tokens: List[str] = []
+    cur: List[str] = []
+    eq_depth = 0
+    i, n = 0, len(text)
+
+    def flush() -> None:
+        if cur:
+            tokens.append("".join(cur))
+            cur.clear()
+
+    while i < n:
+        ch = text[i]
+        if ch.isspace():
+            flush()
+        elif ch == "(":
+            if cur:
+                # attached: copy through the matching parenthesis
+                depth, j = 0, i
+                while j < n:
+                    if text[j] == "(":
+                        depth += 1
+                    elif text[j] == ")":
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    j += 1
+                cur.append(text[i : j + 1])
+                i = j
+            else:
+                tokens.append("(")
+                eq_depth += 1
+        elif ch == ")" and eq_depth > 0:
+            flush()
+            tokens.append(")")
+            eq_depth -= 1
+        elif ch in "=," and eq_depth > 0:
+            flush()
+            tokens.append(ch)
+        else:
+            cur.append(ch)
+        i += 1
+    flush()
+    return _join_spaced_ranges(tokens)
+
+
+def _join_spaced_ranges(tokens: List[str]) -> List[str]:
+    """``a - b`` (and ``a -b``, ``a- b``) is the varlist range ``a-b``."""
+    out: List[str] = []
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        nxt = tokens[i + 1] if i + 1 < len(tokens) else None
+        if (
+            tok == "-"
+            and out
+            and nxt is not None
+            and _NAME.match(out[-1])
+            and _NAME.match(nxt)
+        ):
+            out[-1] = f"{out[-1]}-{nxt}"
+            i += 2
+            continue
+        if (
+            tok.endswith("-")
+            and _NAME.match(tok[:-1] or "-")
+            and nxt
+            and _NAME.match(nxt)
+        ):
+            out.append(tok + nxt)
+            i += 2
+            continue
+        if (
+            tok.startswith("-")
+            and _NAME.match(tok[1:] or "-")
+            and out
+            and _NAME.match(out[-1])
+        ):
+            out[-1] = out[-1] + tok
+            i += 1
+            continue
+        out.append(tok)
+        i += 1
+    return out
+
+
+_FV_GROUP = re.compile(r"^((?:i|c|ibn|ib\d+)\.)\((.*)\)$", re.I | re.S)
+
+
+def _split_fv_operators(tok: str) -> Tuple[List[str], List[str]]:
+    """Split a factor-variable term on ``#`` / ``##`` outside parentheses."""
+    parts: List[str] = []
+    ops: List[str] = []
+    depth, start, i = 0, 0, 0
+    while i < len(tok):
+        ch = tok[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif ch == "#" and depth == 0:
+            op = "##" if tok[i : i + 2] == "##" else "#"
+            parts.append(tok[start:i])
+            ops.append(op)
+            i += len(op)
+            start = i
+            continue
+        i += 1
+    parts.append(tok[start:])
+    return parts, ops
+
+
+def _expand_fv_groups(
+    tok: str, columns: Optional[Sequence[str]]
+) -> Tuple[Optional[str], List[str]]:
+    """Distribute grouped factor notation over its varlist.
+
+    ``c.(x x2)`` is ``c.x c.x2``; ``d##c.(x x2)`` is
+    ``d c.x c.x2 d#c.x d#c.x2`` and ``c.(a b)#i.g`` is ``c.a#i.g c.b#i.g``,
+    in Stata's order (main effects first). The varlist inside a group may
+    use ranges and wildcards, expanded against ``columns``.
+    """
+    if "(" not in tok:
+        return None, [tok]
+    parts, ops = _split_fv_operators(tok)
+    choices: List[List[str]] = []
+    for part in parts:
+        m = _FV_GROUP.match(part)
+        if not m:
+            if "(" in part:
+                return f"factor-variable term {tok!r} is not translated", [tok]
+            choices.append([part])
+            continue
+        inner = _join_spaced_ranges(m.group(2).split())
+        err, names = _expand_abbreviations(inner, columns)
+        if err is not None:
+            return err, [tok]
+        if not names or not all(_NAME.match(nm) for nm in names):
+            return f"factor-variable term {tok!r} is not translated", [tok]
+        choices.append([m.group(1) + nm for nm in names])
+    if len(parts) == 1:
+        return None, choices[0]
+    if len(parts) > 2 and "##" in ops:
+        return f"factor-variable term {tok!r} is not translated", [tok]
+    out: List[str] = []
+    if ops == ["##"]:
+        for side in choices:
+            out.extend(side)
+    import itertools
+
+    for combo in itertools.product(*choices):
+        out.append("#".join(combo))
+    # a##b with one variable a side keeps its own compact translation
+    if ops == ["##"] and all(len(c) == 1 for c in choices):
+        return None, ["##".join(c[0] for c in choices)]
+    seen: List[str] = []
+    for term in out:
+        if term not in seen:
+            seen.append(term)
+    return None, seen
 
 
 def _expand_abbreviations(
@@ -2336,10 +2713,19 @@ def _normalise_command(
         joined = (joined[: m.start()] + " " + joined[m.end() :]).strip()
     elif "[" in joined:
         return "unrecognised weight clause in " + repr(joined), info
-    toks = joined.split()
+    toks = _tokenise_head(joined)
     err, toks = _expand_abbreviations(toks, columns)
     if err is not None:
         return err, info
+    grouped: List[str] = []
+    for tok in toks:
+        err, pieces = (
+            _expand_fv_groups(tok, columns) if _FV_RE.search(tok) else (None, [tok])
+        )
+        if err is not None:
+            return err, info
+        grouped.extend(pieces)
+    toks = grouped
     out: List[str] = []
     factor_used = False
     for tok in toks:
@@ -2371,7 +2757,7 @@ def _normalise_command(
 #: Tools that take ``weights=`` through ``**kwargs``, so the signature check
 #: below cannot see it. Each entry is pinned by a test that the weights
 #: change the estimate (a ``**kwargs`` that swallowed them would not).
-_WEIGHTS_VIA_KWARGS = frozenset({"ivreg"})
+_WEIGHTS_VIA_KWARGS = frozenset({"ivreg", "iv"})
 
 
 def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str, Any]:

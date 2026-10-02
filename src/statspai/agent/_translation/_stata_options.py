@@ -201,6 +201,28 @@ _VCE_TYPES = (
 )
 
 
+#: Command-specific abbreviations, as underlined in each command's syntax
+#: diagram. ``atet`` precedes ``ate`` so that the longer word wins.
+_COMMAND_OPTIONS: Dict[str, _Table] = {
+    "teffects": (
+        ("nneighbor", 2),
+        ("ematch", 2),
+        ("biasadj", 4),
+        ("caliper", 3),
+        ("osample", 2),
+        ("generate", 3),
+        ("metric", 3),
+        ("dtolerance", 4),
+        ("atet", 4),
+        ("ate", 3),
+    ),
+    "did_imputation": (
+        ("horizons", 1),
+        ("pretrends", 3),
+    ),
+}
+
+
 def canonicalise_options(
     command: str, options: Dict[str, Optional[str]]
 ) -> Tuple[Dict[str, Optional[str]], List[str]]:
@@ -214,6 +236,7 @@ def canonicalise_options(
         table = table + (("absorb", 1),)
     if command == "ttest":
         table = (("unpaired", 3), ("unequal", 3), ("welch", 1))
+    table = table + _COMMAND_OPTIONS.get(command, ())
     out: Dict[str, Optional[str]] = {}
     expanded: List[str] = []
     for name, value in options.items():
@@ -258,7 +281,8 @@ _DISPLAY_BY_COMMAND = {
     "ppmlhdfe": {"irr", "eform"},
     "rdrobust": {"all"},
     "rdplot": {"graph_options"},
-    "rddensity": {"plot"},
+    "rddensity": {"plot", "plot_range", "hist_range", "graph_opt"},
+    "synth": {"figure", "keep"},
     "boottest": {"nograph"},
     "dfuller": {"regress"},
     # reghdfe's way of saying "no fixed effects": what the call does without absorb()
@@ -335,7 +359,15 @@ def untranslated_notes(
     return notes
 
 
-_SE_ARGUMENTS = ("robust", "cluster", "vce", "vcov", "se_type", "cov_type")
+_SE_ARGUMENTS = (
+    "robust",
+    "cluster",
+    "vce",
+    "vcov",
+    "se_type",
+    "cov_type",
+    "se_method",
+)
 
 
 def se_note(
