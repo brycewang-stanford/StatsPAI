@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient
 from ._core import _kernel_fn
 
 
@@ -251,7 +252,7 @@ def rd_distribution(
     # --- Horizontal distance: quantile treatment effects at the cutoff ---
     Ym, Rm, Wm, Tm = Y[mask], R[mask], weights[mask], treat[mask].astype(bool)
     if Tm.sum() < 5 or (~Tm).sum() < 5:
-        raise ValueError(
+        raise DataInsufficient(
             "rd_distribution needs at least 5 observations inside the "
             f"bandwidth on each side of the cutoff (got {int((~Tm).sum())} "
             f"left, {int(Tm.sum())} right)."

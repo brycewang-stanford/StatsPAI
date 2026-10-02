@@ -36,6 +36,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient, IdentificationFailure, MethodIncompatibility
 
 
 @dataclass
@@ -287,7 +288,7 @@ def kernel_iv(
     Z = df[instrument].to_numpy(float)
     n = len(df)
     if n < 30:
-        raise ValueError(f"kernel_iv needs at least 30 complete rows, got {n}.")
+        raise DataInsufficient(f"kernel_iv needs at least 30 complete rows, got {n}.")
 
     def rule(x: np.ndarray, rate: float) -> float:
         return float(1.06 * x.std(ddof=1) * n**rate)
@@ -296,13 +297,15 @@ def kernel_iv(
         grid = np.linspace(np.quantile(D, 0.05), np.quantile(D, 0.95), 30)
     grid = np.asarray(grid, dtype=float)
     if len(grid) < 2 or np.any(np.diff(grid) <= 0):
-        raise ValueError("grid must hold at least two increasing treatment values.")
+        raise MethodIncompatibility(
+            "grid must hold at least two increasing treatment values."
+        )
     rng = np.random.default_rng(seed)
 
     # Stage 1: control variable.
     V = D - _local_linear(D, Z, Z, rule(Z, -1 / 5))
     if V.std(ddof=1) < 1e-10 * max(D.std(ddof=1), 1e-300):
-        raise ValueError(
+        raise IdentificationFailure(
             "kernel_iv: the treatment is an exact function of the instrument, "
             "so there is no first-stage residual to control for."
         )

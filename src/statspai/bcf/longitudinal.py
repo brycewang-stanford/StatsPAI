@@ -32,7 +32,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import AssumptionWarning
+from ..exceptions import AssumptionWarning, IdentificationFailure
 
 # sklearn is imported lazily inside the helpers that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
@@ -408,7 +408,7 @@ def bcf_longitudinal(
             stacklevel=2,
         )
     if len(unidentified) == len(per_time_ate):
-        raise ValueError(
+        raise IdentificationFailure(
             "No time point has both treated and control observations; "
             "the treatment effect is not identified."
         )

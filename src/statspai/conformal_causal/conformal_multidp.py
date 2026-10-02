@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient
 
 
 @dataclass
@@ -94,7 +95,7 @@ def _conformal_quantile(resid: np.ndarray, level: float, label: str) -> float:
     """
     n = len(resid)
     if n == 0:
-        raise ValueError(
+        raise DataInsufficient(
             f"conformal_ite_multidp: no calibration observations at {label}."
         )
     rank = int(np.ceil((n + 1) * (1 - level)))

@@ -20,7 +20,7 @@ import numpy as np
 from scipy.stats import norm
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import ConvergenceFailure
+from ..exceptions import ConvergenceFailure, MethodIncompatibility
 
 __all__ = [
     "power",
@@ -424,15 +424,15 @@ def power_did(
     T_post = int(n_treated_periods)
     T_pre = T - T_post
     if T_pre < 1 or T_post < 1:
-        raise ValueError(
+        raise MethodIncompatibility(
             "power_did needs at least one pre-treatment and one "
             f"post-treatment period (n_periods={n_periods}, "
             f"n_treated_periods={n_treated_periods})."
         )
     if not 0.0 < prop_treat < 1.0:
-        raise ValueError(f"prop_treat must be in (0, 1), got {prop_treat}.")
+        raise MethodIncompatibility(f"prop_treat must be in (0, 1), got {prop_treat}.")
     if not -1.0 < rho < 1.0:
-        raise ValueError(f"rho must be in (-1, 1), got {rho}.")
+        raise MethodIncompatibility(f"rho must be in (-1, 1), got {rho}.")
 
     # Variance of (post mean - pre mean) for one unit under AR(1) errors.
     c = np.concatenate([np.full(T_pre, -1.0 / T_pre), np.full(T_post, 1.0 / T_post)])
@@ -544,7 +544,7 @@ def power_rd(
     if bandwidth is None:
         bandwidth = 0.5
     if kernel not in _BOUNDARY_LL_CONSTANT:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"kernel must be one of {sorted(_BOUNDARY_LL_CONSTANT)}, got {kernel!r}."
         )
     c_k = _BOUNDARY_LL_CONSTANT[kernel]
@@ -640,11 +640,13 @@ def power_iv(
     r2: Any
     if first_stage_f is not None:
         if first_stage_f <= 0:
-            raise ValueError(f"first_stage_f must be positive, got {first_stage_f}.")
+            raise MethodIncompatibility(
+                f"first_stage_f must be positive, got {first_stage_f}."
+            )
         r2 = first_stage_f / (first_stage_f + n_arr)
     elif r2_z is not None:
         if not 0.0 < r2_z <= 1.0:
-            raise ValueError(f"r2_z must be in (0, 1], got {r2_z}.")
+            raise MethodIncompatibility(f"r2_z must be in (0, 1], got {r2_z}.")
         r2 = r2_z
     else:
         r2 = 1.0  # no first-stage information: the OLS benchmark

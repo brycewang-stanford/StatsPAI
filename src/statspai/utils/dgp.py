@@ -203,7 +203,7 @@ def dgp_rd(
     rng = np.random.default_rng(seed)
 
     if bandwidth_relevant <= 0:
-        raise ValueError("bandwidth_relevant must be positive.")
+        raise MethodIncompatibility("bandwidth_relevant must be positive.")
     # Centred, unit-support score: uniform on (-1, 1). At the defaults
     # (cutoff 0, bandwidth_relevant 0.5) x equals it draw for draw.
     half_width = 2.0 * bandwidth_relevant
