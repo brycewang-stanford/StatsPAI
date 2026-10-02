@@ -31,6 +31,32 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after `sp.ardl` was exported; two functions gained external-replication evidence
+
+- **Commit.** `d6d3eb0b` added `sp.ardl` and `ARDLResult` (new exports in
+  `src/statspai/__init__.py`), the `break_vars=` / `vce=` arguments of
+  `sp.structural_break`, regenerated `docs/parity.md` and re-recorded
+  `tests/r_parity/results/_implementation_trace.json` for modules 03 13 15
+  24 25 26 27 53 65 66.
+- **Reason.** Those ten modules import the package root, whose digest the
+  trace binds. `src/statspai/timeseries/structural_break.py` is not on any
+  Track A estimation path, and its new arguments default to the previous
+  behaviour.
+- **Effect on the paper.** None on any table. Only `exercised_sources`
+  digests and `seconds` changed in the trace. In `docs/parity.md` the
+  registered total is 1,280 (two new names) and the
+  "external-replication (published numbers)" count goes from 3 to 5:
+  `ardl` and `unitroot` are credited to
+  `tests/external_parity/test_stock_watson_4e_ch15.py`, which checks them
+  against the RATS output shipped with a textbook's replication files.
+  That test needs the files on disk and is skipped otherwise, so it is
+  evidence a reader can rerun only after downloading them. If the paper
+  quotes the external-replication count, say what kind of evidence these
+  two rows are.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `docs/parity.md`
+
 ### 2026-10-02 — call traces re-recorded after `sp.regress` gained HAC options; parity-index denominators moved
 
 - **Commits.** `aad512aa` added `sp.ttest` (new exports in
