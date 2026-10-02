@@ -4,6 +4,110 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### A design-based textbook's do-files, run against Stata
+
+The do-files of Zhao Xiliang's *Design-Based Econometrics* (2nd edition,
+13 files covering randomized experiments, matching, IV, DiD, imputation and
+synthetic control, RD and mediation) were run line by line in Stata 18 and
+in StatsPAI on the same data. Regression, clustered and HC2/HC3 standard
+errors, 2SLS, Kleibergen-Paap and effective F statistics, Bacon
+decomposition, Callaway-Sant'Anna, BJS imputation, SDID, `rddensity` and
+fixed-bandwidth `rdrobust` already agreed to 1e-8 or better. What did not is
+below. The textbook's data are not redistributed; every fix is pinned on a
+bundled dataset or a deterministic design, with the Stata or R value in the
+test.
+
+#### ⚠️ Correctness
+
+- **`sp.etwfe` returned arbitrary numbers when every unit is eventually
+  treated.** With no never-treated unit, the periods from the last cohort's
+  adoption on have no untreated comparison. The saturated design was solved
+  by `pinv` anyway. On the Baker-Larcker-Wang simulated panel the overall
+  ATT came back as 4.7e11 with a rank-deficiency warning (the truth is 68).
+  The last cohort is now the reference and those periods are dropped, as R
+  `etwfe` does, with a `UserWarning` and
+  `model_info['last_cohort_reference']`. R `etwfe` 0.6.2 gives
+  68.3290597638 and cohort effects 94.9877509885 / 52.0066074672 /
+  20.9978906826, reproduced to 1e-11. A single adoption date with no
+  untreated group raises `DataInsufficient`.
+- **Data-driven RD bandwidths were off whenever the interquartile range set
+  the pilot bandwidth.** `rdbwselect` starts from
+  `C * min(sd, IQR / 1.349) * n^(-1/5)` with quartiles by Hyndman-Fan
+  definition 2. StatsPAI used `method="lower"`, a different order statistic
+  at the upper quartile for most sample sizes. It showed only when the IQR
+  was the smaller scale. On the Lee (2008) House data `h` was 0.1356186677
+  against 0.1356263072 in R `rdrobust` 4.0.0 and Stata `rdrobust` 10.0.0,
+  and estimates moved by 2e-5 to 2e-4. Now within 6e-12 across selectors,
+  kernels and polynomial orders. Affects `sp.rdrobust`, `sp.rdbwselect` and
+  everything that calls the CCT selector. The three Track A RD modules are
+  unchanged (the standard deviation binds there).
+- **The LIML `kappa` lost as many digits as it is close to 1.** It was the
+  generalized eigenvalue of two matrices each formed as a cross product
+  minus a projection. On the Angrist-Krueger sample `kappa` was
+  1.00000662005 where `ivregress` and `ivreg2` both give 1.0000066192058,
+  which moved the coefficient by 1e-6. Adding 1e6 to the outcome, which the
+  intercept absorbs, turned `kappa - 1` negative. The part the excluded
+  instruments explain is now formed directly. Track A `59_liml` moves at
+  1e-15.
+
+#### Added
+
+- **`sp.match(method='nnmatch')`, Abadie-Imbens covariate matching as Stata
+  `teffects nnmatch`.** Every tie kept, `metric=` Mahalanobis / inverse
+  variance / Euclidean, `exact=` (`ematch`), `caliper=`, `bias_adjust=` on a
+  chosen set of covariates, ATE or ATT, robust or homoskedastic variance
+  (`vce=`, `vce_nn=`). `detail` is `tebalance summarize`. Nine
+  configurations on `sp.datasets.nsw_dw()` agree with Stata 18 to 5e-13 in
+  the estimate and the standard error. Two details of Stata's variance that
+  its manual does not state were found by rebuilding `e(V)` term by term.
+  The same-arm set behind `vce(robust, nn(h))` holds the unit plus `h`
+  neighbours, and those neighbours must satisfy `ematch()` too. The existing
+  `sp.match(distance='mahalanobis')` is a different estimator (one match
+  unless `ties='all'`, within-group covariance, sample-ATT variance) and is
+  unchanged.
+- **`sp.mediate(inference='robust')`, potential-outcome mediation as Stata
+  18 `mediate`.** New options `interaction=` (treatment by mediator) and
+  `mediator_model='linear' | 'logit' | 'probit'`. Reports NIE, NDE, PNIE,
+  TNDE, TE and the proportion mediated with a standard error, from the
+  sandwich of the stacked estimating equations. Estimates agree with Stata
+  to 1e-9 and the coefficient covariance to 1e-9. Effect standard errors
+  agree to 2e-4, which is the numerical-derivative noise in Stata's own
+  variance. Its standard errors move by 1e-4 when a covariate is centred,
+  an equivalent model, and the gradient it implies is 0.0065 where the
+  exact one is zero. The analytic ones here do not move. The default
+  behaviour of `sp.mediate` is unchanged.
+- **IV formulas accept `C(g)`, `C(g, Treatment(k))`, interactions and
+  `I()`** among the exogenous regressors and the instruments, in `sp.iv`,
+  `sp.ivreg` and the absorbed-effects path. They used to fail with
+  "Variables not found in data: ['C', ...]". Expanded columns are named
+  `g[2]`.
+
+#### Fixed
+
+- **`sp.from_stata` / `sp.stata` on equation syntax.** `(y x)(treat)` and
+  `(d=z)` without blanks were refused. `(d = z1 - z3)`, a varlist range
+  written with blanks, became the formula `d ~ z1 + - + z3` and was reported
+  as faithful. `(d = i.q)` passed `i.q` through untranslated.
+- **Grouped factor notation.** `c.(x x2)`, `d##c.(x x2 x3)` and
+  `c.(a - b)#1.post` are expanded. A level term such as `1.d` is the
+  indicator of that level (it used to be pasted into the formula).
+  `treat#1.pre` is refused with the reason.
+- **`ivregress` / `ivreg2` without `small`** now request large-sample
+  statistics for every VCE through `sp.iv(..., small=False)`, not only for
+  `robust`. The chapter's IV commands reproduce Stata to 1e-9.
+- **`teffects`.** `nnmatch` and `psmatch` emitted `method='nn'` / `'ps'`,
+  which `sp.match` does not have, so the translation never ran. They now map
+  to calls that reproduce the Stata estimate (`psmatch, atet` with the
+  Abadie-Imbens 2016 standard error), with `nn()`, `metric()`, `ematch()`,
+  `biasadj()`, `caliper()` and `vce()` carried over. `teffects ra` and
+  `ipwra` were mapped to `sp.regress` and `sp.ipw`, a different estimator,
+  and are now refused. `teffects aipw` with different covariates in the two
+  equations is refused.
+- **`did_imputation`** reads `h()` and `pre()`, the abbreviations of
+  `horizons()` and `pretrends()`.
+- **`sp.panel(robust=...)` with an unknown value** such as `'hc1'` or
+  `'cluster'` returned classical standard errors without a word. It raises.
+
 ### Stata translation, checked against a textbook's own logs
 
 The replication files of Stock and Watson's *Introduction to Econometrics*

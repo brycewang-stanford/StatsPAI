@@ -11667,7 +11667,7 @@
     "name": "from_r"
   },
   {
-    "description": "Translate a single Stata command to a verified StatsPAI tool-call payload. Returns ``python_code`` (string for chat replies) AND ``arguments`` (ready-to-dispatch JSON-RPC for tools/call). Tier-1 commands: regress / xtreg / reghdfe / ivreg2 / csdid / did_imputation / synth / rdrobust; count-panel commands include nbreg / xtnbreg / ppmlhdfe. Unrecognised commands return close-match suggestions instead of guessing.",
+    "description": "Translate a single Stata command to a verified StatsPAI tool-call payload. Returns ``python_code`` (string for chat replies) AND ``arguments`` (ready-to-dispatch JSON-RPC for tools/call). Tier-1 commands: regress / xtreg / reghdfe / ivreg2 / csdid / did_imputation / synth / rdrobust; count-panel commands include nbreg / xtnbreg / ppmlhdfe. Unrecognised commands return close-match suggestions instead of guessing. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "command": {
@@ -17116,11 +17116,12 @@
         },
         "method": {
           "default": "nearest",
-          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant.",
+          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch).",
           "enum": [
             "nearest",
             "psm",
             "mahalanobis",
+            "nnmatch",
             "kernel",
             "radius",
             "llr",
@@ -17464,10 +17465,35 @@
           "type": "array",
           "x-statspai-role": "columns"
         },
+        "inference": {
+          "default": "bootstrap",
+          "description": "Standard errors. 'robust' estimates potential-outcome means and takes the sandwich of the stacked estimating equations (Stata 18 mediate); it is required for interaction=True and a logit / probit mediator.",
+          "enum": [
+            "bootstrap",
+            "delta",
+            "robust"
+          ],
+          "type": "string"
+        },
+        "interaction": {
+          "default": false,
+          "description": "Treatment-by-mediator interaction in the outcome model (inference='robust'); reports NIE, NDE, PNIE, TNDE, TE.",
+          "type": "boolean"
+        },
         "mediator": {
           "description": "Mediator variable",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "mediator_model": {
+          "default": "linear",
+          "description": "Mediator model (inference='robust').",
+          "enum": [
+            "linear",
+            "logit",
+            "probit"
+          ],
+          "type": "string"
         },
         "n_boot": {
           "default": 1000,

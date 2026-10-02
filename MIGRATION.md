@@ -5,6 +5,41 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-dbe-textbook-fixes"></a>
+
+## Unreleased: ⚠️ `sp.etwfe` without an untreated group, RD pilot bandwidth, LIML `kappa`
+
+**`sp.etwfe`, every unit eventually treated.** Results from such a panel
+were arbitrary before (the design was rank deficient and a warning said
+so). The call now estimates on the periods before the last cohort's
+adoption, with that cohort as the not-yet-treated reference, and warns.
+The numbers equal R `etwfe` and what you get by dropping those periods by
+hand. Panels with a never-treated unit, or a cohort adopting after the
+panel ends, are unchanged.
+
+**`sp.rdrobust` / `sp.rdbwselect` with a data-driven bandwidth.** The
+bandwidth changes when `IQR / 1.349` of the running variable is smaller
+than its standard deviation, typically a heavy-tailed or bounded running
+variable. The change is of order 1e-4 or less in `h` and smaller in the
+estimate. Results with `h=` given are unchanged. There is no switch back:
+the new value is the one R and Stata `rdrobust` compute.
+
+**`sp.iv(method='liml')` / `sp.liml`.** Estimates change by about the
+relative error the old `kappa` carried, 1e-6 on a design with first-stage
+F of 30 and `kappa - 1` of 7e-6, less when instruments are stronger.
+
+**`sp.from_stata` / `sp.stata`.**
+
+| Stata line | Before | Now |
+| --- | --- | --- |
+| `ivregress` / `ivreg2` (2SLS, LIML) without `small` | `sp.ivreg(...)`, small-sample SEs; `robust` as HC0 | `sp.iv(..., small=False)`, Stata's large-sample SEs for classical, robust and cluster VCE |
+| `teffects nnmatch` | `sp.match(method='nn')`, which raised | `sp.match(method='nnmatch', ...)` |
+| `teffects psmatch` | `sp.match(method='ps')`, which raised | propensity matching with ties kept; ATET with the Abadie-Imbens (2016) SE |
+| `teffects ra` / `ipwra` | `sp.regress` / `sp.ipw` | refused: a different estimator |
+| `reg y 1.d` | formula `y ~ 1.d` | `y ~ I(1 * (d == 1))` |
+
+---
+
 <a id="oct2026-stata-translation-conventions"></a>
 
 ## Unreleased: ⚠️ `sp.stata` standard errors for robust ML commands and large-sample IV

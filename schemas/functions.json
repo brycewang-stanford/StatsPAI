@@ -3090,11 +3090,12 @@
         },
         "method": {
           "default": "nearest",
-          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant.",
+          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch).",
           "enum": [
             "nearest",
             "psm",
             "mahalanobis",
+            "nnmatch",
             "kernel",
             "radius",
             "llr",
@@ -5308,10 +5309,35 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "inference": {
+          "default": "bootstrap",
+          "description": "Standard errors. 'robust' estimates potential-outcome means and takes the sandwich of the stacked estimating equations (Stata 18 mediate); it is required for interaction=True and a logit / probit mediator.",
+          "enum": [
+            "bootstrap",
+            "delta",
+            "robust"
+          ],
+          "type": "string"
+        },
+        "interaction": {
+          "default": false,
+          "description": "Treatment-by-mediator interaction in the outcome model (inference='robust'); reports NIE, NDE, PNIE, TNDE, TE.",
+          "type": "boolean"
+        },
         "mediator": {
           "description": "Mediator variable",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "mediator_model": {
+          "default": "linear",
+          "description": "Mediator model (inference='robust').",
+          "enum": [
+            "linear",
+            "logit",
+            "probit"
+          ],
+          "type": "string"
         },
         "n_boot": {
           "default": 1000,
@@ -27195,7 +27221,7 @@
     }
   },
   {
-    "description": "Translate a Stata command line to a StatsPAI tool-call payload.",
+    "description": "Translate a Stata command line to a StatsPAI tool-call payload. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "from_stata",
     "parameters": {
       "properties": {
@@ -27218,7 +27244,7 @@
     }
   },
   {
-    "description": "Execute Stata estimation / post-estimation commands on a DataFrame.",
+    "description": "Execute Stata estimation / post-estimation commands on a DataFrame. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "stata",
     "parameters": {
       "properties": {
@@ -48790,7 +48816,7 @@
         },
         "method": {
           "default": "nn",
-          "description": "Estimator family: - **Classical:** ``'nearest'`` (default), ``'stratify'``, ``'cem'``, ``'psm'``, ``'mahalanobis'``. - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``, ``'overlap'``. - **Genetic:** ``'genmatch'``. - **Optimization:** ``'optimal'``, ``'cardinality'``.",
+          "description": "Estimator family: - **Classical:** ``'nearest'`` (default), ``'stratify'``, ``'cem'``, ``'psm'``, ``'mahalanobis'``. - **Covariate matching:** ``'nnmatch'`` -- Abadie-Imbens nearest-neighbour matching on covariates with all ties kept, the Abadie-Imbens (2006) variance and optional bias adjustment; reproduces Stata ``teffects nnmatch`` (point estimates and standard errors to 1e-13 on the NSW-CPS sample). Keywords: ``estimand``, ``n_matches``, ``metric``, ``exact``, ``caliper``, ``bias_adjust``, ``vce``, ``vce_nn``. - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``, ``'overlap'``. - **Genetic:** ``'genmatch'``. - **Optimization:** ``'optimal'``, ``'cardinality'``.",
           "type": "string"
         },
         "weights": {

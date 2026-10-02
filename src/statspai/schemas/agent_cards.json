@@ -6693,11 +6693,12 @@
           },
           "method": {
             "default": "nearest",
-            "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant.",
+            "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch).",
             "enum": [
               "nearest",
               "psm",
               "mahalanobis",
+              "nnmatch",
               "kernel",
               "radius",
               "llr",
@@ -6772,8 +6773,8 @@
       "Cross-language parity (bit-exact) vs MatchIt::matchit 4.7.2 (nearest, glm/logit distance); tolerance 1:1 and 2:1 PS matching without replacement: rel <= 1e-9. Mahalanobis metric pinned against MatchIt:::mahalanobis_dist (rel <= 1e-10); greedy m_order='data'/'closest' rel <= 1e-9. -- tests/reference_parity/test_matching_r_parity.py",
       "tests/reference_parity/test_match_fw_stata_parity.py",
       "tests/reference_parity/test_matching_parity.py",
-      "tests/reference_parity/test_psmatch2_llr_parity.py",
-      "tests/reference_parity/test_psmatch2_parity.py"
+      "tests/reference_parity/test_nnmatch_teffects_parity.py",
+      "tests/reference_parity/test_psmatch2_llr_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -11571,10 +11572,35 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "inference": {
+            "default": "bootstrap",
+            "description": "Standard errors. 'robust' estimates potential-outcome means and takes the sandwich of the stacked estimating equations (Stata 18 mediate); it is required for interaction=True and a logit / probit mediator.",
+            "enum": [
+              "bootstrap",
+              "delta",
+              "robust"
+            ],
+            "type": "string"
+          },
+          "interaction": {
+            "default": false,
+            "description": "Treatment-by-mediator interaction in the outcome model (inference='robust'); reports NIE, NDE, PNIE, TNDE, TE.",
+            "type": "boolean"
+          },
           "mediator": {
             "description": "Mediator variable",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "mediator_model": {
+            "default": "linear",
+            "description": "Mediator model (inference='robust').",
+            "enum": [
+              "linear",
+              "logit",
+              "probit"
+            ],
+            "type": "string"
           },
           "n_boot": {
             "default": 1000,
@@ -11604,7 +11630,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=0.1; parity module 36_mediation -- tests/r_parity/36_mediation.py"
+      "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=0.1; parity module 36_mediation -- tests/r_parity/36_mediation.py",
+      "tests/reference_parity/test_mediate_potential_outcomes.py"
     ],
     "validation_status": "certified"
   },
@@ -48059,7 +48086,7 @@
       "tests/reference_parity/test_rd_cluster_cer_parity.py",
       "tests/reference_parity/test_rd_masspoints_R_parity.py",
       "tests/reference_parity/test_rdbwselect_comb_rules.py",
-      "tests/reference_parity/test_rdrobust_fuzzy_parity.py"
+      "tests/reference_parity/test_rdbwselect_iqr_pilot.py"
     ],
     "validation_status": "certified"
   },
@@ -105584,7 +105611,7 @@
           },
           "method": {
             "default": "nn",
-            "description": "Estimator family: - **Classical:** ``'nearest'`` (default), ``'stratify'``, ``'cem'``, ``'psm'``, ``'mahalanobis'``. - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``, ``'overlap'``. - **Genetic:** ``'genmatch'``. - **Optimization:** ``'optimal'``, ``'cardinality'``.",
+            "description": "Estimator family: - **Classical:** ``'nearest'`` (default), ``'stratify'``, ``'cem'``, ``'psm'``, ``'mahalanobis'``. - **Covariate matching:** ``'nnmatch'`` -- Abadie-Imbens nearest-neighbour matching on covariates with all ties kept, the Abadie-Imbens (2006) variance and optional bias adjustment; reproduces Stata ``teffects nnmatch`` (point estimates and standard errors to 1e-13 on the NSW-CPS sample). Keywords: ``estimand``, ``n_matches``, ``metric``, ``exact``, ``caliper``, ``bias_adjust``, ``vce``, ``vce_nn``. - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``, ``'overlap'``. - **Genetic:** ``'genmatch'``. - **Optimization:** ``'optimal'``, ``'cardinality'``.",
             "type": "string"
           },
           "weights": {

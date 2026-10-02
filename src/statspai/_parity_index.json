@@ -6349,6 +6349,23 @@
       "tolerance": "coefficients 1e-10 abs (observed ~8e-15)"
     },
     {
+      "function": "from_stata",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_iv_stata_commands_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "front_door",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -8196,6 +8213,7 @@
         "tests/reference_parity/test_iv_card_aer_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_iv_small_Stata_parity.py",
+        "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_iv_weights_stata_parity.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py",
         "tests/reference_parity/test_regress_weights_iv_robust_parity.py",
@@ -9879,6 +9897,7 @@
       "additional_tests": [
         "tests/reference_parity/test_match_fw_stata_parity.py",
         "tests/reference_parity/test_matching_parity.py",
+        "tests/reference_parity/test_nnmatch_teffects_parity.py",
         "tests/reference_parity/test_psmatch2_llr_parity.py",
         "tests/reference_parity/test_psmatch2_parity.py"
       ],
@@ -10026,6 +10045,9 @@
       "tolerance": "effect size 1e-6 abs (output rounded to 6 dp; observed ~2e-8)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_mediate_potential_outcomes.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -14722,6 +14744,7 @@
         "tests/reference_parity/test_rd_cluster_cer_parity.py",
         "tests/reference_parity/test_rd_masspoints_R_parity.py",
         "tests/reference_parity/test_rdbwselect_comb_rules.py",
+        "tests/reference_parity/test_rdbwselect_iqr_pilot.py",
         "tests/reference_parity/test_rdrobust_fuzzy_parity.py"
       ],
       "also_verified_by": [
@@ -15223,6 +15246,7 @@
         "tests/reference_parity/test_rd_vce_parity.py",
         "tests/reference_parity/test_rd_weights_parity.py",
         "tests/reference_parity/test_rdbwselect_comb_rules.py",
+        "tests/reference_parity/test_rdbwselect_iqr_pilot.py",
         "tests/reference_parity/test_rdrobust_asym_bandwidth_R_parity.py",
         "tests/reference_parity/test_rdrobust_fuzzy_parity.py",
         "tests/reference_parity/test_rdrobust_params_parity.py",
@@ -15441,6 +15465,7 @@
         "tests/reference_parity/test_inference_sens_stata_parity.py",
         "tests/reference_parity/test_margins_at_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
+        "tests/reference_parity/test_mediate_potential_outcomes.py",
         "tests/reference_parity/test_mi_test_parity.py",
         "tests/reference_parity/test_misc_sens_R_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
@@ -17559,6 +17584,23 @@
         "tests/reference_parity/_fixtures/did_synth_synthvar_R.json"
       ],
       "tolerance": "ATT, per-unit / per-cohort ATT, event-time ATT and jackknife SE 1e-8 rel (observed <= 2.6e-11); weights 1e-8 abs (observed 2.1e-10); nu 1e-8, imbalance norms 1e-6 rel"
+    },
+    {
+      "function": "stata",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_iv_stata_commands_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "stepwise",
