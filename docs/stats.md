@@ -39,7 +39,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 50,096 | 67 | 95 |
+| `did` | 50,137 | 67 | 95 |
 | `synth` | 27,878 | 36 | 55 |
 | `rd` | 21,269 | 32 | 55 |
 | `regression` | 21,108 | 25 | 39 |
@@ -58,7 +58,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `spatial` | 7,855 | 30 | 38 |
 | `fast` | 7,743 | 16 | 0 |
 | `plots` | 6,011 | 7 | 8 |
-| `timeseries` | 6,125 | 12 | 22 |
+| `timeseries` | 6,121 | 12 | 22 |
 | `multilevel` | 5,283 | 9 | 11 |
 | `bayes` | 5,243 | 12 | 20 |
 | `mendelian` | 5,166 | 13 | 41 |

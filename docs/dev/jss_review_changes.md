@@ -34,7 +34,7 @@ Rules:
 ### 2026-10-02 — call traces re-recorded after `sp.regress` gained HAC options; parity-index denominators moved
 
 - **Commits.** `aad512aa` added `sp.ttest` (new exports in
-  `src/statspai/__init__.py`) and regenerated `docs/parity.md`. `f0886b6f`
+  `src/statspai/__init__.py`) and regenerated `docs/parity.md`. `dd753900`
   added `sp.unitroot`, the `hac_lags=` / `hac_small=` arguments of
   `sp.regress` (`src/statspai/regression/ols.py`), regenerated
   `docs/parity.md` again and re-recorded
