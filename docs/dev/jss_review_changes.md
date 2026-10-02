@@ -31,6 +31,39 @@ Rules:
 
 ## Entries
 
+### 2026-10-02 — call traces re-recorded after `sp.regress` gained HAC options; parity-index denominators moved
+
+- **Commits.** `aad512aa` added `sp.ttest` (new exports in
+  `src/statspai/__init__.py`) and regenerated `docs/parity.md`. `f0886b6f`
+  added `sp.unitroot`, the `hac_lags=` / `hac_small=` arguments of
+  `sp.regress` (`src/statspai/regression/ols.py`), regenerated
+  `docs/parity.md` again and re-recorded
+  `tests/r_parity/results/_implementation_trace.json` for modules 01 03 13
+  14 15 24 25 26 27 51 53 54 55 56 65 66.
+- **Reason.** The traces bind SHA-256 digests of every source file on each
+  module's estimation path; `regression/ols.py` and the package root are on
+  the path of those sixteen. `aad512aa` was pushed without re-recording, so
+  the trace check was stale on `main` between the two commits. The new
+  `sp.regress` arguments default to the previous behaviour:
+  `verify_reproduce_py.py --no-report 01_ols 14_ols_cluster 51_newey 53_cr2
+  54_twoway_cluster 55_hc2_hc3 56_multiway_cluster` reports 7 reproduce,
+  0 drift.
+- **Effect on the paper.** None on any table. Only `exercised_sources`
+  digests and `seconds` changed in the trace; no module's implementation
+  classification moved. In `docs/parity.md` the registered-function
+  denominators grew by the four new names (`ttest`, `TTestResult`,
+  `unitroot`, `UnitRootResult`), which carry no cross-language evidence
+  row: "unverified" 529 to 533 and estimator callables 736 to 738. One
+  thing worth knowing at the next re-anchor: module `51_newey` passes
+  against Stata with `rel_se` 1e-2 because Stata's `newey` scales the
+  covariance by `N/(N-K)`. `sp.regress(..., robust="hac", hac_lags=4,
+  hac_small=True)` now reproduces that Stata golden to 3e-16
+  (`tests/test_regress_hac_options.py`), so the row could be moved to the
+  strict budget by adding a Stata-convention row to the module. That is a
+  change to a frozen artifact and was not made here.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `docs/parity.md`
 ### 2026-10-02 — call traces re-recorded for 16, 73 and 84 after the scope-map fields were added
 
 - **Commit.** `f88b6bee`.
