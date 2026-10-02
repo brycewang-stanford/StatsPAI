@@ -19706,9 +19706,25 @@
           "description": "Hypothesised trend violation in the pre-period (length = number of pre-periods). Default: linear trend ``delta[k] = (k+1) * min(|SE|)`` -- a violation equal to one SE at the furthest lag, declining linearly to near-zero.",
           "type": "string"
         },
+        "event_times": {
+          "description": "Take the event study from coefficients instead of a StatsPAI result: ``result`` is then the coefficient vector with ``sigma`` its covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments` (``num_pre_periods=k`` places the leads at ``-k-1, ..., -2`` and the rest at ``0, 1, ...``). This is the input of Stata ``pretrends, b() v() numpre()``.",
+          "type": "string"
+        },
+        "num_pre_periods": {
+          "description": "Take the event study from coefficients instead of a StatsPAI result: ``result`` is then the coefficient vector with ``sigma`` its covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments` (``num_pre_periods=k`` places the leads at ``-k-1, ..., -2`` and the rest at ``0, 1, ...``). This is the input of Stata ``pretrends, b() v() numpre()``.",
+          "type": "integer"
+        },
         "result": {
           "description": "Event-study result with pre-treatment estimates and SEs.",
           "type": "string"
+        },
+        "sigma": {
+          "description": "Take the event study from coefficients instead of a StatsPAI result: ``result`` is then the coefficient vector with ``sigma`` its covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments` (``num_pre_periods=k`` places the leads at ``-k-1, ..., -2`` and the rest at ``0, 1, ...``). This is the input of Stata ``pretrends, b() v() numpre()``.",
+          "type": "string"
+        },
+        "slope": {
+          "description": "Shorthand for a linear violation ``delta_t = slope * (t - t_ref)`` with the reference period ``t_ref = -1`` (Stata / R ``pretrends``'s ``slope``). Give ``slope`` or ``delta``, not both.",
+          "type": "number"
         },
         "test": {
           "default": "individual",
@@ -19736,8 +19752,20 @@
           "description": "Significance level of the pre-test.",
           "type": "number"
         },
+        "event_times": {
+          "description": "Coefficients and covariance instead of a StatsPAI result, as in :func:`pretrends_power`.",
+          "type": "string"
+        },
+        "num_pre_periods": {
+          "description": "Coefficients and covariance instead of a StatsPAI result, as in :func:`pretrends_power`.",
+          "type": "integer"
+        },
         "result": {
           "description": "Event-study result with pre-treatment estimates and SEs. As with :func:`pretrends_power`, supply the full pre-period covariance via ``model_info['vcv_pre']`` -- the diagonal fallback overstates the detectable slope.",
+          "type": "string"
+        },
+        "sigma": {
+          "description": "Coefficients and covariance instead of a StatsPAI result, as in :func:`pretrends_power`.",
           "type": "string"
         },
         "target_power": {
@@ -29471,6 +29499,11 @@
           "type": "array",
           "x-statspai-role": "columns"
         },
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the test of the null that the worst-case bias exceeds a fraction ``tau`` of the benchmark.",
+          "type": "number"
+        },
         "cluster": {
           "description": "Cluster the first-stage moment variance. ``Omega`` becomes the (multiway, Cameron-Gelbach-Miller) cluster-sum meat with the ``ivreg2`` finite-sample factor ``G_min/(G_min-1) * (n-1)/(n-K)``. This is the right diagnostic whenever the second stage is",
           "items": {
@@ -29517,6 +29550,11 @@
             "vce"
           ],
           "x-canonical": "vce"
+        },
+        "y": {
+          "description": "The outcome. Needed for the estimator-specific critical values: the worst-case bias of TSLS and of LIML depends on the reduced form as well as the first stage. Without it only the ``'simplified'`` critical values are returned.",
+          "type": "string",
+          "x-statspai-role": "column"
         }
       },
       "required": [

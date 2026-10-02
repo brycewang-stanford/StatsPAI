@@ -31,6 +31,40 @@ Rules:
 
 ## Entries
 
+### 2026-10-02 — pre-trend power integrated to 1e-7; traces re-recorded for 02, 10, 21, 59, 76 and the original-data ledger
+
+- **Commits.** `826295bf` (Montiel Olea-Pflueger critical values, robust
+  endogeneity tests, pre-trend power from coefficients and a covariance).
+  The traces, schemas and parity index were re-recorded in the commit that follows it, which carries this entry.
+- **Reason.** `sp.pretrends_power` integrates a multivariate-normal
+  rectangle probability. SciPy's default absolute tolerance of 1e-5 left
+  the power moving in the fifth digit between two calls, so the tolerance
+  is now 1e-7 and the slope solver stops at that precision. The same commit
+  touched `regression/iv.py` (diagnostics only) and `did/honest_did.py`
+  (a refactor of the moments path), which are on the estimation path of
+  the other four modules. The original-data ledger had also gone stale
+  from the earlier textbook commits (`rd/_cct_bandwidth.py`,
+  `rd/rdrobust.py`, `synth/_core.py`, `synth/scm.py`, `regression/iv.py`)
+  and from `regression/ols.py` and `core/_vcov_spec.py` on `main`.
+- **Effect on the paper.** Module 76 only, inside its registered 1e-3
+  budget. The six Python values moved by 1e-6 to 1e-5 in absolute terms,
+  for example `power_slope_0p02` 0.33164959 to 0.33164981 and
+  `slope_for_power_0p5` 0.02791382 to 0.02791357. The headline relative
+  gap to R `pretrends` goes from 3.98e-05 to 4.05e-05 at slope 0.02 and
+  from 1.05e-05 to 8.57e-06 at slope 0.05. The verdict and the gap note
+  ("rel < 1e-4") stand. Modules 02, 10, 21 and 59 were rerun and their
+  result files are unchanged in the committed digits (02 and 59 differ
+  from the committed files at 1e-12, which predates this commit and is
+  below the 1e-9 reproducibility tolerance, so the files were left alone).
+  No implementation classification moved in either ledger.
+- **Paths.**
+  - `tests/r_parity/results/76_pretrends_py.json`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-02 — call traces re-recorded for 17, 38 and 85 after the scope-map fields were added
 
 - **Commit.** `d3f1b828`.

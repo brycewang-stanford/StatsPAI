@@ -46114,9 +46114,25 @@
             "description": "Hypothesised trend violation in the pre-period (length = number of pre-periods). Default: linear trend ``delta[k] = (k+1) * min(|SE|)`` -- a violation equal to one SE at the furthest lag, declining linearly to near-zero.",
             "type": "string"
           },
+          "event_times": {
+            "description": "Take the event study from coefficients instead of a StatsPAI result: ``result`` is then the coefficient vector with ``sigma`` its covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments` (``num_pre_periods=k`` places the leads at ``-k-1, ..., -2`` and the rest at ``0, 1, ...``). This is the input of Stata ``pretrends, b() v() numpre()``.",
+            "type": "string"
+          },
+          "num_pre_periods": {
+            "description": "Take the event study from coefficients instead of a StatsPAI result: ``result`` is then the coefficient vector with ``sigma`` its covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments` (``num_pre_periods=k`` places the leads at ``-k-1, ..., -2`` and the rest at ``0, 1, ...``). This is the input of Stata ``pretrends, b() v() numpre()``.",
+            "type": "integer"
+          },
           "result": {
             "description": "Event-study result with pre-treatment estimates and SEs.",
             "type": "string"
+          },
+          "sigma": {
+            "description": "Take the event study from coefficients instead of a StatsPAI result: ``result`` is then the coefficient vector with ``sigma`` its covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments` (``num_pre_periods=k`` places the leads at ``-k-1, ..., -2`` and the rest at ``0, 1, ...``). This is the input of Stata ``pretrends, b() v() numpre()``.",
+            "type": "string"
+          },
+          "slope": {
+            "description": "Shorthand for a linear violation ``delta_t = slope * (t - t_ref)`` with the reference period ``t_ref = -1`` (Stata / R ``pretrends``'s ``slope``). Give ``slope`` or ``delta``, not both.",
+            "type": "number"
           },
           "test": {
             "default": "individual",
@@ -46140,6 +46156,7 @@
       "R parity module 76_pretrends",
       "Stata parity module 76_pretrends",
       "Cross-language parity (aligned) vs pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) [R version 4.5.2 (2025-10-31), pretrends 0.1.0]; tolerance rel_est<=0.001; parity module 76_pretrends -- tests/r_parity/76_pretrends.py",
+      "tests/reference_parity/test_pretrends_from_moments_stata.py",
       "tests/reference_parity/test_pretrends_power_parity.py"
     ],
     "validation_status": "certified"
@@ -46272,8 +46289,20 @@
             "description": "Significance level of the pre-test.",
             "type": "number"
           },
+          "event_times": {
+            "description": "Coefficients and covariance instead of a StatsPAI result, as in :func:`pretrends_power`.",
+            "type": "string"
+          },
+          "num_pre_periods": {
+            "description": "Coefficients and covariance instead of a StatsPAI result, as in :func:`pretrends_power`.",
+            "type": "integer"
+          },
           "result": {
             "description": "Event-study result with pre-treatment estimates and SEs. As with :func:`pretrends_power`, supply the full pre-period covariance via ``model_info['vcv_pre']`` -- the diagonal fallback overstates the detectable slope.",
+            "type": "string"
+          },
+          "sigma": {
+            "description": "Coefficients and covariance instead of a StatsPAI result, as in :func:`pretrends_power`.",
             "type": "string"
           },
           "target_power": {
@@ -63033,6 +63062,11 @@
             "type": "array",
             "x-statspai-role": "columns"
           },
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the test of the null that the worst-case bias exceeds a fraction ``tau`` of the benchmark.",
+            "type": "number"
+          },
           "cluster": {
             "description": "Cluster the first-stage moment variance. ``Omega`` becomes the (multiway, Cameron-Gelbach-Miller) cluster-sum meat with the ``ivreg2`` finite-sample factor ``G_min/(G_min-1) * (n-1)/(n-K)``. This is the right diagnostic whenever the second stage is",
             "items": {
@@ -63079,6 +63113,11 @@
               "vce"
             ],
             "x-canonical": "vce"
+          },
+          "y": {
+            "description": "The outcome. Needed for the estimator-specific critical values: the worst-case bias of TSLS and of LIML depends on the reduced form as well as the first stage. Without it only the ``'simplified'`` critical values are returned.",
+            "type": "string",
+            "x-statspai-role": "column"
           }
         },
         "required": [
@@ -63094,6 +63133,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata weakivtest (Montiel Olea & Pflueger) after ivreg2; R ivDiag::eff_F 1.0.6 [R version 4.5.2 (2025-10-31), Stata 18 MP, ivDiag 1.0.6, ivreg2 4.1.12, weakivtest 10/28/2020]; tolerance F_eff rel 1e-9 on 6 designs (observed 3.7e-14 vs Stata, 1.3e-12 vs ivDiag for k = 1) -- tests/reference_parity/test_rd_iv_R_parity.py",
       "tests/reference_parity/test_anderson_rubin_parity.py",
+      "tests/reference_parity/test_effective_f_critical_values.py",
       "tests/reference_parity/test_iv_hdfe_stata_parity.py"
     ],
     "validation_status": "certified"

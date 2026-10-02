@@ -5220,6 +5220,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_anderson_rubin_parity.py",
+        "tests/reference_parity/test_effective_f_critical_values.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py"
       ],
       "also_verified_by": [
@@ -5365,6 +5366,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py"
       ],
       "tolerance": ""
@@ -13451,6 +13453,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_pretrends_from_moments_stata.py",
         "tests/reference_parity/test_pretrends_power_parity.py"
       ],
       "also_verified_by": [
@@ -13460,8 +13463,8 @@
       "function": "pretrends_power",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 3.981221250286203e-05,
-        "rel_vs_Stata": 0.0001386677573332509,
+        "rel_vs_R": 4.0491305649240525e-05,
+        "rel_vs_Stata": 0.00013798878538657147,
         "statistic": [
           "power_slope_0p02",
           "power_slope_0p05"
@@ -13474,8 +13477,8 @@
       "module_id": "76_pretrends",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.981221250286203e-05,
-        "Stata": 0.0001386677573332509
+        "R": 4.0491305649240525e-05,
+        "Stata": 0.00013798878538657147
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
@@ -13513,8 +13516,8 @@
       "function": "pretrends_slope_for_power",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 3.981221250286203e-05,
-        "rel_vs_Stata": 0.0001386677573332509,
+        "rel_vs_R": 4.0491305649240525e-05,
+        "rel_vs_Stata": 0.00013798878538657147,
         "statistic": [
           "power_slope_0p02",
           "power_slope_0p05"
@@ -13527,8 +13530,8 @@
       "module_id": "76_pretrends",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.981221250286203e-05,
-        "Stata": 0.0001386677573332509
+        "R": 4.0491305649240525e-05,
+        "Stata": 0.00013798878538657147
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",

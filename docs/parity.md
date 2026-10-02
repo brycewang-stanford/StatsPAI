@@ -658,7 +658,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `dynamic_dml` | [`test_dynamic_dml_econml_parity.py`](../tests/reference_parity/test_dynamic_dml_econml_parity.py) |
 | `dynotears` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `equalized_odds` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
-| `estat` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
+| `estat` | [`test_iv_stata_commands_parity.py`](../tests/reference_parity/test_iv_stata_commands_parity.py) (+1) |
 | `evidence_without_injustice` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `fairness_audit` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `fci` | [`test_fci_parity.py`](../tests/reference_parity/test_fci_parity.py) |
