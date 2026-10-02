@@ -7,7 +7,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="oct2026-known-truth-fixes"></a>
 
-## Unreleased: ⚠️ six estimators that missed a known truth, and clustered CER bandwidths
+## Unreleased: ⚠️ estimators that missed a known truth, and clustered CER bandwidths
 
 **Who is affected.** Anyone who reported numbers from the functions below.
 The old output cannot be reproduced by an option, because it was not an
@@ -21,9 +21,15 @@ estimate of the documented quantity.
 | `sp.cluster_staggered_rollout` with two or more cohorts | `event_study`, `overall_att`, all SEs | 1.22 (truth 1.5) | 1.51 |
 | `sp.rd_extrapolate` | `se`, `ci`, `pvalue` of the average | 40% coverage | 92% |
 | `sp.kitagawa_test` | `p_value` | near 0.5 on any data | a test with power |
+| `sp.rd_forest`, `sp.rd_boost` | `estimate`, `se`, `ci`, `detail`, `estimand` | 1.29, 0% coverage (truth 1.0) | 1.03, interval covers; mean of fitted CATEs in `model_info['mean_cate']` |
+| `sp.rd_distribution` | `qte`, `se` | `qte` was a CDF jump (-0.48 for a +2.0 shift) | a quantile effect; the old values are `cdf_effect`, `cdf_se` |
+| `sp.did_few_treated` | `ci` | 88% coverage at nominal 95% (29 controls) | 96.6%; old interval in `model_info['quantile_interval']` |
 | `sp.rdbwselect`, `sp.rdrobust` with a `cer*` bandwidth and `cluster=` | `h`, and through it the estimate and SEs | `h_cerrd` 0.2054 (rdrobust: 0.2305) | 0.2305 |
 
-**What to do.** Re-run. For `design_robust_event_study`, results are
+**What to do.** Re-run. Code that read `res.qte` from `sp.rd_distribution`
+as a change in probability should read `res.cdf_effect`; code that
+assumed `sp.rd_forest(...).estimate == detail['cate'].mean()` should read
+`model_info['mean_cate']`. For `design_robust_event_study`, results are
 unchanged when `lags` already covers the longest exposure in the data
 (`model_info['diagnostics']['n_obs_binned_post'] == 0`). For
 `cluster_staggered_rollout`, results with a single treated cohort are
