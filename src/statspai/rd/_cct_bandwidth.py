@@ -76,6 +76,21 @@ _C_C = {"triangular": 2.576, "uniform": 1.843, "epanechnikov": 2.34}
 MASSPOINTS = ("adjust", "check", "off")
 
 
+def _quantile_type2(x: np.ndarray, prob: float) -> float:
+    """Empirical quantile, definition 2 of Hyndman and Fan (1996): the
+    inverse of the empirical CDF, averaging the two order statistics where
+    it is flat. This is what ``rdbwselect`` uses for the interquartile range
+    of the running variable (R ``quantile(x, type = 2)``, Stata ``_pctile``).
+
+    ``method="lower"`` agrees with it at the lower quartile only when
+    ``n * prob`` is not an integer, and at the upper quartile not in
+    general. The two differ by one order statistic, which matters once the
+    IQR rather than the standard deviation sets the pilot bandwidth: on the
+    Lee (2008) House data ``h`` moved by 5.6e-5.
+    """
+    return float(np.quantile(x, prob, method="averaged_inverted_cdf"))
+
+
 def masspoint_shares(x_c: np.ndarray, masspoints: str, where: str) -> Dict[str, float]:
     """Validate ``masspoints`` and report R ``rdrobust``'s mass-point shares.
 
@@ -635,7 +650,7 @@ def cct_bandwidth(
 
     # Reference bandwidth. stdvars=FALSE => raw scale; masspoints='adjust'
     # => the unique-value count replaces n.
-    x_iq = np.quantile(x, 0.75, method="lower") - np.quantile(x, 0.25, method="lower")
+    x_iq = _quantile_type2(x, 0.75) - _quantile_type2(x, 0.25)
     BWp = min(np.std(x, ddof=1), x_iq / 1.349)
     C_c = _C_C[kernel]
 
