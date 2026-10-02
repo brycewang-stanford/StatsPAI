@@ -790,7 +790,9 @@ def olley_pakes(
     ...         omega = 0.7 * omega + rng.normal(0.0, 0.2)
     ...         k = 0.9 * k + 0.3 * rng.normal(1.0, 0.3)
     ...         l = 0.6 * k + omega + rng.normal(1.0, 0.2)
-    ...         inv = 0.4 * k + omega + rng.normal(1.0, 0.2)  # investment > 0
+    ...         # The proxy is an exact, invertible function of (k, omega):
+    ...         # noise in it would break the scalar-unobservable condition.
+    ...         inv = 1.0 + 0.4 * k + omega  # investment > 0
     ...         y = 0.6 * l + 0.3 * k + omega + rng.normal(0.0, 0.1)
     ...         rows.append(dict(id=fid, year=yr, y=y, l=l, k=k, i=inv))
     >>> df = pd.DataFrame(rows)
@@ -891,7 +893,9 @@ def levinsohn_petrin(
     ...         omega = 0.7 * omega + rng.normal(0.0, 0.2)
     ...         k = 0.9 * k + 0.3 * rng.normal(1.0, 0.3)
     ...         l = 0.6 * k + omega + rng.normal(1.0, 0.2)
-    ...         m = 0.5 * k + 0.5 * l + omega + rng.normal(0.5, 0.2)
+    ...         # The proxy is an exact, invertible function of (k, omega):
+    ...         # noise in it would break the scalar-unobservable condition.
+    ...         m = 0.5 + 0.5 * k + omega
     ...         y = 0.6 * l + 0.3 * k + omega + rng.normal(0.0, 0.1)
     ...         rows.append(dict(id=fid, year=yr, y=y, l=l, k=k, m=m))
     >>> df = pd.DataFrame(rows)
@@ -1005,7 +1009,9 @@ def ackerberg_caves_frazer(
     ...         omega = 0.7 * omega + rng.normal(0.0, 0.2)
     ...         k = 0.9 * k + 0.3 * rng.normal(1.0, 0.3)
     ...         l = 0.6 * k + omega + rng.normal(1.0, 0.2)
-    ...         m = 0.5 * k + 0.5 * l + omega + rng.normal(0.5, 0.2)
+    ...         # The proxy is an exact, invertible function of (k, omega):
+    ...         # noise in it would break the scalar-unobservable condition.
+    ...         m = 0.5 + 0.5 * k + omega
     ...         y = 0.6 * l + 0.3 * k + omega + rng.normal(0.0, 0.1)
     ...         rows.append(dict(id=fid, year=yr, y=y, l=l, k=k, m=m))
     >>> df = pd.DataFrame(rows)

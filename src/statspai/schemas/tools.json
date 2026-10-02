@@ -1195,7 +1195,7 @@
     "name": "bacon_plot"
   },
   {
-    "description": "Unified balance diagnostics for matching and weighting estimators.",
+    "description": "Unified balance diagnostics for matching and weighting estimators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -6901,7 +6901,7 @@
     "name": "did_bcf"
   },
   {
-    "description": "Calibrated placebo simulation for DiD estimator selection: strip the estimated effect out of the observed panel, redraw the adoption pattern, inject a known effect, and refit every candidate estimator. Returns bias, RMSE, coverage and rejection rate with Monte Carlo standard errors, so the choice of estimator is settled on this panel rather than by citation. Assumptions: The redrawn assignment is random, so parallel trends holds by construction; the table measures estimator behaviour, not the credibility of the design; The calibration removes the horizon-averaged estimated effect, not cell-level deviations from it; The target is the treated-observation average of the injected effect; a heterogeneous effect makes estimand differences show up as bias. Pre-conditions: one row per (unit, period); cohort constant within a unit; at least two never-treated units to redraw an assignment against; a balanced panel for resample='units'. Failure modes: Fewer than two never-treated units, so a redrawn assignment has no comparison group -> Extend the panel with untreated units, or study the design with sp.did_few_treated instead; resample='units' on an unbalanced panel -> Use resample='wild' or...",
+    "description": "Calibrated placebo simulation for DiD estimator selection: strip the estimated effect out of the observed panel, redraw the adoption pattern, inject a known effect, and refit every candidate estimator. Returns bias, RMSE, coverage and rejection rate with Monte Carlo standard errors, so the choice of estimator is settled on this panel rather than by citation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The redrawn assignment is random, so parallel trends holds by construction; the table measures estimator behaviour, not the credibility of the design; The calibration removes the horizon-averaged estimated effect, not cell-level deviations from it; The target is the treated-observation average of the injected effect; a heterogeneous effect makes estimand differences show up as bias. Pre-conditions: one row per (unit, period); cohort constant within a unit; at least two never-treated units to redraw an assignment against; a balanced panel for resample='units'. Failure modes: Fewer than two never-treated units, so a redrawn assignment has no comparison group -> Extend the panel with untreated units, or study the d...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -8336,7 +8336,7 @@
     "name": "discos_plot"
   },
   {
-    "description": "Test for distributional treatment effects. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
+    "description": "Test for distributional treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
     "input_schema": {
       "properties": {
         "result": {
@@ -8345,7 +8345,7 @@
         },
         "test": {
           "default": "ks",
-          "description": "``'ks'``: two-sample Kolmogorov-Smirnov test comparing treated and counterfactual quantile functions. ``'cvm'``: Cramer-von Mises test statistic (permutation-based). ``'stochastic_dominance'``: first-order stochastic dominance test.",
+          "description": "``'ks'``: sup-norm test, the largest absolute gap between the treated and counterfactual quantile functions, ranked against the same statistic for the placebo units. ``'cvm'``: Cramer-von Mises test statistic (permutation-based). ``'stochastic_dominance'``: first-order stochastic dominance test.",
           "enum": [
             "ks",
             "cvm",
@@ -19738,6 +19738,11 @@
           "type": "array",
           "x-statspai-role": "columns"
         },
+        "id": {
+          "description": "Unit identifier; on a panel the bootstrap resamples units",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "ps_model": {
           "default": "logit",
           "description": "Propensity score model",
@@ -21537,7 +21542,7 @@
     "name": "pretrends_summary"
   },
   {
-    "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference. Assumptions: The test asks whether the pre-period ATTs *jointly* differ from zero; Failing to reject is consistent with parallel trends but does NOT prove it (low power problem -- Roth 2022). Pre-conditions: result has at least one pre-treatment period coefficient and its variance; covariance between pre-period coefficients is available (cluster-robust SE recommended). Failure modes: Single pre-period (no pretrends to test) -> Pretrends test needs >= 2 pre-treatment periods; widen the panel or drop the test; High-power study rejects but visual pretrends look flat -> Use sp.honest_did + sp.sensitivity_rr to bound the bias; reporting *both* is standard practice. Alternatives: sp.sensitivity_rr, sp.honest_did, sp.event_study. Typical minimum N: 50.",
+    "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The test asks whether the pre-period ATTs *jointly* differ from zero; Failing to reject is consistent with parallel trends but does NOT prove it (low power problem -- Roth 2022). Pre-conditions: result has at least one pre-treatment period coefficient and its variance; covariance between pre-period coefficients is available (cluster-robust SE recommended). Failure modes: Single pre-period (no pretrends to test) -> Pretrends test needs >= 2 pre-treatment periods; widen the panel or drop the test; High-power study rejects but visual pretrends look flat -> Use sp.honest_did + sp.sensitivity_rr to bound the bias; reporting *both* is standard practice. Alternatives: sp.sensitivity_rr, sp.honest_did, sp.event_study. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21985,7 +21990,7 @@
     "name": "proximal_regression"
   },
   {
-    "description": "Compute comprehensive propensity score balance table. Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance. Assumptions: Balance after weighting is only evidence on the covariates checked; it says nothing about unmeasured confounders. Pre-conditions: Binary treatment column and the covariates to check. Alternatives: sp.sp.balance_table, sp.sp.love_plot, sp.sp.ipw.",
+    "description": "Compute comprehensive propensity score balance table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance. Assumptions: Balance after weighting is only evidence on the covariates checked; it says nothing about unmeasured confounders. Pre-conditions: Binary treatment column and the covariates to check. Alternatives: sp.sp.balance_table, sp.sp.love_plot, sp.sp.ipw.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -23010,7 +23015,7 @@
     "name": "rate_split"
   },
   {
-    "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternative...",
+    "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across ban...",
     "input_schema": {
       "properties": {
         "c": {

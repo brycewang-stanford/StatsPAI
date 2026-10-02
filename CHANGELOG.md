@@ -36,6 +36,36 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.llm_annotator_correct` used the wrong attenuation factor for a
+  binary label.** It divided the naive coefficient by `1 - p_01 - p_10`.
+  That is the attenuation for a misclassified outcome. For a
+  misclassified regressor the factor is the gap in predictive values,
+  `P(T=1 | T_obs=1) - P(T=1 | T_obs=0)`, which equals
+  `(1 - p_01 - p_10) Var(T) / Var(T_obs)`. The two agree only for a
+  balanced label with symmetric errors. At a prevalence of 0.2 with 10%
+  errors each way a true effect of 1.0 came back as 0.835 (12% coverage);
+  with asymmetric errors, 1.07 to 1.09. All four tested configurations
+  now average 1.00. The multi-class and continuous paths were already
+  built on the right quantity and are unchanged in their estimates.
+- **`sp.llm_annotator_correct` standard errors ignored the validation
+  sample.** The reported `se` was the first-order one, which treats the
+  estimated error rates as known. It is now the delta-method SE (the
+  first-order SE times `model_info['se_inflation_factor']`), for all
+  three paths: 0.077 against an across-seed SD of 0.074, where the
+  first-order SE is 0.059. The first-order numbers stay in
+  `model_info['first_order_se']` / `['first_order_ci']`, and
+  `bootstrap=True` still replaces both.
+- **`sp.discos_test(test='ks')` was not a test.** It ran a two-sample
+  Kolmogorov-Smirnov test on the points of the two quantile functions as
+  if they were observations. Their number is the grid size, whatever the
+  data, and neighbours are almost perfectly dependent: a true null was
+  rejected in 57% of replications at the 5% level, and one treated unit
+  could report `p = 2e-59`. The statistic is now the largest absolute gap
+  between the quantile functions, ranked among the placebo units' (3.3%
+  rejection under the null, 60% power at a 0.8 SD shift with 29
+  placebos). Without placebo fits `'ks'`, `'cvm'` and the dominance test
+  return a NaN p-value instead of one from a chi-squared or KS
+  approximation that treated grid nodes as independent.
 - **`sp.vcnet` and `sp.scigan` stretched the dose-response curve on a
   user-supplied grid.** The spline basis for the evaluation grid was
   built on the grid's own range, not on the range of the observed doses
@@ -335,6 +365,12 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **Docstring examples of `sp.olley_pakes`, `sp.levinsohn_petrin` and
+  `sp.ackerberg_caves_frazer` drew the proxy with noise**, which breaks
+  the scalar-unobservable condition the estimators rest on. The proxy in
+  the examples is now an exact function of capital and productivity; on
+  that design the three estimators recover the elasticities (0.60 / 0.30
+  for OP and LP, 0.58 / 0.32 for ACF, against 0.6 / 0.3).
 - **51 curated registry entries advertised no example.**
   `sp.describe_function(name)["example"]`, the agent cards and the MCP
   tool descriptions were blank for hand-written specs that left the field
@@ -354,6 +390,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.overlap_weighted_did(id=)`.** With a unit identifier the
+  bootstrap resamples units and keeps a unit's two observations together,
+  so a unit effect differences out of the standard error as it does out
+  of the estimate. On a two-period panel with a unit effect as large as
+  the noise the SE is 0.119 against an across-seed SD of 0.110; the
+  row-level bootstrap gives 0.172. Without `id` nothing changes.
+- **Known-truth anchors for the Bayesian estimators.**
+  `tests/reference_parity/test_oct2026_fourth_pass.py` checks
+  `sp.bayes_did`, `sp.bayes_fuzzy_rd`, `sp.bayes_hte_iv`, `sp.bayes_its`
+  and both modes of `sp.bayes_mte` against planted parameters (skipped
+  without the `bayes` extra), and `sp.bayes_dml`, the proxy-variable
+  production-function estimators and `sp.did_calibrated_simulation`
+  without it.
 - **`sp.from_stata` / `sp.stata` translate `areg` and `rdbwselect`.**
   `areg y x, absorb(g)` becomes `sp.regress('y ~ x + C(g)')`, the
   dummy-variable regression, because `areg` counts the absorbed groups in

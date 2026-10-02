@@ -39,7 +39,12 @@ def test_parity_status_bit_exact_function():
 def test_parity_status_unverified_is_honest():
     # A registered function with no parity evidence returns an explicit,
     # non-raising unverified record (the honest gap, not a crash).
-    rec = sp.parity_status("bayes_mte")
+    # Picked from the index, not named: every estimator named here so far
+    # has since acquired evidence and turned this test red.
+    unverified = sp.parity_matrix(status="unverified", fmt="records")
+    if not unverified:
+        pytest.skip("every registered function carries parity evidence")
+    rec = sp.parity_status(unverified[0]["function"])
     assert rec["status"] == "unverified"
     assert rec["notes"]
 

@@ -122,7 +122,28 @@ def test_discos_test_variants(discos_result, test):
     assert isinstance(out, dict)
     assert "statistic" in out and "pvalue" in out
     assert np.isfinite(out["statistic"])
-    assert 0.0 <= out["pvalue"] <= 1.0
+    # The fixture is fitted with placebo=False, so there is no reference
+    # distribution: quantile-grid points are not a sample, and no p-value
+    # is reported in place of one computed as if they were.
+    assert np.isnan(out["pvalue"])
+
+
+@pytest.mark.parametrize("test", ["ks", "cvm", "stochastic_dominance"])
+def test_discos_test_variants_with_placebos(test):
+    res = sp.discos(
+        _panel(3),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        n_quantiles=40,
+        placebo=True,
+        seed=1,
+    )
+    out = sp.discos_test(res, test=test)
+    n_plac = res.model_info["n_placebos"]
+    assert 1.0 / (n_plac + 1) <= out["pvalue"] <= 1.0
 
 
 def test_discos_test_unknown_raises(discos_result):

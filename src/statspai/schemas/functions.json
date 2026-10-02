@@ -1153,7 +1153,7 @@
     }
   },
   {
-    "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'.",
+    "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd",
     "parameters": {
       "properties": {
@@ -5213,7 +5213,7 @@
     }
   },
   {
-    "description": "Bayesian fuzzy RD: joint model of first-stage jump in treatment probability and outcome jump, yielding posterior over the LATE at the cutoff (Wald ratio).",
+    "description": "Bayesian fuzzy RD: joint model of first-stage jump in treatment probability and outcome jump, yielding posterior over the LATE at the cutoff (Wald ratio). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_fuzzy_rd",
     "parameters": {
       "properties": {
@@ -5273,7 +5273,7 @@
     }
   },
   {
-    "description": "Bayesian Marginal Treatment Effect (Heckman-Vytlacil 2005). Full posterior over the MTE curve under essential heterogeneity, with bivariate-normal latent errors. Derives ATE / ATT / LATE / PRTE as posterior linear functionals.",
+    "description": "Bayesian Marginal Treatment Effect (Heckman-Vytlacil 2005). Full posterior over the MTE curve under essential heterogeneity, with bivariate-normal latent errors. Derives ATE / ATT / LATE / PRTE as posterior linear functionals. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_mte",
     "parameters": {
       "properties": {
@@ -8206,7 +8206,7 @@
     }
   },
   {
-    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate, with optional full PyMC MCMC over the orthogonal moment equation.",
+    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate, with optional full PyMC MCMC over the orthogonal moment equation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_dml",
     "parameters": {
       "properties": {
@@ -8277,7 +8277,7 @@
     }
   },
   {
-    "description": "Bayesian Difference-in-Differences with staggered adoption -- hierarchical ATT(g,t) posterior with optional cohort / unit random effects. Full MCMC with PyMC; reports R-hat, ESS, divergences, and 94% HDI.",
+    "description": "Bayesian Difference-in-Differences with staggered adoption -- hierarchical ATT(g,t) posterior with optional cohort / unit random effects. Full MCMC with PyMC; reports R-hat, ESS, divergences, and 94% HDI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_did",
     "parameters": {
       "properties": {
@@ -14870,6 +14870,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "id": {
+          "description": "Unit identifier; on a panel the bootstrap resamples units",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "ps_model": {
           "default": "logit",
           "description": "Propensity score model",
@@ -16667,7 +16672,7 @@
     }
   },
   {
-    "description": "Calibrated placebo simulation for DiD estimator selection: strip the estimated effect out of the observed panel, redraw the adoption pattern, inject a known effect, and refit every candidate estimator. Returns bias, RMSE, coverage and rejection rate with Monte Carlo standard errors, so the choice of estimator is settled on this panel rather than by citation.",
+    "description": "Calibrated placebo simulation for DiD estimator selection: strip the estimated effect out of the observed panel, redraw the adoption pattern, inject a known effect, and refit every candidate estimator. Returns bias, RMSE, coverage and rejection rate with Monte Carlo standard errors, so the choice of estimator is settled on this panel rather than by citation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "did_calibrated_simulation",
     "parameters": {
       "properties": {
@@ -17910,7 +17915,7 @@
     }
   },
   {
-    "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference.",
+    "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "pretrends_test",
     "parameters": {
       "properties": {
@@ -24117,7 +24122,7 @@
     }
   },
   {
-    "description": "Compute comprehensive propensity score balance table. Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
+    "description": "Compute comprehensive propensity score balance table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
     "name": "ps_balance",
     "parameters": {
       "properties": {
@@ -24162,7 +24167,7 @@
     }
   },
   {
-    "description": "Unified balance diagnostics for matching and weighting estimators.",
+    "description": "Unified balance diagnostics for matching and weighting estimators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "balance_diagnostics",
     "parameters": {
       "properties": {
@@ -31194,7 +31199,7 @@
     }
   },
   {
-    "description": "Bayesian interrupted time series (segmented regression). Do NOT use when: a comparable untreated series exists -- a comparison-group design (sp.synth, sp.causal_impact) does not rely on the trend extrapolation alone. Cost: NUTS sampling: draws x chains posterior draws after tune warm-up (default 2000 x 4); inference='advi' is faster and approximate.",
+    "description": "Bayesian interrupted time series (segmented regression). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: a comparable untreated series exists -- a comparison-group design (sp.synth, sp.causal_impact) does not rely on the trend extrapolation alone. Cost: NUTS sampling: draws x chains posterior draws after tune warm-up (default 2000 x 4); inference='advi' is faster and approximate.",
     "name": "bayes_its",
     "parameters": {
       "properties": {
@@ -31426,7 +31431,7 @@
     }
   },
   {
-    "description": "Bayesian IV with linear CATE-by-covariate heterogeneity.",
+    "description": "Bayesian IV with linear CATE-by-covariate heterogeneity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_hte_iv",
     "parameters": {
       "properties": {
@@ -42894,7 +42899,7 @@
     }
   },
   {
-    "description": "Test for distributional treatment effects.",
+    "description": "Test for distributional treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "discos_test",
     "parameters": {
       "properties": {
@@ -42904,7 +42909,7 @@
         },
         "test": {
           "default": "ks",
-          "description": "``'ks'``: two-sample Kolmogorov-Smirnov test comparing treated and counterfactual quantile functions. ``'cvm'``: Cramer-von Mises test statistic (permutation-based). ``'stochastic_dominance'``: first-order stochastic dominance test.",
+          "description": "``'ks'``: sup-norm test, the largest absolute gap between the treated and counterfactual quantile functions, ranked against the same statistic for the placebo units. ``'cvm'``: Cramer-von Mises test statistic (permutation-based). ``'stochastic_dominance'``: first-order stochastic dominance test.",
           "enum": [
             "ks",
             "cvm",
@@ -44436,7 +44441,7 @@
     }
   },
   {
-    "description": "Length of linear features falling inside each polygon.",
+    "description": "Length of linear features falling inside each polygon. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "line_length_in_polygon",
     "parameters": {
       "properties": {
@@ -44485,7 +44490,7 @@
     }
   },
   {
-    "description": "Share of point features lying within a buffer of the linear features.",
+    "description": "Share of point features lying within a buffer of the linear features. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "share_within_buffer",
     "parameters": {
       "properties": {
@@ -44521,7 +44526,7 @@
     }
   },
   {
-    "description": "Distance from each point to the nearest target feature.",
+    "description": "Distance from each point to the nearest target feature. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "distance_to_feature",
     "parameters": {
       "properties": {

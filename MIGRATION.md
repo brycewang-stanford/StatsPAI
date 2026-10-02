@@ -42,6 +42,10 @@ estimate of the documented quantity.
 | `sp.vcnet`, `sp.scigan` with a `t_grid` that does not span the observed doses | `mu_hat`, `se`, `ci_lo`, `ci_hi` | 1.01 at `t = 0.2` (truth 1.36), 0% coverage | 1.354, 93% coverage |
 | `sp.vcnet` | `se`, `ci_lo`, `ci_hi` | 78% coverage at mid-range | 93% |
 | `sp.scigan` with `propensity_weights` | `mu_hat`, `se` | a weighted random resample of the rows | weighted fit; unit weights equal `sp.vcnet` |
+| `sp.llm_annotator_correct`, binary label | `estimate`, `correction_factor` | 0.835 (truth 1.0) at prevalence 0.2 | 1.00 |
+| `sp.llm_annotator_correct`, every path | `se`, `ci`, `pvalue` | first-order SE 0.059 (across-seed SD 0.074) | delta-method SE 0.077; first-order kept in `model_info` |
+| `sp.discos_test(test='ks')` | `statistic`, `pvalue` | 57% rejection of a true null | placebo rank of the sup-norm quantile gap; NaN without placebos |
+| `sp.discos_test(test='cvm' / 'stochastic_dominance')` on a result fitted with `placebo=False` | `pvalue` | a chi-squared or KS approximation over grid nodes | NaN |
 | `sp.rdbwselect`, `sp.rdrobust` with a `cer*` bandwidth and `cluster=` | `h`, and through it the estimate and SEs | `h_cerrd` 0.2054 (rdrobust: 0.2305) | 0.2305 |
 
 **What to do.** Re-run. Code that read `res.qte` from `sp.rd_distribution`

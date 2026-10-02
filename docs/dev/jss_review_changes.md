@@ -59,7 +59,8 @@ Rules:
   catalogue listings out of the estimator denominator
   (`statspai._parity_taxonomy.NON_NUMERIC_CALLABLES`), and the new
   anchors in `tests/reference_parity/` added evidence. Estimator
-  callables: 822 to 738. With any evidence: 572 to 679. Cross-language:
+  callables: 822 to 738. With any evidence: 572 to 694 (679 at
+  `5630df21`, 694 after the anchors added later the same day). Cross-language:
   417, unchanged, so the cross-language share reads 56.5% where it read
   50.7%. Infrastructure: 131 to 215. All registered: 1274, unchanged.
   The next revision should regenerate `generated_claims.tex` and say in

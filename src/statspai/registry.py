@@ -15347,6 +15347,13 @@ def _build_registry() -> None:
                     ["logit", "rf", "gbm", "dl"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "id",
+                    "str",
+                    False,
+                    None,
+                    "Unit identifier; on a panel the bootstrap resamples units",
+                ),
             ],
             returns="CausalResult",
             example=(

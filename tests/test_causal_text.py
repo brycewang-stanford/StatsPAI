@@ -9,10 +9,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.causal_text._common import (
-    hash_embed_texts,
-    embed_texts,
-)
+from statspai.causal_text._common import embed_texts, hash_embed_texts
 from statspai.exceptions import DataInsufficient, IdentificationFailure
 
 # --------------------------------------------------------------------- #
@@ -424,8 +421,17 @@ def test_llm_annotator_bootstrap_widens_ci():
         n_bootstrap=300,
         bootstrap_seed=42,
     )
-    fo_width = r_fo.ci[1] - r_fo.ci[0]
+    d_fo = r_fo.annotator_diagnostics
+    fo_ci = d_fo["first_order_ci"]
+    fo_width = fo_ci[1] - fo_ci[0]
     b_width = r_b.ci[1] - r_b.ci[0]
+    # Without the bootstrap the reported SE is the delta-method one, which
+    # adds the validation-set noise the first-order SE leaves out.
+    assert d_fo["se_correction"] == "delta_method"
+    assert r_fo.se == pytest.approx(
+        d_fo["first_order_se"] * d_fo["se_inflation_factor"]
+    )
+    assert r_fo.se > d_fo["first_order_se"]
     assert b_width >= fo_width * 0.9, (
         f"Bootstrap CI width {b_width:.4f} should be >= 0.9 * first-"
         f"order width {fo_width:.4f}"
@@ -437,8 +443,8 @@ def test_llm_annotator_bootstrap_widens_ci():
     assert d["bootstrap"]["seed"] == 42
     assert d["bootstrap"]["method"] == "bias_corrected_percentile"
     # First-order SE/CI still available for inspection.
-    assert d["first_order_se"] == r_fo.se
-    assert d["first_order_ci"] == r_fo.ci
+    assert d["first_order_se"] == d_fo["first_order_se"]
+    assert d["first_order_ci"] == d_fo["first_order_ci"]
 
 
 def test_llm_annotator_bootstrap_reproducible():

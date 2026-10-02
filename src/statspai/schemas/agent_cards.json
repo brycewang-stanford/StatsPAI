@@ -2463,7 +2463,7 @@
       "tests/external_parity/test_causalml_book.py",
       "tests/external_parity/test_published_replications.py",
       "tests/reference_parity/test_closed_form_identities.py",
-      "tests/reference_parity/test_oct2026_third_pass.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py",
       "Variant-level certification: the native default path (CCT three-stage bandwidth cascade and bias-corrected operator) matches rdrobust::rdrobust on Track A 06; weights= is pinned in tests/reference_parity/test_rd_weights_parity.py; bwselect='cct' delegates to the official port."
     ],
     "validation_status": "certified"
@@ -2640,17 +2640,21 @@
     ],
     "category": "causal",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'.",
+    "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.rd(df, y=\"outcome\", x=\"score\", c=0)",
@@ -2723,7 +2727,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'.",
+      "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd",
       "parameters": {
         "properties": {
@@ -2788,9 +2792,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "API/unit contract evidence: tests/test_rd_dispatcher.py"
+      "API/unit contract evidence: tests/test_rd_dispatcher.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -11881,17 +11886,21 @@
     ],
     "category": "bayes",
     "cost_profile": "",
-    "description": "Bayesian fuzzy RD: joint model of first-stage jump in treatment probability and outcome jump, yielding posterior over the LATE at the cutoff (Wald ratio).",
+    "description": "Bayesian fuzzy RD: joint model of first-stage jump in treatment probability and outcome jump, yielding posterior over the LATE at the cutoff (Wald ratio). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bayes_fuzzy_rd(df, y=\"y\", treat=\"d\", running=\"score\", cutoff=0.5)",
@@ -11952,7 +11961,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian fuzzy RD: joint model of first-stage jump in treatment probability and outcome jump, yielding posterior over the LATE at the cutoff (Wald ratio).",
+      "description": "Bayesian fuzzy RD: joint model of first-stage jump in treatment probability and outcome jump, yielding posterior over the LATE at the cutoff (Wald ratio). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bayes_fuzzy_rd",
       "parameters": {
         "properties": {
@@ -12014,9 +12023,10 @@
     "stability": "stable",
     "typical_n_min": 800,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/test_bayes_fuzzy_rd.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -12035,17 +12045,21 @@
     ],
     "category": "bayes",
     "cost_profile": "",
-    "description": "Bayesian Marginal Treatment Effect (Heckman-Vytlacil 2005). Full posterior over the MTE curve under essential heterogeneity, with bivariate-normal latent errors. Derives ATE / ATT / LATE / PRTE as posterior linear functionals.",
+    "description": "Bayesian Marginal Treatment Effect (Heckman-Vytlacil 2005). Full posterior over the MTE curve under essential heterogeneity, with bivariate-normal latent errors. Derives ATE / ATT / LATE / PRTE as posterior linear functionals. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bayes_mte(df, y=\"y\", treat=\"d\", instrument=\"z\")",
@@ -12126,7 +12140,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian Marginal Treatment Effect (Heckman-Vytlacil 2005). Full posterior over the MTE curve under essential heterogeneity, with bivariate-normal latent errors. Derives ATE / ATT / LATE / PRTE as posterior linear functionals.",
+      "description": "Bayesian Marginal Treatment Effect (Heckman-Vytlacil 2005). Full posterior over the MTE curve under essential heterogeneity, with bivariate-normal latent errors. Derives ATE / ATT / LATE / PRTE as posterior linear functionals. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bayes_mte",
       "parameters": {
         "properties": {
@@ -12186,10 +12200,11 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/test_bayes_mte.py",
       "API/unit contract evidence: tests/test_bayes_mte_multi_iv.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -20125,17 +20140,21 @@
     ],
     "category": "bayes",
     "cost_profile": "",
-    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate, with optional full PyMC MCMC over the orthogonal moment equation.",
+    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate, with optional full PyMC MCMC over the orthogonal moment equation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bayes_dml(df, y='y', treatment='d', covariates=['x1','x2'])",
@@ -20191,7 +20210,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate, with optional full PyMC MCMC over the orthogonal moment equation.",
+      "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate, with optional full PyMC MCMC over the orthogonal moment equation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bayes_dml",
       "parameters": {
         "properties": {
@@ -20264,9 +20283,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/test_bayes_dml.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -20284,17 +20304,21 @@
     ],
     "category": "bayes",
     "cost_profile": "",
-    "description": "Bayesian Difference-in-Differences with staggered adoption -- hierarchical ATT(g,t) posterior with optional cohort / unit random effects. Full MCMC with PyMC; reports R-hat, ESS, divergences, and 94% HDI.",
+    "description": "Bayesian Difference-in-Differences with staggered adoption -- hierarchical ATT(g,t) posterior with optional cohort / unit random effects. Full MCMC with PyMC; reports R-hat, ESS, divergences, and 94% HDI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bayes_did(df, y='wage', treat='union', post='post', cohort='first_treat')",
@@ -20369,7 +20393,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian Difference-in-Differences with staggered adoption -- hierarchical ATT(g,t) posterior with optional cohort / unit random effects. Full MCMC with PyMC; reports R-hat, ESS, divergences, and 94% HDI.",
+      "description": "Bayesian Difference-in-Differences with staggered adoption -- hierarchical ATT(g,t) posterior with optional cohort / unit random effects. Full MCMC with PyMC; reports R-hat, ESS, divergences, and 94% HDI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bayes_did",
       "parameters": {
         "properties": {
@@ -20444,10 +20468,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/test_bayes_did.py",
       "API/unit contract evidence: tests/test_low_cov_battery.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -27730,6 +27755,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
@@ -34967,6 +34993,7 @@
       "Cross-language parity (bit-exact) vs fixest::feols(y ~ i(rel, treat, ref=-1) [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-09, rel_se<=1e-09; parity module 85_twfe_event_study -- tests/r_parity/85_twfe_event_study.py",
       "tests/external_parity/test_rebel_canal_published.py",
       "tests/reference_parity/test_event_study_vcov_R_parity.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py",
       "tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_did.py",
       "API/unit contract evidence: tests/test_fast_event_study.py"
@@ -35852,7 +35879,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+        "tests/reference_parity/test_frontier_known_truth_recovery.py",
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
       ],
       "tolerance": ""
     },
@@ -35938,6 +35966,11 @@
             "description": "Two-period panel with a binary ``treat`` indicator and a binary post/pre ``time`` indicator.",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "id": {
+            "description": "Unit identifier; on a panel the bootstrap resamples units",
+            "type": "string",
+            "x-statspai-role": "column"
           },
           "ps_model": {
             "default": "logit",
@@ -39880,17 +39913,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Calibrated placebo simulation for DiD estimator selection: strip the estimated effect out of the observed panel, redraw the adoption pattern, inject a known effect, and refit every candidate estimator. Returns bias, RMSE, coverage and rejection rate with Monte Carlo standard errors, so the choice of estimator is settled on this panel rather than by citation.",
+    "description": "Calibrated placebo simulation for DiD estimator selection: strip the estimated effect out of the observed panel, redraw the adoption pattern, inject a known effect, and refit every candidate estimator. Returns bias, RMSE, coverage and rejection rate with Monte Carlo standard errors, so the choice of estimator is settled on this panel rather than by citation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.did_calibrated_simulation(df, y=\"lemp\", id=\"countyreal\", time=\"year\", cohort=\"first_treat\", estimators=[\"twfe\", \"callaway_santanna\", \"did_imputation\"], effect=0.05, n_sims=200)",
@@ -39945,7 +39982,7 @@
       }
     },
     "signature": {
-      "description": "Calibrated placebo simulation for DiD estimator selection: strip the estimated effect out of the observed panel, redraw the adoption pattern, inject a known effect, and refit every candidate estimator. Returns bias, RMSE, coverage and rejection rate with Monte Carlo standard errors, so the choice of estimator is settled on this panel rather than by citation.",
+      "description": "Calibrated placebo simulation for DiD estimator selection: strip the estimated effect out of the observed panel, redraw the adoption pattern, inject a known effect, and refit every candidate estimator. Returns bias, RMSE, coverage and rejection rate with Monte Carlo standard errors, so the choice of estimator is settled on this panel rather than by citation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "did_calibrated_simulation",
       "parameters": {
         "properties": {
@@ -40076,9 +40113,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "tests/test_did_calibrated_simulation.py: after calibration the imputation estimator returns exactly zero at every horizon (1e-10); with a constant injected effect and a randomised assignment every estimator recovers it within 2 Monte Carlo standard errors; under a true null the rejection rate sits at the nominal level within Monte Carlo error."
+      "tests/test_did_calibrated_simulation.py: after calibration the imputation estimator returns exactly zero at every horizon (1e-10); with a constant injected effect and a randomised assignment every estimator recovers it within 2 Monte Carlo standard errors; under a true null the rejection rate sits at the nominal level within Monte Carlo error.",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -42871,17 +42909,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference.",
+    "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.pretrends_test(es_result, window=(-5, -2))",
@@ -42924,7 +42966,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference.",
+      "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "pretrends_test",
       "parameters": {
         "properties": {
@@ -42964,10 +43006,11 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/test_cov95_did_pretrends.py",
       "API/unit contract evidence: tests/test_cov95_did_r3_pretrends.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -53880,17 +53923,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Compute comprehensive propensity score balance table. Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
+    "description": "Compute comprehensive propensity score balance table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "bal = sp.ps_balance(df, treatment='d', covariates=['x1', 'x2'])",
@@ -53922,7 +53969,7 @@
       }
     },
     "signature": {
-      "description": "Compute comprehensive propensity score balance table. Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
+      "description": "Compute comprehensive propensity score balance table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
       "name": "ps_balance",
       "parameters": {
         "properties": {
@@ -53968,8 +54015,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -67741,17 +67790,21 @@
     ],
     "category": "bayes",
     "cost_profile": "NUTS sampling: draws x chains posterior draws after tune warm-up (default 2000 x 4); inference='advi' is faster and approximate.",
-    "description": "Bayesian interrupted time series (segmented regression). Do NOT use when: a comparable untreated series exists -- a comparison-group design (sp.synth, sp.causal_impact) does not rely on the trend extrapolation alone. Cost: NUTS sampling: draws x chains posterior draws after tune warm-up (default 2000 x 4); inference='advi' is faster and approximate.",
+    "description": "Bayesian interrupted time series (segmented regression). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: a comparable untreated series exists -- a comparison-group design (sp.synth, sp.causal_impact) does not rely on the trend extrapolation alone. Cost: NUTS sampling: draws x chains posterior draws after tune warm-up (default 2000 x 4); inference='advi' is faster and approximate.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.bayes_its(df, y='y', time='t', intervention=30,\n draws=500, tune=500, chains=2) # doctest: +SKIP",
@@ -67813,7 +67866,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian interrupted time series (segmented regression). Do NOT use when: a comparable untreated series exists -- a comparison-group design (sp.synth, sp.causal_impact) does not rely on the trend extrapolation alone. Cost: NUTS sampling: draws x chains posterior draws after tune warm-up (default 2000 x 4); inference='advi' is faster and approximate.",
+      "description": "Bayesian interrupted time series (segmented regression). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: a comparable untreated series exists -- a comparison-group design (sp.synth, sp.causal_impact) does not rely on the trend extrapolation alone. Cost: NUTS sampling: draws x chains posterior draws after tune warm-up (default 2000 x 4); inference='advi' is faster and approximate.",
       "name": "bayes_its",
       "parameters": {
         "properties": {
@@ -67924,8 +67977,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -68189,17 +68244,21 @@
     ],
     "category": "bayes",
     "cost_profile": "augmented_diagnostics=True adds bootstrap SEs and AR / CLR grid inversions; cost is n_boot + grid_size extra fits.",
-    "description": "Bayesian IV with linear CATE-by-covariate heterogeneity.",
+    "description": "Bayesian IV with linear CATE-by-covariate heterogeneity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.bayes_hte_iv(df, y='y', treat='d', instrument='z',\n effect_modifiers=['age'],\n draws=500, tune=500, chains=2) # doctest: +SKIP",
@@ -68276,7 +68335,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian IV with linear CATE-by-covariate heterogeneity.",
+      "description": "Bayesian IV with linear CATE-by-covariate heterogeneity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bayes_hte_iv",
       "parameters": {
         "properties": {
@@ -68412,8 +68471,10 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -92409,7 +92470,8 @@
     "typical_n_min": 15,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs DiSCos::DiSCo 0.1.4 (Gunsilius distributional synthetic controls), mixture = FALSE; mixture = TRUE vs GLPK on DiSCo's LP [CVXR 1.8.2, DiSCos 0.1.4, R version 4.5.2 (2025-10-31), Rglpk 0.6.5.1, pracma 2.4.6, quadprog 1.5.8]; tolerance quantile weights 1e-11 abs (observed 4.9e-13), counterfactual quantile functions 1e-10 rel, quantile effects 1e-10 abs (observed 1.9e-12); mixture LP weights vs GLPK 1e-12 abs, vs DiSCo's SCS solution 5e-6 abs (observed 7.1e-7) -- tests/reference_parity/test_did_synth_synthvar_parity.py",
-      "tests/reference_parity/test_distributional_te_parity.py"
+      "tests/reference_parity/test_distributional_te_parity.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
     "validation_status": "certified"
   },
@@ -92429,17 +92491,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Test for distributional treatment effects.",
+    "description": "Test for distributional treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "out = sp.discos_test(result, test='ks')",
@@ -92482,7 +92548,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Test for distributional treatment effects.",
+      "description": "Test for distributional treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "discos_test",
       "parameters": {
         "properties": {
@@ -92492,7 +92558,7 @@
           },
           "test": {
             "default": "ks",
-            "description": "``'ks'``: two-sample Kolmogorov-Smirnov test comparing treated and counterfactual quantile functions. ``'cvm'``: Cramer-von Mises test statistic (permutation-based). ``'stochastic_dominance'``: first-order stochastic dominance test.",
+            "description": "``'ks'``: sup-norm test, the largest absolute gap between the treated and counterfactual quantile functions, ranked against the same statistic for the placebo units. ``'cvm'``: Cramer-von Mises test statistic (permutation-based). ``'stochastic_dominance'``: first-order stochastic dominance test.",
             "enum": [
               "ks",
               "cvm",
@@ -92509,8 +92575,10 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

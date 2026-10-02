@@ -168,14 +168,14 @@ def test_rmspe_filter_pvalues_are_probabilities(base_kwargs):
 def test_discos_test_fires_on_large_effect(base_kwargs):
     res = sp.qqsynth(**base_kwargs, seed=0)
     out = sp.discos_test(res, test="ks")
-    assert 0.0 <= out["pvalue"] <= 1.0
-    # A 6-unit shift makes the pre/post distributions clearly distinct.
-    assert out["reject"] is True
-    np.testing.assert_allclose(
-        [out["statistic"], out["pvalue"]],
-        [1.0, 2.2087606931995054e-59],
-        atol=1e-70,
-    )
+    # A 6-unit shift puts the treated unit's sup-norm quantile gap above
+    # every placebo's, so the p-value is the smallest a rank test over
+    # these units can give. (It used to be 2.2e-59, from a two-sample KS
+    # test that treated the quantile-grid points as observations.)
+    n_plac = out["n_placebos"]
+    assert out["pvalue"] == pytest.approx(1.0 / (n_plac + 1))
+    assert out["reject"] is (out["pvalue"] < out["alpha"])
+    assert out["statistic"] > 4.0
 
 
 def test_stochastic_dominance_under_positive_effect(base_kwargs):

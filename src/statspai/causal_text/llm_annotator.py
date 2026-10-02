@@ -10,13 +10,20 @@ coefficient when a small human-validated subset is available.
 This module implements two correction paths:
 
 * **Binary treatment** — Hausman-style correction (Aigner 1973;
-  Hausman, Abrevaya & Scott-Morton 1998).  The key identity is
+  Hausman, Abrevaya & Scott-Morton 1998).  Under non-differential
+  error, ``E[Y | T_obs]`` moves with ``T_obs`` only through
+  ``P(T_true = 1 | T_obs)``, so
 
-      β_obs = (1 - p_01 - p_10) · β_true
+      β_obs = [P(T_true=1 | T_obs=1) - P(T_true=1 | T_obs=0)] · β_true.
 
-  where ``p_01 = P(T_obs=1 | T_true=0)`` and
-  ``p_10 = P(T_obs=0 | T_true=1)``.  Estimate both rates on the
-  human-validated subset and divide.
+  Both predictive values are estimated on the human-validated subset
+  and the naive coefficient is divided by their difference.  The
+  difference equals ``1 - p_01 - p_10`` (with
+  ``p_01 = P(T_obs=1 | T_true=0)``, ``p_10 = P(T_obs=0 | T_true=1)``)
+  only when ``T_obs`` and ``T_true`` have the same variance, i.e. a
+  balanced treatment with symmetric error rates; in general
+  ``λ = (1 - p_01 - p_10) · Var(T_true) / Var(T_obs)``.  ``p_01`` and
+  ``p_10`` are still reported as diagnostics.
 
 * **Multi-class treatment** (``K ≥ 3``) — inverse-confusion-matrix
   correction.  The KxK confusion matrix ``M[i, j] = P(T_obs=j |
@@ -38,13 +45,13 @@ Standard-error options
 The first-order standard error divides ``se_naive`` by the same
 attenuation (binary) or applies the linear transformation ``T⁻¹`` to
 the naive covariance (multi-class).  Both ignore validation-set
-sampling noise.
+sampling noise, which is of the same order.
 
-Two extras lift this:
-
-1. ``model_info['se_inflation_factor']`` — multiplicative factor (>= 1)
-   the user can apply to the first-order SE for an honest delta-method
-   accounting of validation-set noise.  Always populated.
+1. The reported ``se`` / ``ci`` are the delta-method ones: the
+   first-order SE times ``model_info['se_inflation_factor']`` (>= 1),
+   which adds the sampling variance of the validation-set quantities.
+   The first-order versions are kept in
+   ``model_info['first_order_se']`` / ``model_info['first_order_ci']``.
 2. ``bootstrap=True`` — joint resample of the full sample
    (validation rows + unlabeled rows), re-run the entire correction
    pipeline ``n_bootstrap`` times, and report bias-corrected
@@ -466,14 +473,30 @@ def _correct_binary(
         )
     p_01 = float(((val_t_human == 0) & (val_t_llm == 1)).sum() / n_human0)
     p_10 = float(((val_t_human == 1) & (val_t_llm == 0)).sum() / n_human1)
-    correction_factor = 1.0 - p_01 - p_10
+    n_llm0 = int((val_t_llm == 0).sum())
+    n_llm1 = int((val_t_llm == 1).sum())
+    if n_llm0 == 0 or n_llm1 == 0:
+        from ..exceptions import DataInsufficient
+
+        raise DataInsufficient(
+            "Validation sample lacks both LLM-label classes "
+            "(need at least one row each of T_llm=0 and T_llm=1)."
+        )
+    # The attenuation of a coefficient on a misclassified *regressor* is
+    # the gap in predictive values, P(T=1 | T_obs=1) - P(T=1 | T_obs=0).
+    # 1 - p_01 - p_10 is the attenuation for a misclassified *outcome*;
+    # the two agree only when Var(T_obs) = Var(T_true).
+    ppv = float(val_t_human[val_t_llm == 1].mean())
+    q0 = float(val_t_human[val_t_llm == 0].mean())
+    correction_factor = ppv - q0
     if correction_factor <= 0:
         from ..exceptions import IdentificationFailure
 
         raise IdentificationFailure(
-            f"Misclassification rates (p_01={p_01:.3f}, "
+            f"Predictive values (P(T=1|T_obs=1)={ppv:.3f}, "
+            f"P(T=1|T_obs=0)={q0:.3f}; p_01={p_01:.3f}, "
             f"p_10={p_10:.3f}) imply the LLM label has no information "
-            "about the true treatment (1 - p_01 - p_10 <= 0). "
+            "about the true treatment. "
             "Correction is not identified; consider re-prompting the "
             "LLM or hand-labelling."
         )
@@ -488,11 +511,13 @@ def _correct_binary(
     corrected_estimate = naive_estimate / correction_factor
     corrected_se = se_naive / abs(correction_factor)
 
-    # Validation-set inflation (delta method).  Variance of p_01_hat is
-    # p_01 (1-p_01) / n_human0 by binomial sampling; same for p_10.
+    # Validation-set inflation (delta method).  beta = b / lambda, so
+    # Var adds beta^2 Var(lambda_hat) / lambda^2; the two predictive
+    # values come from disjoint validation rows, binomial each.
     var_p01 = p_01 * (1.0 - p_01) / max(n_human0, 1)
     var_p10 = p_10 * (1.0 - p_10) / max(n_human1, 1)
-    extra_var = (corrected_estimate**2) * (var_p01 + var_p10)
+    var_lambda = ppv * (1.0 - ppv) / n_llm1 + q0 * (1.0 - q0) / n_llm0
+    extra_var = (corrected_estimate**2) * var_lambda / correction_factor**2
     base_var = corrected_se**2
     if base_var > 0:
         infl = float(np.sqrt(1.0 + extra_var / base_var))
@@ -504,6 +529,8 @@ def _correct_binary(
         "p_10": p_10,
         "p_01_se": float(np.sqrt(var_p01)),
         "p_10_se": float(np.sqrt(var_p10)),
+        "ppv": ppv,
+        "p_true1_given_obs0": q0,
         "correction_factor": float(correction_factor),
         "agreement": agreement,
         "n_validation": int(len(val)),
@@ -967,8 +994,9 @@ def llm_annotator_correct(
 
     Implements three correction paths sharing the same API:
 
-    * **Binary T** — Hausman (1998) ``β_corrected = β_obs / (1 - p_01
-      - p_10)``.
+    * **Binary T** — ``β_corrected = β_obs / λ`` with
+      ``λ = P(T_true=1 | T_obs=1) - P(T_true=1 | T_obs=0)`` estimated on
+      the validation rows.
     * **Multi-class T** (``K ≥ 3``) — inverse-confusion-matrix
       correction.  The treatment is dummy-encoded with the smallest
       label as reference; per-class contrasts are recovered via a
@@ -1188,8 +1216,13 @@ def llm_annotator_correct(
         }
         diag["se_correction"] = "bias_corrected_bootstrap"
     else:
-        report_se = first_order_se
-        ci_lo, ci_hi = fo_ci_lo, fo_ci_hi
+        infl = diag.get("se_inflation_factor")
+        if infl is not None and np.isfinite(infl) and infl >= 1.0:
+            report_se = first_order_se * float(infl)
+            diag["se_correction"] = "delta_method"
+        else:
+            report_se = first_order_se
+        ci_lo, ci_hi = point - z * report_se, point + z * report_se
 
     if report_se > 0:
         pval = float(2 * sp_stats.norm.sf(abs(point / report_se)))
