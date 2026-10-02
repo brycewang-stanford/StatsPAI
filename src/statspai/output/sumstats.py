@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
+from ..exceptions import MethodIncompatibility
 from ._format import AUTO
 from ._format import fmt_val as _fmt_val
 from ._format import resolve_digits
@@ -29,6 +30,7 @@ def sumstats(
     digits: Optional[int] = None,
     labels: Optional[Dict[str, str]] = None,
     by_labels: Optional[Dict[Any, str]] = None,
+    percentile_method: str = "linear",
 ) -> Union[str, pd.DataFrame]:
     """
     Generate descriptive statistics table.
@@ -44,8 +46,13 @@ def sumstats(
     stats : list of str, optional
         Statistics to compute. Default: ['n', 'mean', 'sd', 'min', 'p25',
         'median', 'p75', 'max'].
-        Available: 'n', 'mean', 'sd', 'min', 'max', 'p25', 'median',
-        'p75', 'p10', 'p90'.
+        Available: 'n', 'mean', 'sd', 'min', 'max', 'sum', 'range',
+        'variance', 'semean', 'cv', 'skewness', 'kurtosis', 'iqr',
+        'median', and the percentiles 'p1', 'p5', 'p10', 'p25', 'p50',
+        'p75', 'p90', 'p95', 'p99'. Skewness and kurtosis are the moment
+        ratios ``m3 / m2**1.5`` and ``m4 / m2**2`` with divisor ``N`` (a
+        normal distribution has kurtosis 3), as Stata's ``summarize,
+        detail``. An unknown name raises.
     output : str, default 'text'
         'text', 'latex', 'html', 'dataframe', 'numeric', or filepath
         (.xlsx/.docx). ``'dataframe'`` holds the formatted display strings;
@@ -63,6 +70,14 @@ def sumstats(
         ``{0: 'Control', 1: 'Treated'}``. When ``by`` is binary 0/1
         and no ``by_labels`` is supplied, ``Control``/``Treated`` is
         auto-applied so academic Table 1 reads correctly out of the box.
+    percentile_method : {'linear', 'stata'}, default 'linear'
+        How a percentile between two order statistics is defined.
+        ``'linear'`` interpolates (numpy / pandas default, R's type 7).
+        ``'stata'`` is the rule of Stata's ``summarize, detail`` and
+        ``tabstat``: with ``h = N * p / 100``, the mean of the ``h``-th and
+        ``(h + 1)``-th order statistics when ``h`` is an integer, and the
+        ``ceil(h)``-th otherwise. The two agree on the median of an odd
+        sample and can differ elsewhere within a gap between observations.
 
     Returns
     -------
@@ -89,18 +104,57 @@ def sumstats(
     if stats is None:
         stats = ["n", "mean", "sd", "min", "p25", "median", "p75", "max"]
 
-    stat_funcs = {
+    if percentile_method not in ("linear", "stata"):
+        raise MethodIncompatibility(
+            f"sumstats: unknown percentile_method {percentile_method!r}.",
+            recovery_hint="Use 'linear' or 'stata'.",
+        )
+
+    def pct(p: float) -> Callable[[pd.Series], float]:
+        return lambda s: _percentile(s, p, percentile_method)
+
+    def moment_ratio(order: int) -> Callable[[pd.Series], float]:
+        def ratio(s: pd.Series) -> float:
+            x = s.to_numpy(dtype=float)
+            if x.size == 0:
+                return float("nan")
+            d = x - x.mean()
+            m2 = float(np.mean(d**2))
+            return float(np.mean(d**order) / m2 ** (order / 2)) if m2 > 0 else np.nan
+
+        return ratio
+
+    stat_funcs: Dict[str, _StatFunc] = {
         "n": ("N", lambda s: int(s.count())),
         "mean": ("Mean", lambda s: s.mean()),
         "sd": ("Std. Dev.", lambda s: s.std()),
         "min": ("Min", lambda s: s.min()),
         "max": ("Max", lambda s: s.max()),
-        "p10": ("P10", lambda s: s.quantile(0.1)),
-        "p25": ("P25", lambda s: s.quantile(0.25)),
-        "median": ("Median", lambda s: s.median()),
-        "p75": ("P75", lambda s: s.quantile(0.75)),
-        "p90": ("P90", lambda s: s.quantile(0.9)),
+        "sum": ("Sum", lambda s: s.sum()),
+        "range": ("Range", lambda s: s.max() - s.min()),
+        "variance": ("Variance", lambda s: s.var()),
+        "semean": ("Std. Err.", lambda s: s.std() / np.sqrt(s.count())),
+        "cv": ("CV", lambda s: s.std() / s.mean()),
+        "skewness": ("Skewness", moment_ratio(3)),
+        "kurtosis": ("Kurtosis", moment_ratio(4)),
+        "iqr": ("IQR", lambda s: pct(75)(s) - pct(25)(s)),
+        "p1": ("P1", pct(1)),
+        "p5": ("P5", pct(5)),
+        "p10": ("P10", pct(10)),
+        "p25": ("P25", pct(25)),
+        "median": ("Median", pct(50)),
+        "p50": ("Median", pct(50)),
+        "p75": ("P75", pct(75)),
+        "p90": ("P90", pct(90)),
+        "p95": ("P95", pct(95)),
+        "p99": ("P99", pct(99)),
     }
+    unknown = [st for st in stats if st not in stat_funcs]
+    if unknown:
+        raise MethodIncompatibility(
+            f"sumstats: unknown statistic(s) {unknown}.",
+            recovery_hint="Available: " + ", ".join(sorted(stat_funcs)) + ".",
+        )
 
     numeric = output == "numeric"
     if by is None:
@@ -135,6 +189,25 @@ def sumstats(
 
 
 _StatFunc = tuple[str, Callable[[pd.Series], Any]]
+
+
+def _percentile(s: pd.Series, p: float, method: str) -> float:
+    """The ``p``-th percentile of a series with no missing values."""
+    if method == "linear":
+        return float(s.quantile(p / 100.0))
+    x = np.sort(s.to_numpy(dtype=float))
+    n = x.size
+    if n == 0:
+        return float("nan")
+    h = n * p / 100.0
+    if abs(h - round(h)) < 1e-9 * max(1.0, h):
+        i = int(round(h))
+        if i <= 0:
+            return float(x[0])
+        if i >= n:
+            return float(x[-1])
+        return float((x[i - 1] + x[i]) / 2.0)
+    return float(x[min(int(np.ceil(h)), n) - 1])
 
 
 def _compute_stats(

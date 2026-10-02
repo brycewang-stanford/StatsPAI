@@ -62,7 +62,7 @@ def row_mask(
     data: pd.DataFrame,
     if_cond: Optional[str],
     in_range: Optional[str],
-    stored: Optional[Dict[str, Dict[str, float]]] = None,
+    stored: Optional[Dict[str, Any]] = None,
 ) -> np.ndarray:
     """Rows selected by an ``if`` condition and / or an ``in`` range."""
     mask = np.ones(len(data), dtype=bool)
@@ -84,7 +84,7 @@ class DataSteps:
         self._float: Set[str] = set()
         self._stack: List[tuple] = []
         #: r() / e() / _b[] / scalars, filled in by the session
-        self.stored: Dict[str, Dict[str, float]] = {}
+        self.stored: Dict[str, Any] = {}
 
     def _own(self) -> None:
         if not self._owned:

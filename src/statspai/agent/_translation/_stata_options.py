@@ -221,6 +221,8 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
         ("pretrends", 3),
     ),
     "synth": (("figure", 3),),
+    "ttest": (("unpaired", 3), ("unequal", 3), ("welch", 1)),
+    "tabstat": (("statistics", 1), ("columns", 1), ("format", 1)),
 }
 
 
@@ -235,8 +237,6 @@ def canonicalise_options(
     table = _COMMON_OPTIONS + (_HDFE_OPTIONS if command in _HDFE_COMMANDS else ())
     if command == "areg":
         table = table + (("absorb", 1),)
-    if command == "ttest":
-        table = (("unpaired", 3), ("unequal", 3), ("welch", 1))
     table = table + _COMMAND_OPTIONS.get(command, ())
     out: Dict[str, Optional[str]] = {}
     expanded: List[str] = []
@@ -300,6 +300,7 @@ _DISPLAY_BY_COMMAND = {
     },
     "boottest": {"nograph"},
     "dfuller": {"regress"},
+    "tabstat": {"columns", "format", "longstub", "labelwidth", "varwidth"},
     # reghdfe's way of saying "no fixed effects": what the call does without absorb()
     "reghdfe": {"noabsorb"},
 }

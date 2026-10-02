@@ -147,7 +147,7 @@ test.
 
 The replication files of Stock and Watson's *Introduction to Econometrics*
 (4th edition) ship the Stata logs that produced the book's tables. Replaying
-those 13 logs through `sp.stata` compares 1,186 printed numbers. The
+those 13 logs through `sp.stata` compares 1,300 printed numbers. The
 estimators agreed; the translation layer did not always ask them for the
 convention Stata uses, and it could not run a do-file that prepared its own
 data. Both are addressed here. `docs/dev/2026-10-02-stock-watson-4e-review.md`
@@ -155,6 +155,9 @@ has the findings and what is still open.
 
 #### ⚠️ Correctness
 
+- **`sp.sumstats` ignored an unknown statistic.** `stats=['mean', 'p99']`
+  returned the mean and no `p99` column, without a word. An unknown name
+  now raises and lists the available ones.
 - **`sp.stata` / `sp.from_stata`: `probit`, `logit`, `poisson` and `nbreg`
   with `vce(robust)` were run with HC1.** Stata's robust variance for a
   maximum-likelihood command carries `N/(N-1)`; the translation asked for
@@ -196,6 +199,15 @@ has the findings and what is still open.
   each panel: a lag is missing where the earlier period is absent, as in
   Stata, which a row shift does not reproduce on gapped or panel data.
   `test` and `lincom` accept the operator spelling of a coefficient.
+- **`summarize, detail` and `tabstat` reproduce Stata.** `sp.sumstats`
+  gains `percentile_method='stata'` (Stata's rule for a percentile between
+  two order statistics; the default stays linear interpolation) and the
+  statistics `p1`, `p5`, `p95`, `p99`, `variance`, `skewness`, `kurtosis`,
+  `sum`, `range`, `semean`, `cv`, `iqr`. `summarize, detail` translates to
+  exactly what Stata prints except the four smallest and largest values,
+  and `tabstat` is translated. Checked on the five `summarize, detail`
+  blocks of the textbook's earnings data. `tin(d1, d2)` works in `if` after
+  `tsset`.
 - **`scripts/stata_log_replay.py`**: replays a Stata log through `sp.stata`
   and compares every printed number to the precision Stata printed it.
   `tests/external_parity/test_stock_watson_4e_logs.py` runs it on the

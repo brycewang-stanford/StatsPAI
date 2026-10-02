@@ -310,3 +310,36 @@ def test_skipped_lines_do_not_change_the_result(panel):
     np.testing.assert_array_equal(
         plain.std_errors.to_numpy(), noisy.std_errors.to_numpy()
     )
+
+
+# ------------------------------------------------------------------ tin()
+def test_tin_on_a_datetime_time_variable():
+    days = pd.date_range("1979-12-28", periods=10, freq="D")
+    data = pd.DataFrame({"day": days, "v": np.arange(10.0)})
+    out = _run("tsset day; summarize v if tin(01jan1980,03jan1980)", data)
+    assert out.loc["v", "N"] == 3 and out.loc["v", "Mean"] == 5.0  # v = 4, 5, 6
+    # an open end
+    assert _run("tsset day; summarize v if tin(,31dec1979)", data).loc["v", "N"] == 4
+    assert _run("tsset day; summarize v if tin(05jan1980,)", data).loc["v", "N"] == 2
+
+
+def test_tin_on_period_and_numeric_time_variables():
+    q = pd.DataFrame(
+        {"q": pd.period_range("1999Q1", periods=8, freq="Q"), "v": np.arange(8.0)}
+    )
+    assert _run("tsset q; summarize v if tin(1999q3,2000q2)", q).loc["v", "N"] == 4
+    assert _run("tsset q; summarize v if tin(2000,)", q).loc["v", "N"] == 4
+    # a numeric time variable holding Stata daily dates (days from 1960-01-01)
+    stata_days = pd.DataFrame({"d": [7305.0, 7306.0, 7307.0], "v": [1.0, 2.0, 3.0]})
+    out = _run("tsset d; summarize v if tin(02jan1980,03jan1980)", stata_days)
+    assert out.loc["v", "N"] == 2  # 01jan1980 is day 7305
+
+
+def test_tin_needs_a_time_variable_and_a_readable_date():
+    data = pd.DataFrame(
+        {"day": pd.date_range("2020-01-01", periods=3), "v": [1.0, 2, 3]}
+    )
+    with pytest.raises(MethodIncompatibility, match="time variable"):
+        _run("summarize v if tin(01jan2020,02jan2020)", data)
+    with pytest.raises(MethodIncompatibility, match="cannot read the date"):
+        _run("tsset day; summarize v if tin(2020q1,2020q2)", data)

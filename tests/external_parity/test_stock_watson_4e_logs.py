@@ -4,7 +4,7 @@
 The replication files on the authors' site include, for chapters 2 to 13,
 the Stata logs that produced the book's tables: genuine Stata output for
 OLS with robust and clustered errors, fixed effects, probit and logit, 2SLS,
-F tests and t tests on eight public datasets. ``scripts/stata_log_replay.py``
+F tests, t tests and detailed summary statistics on nine public datasets. ``scripts/stata_log_replay.py``
 runs each logged command and compares what Stata printed with what StatsPAI
 returns, to the precision Stata printed it.
 
@@ -32,13 +32,15 @@ pytestmark = pytest.mark.skipif(
 #: Numbers reproduced per log on the day this test was written. A drop means
 #: a command stopped running or stopped being compared.
 REPRODUCED = {
+    "chapter2/ch2_4e_cps_earnings_box.log": 70,
+    "chapter2/ch2_4e_djia_box.log": 2,
     "chapter4/SW_4E_ch4.log": 8,
     "chapter5/SW_4E_ch5.log": 8,
-    "chapter5/ch5_4e_economic_value_box.log": 10,
+    "chapter5/ch5_4e_economic_value_box.log": 38,
     "chapter6/ch6_7_ex1_4.log": 53,
     "chapter6/ch6_caschools.log": 35,
     "chapter7/ch7_caschools.log": 61,
-    "chapter9/ch9.log": 146,
+    "chapter9/ch9.log": 160,
     "chapter10/ch10.log": 178,
     "chapter11/ch11.log": 457,
     "chapter12/ch12.log": 82,
@@ -47,7 +49,7 @@ REPRODUCED = {
 
 #: Commands sp.stata declines, each for a stated reason. Anything else that
 #: is not run is a regression.
-DECLINED = ("tin(", "pctile", "ch6_caschools")
+DECLINED = ("pctile", "ch6_caschools")
 
 
 @pytest.fixture(scope="module")
@@ -73,9 +75,6 @@ def test_each_log_reproduces_its_numbers(frame, log, expected):
 
 def test_only_documented_commands_are_declined(frame):
     notrun = frame[frame.status == "NOT RUN"]
-    # the daily-returns box of chapter 2 depends on tin(), a Stata date
-    # function; everything after the first refusal there cascades
-    notrun = notrun[~notrun.file.str.contains("djia")]
     stray = [c for c in notrun.command if not any(key in c for key in DECLINED)]
     assert not stray, stray
 

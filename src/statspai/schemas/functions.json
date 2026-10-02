@@ -26163,6 +26163,15 @@
           "description": "'text', 'latex', 'html', 'dataframe', 'numeric', or filepath (.xlsx/.docx). ``'dataframe'`` holds the formatted display strings; ``'numeric'`` the unrounded values (``N`` as int, the rest float) for further computation, with ``fmt`` / ``digits`` ignored.",
           "type": "string"
         },
+        "percentile_method": {
+          "default": "linear",
+          "description": "How a percentile between two order statistics is defined. ``'linear'`` interpolates (numpy / pandas default, R's type 7). ``'stata'`` is the rule of Stata's ``summarize, detail`` and ``tabstat``: with ``h = N * p / 100``, the mean of the ``h``-th and ``(h + 1)``-th order statistics when ``h`` is an integer, and the ``ceil(h)``-th otherwise. The two agree on the median of an odd sample and can differ elsewhere within a gap between observations.",
+          "enum": [
+            "linear",
+            "stata"
+          ],
+          "type": "string"
+        },
         "stats": {
           "description": "Statistics to compute. Default: ['n', 'mean', 'sd', 'min', 'p25', 'median', 'p75', 'max'].",
           "items": {

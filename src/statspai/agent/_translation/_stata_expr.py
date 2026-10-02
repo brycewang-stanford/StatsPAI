@@ -267,13 +267,48 @@ _FUNCTIONS: Dict[str, Callable[..., Any]] = {
 }
 
 
+_DAILY = re.compile(r"\d{1,2}[A-Za-z]{3}\d{4}\Z")
+_PERIODIC = re.compile(r"(\d{4})(?:([qQmM])(\d{1,2}))?\Z")
+
+
+def _date_literal(text: str, column: pd.Series) -> Any:
+    """A Stata date literal (``01jan1980``, ``1980q1``, ``1980m3``, ``1980``)
+    as a value comparable with the time variable."""
+    text = text.strip()
+    if pd.api.types.is_datetime64_any_dtype(column):
+        if not _DAILY.match(text):
+            raise StataExprError(f"cannot read the date {text!r} (expected 01jan1980)")
+        return pd.to_datetime(text, format="%d%b%Y")
+    if isinstance(column.dtype, pd.PeriodDtype):
+        m = _PERIODIC.match(text)
+        if m is None:
+            raise StataExprError(f"cannot read the period {text!r}")
+        year, kind, num = m.group(1), (m.group(2) or "").lower(), m.group(3)
+        stamp = f"{year}Q{num}" if kind == "q" else f"{year}-{int(num or 1):02d}"
+        if kind == "q":
+            return pd.Period(stamp, freq="Q").asfreq(column.dtype.freq, how="start")
+        return pd.Period(stamp, freq="M").asfreq(column.dtype.freq, how="start")
+    if pd.api.types.is_numeric_dtype(column):
+        if _DAILY.match(text):
+            # a Stata daily date counts days from 1 January 1960
+            day = pd.to_datetime(text, format="%d%b%Y")
+            return float((day - pd.Timestamp("1960-01-01")).days)
+        try:
+            return float(text)
+        except ValueError:
+            raise StataExprError(
+                f"cannot compare the date {text!r} with a numeric time variable"
+            ) from None
+    raise StataExprError("the time variable is neither a date nor a number")
+
+
 # ------------------------------------------------------------------ parser
 class _Parser:
     def __init__(
         self,
         text: str,
         data: pd.DataFrame,
-        stored: Optional[Dict[str, Dict[str, float]]] = None,
+        stored: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.text = text
         self.toks = _tokenise(text)
@@ -437,6 +472,8 @@ class _Parser:
                 raise StataExprError(f"expected a coefficient name inside {name}[]")
             self._expect("]")
             return self._stored(name, key, f"{name}[{key}]")
+        if name == "tin" and nxt == ("op", "("):
+            return self._tin()
         if nxt == ("op", "("):
             return self._call(name)
         if nxt == ("op", "."):
@@ -458,6 +495,33 @@ class _Parser:
             self._expect("]")
             return self._subscript(column, index)
         return column
+
+    def _tin(self) -> Value:
+        """``tin(d1, d2)``: the time variable is within the two dates."""
+        self._expect("(")
+        parts = [""]
+        while True:
+            kind, val = self._take()
+            if kind == "end":
+                raise StataExprError("unclosed tin(")
+            if kind == "op" and val == ")":
+                break
+            if kind == "op" and val == ",":
+                parts.append("")
+            else:
+                parts[-1] += val
+        if len(parts) != 2:
+            raise StataExprError("tin() takes two dates")
+        time_var = self.stored.get("time_var")
+        if not time_var or time_var not in self.data.columns:
+            raise StataExprError("tin() needs the time variable of `tsset`")
+        col = self.data[time_var]
+        inside = np.ones(self.n, dtype=bool)
+        if parts[0]:
+            inside &= np.asarray(col >= _date_literal(parts[0], col))
+        if parts[1]:
+            inside &= np.asarray(col <= _date_literal(parts[1], col))
+        return _flag(inside)
 
     def _call(self, name: str) -> Value:
         self._expect("(")
@@ -498,7 +562,7 @@ class _Parser:
 def evaluate(
     expr: str,
     data: pd.DataFrame,
-    stored: Optional[Dict[str, Dict[str, float]]] = None,
+    stored: Optional[Dict[str, Any]] = None,
 ) -> Value:
     """Value of a Stata expression on every row of ``data``.
 
@@ -521,7 +585,7 @@ def evaluate(
 def sample_mask(
     expr: str,
     data: pd.DataFrame,
-    stored: Optional[Dict[str, Dict[str, float]]] = None,
+    stored: Optional[Dict[str, Any]] = None,
 ) -> np.ndarray:
     """Rows an ``if`` qualifier keeps: where the expression is not zero."""
     value = evaluate(expr, data, stored)

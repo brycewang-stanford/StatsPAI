@@ -180,8 +180,55 @@ def test_xtreg_fe_says_the_constant_is_absorbed():
     assert any("_cons" in line for line in out["semantics"])
 
 
-def test_summarize_detail_names_what_differs_from_stata():
+def test_summarize_detail_uses_statas_percentile_rule_and_moments():
     out = sp.from_stata("summarize y, detail")
-    text = " ".join(out["semantics"])
-    assert "linearly interpolated" in text and "skewness" in text
-    assert sp.from_stata("summarize y")["semantics"] == []
+    args = out["arguments"]
+    assert args["percentile_method"] == "stata"
+    for name in ("p1", "p5", "p95", "p99", "variance", "skewness", "kurtosis"):
+        assert name in args["stats"]
+    assert any("smallest and largest" in line for line in out["semantics"])
+    plain = sp.from_stata("summarize y")
+    assert plain["semantics"] == [] and "percentile_method" not in plain["arguments"]
+
+
+def test_statas_percentile_rule_by_hand():
+    # N = 8: h = N * p / 100. p25 -> h = 2, an integer: mean of the 2nd and
+    # 3rd order statistics. p10 -> h = 0.8: the 1st. p90 -> h = 7.2: the 8th.
+    data = pd.DataFrame({"v": [3.0, 1.0, 4.0, 1.5, 9.0, 2.5, 6.0, 5.0]})
+    got = sp.stata("summarize v, detail", data=data).loc["v"]
+    assert got["P25"] == (1.5 + 2.5) / 2
+    assert got["Median"] == (3.0 + 4.0) / 2
+    assert got["P75"] == (5.0 + 6.0) / 2
+    assert got["P10"] == 1.0 and got["P90"] == 9.0
+    linear = sp.sumstats(data, stats=["p25", "p90"], output="numeric").loc["v"]
+    assert linear["P25"] == 2.25 and linear["P90"] != 9.0
+    # moments with divisor N: Stata's skewness and kurtosis
+    x = data.v.to_numpy()
+    d = x - x.mean()
+    m2 = np.mean(d**2)
+    np.testing.assert_allclose(got["Skewness"], np.mean(d**3) / m2**1.5)
+    np.testing.assert_allclose(got["Kurtosis"], np.mean(d**4) / m2**2)
+    np.testing.assert_allclose(got["Variance"], x.var(ddof=1))
+
+
+def test_tabstat_translates_statistics_and_by(df):
+    out = sp.from_stata("tabstat y w, s(mean sd q n) by(g) nototal")
+    assert out["ok"] and out["untranslated_options"] == [], out
+    assert out["arguments"]["stats"] == ["mean", "sd", "p25", "median", "p75", "n"]
+    assert out["arguments"]["by"] == "g"
+    assert out["arguments"]["percentile_method"] == "stata"
+    table = _run("tabstat y w, s(mean sd) c(s)", df)
+    np.testing.assert_allclose(table.loc["y", "Mean"], df.y.mean())
+    assert sp.from_stata("tabstat y")["arguments"]["stats"] == ["mean"]
+    assert sp.from_stata("tabstat y, s(gmean)")["ok"] is False
+    total = sp.from_stata("tabstat y, by(g)")
+    assert any("Total" in line for line in total["semantics"])
+
+
+def test_sumstats_refuses_an_unknown_statistic(df):
+    from statspai.exceptions import MethodIncompatibility
+
+    with pytest.raises(MethodIncompatibility, match="unknown statistic"):
+        sp.sumstats(df, vars=["y"], stats=["mean", "mode"])
+    with pytest.raises(MethodIncompatibility, match="percentile_method"):
+        sp.sumstats(df, vars=["y"], percentile_method="r6")

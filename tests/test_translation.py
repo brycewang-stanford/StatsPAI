@@ -564,6 +564,11 @@ TIER2_ROUND_TRIPS = [
     ("pwcorr y x, obs", "pwcorr", {"vars": ["y", "x"], "listwise": False, "obs": True}),
     ("ttest y, by(g) unequal", "ttest", {"y": "y", "by": "g", "unequal": True}),
     ("ttest y == x, unpaired", "ttest", {"y": "y", "other": "x", "paired": False}),
+    (
+        "tabstat y x, statistics(mean sd p50) by(g) nototal",
+        "sumstats",
+        {"vars": ["y", "x"], "stats": ["mean", "sd", "median"], "by": "g"},
+    ),
     # newey -> sp.regress with Stata's N/(N-K); dfuller -> sp.unitroot
     (
         "newey y x1 x2, lag(4)",

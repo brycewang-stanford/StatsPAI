@@ -113,7 +113,7 @@ The caller's DataFrame is never modified. What is run:
 
 | Stata | Note |
 | --- | --- |
-| `if exp`, `in f/l` | on estimation and descriptive commands |
+| `if exp`, `in f/l` | on estimation and descriptive commands; `tin(01jan1980, 31dec1989)` after `tsset` |
 | `generate`, `replace` | `x[_n-1]`, `_n`, `_N`; stores single precision unless `double`, as Stata |
 | `keep` / `drop` (`if`, `in` or a variable list), `sort`, `preserve` / `restore` | |
 | `mvdecode v, mv(#)`, `encode s, gen(v)` | |
@@ -184,7 +184,7 @@ always-current list):
 | `regress` / `reg` | `sp.regress` |
 | `reghdfe`, `ivreghdfe` | `sp.hdfe_ols` (reghdfe's singleton / dof / `t(G-1)` rules; `a#b` becomes `a^b`) |
 | `xtreg, fe` | `sp.feols` |
-| `summarize`, `sum2docx` | `sp.sumstats` |
+| `summarize`, `tabstat`, `sum2docx` | `sp.sumstats` (`, detail` and percentile statistics use `percentile_method='stata'`, Stata's own rule) |
 | `correlate`, `pwcorr` | `sp.pwcorr` (casewise for `correlate`, pairwise for `pwcorr`) |
 | `ttest` | `sp.ttest` |
 | `ivreg2` / `ivregress` / `ivreg` | `sp.ivreg` (`robust` without `small` is `robust='hc0'`; the legacy `ivreg` is small-sample) |
@@ -226,9 +226,6 @@ These are part of the queryable contract — `sp.translation_coverage()["limitat
   qualifier.
 - **`xtreg, fe` has no `_cons`.** Stata prints the average fixed effect;
   `sp.feols` absorbs it.
-- **`summarize, detail` percentiles** are interpolated between order
-  statistics; Stata's rule picks an order statistic, so the two can differ
-  within a gap between observations.
 - **Macros and loops.** `sp.from_stata` translates one command and refuses a
   macro; `sp.stata` expands the macros defined by text in the same snippet.
   Loops and macros computed by Stata are not run.

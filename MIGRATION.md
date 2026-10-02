@@ -54,6 +54,12 @@ errors. Coefficients are unchanged. Direct calls to `sp.probit`,
 | `probit` / `logit` / `poisson` / `nbreg ..., vce(robust)` | `robust='hc1'`, factor `N/(N-K)` | `robust='robust'`, Stata's `N/(N-1)` | SE smaller by `sqrt((N-1)/(N-K))` |
 | `ivreg2` / `ivregress ..., robust` without `small` | `robust='hc1'` | `robust='hc0'`, no factor, as Stata | SE smaller by `sqrt((N-K)/N)` |
 | `regress ...; summarize x; test x` | `test` ran on the summary table | `test` runs on the regression | |
+| `summarize x, detail` | linear-interpolated `p10` `p25` `p50` `p75` `p90` | Stata's percentile rule; adds `p1` `p5` `p95` `p99`, variance, skewness, kurtosis | percentiles move within the gap between two observations |
+
+`sp.sumstats(stats=[...])` with a name it does not know used to drop that
+column without a message. It now raises `MethodIncompatibility` and lists
+the available statistics. Its default percentiles are unchanged (linear
+interpolation); `percentile_method='stata'` selects Stata's rule.
 
 To reproduce an old number, call the estimator directly with
 `robust='hc1'`.

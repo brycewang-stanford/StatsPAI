@@ -247,19 +247,32 @@ class Replay:
             )
             if m and m.group(1) in out.index:
                 row = out.loc[m.group(1)]
+                for label, group, key in (("mean", 3, "Mean"), ("sd", 4, "Std. Dev.")):
+                    self.report.number(
+                        self.name, cmd, f"{label}[{m.group(1)}]",
+                        Printed(m.group(group)), row[key],
+                    )  # fmt: skip
+        if len(out) != 1 or "Skewness" not in out.columns:
+            return
+        # `summarize v, detail`: percentiles on the left, moments on the right
+        row = out.iloc[0]
+        text = "\n".join(buf)
+        percentiles = ((1, "P1"), (5, "P5"), (10, "P10"), (25, "P25"))
+        percentiles += ((50, "Median"), (75, "P75"), (90, "P90"))
+        percentiles += ((95, "P95"), (99, "P99"))
+        for pct, key in percentiles:
+            m = re.search(rf"^\s*{pct}%\s+({NUM})", text, re.M)
+            if m:
                 self.report.number(
-                    self.name,
-                    cmd,
-                    f"mean[{m.group(1)}]",
-                    Printed(m.group(3)),
-                    row["Mean"],
+                    self.name, cmd, f"p{pct}", Printed(m.group(1)), row[key]
                 )
+        for label, key in (("Mean", "Mean"), ("Std. Dev.", "Std. Dev."),
+                           ("Variance", "Variance"), ("Skewness", "Skewness"),
+                           ("Kurtosis", "Kurtosis")):  # fmt: skip
+            m = re.search(rf"{re.escape(label)}\s+({NUM})\s*$", text, re.M)
+            if m:
                 self.report.number(
-                    self.name,
-                    cmd,
-                    f"sd[{m.group(1)}]",
-                    Printed(m.group(4)),
-                    row["Std. Dev."],
+                    self.name, cmd, label.lower(), Printed(m.group(1)), row[key]
                 )
 
     def _display(self, cmd: str, buf: List[str]) -> None:

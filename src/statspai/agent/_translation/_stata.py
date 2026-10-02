@@ -385,13 +385,32 @@ _SUM_STATS = {
     "sd": "sd",
     "min": "min",
     "max": "max",
+    "sum": "sum",
+    "range": "range",
+    "variance": "variance",
+    "var": "variance",
+    "semean": "semean",
+    "cv": "cv",
+    "skewness": "skewness",
+    "kurtosis": "kurtosis",
+    "iqr": "iqr",
+    "p1": "p1",
+    "p5": "p5",
     "p10": "p10",
     "p25": "p25",
     "p50": "median",
     "median": "median",
     "p75": "p75",
     "p90": "p90",
+    "p95": "p95",
+    "p99": "p99",
 }
+
+#: What ``summarize, detail`` prints, in sp.sumstats names.
+_DETAIL_STATS = [
+    "n", "mean", "sd", "variance", "skewness", "kurtosis", "min", "max",
+    "p1", "p5", "p10", "p25", "median", "p75", "p90", "p95", "p99",
+]  # fmt: skip
 
 
 def _h_summarize(cmd: StataCommand) -> Dict[str, Any]:
@@ -404,8 +423,9 @@ def _h_summarize(cmd: StataCommand) -> Dict[str, Any]:
             path = toks[i + 1].strip('"')
         toks = toks[:i]
     stats = ["n", "mean", "sd", "min", "max"]  # summarize's columns
-    if "detail" in cmd.options or "d" in cmd.options:
-        stats += ["p10", "p25", "median", "p75", "p90"]
+    detail = "detail" in cmd.options or "d" in cmd.options
+    if detail:
+        stats = list(_DETAIL_STATS)
     spec = cmd.options.get("stats") or cmd.options.get("statistics")
     if spec:
         stats = []
@@ -420,6 +440,9 @@ def _h_summarize(cmd: StataCommand) -> Dict[str, Any]:
             stats.append(key)
     output = path or "numeric"
     args: Dict[str, Any] = {"stats": stats, "output": output}
+    if any(st.startswith("p") or st in ("median", "iqr") for st in stats):
+        # Stata's own rule for a percentile between two order statistics
+        args["percentile_method"] = "stata"
     if toks:
         args["vars"] = toks
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
@@ -435,20 +458,48 @@ def _h_summarize(cmd: StataCommand) -> Dict[str, Any]:
             "digits= for a fixed number of decimals."
         )
     semantics: List[str] = []
-    if any(st.startswith("p") or st == "median" for st in stats):
+    if detail and not spec:
         semantics.append(
-            "Percentiles are linearly interpolated between order statistics; "
-            "Stata takes an order statistic, or the mean of two adjacent ones "
-            "when N*p/100 is an integer, so they can differ within a gap "
-            "between observations."
-        )
-    if not spec and len(stats) > 5:
-        semantics.append(
-            "summarize, detail also prints the 1st, 5th, 95th and 99th "
-            "percentiles, the variance, skewness and kurtosis and the four "
-            "smallest and largest values; those are not in the sp.sumstats call."
+            "summarize, detail also lists the four smallest and largest "
+            "values; those are not in the sp.sumstats call."
         )
     return _emit("sumstats", args, f"sp.sumstats(df, {kw})", notes, semantics=semantics)
+
+
+def _h_tabstat(cmd: StataCommand) -> Dict[str, Any]:
+    """``tabstat x y, statistics(mean sd p50) by(g)`` -> ``sp.sumstats``."""
+    if not cmd.varlist:
+        return _emit_error("tabstat requires a variable list", command="tabstat")
+    spec = cmd.options.get("statistics") or "mean"
+    stats: List[str] = []
+    for tok in spec.split():
+        low = tok.lower()
+        if low == "q":  # the three quartiles
+            stats += ["p25", "median", "p75"]
+            continue
+        key = _SUM_STATS.get(low)
+        if key is None:
+            return _emit_error(
+                f"tabstat statistic {tok!r} is not translated",
+                command="tabstat",
+                suggestions=[],
+            )
+        stats.append(key)
+    args: Dict[str, Any] = {"stats": stats, "output": "numeric"}
+    if any(st.startswith("p") or st in ("median", "iqr") for st in stats):
+        args["percentile_method"] = "stata"
+    args["vars"] = list(cmd.varlist)
+    semantics: List[str] = []
+    by = cmd.options.get("by")
+    if by:
+        args["by"] = by.split()[0]
+        if "nototal" not in cmd.options:
+            semantics.append(
+                "tabstat, by() also prints a Total row; sp.sumstats(by=) "
+                "returns the groups only."
+            )
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit("sumstats", args, f"sp.sumstats(df, {kw})", semantics=semantics)
 
 
 def _h_correlate(cmd: StataCommand) -> Dict[str, Any]:
@@ -2773,6 +2824,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "sum": _h_summarize,
     "su": _h_summarize,
     "sum2docx": _h_summarize,
+    "tabstat": _h_tabstat,
     "correlate": _h_correlate,
     "pwcorr": _h_correlate,
     "ttest": _h_ttest,

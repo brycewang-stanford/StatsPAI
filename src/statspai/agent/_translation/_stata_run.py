@@ -59,9 +59,7 @@ _SCALAR = re.compile(
 _DISPLAY = re.compile(r"\s*di(?:s(?:p(?:l(?:a(?:y)?)?)?)?)?\s+(.+)\Z", re.S | re.I)
 
 
-def _qualified(
-    line: str, data: pd.DataFrame, stored: Dict[str, Dict[str, float]]
-) -> pd.DataFrame:
+def _qualified(line: str, data: pd.DataFrame, stored: Dict[str, Any]) -> pd.DataFrame:
     """``data`` restricted by the ``if`` / ``in`` qualifier of ``line``."""
     from . import _stata_options as _opts
     from ._stata_lexer import parse as _parse
@@ -267,7 +265,7 @@ class StataSession:
         self.output: Any = result
         self._last_call: Optional[Dict[str, Any]] = None
         #: what earlier commands left behind: r(), e(), _b[], _se[], scalars
-        self.stored: Dict[str, Dict[str, float]] = {"r": {}, "scalars": {}}
+        self.stored: Dict[str, Any] = {"r": {}, "scalars": {}}
         if self._steps is not None:
             self._steps.stored = self.stored
         if result is not None:
@@ -367,6 +365,7 @@ class StataSession:
         declared = panel_declaration(line)
         if declared is not None:
             self.panel = declared
+            self.stored["time_var"] = declared[1]
             return False
         if _SKIPPED.match(line):
             # session settings and output-only commands: nothing to run
