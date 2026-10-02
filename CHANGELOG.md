@@ -208,6 +208,10 @@ has the findings and what is still open.
   and `tabstat` is translated. Checked on the five `summarize, detail`
   blocks of the textbook's earnings data. `tin(d1, d2)` works in `if` after
   `tsset`.
+- **Guide: Stock & Watson, 4th edition** (`docs/guides/stock_watson_4e.md`).
+  How to run the book's do-files with `sp.stata`, how to check the numbers
+  against its logs, and, chapter by chapter, what a paper written today
+  adds to the book's analysis and the call for it.
 - **`scripts/stata_log_replay.py`**: replays a Stata log through `sp.stata`
   and compares every printed number to the precision Stata printed it.
   `tests/external_parity/test_stock_watson_4e_logs.py` runs it on the
