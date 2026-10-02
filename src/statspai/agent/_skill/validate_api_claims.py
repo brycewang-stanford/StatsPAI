@@ -11,6 +11,11 @@ It verifies three layers of perishable claims the skill makes:
 
   1. EXISTENCE   — every ``sp.<name>`` referenced in SKILL.md resolves.
   2. SIGNATURES  — the documented keyword/positional argument names exist.
+  2b. CALLS      — every ``sp.<fn>(...)`` call written in a Python code block
+                   of the skill is parsed and bound against the real
+                   signature: an unknown keyword or too many positional
+                   arguments fails. Functions taking ``**kwargs`` are only
+                   checked for positional count (the number is printed).
   3. ATTRIBUTES  — the documented result-object attributes / return shapes hold
                    (the layer that drifts silently when the library adds a
                    convenience method, e.g. ``AFTResult.params`` in 1.19.0).
@@ -29,9 +34,11 @@ installed package, is the stamp.
 from __future__ import annotations
 
 import argparse
+import ast
 import inspect
 import pathlib
 import re
+import textwrap
 import types
 
 import statspai as sp
@@ -231,6 +238,122 @@ def check_signatures(failures: list[str]) -> None:
             f"sp.{name}",
             "" if not absent else f"missing args: {absent}",
         )
+
+
+# --------------------------------------------------------------------- calls
+_FENCE_OPEN = re.compile(r"^```(?:python|py)\s*$")
+
+
+def _python_blocks(path: pathlib.Path):
+    """Yield ``(first_line_number, source)`` for each fenced Python block.
+
+    Fences inside a blockquote (``> ```python``) count, and a fence closes
+    only on a line that is exactly the fence, so a literal `````` inside a
+    string does not end the block early.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+    i = 0
+    while i < len(lines):
+        raw = lines[i]
+        quoted = re.match(r"^\s*(?:>\s?)+", raw)
+        prefix = quoted.group(0) if quoted else ""
+        if not _FENCE_OPEN.match(raw[len(prefix) :].strip()):
+            i += 1
+            continue
+        start = i + 2
+        body = []
+        i += 1
+        while i < len(lines):
+            line = lines[i]
+            if prefix and line.startswith(prefix.rstrip()):
+                line = line[len(prefix) :] if line.startswith(prefix) else ""
+            if line.strip() == "```":
+                break
+            body.append(line)
+            i += 1
+        i += 1
+        yield start, textwrap.dedent("\n".join(body))
+
+
+def _sp_call_target(node: ast.Call):
+    """``['did', 'callaway_santanna']`` for ``sp.did.callaway_santanna(...)``."""
+    parts = []
+    cur = node.func
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    if isinstance(cur, ast.Name) and cur.id == "sp" and parts:
+        return list(reversed(parts))
+    return None
+
+
+def check_call_keywords(failures: list[str]) -> None:
+    print(
+        "\n== 2b. CALLS: every sp.<fn>(...) in a code block binds to the signature =="
+    )
+    n_blocks = n_calls = n_open = 0
+    problems: list[str] = []
+    for path in SKILL_FILES:
+        for lineno, src in _python_blocks(path):
+            n_blocks += 1
+            try:
+                tree = ast.parse(src)
+            except SyntaxError as exc:
+                problems.append(
+                    f"{path.name}:{lineno}: code block is not valid Python ({exc.msg})"
+                )
+                continue
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                parts = _sp_call_target(node)
+                if parts is None:
+                    continue
+                label = f"{path.name}:{lineno + node.lineno - 1}: sp.{'.'.join(parts)}"
+                obj = sp
+                try:
+                    for attr in parts:
+                        obj = getattr(obj, attr)
+                except AttributeError:
+                    problems.append(f"{label} does not resolve")
+                    continue
+                try:
+                    params = inspect.signature(obj).parameters
+                except (TypeError, ValueError):
+                    continue
+                n_calls += 1
+                kinds = {p.kind for p in params.values()}
+                if inspect.Parameter.VAR_KEYWORD in kinds:
+                    n_open += 1
+                else:
+                    unknown = [
+                        k.arg for k in node.keywords if k.arg and k.arg not in params
+                    ]
+                    if unknown:
+                        problems.append(f"{label} has no argument {unknown}")
+                if inspect.Parameter.VAR_POSITIONAL not in kinds and not any(
+                    isinstance(a, ast.Starred) for a in node.args
+                ):
+                    room = sum(
+                        p.kind
+                        in (
+                            inspect.Parameter.POSITIONAL_ONLY,
+                            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        )
+                        for p in params.values()
+                    )
+                    if len(node.args) > room:
+                        problems.append(
+                            f"{label} is given {len(node.args)} positional "
+                            f"arguments; it takes {room}"
+                        )
+    _record(
+        failures,
+        not problems,
+        f"{n_calls} calls in {n_blocks} code blocks "
+        f"({n_open} take **kwargs: keywords not checkable)",
+        "; ".join(problems),
+    )
 
 
 # ---------------------------------------------------------------- attributes
@@ -478,6 +601,7 @@ def main() -> int:
     check_references(failures)
     check_modules(failures)
     check_signatures(failures)
+    check_call_keywords(failures)
     if not args.quick:
         check_attributes(failures)
 

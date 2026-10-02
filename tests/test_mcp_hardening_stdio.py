@@ -241,3 +241,105 @@ def test_runner_reports_cancel_and_orphan():
     while _runner.orphaned_threads() and time.monotonic() < deadline:
         time.sleep(0.02)
     assert _runner.orphaned_threads() == 0
+
+
+# ---------------------------------------------------------------------------
+# Admission limits (2026-10-02 review, M3)
+# ---------------------------------------------------------------------------
+
+
+def _is_response(rid):
+    return lambda m: m.get("id") == rid and ("result" in m or "error" in m)
+
+
+def test_queue_limit_answers_server_busy_without_queueing(slow_tool, monkeypatch):
+    monkeypatch.setenv(mcp_server.MAX_QUEUED_CALLS_ENV, "1")
+    srv = _Harness(workers=1)
+    try:
+        srv.send(_call(1, token="p1"))
+        assert slow_tool["started"].wait(5)
+        srv.send(_call(2))  # waits behind call 1
+        srv.send(_call(3))  # over the limit
+        busy = srv.read_until(_is_response(3))
+        sc = busy["result"]["structuredContent"]
+        assert busy["result"]["isError"] is True
+        assert sc["error_kind"] == "server_busy"
+        assert sc["calls_in_flight"] == 2 and sc["retryable"] is True
+        # Liveness is unaffected, and the refused call never ran.
+        srv.send({"jsonrpc": "2.0", "id": 9, "method": "ping"})
+        assert srv.read_until(_is_response(9))["result"] == {}
+        for rid in (2, 1):
+            srv.send(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "notifications/cancelled",
+                    "params": {"requestId": rid},
+                }
+            )
+        assert slow_tool["cancelled"].wait(5)
+    finally:
+        srv.close()
+
+
+def test_duplicate_in_flight_id_is_refused_and_keeps_the_cancel_handle(slow_tool):
+    srv = _Harness(workers=1)
+    try:
+        srv.send(_call(1, token="p1"))
+        assert slow_tool["started"].wait(5)
+        srv.send(_call(1))
+        dup = srv.read_until(lambda m: m.get("id") == 1 and "error" in m)
+        assert dup["error"]["code"] == -32600
+        # The original call still owns id 1: cancelling it stops the tool.
+        srv.send(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/cancelled",
+                "params": {"requestId": 1},
+            }
+        )
+        assert slow_tool["cancelled"].wait(5)
+    finally:
+        srv.close()
+
+
+def test_orphan_limit_refuses_new_calls(monkeypatch):
+    calls = []
+
+    def _tool(
+        name, arguments, *, data=None, detail="agent", result_id=None, as_handle=False
+    ):
+        calls.append(name)
+        return {"value": 1}
+
+    monkeypatch.setattr(mcp_server, "execute_tool", _tool)
+    monkeypatch.setenv(mcp_server.MAX_ORPHANED_CALLS_ENV, "2")
+    monkeypatch.setattr(_runner, "orphaned_threads", lambda: 2)
+    srv = _Harness(workers=1)
+    try:
+        srv.send(_call(1))
+        sc = srv.read_until(_is_response(1))["result"]["structuredContent"]
+        assert sc["error_kind"] == "server_busy"
+        assert sc["orphaned_tool_threads"] == 2
+        assert calls == []
+        monkeypatch.setattr(_runner, "orphaned_threads", lambda: 1)
+        srv.send(_call(2))
+        ok = srv.read_until(_is_response(2))["result"]
+        assert ok["isError"] is False and calls == ["regress"]
+    finally:
+        srv.close()
+
+
+def test_oversized_request_line_is_refused_unparsed(monkeypatch):
+    monkeypatch.setenv(mcp_server.MAX_REQUEST_BYTES_ENV, "2000")
+    srv = _Harness(workers=1)
+    try:
+        big = _call(5)
+        big["params"]["arguments"]["data"] = "x" * 5000
+        srv.send(big)
+        err = srv.read_until(lambda m: "error" in m)
+        assert err["id"] is None and err["error"]["code"] == -32600
+        assert "STATSPAI_MCP_MAX_REQUEST_BYTES" in err["error"]["message"]
+        srv.send({"jsonrpc": "2.0", "id": 6, "method": "ping"})
+        assert srv.read_until(_is_response(6))["result"] == {}
+    finally:
+        srv.close()

@@ -13,6 +13,7 @@ analysis outside the agent loop.
 from __future__ import annotations
 
 import keyword
+import re
 from typing import Any, Dict, Mapping, Optional
 
 
@@ -93,4 +94,68 @@ def data_comment(
     return f"  # data = {src}{tail}"
 
 
-__all__ = ["build_replay", "data_comment"]
+#: ``replay_completeness.level`` values, weakest first.
+REPLAY_LEVELS = ("call_only", "session_replayable", "standalone")
+
+_PLACEHOLDER = re.compile(r"=<[A-Za-z_][A-Za-z0-9_]*>")
+
+
+def replay_completeness(
+    replay: str,
+    data_provenance: Optional[Mapping[str, Any]] = None,
+    *,
+    result_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """How far a ``replay`` string goes towards reproducing the call.
+
+    Returns ``{"level", "needs"}``. ``level`` is
+
+    * ``"standalone"`` -- a new Python process can re-run the call from
+      the string, given what ``needs`` lists (a local file, identified by
+      path and SHA-256, or nothing for a call that takes no data);
+    * ``"session_replayable"`` -- it depends on a handle held by this
+      server process (a ``data_id`` whose lineage is in
+      ``data_provenance``, or a fitted ``result_id``);
+    * ``"call_only"`` -- the string documents the call but cannot re-run
+      it: an argument had no literal form, or the data was sent inline
+      or fetched from a URL and only a hash (or nothing) was kept.
+
+    The weakest component decides the level.
+    """
+    rank = len(REPLAY_LEVELS) - 1
+    needs = []
+
+    def _cap(level: str, need: str) -> None:
+        nonlocal rank
+        rank = min(rank, REPLAY_LEVELS.index(level))
+        needs.append(need)
+
+    if _PLACEHOLDER.search(replay):
+        _cap("call_only", "argument values shown as <TypeName> have no literal form")
+    if result_id and f"result_{result_id}" in replay:
+        _cap("session_replayable", f"fitted result {result_id} from this session")
+    if "data=data" in replay:
+        prov = data_provenance or {}
+        kind = prov.get("source_type")
+        if kind == "handle":
+            _cap(
+                "session_replayable",
+                f"dataset handle {prov.get('data_id')}; re-apply "
+                "data_provenance.lineage to rebuild it in a new process",
+            )
+        elif kind == "local":
+            sha = prov.get("sha256")
+            needs.append(
+                f"file {prov.get('source')}"
+                + (f" (sha256 {sha})" if sha else " (not hashed)")
+            )
+        elif kind == "inline":
+            _cap("call_only", "inline data: only its hash was recorded")
+        elif kind == "remote":
+            _cap("call_only", "remote data is not hashed; its content may change")
+        else:
+            _cap("call_only", "the source of `data` was not recorded")
+    return {"level": REPLAY_LEVELS[rank], "needs": needs}
+
+
+__all__ = ["REPLAY_LEVELS", "build_replay", "data_comment", "replay_completeness"]

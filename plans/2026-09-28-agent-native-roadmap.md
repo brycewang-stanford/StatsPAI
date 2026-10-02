@@ -47,7 +47,7 @@ only be routed by the same loop, so it times out after 60 s. Tests inject
 - [x] reader-thread stdio loop with a single stdout lock
 - [x] subprocess end-to-end test (initialize → tools/list → tools/call → sampling round-trip)
 - [x] `tools/list` byte budget test (`curated` < 300 KB, `core` < 100 KB)
-- [~] MCP suites in the push-time CI gate; `statspai-mcp --help` in the wheel smoke test — patch in `plans/pending-workflow-patches/`, needs a user push (App lacks `workflows` permission)
+- [x] MCP suites in the push-time CI gate; `statspai-mcp --help` in the wheel smoke test — landed in `.github/workflows/ci-cd.yml` (fast gate + wheel smoke); the 2026-10-02 review found this line still marked pending. The gate was widened the same day to the whole agent chain (stdio chain, hardening, output-budget risk, handles, error envelope, metadata ratchet, validation scope, packaged skill).
 - [x] CHANGELOG
 
 ## W2 — Data handles, inline data and transform chains (week 1–2)

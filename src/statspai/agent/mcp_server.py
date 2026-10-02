@@ -49,15 +49,23 @@ the model sees them and can repair its next call. Only protocol errors
 
 Results are bounded by ``max_output_bytes`` (default 256 KiB,
 ``STATSPAI_MCP_MAX_OUTPUT_BYTES``): the longest lists / tables are cut
-first and listed under ``truncated``. Non-finite numbers are sent as
+first and listed under ``truncated``; risk lists (``violations``,
+``runtime_warnings``, ``degradations``, ``warnings``) are cut last and
+leave ``risk_summary`` + ``risk_details_complete: false``; ``output_budget``
+reports ``truncated`` or ``unavoidable_overflow`` (the budget covers
+``structuredContent``, not the repeated ``text`` block or an image).
+Non-finite numbers are sent as
 ``null`` and their paths listed under ``_nonfinite``. Estimator results
 carry ``replay`` — the ``sp.<fn>(...)`` call that reproduces them.
 
 Operator controls: ``STATSPAI_MCP_DATA_ROOTS`` restricts readable
 directories, network URLs need ``STATSPAI_MCP_ALLOW_REMOTE=1``,
 ``STATSPAI_MCP_MAX_DATA_BYTES`` caps loads (local and remote),
-``STATSPAI_MCP_TOOL_TIMEOUT_SECONDS`` bounds a call and
-``STATSPAI_MCP_WORKERS`` sizes the ``tools/call`` pool.
+``STATSPAI_MCP_TOOL_TIMEOUT_SECONDS`` bounds a call,
+``STATSPAI_MCP_WORKERS`` sizes the ``tools/call`` pool, and
+``STATSPAI_MCP_MAX_QUEUED_CALLS`` / ``STATSPAI_MCP_MAX_ORPHANED_CALLS`` /
+``STATSPAI_MCP_MAX_REQUEST_BYTES`` bound what the stdio loop admits
+(``server_busy`` / ``-32600`` beyond them).
 
 Protocol features
 -----------------
@@ -817,6 +825,72 @@ _RESULT_OUTPUT_SCHEMA: Dict[str, Any] = {
             "description": "Structured repair hints for the next call.",
             "additionalProperties": True,
         },
+        "replay": {
+            "type": "string",
+            "description": (
+                "The sp.<fn>(...) call that was run, with the data source "
+                "named in a trailing comment."
+            ),
+        },
+        "replay_completeness": {
+            "type": "object",
+            "description": (
+                "What re-running `replay` needs. level: 'standalone' (a new "
+                "process can re-run it given the file in needs), "
+                "'session_replayable' (depends on a data_id / result_id "
+                "held by this server), 'call_only' (documents the call but "
+                "cannot re-run it: inline or remote data, or an argument "
+                "without a literal form). needs: the dependencies."
+            ),
+            "additionalProperties": True,
+        },
+        "runtime_warnings": {
+            "type": "array",
+            "description": (
+                "Python warnings raised during the call, as {category, "
+                "message}; at most 20 distinct ones (risk_summary gives the "
+                "count when more were raised)."
+            ),
+            "items": {"type": "object", "additionalProperties": True},
+        },
+        "truncated": {
+            "type": "array",
+            "description": (
+                "Containers shortened to meet max_output_bytes: {path, "
+                "total, shown}. Absent when nothing was cut."
+            ),
+            "items": {"type": "object", "additionalProperties": True},
+        },
+        "risk_details_complete": {
+            "type": "boolean",
+            "description": (
+                "false when violations / runtime_warnings / degradations / "
+                "warnings were shortened: the lists shown are not all the "
+                "risks raised. Absent when they are complete."
+            ),
+        },
+        "risk_summary": {
+            "type": "object",
+            "description": (
+                "Present with risk_details_complete=false. Per shortened "
+                "risk field: total, shown, omitted, by_severity, categories; "
+                "plus full_details (how to obtain every entry)."
+            ),
+            "additionalProperties": True,
+        },
+        "output_budget": {
+            "type": "object",
+            "description": (
+                "Outcome of max_output_bytes when the result did not fit "
+                "untouched: status ('truncated' = cut to fit; "
+                "'unavoidable_overflow' = fields that are never cut exceed "
+                "the budget, listed under oversized_fields), max_bytes, "
+                "actual_bytes, scope ('structuredContent': the text block "
+                "repeats the object and an image is sent on top). Absent "
+                "when the result fit."
+            ),
+            "additionalProperties": True,
+        },
     },
     "additionalProperties": True,
 }
@@ -1105,7 +1179,8 @@ def _build_mcp_tools(profile: Optional[str] = None) -> List[Dict[str, Any]]:
                     "STATSPAI_MCP_MAX_OUTPUT_BYTES; 0 = no limit). Over "
                     "budget, the longest lists / tables are shortened first "
                     "and listed under `truncated`; headline numbers are "
-                    "never cut."
+                    "never cut. Risk lists are cut last and leave "
+                    "`risk_summary`; `output_budget` reports the outcome."
                 ),
             }
         if "as_handle" not in props:
@@ -1634,7 +1709,7 @@ def _run_tools_call(
             f"max_output_bytes must be a non-negative integer (0 = no limit); "
             f"got {raw_budget!r}",
         )
-    from ._output_budget import apply_budget, max_output_bytes
+    from ._output_budget import apply_budget, max_output_bytes, note_risk_omission
 
     budget = max_output_bytes(raw_budget)
 
@@ -1704,10 +1779,12 @@ def _run_tools_call(
                 if key in seen:
                     continue
                 seen.add(key)
-                recorded.append({"category": key[0], "message": key[1]})
-                if len(recorded) >= 20:
-                    break
+                if len(recorded) < 20:
+                    recorded.append({"category": key[0], "message": key[1]})
             out["runtime_warnings"] = recorded
+            # The cap is reported, not silent: risk_summary carries the
+            # count of distinct warnings that were raised.
+            note_risk_omission(out, "runtime_warnings", len(seen))
         return out
 
     timeout = tool_timeout()
@@ -1784,6 +1861,13 @@ def _run_tools_call(
             from ._result_cache import RESULT_CACHE
 
             RESULT_CACHE.set_replay(rid, result["replay"])
+    if isinstance(result.get("replay"), str):
+        from ._replay import replay_completeness
+
+        # A replay line is not a script: say what re-running it needs.
+        result["replay_completeness"] = replay_completeness(
+            result["replay"], result.get("data_provenance"), result_id=result_id
+        )
 
     # Image content: estimators can attach a PNG plot under ``_plot_png``
     # for the MCP layer to surface as an image content block. Claude
@@ -1796,9 +1880,8 @@ def _run_tools_call(
         plot_bytes = None
 
     structured = _normalise_tool_result(result)
-    structured, truncated = apply_budget(structured, budget)
-    if truncated:
-        structured["truncated"] = truncated
+    # Writes ``truncated`` / ``risk_summary`` / ``output_budget`` itself.
+    structured, _ = apply_budget(structured, budget)
 
     # Structured tool output (MCP ``2025-06-18``+): ``structuredContent``
     # is the machine-readable result; the spec asks that the serialised
@@ -2010,6 +2093,38 @@ def _worker_count() -> int:
         return 1
 
 
+#: Env var: ``tools/call`` requests allowed to wait behind the running
+#: ones (default 32; ``0`` = unlimited). Beyond it a call is answered at
+#: once with ``error_kind='server_busy'`` instead of queueing.
+MAX_QUEUED_CALLS_ENV = "STATSPAI_MCP_MAX_QUEUED_CALLS"
+DEFAULT_MAX_QUEUED_CALLS = 32
+
+#: Env var: timed-out / cancelled computations that may still be running
+#: in the background before new calls are refused (default 4; ``0`` =
+#: unlimited). A thread cannot be killed, so without this cap every
+#: timeout adds one more estimator computing next to the following call.
+MAX_ORPHANED_CALLS_ENV = "STATSPAI_MCP_MAX_ORPHANED_CALLS"
+DEFAULT_MAX_ORPHANED_CALLS = 4
+
+#: Env var: largest accepted request line, in bytes (default 64 MiB;
+#: ``0`` = unlimited). Larger lines are answered with ``-32600`` and
+#: never parsed or queued.
+MAX_REQUEST_BYTES_ENV = "STATSPAI_MCP_MAX_REQUEST_BYTES"
+DEFAULT_MAX_REQUEST_BYTES = 64 * 1024 * 1024
+
+
+def _env_limit(name: str, default: int) -> Optional[int]:
+    """Non-negative integer limit from the environment; ``None`` = unlimited."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        v = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return v if v > 0 else None
+
+
 def _request_key(request_id: Any) -> str:
     """Hashable, type-preserving key for a JSON-RPC id (``1`` ≠ ``"1"``)."""
     return json.dumps(request_id, sort_keys=True)
@@ -2042,6 +2157,15 @@ def serve_stdio(
       default, so estimator execution stays serialised (estimators share
       process-global state such as warning filters and matplotlib);
       ``STATSPAI_MCP_WORKERS`` (or ``workers=``) raises it.
+
+    The loop is bounded. A request line over
+    ``STATSPAI_MCP_MAX_REQUEST_BYTES`` is refused unparsed (``-32600``);
+    a ``tools/call`` arriving while ``STATSPAI_MCP_MAX_QUEUED_CALLS``
+    others already wait, or while ``STATSPAI_MCP_MAX_ORPHANED_CALLS``
+    timed-out computations are still running, is answered immediately
+    with an ``isError`` result of kind ``server_busy``; and a
+    ``tools/call`` reusing the id of one still in flight is refused
+    (``-32600``) rather than taking over its cancel handle.
 
     All output goes through one locked sink, so responses, progress
     notifications and sampling requests never interleave mid-line.
@@ -2081,12 +2205,35 @@ def serve_stdio(
     _sampling.set_writer(sink.write_line)
 
     inbox: "queue.Queue[Optional[str]]" = queue.Queue()
+    n_workers = workers if workers else _worker_count()
+    max_queued = _env_limit(MAX_QUEUED_CALLS_ENV, DEFAULT_MAX_QUEUED_CALLS)
+    max_orphans = _env_limit(MAX_ORPHANED_CALLS_ENV, DEFAULT_MAX_ORPHANED_CALLS)
+    max_request = _env_limit(MAX_REQUEST_BYTES_ENV, DEFAULT_MAX_REQUEST_BYTES)
+
+    def _emit(line: str) -> None:
+        try:
+            sink.write_line(line)
+        except (OSError, ValueError) as exc:  # stdout closed by the client
+            print(f"statspai-mcp: could not write response: {exc}", file=sys.stderr)
 
     def _reader() -> None:
         try:
             for raw in stdin:
                 line = raw.strip()
                 if not line:
+                    continue
+                if max_request is not None and len(line) > max_request:
+                    # Not parsed, so the id is unknown (JSON-RPC: null).
+                    _emit(
+                        _jsonrpc_error(
+                            None,
+                            -32600,
+                            f"Invalid Request: {len(line)} characters exceeds "
+                            f"the {max_request}-byte limit "
+                            f"({MAX_REQUEST_BYTES_ENV}); pass data by "
+                            "data_path or a data_id handle instead of inline.",
+                        )
+                    )
                     continue
                 reply = _is_jsonrpc_reply(line)
                 if reply is not None and _sampling.route_response(reply):
@@ -2098,11 +2245,35 @@ def serve_stdio(
     inflight: Dict[str, threading.Event] = {}
     inflight_lock = threading.Lock()
 
-    def _emit(line: str) -> None:
-        try:
-            sink.write_line(line)
-        except (OSError, ValueError) as exc:  # stdout closed by the client
-            print(f"statspai-mcp: could not write response: {exc}", file=sys.stderr)
+    def _busy(in_flight: int) -> Optional[Dict[str, Any]]:
+        """``server_busy`` result when a new call must not be admitted."""
+        orphans = _runner.orphaned_threads()
+        if max_orphans is not None and orphans >= max_orphans:
+            return _tool_error_result(
+                "server_busy",
+                f"{orphans} timed-out or cancelled computations are still "
+                "running in the background; no new call is started until "
+                "they finish.",
+                hint=(
+                    "Wait and retry, or restart the server to stop them. "
+                    f"{MAX_ORPHANED_CALLS_ENV} sets the limit."
+                ),
+                orphaned_tool_threads=orphans,
+                retryable=True,
+            )
+        if max_queued is not None and in_flight >= n_workers + max_queued:
+            return _tool_error_result(
+                "server_busy",
+                f"{in_flight} tools/call requests are already running or "
+                "queued; this one was not queued.",
+                hint=(
+                    "Wait for earlier calls to answer (or cancel them) and "
+                    f"retry. {MAX_QUEUED_CALLS_ENV} sets the limit."
+                ),
+                calls_in_flight=in_flight,
+                retryable=True,
+            )
+        return None
 
     def _run_call(line: str, key: str, cancel: threading.Event) -> None:
         try:
@@ -2128,7 +2299,7 @@ def serve_stdio(
             ev.set()
 
     executor = ThreadPoolExecutor(
-        max_workers=workers if workers else _worker_count(),
+        max_workers=n_workers,
         thread_name_prefix="statspai-mcp-call",
     )
     reader = threading.Thread(target=_reader, name="statspai-mcp-stdin", daemon=True)
@@ -2151,8 +2322,23 @@ def serve_stdio(
                     key = _request_key(msg["id"])
                     cancel = threading.Event()
                     with inflight_lock:
-                        inflight[key] = cancel
-                    executor.submit(_run_call, line, key, cancel)
+                        duplicate = key in inflight
+                        busy = None if duplicate else _busy(len(inflight))
+                        if not duplicate and busy is None:
+                            inflight[key] = cancel
+                    if duplicate:
+                        _emit(
+                            _jsonrpc_error(
+                                msg["id"],
+                                -32600,
+                                "Invalid Request: a tools/call with this id "
+                                "is still in flight.",
+                            )
+                        )
+                    elif busy is not None:
+                        _emit(_jsonrpc_result(msg["id"], busy))
+                    else:
+                        executor.submit(_run_call, line, key, cancel)
                     continue
             response = handle_request(line)
             if response is None:
@@ -2199,6 +2385,8 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
             "STATSPAI_MCP_ALLOW_REMOTE=1 (network data URLs), "
             "STATSPAI_MCP_MAX_DATA_BYTES, STATSPAI_MCP_MAX_OUTPUT_BYTES, "
             "STATSPAI_MCP_TOOL_TIMEOUT_SECONDS, STATSPAI_MCP_WORKERS, "
+            "STATSPAI_MCP_MAX_QUEUED_CALLS, STATSPAI_MCP_MAX_ORPHANED_CALLS, "
+            "STATSPAI_MCP_MAX_REQUEST_BYTES, "
             "STATSPAI_MCP_DATA_CACHE_SIZE / _BYTES, STATSPAI_MCP_DEBUG."
         ),
     )

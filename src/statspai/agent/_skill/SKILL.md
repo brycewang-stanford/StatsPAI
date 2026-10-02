@@ -18,9 +18,12 @@ artifacts on disk at every step.
   add `neural` for Dragonnet / TARNet / CEVAE, `text` for text-as-treatment.
   The bare install cannot run `sp.feols` (any `y ~ x | fe` regression) or make
   figures — see `references/operating-loop.md` for the extras matrix.
-- **Verified**: every `sp.*` name, signature and result attribute in this skill
-  is checked by `validate_api_claims.py` against the installed package
-  (`statspai skill validate`). There is no version stamp to go stale.
+- **Verified**: `validate_api_claims.py` checks this skill against the
+  installed package (`statspai skill validate`). Every `sp.*` name resolves,
+  every `sp.*(...)` call in a code block binds to the real signature
+  (keywords of functions that take `**kwargs` cannot be checked), and the
+  result attributes on the gate's smoke-fit list exist. There is no version
+  stamp to go stale.
 - **Paper**: Wang & Rozelle (2026), *Journal of Open Source Software* 11(125),
   10604, <https://doi.org/10.21105/joss.10604>.
 

@@ -4,6 +4,72 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+Agent-surface hardening from the 2026-10-02 repository review
+(`docs/dev/2026-10-02-review-status.md` tracks every item). No estimator
+changes its numbers.
+
+### Fixed
+
+- **A tight MCP output budget could hide most of a result's risk flags.**
+  `violations`, `runtime_warnings`, `degradations` and `warnings` were cut
+  like any other list: under a 1,500-byte budget 100 violations came back
+  as one, and the only trace was a `truncated` entry the agent had to
+  decode. These lists are now cut last, after every table. When they are
+  cut the result carries `risk_details_complete: false` and a
+  `risk_summary` with `total` / `shown` / `omitted`, counts by severity
+  and by category per field. The configuration-level evidence block of
+  `result_card` is never cut.
+- **More than 20 distinct runtime warnings were dropped without a count.**
+  The server keeps the first 20; `risk_summary.runtime_warnings` now
+  reports how many were raised.
+- **`max_output_bytes` failed silently when it could not be met.** A result
+  whose never-cut fields alone exceed the budget (a vector `estimate`, a
+  long `replay`) was returned over budget with an empty ledger. Every
+  result that did not fit untouched now carries `output_budget` with
+  `status` (`truncated` or `unavoidable_overflow`), `max_bytes`,
+  `actual_bytes`, `scope` and, on overflow, `oversized_fields`. The ledger
+  is counted in the size, so `truncated` guarantees
+  `actual_bytes <= max_bytes`. The documentation now says the budget
+  covers `structuredContent` only.
+- **A second `tools/call` reusing an in-flight request id took over its
+  cancel handle.** It is refused with `-32600`.
+
+### Added
+
+- **Admission limits on the MCP stdio loop.** `STATSPAI_MCP_MAX_QUEUED_CALLS`
+  (default 32) and `STATSPAI_MCP_MAX_ORPHANED_CALLS` (default 4) answer a
+  call that cannot be admitted with an `isError` result of kind
+  `server_busy` instead of queueing without bound. A timed-out
+  computation cannot be killed, so before this each timeout left one more
+  estimator running beside the next call. `STATSPAI_MCP_MAX_REQUEST_BYTES`
+  (default 64 MiB) refuses an oversized request line unparsed.
+- **`replay_completeness` on every MCP result that has a `replay`.**
+  `level` is `standalone` (a new process can re-run the string given the
+  file named in `needs`), `session_replayable` (it depends on a `data_id`
+  or `result_id` held by the server) or `call_only` (inline or remote
+  data, or an argument without a literal form).
+- **The packaged skill's code blocks are bound to real signatures.**
+  `statspai skill validate` parses every Python block in `SKILL.md` and
+  `references/` and checks each `sp.*(...)` call for unknown keywords and
+  excess positional arguments (275 calls; the 81 whose target takes
+  `**kwargs` are checked for positional count only). Before this a
+  resolvable name with a wrong argument passed the gate. The skill's
+  "verified" note now states this scope instead of claiming every
+  signature and attribute.
+
+### Changed
+
+- CI fast gate runs the whole agent chain: a full analysis over a real
+  stdio subprocess (route, load, transform, fit under two covariance
+  options, audit, follow-up, resource reads, tight budget, stale handle),
+  the hardening and handle suites, the metadata ratchet, validation scope
+  and the packaged skill. The packaged skill's smoke fits are now run by
+  pytest; previously only the archived JOSS-era copy had its full gate
+  wired in, behind the `slow` marker.
+- MCP subprocess tests start the server with `posix_spawn`. On macOS a
+  `fork` taken after an estimator ran in the same pytest process
+  segfaulted in the child before `exec`.
+
 ## [1.35.0] — 2026-10-02
 
 A correctness release. Estimators that had no reference or known-truth

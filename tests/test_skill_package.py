@@ -91,6 +91,81 @@ def test_bundled_gate_quick_passes(capsys):
     assert rc == 0, out[-3000:]
 
 
+def _gate():
+    return runpy.run_path(str(SKILL_DIR / "validate_api_claims.py"), run_name="_gate")
+
+
+def test_bundled_gate_full_passes(capsys):
+    """The smoke fits behind the skill's attribute / return-shape claims.
+
+    Until 2026-10 only the JOSS-era copy under
+    ``StatsPAI_full_data_analysis_skill/`` had its full gate wired into
+    pytest, and that test is marked ``slow``; the packaged skill -- the one
+    ``statspai skill install`` ships -- ran ``--quick`` only.
+    """
+    pytest.importorskip("matplotlib")
+    ns = _gate()
+    failures: list = []
+    ns["check_attributes"](failures)
+    out, _ = capsys.readouterr()
+    assert not failures, out[-3000:]
+
+
+_BAD_BLOCKS = {
+    "unknown keyword": (
+        "```python\nr = sp.callaway_santanna(df, y='y', g='g', t='t', i='i', clustr='s')\n```",
+        "has no argument ['clustr']",
+    ),
+    "too many positionals": (
+        "```python\nsp.validation_scope(fit, 'iv', 'extra')\n```",
+        "positional",
+    ),
+    "unresolved name": (
+        "```python\nsp.did.no_such_estimator(df)\n```",
+        "does not resolve",
+    ),
+    "not python": (
+        "```python\nr = sp.regress('y ~ x', data=df\n```",
+        "not valid Python",
+    ),
+    "inside a blockquote": (
+        "> ```python\n> sp.rdrobust(df, y='y', x='x', cutof=0)\n> ```",
+        "has no argument ['cutof']",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", sorted(_BAD_BLOCKS))
+def test_call_check_catches_a_wrong_call_in_a_reference(case, tmp_path, capsys):
+    """A resolvable name with a wrong argument must fail, not only a typo'd name."""
+    block, expected = _BAD_BLOCKS[case]
+    doc = tmp_path / "injected.md"
+    doc.write_text("# Injected\n\n" + block + "\n", encoding="utf-8")
+    ns = _gate()
+    check = ns["check_call_keywords"]
+    check.__globals__["SKILL_FILES"] = [doc]
+    failures: list = []
+    check(failures)
+    capsys.readouterr()
+    assert len(failures) == 1 and expected in failures[0], failures
+
+
+def test_call_check_reads_every_block_of_the_shipped_skill(capsys):
+    ns = _gate()
+    blocks = [b for f in ns["SKILL_FILES"] for b in ns["_python_blocks"](f)]
+    fenced = sum(
+        len(
+            re.findall(r"^\s*(?:>\s?)*```(?:python|py)\s*$", f.read_text("utf-8"), re.M)
+        )
+        for f in ns["SKILL_FILES"]
+    )
+    assert len(blocks) == fenced > 50
+    failures: list = []
+    ns["check_call_keywords"](failures)
+    out, _ = capsys.readouterr()
+    assert not failures, out[-3000:]
+
+
 def test_cli_skill_install_and_path(tmp_path, capsys):
     assert main(["skill", "path"]) == 0
     out, _ = capsys.readouterr()

@@ -45,6 +45,10 @@ class _Server:
             text=True,
             encoding="utf-8",
             bufsize=1,
+            # posix_spawn, not fork: on macOS a fork taken after an
+            # estimator ran in this process (earlier tests in the same
+            # session) intermittently segfaults in the child before exec.
+            close_fds=False,
             env=full_env,
         )
         self._next_id = 1
@@ -233,6 +237,7 @@ def test_help_flag_exits_zero():
         capture_output=True,
         text=True,
         timeout=120,
+        close_fds=False,  # posix_spawn; see _Server
     )
     assert proc.returncode == 0
     assert "--profile" in proc.stdout

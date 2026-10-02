@@ -285,6 +285,15 @@ class TestAnnotationsAndOutputSchema:
             "error",
             "error_kind",
             "remediation",
+            # Written by the server / output budget; emission is asserted
+            # in tests/test_mcp_output_budget_risk.py.
+            "replay",
+            "replay_completeness",
+            "runtime_warnings",
+            "truncated",
+            "risk_details_complete",
+            "risk_summary",
+            "output_budget",
         }
         assert documented <= real, f"undocumented-key drift: {documented - real}"
 

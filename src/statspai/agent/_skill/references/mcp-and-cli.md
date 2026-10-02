@@ -64,6 +64,23 @@ every profile, and `statspai://functions` always indexes all of them.
   under `truncated: [{path, total, shown}]`; estimate / SE / CI / p-value are
   never cut. The `text` block is the same object as `structuredContent`,
   serialised compactly.
+- **Shortened risk lists.** `violations`, `runtime_warnings`, `degradations`
+  and `warnings` are cut last. If `risk_details_complete` is `false`, the
+  lists shown are not all the risks raised: read `risk_summary` (`total`,
+  `omitted`, `by_severity`, `categories` per field) and report those counts,
+  or repeat the call with a larger `max_output_bytes`. Never describe such a
+  result as free of violations.
+- **`replay_completeness`.** Only `level: "standalone"` means the `replay`
+  line re-runs in a new Python process (given the file in `needs`).
+  `session_replayable` depends on a handle in this server; `call_only`
+  documents the call but cannot re-run it. Say which when you hand a user
+  reproduction code.
+- **`output_budget`.** Present when the result did not fit untouched.
+  `status: "unavoidable_overflow"` means the never-cut fields exceed the
+  budget and the response is larger than asked for.
+- **`server_busy`.** An `isError` result with this `error_kind` means the call
+  was not started (queue full, or timed-out computations still running).
+  Wait and retry; do not treat it as an estimation failure.
 - **NaN / Inf** are sent as `null`; their JSON Pointers are listed under
   `_nonfinite` (`[{path, value: "NaN" | "Infinity" | "-Infinity"}]`), so an
   infinite SE is not mistaken for a missing one.

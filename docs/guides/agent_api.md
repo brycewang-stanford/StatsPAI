@@ -421,6 +421,25 @@ Result shaping:
   `0` disables) cuts the longest lists / tables first and records each
   cut under `truncated: [{path, total, shown}]`; headline numbers
   (estimate, SE, CI, p-value) are never cut.
+- Risk lists (`violations`, `runtime_warnings`, `degradations`,
+  `warnings`) are cut only when nothing else is left to cut. When they
+  are, the result carries `risk_details_complete: false` and a
+  `risk_summary` with `total` / `shown` / `omitted`, `by_severity` and
+  `categories` per field, so a shortened list cannot be read as a clean
+  result. `runtime_warnings` keeps at most 20 distinct warnings and
+  reports the rest the same way.
+- `replay_completeness` says what re-running `replay` needs. `level` is
+  `standalone` (a new process can re-run it given the file in `needs`),
+  `session_replayable` (it depends on a `data_id` or `result_id` held by
+  this server) or `call_only` (inline or remote data, or an argument with
+  no literal form). The replay line alone is not a reproduction script
+  unless the level is `standalone`.
+- `output_budget` is present whenever the result did not fit untouched:
+  `status` is `truncated` (cut to fit, `actual_bytes <= max_bytes`) or
+  `unavoidable_overflow` (the never-cut fields alone exceed the budget;
+  `oversized_fields` names them). The budget covers `structuredContent`
+  only. The `text` block repeats that object and an image block is sent
+  on top, so the full response is larger.
 - NaN / ±Inf are sent as `null` and listed under
   `_nonfinite: [{path, value}]`.
 
@@ -434,6 +453,9 @@ Operator settings (environment of the server process):
 | `STATSPAI_MCP_MAX_OUTPUT_BYTES` | default result byte budget (256 KiB) |
 | `STATSPAI_MCP_TOOL_TIMEOUT_SECONDS` | per-call timeout (default 600; `0` disables) |
 | `STATSPAI_MCP_WORKERS` | `tools/call` worker pool size (default 1 keeps estimators serialised) |
+| `STATSPAI_MCP_MAX_QUEUED_CALLS` | `tools/call` requests allowed to wait behind the running ones (default 32; `0` = unlimited); beyond it a call is answered at once with `error_kind: server_busy` |
+| `STATSPAI_MCP_MAX_ORPHANED_CALLS` | timed-out or cancelled computations that may still be running before new calls are refused with `server_busy` (default 4; `0` = unlimited). A thread cannot be killed, so a timeout does not free the CPU |
+| `STATSPAI_MCP_MAX_REQUEST_BYTES` | largest accepted request line (default 64 MiB; `0` = unlimited); larger lines get `-32600` unparsed |
 | `STATSPAI_MCP_DATA_CACHE_SIZE` / `STATSPAI_MCP_DATA_CACHE_BYTES` | data-handle cache bounds (16 frames / 2 GiB) |
 | `STATSPAI_MCP_PROFILE` | default `tools/list` profile |
 
