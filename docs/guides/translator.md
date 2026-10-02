@@ -135,11 +135,32 @@ The functions available are `ln` `log` `log10` `exp` `sqrt` `abs` `floor`
 `ceil` `int` `round` `mod` `min` `max` `sign` `cond` `missing` `mi`
 `inlist` `inrange` `normal` `normalden` `invnormal` `chi2` `chi2tail`
 `ttail` `invttail` `F` `Ftail`. Anything else is refused with the reason:
-`e(sample)`, time-series operators (`L.x`), string functions, extended
-missing values (`.a`), `egen`, `merge`, `reshape`, `collapse`. `use` is
+`e(sample)`, string functions, extended missing values (`.a`), `egen`,
+`merge`, `reshape`, `collapse`. `use` is
 refused as well, since it replaces the data; pass the DataFrame in. Settings
 and output-only lines (`set more off`, `log using`, `label`, `describe`) are
 skipped, and graph or export commands are skipped with a warning.
+
+### Time-series operators
+
+After `tsset time` or `xtset id time`, `L.x`, `L2.x`, `F.x`, `D.x`, `D2.x`,
+`LD.x` and lag lists such as `L(1/4).x` are resolved against the time
+variable, inside each panel, as Stata does:
+
+```python
+sp.stata("""
+    tsset quarter
+    newey growth L(1/2).growth L(1/2).spread, lag(4)
+    test L.spread L2.spread
+""", data=df)
+```
+
+A lag is missing where the earlier period is absent, which `shift(1)` on
+the rows does not give you when a quarter is missing or the data are a
+panel. The term `L2.spread` enters the model as a column named `spread_L2`,
+and `test` / `lincom` accept either spelling. The time variable has to be a
+count of periods or a pandas `Period`; a datetime column has no unit step
+and is refused.
 
 ## What's covered — and how to check
 
@@ -194,9 +215,8 @@ These are part of the queryable contract — `sp.translation_coverage()["limitat
   placeholder when the `xtset` / `tsset` declaration is on a different line; pass
   `id=` / `time=` explicitly to the resulting `sp.*` call.
 - **Time series.** `arima` / `var` / `vec` / `granger` are not translated — call
-  `sp.arima` / `sp.var` / `sp.johansen` directly. Time-series operators
-  (`L.x`, `D.x`) are refused; build the lag with `gen lx = x[_n-1]` after
-  `sort`. `dfgls` is answered with the matching `sp.unitroot` call.
+  `sp.arima` / `sp.var` / `sp.johansen` directly. `dfgls` is answered with
+  the matching `sp.unitroot` call. The seasonal operator `S.` is refused.
 - **Estimation tables.** `esttab` / `eststo` / `outreg2` are not translated; use
   `sp.regtable` on the fitted results.
 - **Dropped qualifiers are surfaced, not lost.** From `sp.from_stata`, which

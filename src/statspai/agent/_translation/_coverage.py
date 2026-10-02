@@ -37,7 +37,8 @@ LIMITATIONS: List[str] = [
     "explicitly to the resulting sp.* call.",
     "Time-series commands (arima, var, vec, varsoc, granger) are not translated; "
     "call sp.arima / sp.var / sp.vecm directly. Time-series operators (L.x, "
-    "D.x) in a variable list or expression are refused.",
+    "D.x, L(1/4).x) are resolved by sp.stata after `tsset` / `xtset`; "
+    "sp.from_stata, which sees one line and no data, refuses them.",
     "Estimation-table commands (esttab, eststo, outreg2) are not translated; use "
     "sp.regtable on the fitted results.",
     "Dropped Stata `if`/`in` qualifiers and unrecognized options are never "

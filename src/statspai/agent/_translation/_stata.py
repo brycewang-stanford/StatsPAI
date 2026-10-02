@@ -2345,8 +2345,10 @@ def _normalise_command(
     for tok in toks:
         if _TS_OP_RE.match(tok):
             return (
-                f"time-series operator {tok!r} is not translated; create the "
-                "lag / difference as a column first",
+                f"time-series operator {tok!r} is not resolved here. "
+                "sp.stata resolves L. / F. / D. on existing variables once "
+                "`tsset time` or `xtset id time` has been given; otherwise "
+                "create the lag / difference as a column first",
                 info,
             )
         if not _FV_RE.search(tok):

@@ -22,6 +22,7 @@ import pandas as pd
 from ...exceptions import MethodIncompatibility
 from ._stata_datastep import DataSteps, row_mask
 from ._stata_expr import StataExprError, evaluate
+from ._stata_tsops import has_ts_operator, rewrite_ts_operators
 
 __all__ = ["stata", "StataSession"]
 
@@ -168,6 +169,12 @@ def stata(
         settings and output-only lines (``set more off``, ``log``,
         ``label``, ``describe`` ...) are skipped; graph and export commands
         are skipped with a warning. ``use`` is refused: pass the data in.
+
+        After ``tsset time`` (or ``xtset id time``) the time-series
+        operators ``L.x``, ``L2.x``, ``F.x``, ``D.x``, ``L(1/4).x`` are
+        resolved against the time variable, within panel, as Stata does: a
+        lag is missing where the earlier period is absent. The term
+        ``L2.x`` enters the model as a column named ``x_L2``.
     data : pandas.DataFrame, optional
         The dataset estimation commands run on. Required unless every
         command is a post-estimation command applied to ``result``.
@@ -372,6 +379,25 @@ class StataSession:
                 stacklevel=3,
             )
             return False
+        if self.panel[1] is not None and has_ts_operator(line):
+            # L.x / D.x / L(1/4).x against the declared time variable
+            naming_only = re.match(r"\s*(?:test|lincom)\b", line) is not None
+            try:
+                line, columns_added = rewrite_ts_operators(
+                    line, None if naming_only else data, self.panel
+                )
+                if self._steps is not None:
+                    for name, values in columns_added.items():
+                        self._steps.add_column(name, values, double=True)
+            except StataExprError as exc:
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: {exc}.",
+                    recovery_hint="Build the lag as a column in pandas and "
+                    "pass the prepared DataFrame.",
+                    diagnostics={"command": line},
+                ) from exc
+            data = self.data
+            columns = None if data is None else list(data.columns)
         scalar = _SCALAR.match(line)
         show = None if scalar else _DISPLAY.match(line)
         if scalar is not None:

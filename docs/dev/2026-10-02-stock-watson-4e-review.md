@@ -61,6 +61,7 @@ STATSPAI_SW4E_DIR=<files> pytest tests/external_parity/test_stock_watson_4e_logs
 | 10 | No unit-root test for a single series | missing function | `sp.unitroot` (ADF, DF-GLS) |
 | 11 | AR / ADL forecasting, lag selection and pseudo out-of-sample evaluation had to be assembled by hand | missing function | `sp.ardl` |
 | 12 | `sp.structural_break(method='sup-f')` tested every coefficient with a homoskedastic F; the textbook's QLR holds the lags of `y` fixed and is robust | missing option | `break_vars=`, `vce=` |
+| 13 | Time-series operators (`L.x`, `D.x`, `L(1/4).x`) were refused | coverage | resolved against the `tsset` / `xtset` time variable, within panel |
 
 Item 9 deserves a note. Track A module `51_newey` passed against Stata with
 a 1e-2 tolerance. The gap was the documented `N/(N-K)` factor. With
@@ -112,7 +113,6 @@ docstring.
 | Item | Why it matters | Size |
 | --- | --- | --- |
 | `xtreg, fe` prints `_cons` (mean of the fixed effects); the translation has slopes only | 20 numbers in chapters 10 and 13 have no counterpart | small |
-| Time-series operators `L.` `D.` `F.` in a varlist are refused | every time-series do-file uses them | medium |
 | `tin()`, `tsset` dates, `pctile` | chapter 2 and 4 boxes do not replay | small |
 | Fixed-b / EWC inference for HAC | the textbook authors' own later recommendation | medium |
 | Ridge and principal-components prediction with cross-validated MSPE | chapter 14 | medium |

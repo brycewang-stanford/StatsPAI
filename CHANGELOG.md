@@ -49,8 +49,14 @@ has the findings and what is still open.
   `summarize`, `test` and `ttest`, and named scalars are written into
   `test` restrictions. Expressions go through a parser with a closed set of
   operators and functions; nothing is passed to `eval`. What is outside the
-  set (`e(sample)`, time-series operators, string functions, `egen`, `use`)
-  is refused with the reason.
+  set (`e(sample)`, string functions, `egen`, `use`) is refused with the
+  reason.
+- **Time-series operators in `sp.stata`.** After `tsset time` or
+  `xtset id time`, `L.x`, `L2.x`, `F.x`, `D.x`, `D2.x`, `LD.x` and lag
+  lists such as `L(1/4).x` are resolved against the time variable inside
+  each panel: a lag is missing where the earlier period is absent, as in
+  Stata, which a row shift does not reproduce on gapped or panel data.
+  `test` and `lincom` accept the operator spelling of a coefficient.
 - **`scripts/stata_log_replay.py`**: replays a Stata log through `sp.stata`
   and compares every printed number to the precision Stata printed it.
   `tests/external_parity/test_stock_watson_4e_logs.py` runs it on the
