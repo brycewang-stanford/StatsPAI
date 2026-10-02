@@ -5,6 +5,25 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-panel-vce"></a>
+
+## Unreleased: ⚠️ `sp.panel(vce=...)` raises on a value it does not implement
+
+`sp.panel(..., vce='robust')` (and `'cluster'`, `'hc1'`, or any other
+string outside `'CR2'` / `'CR3'` / `'jackknife'` / `'conley'` / `'wild'`)
+used to be accepted and ignored: the result carried the **classical**
+standard errors. It now raises `MethodIncompatibility`.
+
+- You meant heteroskedasticity-robust SEs: pass `robust='robust'`.
+- You meant cluster-robust SEs: pass `cluster='<column>'`.
+- You meant the classical SEs: drop `vce=`.
+
+Numbers do not change for any call that worked as intended. A table
+produced with one of the ignored values reports classical SEs under a
+robust label and should be refit.
+
+---
+
 <a id="oct2026-crossval-next-steps"></a>
 
 ## Unreleased: `CrossValidationResult.next_steps()` returns dicts

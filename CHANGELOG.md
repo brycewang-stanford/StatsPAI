@@ -529,6 +529,18 @@ Agent-surface hardening from the 2026-10-02 repository review
 (`docs/dev/2026-10-02-review-status.md` tracks every item). No estimator
 changes its numbers.
 
+### ⚠️ Correctness
+
+- **`sp.panel(vce=...)` silently ignored any value outside its extended
+  menu.** `vce='robust'`, `vce='cluster'` and `vce='nonsense'` all
+  returned the classical standard errors with no warning, on every panel
+  method. They now raise `MethodIncompatibility`, and the message names
+  the working spelling (`robust='robust'`, `cluster='<column>'`). The
+  supported values (`'CR2'`, `'CR3'`, `'jackknife'`, `'conley'`, `'wild'`)
+  and calls that omit `vce=` are unchanged. A result obtained with one of
+  the ignored values carried classical SEs: refit with `robust=` or
+  `cluster=`. See `MIGRATION.md`.
+
 ### Fixed
 
 - **A tight MCP output budget could hide most of a result's risk flags.**

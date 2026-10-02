@@ -1008,6 +1008,21 @@ def _dispatch_panel_impl(
     # anchor used by ``sp.feols``), so the panel FE row gets the full menu
     # without touching the linearmodels path.
     _vce_l = vce.lower() if isinstance(vce, str) else None
+    if _vce_l is not None and _vce_l not in _PANEL_BR_VCE:
+        # correctness fix (2026-10): any other value used to fall through
+        # and return the classical SE without a word. ``vce='robust'`` gave
+        # the same numbers as no option at all, and so did ``vce='nonsense'``.
+        raise _panel_method_error(
+            f"vce={vce!r} is not a variance option of sp.panel.",
+            diagnostics={"vce": vce, "accepted": sorted(_PANEL_BR_VCE)},
+            recovery_hint=(
+                "vce= selects the extended menu only: "
+                + ", ".join(repr(v) for v in sorted(_PANEL_BR_VCE))
+                + ". For heteroskedasticity-robust SEs pass robust='robust'; "
+                "for cluster-robust SEs pass cluster='<column>'; omit vce= "
+                "for the classical SEs."
+            ),
+        )
     _cluster_is_pair = isinstance(cluster, (list, tuple))
     if ssc is not None and (
         _vce_l in _PANEL_BR_VCE or _cluster_is_pair or canonical in _GMM_METHODS

@@ -379,10 +379,6 @@
       "ci_test",
       "max_cond_dim"
     ],
-    "match": [
-      "treat",
-      "y"
-    ],
     "mean_comparison": [
       "filename",
       "group_labels",

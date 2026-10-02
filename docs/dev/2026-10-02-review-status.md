@@ -79,3 +79,4 @@
 - **六种种子参数名不被结果卡识别。** `boot_seed`、`bootstrap_seed`、`rng_seed`、`wild_seed`、`halton_seed`、`rng`。用这些名字的函数，结果卡对其随机输出是否可复现一个字都不说。已补，并有测试挡新拼法。
 - **`areg` 翻译出来的常数项不是 Stata 的 `_cons`。** 斜率和 SE 与 `areg` 完全一致；`Intercept` 是第一组的水平，`_cons` 是平均吸收效应处的截距。翻译说明原来只提了 SE 的自由度，没提常数项。holdout 查出，已补说明。
 - **holdout 第一次真正派上用场。** 我补 `noconstant` 的同时，并行的另一条线也补了它，还补了 `[fweight=]` 和 `xtreg, re`。rebase 之后 holdout 对后两者是盲测：`xtreg, re` 的系数、常规 SE、聚类 SE、以及用正态分布的置信区间都与 Stata 逐位一致；`[fweight=]` 由 runner 按行展开，N 和 SE 也对。评分规则里有一处误判（把“只有 runner 能翻译”算成了静默错误），已修正。
+- **`sp.panel(vce=)` 静默忽略它不认识的值。** `vce='robust'`、`vce='cluster'`、甚至 `vce='nonsense'` 都悄悄返回常规 SE，所有面板方法都一样。核对 `xtreg, re vce(robust)` 的翻译时发现。已改为明确报错并提示正确写法（`robust='robust'` / `cluster=`），记了 ⚠️ correctness 和 MIGRATION。
