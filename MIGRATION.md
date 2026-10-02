@@ -7,11 +7,11 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="oct2026-known-truth-fixes"></a>
 
-## Unreleased: ⚠️ estimators that missed a known truth, and clustered CER bandwidths
+## 1.34.2 → 1.35.0: ⚠️ estimators that missed a known truth, and clustered CER bandwidths
 
 **Who is affected.** Anyone who reported numbers from the functions below.
-The old output cannot be reproduced by an option, because it was not an
-estimate of the documented quantity.
+Unless a row says otherwise, the old output cannot be reproduced by an
+option, because it was not an estimate of the documented quantity.
 
 | Function | What changes | Old on a design with a known answer | New |
 | --- | --- | --- | --- |
@@ -70,7 +70,7 @@ them; the remedy is in each message.
 
 <a id="stata-translation-grammar"></a>
 
-## Unreleased: ⚠️ `sp.from_stata` / `sp.stata` stop translating a different model
+## 1.34.2 → 1.35.0: ⚠️ `sp.from_stata` / `sp.stata` stop translating a different model
 
 **Who is affected.** Anyone who translated or ran Stata lines that use
 option abbreviations, prefixes, macros, `if` / `in`, or `xtreg` without

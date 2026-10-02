@@ -4,103 +4,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
-### Added
+## [1.35.0] — 2026-10-02
 
-- **`refit_bootstrap=` on `sp.tarnet`, `sp.cfrnet` and `sp.deepiv`.** The
-  default `se` of these estimators holds the trained network fixed and is
-  flagged `model_info['se_valid_for_ate'] = False`. With
-  `refit_bootstrap=B` the networks are retrained on `B` resamples, each
-  from its own initialisation, and `se`, `ci` and `pvalue` come from the
-  spread of the refits; the fixed-network number moves to
-  `model_info['se_plugin']`. The run takes `B + 1` times as long.
-  Over 40 replications at `n = 600` with 20 refits, the refit interval
-  covered the true ATE 95% of the time for `tarnet` (SE 0.068 against an
-  across-seed SD of 0.056) and 97.5% for `cfrnet`; the fixed-network
-  interval covered 57.5% and 47.5%. For `deepiv` (40 replications at
-  `n = 1500`, 20 refits) the refit SE averaged 0.30 against an
-  across-seed SD of 0.20: conservative by about 45%, every interval
-  covering. The fixed-network SE was 0.009 and covered 2.5% of the time.
-  The default is unchanged (`refit_bootstrap=0`).
-- **`sp.synthdid_placebo(kind='time')`** is R's
-  `synthdid::synthdid_placebo`: the estimator on the pre-treatment
-  periods with the treatment date moved earlier and the original fit's
-  regularisation. On the real Proposition 99 panel it gives -1.6674165
-  against -1.6674164 from `synthdid` 0.0.9 (and -11.00774 for
-  `method='did'`, the same in both). The default `kind='unit'` is the
-  in-space table the function always returned.
-- **Release gate (`scripts/release_gate.py`, pre-push hook `release-gate`).**
-  Three things reached PyPI in 1.33.0 / 1.34.0 and were found only when a
-  paper's replication archive was built from the tag, each costing a patch
-  release. They are now checked where a release is made. `--fix-census`
-  rewrites the registry census quoted in `docs/guides/stability.md` and
-  `docs/jss_source_audit_dossier.md` from the live registry, and the check
-  enforces it between the version bump and the tag (never on an ordinary
-  push, since other lines add functions all day). Patterns passed to `re`
-  and raw string literals must survive the JSS archive's ASCII
-  transliteration (`scripts/ascii_source.py`): write `\u2026`, not the
-  character. Text shipped in the wheel must not carry promotional wording
-  the archive verifier rejects.
-- **Track C timings are bound to the code they timed
-  (`scripts/trace_perf_path.py`, `tests/perf/results/_timed_path.json`).**
-  The record holds the hash of every source file that ran inside the timed
-  calls, the harness and the Rust backend, with the `__version__` line
-  masked. `--check` says whether the committed timings still describe the
-  tree and names the files if not. The 1.34.0 timings are valid for 1.34.1
-  and 1.34.2 (no timed-path file changed); a documentation-only release no
-  longer calls for a two-hour rerun on a quiet machine.
+A correctness release. Estimators that had no reference or known-truth
+evidence were run against simulated designs with a planted answer, and
+the ones that missed it were fixed: 33 functions change their numbers,
+listed in `MIGRATION.md` under `oct2026-known-truth-fixes`. No
+Track A module moves (89 reproduce, 0 drift). Estimator callables with
+evidence go from 572 of 822 to 735 of 736, the denominator now excluding
+84 plots, datasets and exporters that cannot carry a grade.
 
-### Fixed
-
-- **`sp.llm_dag_validate` read an edge list as an empty graph.** Passing
-  `[("a", "b"), ("b", "c")]` or a `{parent: [children]}` dict returned
-  "0 supported, 0 unsupported", which reads like a clean validation.
-  Both forms are now accepted and give the same answer as `sp.dag(...)`;
-  an object edges cannot be read from raises.
-- **`sp.rd_compare`'s default table had a row that always failed.** The
-  default methods included local randomisation, which needs a window
-  (`wl`, `wr`) and reported `status = error` without one. The default is
-  now `('rdrobust', 'honest')`. Request the third row with
-  `methods=[..., 'randinf']` and
-  `method_kwargs={'randinf': {'wl': ..., 'wr': ...}}`.
-- **`sp.synth_mde` returned a bare `inf`** when no effect size reached
-  the power target. It now warns with the reason. The usual one is the
-  placebo test's floor: with `J` placebo units the smallest p-value is
-  `1 / (J + 1)`, so with fewer than 19 donors the test cannot reject at
-  5% whatever the effect.
-- **Parity index.** `sp.dag_simulate` and `sp.rd_dashboard` are counted
-  as a dataset and a plot (`_parity_taxonomy.NON_NUMERIC_CALLABLES`), and
-  `tests/reference_parity/test_oct2026_fifth_pass.py` anchors the
-  remaining workflow, comparison-table, dispatcher and diagnostic
-  functions to the estimators they call. Estimator callables with
-  evidence: 735 of 736.
-- **`sp.notears` documents that edge directions are not identified.** The
-  data are standardised before fitting, so on linear Gaussian data the
-  orientation within a Markov equivalence class depends on the sample.
-  The adjacencies are recovered; the docstring now says to read the
-  output as a skeleton.
-- **`sp.california_prop99()` described simulated data as the real
-  panel.** The top-level loader generates its rows from a seeded design
-  laid out like the Proposition 99 data, and its docstring called it "the
-  canonical `synthdid` example dataset". Estimates on it do not reproduce
-  published ones: `sp.sdid` gives -17.9, against the well-known -15.60. The
-  numbers are unchanged, since reference fixtures are built on them; the
-  docstring now says the data are simulated and points to
-  `sp.datasets.california_prop99()` for the real panel, on which
-  `sp.sdid` agrees with R `synthdid` 0.0.9 to 1e-9 (-15.6038279). Every
-  simulated example loader (`california_prop99`, `california_tobacco`,
-  `basque_terrorism`, `german_reunification`, `cps_wage`,
-  `chilean_households`, `mincer_wage_panel`, `disparity_panel`) now sets
-  `df.attrs['simulated'] = True` and says so in its docstring.
-- **`sp.synthdid_placebo` claimed to replicate
-  `synthdid::synthdid_placebo`.** It returns one refit per control unit
-  (an in-space placebo table). The R function is an in-time placebo: one
-  estimate on the pre-treatment periods with the treatment date moved
-  earlier. The docstring now describes what the function does. The output
-  is unchanged.
-- `statspai.agent.remediation`: the DML orthogonality rule spelled its
-  not-equal sign as a literal character inside a pattern; it is now
-  `\u2260`, so the pattern is the same in the ASCII archive. Behaviour is
-  unchanged.
+Defaults that change: `sp.deepiv` uses the unbiased paired-sample loss,
+`sp.event_study` drops event times with no treated observation,
+`sp.did_few_treated` reports the exact inversion interval,
+`sp.llm_annotator_correct` reports the delta-method standard error, and
+`sp.rd_compare` no longer includes the local-randomisation row.
 
 ### ⚠️ Correctness
 
@@ -449,32 +367,50 @@ All notable changes to StatsPAI will be documented in this file.
   `untranslated_options` instead of passing as exact. `ties` and `ate`
   are carried over (they were dropped / described as unsupported).
 
-### Fixed
-
-- **Docstring examples of `sp.olley_pakes`, `sp.levinsohn_petrin` and
-  `sp.ackerberg_caves_frazer` drew the proxy with noise**, which breaks
-  the scalar-unobservable condition the estimators rest on. The proxy in
-  the examples is now an exact function of capital and productivity; on
-  that design the three estimators recover the elasticities (0.60 / 0.30
-  for OP and LP, 0.58 / 0.32 for ACF, against 0.6 / 0.3).
-- **51 curated registry entries advertised no example.**
-  `sp.describe_function(name)["example"]`, the agent cards and the MCP
-  tool descriptions were blank for hand-written specs that left the field
-  empty, although each function's docstring has an `Examples` block. The
-  registry now takes the first docstring statement that calls the
-  function (`sp.<name>(` or through a sub-namespace such as
-  `sp.epi.<name>(`), and never overwrites a curated example. Entries
-  without an example go from 58 to 9.
-- `ivreghdfe` without an `(endog = instruments)` block is `reghdfe`; it
-  was a parse error.
-- `reghdfe, keepsingletons` becomes `drop_singletons=False`.
-- `ivregress` / `ivreg2` with `[aw=w]` or `[pw=w]` was refused ("sp.ivreg
-  takes no weights= argument"): the signature check did not see that
-  `sp.ivreg` takes `weights=` through `**kwargs`. The translated call is
-  checked against the closed-form weighted IV estimate.
-- `level(#)` becomes `alpha=` where the sp function takes it.
-
 ### Added
+
+- **`refit_bootstrap=` on `sp.tarnet`, `sp.cfrnet` and `sp.deepiv`.** The
+  default `se` of these estimators holds the trained network fixed and is
+  flagged `model_info['se_valid_for_ate'] = False`. With
+  `refit_bootstrap=B` the networks are retrained on `B` resamples, each
+  from its own initialisation, and `se`, `ci` and `pvalue` come from the
+  spread of the refits; the fixed-network number moves to
+  `model_info['se_plugin']`. The run takes `B + 1` times as long.
+  Over 40 replications at `n = 600` with 20 refits, the refit interval
+  covered the true ATE 95% of the time for `tarnet` (SE 0.068 against an
+  across-seed SD of 0.056) and 97.5% for `cfrnet`; the fixed-network
+  interval covered 57.5% and 47.5%. For `deepiv` (40 replications at
+  `n = 1500`, 20 refits) the refit SE averaged 0.30 against an
+  across-seed SD of 0.20: conservative by about 45%, every interval
+  covering. The fixed-network SE was 0.009 and covered 2.5% of the time.
+  The default is unchanged (`refit_bootstrap=0`).
+- **`sp.synthdid_placebo(kind='time')`** is R's
+  `synthdid::synthdid_placebo`: the estimator on the pre-treatment
+  periods with the treatment date moved earlier and the original fit's
+  regularisation. On the real Proposition 99 panel it gives -1.6674165
+  against -1.6674164 from `synthdid` 0.0.9 (and -11.00774 for
+  `method='did'`, the same in both). The default `kind='unit'` is the
+  in-space table the function always returned.
+- **Release gate (`scripts/release_gate.py`, pre-push hook `release-gate`).**
+  Three things reached PyPI in 1.33.0 / 1.34.0 and were found only when a
+  paper's replication archive was built from the tag, each costing a patch
+  release. They are now checked where a release is made. `--fix-census`
+  rewrites the registry census quoted in `docs/guides/stability.md` and
+  `docs/jss_source_audit_dossier.md` from the live registry, and the check
+  enforces it between the version bump and the tag (never on an ordinary
+  push, since other lines add functions all day). Patterns passed to `re`
+  and raw string literals must survive the JSS archive's ASCII
+  transliteration (`scripts/ascii_source.py`): write `\u2026`, not the
+  character. Text shipped in the wheel must not carry promotional wording
+  the archive verifier rejects.
+- **Track C timings are bound to the code they timed
+  (`scripts/trace_perf_path.py`, `tests/perf/results/_timed_path.json`).**
+  The record holds the hash of every source file that ran inside the timed
+  calls, the harness and the Rust backend, with the `__version__` line
+  masked. `--check` says whether the committed timings still describe the
+  tree and names the files if not. The 1.34.0 timings are valid for 1.34.1
+  and 1.34.2 (no timed-path file changed); a documentation-only release no
+  longer calls for a two-hour rerun on a quiet machine.
 
 - **`sp.overlap_weighted_did(id=)`.** With a unit identifier the
   bootstrap resamples units and keeps a unit's two observations together,
@@ -602,6 +538,81 @@ adding an option changes the translation or is reported, and
   default changes, and no warning is raised. A fit with supplied learners,
   and the other DML models, carry no note.
 
+### Fixed
+
+- **`sp.llm_dag_validate` read an edge list as an empty graph.** Passing
+  `[("a", "b"), ("b", "c")]` or a `{parent: [children]}` dict returned
+  "0 supported, 0 unsupported", which reads like a clean validation.
+  Both forms are now accepted and give the same answer as `sp.dag(...)`;
+  an object edges cannot be read from raises.
+- **`sp.rd_compare`'s default table had a row that always failed.** The
+  default methods included local randomisation, which needs a window
+  (`wl`, `wr`) and reported `status = error` without one. The default is
+  now `('rdrobust', 'honest')`. Request the third row with
+  `methods=[..., 'randinf']` and
+  `method_kwargs={'randinf': {'wl': ..., 'wr': ...}}`.
+- **`sp.synth_mde` returned a bare `inf`** when no effect size reached
+  the power target. It now warns with the reason. The usual one is the
+  placebo test's floor: with `J` placebo units the smallest p-value is
+  `1 / (J + 1)`, so with fewer than 19 donors the test cannot reject at
+  5% whatever the effect.
+- **Parity index.** `sp.dag_simulate` and `sp.rd_dashboard` are counted
+  as a dataset and a plot (`_parity_taxonomy.NON_NUMERIC_CALLABLES`), and
+  `tests/reference_parity/test_oct2026_fifth_pass.py` anchors the
+  remaining workflow, comparison-table, dispatcher and diagnostic
+  functions to the estimators they call. Estimator callables with
+  evidence: 735 of 736.
+- **`sp.notears` documents that edge directions are not identified.** The
+  data are standardised before fitting, so on linear Gaussian data the
+  orientation within a Markov equivalence class depends on the sample.
+  The adjacencies are recovered; the docstring now says to read the
+  output as a skeleton.
+- **`sp.california_prop99()` described simulated data as the real
+  panel.** The top-level loader generates its rows from a seeded design
+  laid out like the Proposition 99 data, and its docstring called it "the
+  canonical `synthdid` example dataset". Estimates on it do not reproduce
+  published ones: `sp.sdid` gives -17.9, against the well-known -15.60. The
+  numbers are unchanged, since reference fixtures are built on them; the
+  docstring now says the data are simulated and points to
+  `sp.datasets.california_prop99()` for the real panel, on which
+  `sp.sdid` agrees with R `synthdid` 0.0.9 to 1e-9 (-15.6038279). Every
+  simulated example loader (`california_prop99`, `california_tobacco`,
+  `basque_terrorism`, `german_reunification`, `cps_wage`,
+  `chilean_households`, `mincer_wage_panel`, `disparity_panel`) now sets
+  `df.attrs['simulated'] = True` and says so in its docstring.
+- **`sp.synthdid_placebo` claimed to replicate
+  `synthdid::synthdid_placebo`.** It returns one refit per control unit
+  (an in-space placebo table). The R function is an in-time placebo: one
+  estimate on the pre-treatment periods with the treatment date moved
+  earlier. The docstring now describes what the function does. The output
+  is unchanged.
+- `statspai.agent.remediation`: the DML orthogonality rule spelled its
+  not-equal sign as a literal character inside a pattern; it is now
+  `\u2260`, so the pattern is the same in the ASCII archive. Behaviour is
+  unchanged.
+
+- **Docstring examples of `sp.olley_pakes`, `sp.levinsohn_petrin` and
+  `sp.ackerberg_caves_frazer` drew the proxy with noise**, which breaks
+  the scalar-unobservable condition the estimators rest on. The proxy in
+  the examples is now an exact function of capital and productivity; on
+  that design the three estimators recover the elasticities (0.60 / 0.30
+  for OP and LP, 0.58 / 0.32 for ACF, against 0.6 / 0.3).
+- **51 curated registry entries advertised no example.**
+  `sp.describe_function(name)["example"]`, the agent cards and the MCP
+  tool descriptions were blank for hand-written specs that left the field
+  empty, although each function's docstring has an `Examples` block. The
+  registry now takes the first docstring statement that calls the
+  function (`sp.<name>(` or through a sub-namespace such as
+  `sp.epi.<name>(`), and never overwrites a curated example. Entries
+  without an example go from 58 to 9.
+- `ivreghdfe` without an `(endog = instruments)` block is `reghdfe`; it
+  was a parse error.
+- `reghdfe, keepsingletons` becomes `drop_singletons=False`.
+- `ivregress` / `ivreg2` with `[aw=w]` or `[pw=w]` was refused ("sp.ivreg
+  takes no weights= argument"): the signature check did not see that
+  `sp.ivreg` takes `weights=` through `**kwargs`. The translated call is
+  checked against the closed-form weighted IV estimate.
+- `level(#)` becomes `alpha=` where the sp function takes it.
 
 ## [1.34.2] — 2026-10-01
 
