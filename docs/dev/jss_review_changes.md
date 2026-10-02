@@ -31,6 +31,21 @@ Rules:
 
 ## Entries
 
+### 2026-10-02 — call traces re-recorded for 17, 38 and 85 after the scope-map fields were added
+
+- **Commit.** `d3f1b828`.
+- **Reason.** `sp.event_study` and the linear `sp.etwfe` now record the
+  configuration that `sp.validation_scope` reads (`n_adoption_dates`,
+  `covariates`, `intensity`, `absorb`, `cluster_level`; `family`) in
+  `model_info`. `did/event_study.py` and `did/wooldridge_did.py` are on the
+  estimation paths of Track A modules 17, 38 and 85, whose traces bind the
+  SHA-256 of every source file executed.
+- **Effect on the paper.** None. Only the `exercised_sources` digests of
+  those three modules changed; their committed `_py.json` results are
+  byte-identical and no module's implementation classification changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded after `sp.regress(robust='ewc')`
 
 - **Commit.** `503cb21e` added the `ewc` covariance kind to
