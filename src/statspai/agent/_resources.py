@@ -560,16 +560,22 @@ def handle_resources_read(
                 "exported while the handle is live. Re-fit with "
                 "as_handle=true and read the bundle before the session ends."
             )
+        headline_error = None
         try:
             summary = _default_serializer(entry.obj, detail="standard")
-        except Exception:  # pragma: no cover - odd objects have no headline
+        except (TypeError, ValueError, AttributeError, KeyError) as exc:
+            # The call can still be re-run; what is lost is the numbers to
+            # compare against, and the bundle says so.
             summary = {}
+            headline_error = f"{type(exc).__name__}: {exc}"
         bundle = build_bundle(
             result_id=rid,
             replay=entry.replay or "",
             data_provenance=entry.arguments.get("_mcp_data_provenance"),
             payload=summary if isinstance(summary, dict) else {},
         )
+        if headline_error is not None:
+            bundle["expected_unavailable"] = headline_error
         return {
             "contents": [
                 {

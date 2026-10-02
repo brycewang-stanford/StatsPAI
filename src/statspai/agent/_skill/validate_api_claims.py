@@ -312,8 +312,10 @@ def _forwarded_keyword_problems(name: str, node: ast.Call, params) -> list[str]:
     accepted = set(params)
     try:
         accepted |= set(sp.function_schema(name)["parameters"]["properties"])
-    except Exception:  # noqa: BLE001 - no schema: fall through to the resolvers
-        pass
+    except (KeyError, TypeError, ValueError):
+        # No schema for this name: only the resolvers below can vouch for
+        # its keywords, and an unvouched keyword is reported.
+        accepted |= set()
     first = _literal(node.args[0]) if node.args else None
     problems: list[str] = []
     if name == "route" and isinstance(first, str):
