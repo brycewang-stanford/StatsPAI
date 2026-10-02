@@ -31,6 +31,46 @@ Rules:
 
 ## Entries
 
+### 2026-10-02 — call traces re-recorded twice during the known-truth hardening pass; parity-index denominators moved
+
+- **Commits.** `e364393e` and `06fe553d` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` and
+  `tests/orig_parity/results/_implementation_trace.json`. The sources
+  that staled them: `badaed34` (loud fallbacks in 62 handlers, many on
+  Track A estimation paths), `9d7c9854` (`src/statspai/rd/_cct_bandwidth.py`),
+  `5adaff59` (`src/statspai/registry.py`), `6c56e516`
+  (`src/statspai/dtr/q_learning.py`, a docstring note) and `c5577401`
+  (`src/statspai/did/event_study.py`, `src/statspai/did/pretrends.py`).
+- **Reason.** Correctness fixes found by probing estimators without
+  parity evidence against simulated designs with a known answer. None of
+  the fixed code paths is exercised with the options a Track A module
+  uses: `python tests/r_parity/verify_reproduce_py.py --no-report`
+  reports 89 reproduce, 0 drift, before and after.
+- **Effect on the paper, traces.** None. Checked field by field against
+  the version before `e364393e`: in 70 of 89 Track A modules and all 12
+  original-data modules only `exercised_sources` digests and `seconds`
+  differ; no `packages`, boundary-call package set, `rscript_launches` or
+  `error` changed.
+- **Effect on the paper, quoted counts.** `docs/parity.md` and
+  `src/statspai/_parity_index.json` are not frozen artifacts, but the
+  manuscript quotes their "honest denominators" through
+  `\ParityEstimatorTotal` in `generated_claims.tex`. `27820fec` moved 84
+  plots, bundled datasets, exporters, language-model helpers and
+  catalogue listings out of the estimator denominator
+  (`statspai._parity_taxonomy.NON_NUMERIC_CALLABLES`), and the new
+  anchors in `tests/reference_parity/` added evidence. Estimator
+  callables: 822 to 738. With any evidence: 572 to 679. Cross-language:
+  417, unchanged, so the cross-language share reads 56.5% where it read
+  50.7%. Infrastructure: 131 to 215. All registered: 1274, unchanged.
+  The next revision should regenerate `generated_claims.tex` and say in
+  the text that the denominator was redefined, since the share rose
+  without any new cross-language row.
+- **Changed estimator defaults a reader could hit.** `sp.deepiv` now
+  defaults to the paired-sample loss; `sp.event_study` drops event times
+  with no treated observation; `sp.did_few_treated` reports the exact
+  inversion interval. None is a Track A module configuration. Full list
+  in `MIGRATION.md` under `oct2026-known-truth-fixes`.
+
 ### 2026-09-28 — call traces re-recorded after the agent-surface pass (W7–W10)
 
 - **Commits.** `1e702f2` (result contract on every result class, MCP
