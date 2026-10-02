@@ -195,7 +195,9 @@ Paper-JOSS/
 # (github.com/brycewang-stanford/CausalAgentBench); the parent
 # StatsPAI repo ignores it entirely. Integration is via the statspai_oracle
 # adapter + a `statspai` package dependency, not filesystem nesting.
-CausalAgentBench/
+# The local checkout is named Paper-CausalAgentBench/ to sit with the
+# other paper directories.
+Paper-CausalAgentBench/
 
 # Temp files
 MORNING_REPORT_2026-04-29.md
