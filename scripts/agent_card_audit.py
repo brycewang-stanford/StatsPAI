@@ -275,6 +275,35 @@ def _invoke(name: str, overrides: Dict[str, Any] = None, drop: str = None) -> An
         return getattr(sp, name)(*args, **kwargs)
 
 
+def try_enum_value(name: str, arg: str, value: Any) -> Dict[str, Any]:
+    """Call ``sp.<name>`` with ``arg=value`` and say what happened.
+
+    ``{"status": "ok"}``, ``{"status": "ok", "with": {...}}`` when the
+    value needs the companion arguments in :data:`ENUM_CONTEXT`,
+    ``{"status": "precondition", "error": ...}`` when the call failed for
+    a reason other than the value, or ``{"status": "rejected", ...}``.
+    """
+    try:
+        _invoke(name, overrides={arg: value})
+    except Exception as exc:  # noqa: BLE001 - classified below
+        context = ENUM_CONTEXT.get((name, arg, str(value)))
+        if context is not None:
+            try:
+                _invoke(name, overrides={arg: value, **context})
+            except Exception as exc2:  # noqa: BLE001
+                exc = exc2
+            else:
+                return {
+                    "status": "ok",
+                    "with": {k: str(v) for k, v in context.items()},
+                }
+        return {
+            "status": _classify(exc, value),
+            "error": f"{type(exc).__name__}: {str(exc)[:140]}",
+        }
+    return {"status": "ok"}
+
+
 def _classify(exc: BaseException, value: Any) -> str:
     if isinstance(exc, ImportError):
         return "precondition"
@@ -357,32 +386,12 @@ def audit_function(name: str, enums: bool = True) -> Dict[str, Any]:
             continue
         per_value = {}
         for value in values:
-            try:
-                _invoke(name, overrides={arg: value})
-            except Exception as exc:  # noqa: BLE001 - classified below
-                context = ENUM_CONTEXT.get((name, arg, str(value)))
-                if context is not None:
-                    try:
-                        _invoke(name, overrides={arg: value, **context})
-                    except Exception as exc2:  # noqa: BLE001
-                        exc = exc2
-                    else:
-                        per_value[str(value)] = {
-                            "status": "ok",
-                            "with": {k: str(v) for k, v in context.items()},
-                        }
-                        continue
-                status = _classify(exc, value)
-                per_value[str(value)] = {
-                    "status": status,
-                    "error": f"{type(exc).__name__}: {str(exc)[:140]}",
-                }
-                if status == "rejected":
-                    out["defects"].append(
-                        f"schema offers {arg}={value!r}; the function refuses it"
-                    )
-            else:
-                per_value[str(value)] = {"status": "ok"}
+            outcome = try_enum_value(name, arg, value)
+            per_value[str(value)] = outcome
+            if outcome["status"] == "rejected":
+                out["defects"].append(
+                    f"schema offers {arg}={value!r}; the function refuses it"
+                )
         enum_results[arg] = per_value
     if enums:
         out["enums"] = enum_results
