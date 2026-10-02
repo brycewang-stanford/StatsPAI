@@ -62,7 +62,7 @@ def rd_dashboard(
     save: Optional[str] = None,
 ) -> Tuple[Any, Any]:
     """
-    Four-panel RD diagnostic dashboard.
+    Plot a four-panel RD diagnostic dashboard.
 
     Combines the four checks every RD analysis should report:
 
@@ -344,10 +344,12 @@ def _plot_bw_sensitivity(
 # rd_compare
 # =============================================================================
 
+# Local randomisation ('randinf') is not in the default set: it needs a
+# window (``wl`` / ``wr``) that only the analyst can choose, and without
+# one its row was an error on every call.
 _DEFAULT_COMPARE_METHODS = (
     "rdrobust",
     "honest",
-    "randinf",
 )
 
 
@@ -376,7 +378,9 @@ def rd_compare(
     c : float, default 0.0
     methods : sequence of str
         Method aliases recognised by the :data:`sp.rd._RD_METHOD_ALIASES`
-        dispatcher.  Default: ``('rdrobust', 'honest', 'randinf')``.
+        dispatcher.  Default: ``('rdrobust', 'honest')``.  Add
+        ``'randinf'`` together with its window, e.g.
+        ``method_kwargs={'randinf': {'wl': -0.1, 'wr': 0.1}}``.
     fuzzy : str, optional
         Fuzzy treatment column passed through to all methods that
         accept it.

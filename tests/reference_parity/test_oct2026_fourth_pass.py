@@ -902,8 +902,9 @@ def test_refit_bootstrap_needs_enough_refits():
 
 def test_deepiv_refit_bootstrap():
     pytest.importorskip("torch")
-    # Ten replications at n = 1500: per-unit refit SE 0.31 against an
-    # across-seed SD of 0.24; the fixed-network number is 0.009.
+    # 40 replications at n = 1500 with 20 refits: per-unit refit SE 0.30
+    # against an across-seed SD of 0.20 (conservative, 100% coverage); the
+    # fixed-network SE is 0.009 and covers 2.5% of the time.
     rng = np.random.default_rng(0)
     n = 600
     z, x, u = rng.normal(size=(3, n))

@@ -62,6 +62,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 __all__ = [
     "llm_dag_constrained",
@@ -650,8 +651,11 @@ def llm_dag_validate(
 
     Parameters
     ----------
-    dag : statspai.dag.DAG or object exposing an ``edges`` attribute
-        Declared causal graph.  Latent ``_L_*`` nodes are ignored.
+    dag : statspai.dag.DAG, edge list, dict, or object with ``edges``
+        Declared causal graph: ``sp.dag(...)``, a list of
+        ``(parent, child)`` pairs, a ``{parent: [children]}`` dict, or any
+        object exposing ``edges``.  Latent ``_L_*`` nodes are ignored.
+        Anything else raises.
     data : pd.DataFrame
     alpha : float, default 0.05
     ci_test : {'fisherz'}, default 'fisherz'
@@ -682,7 +686,25 @@ def llm_dag_validate(
     # Resolve declared edges from a DAG-like object.
     declared_edges: List[Tuple[str, str]] = []
     edges_attr = getattr(dag, "edges", None)
-    if callable(edges_attr):
+    recognised = True
+    if isinstance(dag, dict):
+        # {parent: [children]}
+        for parent, children in dag.items():
+            if isinstance(children, str):
+                children = [children]
+            for child in children:
+                declared_edges.append((parent, child))
+    elif isinstance(dag, (list, tuple, set, frozenset)):
+        # An explicit edge list: [(parent, child), ...]
+        try:
+            declared_edges = [(a, b) for a, b in dag]
+        except (TypeError, ValueError) as exc:
+            raise MethodIncompatibility(
+                "llm_dag_validate: an edge list must hold (parent, child) " "pairs.",
+                recovery_hint="Pass sp.dag('X -> Y; Z -> Y') or "
+                "[('X', 'Y'), ('Z', 'Y')].",
+            ) from exc
+    elif callable(edges_attr):
         declared_edges = [tuple(e) for e in edges_attr()]
     elif edges_attr is not None:
         declared_edges = [tuple(e) for e in edges_attr]
@@ -693,6 +715,16 @@ def llm_dag_validate(
             for parent, children in adj.items():
                 for child in children:
                     declared_edges.append((parent, child))
+        else:
+            recognised = False
+    if not recognised:
+        # An object with no edges to read used to come back as "0 edges
+        # supported, 0 unsupported", which reads like a clean validation.
+        raise MethodIncompatibility(
+            f"llm_dag_validate: cannot read edges from a {type(dag).__name__}.",
+            recovery_hint="Pass sp.dag('X -> Y; Z -> Y'), an object with an "
+            "`edges` attribute, an edge list, or a {parent: [children]} dict.",
+        )
     declared_edges = [
         (a, b)
         for a, b in declared_edges

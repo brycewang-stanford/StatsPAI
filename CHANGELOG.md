@@ -16,9 +16,11 @@ All notable changes to StatsPAI will be documented in this file.
   Over 40 replications at `n = 600` with 20 refits, the refit interval
   covered the true ATE 95% of the time for `tarnet` (SE 0.068 against an
   across-seed SD of 0.056) and 97.5% for `cfrnet`; the fixed-network
-  interval covered 57.5% and 47.5%. For `deepiv` the refit SE was 0.31
-  against an SD of 0.24 over ten replications, the fixed-network one
-  0.009. The default is unchanged (`refit_bootstrap=0`).
+  interval covered 57.5% and 47.5%. For `deepiv` (40 replications at
+  `n = 1500`, 20 refits) the refit SE averaged 0.30 against an
+  across-seed SD of 0.20: conservative by about 45%, every interval
+  covering. The fixed-network SE was 0.009 and covered 2.5% of the time.
+  The default is unchanged (`refit_bootstrap=0`).
 - **`sp.synthdid_placebo(kind='time')`** is R's
   `synthdid::synthdid_placebo`: the estimator on the pre-treatment
   periods with the treatment date moved earlier and the original fit's
@@ -49,6 +51,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`sp.llm_dag_validate` read an edge list as an empty graph.** Passing
+  `[("a", "b"), ("b", "c")]` or a `{parent: [children]}` dict returned
+  "0 supported, 0 unsupported", which reads like a clean validation.
+  Both forms are now accepted and give the same answer as `sp.dag(...)`;
+  an object edges cannot be read from raises.
+- **`sp.rd_compare`'s default table had a row that always failed.** The
+  default methods included local randomisation, which needs a window
+  (`wl`, `wr`) and reported `status = error` without one. The default is
+  now `('rdrobust', 'honest')`. Request the third row with
+  `methods=[..., 'randinf']` and
+  `method_kwargs={'randinf': {'wl': ..., 'wr': ...}}`.
+- **`sp.synth_mde` returned a bare `inf`** when no effect size reached
+  the power target. It now warns with the reason. The usual one is the
+  placebo test's floor: with `J` placebo units the smallest p-value is
+  `1 / (J + 1)`, so with fewer than 19 donors the test cannot reject at
+  5% whatever the effect.
+- **Parity index.** `sp.dag_simulate` and `sp.rd_dashboard` are counted
+  as a dataset and a plot (`_parity_taxonomy.NON_NUMERIC_CALLABLES`), and
+  `tests/reference_parity/test_oct2026_fifth_pass.py` anchors the
+  remaining workflow, comparison-table, dispatcher and diagnostic
+  functions to the estimators they call. Estimator callables with
+  evidence: 735 of 736.
 - **`sp.notears` documents that edge directions are not identified.** The
   data are standardised before fitting, so on linear Gaussian data the
   orientation within a Markov equivalence class depends on the sample.

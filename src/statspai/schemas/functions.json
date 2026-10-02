@@ -1519,7 +1519,7 @@
     }
   },
   {
-    "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "cfrnet",
     "parameters": {
       "properties": {
@@ -1623,7 +1623,7 @@
     }
   },
   {
-    "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "dragonnet",
     "parameters": {
       "properties": {
@@ -2742,7 +2742,7 @@
     }
   },
   {
-    "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample.",
+    "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "forest_support",
     "parameters": {
       "properties": {
@@ -2778,7 +2778,7 @@
     }
   },
   {
-    "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups.",
+    "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cate_pretrend_test",
     "parameters": {
       "properties": {
@@ -4640,7 +4640,7 @@
     }
   },
   {
-    "description": "Method-aware diagnostic battery: auto-selects tests by model type (OLS/DID/RDD/IV/SCM).",
+    "description": "Method-aware diagnostic battery: auto-selects tests by model type (OLS/DID/RDD/IV/SCM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "diagnose_result",
     "parameters": {
       "properties": {
@@ -5802,7 +5802,7 @@
     }
   },
   {
-    "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "cevae",
     "parameters": {
       "properties": {
@@ -7877,7 +7877,7 @@
     }
   },
   {
-    "description": "Neural-net propensity score estimator (arXiv:2404.04794, 2024).",
+    "description": "Neural-net propensity score estimator (arXiv:2404.04794, 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "dl_propensity_score",
     "parameters": {
       "properties": {
@@ -10297,7 +10297,7 @@
     }
   },
   {
-    "description": "Unified dispatcher for six causal-inference bridging theorems (2025-2026): DiD==SC (Shi-Athey), EWM==CATE (Ferman), IPW==DR==CB (Zhao-Percival), Bunching==RDD (Lu-Wang-Xie), DR-via-Calibration (Zhang), Long-term-surrogate==PCI (Imbens-Kallus-Mao-Wang). Reports both path estimates + doubly-robust recommendation.",
+    "description": "Unified dispatcher for six causal-inference bridging theorems (2025-2026): DiD==SC (Shi-Athey), EWM==CATE (Ferman), IPW==DR==CB (Zhao-Percival), Bunching==RDD (Lu-Wang-Xie), DR-via-Calibration (Zhang), Long-term-surrogate==PCI (Imbens-Kallus-Mao-Wang). Reports both path estimates + doubly-robust recommendation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bridge",
     "parameters": {
       "properties": {
@@ -11429,7 +11429,7 @@
     }
   },
   {
-    "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
+    "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "name": "llm_dag_validate",
     "parameters": {
       "properties": {
@@ -11447,7 +11447,7 @@
           "type": "string"
         },
         "dag": {
-          "description": "Declared causal graph. Latent ``_L_*`` nodes are ignored.",
+          "description": "Declared causal graph: ``sp.dag(...)``, a list of ``(parent, child)`` pairs, a ``{parent: [children]}`` dict, or any object exposing ``edges``. Latent ``_L_*`` nodes are ignored. Anything else raises.",
           "type": "string"
         },
         "data": {
@@ -11951,7 +11951,7 @@
     }
   },
   {
-    "description": "Unified conformal causal inference dispatcher. kind= selects the estimator: 'cate' / 'counterfactual' / 'ite' (Lei-Candes 2021 base) / 'weighted' (TBCR 2019 primitive) / 'density' / 'multidp' / 'debiased' / 'fair' (2025-2026 frontier) / 'continuous' (dose-response) / 'interference' (cluster-exchangeable). Kwargs pass through to the target function; see sp.conformal_family guide.",
+    "description": "Unified conformal causal inference dispatcher. kind= selects the estimator: 'cate' / 'counterfactual' / 'ite' (Lei-Candes 2021 base) / 'weighted' (TBCR 2019 primitive) / 'density' / 'multidp' / 'debiased' / 'fair' (2025-2026 frontier) / 'continuous' (dose-response) / 'interference' (cluster-exchangeable). Kwargs pass through to the target function; see sp.conformal_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "conformal",
     "parameters": {
       "properties": {
@@ -13653,7 +13653,7 @@
     }
   },
   {
-    "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort.",
+    "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "did_cluster_diagnostics",
     "parameters": {
       "properties": {
@@ -13726,7 +13726,7 @@
     }
   },
   {
-    "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show.",
+    "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "compare_event_study_conventions",
     "parameters": {
       "properties": {
@@ -14653,7 +14653,7 @@
     }
   },
   {
-    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object.",
+    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "did_analysis",
     "parameters": {
       "properties": {
@@ -19505,7 +19505,7 @@
     }
   },
   {
-    "description": "Print a combined pre-trends diagnostic report.",
+    "description": "Print a combined pre-trends diagnostic report. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "pretrends_summary",
     "parameters": {
       "properties": {
@@ -20454,7 +20454,7 @@
     }
   },
   {
-    "description": "One-call method-robustness comparison for staggered DID.",
+    "description": "One-call method-robustness comparison for staggered DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "did_summary",
     "parameters": {
       "properties": {
@@ -20610,7 +20610,7 @@
     }
   },
   {
-    "description": "DID report bundle: fits selected methods and writes report artifacts.",
+    "description": "DID report bundle: fits selected methods and writes report artifacts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "did_report",
     "parameters": {
       "properties": {
@@ -21453,7 +21453,7 @@
     }
   },
   {
-    "description": "One-stop RD diagnostic battery.",
+    "description": "One-stop RD diagnostic battery. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rdsummary",
     "parameters": {
       "properties": {
@@ -22420,7 +22420,7 @@
     }
   },
   {
-    "description": "Run multiple ML-RD methods and compare CATE estimates.",
+    "description": "Run multiple ML-RD methods and compare CATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_cate_summary",
     "parameters": {
       "properties": {
@@ -22626,7 +22626,7 @@
     }
   },
   {
-    "description": "Diagnostic assessment of RD external validity.",
+    "description": "Diagnostic assessment of RD external validity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_external_validity",
     "parameters": {
       "properties": {
@@ -24474,7 +24474,7 @@
         },
         "refit_bootstrap": {
           "default": 0,
-          "description": "Number of bootstrap refits for a standard error that carries the sampling variability of both networks. Each refit trains both stages on a resample of the rows from its own initialisation, so the run takes ``refit_bootstrap + 1`` times as long. With it, ``se``, ``ci`` and ``pvalue`` come from the spread of the refits, ``model_info['se_valid_for_ate']`` is ``True`` and the fixed-network number moves to ``model_info['se_plugin']``. Must be 0 or at least 5.",
+          "description": "Number of bootstrap refits for a standard error that carries the sampling variability of both networks. Each refit trains both stages on a resample of the rows from its own initialisation, so the run takes ``refit_bootstrap + 1`` times as long. With it, ``se``, ``ci`` and ``pvalue`` come from the spread of the refits, ``model_info['se_valid_for_ate']`` is ``True`` and the fixed-network number moves to ``model_info['se_plugin']``. Must be 0 or at least 5. In simulation it is conservative: about 1.45 times the sampling standard deviation, where the fixed-network number is about 0.04 times.",
           "type": "integer"
         },
         "second_stage_epochs": {
@@ -28867,7 +28867,7 @@
     }
   },
   {
-    "description": "Comprehensive regression diagnostics in one call.",
+    "description": "Comprehensive regression diagnostics in one call. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "diagnose",
     "parameters": {
       "properties": {
@@ -29554,7 +29554,7 @@
     }
   },
   {
-    "description": "Unified post-estimation diagnostics dispatcher.",
+    "description": "Unified post-estimation diagnostics dispatcher. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "estat",
     "parameters": {
       "properties": {
@@ -30646,7 +30646,7 @@
     }
   },
   {
-    "description": "Descriptive statistics of the CATE distribution.",
+    "description": "Descriptive statistics of the CATE distribution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cate_summary",
     "parameters": {
       "properties": {
@@ -33052,7 +33052,7 @@
     }
   },
   {
-    "description": "Run an automated battery of robustness checks.",
+    "description": "Run an automated battery of robustness checks. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "robustness_report",
     "parameters": {
       "properties": {
@@ -43005,7 +43005,7 @@
     }
   },
   {
-    "description": "Quantile Synthetic Control: exactly ``sp.discos(..., method='quantile')``.",
+    "description": "Quantile Synthetic Control: exactly ``sp.discos(..., method='quantile')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "qqsynth",
     "parameters": {
       "properties": {
@@ -43386,7 +43386,7 @@
     }
   },
   {
-    "description": "Run all SCM sensitivity diagnostics in a single call.",
+    "description": "Run all SCM sensitivity diagnostics in a single call. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "synth_sensitivity",
     "parameters": {
       "properties": {
@@ -43563,7 +43563,7 @@
     }
   },
   {
-    "description": "Minimum Detectable Effect for a Synthetic Control design. Cost: Same as sp.synth_power.",
+    "description": "Minimum Detectable Effect for a Synthetic Control design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Same as sp.synth_power.",
     "name": "synth_mde",
     "parameters": {
       "properties": {
@@ -43670,7 +43670,7 @@
     }
   },
   {
-    "description": "Run multiple SCM variants and compare them side by side. Do NOT use when: the method has already been chosen on substantive grounds -- running all 20 variants and picking the best-fitting one is specification search; use it to report a table, not to select. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
+    "description": "Run multiple SCM variants and compare them side by side. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the method has already been chosen on substantive grounds -- running all 20 variants and picking the best-fitting one is specification search; use it to report a table, not to select. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
     "name": "synth_compare",
     "parameters": {
       "properties": {
@@ -43738,7 +43738,7 @@
     }
   },
   {
-    "description": "Quickly recommend the best SCM method for the given data. Do NOT use when: the recommendation would be used as the pre-registered choice -- it is a fit-based heuristic (placebo inference off), not a design argument.",
+    "description": "Quickly recommend the best SCM method for the given data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the recommendation would be used as the pre-registered choice -- it is a fit-based heuristic (placebo inference off), not a design argument.",
     "name": "synth_recommend",
     "parameters": {
       "properties": {
@@ -43789,7 +43789,7 @@
     }
   },
   {
-    "description": "Generate a comprehensive Synthetic Control analysis report.",
+    "description": "Generate a comprehensive Synthetic Control analysis report. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "synth_report",
     "parameters": {
       "properties": {
@@ -44371,7 +44371,7 @@
     }
   },
   {
-    "description": "Classify each observation HH/LL/HL/LH/Not significant and colour on a GDF.",
+    "description": "Classify each observation HH/LL/HL/LH/Not significant and colour on a GDF. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lisa_cluster_map",
     "parameters": {
       "properties": {
@@ -47542,7 +47542,7 @@
     }
   },
   {
-    "description": "One-call staggered-DID workflow following Baker et al. (2026).",
+    "description": "One-call staggered-DID workflow following Baker et al. (2026). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cs_report",
     "parameters": {
       "properties": {
@@ -50839,7 +50839,7 @@
     }
   },
   {
-    "description": "Four-panel RD diagnostic dashboard.",
+    "description": "Plot a four-panel RD diagnostic dashboard.",
     "name": "rd_dashboard",
     "parameters": {
       "properties": {
@@ -50919,7 +50919,7 @@
     }
   },
   {
-    "description": "Compare multiple RD estimators on the same data.",
+    "description": "Compare multiple RD estimators on the same data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_compare",
     "parameters": {
       "properties": {
@@ -50949,10 +50949,9 @@
         "methods": {
           "default": [
             "rdrobust",
-            "honest",
-            "randinf"
+            "honest"
           ],
-          "description": "Method aliases recognised by the :data:`sp.rd._RD_METHOD_ALIASES` dispatcher. Default: ``('rdrobust', 'honest', 'randinf')``.",
+          "description": "Method aliases recognised by the :data:`sp.rd._RD_METHOD_ALIASES` dispatcher. Default: ``('rdrobust', 'honest')``. Add ``'randinf'`` together with its window, e.g. ``method_kwargs={'randinf': {'wl': -0.1, 'wr': 0.1}}``.",
           "items": {
             "type": "string"
           },
@@ -50978,7 +50977,7 @@
     }
   },
   {
-    "description": "Sweep over (kernel, bwselect, polynomial, donut) and return a",
+    "description": "Sweep over (kernel, bwselect, polynomial, donut) and return a Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_robustness_table",
     "parameters": {
       "properties": {
@@ -51215,7 +51214,7 @@
     }
   },
   {
-    "description": "Generate a synthetic causal-RL benchmark dataset.",
+    "description": "Generate a synthetic causal-RL benchmark dataset. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "causal_rl_benchmark",
     "parameters": {
       "properties": {

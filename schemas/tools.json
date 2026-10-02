@@ -2504,7 +2504,7 @@
     "name": "breakdown_m"
   },
   {
-    "description": "Unified dispatcher for six causal-inference bridging theorems (2025-2026): DiD==SC (Shi-Athey), EWM==CATE (Ferman), IPW==DR==CB (Zhao-Percival), Bunching==RDD (Lu-Wang-Xie), DR-via-Calibration (Zhang), Long-term-surrogate==PCI (Imbens-Kallus-Mao-Wang). Reports both path estimates + doubly-robust recommendation. Assumptions: The two estimation paths being bridged target the same causal estimand under the chosen bridging theorem (e.g., DID = synthetic control for kind='did_sc'); Each path's own identification holds (parallel trends / SC convex-hull / proximal completeness, depending on kind), so a non-rejected agreement test is meaningful; The doubly-robust combined estimate is consistent if at least one of the two bridged paths is correctly specified. Pre-conditions: kind is one of the supported bridges and the matching per-bridge kwargs are supplied; Panel/data shape matches the chosen bridge (e.g., did_sc needs unit, time, treated_unit, treatment_time); Both paths are estimable on the same sample so the agreement test is well-defined. Failure modes: Agreement test rejects: the two paths give materially different estimates -> Treat divergence as evidence one bridging assumption fa...",
+    "description": "Unified dispatcher for six causal-inference bridging theorems (2025-2026): DiD==SC (Shi-Athey), EWM==CATE (Ferman), IPW==DR==CB (Zhao-Percival), Bunching==RDD (Lu-Wang-Xie), DR-via-Calibration (Zhang), Long-term-surrogate==PCI (Imbens-Kallus-Mao-Wang). Reports both path estimates + doubly-robust recommendation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The two estimation paths being bridged target the same causal estimand under the chosen bridging theorem (e.g., DID = synthetic control for kind='did_sc'); Each path's own identification holds (parallel trends / SC convex-hull / proximal completeness, depending on kind), so a non-rejected agreement test is meaningful; The doubly-robust combined estimate is consistent if at least one of the two bridged paths is correctly specified. Pre-conditions: kind is one of the supported bridges and the matching per-bridge kwargs are supplied; Panel/data shape matches the chosen bridge (e.g., did_sc needs unit, time, treated_unit, treatment_time); Both paths are estimable on the same sample so the agreement test is well-defined. Failure modes: Agreement test rejects: the...",
     "input_schema": {
       "properties": {
         "kind": {
@@ -3171,7 +3171,7 @@
     "name": "cate_plot"
   },
   {
-    "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups. Assumptions: Clusters (default: unit) are independent. Pre-conditions: forest fitted with fe='twoway' (or 'unit') and a binary absorbing treatment; treated units observed for at least `leads` periods before adoption. Alternatives: sp.did_forest, sp.pretrends_test, sp.bjs_pretrend_joint.",
+    "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Clusters (default: unit) are independent. Pre-conditions: forest fitted with fe='twoway' (or 'unit') and a binary absorbing treatment; treated units observed for at least `leads` periods before adoption. Alternatives: sp.did_forest, sp.pretrends_test, sp.bjs_pretrend_joint.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -3229,7 +3229,7 @@
     "name": "cate_pretrend_test"
   },
   {
-    "description": "Descriptive statistics of the CATE distribution.",
+    "description": "Descriptive statistics of the CATE distribution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "result": {
@@ -3490,7 +3490,7 @@
     "name": "causal_impact"
   },
   {
-    "description": "Generate a synthetic causal-RL benchmark dataset. Assumptions: Sequential ignorability: no unobserved confounders of actions and outcomes; Positivity: the behaviour policy explores all evaluated actions; The environment satisfies the assumed (Markov) dynamics. Pre-conditions: Logged trajectories (states, actions, rewards) from a known or estimable behaviour policy. Failure modes: Poor behaviour-policy coverage -- the target policy queries unseen state-action regions -> Use offline-safe / pessimistic methods and report effective sample size of the importance weights. Alternatives: sp.offline_safe_policy, sp.policy_value. Typical minimum N: 1000.",
+    "description": "Generate a synthetic causal-RL benchmark dataset. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential ignorability: no unobserved confounders of actions and outcomes; Positivity: the behaviour policy explores all evaluated actions; The environment satisfies the assumed (Markov) dynamics. Pre-conditions: Logged trajectories (states, actions, rewards) from a known or estimable behaviour policy. Failure modes: Poor behaviour-policy coverage -- the target policy queries unseen state-action regions -> Use offline-safe / pessimistic methods and report effective sample size of the importance weights. Alternatives: sp.offline_safe_policy, sp.policy_value. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
         "confounding_strength": {
@@ -4593,7 +4593,7 @@
     "name": "compare_estimators"
   },
   {
-    "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show. Assumptions: The comparison is descriptive: it measures construction differences, not which estimator is correct. Pre-conditions: panel with unit x time x outcome; exactly one treated cohort (non-staggered design); at least one never-treated unit. Failure modes: Staggered adoption (more than one treated cohort) -> Restrict to one cohort plus never-treated units; with staggered timing a gap against TWFE mixes the reference convention with forbidden comparisons; No never-treated units -> The TWFE benchmark path needs untreated units. Alternatives: sp.event_study_convention, sp.bacon_decomposition. Typical minimum N: 50.",
+    "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The comparison is descriptive: it measures construction differences, not which estimator is correct. Pre-conditions: panel with unit x time x outcome; exactly one treated cohort (non-staggered design); at least one never-treated unit. Failure modes: Staggered adoption (more than one treated cohort) -> Restrict to one cohort plus never-treated units; with staggered timing a gap against TWFE mixes the reference convention with forbidden comparisons; No never-treated units -> The TWFE benchmark path needs untreated units. Alternatives: sp.event_s...",
     "input_schema": {
       "properties": {
         "cluster": {
@@ -4767,7 +4767,7 @@
     "name": "conditional_lr_ci"
   },
   {
-    "description": "Unified conformal causal inference dispatcher. kind= selects the estimator: 'cate' / 'counterfactual' / 'ite' (Lei-Candes 2021 base) / 'weighted' (TBCR 2019 primitive) / 'density' / 'multidp' / 'debiased' / 'fair' (2025-2026 frontier) / 'continuous' (dose-response) / 'interference' (cluster-exchangeable). Kwargs pass through to the target function; see sp.conformal_family guide. Assumptions: Exchangeability of calibration and test points (base case); For kind='weighted': known or estimable density ratio between calibration and test; For kind='cate' / 'ite': selection-on-observables with correct propensity / outcome model. Pre-conditions: calibration sample disjoint from training sample (auto-split or user-supplied); exchangeability between calibration and test distributions (weighted variants for covariate shift); for CATE / ITE variants: unconfoundedness + overlap on covariates. Failure modes: Calibration and test distributions differ (covariate shift) -> Use kind='weighted' with estimated density ratios; Calibration set too small -- intervals wide -> Increase calibration sample or raise alpha; coverage gets loose below ~100; Miscalibrated nuisance (propensity / outcome) for CATE...",
+    "description": "Unified conformal causal inference dispatcher. kind= selects the estimator: 'cate' / 'counterfactual' / 'ite' (Lei-Candes 2021 base) / 'weighted' (TBCR 2019 primitive) / 'density' / 'multidp' / 'debiased' / 'fair' (2025-2026 frontier) / 'continuous' (dose-response) / 'interference' (cluster-exchangeable). Kwargs pass through to the target function; see sp.conformal_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Exchangeability of calibration and test points (base case); For kind='weighted': known or estimable density ratio between calibration and test; For kind='cate' / 'ite': selection-on-observables with correct propensity / outcome model. Pre-conditions: calibration sample disjoint from training sample (auto-split or user-supplied); exchangeability between calibration and test distributions (weighted variants for covariate shift); for CATE / ITE variants: unconfoundedness + overlap on covariates. Failure modes: Calibration and test distributions differ (covariate shift) -> Use kind='weighted' with estimated density ratios; Calibration set too small -- intervals wide -> Increase calibration sampl...",
     "input_schema": {
       "properties": {
         "kind": {
@@ -5546,7 +5546,7 @@
     "name": "cs_jackknife"
   },
   {
-    "description": "One-call staggered-DID workflow following Baker et al. (2026).",
+    "description": "One-call staggered-DID workflow following Baker et al. (2026). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -6472,7 +6472,7 @@
     "name": "dfl_decompose"
   },
   {
-    "description": "Comprehensive regression diagnostics in one call.",
+    "description": "Comprehensive regression diagnostics in one call. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "print_results": {
@@ -6502,7 +6502,7 @@
     "name": "diagnose"
   },
   {
-    "description": "Method-aware diagnostic battery: auto-selects tests by model type (OLS/DID/RDD/IV/SCM). Assumptions: The result object carries a recognizable method_type so the correct diagnostic battery can be routed; Each sub-check (e.g. parallel-trends, weak-IV, overid, balance) is only valid under that method's own identifying assumptions; Tests use the supplied alpha as the significance threshold; p-values are interpreted, not corrected for multiplicity. Pre-conditions: A fitted EconometricResults or CausalResult from a StatsPAI estimator; The estimator must expose enough fitted internals (residuals, first-stage, design info) for its checks. Failure modes: Passed a raw DataFrame, dict, or estimate float instead of a fitted result object -> Fit an estimator first and pass the returned result object, not the input data; Method type is unrecognized so no diagnostic battery applies and 'checks' comes back empty -> Run the method-appropriate standalone diagnostic directly instead of the router. Alternatives: sp.unified_sensitivity, sp.sensemakr, sp.oster_bounds, sp.spec_curve. Typical minimum N: 30.",
+    "description": "Method-aware diagnostic battery: auto-selects tests by model type (OLS/DID/RDD/IV/SCM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The result object carries a recognizable method_type so the correct diagnostic battery can be routed; Each sub-check (e.g. parallel-trends, weak-IV, overid, balance) is only valid under that method's own identifying assumptions; Tests use the supplied alpha as the significance threshold; p-values are interpreted, not corrected for multiplicity. Pre-conditions: A fitted EconometricResults or CausalResult from a StatsPAI estimator; The estimator must expose enough fitted internals (residuals, first-stage, design info) for its checks. Failure modes: Passed a raw DataFrame, dict, or estimate float instead of a fitted result object -> Fit an estimator first and pass the returned result object, not the input data; Method type is unrecognized so no diagnostic battery applies and 'checks' comes back empty -> Run the method-appropriate standalone diagnostic directly instead of the router. Alternatives: sp.unified_sensitivity, sp.sensemakr, sp.oster_bounds, sp.spec_curve. Typical minimum N...",
     "input_schema": {
       "properties": {
         "result": {
@@ -6650,7 +6650,7 @@
     "name": "did_2x2"
   },
   {
-    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. Assumptions: Parallel trends between treated and control (2x2) or across cohorts (staggered) after any covariate adjustment; No anticipation: pre-treatment outcomes unaffected by future treatment; SUTVA / no interference across units; correct design auto-detection (2x2 vs staggered). Pre-conditions: Panel or repeated cross-section with y, treat, time; id required for staggered designs; treat is binary 0/1 for 2x2, or first-treatment period (0 = never-treated) for staggered; event_window within observed periods when run_event_study is enabled. Failure modes: Staggered design detected but no id column supplied, so cohorts cannot be formed -> Pass the unit identifier via id= so first-treatment cohorts can be inferred; Event-study pre-trend test rejects parallel trends in the bundled report -> Inspect the included honest_did sensitivity output and report bounds rather than the point ATT; Requested method incompatible with the detected d...",
+    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends between treated and control (2x2) or across cohorts (staggered) after any covariate adjustment; No anticipation: pre-treatment outcomes unaffected by future treatment; SUTVA / no interference across units; correct design auto-detection (2x2 vs staggered). Pre-conditions: Panel or repeated cross-section with y, treat, time; id required for staggered designs; treat is binary 0/1 for 2x2, or first-treatment period (0 = never-treated) for staggered; event_window within observed periods when run_event_study is enabled. Failure modes: Staggered design detected but no id column supplied, so cohorts cannot be formed -> Pass the unit identifier via id= so first-treatment cohorts can be inferred; Event-study pre-trend test rejects parallel trends in the bundled report -> Inspect the included honest_did sensitivi...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7024,7 +7024,7 @@
     "name": "did_calibrated_simulation"
   },
   {
-    "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort. Assumptions: The grading reports what published simulation evidence exists at this cluster count; it is not a power calculation for this design or estimator. Pre-conditions: panel with unit and cohort columns. Failure modes: Cluster column empty or absent -> Check that the cluster column is populated. Alternatives: sp.wild_cluster_bootstrap, sp.ri_test, sp.conley.",
+    "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The grading reports what published simulation evidence exists at this cluster count; it is not a power calculation for this design or estimator. Pre-conditions: panel with unit and cohort columns. Failure modes: Cluster column empty or absent -> Check that the cluster column is populated. Alternatives: sp.wild_cluster_bootstrap, sp.ri_test, sp.conley.",
     "input_schema": {
       "properties": {
         "cluster": {
@@ -7726,7 +7726,7 @@
     "name": "did_plot"
   },
   {
-    "description": "DID report bundle: fits selected methods and writes report artifacts.",
+    "description": "DID report bundle: fits selected methods and writes report artifacts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7814,7 +7814,7 @@
     "name": "did_report"
   },
   {
-    "description": "One-call method-robustness comparison for staggered DID. Assumptions: Parallel trends: treated and control groups would have followed the same trajectory absent treatment; No anticipation: outcomes in pre-treatment periods are unaffected by future treatment; SUTVA: no spillovers between units. Pre-conditions: data is panel or repeated cross-section with a time column; treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered; at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study). Failure modes: Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation; Pre-trend test underpowered (Roth 2022) -> Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.sdid. Typical minimum N: 50.",
+    "description": "One-call method-robustness comparison for staggered DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends: treated and control groups would have followed the same trajectory absent treatment; No anticipation: outcomes in pre-treatment periods are unaffected by future treatment; SUTVA: no spillovers between units. Pre-conditions: data is panel or repeated cross-section with a time column; treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered; at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study). Failure modes: Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation; Pre-trend test underpowered (Roth 2022) -> Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.sdid. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -8742,7 +8742,7 @@
     "name": "diversity_index"
   },
   {
-    "description": "Neural-net propensity score estimator (arXiv:2404.04794, 2024). Assumptions: Unconfoundedness / selection on observables: treatment is conditionally independent of potential outcomes given covariates; Overlap (positivity): 0 < e(X) < 1 for all units (scores are clipped to [0.02, 0.98]); Covariates are pre-treatment and the MLP correctly approximates e(X) = P(T=1 | X). Pre-conditions: Cross-sectional or pooled DataFrame with a binary treatment column and numeric covariate columns; No missing values in the covariate matrix passed to the network; Enough observations per treatment arm to fit a small MLP without overfitting. Failure modes: Heavy clipping at 0.02/0.98 indicates near-deterministic treatment and positivity violation -> Trim or restrict to the region of common support before using the scores in a weighted estimator; torch absent and sklearn MLP fails to converge in max_iter with lbfgs -> Increase max_iter, scale covariates, or shrink hidden_sizes for a simpler network. Alternatives: sp.overlap_weighted_did, sp.drdid, sp.did. Typical minimum N: 200.",
+    "description": "Neural-net propensity score estimator (arXiv:2404.04794, 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness / selection on observables: treatment is conditionally independent of potential outcomes given covariates; Overlap (positivity): 0 < e(X) < 1 for all units (scores are clipped to [0.02, 0.98]); Covariates are pre-treatment and the MLP correctly approximates e(X) = P(T=1 | X). Pre-conditions: Cross-sectional or pooled DataFrame with a binary treatment column and numeric covariate columns; No missing values in the covariate matrix passed to the network; Enough observations per treatment arm to fit a small MLP without overfitting. Failure modes: Heavy clipping at 0.02/0.98 indicates near-deterministic treatment and positivity violation -> Trim or restrict to the region of common support before using the scores in a weighted estimator; torch absent and sklearn MLP fails to converge in max_iter with lbfgs -> Increase max_iter, scale covariates, or shrink hidden_sizes for a simpler network. Alternatives: sp.overlap_weighted_did, sp.drdid, sp.did. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -9670,7 +9670,7 @@
     "name": "enhanced_event_study_plot"
   },
   {
-    "description": "Unified post-estimation diagnostics dispatcher.",
+    "description": "Unified post-estimation diagnostics dispatcher. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -11420,7 +11420,7 @@
     "name": "forest_policy_tree"
   },
   {
-    "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample. Assumptions: Predictions for untreated units assume tau(x) carries over at equal x. Pre-conditions: forest fitted with sp.causal_forest (default GRF engine). Alternatives: sp.overlap_plot, sp.forest_diagnostics.",
+    "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Predictions for untreated units assume tau(x) carries over at equal x. Pre-conditions: forest fitted with sp.causal_forest (default GRF engine). Alternatives: sp.overlap_plot, sp.forest_diagnostics.",
     "input_schema": {
       "properties": {
         "X_new": {
@@ -21517,7 +21517,7 @@
     "name": "pretrends_slope_for_power"
   },
   {
-    "description": "Print a combined pre-trends diagnostic report.",
+    "description": "Print a combined pre-trends diagnostic report. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -22423,7 +22423,7 @@
     "name": "qdid"
   },
   {
-    "description": "Quantile Synthetic Control: exactly ``sp.discos(..., method='quantile')``. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
+    "description": "Quantile Synthetic Control: exactly ``sp.discos(..., method='quantile')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23760,7 +23760,7 @@
     "name": "rd_boost"
   },
   {
-    "description": "Run multiple ML-RD methods and compare CATE estimates. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
+    "description": "Run multiple ML-RD methods and compare CATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23821,7 +23821,7 @@
     "name": "rd_cate_summary"
   },
   {
-    "description": "Compare multiple RD estimators on the same data. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
+    "description": "Compare multiple RD estimators on the same data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23845,10 +23845,9 @@
         "methods": {
           "default": [
             "rdrobust",
-            "honest",
-            "randinf"
+            "honest"
           ],
-          "description": "Method aliases recognised by the :data:`sp.rd._RD_METHOD_ALIASES` dispatcher. Default: ``('rdrobust', 'honest', 'randinf')``.",
+          "description": "Method aliases recognised by the :data:`sp.rd._RD_METHOD_ALIASES` dispatcher. Default: ``('rdrobust', 'honest')``. Add ``'randinf'`` together with its window, e.g. ``method_kwargs={'randinf': {'wl': -0.1, 'wr': 0.1}}``.",
           "items": {
             "type": "string"
           },
@@ -23874,7 +23873,7 @@
     "name": "rd_compare"
   },
   {
-    "description": "Four-panel RD diagnostic dashboard.",
+    "description": "Plot a four-panel RD diagnostic dashboard.",
     "input_schema": {
       "properties": {
         "bw_grid": {
@@ -24197,7 +24196,7 @@
     "name": "rd_distributional_design"
   },
   {
-    "description": "Diagnostic assessment of RD external validity. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
+    "description": "Diagnostic assessment of RD external validity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -24744,7 +24743,7 @@
     "name": "rd_multi_score"
   },
   {
-    "description": "Sweep over (kernel, bwselect, polynomial, donut) and return a",
+    "description": "Sweep over (kernel, bwselect, polynomial, donut) and return a Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -26229,7 +26228,7 @@
     "name": "rdsensitivity"
   },
   {
-    "description": "One-stop RD diagnostic battery.",
+    "description": "One-stop RD diagnostic battery. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -27299,7 +27298,7 @@
     "name": "robust_synth"
   },
   {
-    "description": "Run an automated battery of robustness checks.",
+    "description": "Run an automated battery of robustness checks. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "cluster_var": {
@@ -30511,7 +30510,7 @@
     "name": "synth"
   },
   {
-    "description": "Run multiple SCM variants and compare them side by side. Do NOT use when: the method has already been chosen on substantive grounds -- running all 20 variants and picking the best-fitting one is specification search; use it to report a table, not to select. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (...",
+    "description": "Run multiple SCM variants and compare them side by side. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the method has already been chosen on substantive grounds -- running all 20 variants and picking the best-fitting one is specification search; use it to report a table, not to select. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'aug...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -30695,7 +30694,7 @@
     "name": "synth_loo"
   },
   {
-    "description": "Minimum Detectable Effect for a Synthetic Control design. Cost: Same as sp.synth_power. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sp.synth_power, sp.sp.synth, sp.sdid, sp.did. Typical minimum N: 10.",
+    "description": "Minimum Detectable Effect for a Synthetic Control design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Same as sp.synth_power. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sp.synth_power, sp.sp.synth, sp.sdid, sp.did. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -30864,7 +30863,7 @@
     "name": "synth_power_plot"
   },
   {
-    "description": "Quickly recommend the best SCM method for the given data. Do NOT use when: the recommendation would be used as the pre-registered choice -- it is a fit-based heuristic (placebo inference off), not a design argument. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sp.synth_compare, sp.sp.synth, sp.sp.route, sp.sdid. Typical minimum N: 10.",
+    "description": "Quickly recommend the best SCM method for the given data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the recommendation would be used as the pre-registered choice -- it is a fit-based heuristic (placebo inference off), not a design argument. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sp.synth_compar...",
     "input_schema": {
       "properties": {
         "outcome": {
@@ -30909,7 +30908,7 @@
     "name": "synth_recommend"
   },
   {
-    "description": "Generate a comprehensive Synthetic Control analysis report.",
+    "description": "Generate a comprehensive Synthetic Control analysis report. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -31131,7 +31130,7 @@
     "name": "synth_rmspe_filter"
   },
   {
-    "description": "Run all SCM sensitivity diagnostics in a single call. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
+    "description": "Run all SCM sensitivity diagnostics in a single call. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "alpha": {

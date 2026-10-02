@@ -48,6 +48,8 @@ estimate of the documented quantity.
 | `sp.discos_test(test='cvm' / 'stochastic_dominance')` on a result fitted with `placebo=False` | `pvalue` | a chi-squared or KS approximation over grid nodes | NaN |
 | `sp.sensitivity_rr` | `ci_lower`, `ci_upper`, `breakdown_mbar` | 2% coverage at `Mbar = 0` under a linear pre-trend | covers; intervals wider |
 | `sp.iv_compare` | `first_stage_F` column | NaN | the first-stage F |
+| `sp.rd_compare` at its default `methods` | number of rows | three, the `randinf` row always `status = error` | two; add `randinf` with its window |
+| `sp.llm_dag_validate` given an edge list or dict | `n_supported`, `n_unsupported`, `edge_evidence` | 0, 0, empty | the per-edge tests |
 | `sp.rdbwselect`, `sp.rdrobust` with a `cer*` bandwidth and `cluster=` | `h`, and through it the estimate and SEs | `h_cerrd` 0.2054 (rdrobust: 0.2305) | 0.2305 |
 
 **What to do.** Re-run. Code that read `res.qte` from `sp.rd_distribution`

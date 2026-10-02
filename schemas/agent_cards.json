@@ -2463,7 +2463,7 @@
       "tests/external_parity/test_causalml_book.py",
       "tests/external_parity/test_published_replications.py",
       "tests/reference_parity/test_closed_form_identities.py",
-      "tests/reference_parity/test_oct2026_fourth_pass.py",
+      "tests/reference_parity/test_oct2026_fifth_pass.py",
       "Variant-level certification: the native default path (CCT three-stage bandwidth cascade and bias-corrected operator) matches rdrobust::rdrobust on Track A 06; weights= is pinned in tests/reference_parity/test_rd_weights_parity.py; bwselect='cct' delegates to the official port."
     ],
     "validation_status": "certified"
@@ -3483,17 +3483,21 @@
     ],
     "category": "neural_causal",
     "cost_profile": "",
-    "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.cfrnet(df, y=\"outcome\", treat=\"treated\", covariates=[\"x1\",\"x2\"], ipm_weight=1.0)",
@@ -3558,7 +3562,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+      "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
       "name": "cfrnet",
       "parameters": {
         "properties": {
@@ -3664,10 +3668,11 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_neural_causal.py",
       "API/unit contract evidence: tests/test_neural_causal_exports.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -3687,17 +3692,21 @@
     ],
     "category": "neural_causal",
     "cost_profile": "",
-    "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.dragonnet(df, y=\"outcome\", treat=\"treated\", covariates=[\"x1\",\"x2\"], validation_fraction=0.2)",
@@ -3762,7 +3771,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+      "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
       "name": "dragonnet",
       "parameters": {
         "properties": {
@@ -3868,10 +3877,11 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_neural_causal.py",
       "API/unit contract evidence: tests/test_neural_causal_exports.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -5862,17 +5872,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample.",
+    "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.forest_support(cf, df_never_treated[['x1', 'x2']])",
@@ -5899,7 +5913,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample.",
+      "description": "Support diagnostics for counterfactual CATE predictions: for each new row, the forest CATE with its little-bag interval, effect modifiers outside the range of the rows that inform the effect (switching units for fe= forests), and the k-nearest-neighbour distance relative to the reference sample. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "forest_support",
       "parameters": {
         "properties": {
@@ -5937,9 +5951,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_forest_fe_imputation.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -5953,17 +5968,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups.",
+    "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.cate_pretrend_test(cf, n_groups=2, leads=3)",
@@ -5991,7 +6010,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups.",
+      "description": "Pre-trend test by predicted-effect group for causal forests with fixed effects: units sorted by their out-of-bag CATE, untreated cells regressed on unit and period effects and group x lead indicators, cluster-robust Wald tests that the leads are zero and equal across groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "cate_pretrend_test",
       "parameters": {
         "properties": {
@@ -6051,9 +6070,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_forest_fe_imputation.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -6469,6 +6489,7 @@
       "Cross-language parity (bit-exact) vs econml.metalearners SLearner / TLearner / XLearner; tolerance S / T / X conditional-average-treatment-effect vectors match econml elementwise to 1e-12 absolute (observed <= 1.1e-15) when both fitting stages use the same base learner -- tests/external_parity/test_metalearner_econml_parity.py",
       "tests/external_parity/test_causalml_book.py",
       "tests/reference_parity/test_closed_form_identities.py",
+      "tests/reference_parity/test_oct2026_fifth_pass.py",
       "tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
     "validation_status": "certified"
@@ -9627,6 +9648,7 @@
       "status": "analytical-only",
       "tests": [
         "tests/reference_parity/test_misc_sens_R_parity.py",
+        "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
@@ -10367,17 +10389,21 @@
     ],
     "category": "diagnostics",
     "cost_profile": "",
-    "description": "Method-aware diagnostic battery: auto-selects tests by model type (OLS/DID/RDD/IV/SCM).",
+    "description": "Method-aware diagnostic battery: auto-selects tests by model type (OLS/DID/RDD/IV/SCM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.diagnose_result(result)",
@@ -10419,7 +10445,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Method-aware diagnostic battery: auto-selects tests by model type (OLS/DID/RDD/IV/SCM).",
+      "description": "Method-aware diagnostic battery: auto-selects tests by model type (OLS/DID/RDD/IV/SCM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "diagnose_result",
       "parameters": {
         "properties": {
@@ -10437,10 +10463,11 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_diagnose_result_closed_loop.py",
       "API/unit contract evidence: tests/test_workflow_sprint_b.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -13441,17 +13468,21 @@
     ],
     "category": "neural_causal",
     "cost_profile": "",
-    "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "",
@@ -13500,7 +13531,7 @@
       }
     },
     "signature": {
-      "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+      "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
       "name": "cevae",
       "parameters": {
         "properties": {
@@ -13561,10 +13592,11 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_ope_cevae.py",
       "API/unit contract evidence: tests/test_neural_causal_exports.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -19257,17 +19289,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Neural-net propensity score estimator (arXiv:2404.04794, 2024).",
+    "description": "Neural-net propensity score estimator (arXiv:2404.04794, 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "e = sp.dl_propensity_score(df, treatment=\"treat\",\n covariates=[\"x1\", \"x2\"], random_state=0)",
@@ -19311,7 +19347,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Neural-net propensity score estimator (arXiv:2404.04794, 2024).",
+      "description": "Neural-net propensity score estimator (arXiv:2404.04794, 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "dl_propensity_score",
       "parameters": {
         "properties": {
@@ -19356,9 +19392,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_overlap_did.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -19523,6 +19560,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_third_pass.py"
       ],
       "tolerance": ""
@@ -19628,7 +19666,7 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_conformal_extended.py"
     ],
     "validation_status": "validated"
@@ -25462,17 +25500,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Unified dispatcher for six causal-inference bridging theorems (2025-2026): DiD==SC (Shi-Athey), EWM==CATE (Ferman), IPW==DR==CB (Zhao-Percival), Bunching==RDD (Lu-Wang-Xie), DR-via-Calibration (Zhang), Long-term-surrogate==PCI (Imbens-Kallus-Mao-Wang). Reports both path estimates + doubly-robust recommendation.",
+    "description": "Unified dispatcher for six causal-inference bridging theorems (2025-2026): DiD==SC (Shi-Athey), EWM==CATE (Ferman), IPW==DR==CB (Zhao-Percival), Bunching==RDD (Lu-Wang-Xie), DR-via-Calibration (Zhang), Long-term-surrogate==PCI (Imbens-Kallus-Mao-Wang). Reports both path estimates + doubly-robust recommendation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bridge(df, kind=\"did_sc\", y=\"wage\", group=\"state\", time=\"year\", first_treat=\"g\")",
@@ -25532,7 +25574,7 @@
       }
     },
     "signature": {
-      "description": "Unified dispatcher for six causal-inference bridging theorems (2025-2026): DiD==SC (Shi-Athey), EWM==CATE (Ferman), IPW==DR==CB (Zhao-Percival), Bunching==RDD (Lu-Wang-Xie), DR-via-Calibration (Zhang), Long-term-surrogate==PCI (Imbens-Kallus-Mao-Wang). Reports both path estimates + doubly-robust recommendation.",
+      "description": "Unified dispatcher for six causal-inference bridging theorems (2025-2026): DiD==SC (Shi-Athey), EWM==CATE (Ferman), IPW==DR==CB (Zhao-Percival), Bunching==RDD (Lu-Wang-Xie), DR-via-Calibration (Zhang), Long-term-surrogate==PCI (Imbens-Kallus-Mao-Wang). Reports both path estimates + doubly-robust recommendation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bridge",
       "parameters": {
         "properties": {
@@ -25564,10 +25606,11 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_bridge.py",
       "API/unit contract evidence: tests/test_bridge_full.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -28090,17 +28133,21 @@
     ],
     "category": "dag",
     "cost_profile": "",
-    "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
+    "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.llm_dag_validate(my_dag, df, alpha=0.05)",
@@ -28149,7 +28196,7 @@
       }
     },
     "signature": {
-      "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
+      "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
       "name": "llm_dag_validate",
       "parameters": {
         "properties": {
@@ -28167,7 +28214,7 @@
             "type": "string"
           },
           "dag": {
-            "description": "Declared causal graph. Latent ``_L_*`` nodes are ignored.",
+            "description": "Declared causal graph: ``sp.dag(...)``, a list of ``(parent, child)`` pairs, a ``{parent: [children]}`` dict, or any object exposing ``edges``. Latent ``_L_*`` nodes are ignored. Anything else raises.",
             "type": "string"
           },
           "data": {
@@ -28186,9 +28233,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_llm_dag_loop.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -29146,17 +29194,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Unified conformal causal inference dispatcher. kind= selects the estimator: 'cate' / 'counterfactual' / 'ite' (Lei-Candes 2021 base) / 'weighted' (TBCR 2019 primitive) / 'density' / 'multidp' / 'debiased' / 'fair' (2025-2026 frontier) / 'continuous' (dose-response) / 'interference' (cluster-exchangeable). Kwargs pass through to the target function; see sp.conformal_family guide.",
+    "description": "Unified conformal causal inference dispatcher. kind= selects the estimator: 'cate' / 'counterfactual' / 'ite' (Lei-Candes 2021 base) / 'weighted' (TBCR 2019 primitive) / 'density' / 'multidp' / 'debiased' / 'fair' (2025-2026 frontier) / 'continuous' (dose-response) / 'interference' (cluster-exchangeable). Kwargs pass through to the target function; see sp.conformal_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.conformal(\"cate\", data=df, y=\"y\", treat=\"d\", covariates=[\"x1\", \"x2\"], alpha=0.1)",
@@ -29219,7 +29271,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Unified conformal causal inference dispatcher. kind= selects the estimator: 'cate' / 'counterfactual' / 'ite' (Lei-Candes 2021 base) / 'weighted' (TBCR 2019 primitive) / 'density' / 'multidp' / 'debiased' / 'fair' (2025-2026 frontier) / 'continuous' (dose-response) / 'interference' (cluster-exchangeable). Kwargs pass through to the target function; see sp.conformal_family guide.",
+      "description": "Unified conformal causal inference dispatcher. kind= selects the estimator: 'cate' / 'counterfactual' / 'ite' (Lei-Candes 2021 base) / 'weighted' (TBCR 2019 primitive) / 'density' / 'multidp' / 'debiased' / 'fair' (2025-2026 frontier) / 'continuous' (dose-response) / 'interference' (cluster-exchangeable). Kwargs pass through to the target function; see sp.conformal_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "conformal",
       "parameters": {
         "properties": {
@@ -29236,9 +29288,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_dispatchers_v150.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -33362,17 +33415,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort.",
+    "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.did_cluster_diagnostics(df, unit=\"county\", first_treat=\"g\", cluster=\"state\")",
@@ -33418,7 +33475,7 @@
       }
     },
     "signature": {
-      "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort.",
+      "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "did_cluster_diagnostics",
       "parameters": {
         "properties": {
@@ -33463,9 +33520,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "API/unit contract evidence: tests/test_did_design_audit.py -- the grid boundaries (30/50/100) are pinned by a parametrised test against what Ulloa-Perez et al. (2025) actually ran, so moving the threshold moves a test."
+      "API/unit contract evidence: tests/test_did_design_audit.py -- the grid boundaries (30/50/100) are pinned by a parametrised test against what Ulloa-Perez et al. (2025) actually ran, so moving the threshold moves a test.",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -33631,17 +33689,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show.",
+    "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.compare_event_study_conventions(df, y=\"y\", unit=\"i\", time=\"t\", first_treat=\"g\")",
@@ -33691,7 +33753,7 @@
       }
     },
     "signature": {
-      "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show.",
+      "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "compare_event_study_conventions",
       "parameters": {
         "properties": {
@@ -33761,9 +33823,10 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Reference evidence: tests/test_did_event_study_conventions.py -- Stata did_imputation and R did2s reference vectors, plus the analytic identities of Roth (2026)."
+      "Reference evidence: tests/test_did_event_study_conventions.py -- Stata did_imputation and R did2s reference vectors, plus the analytic identities of Roth (2026).",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -35014,8 +35077,8 @@
       "Cross-language parity (bit-exact) vs fixest::feols(y ~ i(rel, treat, ref=-1) [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-09, rel_se<=1e-09; parity module 85_twfe_event_study -- tests/r_parity/85_twfe_event_study.py",
       "tests/external_parity/test_rebel_canal_published.py",
       "tests/reference_parity/test_event_study_vcov_R_parity.py",
+      "tests/reference_parity/test_oct2026_fifth_pass.py",
       "tests/reference_parity/test_oct2026_fourth_pass.py",
-      "tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_did.py",
       "API/unit contract evidence: tests/test_fast_event_study.py"
     ],
@@ -35477,17 +35540,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object.",
+    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.did_analysis(df, y=\"earnings\", treat=\"first_treat\", time=\"year\", id=\"worker\")",
@@ -35546,7 +35613,7 @@
       }
     },
     "signature": {
-      "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object.",
+      "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "did_analysis",
       "parameters": {
         "properties": {
@@ -35665,10 +35732,11 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_cov95_did_analysis.py",
       "API/unit contract evidence: tests/test_did_imputation_branches.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -42943,6 +43011,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py"
       ],
       "tolerance": ""
@@ -43027,7 +43096,7 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_cov95_did_pretrends.py",
       "API/unit contract evidence: tests/test_cov95_did_r3_pretrends.py"
     ],
@@ -46704,17 +46773,21 @@
     ],
     "category": "causal",
     "cost_profile": "method='cs' with bstrap=True runs biters multiplier-bootstrap draws over every ATT(g,t) cell; cost grows with cohorts x periods x biters. Analytic SEs (default) are O(n).",
-    "description": "One-call method-robustness comparison for staggered DID.",
+    "description": "One-call method-robustness comparison for staggered DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "out = sp.did_summary(df, y='y', time='time',\n first_treat='first_treat', group='unit')",
@@ -46794,7 +46867,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "One-call method-robustness comparison for staggered DID.",
+      "description": "One-call method-robustness comparison for staggered DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "did_summary",
       "parameters": {
         "properties": {
@@ -46879,8 +46952,10 @@
     },
     "stability": "stable",
     "typical_n_min": 50,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -50734,17 +50809,21 @@
     ],
     "category": "causal",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "Run multiple ML-RD methods and compare CATE estimates.",
+    "description": "Run multiple ML-RD methods and compare CATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "out = sp.rd_cate_summary(\n df, y=\"y\", x=\"x\", c=0, covs=[\"z1\", \"z2\"],\n methods=[\"forest\", \"lasso\"], seed=42,\n)",
@@ -50804,7 +50883,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Run multiple ML-RD methods and compare CATE estimates.",
+      "description": "Run multiple ML-RD methods and compare CATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_cate_summary",
       "parameters": {
         "properties": {
@@ -50872,8 +50951,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -51246,17 +51327,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Diagnostic assessment of RD external validity.",
+    "description": "Diagnostic assessment of RD external validity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "diag = sp.rd_external_validity(df, y='y', x='x', c=0, covs=['z'])",
@@ -51298,7 +51383,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Diagnostic assessment of RD external validity.",
+      "description": "Diagnostic assessment of RD external validity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_external_validity",
       "parameters": {
         "properties": {
@@ -51357,8 +51442,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -55582,7 +55669,7 @@
           },
           "refit_bootstrap": {
             "default": 0,
-            "description": "Number of bootstrap refits for a standard error that carries the sampling variability of both networks. Each refit trains both stages on a resample of the rows from its own initialisation, so the run takes ``refit_bootstrap + 1`` times as long. With it, ``se``, ``ci`` and ``pvalue`` come from the spread of the refits, ``model_info['se_valid_for_ate']`` is ``True`` and the fixed-network number moves to ``model_info['se_plugin']``. Must be 0 or at least 5.",
+            "description": "Number of bootstrap refits for a standard error that carries the sampling variability of both networks. Each refit trains both stages on a resample of the rows from its own initialisation, so the run takes ``refit_bootstrap + 1`` times as long. With it, ``se``, ``ci`` and ``pvalue`` come from the spread of the refits, ``model_info['se_valid_for_ate']`` is ``True`` and the fixed-network number moves to ``model_info['se_plugin']``. Must be 0 or at least 5. In simulation it is conservative: about 1.45 times the sampling standard deviation, where the fixed-network number is about 0.04 times.",
             "type": "integer"
           },
           "second_stage_epochs": {
@@ -62040,7 +62127,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs lmtest::bptest (studentized Breusch-Pagan) [R version 4.5.2 (2025-10-31), lmtest 0.9.40]; tolerance statistic & p-value 1e-10 rel (observed ~1e-13) -- tests/reference_parity/test_diagnostics_parity.py"
+      "Cross-language parity (bit-exact) vs lmtest::bptest (studentized Breusch-Pagan) [R version 4.5.2 (2025-10-31), lmtest 0.9.40]; tolerance statistic & p-value 1e-10 rel (observed ~1e-13) -- tests/reference_parity/test_diagnostics_parity.py",
+      "tests/reference_parity/test_oct2026_fifth_pass.py"
     ],
     "validation_status": "certified"
   },
@@ -62156,7 +62244,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs lmtest::resettest(power=2:3, type='fitted') [R version 4.5.2 (2025-10-31), lmtest 0.9.40]; tolerance F-statistic & p-value 1e-10 rel (observed ~1e-13) -- tests/reference_parity/test_diagnostics_parity.py"
+      "Cross-language parity (bit-exact) vs lmtest::resettest(power=2:3, type='fitted') [R version 4.5.2 (2025-10-31), lmtest 0.9.40]; tolerance F-statistic & p-value 1e-10 rel (observed ~1e-13) -- tests/reference_parity/test_diagnostics_parity.py",
+      "tests/reference_parity/test_oct2026_fifth_pass.py"
     ],
     "validation_status": "certified"
   },
@@ -62260,7 +62349,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R car::vif [car 3.1.5, ivmodel 1.9.1, metafor 5.0.1]; tolerance 2.0e-16 on every variance inflation factor, once the returned values stopped being rounded to two decimals. -- tests/reference_parity/test_weakiv_meta_parity.py"
+      "Cross-language parity (bit-exact) vs R car::vif [car 3.1.5, ivmodel 1.9.1, metafor 5.0.1]; tolerance 2.0e-16 on every variance inflation factor, once the returned values stopped being rounded to two decimals. -- tests/reference_parity/test_weakiv_meta_parity.py",
+      "tests/reference_parity/test_oct2026_fifth_pass.py"
     ],
     "validation_status": "certified"
   },
@@ -92525,6 +92615,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs DiSCos::DiSCo 0.1.4 (Gunsilius distributional synthetic controls), mixture = FALSE; mixture = TRUE vs GLPK on DiSCo's LP [CVXR 1.8.2, DiSCos 0.1.4, R version 4.5.2 (2025-10-31), Rglpk 0.6.5.1, pracma 2.4.6, quadprog 1.5.8]; tolerance quantile weights 1e-11 abs (observed 4.9e-13), counterfactual quantile functions 1e-10 rel, quantile effects 1e-10 abs (observed 1.9e-12); mixture LP weights vs GLPK 1e-12 abs, vs DiSCo's SCS solution 5e-6 abs (observed 7.1e-7) -- tests/reference_parity/test_did_synth_synthvar_parity.py",
       "tests/reference_parity/test_distributional_te_parity.py",
+      "tests/reference_parity/test_oct2026_fifth_pass.py",
       "tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
     "validation_status": "certified"
@@ -92650,17 +92741,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Quantile Synthetic Control: exactly ``sp.discos(..., method='quantile')``.",
+    "description": "Quantile Synthetic Control: exactly ``sp.discos(..., method='quantile')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "result = sp.qqsynth(df, outcome='packspercapita', unit='state',\n time='year', treated_unit='California',\n treatment_time=1989)",
@@ -92716,7 +92811,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Quantile Synthetic Control: exactly ``sp.discos(..., method='quantile')``.",
+      "description": "Quantile Synthetic Control: exactly ``sp.discos(..., method='quantile')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "qqsynth",
       "parameters": {
         "properties": {
@@ -92789,8 +92884,10 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -93635,17 +93732,21 @@
     ],
     "category": "causal",
     "cost_profile": "One constrained optimisation over the donor simplex per fit. placebo=True / inference re-runs the whole fit once per donor, so runtime is roughly (donors + 1) x a single fit -- the usual reason a synth call feels slow.",
-    "description": "Run all SCM sensitivity diagnostics in a single call.",
+    "description": "Run all SCM sensitivity diagnostics in a single call. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sens = sp.synth_sensitivity(df, outcome='packspercapita',\n unit='state', time='year', treated_unit='California',\n treatment_time=1989, n_donor_samples=50, seed=42)",
@@ -93707,7 +93808,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Run all SCM sensitivity diagnostics in a single call.",
+      "description": "Run all SCM sensitivity diagnostics in a single call. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "synth_sensitivity",
       "parameters": {
         "properties": {
@@ -93780,8 +93881,10 @@
     },
     "stability": "stable",
     "typical_n_min": 10,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -93814,6 +93917,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_synth_rest_R_parity.py"
       ],
       "tolerance": ""
@@ -93960,7 +94064,7 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_synth_rest_R_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
     ],
     "validation_status": "validated"
   },
@@ -93982,17 +94086,21 @@
     ],
     "category": "causal",
     "cost_profile": "Same as sp.synth_power.",
-    "description": "Minimum Detectable Effect for a Synthetic Control design. Cost: Same as sp.synth_power.",
+    "description": "Minimum Detectable Effect for a Synthetic Control design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Same as sp.synth_power.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "mde = sp.synth_mde(\n df, outcome='packspercapita', unit='state', time='year',\n treated_unit='California', treatment_time=1989,\n seed=42,\n)",
@@ -94054,7 +94162,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Minimum Detectable Effect for a Synthetic Control design. Cost: Same as sp.synth_power.",
+      "description": "Minimum Detectable Effect for a Synthetic Control design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Same as sp.synth_power.",
       "name": "synth_mde",
       "parameters": {
         "properties": {
@@ -94127,8 +94235,10 @@
     },
     "stability": "stable",
     "typical_n_min": 10,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -94148,17 +94258,21 @@
     ],
     "category": "causal",
     "cost_profile": "Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
-    "description": "Run multiple SCM variants and compare them side by side. Do NOT use when: the method has already been chosen on substantive grounds -- running all 20 variants and picking the best-fitting one is specification search; use it to report a table, not to select. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
+    "description": "Run multiple SCM variants and compare them side by side. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the method has already been chosen on substantive grounds -- running all 20 variants and picking the best-fitting one is specification search; use it to report a table, not to select. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "comp = sp.synth_compare(\n df, outcome=\"packspercapita\", unit=\"state\", time=\"year\",\n treated_unit=\"California\", treatment_time=1989,\n methods=[\"classic\", \"demeaned\"],\n)",
@@ -94227,7 +94341,7 @@
       }
     },
     "signature": {
-      "description": "Run multiple SCM variants and compare them side by side. Do NOT use when: the method has already been chosen on substantive grounds -- running all 20 variants and picking the best-fitting one is specification search; use it to report a table, not to select. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
+      "description": "Run multiple SCM variants and compare them side by side. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the method has already been chosen on substantive grounds -- running all 20 variants and picking the best-fitting one is specification search; use it to report a table, not to select. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
       "name": "synth_compare",
       "parameters": {
         "properties": {
@@ -94296,8 +94410,10 @@
     },
     "stability": "stable",
     "typical_n_min": 10,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -94318,17 +94434,21 @@
     ],
     "category": "causal",
     "cost_profile": "One constrained optimisation over the donor simplex per fit. placebo=True / inference re-runs the whole fit once per donor, so runtime is roughly (donors + 1) x a single fit -- the usual reason a synth call feels slow.",
-    "description": "Quickly recommend the best SCM method for the given data. Do NOT use when: the recommendation would be used as the pre-registered choice -- it is a fit-based heuristic (placebo inference off), not a design argument.",
+    "description": "Quickly recommend the best SCM method for the given data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the recommendation would be used as the pre-registered choice -- it is a fit-based heuristic (placebo inference off), not a design argument.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.synth_recommend( df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989, )",
@@ -94391,7 +94511,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Quickly recommend the best SCM method for the given data. Do NOT use when: the recommendation would be used as the pre-registered choice -- it is a fit-based heuristic (placebo inference off), not a design argument.",
+      "description": "Quickly recommend the best SCM method for the given data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the recommendation would be used as the pre-registered choice -- it is a fit-based heuristic (placebo inference off), not a design argument.",
       "name": "synth_recommend",
       "parameters": {
         "properties": {
@@ -94443,8 +94563,10 @@
     },
     "stability": "stable",
     "typical_n_min": 10,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -96467,7 +96589,7 @@
       "tests/reference_parity/test_esda_local_parity.py",
       "tests/reference_parity/test_geary_parity.py",
       "tests/reference_parity/test_moran_parity.py",
-      "tests/reference_parity/test_peer_effects_parity.py"
+      "tests/reference_parity/test_oct2026_fifth_pass.py"
     ],
     "validation_status": "certified"
   },
@@ -110927,17 +111049,21 @@
     ],
     "category": "causal",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "Compare multiple RD estimators on the same data.",
+    "description": "Compare multiple RD estimators on the same data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "tab = sp.rd_compare(df, y=\"y\", x=\"x\", c=0.0,\n methods=[\"rdrobust\"])",
@@ -110997,7 +111123,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Compare multiple RD estimators on the same data.",
+      "description": "Compare multiple RD estimators on the same data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_compare",
       "parameters": {
         "properties": {
@@ -111027,10 +111153,9 @@
           "methods": {
             "default": [
               "rdrobust",
-              "honest",
-              "randinf"
+              "honest"
             ],
-            "description": "Method aliases recognised by the :data:`sp.rd._RD_METHOD_ALIASES` dispatcher. Default: ``('rdrobust', 'honest', 'randinf')``.",
+            "description": "Method aliases recognised by the :data:`sp.rd._RD_METHOD_ALIASES` dispatcher. Default: ``('rdrobust', 'honest')``. Add ``'randinf'`` together with its window, e.g. ``method_kwargs={'randinf': {'wl': -0.1, 'wr': 0.1}}``.",
             "items": {
               "type": "string"
             },
@@ -111057,8 +111182,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -111418,17 +111545,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Generate a synthetic causal-RL benchmark dataset.",
+    "description": "Generate a synthetic causal-RL benchmark dataset. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.causal_rl_benchmark(\n name='confounded_bandit', n_episodes=200, seed=0)",
@@ -111470,7 +111601,7 @@
       }
     },
     "signature": {
-      "description": "Generate a synthetic causal-RL benchmark dataset.",
+      "description": "Generate a synthetic causal-RL benchmark dataset. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "causal_rl_benchmark",
       "parameters": {
         "properties": {
@@ -111501,8 +111632,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

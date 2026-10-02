@@ -171,7 +171,9 @@ def deepiv(
         ``se``, ``ci`` and ``pvalue`` come from the spread of the refits,
         ``model_info['se_valid_for_ate']`` is ``True`` and the
         fixed-network number moves to ``model_info['se_plugin']``. Must
-        be 0 or at least 5.
+        be 0 or at least 5. In simulation it is conservative: about 1.45
+        times the sampling standard deviation, where the fixed-network
+        number is about 0.04 times.
 
     Returns
     -------

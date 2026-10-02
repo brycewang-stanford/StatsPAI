@@ -436,6 +436,7 @@ NON_NUMERIC_CALLABLES: Dict[str, str] = {
     "parallel_trends_plot": "plot",
     "psplot": "plot",
     "rd2d_plot": "plot",
+    "rd_dashboard": "plot",
     "sensitivity_plot": "plot",
     "synth_power_plot": "plot",
     "synth_sensitivity_plot": "plot",
@@ -454,6 +455,7 @@ NON_NUMERIC_CALLABLES: Dict[str, str] = {
     "network_plot": "plot",
     # dataset
     "basque_terrorism": "dataset",
+    "dag_simulate": "dataset",
     "california_prop99": "dataset",
     "california_tobacco": "dataset",
     "german_reunification": "dataset",

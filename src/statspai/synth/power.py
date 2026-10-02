@@ -41,6 +41,7 @@ Confidence Sets."
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Optional, Sequence
 
 import numpy as np
@@ -467,7 +468,21 @@ def synth_mde(
 
     mde_rows = power_df[power_df["power"] >= power_target]
     if mde_rows.empty:
-        return np.inf  # pragma: no cover
+        n_units = int(data[unit].nunique())
+        floor_p = 1.0 / n_units
+        why = (
+            f"with {n_units - 1} placebo units the smallest attainable "
+            f"p-value is {floor_p:.3f}, above alpha = {alpha}, so the "
+            "placebo test cannot reject whatever the effect"
+            if floor_p > alpha
+            else "no effect size in the default grid reaches it"
+        )
+        warnings.warn(
+            f"synth_mde: power never reaches {power_target}: {why}. " "Returning inf.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return np.inf
 
     return float(mde_rows["effect_size"].iloc[0])
 
