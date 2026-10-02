@@ -1,0 +1,237 @@
+"""Process isolation for ``tools/call`` (opt-in).
+
+A Python thread cannot be killed. Under the default thread runner a call
+that exceeds its timeout is answered with an error while its computation
+keeps running until it finishes; the stdio loop only bounds how many such
+orphans may accumulate (``STATSPAI_MCP_MAX_ORPHANED_CALLS``).
+
+With ``STATSPAI_MCP_ISOLATION=process`` a call that touches no
+server-side state is run in a child ``statspai-mcp`` process instead. On
+timeout or client cancel the child is killed: the CPU and memory are
+released at once, nothing is left running, and warning filters,
+matplotlib state and any other process-global side effect of the
+estimator die with it.
+
+What is isolated
+----------------
+Only calls that are self-contained. A call is **not** isolated, and runs
+on the thread runner as before, when it
+
+* reads a handle held by this server (``result_id``, ``data_id``),
+* asks for one (``as_handle``), or
+* is a tool whose result is a handle or always carries one (``load_data``,
+  ``transform_data``, ``describe_data``, ``detect_design``, ``preflight``,
+  the ``pipeline_*`` composites, the ``*_from_result`` / ``*_result``
+  follow-ups).
+
+Handles are process-local, so a handle minted in a child would be dead on
+arrival; if an isolated result carries one anyway it is removed and named
+under ``isolation.dropped_handles``.
+
+Cost
+----
+Each isolated call pays the import of ``statspai`` in a fresh interpreter
+(a few seconds). That is the price of a killable worker without a
+serialisation protocol for fitted results, and the reason the mode is
+opt-in. Server-initiated sampling is not available inside an isolated
+call (the tools that use it take a ``result_id`` and are never isolated).
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import queue
+import subprocess
+import sys
+import threading
+import time
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+#: Env var: ``thread`` (default) or ``process``.
+ISOLATION_ENV = "STATSPAI_MCP_ISOLATION"
+
+#: Arguments that bind a call to this server process.
+_SESSION_ARGUMENTS = ("result_id", "data_id")
+
+#: Tools whose result is, or always carries, a process-local handle.
+_SESSION_TOOLS = frozenset(
+    {"load_data", "transform_data", "describe_data", "detect_design", "preflight"}
+)
+_SESSION_PREFIXES = ("pipeline_",)
+_SESSION_SUFFIXES = ("_from_result", "_result")
+
+_HANDLE_KEYS = ("result_id", "result_uri", "data_id", "data_uri")
+
+
+def isolation_mode() -> str:
+    """``"process"`` when opted in, else ``"thread"``."""
+    raw = (os.environ.get(ISOLATION_ENV) or "thread").strip().lower()
+    return "process" if raw == "process" else "thread"
+
+
+def eligible(name: str, arguments: Dict[str, Any]) -> bool:
+    """Can this call run in a child process without losing anything?"""
+    if name in _SESSION_TOOLS:
+        return False
+    if name.startswith(_SESSION_PREFIXES) or name.endswith(_SESSION_SUFFIXES):
+        return False
+    if arguments.get("as_handle"):
+        return False
+    return not any(arguments.get(k) not in (None, "") for k in _SESSION_ARGUMENTS)
+
+
+def _child_env() -> Dict[str, str]:
+    env = dict(os.environ)
+    env[ISOLATION_ENV] = "thread"  # the child runs the call itself
+    # The parent owns the deadline; the child must not race it.
+    env["STATSPAI_MCP_TOOL_TIMEOUT_SECONDS"] = "0"
+    return env
+
+
+def run_isolated(
+    name: str,
+    arguments: Dict[str, Any],
+    meta: Optional[Dict[str, Any]],
+    *,
+    timeout: Optional[float],
+    cancel_event: Optional[threading.Event],
+    forward: Optional[Callable[[str], None]] = None,
+    poll_interval: float = 0.05,
+) -> Tuple[str, Any]:
+    """Run one ``tools/call`` in a child server and supervise it.
+
+    Returns ``(status, payload)``:
+
+    * ``("result", <tools/call result dict>)`` -- the child answered;
+    * ``("rpc_error", <JSON-RPC error object>)`` -- a protocol error;
+    * ``("timeout", pid)`` / ``("cancelled", pid)`` -- the child was killed;
+    * ``("crashed", {"returncode", "stderr"})`` -- it exited without an
+      answer.
+
+    ``forward`` receives every notification line the child writes
+    (progress), verbatim.
+    """
+    params: Dict[str, Any] = {"name": name, "arguments": arguments}
+    if meta:
+        params["_meta"] = meta
+    request = json.dumps(
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": params}
+    )
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "statspai.agent.mcp_server"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        env=_child_env(),
+        # posix_spawn rather than fork: a fork taken after numerical code
+        # ran in this process can crash in the child before exec (macOS).
+        close_fds=False,
+    )
+    lines: "queue.Queue[Optional[str]]" = queue.Queue()
+    stderr_tail: List[str] = []
+
+    def _pump_stdout() -> None:
+        assert proc.stdout is not None
+        try:
+            for line in proc.stdout:
+                lines.put(line)
+        finally:
+            lines.put(None)
+
+    def _pump_stderr() -> None:
+        assert proc.stderr is not None
+        for line in proc.stderr:
+            stderr_tail.append(line)
+            del stderr_tail[:-40]
+
+    for target in (_pump_stdout, _pump_stderr):
+        threading.Thread(target=target, daemon=True).start()
+
+    try:
+        assert proc.stdin is not None
+        proc.stdin.write(request + "\n")
+        proc.stdin.close()
+    except OSError:
+        pass  # the child died at start-up; reported as a crash below
+
+    deadline = time.monotonic() + timeout if timeout else None
+
+    def _kill() -> None:
+        proc.kill()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:  # pragma: no cover - defensive
+            pass
+
+    while True:
+        if deadline is not None and time.monotonic() > deadline:
+            _kill()
+            return "timeout", proc.pid
+        if cancel_event is not None and cancel_event.is_set():
+            _kill()
+            return "cancelled", proc.pid
+        try:
+            line = lines.get(timeout=poll_interval)
+        except queue.Empty:
+            continue
+        if line is None:
+            proc.wait()
+            return "crashed", {
+                "returncode": proc.returncode,
+                "stderr": "".join(stderr_tail)[-2000:],
+            }
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            msg = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("id") == 1 and ("result" in msg or "error" in msg):
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                _kill()
+            if "error" in msg:
+                return "rpc_error", msg["error"]
+            return "result", msg["result"]
+        if "method" in msg and "id" not in msg and forward is not None:
+            forward(line)
+
+
+def annotate(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Mark a child's result as isolated and drop handles that died with it."""
+    payload = result.get("structuredContent")
+    if not isinstance(payload, dict):
+        return result
+    dropped = [k for k in _HANDLE_KEYS if k in payload]
+    for key in dropped:
+        payload.pop(key, None)
+    calls = payload.get("next_calls")
+    if dropped and isinstance(calls, list):
+        payload["next_calls"] = [
+            c
+            for c in calls
+            if not (
+                isinstance(c, dict)
+                and isinstance(c.get("arguments"), dict)
+                and any(k in c["arguments"] for k in _SESSION_ARGUMENTS)
+            )
+        ]
+    note: Dict[str, Any] = {"mode": "process"}
+    if dropped:
+        note["dropped_handles"] = dropped
+        note["hint"] = "repeat the call with as_handle=true to keep a handle"
+    payload["isolation"] = note
+    content = result.get("content")
+    if isinstance(content, list) and content and content[0].get("type") == "text":
+        content[0]["text"] = json.dumps(payload, separators=(",", ":"), allow_nan=False)
+    return result
+
+
+__all__ = ["ISOLATION_ENV", "annotate", "eligible", "isolation_mode", "run_isolated"]

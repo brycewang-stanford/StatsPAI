@@ -289,6 +289,7 @@ class TestAnnotationsAndOutputSchema:
             # in tests/test_mcp_output_budget_risk.py.
             "replay",
             "replay_completeness",
+            "isolation",
             "runtime_warnings",
             "truncated",
             "risk_details_complete",

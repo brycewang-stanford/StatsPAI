@@ -379,6 +379,15 @@ changes its numbers.
   covers `structuredContent` only.
 - **A second `tools/call` reusing an in-flight request id took over its
   cancel handle.** It is refused with `-32600`.
+- **Loading the data was outside the tool timeout.** `data_path` was read
+  before the supervised runner started, so a read that never returns (a
+  FIFO, a stalled network mount, a slow URL) held the worker forever and
+  every later call queued behind it. The load now runs under the same
+  timeout and cancel as the estimator and reports `stage: data_load`.
+- **A computation that outlived its timeout could still commit a handle.**
+  The result and data caches now refuse a `put` from a call that has
+  already timed out or been cancelled, so a late handle cannot evict live
+  ones.
 
 ### Added
 
@@ -389,6 +398,20 @@ changes its numbers.
   computation cannot be killed, so before this each timeout left one more
   estimator running beside the next call. `STATSPAI_MCP_MAX_REQUEST_BYTES`
   (default 64 MiB) refuses an oversized request line unparsed.
+- **Killable workers: `STATSPAI_MCP_ISOLATION=process`.** Opt-in. A call
+  that touches no server-side state runs in a child process and is killed
+  on timeout or client cancel. Measured on a regression whose read blocks
+  forever: five consecutive timeouts leave no orphaned thread and no child
+  process, and the next call runs; the default thread runner reports an
+  orphan on the same call. Calls that use or request handles stay on the
+  thread runner. Each isolated call pays a fresh interpreter start.
+- **`STATSPAI_MCP_MAX_QUEUE_SECONDS`** (default 900): a call that waited
+  longer than this in the queue is answered `server_busy` when its turn
+  comes instead of being run.
+- **A tested client matrix** (`tests/test_mcp_client_matrix.py`): each
+  supported protocol revision, an unknown revision, a text-only client, a
+  client without sampling, a client that sends cursors, a server restart
+  with stale handles, and a client that skips `initialize`.
 - **`replay_completeness` on every MCP result that has a `replay`.**
   `level` is `standalone` (a new process can re-run the string given the
   file named in `needs`), `session_replayable` (it depends on a `data_id`

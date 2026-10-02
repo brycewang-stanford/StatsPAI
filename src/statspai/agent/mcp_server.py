@@ -64,8 +64,11 @@ directories, network URLs need ``STATSPAI_MCP_ALLOW_REMOTE=1``,
 ``STATSPAI_MCP_TOOL_TIMEOUT_SECONDS`` bounds a call,
 ``STATSPAI_MCP_WORKERS`` sizes the ``tools/call`` pool, and
 ``STATSPAI_MCP_MAX_QUEUED_CALLS`` / ``STATSPAI_MCP_MAX_ORPHANED_CALLS`` /
-``STATSPAI_MCP_MAX_REQUEST_BYTES`` bound what the stdio loop admits
-(``server_busy`` / ``-32600`` beyond them).
+``STATSPAI_MCP_MAX_QUEUE_SECONDS`` / ``STATSPAI_MCP_MAX_REQUEST_BYTES``
+bound what the stdio loop admits (``server_busy`` / ``-32600`` beyond
+them). ``STATSPAI_MCP_ISOLATION=process`` runs self-contained calls in a
+child process that is killed on timeout or cancel
+(:mod:`statspai.agent._process_worker`).
 
 Protocol features
 -----------------
@@ -100,6 +103,7 @@ import os
 import queue
 import sys
 import threading
+import time
 import traceback
 from functools import lru_cache
 from pathlib import Path
@@ -844,6 +848,16 @@ _RESULT_OUTPUT_SCHEMA: Dict[str, Any] = {
             ),
             "additionalProperties": True,
         },
+        "isolation": {
+            "type": "object",
+            "description": (
+                "Present when the call ran in a child process "
+                "(STATSPAI_MCP_ISOLATION=process): mode, and dropped_handles "
+                "when the result carried process-local handles that could "
+                "not outlive the child."
+            ),
+            "additionalProperties": True,
+        },
         "runtime_warnings": {
             "type": "array",
             "description": (
@@ -1541,9 +1555,81 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     else:
         raise _InvalidParamsError("`arguments` must be a JSON object")
     try:
+        from . import _process_worker
+
+        if _process_worker.isolation_mode() == "process" and _process_worker.eligible(
+            name, arguments
+        ):
+            return _run_isolated_call(name, arguments, params)
         return _run_tools_call(name, arguments, params)
     except _ToolCallError as err:
         return _tool_error_result(err.kind, err.message, **err.fields)
+
+
+def _run_isolated_call(
+    name: str, arguments: Dict[str, Any], params: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Run a self-contained call in a child process that can be killed."""
+    from . import _process_worker
+    from ._runner import current_cancel_event, tool_timeout
+
+    meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else None
+    sink = _PROGRESS_SINK
+    forward = None
+    if sink is not None:
+
+        def forward(line: str) -> None:
+            sink.write(line + "\n")
+            sink.flush()
+
+    timeout = tool_timeout()
+    status, payload = _process_worker.run_isolated(
+        name,
+        arguments,
+        meta,
+        timeout=timeout,
+        cancel_event=current_cancel_event(),
+        forward=forward,
+    )
+    if status == "result":
+        return _process_worker.annotate(payload)
+    if status == "rpc_error":
+        code = payload.get("code") if isinstance(payload, dict) else None
+        message = str(payload.get("message")) if isinstance(payload, dict) else ""
+        if code == -32602:
+            raise _InvalidParamsError(message)
+        raise _ToolCallError("internal_error", message, tool=name)
+    if status == "timeout":
+        raise _ToolCallError(
+            "timeout",
+            f"tool exceeded {timeout:.0f}s timeout "
+            "(env: STATSPAI_MCP_TOOL_TIMEOUT_SECONDS)",
+            hint=(
+                "Retry on a sample (data_sample_n) or with cheaper options, or "
+                "raise the timeout. The worker process was killed: nothing is "
+                "left running."
+            ),
+            timeout_seconds=timeout,
+            worker_may_still_be_running=False,
+            worker_killed=True,
+            isolation="process",
+        )
+    if status == "cancelled":
+        raise _ToolCallError(
+            "cancelled",
+            "The client cancelled this tools/call.",
+            worker_may_still_be_running=False,
+            worker_killed=True,
+            isolation="process",
+        )
+    raise _ToolCallError(
+        "internal_error",
+        f"isolated worker exited without an answer "
+        f"(returncode {payload.get('returncode')})",
+        tool=name,
+        stderr=payload.get("stderr") if _debug_enabled() else None,
+        isolation="process",
+    )
 
 
 def _resolve_tool_data(
@@ -1690,7 +1776,46 @@ def _run_tools_call(
     meta = params.get("_meta") or {}
     progress_token = meta.get("progressToken") if isinstance(meta, dict) else None
 
-    df, data_prov, replay_comment = _resolve_tool_data(name, arguments)
+    # Loading the data is supervised like the estimator: a read that never
+    # returns (a FIFO, a stalled network mount, a slow URL) would otherwise
+    # hold the worker forever, outside any timeout.
+    from ._runner import ToolCancelled as _LoadCancelled
+    from ._runner import current_cancel_event as _load_cancel_event
+    from ._runner import orphaned_threads as _load_orphans
+    from ._runner import run_with_progress as _run_supervised
+    from ._runner import tool_timeout as _load_timeout
+
+    load_limit = _load_timeout()
+    loaded_ok, loaded = _run_supervised(
+        lambda: _resolve_tool_data(name, arguments),
+        timeout=load_limit,
+        cancel_event=_load_cancel_event(),
+    )
+    if not loaded_ok:
+        if isinstance(loaded, TimeoutError):
+            raise _ToolCallError(
+                "timeout",
+                f"loading the data exceeded the {load_limit:.0f}s timeout "
+                "(env: STATSPAI_MCP_TOOL_TIMEOUT_SECONDS)",
+                hint=(
+                    "The source did not finish reading. Check that data_path "
+                    "is a regular file or a reachable URL; the read cannot be "
+                    "killed and keeps waiting in the background."
+                ),
+                timeout_seconds=load_limit,
+                stage="data_load",
+                worker_may_still_be_running=True,
+                orphaned_tool_threads=_load_orphans(),
+            )
+        if isinstance(loaded, _LoadCancelled):
+            raise _ToolCallError(
+                "cancelled",
+                "The client cancelled this tools/call.",
+                stage="data_load",
+                worker_may_still_be_running=True,
+            )
+        raise loaded
+    df, data_prov, replay_comment = loaded
 
     detail = arguments.pop("detail", "agent")
     if detail not in _DETAIL_LEVELS:
@@ -2106,6 +2231,13 @@ DEFAULT_MAX_QUEUED_CALLS = 32
 MAX_ORPHANED_CALLS_ENV = "STATSPAI_MCP_MAX_ORPHANED_CALLS"
 DEFAULT_MAX_ORPHANED_CALLS = 4
 
+#: Env var: longest a ``tools/call`` may wait in the queue before it
+#: starts, in seconds (default 900; ``0`` = unlimited). A call that waited
+#: longer is answered ``server_busy`` instead of being run for a client
+#: that has most likely given up on it.
+MAX_QUEUE_SECONDS_ENV = "STATSPAI_MCP_MAX_QUEUE_SECONDS"
+DEFAULT_MAX_QUEUE_SECONDS = 900
+
 #: Env var: largest accepted request line, in bytes (default 64 MiB;
 #: ``0`` = unlimited). Larger lines are answered with ``-32600`` and
 #: never parsed or queued.
@@ -2163,7 +2295,9 @@ def serve_stdio(
     a ``tools/call`` arriving while ``STATSPAI_MCP_MAX_QUEUED_CALLS``
     others already wait, or while ``STATSPAI_MCP_MAX_ORPHANED_CALLS``
     timed-out computations are still running, is answered immediately
-    with an ``isError`` result of kind ``server_busy``; and a
+    with an ``isError`` result of kind ``server_busy``; one that waited in
+    the queue longer than ``STATSPAI_MCP_MAX_QUEUE_SECONDS`` gets the same
+    answer when its turn comes instead of being run; and a
     ``tools/call`` reusing the id of one still in flight is refused
     (``-32600``) rather than taking over its cancel handle.
 
@@ -2209,6 +2343,7 @@ def serve_stdio(
     max_queued = _env_limit(MAX_QUEUED_CALLS_ENV, DEFAULT_MAX_QUEUED_CALLS)
     max_orphans = _env_limit(MAX_ORPHANED_CALLS_ENV, DEFAULT_MAX_ORPHANED_CALLS)
     max_request = _env_limit(MAX_REQUEST_BYTES_ENV, DEFAULT_MAX_REQUEST_BYTES)
+    max_wait = _env_limit(MAX_QUEUE_SECONDS_ENV, DEFAULT_MAX_QUEUE_SECONDS)
 
     def _emit(line: str) -> None:
         try:
@@ -2275,10 +2410,31 @@ def serve_stdio(
             )
         return None
 
-    def _run_call(line: str, key: str, cancel: threading.Event) -> None:
+    def _run_call(
+        line: str, key: str, cancel: threading.Event, request_id: Any, queued_at: float
+    ) -> None:
         try:
             if cancel.is_set():
                 return  # cancelled while queued
+            waited = time.monotonic() - queued_at
+            if max_wait is not None and waited > max_wait:
+                _emit(
+                    _jsonrpc_result(
+                        request_id,
+                        _tool_error_result(
+                            "server_busy",
+                            f"This call waited {waited:.0f}s in the queue, past "
+                            f"the {max_wait}s limit; it was not started.",
+                            hint=(
+                                "Retry now that earlier calls have finished. "
+                                f"{MAX_QUEUE_SECONDS_ENV} sets the limit."
+                            ),
+                            queued_seconds=round(waited, 1),
+                            retryable=True,
+                        ),
+                    )
+                )
+                return
             _runner.set_cancel_event(cancel)
             try:
                 response = handle_request(line)
@@ -2338,7 +2494,9 @@ def serve_stdio(
                     elif busy is not None:
                         _emit(_jsonrpc_result(msg["id"], busy))
                     else:
-                        executor.submit(_run_call, line, key, cancel)
+                        executor.submit(
+                            _run_call, line, key, cancel, msg["id"], time.monotonic()
+                        )
                     continue
             response = handle_request(line)
             if response is None:
@@ -2386,7 +2544,8 @@ def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
             "STATSPAI_MCP_MAX_DATA_BYTES, STATSPAI_MCP_MAX_OUTPUT_BYTES, "
             "STATSPAI_MCP_TOOL_TIMEOUT_SECONDS, STATSPAI_MCP_WORKERS, "
             "STATSPAI_MCP_MAX_QUEUED_CALLS, STATSPAI_MCP_MAX_ORPHANED_CALLS, "
-            "STATSPAI_MCP_MAX_REQUEST_BYTES, "
+            "STATSPAI_MCP_MAX_QUEUE_SECONDS, STATSPAI_MCP_MAX_REQUEST_BYTES, "
+            "STATSPAI_MCP_ISOLATION=process (killable workers), "
             "STATSPAI_MCP_DATA_CACHE_SIZE / _BYTES, STATSPAI_MCP_DEBUG."
         ),
     )

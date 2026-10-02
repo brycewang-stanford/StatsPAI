@@ -213,6 +213,8 @@ jobs:
           tests/test_mcp_hardening_stdio.py \
           tests/test_mcp_output_budget_risk.py \
           tests/test_mcp_replay_completeness.py \
+          tests/test_mcp_isolation.py \
+          tests/test_mcp_client_matrix.py \
           tests/test_mcp_data_handles.py \
           tests/test_mcp_result_handle.py \
           tests/test_mcp_error_envelope.py \

@@ -79,8 +79,12 @@ every profile, and `statspai://functions` always indexes all of them.
   `status: "unavoidable_overflow"` means the never-cut fields exceed the
   budget and the response is larger than asked for.
 - **`server_busy`.** An `isError` result with this `error_kind` means the call
-  was not started (queue full, or timed-out computations still running).
-  Wait and retry; do not treat it as an estimation failure.
+  was not started (queue full, waited too long in the queue, or timed-out
+  computations still running). Wait and retry; do not treat it as an
+  estimation failure.
+- **`isolation: {"mode": "process"}`.** The operator runs self-contained
+  calls in a killable child process. Results are the same; a handle is only
+  kept when you pass `as_handle=true`, which keeps the call in the server.
 - **NaN / Inf** are sent as `null`; their JSON Pointers are listed under
   `_nonfinite` (`[{path, value: "NaN" | "Infinity" | "-Infinity"}]`), so an
   infinite SE is not mistaken for a missing one.

@@ -82,6 +82,7 @@ PROTECTED_KEYS = frozenset(
         "data_uri",
         "replay",
         "replay_completeness",
+        "isolation",
         "tool",
         "truncated",
         "risk_summary",

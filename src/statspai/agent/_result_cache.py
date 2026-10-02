@@ -213,7 +213,16 @@ class ResultCache:
         arguments: Optional[Dict[str, Any]] = None,
         replay: str = "",
     ) -> str:
-        """Cache ``obj`` and return its newly-minted handle."""
+        """Cache ``obj`` and return its newly-minted handle.
+
+        Raises :class:`~statspai.agent._runner.ToolCancelled` when called
+        from a tool thread whose call has already timed out or been
+        cancelled: that call's response is gone, so a handle committed now
+        would be one no client was ever told about, evicting live ones.
+        """
+        from ._runner import check_cancelled
+
+        check_cancelled()
         rid = self._prefix + secrets.token_hex(4)
         nbytes = self._entry_bytes(obj) if self._max_bytes else 0
         with self._lock:
