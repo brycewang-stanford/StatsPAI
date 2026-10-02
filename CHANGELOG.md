@@ -6,6 +6,42 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.kernel_iv` returned a function that was not the structural
+  function.** On `y = sin(d) + u` with `d` correlated with `u`, the
+  estimate sat 0.25 (RMSE over the grid) from `sin(d)`, about where the
+  plain regression of `y` on `d` sits, and the band excluded the truth.
+  The estimator is now a control-function kernel IV: a local-linear first
+  stage, a bivariate local-linear surface in `(d, v)`, and increments of
+  that surface averaged over the residuals with support at both grid
+  points. RMSE on the same designs is 0.05 to 0.06 at `n = 3000` and the
+  uniform band (multiplier bootstrap) covered in every replication. The
+  signature and the result fields are unchanged. The band conditions on
+  the first stage and says so in the docstring.
+- **`sp.bcf_longitudinal` overstated the effect by about a quarter.** With
+  treatment assigned by a coin flip each period and a constant effect of
+  6.0 it returned 7.44, 7.77 and 7.61 on three seeds; a difference in
+  means gives 6.0. Two things combined. The propensity score was fitted
+  and predicted on the same rows, so it was higher for treated rows than
+  for controls. And the residual that feeds the unit effects subtracted
+  `tau * D` from a mean that already contained `e * tau`, which left
+  `-e * tau` in it. The unit effects then carried each unit's treatment
+  share and the second pass moved the arms apart. The propensity score is
+  now out-of-fold and the residual is `Y - mu - tau * (D - e)`. Same three
+  seeds: 5.995, 5.996, 5.993.
+- **`sp.bcf_longitudinal` averaged a zero for periods with no treatment
+  variation.** A period where everyone (or no one) is treated has no
+  identified effect. It was reported as 0.0 and entered the average, and
+  its raw outcome level went into the unit effects. Such periods now
+  report NaN, are left out of the average, and raise an
+  `AssumptionWarning`; a panel with no identified period raises
+  `ValueError`. The per-period seed no longer depends on `hash(time)`,
+  which varied between interpreter runs for string time labels.
+- **`sp.bcf_ordinal` reported standard errors about thirty times too
+  small.** `ate_se` was the root of the mean CATE variance divided by
+  `n`, about 0.001, against an across-seed standard deviation of 0.03 to
+  0.05, so `ate_ci` almost never covered. It is now the root of the summed
+  variances of the adjacent-level effects up to each level: 0.024, 0.034
+  and 0.042 on the same design. The point estimates are unchanged.
 - **`sp.event_study` averaged a non-existent event time into the ATT.**
   `window=(-4, 4)` on data whose exposure reaches +3 left an all-zero
   dummy in the regression. It came back as coefficient 0 with SE 0, was

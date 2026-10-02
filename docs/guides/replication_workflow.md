@@ -461,7 +461,7 @@ As of v1.7.2, **142 estimators** are instrumented (>15× original 9-baseline):
 | `sp.survival.aft` (Accelerated Failure Time)             | **P13**  |
 | `sp.survival.cox_frailty` (Cox + gamma frailty)          | **P13**  |
 | `sp.survival.causal_survival_forest`                     | **P13**  |
-| `sp.iv.kernel_iv` (Singh-Sahani-Gretton kernel IV)       | **P13**  |
+| `sp.iv.kernel_iv` (control-function kernel IV)           | **P13**  |
 | `sp.iv.npiv` (sieve nonparametric IV)                    | **P13**  |
 | `sp.iv.many_weak_jive` (Phillips-Hale 2018 JIVE)         | **P13**  |
 | `sp.iv.many_weak_ar` (Mikusheva-Sun 2024 AR-CS)          | **P13**  |

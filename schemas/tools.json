@@ -1586,7 +1586,7 @@
     "name": "bcf_factor_exposure"
   },
   {
-    "description": "Hierarchical Bayesian Causal Forest for longitudinal data (BCFLong) -- allows mu_t(X), tau_t(X) to evolve across time with unit-level random intercepts. Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
+    "description": "Hierarchical Bayesian Causal Forest for longitudinal data (BCFLong) -- allows mu_t(X), tau_t(X) to evolve across time with unit-level random intercepts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -1657,7 +1657,7 @@
     "name": "bcf_longitudinal"
   },
   {
-    "description": "Bayesian Causal Forest for ordered / dose-level treatment (Zorzetto et al. 2026). Estimates cumulative dose-response curves via chained BCF between consecutive levels. Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
+    "description": "Bayesian Causal Forest for ordered / dose-level treatment (Zorzetto et al. 2026). Estimates cumulative dose-response curves via chained BCF between consecutive levels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -3317,7 +3317,7 @@
     "name": "causal_discovery"
   },
   {
-    "description": "Causal deep Q-network (Li, Zhang, Bareinboim 2025, arXiv:2510.21110) for offline policy learning under unobserved confounding. Learns a confounding-robust Q-function via bootstrap data augmentation. Assumptions: Sequential ignorability: no unobserved confounders of actions and outcomes; Positivity: the behaviour policy explores all evaluated actions; The environment satisfies the assumed (Markov) dynamics. Pre-conditions: Logged trajectories (states, actions, rewards) from a known or estimable behaviour policy. Failure modes: Poor behaviour-policy coverage -- the target policy queries unseen state-action regions -> Use offline-safe / pessimistic methods and report effective sample size of the importance weights. Alternatives: sp.offline_safe_policy, sp.policy_value. Typical minimum N: 1000.",
+    "description": "Causal deep Q-network (Li, Zhang, Bareinboim 2025, arXiv:2510.21110) for offline policy learning under unobserved confounding. Learns a confounding-robust Q-function via bootstrap data augmentation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential ignorability: no unobserved confounders of actions and outcomes; Positivity: the behaviour policy explores all evaluated actions; The environment satisfies the assumed (Markov) dynamics. Pre-conditions: Logged trajectories (states, actions, rewards) from a known or estimable behaviour policy. Failure modes: Poor behaviour-policy coverage -- the target policy queries unseen state-action regions -> Use offline-safe / pessimistic methods and report effective sample size of the importance weights. Alternatives: sp.offline_safe_policy, sp.policy_value. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
         "action": {
@@ -4655,7 +4655,7 @@
     "name": "compare_event_study_conventions"
   },
   {
-    "description": "Fit multiple meta-learners and compare their ATE estimates. Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
+    "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -14555,7 +14555,7 @@
     "name": "iv"
   },
   {
-    "description": "Nevo-Rosen (2012) bounds for LATE under imperfect instruments. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Nevo-Rosen (2012) bounds for LATE under imperfect instruments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -15308,7 +15308,7 @@
     "name": "kaplan_meier"
   },
   {
-    "description": "Kernel IV regression with uniform confidence bands (Lob et al. 2025). Estimates the structural function h*(d) = E[Y | do(D=d)] via kernel-weighted local averaging under a continuous instrument Z, with wild-bootstrap uniform SEs. Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates); formula includes the (endog ~ instruments) parenthesised block. Failure modes: Weak first stage -- biased point estimates and unreliable conventional SEs -> Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin); First-stage F < 10 (Stock-Yogo 5% bias) -> Use weak-IV-robust inference (Anderson-Rubin) or LIML; Over-identification test rejects (sp.estat 'overid') -> At least one instrument is invalid; drop instruments or switch to just-identified LIML. Alternatives: sp.iv, sp.anderson_rubin_ci, sp.dml, sp.deepiv. Typical minimum...",
+    "description": "Kernel IV regression with uniform confidence bands (Lob et al. 2025). Estimates the structural function h*(d) = E[Y | do(D=d)] via kernel-weighted local averaging under a continuous instrument Z, with wild-bootstrap uniform SEs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates); formula includes the (endog ~ instruments) parenthesised block. Failure modes: Weak first stage -- biased point estimates and unreliable conventional SEs -> Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin); First-stage F < 10 (Stock-Yogo 5% bias) -> Use weak-IV-robust inference (Anderson-Rubin) or LIML; Over-identification test rejects (sp.estat 'overid') -> At least one instrument is invalid; drop instruments or switch...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -15331,7 +15331,7 @@
         },
         "n_boot": {
           "default": 100,
-          "description": "Bootstrap reps for the uniform CI.",
+          "description": "Multiplier-bootstrap replications for the uniform band.",
           "type": "integer"
         },
         "ridge": {
@@ -19302,7 +19302,7 @@
     "name": "oaxaca"
   },
   {
-    "description": "Safe offline policy learning with a cost-constraint. Assumptions: Sequential ignorability: no unobserved confounders of actions and outcomes; Positivity: the behaviour policy explores all evaluated actions; The environment satisfies the assumed (Markov) dynamics. Pre-conditions: Logged trajectories (states, actions, rewards) from a known or estimable behaviour policy. Failure modes: Poor behaviour-policy coverage -- the target policy queries unseen state-action regions -> Use offline-safe / pessimistic methods and report effective sample size of the importance weights. Alternatives: sp.policy_value. Typical minimum N: 1000.",
+    "description": "Safe offline policy learning with a cost-constraint. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential ignorability: no unobserved confounders of actions and outcomes; Positivity: the behaviour policy explores all evaluated actions; The environment satisfies the assumed (Markov) dynamics. Pre-conditions: Logged trajectories (states, actions, rewards) from a known or estimable behaviour policy. Failure modes: Poor behaviour-policy coverage -- the target policy queries unseen state-action regions -> Use offline-safe / pessimistic methods and report effective sample size of the importance weights. Alternatives: sp.policy_value. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
         "action": {
@@ -23565,7 +23565,7 @@
     "name": "rd2d_plot"
   },
   {
-    "description": "Bayesian RDD allowing CATE to depend on covariates. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
+    "description": "Bayesian RDD allowing CATE to depend on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {

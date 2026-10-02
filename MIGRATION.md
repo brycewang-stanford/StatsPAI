@@ -30,6 +30,10 @@ estimate of the documented quantity.
 | `sp.power_rd` | `power` | 0.93 (simulated 0.74) | 0.72 |
 | `sp.power_did` | `power` | 0.48 (simulated 0.38) | 0.38; new `prop_treat` |
 | `sp.identify` | `estimand` string (verdict unchanged) | front-door: `sum_{M} [P(Y) * P(M \| X)]` | the front-door formula |
+| `sp.kernel_iv` | `h_hat`, `ci_low`, `ci_high` | RMSE 0.25 from `sin(d)` under confounding, band excluded the truth | RMSE 0.05 to 0.06; band covers |
+| `sp.bcf_longitudinal` | `average_ate`, `per_time_ate`, `individual_cate` | 7.44 to 7.77 (truth 6.0, randomised treatment) | 5.99 to 6.00 |
+| `sp.bcf_longitudinal` with a period where treatment does not vary | `average_ate`; that row of `per_time_ate` | the period counted as an effect of 0 | NaN for that period, left out of the average, with a warning |
+| `sp.bcf_ordinal` | `ate_se`, `ate_ci` | SE 0.001 (across-seed SD 0.03 to 0.05) | 0.024 to 0.042 |
 | `sp.rdbwselect`, `sp.rdrobust` with a `cer*` bandwidth and `cluster=` | `h`, and through it the estimate and SEs | `h_cerrd` 0.2054 (rdrobust: 0.2305) | 0.2305 |
 
 **What to do.** Re-run. Code that read `res.qte` from `sp.rd_distribution`

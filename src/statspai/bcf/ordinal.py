@@ -33,9 +33,9 @@ from typing import Any, Dict, List, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .bcf import bcf as _bcf_binary
-from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["bcf_ordinal", "BCFOrdinalResult"]
 
@@ -104,7 +104,9 @@ class BCFOrdinalResult(ResultProtocolMixin):
     ate : pd.Series
         Aggregate ATE(k) = E_i[tau_k(X_i)].
     ate_se : pd.Series
-        Standard error of ``ate[k]`` via pooled bootstrap.
+        Standard error of ``ate[k]``: the root of the summed variances of
+        the adjacent-level ATEs up to ``k`` (conservative, since adjacent
+        steps share an arm).
     ate_ci : pd.DataFrame
         Lower/upper 95% CI per dose level.
     levels : list
@@ -292,6 +294,7 @@ def bcf_ordinal(
     ate_upper: Dict[Any, float] = {}
     cum_cate: np.ndarray = np.zeros(len(data), dtype=float)
     cum_var: np.ndarray = np.zeros(len(data), dtype=float)
+    cum_ate_var = 0.0
     prev = baseline
     step_results = []
     for k in ordered_non_base:
@@ -352,7 +355,20 @@ def bcf_ordinal(
         cate_cols[k] = cum_cate.copy()
         cate_se_cols[k] = np.sqrt(np.maximum(cum_var, 0.0))
         ate_values[k] = float(cum_cate.mean())
-        ate_ses[k] = float(np.sqrt(cum_var.mean() / max(len(data), 1)))
+        # SE of the cumulative ATE: the adjacent-level ATEs add up, and so
+        # do their variances, up to the covariance between two steps that
+        # share an arm. That covariance is negative (the shared level's
+        # mean enters one step with a plus and the next with a minus), so
+        # the sum of the step variances is conservative.
+        #
+        # correctness fix (2026-10): this was sqrt(mean(cate_var) / n),
+        # which averages the per-unit CATE variances as if the units'
+        # estimation errors were independent. They come from one fitted
+        # model and move together; the reported SE was 0.001 where the
+        # sampling standard deviation is 0.03 to 0.05.
+        step_se = float(step.se)
+        cum_ate_var = cum_ate_var + (step_se**2 if np.isfinite(step_se) else np.nan)
+        ate_ses[k] = float(np.sqrt(cum_ate_var))
         from scipy.stats import norm as _norm
 
         z = _norm.ppf(1 - alpha / 2)

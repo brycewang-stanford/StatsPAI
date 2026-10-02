@@ -19479,17 +19479,21 @@
     ],
     "category": "conformal_causal",
     "cost_profile": "",
-    "description": "Cluster-exchangeable split-conformal prediction under network interference (2509.21660 systematic review).",
+    "description": "Cluster-exchangeable split-conformal prediction under network interference (2509.21660 systematic review). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.conformal_interference(\n df, y='y', treatment='treat', cluster='cluster',\n covariates=['x'], test_clusters=[0, 1], alpha=0.1, random_state=0,\n)",
@@ -19530,7 +19534,7 @@
       }
     },
     "signature": {
-      "description": "Cluster-exchangeable split-conformal prediction under network interference (2509.21660 systematic review).",
+      "description": "Cluster-exchangeable split-conformal prediction under network interference (2509.21660 systematic review). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "conformal_interference",
       "parameters": {
         "properties": {
@@ -19593,9 +19597,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py",
       "API/unit contract evidence: tests/test_conformal_extended.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -22030,17 +22035,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Hierarchical Bayesian Causal Forest for longitudinal data (BCFLong) -- allows mu_t(X), tau_t(X) to evolve across time with unit-level random intercepts.",
+    "description": "Hierarchical Bayesian Causal Forest for longitudinal data (BCFLong) -- allows mu_t(X), tau_t(X) to evolve across time with unit-level random intercepts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bcf_longitudinal(df, outcome='y', treatment='d', unit='id', time='t', covariates=['x1','x2'])",
@@ -22083,7 +22092,7 @@
       }
     },
     "signature": {
-      "description": "Hierarchical Bayesian Causal Forest for longitudinal data (BCFLong) -- allows mu_t(X), tau_t(X) to evolve across time with unit-level random intercepts.",
+      "description": "Hierarchical Bayesian Causal Forest for longitudinal data (BCFLong) -- allows mu_t(X), tau_t(X) to evolve across time with unit-level random intercepts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bcf_longitudinal",
       "parameters": {
         "properties": {
@@ -22162,9 +22171,10 @@
     "stability": "stable",
     "typical_n_min": 250,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py",
       "API/unit contract evidence: tests/test_bcf_longitudinal.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -24153,17 +24163,21 @@
     ],
     "category": "causal",
     "cost_profile": "augmented_diagnostics=True adds bootstrap SEs and AR / CLR grid inversions; cost is n_boot + grid_size extra fits.",
-    "description": "Kernel IV regression with uniform confidence bands (Lob et al. 2025). Estimates the structural function h*(d) = E[Y | do(D=d)] via kernel-weighted local averaging under a continuous instrument Z, with wild-bootstrap uniform SEs.",
+    "description": "Kernel IV regression with uniform confidence bands (Lob et al. 2025). Estimates the structural function h*(d) = E[Y | do(D=d)] via kernel-weighted local averaging under a continuous instrument Z, with wild-bootstrap uniform SEs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.kernel_iv(df, y=\"wage\", treat=\"schooling\", instrument=\"compulsory\")",
@@ -24238,7 +24252,7 @@
       }
     },
     "signature": {
-      "description": "Kernel IV regression with uniform confidence bands (Lob et al. 2025). Estimates the structural function h*(d) = E[Y | do(D=d)] via kernel-weighted local averaging under a continuous instrument Z, with wild-bootstrap uniform SEs.",
+      "description": "Kernel IV regression with uniform confidence bands (Lob et al. 2025). Estimates the structural function h*(d) = E[Y | do(D=d)] via kernel-weighted local averaging under a continuous instrument Z, with wild-bootstrap uniform SEs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "kernel_iv",
       "parameters": {
         "properties": {
@@ -24267,7 +24281,7 @@
           },
           "n_boot": {
             "default": 100,
-            "description": "Bootstrap reps for the uniform CI.",
+            "description": "Multiplier-bootstrap replications for the uniform band.",
             "type": "integer"
           },
           "ridge": {
@@ -24303,10 +24317,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py",
       "API/unit contract evidence: tests/test_kernel_iv.py",
       "API/unit contract evidence: tests/test_iv_frontiers.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -25521,17 +25536,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Causal deep Q-network (Li, Zhang, Bareinboim 2025, arXiv:2510.21110) for offline policy learning under unobserved confounding. Learns a confounding-robust Q-function via bootstrap data augmentation.",
+    "description": "Causal deep Q-network (Li, Zhang, Bareinboim 2025, arXiv:2510.21110) for offline policy learning under unobserved confounding. Learns a confounding-robust Q-function via bootstrap data augmentation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.causal_dqn(df, state=\"s\", action=\"a\", reward=\"r\", next_state=\"s_next\")",
@@ -25573,7 +25592,7 @@
       }
     },
     "signature": {
-      "description": "Causal deep Q-network (Li, Zhang, Bareinboim 2025, arXiv:2510.21110) for offline policy learning under unobserved confounding. Learns a confounding-robust Q-function via bootstrap data augmentation.",
+      "description": "Causal deep Q-network (Li, Zhang, Bareinboim 2025, arXiv:2510.21110) for offline policy learning under unobserved confounding. Learns a confounding-robust Q-function via bootstrap data augmentation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "causal_dqn",
       "parameters": {
         "properties": {
@@ -25622,9 +25641,10 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py",
       "API/unit contract evidence: tests/test_causal_rl.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -26722,17 +26742,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Bayesian Causal Forest for ordered / dose-level treatment (Zorzetto et al. 2026). Estimates cumulative dose-response curves via chained BCF between consecutive levels.",
+    "description": "Bayesian Causal Forest for ordered / dose-level treatment (Zorzetto et al. 2026). Estimates cumulative dose-response curves via chained BCF between consecutive levels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.bcf_ordinal(df, y=\"Y\", treat=\"dose\", covariates=[\"x1\",\"x2\"])",
@@ -26777,7 +26801,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian Causal Forest for ordered / dose-level treatment (Zorzetto et al. 2026). Estimates cumulative dose-response curves via chained BCF between consecutive levels.",
+      "description": "Bayesian Causal Forest for ordered / dose-level treatment (Zorzetto et al. 2026). Estimates cumulative dose-response curves via chained BCF between consecutive levels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bcf_ordinal",
       "parameters": {
         "properties": {
@@ -26851,9 +26875,10 @@
     "stability": "stable",
     "typical_n_min": 250,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py",
       "API/unit contract evidence: tests/test_bcf_ordinal.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -66913,17 +66938,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Fit multiple meta-learners and compare their ATE estimates.",
+    "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "comp = sp.compare_metalearners(df, y='wage', treat='training',\n covariates=['age', 'edu'])",
@@ -66959,7 +66988,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Fit multiple meta-learners and compare their ATE estimates.",
+      "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "compare_metalearners",
       "parameters": {
         "properties": {
@@ -67005,8 +67034,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -72046,17 +72077,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Nevo-Rosen (2012) bounds for LATE under imperfect instruments.",
+    "description": "Nevo-Rosen (2012) bounds for LATE under imperfect instruments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "result = sp.iv_bounds(\n data=df, y=\"employed\", treatment=\"trained\",\n instrument=\"lottery\", assumption=\"monotone_iv\",\n)",
@@ -72103,7 +72138,7 @@
       }
     },
     "signature": {
-      "description": "Nevo-Rosen (2012) bounds for LATE under imperfect instruments.",
+      "description": "Nevo-Rosen (2012) bounds for LATE under imperfect instruments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "iv_bounds",
       "parameters": {
         "properties": {
@@ -72179,8 +72214,10 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -110475,17 +110512,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Bayesian RDD allowing CATE to depend on covariates.",
+    "description": "Bayesian RDD allowing CATE to depend on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.rd_bayes_hte(df, y='y', running='run', covariates=['x'],\n cutoff=0.0, n_draws=500, seed=0)",
@@ -110535,7 +110576,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian RDD allowing CATE to depend on covariates.",
+      "description": "Bayesian RDD allowing CATE to depend on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_bayes_hte",
       "parameters": {
         "properties": {
@@ -110603,8 +110644,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -111339,17 +111382,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Safe offline policy learning with a cost-constraint.",
+    "description": "Safe offline policy learning with a cost-constraint. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.offline_safe_policy(df, state=\"state\", action=\"action\",\n reward=\"reward\", cost=\"cost\",\n cost_threshold=0.5)",
@@ -111390,7 +111437,7 @@
       }
     },
     "signature": {
-      "description": "Safe offline policy learning with a cost-constraint.",
+      "description": "Safe offline policy learning with a cost-constraint. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "offline_safe_policy",
       "parameters": {
         "properties": {
@@ -111448,8 +111495,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
