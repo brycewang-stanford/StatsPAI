@@ -31,6 +31,8 @@ from typing import Any, Callable, Dict, List, Optional, Type
 
 FUNCTION_URI_PREFIX = "statspai://function/"
 RESULT_URI_PREFIX = "statspai://result/"
+#: ``statspai://result/<id>/bundle``: the reproduction bundle of a result.
+BUNDLE_SUFFIX = "/bundle"
 DATA_URI_PREFIX = "statspai://data/"
 GUIDE_URI_PREFIX = "statspai://guide/"
 PARITY_TRACK_A_URI = "statspai://parity/track-a-summary"
@@ -540,6 +542,46 @@ def handle_resources_read(
             ],
         }
 
+    if uri.startswith(RESULT_URI_PREFIX) and uri.endswith(BUNDLE_SUFFIX):
+        rid = uri[len(RESULT_URI_PREFIX) : -len(BUNDLE_SUFFIX)]
+        if not rid or "/" in rid:
+            raise InvalidParamsError(
+                f"Result handle in URI {uri!r} is empty or malformed; "
+                f"expected {RESULT_URI_PREFIX}<id>{BUNDLE_SUFFIX}."
+            )
+        from ._replay import build_bundle
+        from ._result_cache import RESULT_CACHE
+        from .tools import _default_serializer
+
+        entry = RESULT_CACHE.get_entry(rid)
+        if entry is None:
+            raise ResourceNotFoundError(
+                f"Result {rid!r} not in server cache; a bundle can only be "
+                "exported while the handle is live. Re-fit with "
+                "as_handle=true and read the bundle before the session ends."
+            )
+        try:
+            summary = _default_serializer(entry.obj, detail="standard")
+        except Exception:  # pragma: no cover - odd objects have no headline
+            summary = {}
+        bundle = build_bundle(
+            result_id=rid,
+            replay=entry.replay or "",
+            data_provenance=entry.arguments.get("_mcp_data_provenance"),
+            payload=summary if isinstance(summary, dict) else {},
+        )
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "application/json",
+                    "text": json.dumps(
+                        _clean(bundle), default=json_default, allow_nan=False
+                    ),
+                },
+            ],
+        }
+
     if uri.startswith(RESULT_URI_PREFIX):
         rid = uri[len(RESULT_URI_PREFIX) :]
         if not rid or "/" in rid:
@@ -707,6 +749,23 @@ def handle_resources_templates_list(params: Dict[str, Any]) -> Dict[str, Any]:
                     "that produced it. Cache is LRU; missing handles "
                     "raise -32002 (resource not found) — re-fit with "
                     "as_handle=true to refresh."
+                ),
+            },
+            {
+                "uriTemplate": RESULT_URI_PREFIX + "{id}" + BUNDLE_SUFFIX,
+                "name": "StatsPAI reproduction bundle",
+                "mimeType": "application/json",
+                "description": (
+                    "Everything a new Python process needs to re-run a "
+                    "cached result: the data file and its SHA-256, the "
+                    "transform_data steps in order, the sp.<fn>(...) call, "
+                    "the headline numbers to compare against, and (when "
+                    "completeness is 'standalone') a script that does all "
+                    "of it and checks the numbers. When the data was sent "
+                    "inline or an argument has no literal form, "
+                    "completeness is 'call_only', needs says why, and no "
+                    "script is offered. Read it before the session ends: "
+                    "handles do not survive a restart."
                 ),
             },
         ],

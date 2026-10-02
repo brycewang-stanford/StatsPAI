@@ -1992,6 +1992,11 @@ def _run_tools_call(
         result["replay_completeness"] = replay_completeness(
             result["replay"], result.get("data_provenance"), result_id=result_id
         )
+        if isinstance(rid, str):
+            # The handle can be exported as a script a new process can run.
+            result["replay_completeness"][
+                "bundle_uri"
+            ] = f"statspai://result/{rid}/bundle"
 
     # Image content: estimators can attach a PNG plot under ``_plot_png``
     # for the MCP layer to surface as an image content block. Claude

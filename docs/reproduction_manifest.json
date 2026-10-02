@@ -1,0 +1,3037 @@
+{
+  "schema": 1,
+  "generated_by": "scripts/build_reproduction_manifest.py",
+  "reproducibility_tolerance": 1e-09,
+  "ci_workflow": ".github/workflows/r-parity.yml",
+  "sides": {
+    "R": {
+      "report": "tests/r_parity/results/REPRODUCIBILITY_REPORT.md",
+      "report_sha256": "8afc46a5182d14ee41bacadb1767f7a3db4a28ae3512484ee649948ba54d4d7e",
+      "rederive_with": "python tests/r_parity/verify_reproduce.py",
+      "last_reproduced": {
+        "commit": "4cddc069",
+        "date": "2026-09-26T13:52:35+08:00"
+      },
+      "n_modules": 89,
+      "n_reproduce": 89,
+      "modules": {
+        "01_ols": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "38cfad2a8f52714d0ed25db28c6c2e4537433d58d7cc25c909a94cbc4fd04539",
+          "input_sha256": "71279ecbc31cd90cbc1ba31a27accf4a886114363042e5c67851cbd7dc25846a",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 6
+          },
+          "rederived_in_ci": true
+        },
+        "02_iv": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "93bf46f1782b0ff49652ac5852d4a7985c7f44d914bc57af51325ff1c84885dd",
+          "input_sha256": "71279ecbc31cd90cbc1ba31a27accf4a886114363042e5c67851cbd7dc25846a",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 15
+          },
+          "rederived_in_ci": true
+        },
+        "03_hdfe": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "0057c7c88ce7728e3e17ff05ce42dbd3edf11bd9d01f080a07ad5c0060a0bde0",
+          "input_sha256": "9f7774cff40bdc9bf240fe2e85770188461dc26639663195c60b7fdd634970c2",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 14
+          },
+          "rederived_in_ci": true
+        },
+        "04_csdid": {
+          "status": "reproduces",
+          "statistics_shared": "19/19",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "bdcb2d74e3457e7977debaef353ce5a18a09d41a48377c4eb49d9fcc4a898b40",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 40
+          },
+          "rederived_in_ci": false
+        },
+        "05_sunab": {
+          "status": "reproduces",
+          "statistics_shared": "15/15",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "0bc7f31147fbf5cdeae51b530e3ad1963affb8a95c3825c78a8a56d4f776b0cc",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 28
+          },
+          "rederived_in_ci": true
+        },
+        "06_rd": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "30509744f6b232e617d525ad82cfe9824bf26e5ca123fbf10856483830a06ed9",
+          "input_sha256": "e240d710ae25ea3ca0cd5566e612df5eff9ee744f1eb98a4f8f4df3947736991",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 24
+          },
+          "rederived_in_ci": false
+        },
+        "07_scm": {
+          "status": "reproduces",
+          "statistics_shared": "18/18",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2d3aec4f035beb8feb7881ad48e668e1fa55b7be77758d258793d0c6b1e7f95d",
+          "input_sha256": "099f33c84b7379923af72bab0b58f82c3cab1eadf874df39f7816658e468c64e",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 9
+          },
+          "rederived_in_ci": false
+        },
+        "08_dml": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 9.71e-17,
+          "worst_rel_se": 8.67e-19,
+          "golden_sha256": "9f6ba4c53f2bee88214dab7f4b6810431bc51b04ebc1316f84e970737265b5ed",
+          "input_sha256": "2c2a9fc4e527ee985797a127ba3a6a9193c196a54539329fb27787173e4fbf2e",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 33
+          },
+          "rederived_in_ci": false
+        },
+        "09_rddensity": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2db04d709c6322d239becf2921a94c60e6730b82d64d8e87100894826b42b72a",
+          "input_sha256": "e240d710ae25ea3ca0cd5566e612df5eff9ee744f1eb98a4f8f4df3947736991",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 25
+          },
+          "rederived_in_ci": false
+        },
+        "10_honest_did": {
+          "status": "reproduces",
+          "statistics_shared": "22/22",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "1b9f0696a4274a099d5ff97d892f9e02ca3269fd375e37e616ebd54b31bf2075",
+          "input_sha256": null,
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.6.2",
+            "n_packages": 38
+          },
+          "rederived_in_ci": false
+        },
+        "11_psm": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "f0121622d3c1d01c6318ca41f82600d54a15d92a65e7ca5a5b91d6361f8b6192",
+          "input_sha256": "d57a8db2d1c8066ee3a723916b6fe398320c8abd714b0f7efc8682dc47f341ad",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 10
+          },
+          "rederived_in_ci": true
+        },
+        "12_sdid": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "21fe9c1658944770359349cf606f68e8cc6668f9ce99387f8e1f81c92d2f69bd",
+          "input_sha256": "43d2e8961f9fc2abf92176dbcbf4aa63eae7cd470d1a14e5b4735e4ccb4bc9aa",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 4
+          },
+          "rederived_in_ci": false
+        },
+        "13_causal_forest": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ff1eac1278ec2d142f0229fa1c349ee80229f4259d45250226afd29423ddb505",
+          "input_sha256": "138ca795f26f413ddb8208ec8e116467efc47677e9d652123ef48e3290c0b1ea",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 8
+          },
+          "rederived_in_ci": false
+        },
+        "14_ols_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "868ef18c05d4c1e2172c2b60edc0b0a68dae79f33156be8907293e7392f12c0a",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 6
+          },
+          "rederived_in_ci": true
+        },
+        "15_hdfe_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "3558b39fd4c234db7fbc9bc3d5fffbeb81e1d2e76cac31b38463eb10f2c75583",
+          "input_sha256": "9f7774cff40bdc9bf240fe2e85770188461dc26639663195c60b7fdd634970c2",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 14
+          },
+          "rederived_in_ci": true
+        },
+        "16_bjs": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "9c931113d61ff22678db91811064532c97fe64c7d9b8075c1c887f1b9e7d045e",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 30
+          },
+          "rederived_in_ci": false
+        },
+        "17_etwfe": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "941407e60ec2be15389e775064da9dbc362772926e70f6e88ea0c7365343135c",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.6.2",
+            "n_packages": 36
+          },
+          "rederived_in_ci": false
+        },
+        "18_augsynth": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "8d34a12fcdbb3bc01e26cc55cf03c317312b9c0b3b8b44d6a8fb02be2a604df0",
+          "input_sha256": "099f33c84b7379923af72bab0b58f82c3cab1eadf874df39f7816658e468c64e",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 32
+          },
+          "rederived_in_ci": false
+        },
+        "19_gsynth": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "f62517712a9e1be28a7aee6a0543b71f9483bc71e36ae70ef541e606e197a797",
+          "input_sha256": "f24a3b4fa24125ef2045118e91b3b37991e99635747a43890707c0c30be1f67e",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 60
+          },
+          "rederived_in_ci": false
+        },
+        "20_bacon": {
+          "status": "reproduces",
+          "statistics_shared": "12/12",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "bde7604a69f33300a7a176d387e69801ea4883420e809979476495d141c88d56",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 3
+          },
+          "rederived_in_ci": false
+        },
+        "21_honest_relmags": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "d040182549814081575e191979e1c9c10b1857c29491d29cf4d4b95c844666f8",
+          "input_sha256": null,
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 36
+          },
+          "rederived_in_ci": false
+        },
+        "22_sensemakr": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "31e2f6ba78733cafe3d9a9fa87d78b5b9ac0df8c5ce6eaab9b30434d3de08aa9",
+          "input_sha256": "d57a8db2d1c8066ee3a723916b6fe398320c8abd714b0f7efc8682dc47f341ad",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 3
+          },
+          "rederived_in_ci": false
+        },
+        "23_evalue": {
+          "status": "reproduces",
+          "statistics_shared": "26/26",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "fe8345aed5e61bac8796806cb1d612953bcc5bb43434fe8ff68fc45a94a0d0a3",
+          "input_sha256": null,
+          "reference": {
+            "r_version": "R version 4.2.3 (2023-03-15)",
+            "platform": "x86_64-apple-darwin17.0",
+            "running": "macOS Big Sur ... 10.16",
+            "n_packages": 38
+          },
+          "rederived_in_ci": false
+        },
+        "24_coxph": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "d79bdd79b87dd4f5482cd68d6d936469a5041303c8ddcd347a91b7fb55b20cca",
+          "input_sha256": "0eacb74b1ad9c3d9248152383655c2159db1ed5029039e74ab39123513ac68f8",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 7
+          },
+          "rederived_in_ci": true
+        },
+        "25_lmm": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "5cc6d9b524557fa5c0f427c02d6c736bc4fe969b43e03f6a512d783ec33d5b34",
+          "input_sha256": "109c28a2e5f496991191075294ec185f4a86f0ae3331da55f135ca9a70daac8e",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 19
+          },
+          "rederived_in_ci": false
+        },
+        "26_glmm_logit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "a6a6b6071d3ffb30989f03c08968f26d5ee88f686cacc4d8f663793915b13fcb",
+          "input_sha256": "7d00370e1c64d88ffb947f35b377a96228cbe9abed6fd8b3d1be351df985b5b9",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 19
+          },
+          "rederived_in_ci": false
+        },
+        "27_glmm_aghq": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "f452685e65432cef412dbee8ecc43afcc5c6e49177072f719f861530dfbec466",
+          "input_sha256": "7d00370e1c64d88ffb947f35b377a96228cbe9abed6fd8b3d1be351df985b5b9",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 19
+          },
+          "rederived_in_ci": false
+        },
+        "28_frontier": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ca2d5bd989b7ecbd577b94ef1e40787d5cd14206eadcd7c192a3ac9c8e3924eb",
+          "input_sha256": "a9668d0ba67bf4d99fe0e3625f37234c140c4724d9257950da09e77c1a1dd960",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 43
+          },
+          "rederived_in_ci": false
+        },
+        "29_panel_sfa": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "c5c6d2069a3cf0f31e2a9fd3c437fc49376fed9f5f7c25175a4babef8fd75398",
+          "input_sha256": "483c8747f803dca57a4b4ebd41d568d85ba1fa547132d1b1358a50e9d2878b44",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 29
+          },
+          "rederived_in_ci": false
+        },
+        "30_oaxaca": {
+          "status": "reproduces",
+          "statistics_shared": "13/13",
+          "worst_rel_estimate": 6.9e-16,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "cb10adcd7dda4b37a89ecf13466d8a72e8a684f1f2c61d21d23f385755f8edcb",
+          "input_sha256": "6c790d07f2258c568deb95f3217d04c4fb7d95d12490a59dad27937167746e37",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 30
+          },
+          "rederived_in_ci": true
+        },
+        "31_dfl": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "3c8b43989bc360f1003546e91ecac120a3c007e434f9e639550cb574084341b1",
+          "input_sha256": "0de05e65b57733235d61a5b29a9204d8f9d88a76b362f3b1bea28a2be9300738",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 60
+          },
+          "rederived_in_ci": false
+        },
+        "32_rif": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2ae127db7df234c3865d60cdcce49ad1d1cb51298dae13ea188c722bdbb9391a",
+          "input_sha256": "5a806dddc988ddadbd412d5d1d576cbe814034de49e56e3fb83a3f9f44d70c81",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 48
+          },
+          "rederived_in_ci": false
+        },
+        "33_var": {
+          "status": "reproduces",
+          "statistics_shared": "11/11",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "5f9eae0286ccb882e3b1b8a93af0af894fb936a65f961d0c6bc75af46741ad89",
+          "input_sha256": "fb1d50ee00845a99682492652da597fb3370c7643e8c4f6fb8f4f52d73fc7bd7",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 12
+          },
+          "rederived_in_ci": false
+        },
+        "34_lp": {
+          "status": "reproduces",
+          "statistics_shared": "12/12",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ccfd296c435e862e5fbf20f2a579608d7a29f18fb19daff3603006d01510803d",
+          "input_sha256": "df2eaa425558d41c937be4872e004f2825778098177d3123476be7c0e614a25e",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 47
+          },
+          "rederived_in_ci": false
+        },
+        "35_panel": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "1f9b74152ed09ad52c2811e9a50e0b68cc47167b47434af67fd337d1325dec88",
+          "input_sha256": "d3d23250a57d8757bbdc7627606204b8351ac193bf9b3d03a233201ec6f30166",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 26
+          },
+          "rederived_in_ci": false
+        },
+        "36_mediation": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "65cec5f05248de6bde564abced6474d2ac71428beec62b99380a0458330c8eb6",
+          "input_sha256": "9813ebe41006cb8a30bb7e0007a3c81d5e684d8e09a9b87283da3eea329ffb01",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 65
+          },
+          "rederived_in_ci": false
+        },
+        "37_ppmlhdfe": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "c8ff5c52e0fa1e46d7d10bb43234dc835997e618cc03fa379281502e9df39e34",
+          "input_sha256": "f54415cfa6bc712f3f0205ab19d9357a31362a42b28ee0f5f7fab2525b330894",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 28
+          },
+          "rederived_in_ci": false
+        },
+        "38_drdid": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "1f9705123f0cba4290ad2526ea8cd79b0eb955cc36351b707287a25d825a0e2d",
+          "input_sha256": "db864d4a826238f971eab70d486ae8bc3e808f476d2d8798ac02d38cee3a34e5",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 10
+          },
+          "rederived_in_ci": false
+        },
+        "39_arima": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "b502dbf0ecea568bd05c9bfd7fe24e455c44a9326c6940cdff8167f945512f11",
+          "input_sha256": "ecabbf7d1537e56355247a6837bc4e9e1966ab4f9405de24b4149b345221c70c",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 2
+          },
+          "rederived_in_ci": false
+        },
+        "40_qreg": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "63ce04704ce42ee610a27476bb08e6f30d87aaaeb84de4488c66ffb09457e7db",
+          "input_sha256": "12171be12db09a089130e013f37f82e0946af28697ac0ffc7efc7e2fa3b6cabb",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 11
+          },
+          "rederived_in_ci": false
+        },
+        "41_tobit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "05defe800fa927c2cef0c6e880f939e5b0905295f2777b9fa0d906c5fc510196",
+          "input_sha256": "a81cfd9be62ac3ee03c1b75b3b8e8fdd4811b647b37df61a0c9616c27964c439",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 24
+          },
+          "rederived_in_ci": false
+        },
+        "42_nbreg": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "b475c80a08f32e1790bbf3d1d0a2ec8bfb41f5c589799a7c5f610c504f879f68",
+          "input_sha256": "5314bb1244ee819a35bf354cb3c4fb9cac485e5e0e7f14a0b28978e44e2db79f",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 3
+          },
+          "rederived_in_ci": true
+        },
+        "43_heckman": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "1f7d57bbf69be025c10e3e1645ddc5f4a7a158cca4d767fa66e698dc254f2758",
+          "input_sha256": "f67e1b4b98e8622eab501d2e1cbaae574b42a28c0395c91d71df73c57ff56b95",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 23
+          },
+          "rederived_in_ci": false
+        },
+        "44_mlogit": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "6a62234fbd4781f5535513a81dbe7494255c8d1fa21ab7e1d37f0ae3984c06c1",
+          "input_sha256": "307718871f2b8ffa8d05473db4e3ba42ec5a81d954aa08b18de04c02446338ba",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 3
+          },
+          "rederived_in_ci": false
+        },
+        "45_ologit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "88a20837e595e8d2d57a2f92aa4fca14591da73fbe223d1d65b2bef21af34f9a",
+          "input_sha256": "557d4dee19a10c69caf2cecfd56ba5ff68759f5b74e943b1e30df5e0866eb64d",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 3
+          },
+          "rederived_in_ci": false
+        },
+        "46_clogit": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "24c0c3c3f17a67c67920b9a5add322e1e4119183d89488647437757259e726de",
+          "input_sha256": "782c58f15e684eed433eab97242d4200c82b1d11bf62d07a2cc382d038235997",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 7
+          },
+          "rederived_in_ci": false
+        },
+        "47_ppmlhdfe_3fe": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "f87503406a48987dad3b27bcfed665338527ec6e23e3f9fb360801aa8f169156",
+          "input_sha256": "9fdc93fca2c8e3f799332fd3f70f1bf153c32b489defe3d448bc83745b56591b",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 28
+          },
+          "rederived_in_ci": false
+        },
+        "48_probit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "144ec2d2114bc21d46e11f63c0493a33a159e1c2f78bd331bb98059721b1d609",
+          "input_sha256": "5d87ac56e632536807ce53d24672ad4244b8f90fb2033a9d295a9a5285c4c639",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 2
+          },
+          "rederived_in_ci": true
+        },
+        "49_oprobit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "132452dc69718686f901b02a42765bcda22471115811efc8b0e81fa82d562e63",
+          "input_sha256": "a0b531e58d4af80506770bd8b3246f25e150da09178c93c4925e7f671b55fbc6",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 3
+          },
+          "rederived_in_ci": true
+        },
+        "50_xtabond": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ea80f7d167eec9b014d8896814ce03e14d3f61cbdaa15dda6b227e09c4f1fe47",
+          "input_sha256": "7fd8d67b071050483cb56e0230e4a20eff860ef0626749b9984ab0394f3c0c8a",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 26
+          },
+          "rederived_in_ci": false
+        },
+        "51_newey": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "9a14bcc713d7853acddd5e2f8f29eb8a245c8da6f1d2d0612eea23f4d49fb387",
+          "input_sha256": "85c3c04cbda0277e5c8eb8d5ad0dd99b5abb7bc74408fff39759dbed83f13b48",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 7
+          },
+          "rederived_in_ci": true
+        },
+        "52_scm_unique": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "31d55cbaf1ffdc1a0d869f476b0c409e4ec82a1c0edd89936ffdace3ede3431e",
+          "input_sha256": "ee7f061b4e5341ddde8dfe1ae4a1b28de0b6df465bfc113132637169ef2a547f",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 9
+          },
+          "rederived_in_ci": false
+        },
+        "53_cr2": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2d54e87763e77f4d80d5dc3d1edc46f8934efc6252fbb09e999df95696d9c2e7",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 7
+          },
+          "rederived_in_ci": true
+        },
+        "54_twoway_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "f34991ea635c91ef14963a4238c4788363947e0579e6ad23028c2f099ce950c9",
+          "input_sha256": "a2653d5fe9a29db4aa8985a1814293dd0e2ced8b1e8c906632259c1a5bd32158",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 6
+          },
+          "rederived_in_ci": true
+        },
+        "55_hc2_hc3": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "0a9b7c5ccbf6f7140c55be8a0d4fcd29cc69dbd227b6951c82cd5d48189fefde",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 6
+          },
+          "rederived_in_ci": true
+        },
+        "56_multiway_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "92ef243ecc78de84fb95e8cc82687254b6bf00eedd2ad67c07aa40276771f4d4",
+          "input_sha256": "ee8604dfbedc4ddbd5848a87434963072241cd87bd366d9b343600cdb3e8fdb5",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 6
+          },
+          "rederived_in_ci": true
+        },
+        "57_logit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "31d48e8de1e23b43edbb7697c7cef176b813af1b61b3f4dc5a287394faa0e605",
+          "input_sha256": "bff1f7ad8d20ee26aee8f273d8af311687058ef265517ec221ebd24437b2c798",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 2
+          },
+          "rederived_in_ci": false
+        },
+        "58_poisson": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "0376e9f3dab8602d46b82fe8e72b95cabef0ac0b61fea8ad052e42606cfd86b1",
+          "input_sha256": "aa8deb0b90e7ce311bb1317a0f497547950f4757a1a2e4432c6ff89d72d1b338",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 2
+          },
+          "rederived_in_ci": false
+        },
+        "59_liml": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "a2d35923d1837241587b8005db0ec7b1d1f5eeeeef2975025b5dd84206e5c516",
+          "input_sha256": "f663b41995296efd051464a1fb1ba444e0b46a1367df6f77c48f162d97101459",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 32
+          },
+          "rederived_in_ci": false
+        },
+        "60_sureg": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "b72df24671f565475294426097da5ef4c9023f72ed55473f6285a4d009d7092d",
+          "input_sha256": "cb134968b50bea71b8181084b71371bfca456de55ebfab79039baa8fff3a61cf",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 14
+          },
+          "rederived_in_ci": false
+        },
+        "61_betareg": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "0b425c028f42945c84a00f4e42b1b8eab92114348e29d4f58b71a340bffba94b",
+          "input_sha256": "89663225487c44828af8b25fe0f6535f193f5533cff18918890b97ccfae76f9a",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 13
+          },
+          "rederived_in_ci": false
+        },
+        "62_truncreg": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "e9ed15b14c4b9624d98ea908324455e4ac29164d55de76411721440deed7edd3",
+          "input_sha256": "1b0da8106a3c53100baf5545fc821519a6a3add6aa68a3f7e1aca0e8c090bddd",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 11
+          },
+          "rederived_in_ci": false
+        },
+        "63_zip": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2a778eef707b0a6e8d9ad1050e5f5fce82748889b8b5bdaec21487a67e047266",
+          "input_sha256": "d451ecff60424e22db3cb8589251d96728042b394809f59fc2cf2d1eab7ccc02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 4
+          },
+          "rederived_in_ci": false
+        },
+        "64_zinb": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "bb8a35d76873563d3dcfdd5cdd5fe9baed99cbf7cf7e22f987622802e5046b5b",
+          "input_sha256": "8cd754e2fec6e0402a4a0c4488f36f49b1453f00363540b9b2ff7b4ceedb27fd",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5",
+            "n_packages": 4
+          },
+          "rederived_in_ci": false
+        },
+        "65_spatial": {
+          "status": "reproduces",
+          "statistics_shared": "14/14",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "c29a3e048b72dac19fcbfb83d5396765aa7812823522d66446396dc438574cb1",
+          "input_sha256": "4ed0d5f4741de277caf6a893fb70cae06eb75527177d8b665d31c248b642a4f3",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.1",
+            "n_packages": 39
+          },
+          "rederived_in_ci": false
+        },
+        "66_spatial_gmm": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "9295d89c5d5ec9ad561b963ce398e25ab52fba91e53cd6481096dd5f0e5d3f47",
+          "input_sha256": "b6f8e4a9145fff7eb41243acb6348e35e378c5c95ad2e4c66e677f4ed8766c76",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.1",
+            "n_packages": 39
+          },
+          "rederived_in_ci": false
+        },
+        "67_panel_glm": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "3188d5a759af1208811e5d3582fd1352781b6e8ff4e2fb3b4e91ec738c35952c",
+          "input_sha256": null,
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.1",
+            "n_packages": 28
+          },
+          "rederived_in_ci": false
+        },
+        "68_demean_within": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "03eb6ccb710c8b613bcd48bd645d5c743640284d075db5d670fe56e30fcbd814",
+          "input_sha256": "f293e8c60755ef8a4317cbd7e27b73c88474e73240b669d2416be2b771eea1c7",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 2
+          },
+          "rederived_in_ci": false
+        },
+        "69_balance_panel": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "f85aa2cb4651f784269b4a6ef454c7c5afe5eb52b4d6794bc29ddff86193ab1a",
+          "input_sha256": "dbbd12ac8fe29fc5b4357c586822b3690c662a8bc87b23564232995f0c306e3b",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.1",
+            "n_packages": 2
+          },
+          "rederived_in_ci": false
+        },
+        "70_policy_tree": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "115eb56133c1fb481b4fdfc7dc0615fe308d6531110616594b621c2a8e799070",
+          "input_sha256": "56b9fcdd3c44804bc161ea130ee0436264cd1c0dc8b8a1a63e1248c6bb5d8ac0",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 5
+          },
+          "rederived_in_ci": false
+        },
+        "71_dml_family": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "23343cacc3910a20ce5db8659e13b40df38c73aa94199e55931e3942a96735a6",
+          "input_sha256": "5e8800b011086c59c644a721107bac43e98c6e5d5b821461c515222c5a1a89da",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 33
+          },
+          "rederived_in_ci": false
+        },
+        "72_tmle": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "0fc904286f9980232bda28d0ecdfedd780d06c459794df1586e4f4aafe0b2595",
+          "input_sha256": "e5e56f9033a378173b1d53f3869b8c45c24b48b7ed041bfd7a4d17b0d2b7ded8",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 17
+          },
+          "rederived_in_ci": false
+        },
+        "73_did2s": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "7f357f2aeb19a266f83b085b6596165f26323831f9356bcdf60ded941e87e479",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 30
+          },
+          "rederived_in_ci": false
+        },
+        "74_cic": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "34cab91aa39173e381633d2919fac2c457cb64db4b41d3322efce9070e0679f4",
+          "input_sha256": "4c7fa33a8a66b2ee9e1ce960b3d301821e6d6bc3e3d937f2a63c7b738bf98f15",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 70
+          },
+          "rederived_in_ci": false
+        },
+        "75_stacked": {
+          "status": "reproduces",
+          "statistics_shared": "14/14",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "a3dc83f9e45170a43cc619cf667f998d6d8c11201ad59ea7104e9017272d2191",
+          "input_sha256": "4e01e63890ad30a21bf768406f08cc3b9a6863e9d131b9fd76248a0c5ea195eb",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 29
+          },
+          "rederived_in_ci": false
+        },
+        "76_pretrends": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.000342,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "79e6e7e86844d3f8ade0be3515679c7037979b63c6831b87ce8856c64e84a4c8",
+          "input_sha256": null,
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 31
+          },
+          "rederived_in_ci": false
+        },
+        "77_ddd": {
+          "status": "reproduces",
+          "statistics_shared": "28/28",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "f5708b6036fc632f00b80ded696b5c4f0f56400a4d812e05081c385101f0f149",
+          "input_sha256": "dba230fb70375ed45b0cfb34cd2ee73c699d4aa308473ead33e02bef84e6841f",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 29
+          },
+          "rederived_in_ci": false
+        },
+        "78_multiplegt_dyn": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "dd022998c78b4465ef886e84ee18b59f328972138d303979bd14eeb3fccd2238",
+          "input_sha256": "57045d8579ea31fd8908d27814371e19c74a3cc5d744867682dd056392115abc",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 73
+          },
+          "rederived_in_ci": false
+        },
+        "79_didff": {
+          "status": "reproduces",
+          "statistics_shared": "18/18",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "480eb641b8295b75c021ffe7bac246f5ad4a8c30e04321a06f2427be3c342dcb",
+          "input_sha256": null,
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 45
+          },
+          "rederived_in_ci": false
+        },
+        "80_contdid": {
+          "status": "reproduces",
+          "statistics_shared": "30/30",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "8a3e99de416e2dedb6a278757cbc24028ade50f4e243ed13cb4ebdbb7dada462",
+          "input_sha256": "af45124b5f4d93b48bad2029e43a14a5ab5e9608f3891b1efa2a4ec2923e6003",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 51
+          },
+          "rederived_in_ci": false
+        },
+        "81_didm": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "e554cbf8303b523840d24186a525c41457f3e32a749217050e65927e99bbc199",
+          "input_sha256": "4645f9d9897dff2611c42e963dcd1b9d58c3cff393517d40ac19ef232ba9e188",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 49
+          },
+          "rederived_in_ci": false
+        },
+        "82_staggered": {
+          "status": "reproduces",
+          "statistics_shared": "33/33",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "db299dc9640aef72d85033d9f10c0bddaf74066d5f5b4f186197a7616377f102",
+          "input_sha256": "98d66b302687fe4ee634eef561691716dce4313f19fbbdb7135a5626527f4b1a",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 14
+          },
+          "rederived_in_ci": false
+        },
+        "83_lpdid": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "1a803f615552c8f816420eec46397d275b2a328e66f45943e9fdacad2b7d378a",
+          "input_sha256": "2d3748be5e6ef28179b90e79710722b6d3361c602444b9dc3c5f8bbdb8478f46",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 7
+          },
+          "rederived_in_ci": false
+        },
+        "84_bjs_pretrends": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "86c6b95ac88428b7a86eca5492fa2cd5c8d4a98b23c80e1b10d081ce6f669747",
+          "input_sha256": "b39bf8225e1b3565aea88cfbb37c93684719a8450f0cf6ed80002fc2ac9cca02",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 30
+          },
+          "rederived_in_ci": false
+        },
+        "85_twfe_event_study": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "0c9fffd6ad84a48251030849e531617d18c394346256e22108eb8a1bc819f355",
+          "input_sha256": "ce4866763164d82d78e66e4498d50f53c4f6a74718b73832a99ac8ed43d7bd96",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 28
+          },
+          "rederived_in_ci": false
+        },
+        "86_fect": {
+          "status": "reproduces",
+          "statistics_shared": "105/105",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "7e9e43af9aaa9c2b144c69d61769260d8f85546bb9d3e742ea8ec806e4b88dd2",
+          "input_sha256": "d62c381eef6112f9157b3e02e4af5de80bd553510b7aa88bdec37b607e9fc6dc",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 67
+          },
+          "rederived_in_ci": false
+        },
+        "87_interflex": {
+          "status": "reproduces",
+          "statistics_shared": "20/20",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "bc6e2b082ba724354e09a88a6fab48d7140eb93c8c1e78e134b2c1f8e1eae200",
+          "input_sha256": "5f170c490807736516ac3362d43b6b10b8445e04d6fe4c8618c2f3797bb00f73",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 85
+          },
+          "rederived_in_ci": false
+        },
+        "88_rdbwselect": {
+          "status": "reproduces",
+          "statistics_shared": "68/68",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "836b4fd43afc0631099f85465f551b20645fdbc9239838550c547c041c3457d1",
+          "input_sha256": "fb6fd75b6b579bb3a9a9cb97affd866da83e47319d306e9debdefc102120e1a6",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 24
+          },
+          "rederived_in_ci": false
+        },
+        "89_rdms": {
+          "status": "reproduces",
+          "statistics_shared": "15/15",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "8663507e8901f2cc364e8820c7dd941fb3d65e2c532a4d2c942927ba71ae2de4",
+          "input_sha256": "7317adac5e5a1e72e8e2d51f88dad4f63540eccf0740c35a447572c9dee709ad",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.5.2",
+            "n_packages": 25
+          },
+          "rederived_in_ci": false
+        }
+      }
+    },
+    "Stata": {
+      "report": "tests/stata_parity/results/REPRODUCIBILITY_REPORT_STATA.md",
+      "report_sha256": "1d0883a4fb6eea3a81c5c959099db030a3282b3f2c2a6e42cd9ef037bd307aa4",
+      "rederive_with": "python tests/stata_parity/verify_reproduce_stata.py",
+      "last_reproduced": {
+        "commit": "14a0bff8",
+        "date": "2026-09-22T22:16:38+08:00"
+      },
+      "n_modules": 85,
+      "n_reproduce": 85,
+      "modules": {
+        "01_ols": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2afcb66573bc97cd29470b6c6a9290fecc88a14d1350994dac482ab14c566b50",
+          "input_sha256": "71279ecbc31cd90cbc1ba31a27accf4a886114363042e5c67851cbd7dc25846a",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "02_iv": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "97e9286be1505328f079b2ca631b448f74cc485f022cc3ff3d2620fb2aa1c66b",
+          "input_sha256": "71279ecbc31cd90cbc1ba31a27accf4a886114363042e5c67851cbd7dc25846a",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "03_hdfe": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "8d10f0e372e2f53a775ec250b5f4b4fd8cb75e2e2eb53a68399207af38794b5f",
+          "input_sha256": "9f7774cff40bdc9bf240fe2e85770188461dc26639663195c60b7fdd634970c2",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "04_csdid": {
+          "status": "reproduces",
+          "statistics_shared": "19/19",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "9197866ba9391840b8e07e9e9caba52d7e710b8dadd4e8adac6256555a9ae0fe",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "05_sunab": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 1.39e-17,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "9015b84ef7bcee4ebdaa1a0c9f6e785661308660272eabb1963d7f478ce0b1c2",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "06_rd": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "517458a27735fa61f90d1f23c06d106ce705abb77460e7998cf50e512138d53c",
+          "input_sha256": "e240d710ae25ea3ca0cd5566e612df5eff9ee744f1eb98a4f8f4df3947736991",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "07_scm": {
+          "status": "reproduces",
+          "statistics_shared": "18/18",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "69eb0a09b71330c6d26e4648a2f31dce19397529a344896b115b1f75b055ec73",
+          "input_sha256": "099f33c84b7379923af72bab0b58f82c3cab1eadf874df39f7816658e468c64e",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "08_dml": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "201fcd8b8a58b394fc2924b0f3e19ef2fd4e9f6df26c1d2502e1285cd73457ad",
+          "input_sha256": "2c2a9fc4e527ee985797a127ba3a6a9193c196a54539329fb27787173e4fbf2e",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "09_rddensity": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "deefc35c59072cf49254771d3e634487e754e6621eb9e6860c7af703736b2647",
+          "input_sha256": "e240d710ae25ea3ca0cd5566e612df5eff9ee744f1eb98a4f8f4df3947736991",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "10_honest_did": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "b5d0ddccb284883afd4625d832b6028d341770561e1ca96bb0dcdb7412ab6b43",
+          "input_sha256": null,
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "11_psm": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ebb2c4257792f5166648e1f027ab4523ec9ee7efb0e7a38972c322e151a0f4b4",
+          "input_sha256": "d57a8db2d1c8066ee3a723916b6fe398320c8abd714b0f7efc8682dc47f341ad",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "12_sdid": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "dfc43bc2164138c0239b42d144d2c9c4dadd15c0cd90b702983bcc4f0ecc2e81",
+          "input_sha256": "43d2e8961f9fc2abf92176dbcbf4aa63eae7cd470d1a14e5b4735e4ccb4bc9aa",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "13_causal_forest": {
+          "status": "no_reference",
+          "skip_reason": "bridge artifact not materialized: Stata 19's official cate command is the candidate causal-forest/AIPW reference, but the verified local runtime is Stata 18 and `which cate` fails."
+        },
+        "14_ols_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "638e73fa4b89d12a9902282f6fd6c834706b9d484d473657d52ac4545583c65e",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "15_hdfe_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "53b854a14329550c445763444cea43363e91b85bd7ae637910ad6278ca30ca77",
+          "input_sha256": "9f7774cff40bdc9bf240fe2e85770188461dc26639663195c60b7fdd634970c2",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "16_bjs": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "dad939424115973f0de0a6e37f9ee10b4f66777f00de12cad7734ca05353f966",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "17_etwfe": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2b2e06b11665554bb7e1e5e78e1743cbe3a56f46ece018498e4f2312453e6c05",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "18_augsynth": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "7eed106e6d460697403201d76e124f49790dfa2adb50d6c54adb941ce6902070",
+          "input_sha256": "099f33c84b7379923af72bab0b58f82c3cab1eadf874df39f7816658e468c64e",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "19_gsynth": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "70ad666f425152c2a7ede2e986a079eda6d8c6e90b00a6d7a933f98d3e46acfc",
+          "input_sha256": "f24a3b4fa24125ef2045118e91b3b37991e99635747a43890707c0c30be1f67e",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "20_bacon": {
+          "status": "reproduces",
+          "statistics_shared": "9/9",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "7117b58b2a32c600d703f90a1d31186f929c6d3a5fe45839dbd8ee1f8317f538",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "21_honest_relmags": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "76cfe9e6c77d6b47bdb932f3874c91412a58f85672698cb01e724b55160831e9",
+          "input_sha256": null,
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "22_sensemakr": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "b0f09ed65068f24ae673ea244be14538e2070c997530527b7b559fab6fb3b02e",
+          "input_sha256": "d57a8db2d1c8066ee3a723916b6fe398320c8abd714b0f7efc8682dc47f341ad",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "23_evalue": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "bf9cc2f71ebc76a8639bec4b0b8d4b448495bfa9dd02a82fba32ef4da1893a94",
+          "input_sha256": null,
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "24_coxph": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "93aa3fa07d6208dd3896f4758164a8edf8bdc5e06f3b66016ccc068c0b7ac33c",
+          "input_sha256": "0eacb74b1ad9c3d9248152383655c2159db1ed5029039e74ab39123513ac68f8",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "25_lmm": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "8365624cdc2d3ae34bdf5a5bef52d09f054789f1732f4502d7f09e01477d7e96",
+          "input_sha256": "109c28a2e5f496991191075294ec185f4a86f0ae3331da55f135ca9a70daac8e",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "26_glmm_logit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2291b82ea3ddb049df7288ad7eb1df54aa634fa92668527e95a0aa9f7b14f326",
+          "input_sha256": "7d00370e1c64d88ffb947f35b377a96228cbe9abed6fd8b3d1be351df985b5b9",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "27_glmm_aghq": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ed21266d720df4a0aa38e2b92661d763064d56db12958466de5f2c1a342bbad9",
+          "input_sha256": "7d00370e1c64d88ffb947f35b377a96228cbe9abed6fd8b3d1be351df985b5b9",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "28_frontier": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "292bd9a6ea1888b0e4f9734d37258211ec88326cf452039686d08fb7f07a27bd",
+          "input_sha256": "a9668d0ba67bf4d99fe0e3625f37234c140c4724d9257950da09e77c1a1dd960",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "29_panel_sfa": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "67702c6ec28b14228d6bf784f72d5ace19809dd0038bc0e477211721d0b269f6",
+          "input_sha256": "483c8747f803dca57a4b4ebd41d568d85ba1fa547132d1b1358a50e9d2878b44",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "30_oaxaca": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ae124cf551d53bea430924de46528051155100de3f78193014d4397768c99345",
+          "input_sha256": "6c790d07f2258c568deb95f3217d04c4fb7d95d12490a59dad27937167746e37",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "31_dfl": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "d8e052638d3df84b4f38f89877042f0b56bd197ea8e437fef04fcd97d752703e",
+          "input_sha256": "0de05e65b57733235d61a5b29a9204d8f9d88a76b362f3b1bea28a2be9300738",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "32_rif": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2d4ae39b3ba3981ecf03dbbe1f6286cb97e0b3c5c65471fdae916b2e453fe551",
+          "input_sha256": "5a806dddc988ddadbd412d5d1d576cbe814034de49e56e3fb83a3f9f44d70c81",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "33_var": {
+          "status": "reproduces",
+          "statistics_shared": "11/11",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "4b9319bd8ab6c72164d47f7fb9c2d2a1ad1e59c4a5a8cfc9d6fb766d74469b4c",
+          "input_sha256": "fb1d50ee00845a99682492652da597fb3370c7643e8c4f6fb8f4f52d73fc7bd7",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "34_lp": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2a3d446fc3a94b1efe3196a9845bafd28eafe6891101273c7bc0c9a10cd51a93",
+          "input_sha256": "df2eaa425558d41c937be4872e004f2825778098177d3123476be7c0e614a25e",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "35_panel": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "989c833e0516399ae8be8284f31a85341abea805469dd37de04812826d79e9d4",
+          "input_sha256": "d3d23250a57d8757bbdc7627606204b8351ac193bf9b3d03a233201ec6f30166",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "36_mediation": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "70bd9c1497d5abbdf40c3c36e884825e020de20b198bb0eacc56daa5d63e6ded",
+          "input_sha256": "9813ebe41006cb8a30bb7e0007a3c81d5e684d8e09a9b87283da3eea329ffb01",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "37_ppmlhdfe": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "3fa77c26e782a4ad26a7a378c5636370ff368ed7a7cf0c9b199aad19e46c7bd7",
+          "input_sha256": "f54415cfa6bc712f3f0205ab19d9357a31362a42b28ee0f5f7fab2525b330894",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "38_drdid": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "fa2c3d3d5e33da5d5aeaede6c3c3b83c660eeebb551b974fdea4c79edabfce89",
+          "input_sha256": "db864d4a826238f971eab70d486ae8bc3e808f476d2d8798ac02d38cee3a34e5",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "39_arima": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "a62568671045661f5c1ef4a758e72edfd4486c0eec7fa30394c076aa131462fd",
+          "input_sha256": "ecabbf7d1537e56355247a6837bc4e9e1966ab4f9405de24b4149b345221c70c",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "40_qreg": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "737e5c6b7ee16ce79a8afd906e5051d3b8b86441cd94d5df45b38c1706929455",
+          "input_sha256": "12171be12db09a089130e013f37f82e0946af28697ac0ffc7efc7e2fa3b6cabb",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "41_tobit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "931f5585753f012ef707d3ef7dc445dadfb4a5292bd554ce0cf445cf1d84d65f",
+          "input_sha256": "a81cfd9be62ac3ee03c1b75b3b8e8fdd4811b647b37df61a0c9616c27964c439",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "42_nbreg": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "c029bdf976b18abfe17292010c466beae5b51af9dc784f08b23ee935f8c175b1",
+          "input_sha256": "5314bb1244ee819a35bf354cb3c4fb9cac485e5e0e7f14a0b28978e44e2db79f",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "43_heckman": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "3de5ce893ea121edf45ff931d78e9171351414312011e10d0eda3d122a1f5a3c",
+          "input_sha256": "f67e1b4b98e8622eab501d2e1cbaae574b42a28c0395c91d71df73c57ff56b95",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "44_mlogit": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "3ee01a7792cfbe4d05fa60635065adb7a5d562f94eeddc5f436575f83e47adf6",
+          "input_sha256": "307718871f2b8ffa8d05473db4e3ba42ec5a81d954aa08b18de04c02446338ba",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "45_ologit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "a1dfba2e54515a63bd3ec0bc88ef7111988228669fcd2b6a27e529354449b5dd",
+          "input_sha256": "557d4dee19a10c69caf2cecfd56ba5ff68759f5b74e943b1e30df5e0866eb64d",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "46_clogit": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "df6ec2fe5041a91839bd61b2056d49d2bda1ad50bb1cde29b5ca8fd214974083",
+          "input_sha256": "782c58f15e684eed433eab97242d4200c82b1d11bf62d07a2cc382d038235997",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "47_ppmlhdfe_3fe": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "4ea1fb66b308d796261cdfd8f51326cbb9cc2ef085e242d2b05ca29e0c0ae9d3",
+          "input_sha256": "9fdc93fca2c8e3f799332fd3f70f1bf153c32b489defe3d448bc83745b56591b",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "48_probit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "e328d480600e68a2f05a000a5ae21145d0ead7837d632840cd2986590e84a989",
+          "input_sha256": "5d87ac56e632536807ce53d24672ad4244b8f90fb2033a9d295a9a5285c4c639",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "49_oprobit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ec2b3422c35072ff5c719fa3a738ce1e3ea2227ad2d73952eb6e918029cbef02",
+          "input_sha256": "a0b531e58d4af80506770bd8b3246f25e150da09178c93c4925e7f671b55fbc6",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "50_xtabond": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "5810253f52998fdeb74cef02bb1bc0dcae8adec24fa1bc1b2201b2ebcd516fea",
+          "input_sha256": "7fd8d67b071050483cb56e0230e4a20eff860ef0626749b9984ab0394f3c0c8a",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "51_newey": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "5f8e309f84665d10e86bfc9c188e5f109a5ef26c8b41fbbadec48d51ed58c8c2",
+          "input_sha256": "85c3c04cbda0277e5c8eb8d5ad0dd99b5abb7bc74408fff39759dbed83f13b48",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "52_scm_unique": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "c09fcc632d656bcff2c8a648110adbe7b9c5d93640912d75790da3ff7ab6fb6b",
+          "input_sha256": "ee7f061b4e5341ddde8dfe1ae4a1b28de0b6df465bfc113132637169ef2a547f",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "53_cr2": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "1647ee5fc0126de94f5847b34c1c92847f3b0433c1ee0b0bdd4461a16a51ab7b",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "54_twoway_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "f82e3080d275ee24c92d7fe68f23b2f44f942094ada6144827616f7ca7f02bd1",
+          "input_sha256": "a2653d5fe9a29db4aa8985a1814293dd0e2ced8b1e8c906632259c1a5bd32158",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "55_hc2_hc3": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "97049dc272f29fddffe1d2e8a3c2e36997d61d286ec78b884a7cfc4f9afc2016",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "56_multiway_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "b3f3c02080110867cfcf591e7d6127c7eb1b3f1591a52ab31cb2b351b228bb42",
+          "input_sha256": "ee8604dfbedc4ddbd5848a87434963072241cd87bd366d9b343600cdb3e8fdb5",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "57_logit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ddfc2bc7b94b085278786a9aed27af18aea90728fda01555c02998cf322e10be",
+          "input_sha256": "bff1f7ad8d20ee26aee8f273d8af311687058ef265517ec221ebd24437b2c798",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "58_poisson": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "65ca449798bca0c4ae521c1f6e9319cfa211b12a9417761aee72126995cef478",
+          "input_sha256": "aa8deb0b90e7ce311bb1317a0f497547950f4757a1a2e4432c6ff89d72d1b338",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "59_liml": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "331db422d237793fb2ef1937ddb0a2f4fb11d0fef1cec4745a91ae04c42e1e51",
+          "input_sha256": "f663b41995296efd051464a1fb1ba444e0b46a1367df6f77c48f162d97101459",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "60_sureg": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "f8c8f8632214628c9162df7425db4d1eca329278b3c1169124935a9d7194e1f3",
+          "input_sha256": "cb134968b50bea71b8181084b71371bfca456de55ebfab79039baa8fff3a61cf",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "61_betareg": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "d447cd42cbe384f0c9e2c38d9d82a3b79b850300fdf15017ccc43c06a8a5bba6",
+          "input_sha256": "89663225487c44828af8b25fe0f6535f193f5533cff18918890b97ccfae76f9a",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "62_truncreg": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "1085b11a595a0a7595180c27be3159ea474e752dd6d192e8cdd5d7d6d4435a97",
+          "input_sha256": "1b0da8106a3c53100baf5545fc821519a6a3add6aa68a3f7e1aca0e8c090bddd",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "63_zip": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "b08fc3eadb3186068a15370c2d21107adafadd92e7d24ff0e85e735e977422b4",
+          "input_sha256": "d451ecff60424e22db3cb8589251d96728042b394809f59fc2cf2d1eab7ccc02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "64_zinb": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "af838cd10943f3522858948e92fdbe3282171cb74840fb18415ac41416d17e15",
+          "input_sha256": "8cd754e2fec6e0402a4a0c4488f36f49b1453f00363540b9b2ff7b4ceedb27fd",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "65_spatial": {
+          "status": "reproduces",
+          "statistics_shared": "14/14",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "aef875d8a75b24001cdf031c7a670f2e04d6135599e1d8810557a5375eeda654",
+          "input_sha256": "4ed0d5f4741de277caf6a893fb70cae06eb75527177d8b665d31c248b642a4f3",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "66_spatial_gmm": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "e3c63d621cb762a20409008cecd8b098aa38da937359c20133dbb2b5ce3950b4",
+          "input_sha256": "b6f8e4a9145fff7eb41243acb6348e35e378c5c95ad2e4c66e677f4ed8766c76",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "67_panel_glm": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ecd28ce0da229be40f09aeded1a2ae722dcb96a31657ec45ceb8f2d44518cc30",
+          "input_sha256": null,
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "68_demean_within": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "5bf3aeba501eda88d3f21958697376da8d74637428f4171dfa8262e8bbfcb02e",
+          "input_sha256": "f293e8c60755ef8a4317cbd7e27b73c88474e73240b669d2416be2b771eea1c7",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "69_balance_panel": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "267755a786edcef8b27f4632f5214cf8f63d0ea3f376686c0a1ff06821c6dbf1",
+          "input_sha256": "dbbd12ac8fe29fc5b4357c586822b3690c662a8bc87b23564232995f0c306e3b",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "70_policy_tree": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "6220db9dc601b29a8a86fe3367caeb0e00e03f0e31e2041a35db5c302db40151",
+          "input_sha256": "56b9fcdd3c44804bc161ea130ee0436264cd1c0dc8b8a1a63e1248c6bb5d8ac0",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "71_dml_family": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "7a61c3b35d0c318cf70625c87b687ab435d1ae39d340e47102c31bd0eb4eb4c8",
+          "input_sha256": "5e8800b011086c59c644a721107bac43e98c6e5d5b821461c515222c5a1a89da",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "72_tmle": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "be57240479bb4253e67e82975f7bd03201bf978accb3bbb4432a5bcd7ae17f56",
+          "input_sha256": "e5e56f9033a378173b1d53f3869b8c45c24b48b7ed041bfd7a4d17b0d2b7ded8",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "73_did2s": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "16f257a2d1ea0d65724fd694677aba337dfcdbca6f10f08f5a0ea9f4880c1d13",
+          "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "74_cic": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "59575e43ea55777ef1436292a5657f217876e85d0f4f41676a2003950dd25230",
+          "input_sha256": "4c7fa33a8a66b2ee9e1ce960b3d301821e6d6bc3e3d937f2a63c7b738bf98f15",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "75_stacked": {
+          "status": "reproduces",
+          "statistics_shared": "14/14",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "ee10d8b23606476f55acbec26e3fd1fe99d1cdeedf0e7b845959ce2d5533c83c",
+          "input_sha256": "4e01e63890ad30a21bf768406f08cc3b9a6863e9d131b9fd76248a0c5ea195eb",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "76_pretrends": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2e8f80b91fd30b0c30370717015b214b348ebf4b74592efd8384952308336eb4",
+          "input_sha256": null,
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "77_ddd": {
+          "status": "no_reference",
+          "skip_reason": "no Stata implementation: the Ortiz-Villavicencio/Sant'Anna DDD estimator ships as the R package triplediff. Re-checked 2026-08-06: neither `triplediff` nor `ddd` resolves locally and `ssc describe triplediff` returns r(601)."
+        },
+        "78_multiplegt_dyn": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "868c1eef9f0cebb7538b410309998972020c6ebc1c72d9a37f02c362eb6bd895",
+          "input_sha256": "57045d8579ea31fd8908d27814371e19c74a3cc5d744867682dd056392115abc",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "79_didff": {
+          "status": "no_reference",
+          "skip_reason": "no Stata implementation: the Roth-Sant'Anna functional-form test ships as the R package didFF (GitHub only, not CRAN). Re-checked 2026-08-06: `ssc describe didff` returns r(601), not found."
+        },
+        "80_contdid": {
+          "status": "no_reference",
+          "skip_reason": "no Stata implementation: the CGS continuous-treatment estimator ships as the R package contdid (GitHub only, not CRAN). Re-checked 2026-08-06: `ssc describe contdid` returns r(601), not found."
+        },
+        "81_didm": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "9facfc49d3a9d294dae19de4384badee15453e74cb0df8e955511b6624ae6d13",
+          "input_sha256": "4645f9d9897dff2611c42e963dcd1b9d58c3cff393517d40ac19ef232ba9e188",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "82_staggered": {
+          "status": "reproduces",
+          "statistics_shared": "33/33",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "094166bbb1a5dd2579508f425e50b73e8be45fa6177c1bcf80af17383b8e2b13",
+          "input_sha256": "98d66b302687fe4ee634eef561691716dce4313f19fbbdb7135a5626527f4b1a",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "83_lpdid": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "276f4a0dc32bc5a2a966f23bf8b9758f845fc0a9dc20bbbd78dbabb3f2c5592d",
+          "input_sha256": "2d3748be5e6ef28179b90e79710722b6d3361c602444b9dc3c5f8bbdb8478f46",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "84_bjs_pretrends": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2dffda5132baa5c1c5f737e0fd32847128f9549b5de50b3778c0b1d06f63ae03",
+          "input_sha256": "b39bf8225e1b3565aea88cfbb37c93684719a8450f0cf6ed80002fc2ac9cca02",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "85_twfe_event_study": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "9f6b4383a285649f70a8091e4e4ff0ad7bbabf13ec932293f79f7debb4ac8b7a",
+          "input_sha256": "ce4866763164d82d78e66e4498d50f53c4f6a74718b73832a99ac8ed43d7bd96",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "86_fect": {
+          "status": "reproduces",
+          "statistics_shared": "99/99",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "7ade0de6e0b4fcc46458a9dcd9c172e6a6a2b256956cfc93f13d0a48e2946660",
+          "input_sha256": "d62c381eef6112f9157b3e02e4af5de80bd553510b7aa88bdec37b607e9fc6dc",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "87_interflex": {
+          "status": "reproduces",
+          "statistics_shared": "17/17",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "6abf4507be8e2328175ba2d94b29c9c131cd3060b09571e8de62b51f370da5af",
+          "input_sha256": "5f170c490807736516ac3362d43b6b10b8445e04d6fe4c8618c2f3797bb00f73",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "88_rdbwselect": {
+          "status": "reproduces",
+          "statistics_shared": "64/64",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "17d1033df18094f38867f18a9ec29dddd2145453b609129a4ce873505f13bfb6",
+          "input_sha256": "fb6fd75b6b579bb3a9a9cb97affd866da83e47319d306e9debdefc102120e1a6",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "89_rdms": {
+          "status": "reproduces",
+          "statistics_shared": "15/15",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "5f1c3f56bbb0f8add4658ec2d53bdc9d5e09f6c72a88bcddb89bdb0350e0514d",
+          "input_sha256": "7317adac5e5a1e72e8e2d51f88dad4f63540eccf0740c35a447572c9dee709ad",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        }
+      }
+    },
+    "py": {
+      "report": "tests/r_parity/results/REPRODUCIBILITY_REPORT_PY.md",
+      "report_sha256": "a35b7e50af57b41258b20048b78720d9e5b17eead422704ff9e88aa7d7922103",
+      "rederive_with": "python tests/r_parity/verify_reproduce_py.py",
+      "last_reproduced": {
+        "commit": "f99e3441",
+        "date": "2026-09-25T10:53:04+08:00"
+      },
+      "n_modules": 89,
+      "n_reproduce": 89,
+      "modules": {
+        "01_ols": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 2.32e-13,
+          "worst_rel_se": 8.6e-15
+        },
+        "02_iv": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 1.11e-15
+        },
+        "03_hdfe": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "04_csdid": {
+          "status": "reproduces",
+          "statistics_shared": "19/19",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "05_sunab": {
+          "status": "reproduces",
+          "statistics_shared": "16/16",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "06_rd": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "07_scm": {
+          "status": "reproduces",
+          "statistics_shared": "18/18",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "08_dml": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "09_rddensity": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "10_honest_did": {
+          "status": "reproduces",
+          "statistics_shared": "23/23",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "11_psm": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "12_sdid": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "13_causal_forest": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "14_ols_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "15_hdfe_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "16_bjs": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "17_etwfe": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "18_augsynth": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 4.77e-14,
+          "worst_rel_se": 1.35e-14
+        },
+        "19_gsynth": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "20_bacon": {
+          "status": "reproduces",
+          "statistics_shared": "12/12",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "21_honest_relmags": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "22_sensemakr": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "23_evalue": {
+          "status": "reproduces",
+          "statistics_shared": "26/26",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "24_coxph": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "25_lmm": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "26_glmm_logit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "27_glmm_aghq": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "28_frontier": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "29_panel_sfa": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "30_oaxaca": {
+          "status": "reproduces",
+          "statistics_shared": "11/11",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "31_dfl": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "32_rif": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "33_var": {
+          "status": "reproduces",
+          "statistics_shared": "21/21",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "34_lp": {
+          "status": "reproduces",
+          "statistics_shared": "12/12",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "35_panel": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "36_mediation": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "37_ppmlhdfe": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "38_drdid": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 1.75e-12,
+          "worst_rel_se": 1.63e-12
+        },
+        "39_arima": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "40_qreg": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "41_tobit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "42_nbreg": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "43_heckman": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "44_mlogit": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "45_ologit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "46_clogit": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 3.82e-10
+        },
+        "47_ppmlhdfe_3fe": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "48_probit": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "49_oprobit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "50_xtabond": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 1.11e-16,
+          "worst_rel_se": 2.08e-17
+        },
+        "51_newey": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "52_scm_unique": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "53_cr2": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "54_twoway_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 5.55e-16,
+          "worst_rel_se": 6.94e-18
+        },
+        "55_hc2_hc3": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "56_multiway_cluster": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 7.77e-16,
+          "worst_rel_se": 0.0
+        },
+        "57_logit": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "58_poisson": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "59_liml": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "60_sureg": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "61_betareg": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "62_truncreg": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "63_zip": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "64_zinb": {
+          "status": "reproduces",
+          "statistics_shared": "6/6",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "65_spatial": {
+          "status": "reproduces",
+          "statistics_shared": "14/14",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "66_spatial_gmm": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "67_panel_glm": {
+          "status": "reproduces",
+          "statistics_shared": "4/4",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "68_demean_within": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "69_balance_panel": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "70_policy_tree": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "71_dml_family": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "72_tmle": {
+          "status": "reproduces",
+          "statistics_shared": "1/1",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "73_did2s": {
+          "status": "reproduces",
+          "statistics_shared": "2/2",
+          "worst_rel_estimate": 5.52e-15,
+          "worst_rel_se": 1.73e-18
+        },
+        "74_cic": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "75_stacked": {
+          "status": "reproduces",
+          "statistics_shared": "14/14",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "76_pretrends": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "77_ddd": {
+          "status": "reproduces",
+          "statistics_shared": "29/29",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "78_multiplegt_dyn": {
+          "status": "reproduces",
+          "statistics_shared": "11/11",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "79_didff": {
+          "status": "reproduces",
+          "statistics_shared": "18/18",
+          "worst_rel_estimate": 5.55e-17,
+          "worst_rel_se": 0.0
+        },
+        "80_contdid": {
+          "status": "reproduces",
+          "statistics_shared": "30/30",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "81_didm": {
+          "status": "reproduces",
+          "statistics_shared": "3/3",
+          "worst_rel_estimate": 1.11e-16,
+          "worst_rel_se": 0.0
+        },
+        "82_staggered": {
+          "status": "reproduces",
+          "statistics_shared": "33/33",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "83_lpdid": {
+          "status": "reproduces",
+          "statistics_shared": "5/5",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "84_bjs_pretrends": {
+          "status": "reproduces",
+          "statistics_shared": "7/7",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "85_twfe_event_study": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "86_fect": {
+          "status": "reproduces",
+          "statistics_shared": "105/105",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "87_interflex": {
+          "status": "reproduces",
+          "statistics_shared": "26/26",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "88_rdbwselect": {
+          "status": "reproduces",
+          "statistics_shared": "68/68",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "89_rdms": {
+          "status": "reproduces",
+          "statistics_shared": "15/15",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        }
+      }
+    }
+  }
+}

@@ -140,6 +140,108 @@ def _option_fixtures() -> List[Dict[str, Any]]:
     return out
 
 
+def _option_inputs() -> List[Dict[str, Any]]:
+    """The CSV inputs the option-level do-files read, with their SHA-256.
+
+    A fixture is only as fixed as the bytes it was computed from; these
+    were hashed by nothing.
+    """
+    return [
+        {
+            "input": path.relative_to(REPO_ROOT).as_posix(),
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        for path in sorted(OPTION_DIR.glob("data_*.csv"))
+    ]
+
+
+HOLDOUT_DIR = REPO_ROOT / "tests" / "stata_translation_holdout"
+
+
+def _translation_holdout() -> List[Dict[str, Any]]:
+    """The frozen Stata-translation holdout, hashed so it stays frozen."""
+    names = (
+        "corpus.json",
+        "holdout_Stata.json",
+        "holdout_cross.csv",
+        "holdout_panel.csv",
+    )
+    return [
+        {
+            "file": (HOLDOUT_DIR / name).relative_to(REPO_ROOT).as_posix(),
+            "sha256": hashlib.sha256((HOLDOUT_DIR / name).read_bytes()).hexdigest(),
+        }
+        for name in names
+        if (HOLDOUT_DIR / name).exists()
+    ]
+
+
+MC_DIR = REPO_ROOT / "tests" / "coverage_monte_carlo" / "results_b1000"
+
+
+def _reliability() -> Dict[str, Any]:
+    """Coverage, stress-design and size/power rows, read from Track B.
+
+    Parity says an estimator reproduces a reference; it does not say the
+    interval covers. These are the committed Monte Carlo results that speak
+    to that, tabulated as they stand: every replication, failed ones
+    included, is in the denominator, and the Monte Carlo standard error of
+    each rate is shown so a rate is not read more finely than ``B`` allows.
+    """
+
+    def _load(name: str) -> List[Dict[str, Any]]:
+        path = MC_DIR / name
+        if not path.exists():
+            return []
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def _mc_se(rate: float, b: int) -> float:
+        return round((rate * (1.0 - rate) / b) ** 0.5, 4)
+
+    coverage = [
+        {
+            "design": r["name"],
+            "B": r["B"],
+            "covered": r["covered"],
+            "failures": r.get("failures", 0),
+            "rate": r["rate"],
+            "mc_se": _mc_se(r["rate"], r["B"]),
+            "se_to_sd_ratio": round(r["se_sd_ratio"], 3),
+            "within_2_mc_se_of_nominal": abs(r["rate"] - 0.95)
+            <= 2 * _mc_se(0.95, r["B"]),
+        }
+        for r in _load("coverage_b1000.json")
+    ]
+    stress = [
+        {
+            "design": r["name"],
+            "B": r["B"],
+            "rate": r["rate"],
+            "mc_se": _mc_se(r["rate"], r["B"]),
+            "documented_band": r.get("documented_band"),
+            "note": r.get("note"),
+        }
+        for r in _load("coverage_robustness_b1000.json")
+    ]
+    size_power = [
+        {
+            "design": r["name"],
+            "B": r["B"],
+            "size": r["size"],
+            "mc_se": _mc_se(r["size"], r["B"]),
+            "power": dict(zip((str(d) for d in r["deltas"]), r["power"])),
+        }
+        for r in _load("size_power_b1000.json")
+    ]
+    return {
+        "nominal_level": 0.95,
+        "source": "tests/coverage_monte_carlo/results_b1000/",
+        "coverage": coverage,
+        "stress_designs": stress,
+        "size_and_power": size_power,
+    }
+
+
 def build() -> Dict[str, Any]:
     from statspai.validation_scope import OUTPUTS, SCOPE_FUNCTIONS
 
@@ -167,6 +269,9 @@ def build() -> Dict[str, Any]:
             if out in totals
         },
         "option_fixtures": _option_fixtures(),
+        "option_inputs": _option_inputs(),
+        "translation_holdout": _translation_holdout(),
+        "inference_reliability": _reliability(),
     }
 
 
@@ -287,6 +392,81 @@ def render(inv: Dict[str, Any]) -> str:
     for fx in inv["option_fixtures"]:
         consumers = "<br>".join(f"`{c}`" for c in fx["consumers"])
         lines.append(f"| `{fx['fixture']}` | {consumers} | `{fx['sha256'][:16]}` |")
+    if inv.get("translation_holdout"):
+        lines += [
+            "",
+            "## Stata translation holdout",
+            "",
+            "A frozen corpus of 39 Stata commands and the numbers Stata 18 MP "
+            "gives for the 33 that run, scored on five layers by "
+            "`tests/test_stata_translation_holdout.py`. Hashed here so the "
+            "corpus cannot drift towards what the translator already handles.",
+            "",
+            "| File | SHA-256 (first 16) |",
+            "| --- | --- |",
+        ]
+        for item in inv["translation_holdout"]:
+            lines.append(f"| `{item['file']}` | `{item['sha256'][:16]}` |")
+    rel = inv.get("inference_reliability") or {}
+    if rel.get("coverage"):
+        lines += [
+            "",
+            "## Inference reliability (Track B)",
+            "",
+            "Reference evidence says an estimator reproduces another "
+            "implementation. Whether its interval covers is a separate "
+            "question, answered here from the committed Monte Carlo runs "
+            f"under `{rel['source']}`. Every replication is in the "
+            "denominator, failed ones included. `MC SE` is the Monte Carlo "
+            "standard error of the rate; a rate within two of them of 0.95 "
+            "is not distinguishable from nominal at this `B`.",
+            "",
+            "| Design | B | Failed | Coverage | MC SE | Mean SE / MC SD | "
+            "Within 2 MC SE of 0.95 |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | --- |",
+        ]
+        for r in rel["coverage"]:
+            lines.append(
+                f"| {r['design']} | {r['B']} | {r['failures']} | {r['rate']:.3f} | "
+                f"{r['mc_se']:.4f} | {r['se_to_sd_ratio']:.3f} | "
+                f"{'yes' if r['within_2_mc_se_of_nominal'] else '**no**'} |"
+            )
+        lines += [
+            "",
+            "Designs built to break an assumption. The band is the range "
+            "documented in advance for that design, not a pass mark for "
+            "nominal coverage.",
+            "",
+            "| Stress design | B | Coverage | MC SE | Documented band | Note |",
+            "| --- | ---: | ---: | ---: | --- | --- |",
+        ]
+        for r in rel["stress_designs"]:
+            band = r["documented_band"]
+            lines.append(
+                f"| {r['design']} | {r['B']} | {r['rate']:.3f} | {r['mc_se']:.4f} | "
+                f"{band[0]:.2f} to {band[1]:.2f} | {r['note'] or ''} |"
+            )
+        lines += [
+            "",
+            "| Design | B | Size at 5% | MC SE | Power by effect size |",
+            "| --- | ---: | ---: | ---: | --- |",
+        ]
+        for r in rel["size_and_power"]:
+            power = ", ".join(f"{d}: {p:.3f}" for d, p in r["power"].items())
+            lines.append(
+                f"| {r['design']} | {r['B']} | {r['size']:.3f} | {r['mc_se']:.4f} | "
+                f"{power} |"
+            )
+    lines += [
+        "",
+        "Inputs those do-files read (the other fixtures use "
+        "`tests/orig_parity/data/02_mpdta_original.csv`):",
+        "",
+        "| Input | SHA-256 (first 16) |",
+        "| --- | --- |",
+    ]
+    for item in inv.get("option_inputs", []):
+        lines.append(f"| `{item['input']}` | `{item['sha256'][:16]}` |")
     lines.append("")
     return "\n".join(lines)
 

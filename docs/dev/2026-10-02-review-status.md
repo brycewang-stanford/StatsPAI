@@ -1,64 +1,69 @@
 # 2026-10-02 仓库审查：逐项状态
 
-对应 `docs/dev/2026-10-02-repository-agent-parity-review.md`。每一行写明状态、落地位置和验收测试。状态只有三种：**已完成**（有测试守着）、**已核实无需改动**（审查时的缺口在基线之后已经补上）、**未做**（附理由和下一步）。
+由 `python scripts/build_review_status.py` 从 `docs/dev/review_backlog.json` 生成，不要手改本文件。
 
-审查基线是 `d1025b29`（1.34.2）。本轮工作基于 1.35.0（`e4fdfddc`）。
+对应 `docs/dev/2026-10-02-repository-agent-parity-review.md`。审查基线是 d1025b29 (1.34.2)，工作基于 e4fdfddc (1.35.0)。
+
+共 38 项：已完成 **26**，部分完成 **2**，未做 **10**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
 
 ## 已完成
 
-| ID | 事项 | 落地位置 | 验收测试 |
-| --- | --- | --- | --- |
-| M1 | 风险字段最后裁剪，裁剪后留下 `risk_summary` 与 `risk_details_complete: false` | `src/statspai/agent/_output_budget.py` | `tests/test_mcp_output_budget_risk.py` |
-| M1 | 超过 20 条的 runtime warning 不再无计数丢弃 | `mcp_server._run_tools_call` | 同上，`test_tools_call_reports_more_than_twenty_distinct_warnings` |
-| M2 | `output_budget` 报告 `truncated` / `unavoidable_overflow`、`actual_bytes`、`scope` | `_output_budget.apply_budget` | 同上，含非 ASCII 文本与四档预算 |
-| M2 | 文档写明预算只覆盖 `structuredContent` | `docs/guides/agent_api.md`、skill 的 `mcp-and-cli.md` | 无（文档） |
-| M3 | 排队上限、orphan 上限、入站行大小上限、重复 request id 拒绝 | `mcp_server.serve_stdio` | `tests/test_mcp_hardening_stdio.py` 末四条 |
-| M4 | 一条完整分析链跑在真实 stdio 子进程上 | `tests/test_mcp_stdio_chain.py` | 自身 |
-| A2 | 同一入口切换 `robust`，`result_card.evidence.outputs.se` 随之变化 | 1.35.0 已接入（`result_card._evidence`） | `tests/test_mcp_stdio_chain.py`（`ivreg` 的 hc1 对 hc3） |
-| A2 | 预算裁剪不得切掉 evidence 块 | `_output_budget._PROTECTED_PATH_PREFIXES` | `test_result_card_evidence_is_never_cut` |
-| A4 | `replay_completeness`：`call_only` / `session_replayable` / `standalone` | `src/statspai/agent/_replay.py` | `tests/test_mcp_replay_completeness.py`（`standalone` 一条真的只凭字符串和文件重跑） |
-| S1 | packaged skill 的 smoke fit 进入 pytest，不再只有旧归档有完整验证 | `tests/test_skill_package.py::test_bundled_gate_full_passes` | 自身 |
-| S1 | 代码块里的每个 `sp.*(...)` 调用按真实签名绑定 | `src/statspai/agent/_skill/validate_api_claims.py::check_call_keywords` | `test_call_check_catches_a_wrong_call_in_a_reference`（五种注入） |
-| S1 | "每个签名和属性都已检查"的措辞改为实际范围 | `SKILL.md` 与 9 个 reference 文件头 | 无（文档） |
-| R1 | 入口 × 配置 × 输出的 evidence 清单，生成式，带漂移闸门 | `scripts/build_evidence_inventory.py` → `docs/evidence_inventory.{md,json}`；pre-push hook `evidence-inventory` | `tests/test_evidence_inventory.py` |
-| R1 | 盘点已有 vcov 产物：Sun-Abraham 完整事件研究协方差已对 `fixest`，登记进 scope（新增 `share_variance` 维度） | `src/statspai/validation_scope.py` | `tests/test_validation_scope.py` 末条 |
-| R3 | option fixture 进入统一清单：消费者测试、SHA-256、无人读取即失败 | 同上生成器 | `tests/test_evidence_inventory.py::test_option_fixtures_are_read_and_hashed` |
-| R3 | 六个 option fixture 全部按双精度实跑重生成；消费者测试改为直接读文件；84 号的 7 个 Stata SE 首次被比较 | `tests/stata_parity/option_parity/*.do` 与 `results/`；`tests/reference_parity/test_option_fixture_bindings.py` | 同左，另有 `test_bjs_fe_covariates_parity.py::TestExactSolution` |
-| R1 | `did_imputation`、`gardner_did` 建 scope 映射并登记已有的完整协方差证据 | `src/statspai/validation_scope.py` | `tests/test_validation_scope.py` 末三条 |
-| R1 | `event_study`（TWFE）、`etwfe` 建 scope 映射；`etwfe` 默认调用通过逐位相等测试挂到模块 17 的证据上 | `src/statspai/validation_scope.py`；`tests/reference_parity/test_validation_entry_points.py` | `tests/test_validation_scope.py` 末三条 |
-| R2 | R parity CI 的范围写准确（17 / 89 个模块、路径触发、当前 CRAN 而非 renv、不 import statspai），并加每周一的上游漂移探针 | `.github/workflows/r-parity.yml`；`tests/r_parity/R_ENVIRONMENT.md` 的 "What CI re-derives" | `tests/test_r_parity_ci_scope.py` |
-| G1 | roadmap 里已落地的 CI 项不再标 pending；`CLAUDE.md` 更新日期 | `plans/2026-09-28-agent-native-roadmap.md`、`CLAUDE.md` | 无（文档） |
-| G2 | fast gate 覆盖整条 agent 链 | `.github/workflows/ci-cd.yml` | CI |
+| ID | 事项 | 落地位置 | 验收测试 | 备注 |
+| --- | --- | --- | --- | --- |
+| M1 | 风险字段最后裁剪，裁剪后留下 `risk_summary` 与 `risk_details_complete: false`；超过 20 条的 runtime warning 报总数 | `src/statspai/agent/_output_budget.py` | `tests/test_mcp_output_budget_risk.py` |  |
+| M2 | `output_budget` 报告 `truncated` / `unavoidable_overflow`、`actual_bytes`、`scope`；文档写明预算只覆盖 `structuredContent` | `src/statspai/agent/_output_budget.py`<br>`docs/guides/agent_api.md` | `tests/test_mcp_output_budget_risk.py` |  |
+| M3 | 准入限制：排队上限、orphan 上限、请求行大小上限、重复 request id 拒绝、排队期限 | `src/statspai/agent/mcp_server.py` | `tests/test_mcp_hardening_stdio.py`<br>`tests/test_mcp_isolation.py` |  |
+| M3 | 数据加载纳入超时与取消（此前 `data_path` 的读取在受监督的 runner 之外，阻塞读会永久占住 worker） | `src/statspai/agent/mcp_server.py` | `tests/test_mcp_isolation.py` |  |
+| M3 | 已超时或已取消的调用不能再提交句柄 | `src/statspai/agent/_result_cache.py` | `tests/test_mcp_isolation.py` |  |
+| M4 | 一条完整分析链跑在真实 stdio 子进程上 | — | `tests/test_mcp_stdio_chain.py` |  |
+| M4 | 客户端能力矩阵：三个协议版本、未知版本、只读 text、无 sampling、发 cursor、重启后旧句柄、跳过 initialize、未知方法 | — | `tests/test_mcp_client_matrix.py` | 只覆盖服务器声称支持的组合；没有 HTTP / OAuth。 |
+| A1 | 前 30 个高频入口的 card 用真实调用核对：必填参数、返回类型、每个枚举值、替代方法是否存在、字段来源（curated / inherited / 其它） | `scripts/agent_card_audit.py`<br>`docs/dev/agent_card_audit.md` | `tests/test_agent_card_audit.py` | 查出并修复 6 个缺陷，见“顺带发现”。 |
+| A2 | 配置级证据进入标准结果与 MCP 输出；预算不得裁掉 evidence 块；自动注册的长尾工具也带 `result_card` | `src/statspai/result_card.py`<br>`src/statspai/agent/auto_dispatch.py` | `tests/test_mcp_stdio_chain.py`<br>`tests/agent_eval/test_red_line_scenarios.py` |  |
+| A3 | 诊断状态统一：`result_card.assumptions.checks` 给出 `passed` / `failed` / `not_run` / `not_applicable` | `src/statspai/result_card.py` | `tests/test_result_card_checks.py` |  |
+| A3 | `next_steps()` 统一返回对象列表（`CrossValidationResult` 是最后一个返回字符串的） | `src/statspai/crossval/_result.py`<br>`MIGRATION.md` | `tests/test_result_card_checks.py` |  |
+| A3 | 种子参数名统一被结果卡识别；`did_imputation` / `gardner_did` 记录 bootstrap 种子；全量盘点脚本 | `src/statspai/_result_contract.py`<br>`scripts/seed_inventory.py` | `tests/test_seed_contract.py` |  |
+| A4 | `replay_completeness` 标记 | `src/statspai/agent/_replay.py` | `tests/test_mcp_replay_completeness.py` |  |
+| A4 | 可导出的复现 bundle：`statspai://result/<id>/bundle`，含数据哈希、转换步骤、调用、期望数值和可独立运行的脚本 | `src/statspai/agent/_replay.py`<br>`src/statspai/agent/_resources.py` | `tests/test_mcp_replay_bundle.py` | 内联数据或远程数据没有脚本（只记录了哈希），bundle 会说明原因。 |
+| S1 | packaged skill 的 smoke fit 进入 pytest；代码块里的每个 `sp.*(...)` 调用按真实签名绑定；带 `**kwargs` 的调用按 schema、路由问题或转发目标核对 | `src/statspai/agent/_skill/validate_api_claims.py` | `tests/test_skill_package.py` |  |
+| S2 | 确定性的红线场景：弱 IV、少簇、检查未运行、未验证的 SE、森林不算同字节对齐、缺设计输入、句柄失效、风险列表被裁、Stata 选项未翻译 | — | `tests/agent_eval/test_red_line_scenarios.py` | 检验的是输出里有没有无歧义的信号，不是某个模型会不会照做。 |
+| S3 | 短路径 playbook：一次估计、一次检查或一张表的五步流程，以及三个应当停下的地方 | `src/statspai/agent/_skill/references/quick-path.md` | `tests/test_skill_package.py` | 五个代码块在测试里端到端执行。 |
+| R1 | 入口 × 配置 × 输出的 evidence 清单，生成式，带漂移闸门 | `scripts/build_evidence_inventory.py`<br>`docs/evidence_inventory.md` | `tests/test_evidence_inventory.py` |  |
+| R1 | 登记已有但未入册的证据：`sun_abraham`、`did_imputation`、`gardner_did`、`event_study`、`etwfe`（含默认调用的逐位相等挂接）、非线性 `etwfe` | `src/statspai/validation_scope.py` | `tests/test_validation_scope.py`<br>`tests/reference_parity/test_validation_entry_points.py` |  |
+| R2 | R parity CI 的范围写准确；每周一的上游漂移探针 | `.github/workflows/r-parity.yml`<br>`tests/r_parity/R_ENVIRONMENT.md` | `tests/test_r_parity_ci_scope.py` | 每周定时任务还没在 CI 上实际跑过。 |
+| R2 | 机器可读的 run manifest：每个模块每一侧的状态、参考版本、平台、输入输出哈希、是否由 CI 重推导、缺 Stata 侧的理由、上次重推导的提交与日期 | `scripts/build_reproduction_manifest.py`<br>`docs/reproduction_manifest.json` | `tests/test_reproduction_manifest.py` |  |
+| R3 | option fixture 双精度重生成、被测试直接读取、哈希入清单；跨六条证据轨道的统一清单 | `scripts/evidence_track_manifest.py`<br>`tests/stata_parity/option_parity/README.md` | `tests/reference_parity/test_option_fixture_bindings.py`<br>`tests/test_evidence_tracks.py` |  |
+| R4 | Stata 翻译 holdout：39 条按文档语法写的命令，Stata 18 MP 实跑的金标准，五层评分 | `tests/stata_translation_holdout/build_holdout.py` | `tests/test_stata_translation_holdout.py` | 33 条可执行命令里 29 条五层全过，4 条被明确拒绝，0 条静默错误。 |
+| R5 | 把已有的覆盖率、压力设计、size / power 结果接进 evidence 视图，失败的重复计入分母，附 Monte Carlo SE | `scripts/build_evidence_inventory.py` | `tests/test_evidence_inventory.py` | 4 个设计的覆盖率离 0.95 超过 2 个 MC SE（`rdrobust` 0.934、`sdid` 0.928、DML IRM 0.968、DML PLR 0.883），表里照实标出。 |
+| G1 | 机器可读的 backlog 生成状态文档 | `docs/dev/review_backlog.json`<br>`scripts/build_review_status.py` | `tests/test_review_backlog.py` |  |
+| G2 | fast gate 覆盖整条 agent 链 | `.github/workflows/ci-cd.yml` | — |  |
 
-## 已核实无需改动
+## 部分完成
 
-- **A3 的诊断状态区分。** `audit_result` 已经返回 `passed` / `failed` / `missing` / `not_applicable`，并给出 `summary` 与 `coverage`。全链路测试钉住了"未运行不算通过"。`not_run` 与 `unavailable` 两个状态、以及把 `next_steps` 统一成对象列表，仍然未做（见下）。
-- **M3 的 sampling 死锁。** 审查已说明这是旧问题，本轮未动。
+| ID | 事项 | 已有的 | 还缺什么 | 下一步 |
+| --- | --- | --- | --- | --- |
+| M3 | 进程级 worker：`STATSPAI_MCP_ISOLATION=process`，超时或取消时杀掉子进程 | `src/statspai/agent/_process_worker.py`<br>`tests/test_mcp_isolation.py` | 只覆盖不依赖服务器状态的调用（无 `result_id` / `data_id` / `as_handle`）。带句柄的调用仍走线程 runner，因为拟合结果没有序列化协议。每次隔离调用要付一次解释器冷启动。 | 给拟合结果定义可序列化的最小形态后，再把 `as_handle` 调用纳入 |
+| M3 | 资源压力实测 | `tests/test_mcp_isolation.py` | 量了连续超时后的 orphan 线程数、子进程残留、ping 延迟、下一次调用是否正常。没有量 RSS。 | 在长驻部署场景下补 RSS 曲线 |
 
 ## 未做，以及为什么
 
 | ID | 事项 | 理由 | 下一步 |
 | --- | --- | --- | --- |
-| M3 | 进程级 worker（超时可杀） | 需要处理不可序列化的结果对象和句柄提交时序，是一个独立设计 | 先按工具能力圈出可序列化的一批做原型 |
-| M3 | 排队期限（queue deadline） | 有了队列上限后收益小 | 有真实长驻部署需求再做 |
-| M3 | 资源压力实测（RSS、取消后写文件） | 审查本身只做了静态分析，本轮也没有做 | 与进程 worker 原型一起做 |
-| M4 | 客户端能力矩阵（协议版本、分页、断线重启） | 只有一条链落地 | 逐个加到 `test_mcp_stdio_chain.py` |
-| A1 | 前 30 个高频入口的语义 card 逐项审查 | 这是人工审查工作量，不是一次提交 | 先生成 30 项清单，标 curated / inherited / inferred |
-| A1 | schema 每个枚举值至少一次有效调用 | 依赖上一项的清单 | 同上 |
-| A3 | 统一诊断条目与 `next_steps` 对象化 | 改动 `to_dict(detail='agent')` 的形状，波及 schema 包和论文里的示例输出 | 论文改锚窗口之外做，走 MIGRATION |
-| A3 | seed 字段统一（requested / effective / source） | 审查要求先确认 2026-09-28 遗留项的现状 | 先盘点再定 |
-| A4 | 可导出的复现 bundle（新进程按 lineage 重建数据） | `replay_completeness` 只是标记，bundle 是新对外能力 | 论文周期内新增对外 API 需要强理由，暂缓 |
-| S1 | 带 `**kwargs` 的 81 个调用的关键字检查 | 静态无法判定 | 可执行 snippet 清单，按 extras 分组 |
-| S2 | skill 行为评测 | 需要预注册、预算和授权 | 先做确定性 workflow fixture |
-| S3 | 短路径 playbook | 建议项 | — |
-| R1 | `etwfe` 的协变量、`xvar`、加权、`agg_weights='unit'`、GLM 族；`event_study` 的其它窗口与交错面板 | 没有任何产物跑过这些配置（GLM 族有自己的 parity 文件，未接入映射） | 按清单里的空格逐项补参考，或确认不该补（交错面板上的 TWFE 事件研究本来就不该被认证） |
-| R1 | reference_parity / orig_parity / external_parity 各轨的统一 manifest | 本轮只做了 option fixture 一轨 | 按同一生成器扩展 |
-| R2 | 在 CI 里跑 renv 锁定环境的复现；重依赖 R 模块与 Stata 的定期自动重推导；机器可读的 run manifest（last_reproduced_at 等） | 需要自托管 runner 或 Stata 许可，且新 job 要在 CI 上实测；每周定时任务本身也还没在 CI 上实际跑过一次 | 先观察第一次定时运行的结果 |
-| R4 | Stata 翻译 holdout 五层覆盖 | 需要冻结语料 | — |
-| R5 | 推断可靠性仿真接入 evidence view | 新仿真要先预算 | — |
-| G1 | machine-readable backlog 生成 roadmap | 本文件是手写的过渡形态 | 与 R1 的 builder 一起做 |
+| A1 | card 文字内容的人工审查（同一家族内各变体的识别条件是否写对，例如 sharp / fuzzy / cluster RD） | 自动核对能判断“枚举值能不能用”“返回类型对不对”，判断不了一句假设陈述对某个变体是否成立。这需要懂方法的人逐条读。 | 按 `docs/dev/agent_card_audit.md` 的 30 行逐个读 `assumptions` / `failure_modes` |
+| A1 | 30 个之外的入口 | 审查脚本需要每个函数一份手写的小数据调用，目前只有 30 份。 | 按使用频率每次加 10 个 |
+| A3 | 把各估计器的默认种子统一成一个值 | 故意不做。259 个带种子的函数里默认值有 `None` 125、`42` 73、`0` 56 等；改默认值会改变已发表的带种子数字。审查本身也说不应机械统一。 | 若要改，逐个估计器走 ⚠️ correctness / MIGRATION 流程 |
+| S2 | 真实模型的行为评测（成功率、严重错误率、token、延迟） | 需要付费模型调用、预注册和你的授权；`tests/agent_bench` 的 900-trial 设计已经写明这三个前提。mock 结果只能验证 harness。 | 先批一个小规模 smoke 的预算和模型快照 |
+| R1 | 清单里空着的格子补参考（`etwfe` 的协变量 / `xvar` / 加权 / `agg_weights='unit'`，`event_study` 的其它窗口，`rdrobust` / `dml` / `psm` 的大部分网格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差，是逐格的 parity 工作。交错面板上的 TWFE 事件研究不该补。 | 按使用频率挑格子；每补一格重跑 `build_evidence_inventory.py` |
+| R1 | joint test 的参考证据（目前只有 `regress` 的 3 格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差；`test`、`lincom` 等后估计入口还没有 scope 映射。 | 先给 `sp.test` 的 Wald / F 建映射，再按估计器补 Stata `test` 的参考 |
+| R2 | 在 CI 里按 `renv.lock` 复现；重依赖 R 模块与 Stata 的定期自动重推导 | 需要自托管 runner（354 个 R 包，含仅 GitHub 发布的）和 Stata 许可。一个没法在 CI 上实测的 workflow job 我没有加：写了不跑等于没有，写了跑挂会挡住别人。 | 有 runner 之后加一个只在手动触发时运行的 job |
+| R4 | holdout 查出的 4 个翻译缺口：`[fweight=]`、`noconstant`、`qreg`、`xtreg, re` | 都是响亮的拒绝，不是错误结果。补翻译要按 Stata 文档逐个核对默认值和 SE 约定。 | 每补一个，把它移出 `KNOWN_GAPS` 并更新层计数 |
+| R4 | R 迁移的概念映射表 | 审查说可以先做映射表而不是 parser；没有做。 | — |
+| R5 | 新的仿真：少簇、不平衡面板、RD mass points、极端权重、学习器变化 | 需要预先定义设计和计算预算；审查也写明不应作为隐含任务执行。 | — |
 
-## 本轮顺带发现
+## 已核实无需改动
+
+- **M3 的 sampling 死锁。** 审查已说明这是旧问题，reader thread 与真实 subprocess 的 sampling 测试都在，本轮未动。
+
+## 做的过程中查出的问题
 
 - **macOS 上 fork 不安全。** 同一 pytest 进程里先跑过一次估计、再用 `subprocess.Popen` 默认方式启动 MCP 子进程，子进程会在 `exec` 之前段错误（返回码 -11）。原有的 `tests/test_mcp_stdio_subprocess.py` 也受影响，只是此前排在它前面的测试恰好没触发。两个子进程测试文件现在都走 `posix_spawn`（`close_fds=False`）。包内其他在估计之后起子进程的路径（R / Stata 后端）没有排查。
 - **`sp.regress` 带 `**kwargs` 但会拒绝未知关键字。** 运行时是安全的；只是静态检查看不到，所以 skill 的调用检查对这类函数只能数位置参数。
@@ -68,3 +73,9 @@
 - **`validation_scope` 的总体状态名不够用。** 上面这一行的估计量是 `disclosure`、SE 是 `reference`，总体状态落到 `stochastic_only`，而文档对这个词的定义是"没有任何主输出有 T1/T2 证据"。逐输出的状态是对的，总体标签有歧义。没有改分类法，记在这里。
 - **`sp.etwfe` 的默认调用此前没有证据行。** 模块 17 和协方差测试跑的是 `panel=False`，默认是 `panel=True`。两者在面板上逐位相同（估计、SE、事件研究协方差），现在由 `test_etwfe_default_panel_call_is_bit_identical_to_module_17` 断言并据此挂接。
 - **`etwfe` 的 headline SE 不是同字节对齐。** 对 `etwfe::emfx` 差 2.4e-6（参考侧用前向差分求 Jacobian），对 Stata `jwdid` 差 6e-4（K 约定）。在注册的 1e-3 预算内，scope 里记为 `disclosure`，总体状态 `estimate_only`。协方差测试的 R fixture 用 Richardson 外推后事件研究矩阵能到 1e-6；headline SE 若也用同样办法重生成参考，有机会升到 T2，本轮没做。
+- **`data_path` 的读取不在超时之内。** 数据在受监督的 runner 启动之前就加载了。一个永不返回的读（FIFO、卡住的网络挂载、慢 URL）会永久占住唯一的 worker，后面的调用全部排队。做进程隔离测试时发现，已修。
+- **自动注册的长尾工具没有 `result_card`。** 只有手工整理的那批工具会附结果卡；通过 registry 走的函数（包括森林家族）返回里没有配置级证据，也没有诊断状态。已补。
+- **`sp.match` 的 schema 写错了参数名。** schema 把 `treatment=` / `outcome=` 标成必填，函数实际只接受 `treat=` / `y=`，照着 schema 调用会直接失败。card 审查查出，已改。同批查出：`sp.panel` 的枚举里有不存在的 `method='cre'`；`sp.sun_abraham` 的 `control_group` 枚举写的是 `notyettreated`（实际是 `lastcohort`）；`sp.aipw` 的 `estimand` 枚举多了不支持的 `ATC`；`sp.feols` 的返回类型被解析成 `list`；`sp.match` 的返回类型写成 `MatchEstimator`。
+- **`sp.match(method='llr')` 在默认带宽下会崩。** bootstrap 的某个重抽样里局部线性权重之和为零，匹配结果的记账代码直接除零，抛出 `ZeroDivisionError`，整个调用失败。已改为把该处理单位的匹配结果记为缺失。点估计不受影响。
+- **六种种子参数名不被结果卡识别。** `boot_seed`、`bootstrap_seed`、`rng_seed`、`wild_seed`、`halton_seed`、`rng`。用这些名字的函数，结果卡对其随机输出是否可复现一个字都不说。已补，并有测试挡新拼法。
+- **`areg` 翻译出来的常数项不是 Stata 的 `_cons`。** 斜率和 SE 与 `areg` 完全一致；`Intercept` 是第一组的水平，`_cons` 是平均吸收效应处的截距。翻译说明原来只提了 SE 的自由度，没提常数项。holdout 查出，已补说明。

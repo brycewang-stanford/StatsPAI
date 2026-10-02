@@ -1280,6 +1280,150 @@
         }
       ]
     },
+    "etwfe_glm": {
+      "dimensions": {
+        "family": [
+          "poisson",
+          "logit"
+        ],
+        "cgroup": [
+          "notyet",
+          "nevertreated"
+        ],
+        "fe": [
+          "cohort",
+          "unit"
+        ],
+        "hettype": [
+          "timecohort",
+          "time",
+          "cohort",
+          "event",
+          "twfe"
+        ],
+        "scale": [
+          "response",
+          "link"
+        ],
+        "response_se": [
+          "profile",
+          "margins",
+          "unconditional"
+        ],
+        "controls": [
+          "none",
+          "set"
+        ],
+        "xvar": [
+          "none",
+          "set"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {},
+      "cells": 1920,
+      "overall": {
+        "estimate_only": 2,
+        "not_covered": 1918
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 2,
+          "not_covered": 1918
+        },
+        "se": {
+          "disclosure": 2,
+          "not_covered": 1918
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_glm_parity.py",
+          "entry_point": "sp.etwfe(family='poisson'|'logit')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "logit",
+              "poisson"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "cohort"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "response"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "average marginal effect on the response scale (simple and by event time) vs etwfe::emfx on the same panel, family poisson and binomial"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_etwfe_glm_parity.py",
+          "entry_point": "sp.etwfe(family='poisson'|'logit')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "logit",
+              "poisson"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "cohort"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "response"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "clustered delta-method SE: about 1e-5 from etwfe::emfx (the test budget is 1e-4), because fixest and statsmodels apply different finite-sample corrections to the clustered sandwich"
+        }
+      ]
+    },
     "event_study": {
       "dimensions": {
         "adoption": [
@@ -3599,16 +3743,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 352,
+      "reference": 354,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 40574
+      "not_covered": 42492
     },
     "se": {
       "reference": 148,
       "stochastic_screen": 3,
-      "disclosure": 3,
-      "not_covered": 40772
+      "disclosure": 5,
+      "not_covered": 42690
     },
     "coverage": {
       "coverage_simulation": 11,
@@ -3677,5 +3821,294 @@
       ],
       "in_tier_a_lock": false
     }
-  ]
+  ],
+  "option_inputs": [
+    {
+      "input": "tests/stata_parity/option_parity/data_85_dcdh_switch.csv",
+      "sha256": "776bafc6c4c8e2f467028900beb55bd0a1229f402313af44133bd7519d9505bc"
+    },
+    {
+      "input": "tests/stata_parity/option_parity/data_86_lprobust.csv",
+      "sha256": "895c4205c6d1012be974269cb1d35d086df4c0bda3ff4992cce8b3e2fe6b5e64"
+    },
+    {
+      "input": "tests/stata_parity/option_parity/data_87_did_had.csv",
+      "sha256": "7609daa994c6aca4023ac0f5e5f1f296e0b92fc2a32dda83d32490cceaddd52c"
+    }
+  ],
+  "translation_holdout": [
+    {
+      "file": "tests/stata_translation_holdout/corpus.json",
+      "sha256": "9ea252d8fcdafdbb44dfc620af211cc739dee1725faf037bc00464b0fc710174"
+    },
+    {
+      "file": "tests/stata_translation_holdout/holdout_Stata.json",
+      "sha256": "d7b73504feee42a6a44992ab92b61ebd3d496c773954b5fae26eb0520e2cd198"
+    },
+    {
+      "file": "tests/stata_translation_holdout/holdout_cross.csv",
+      "sha256": "5eca4a3640048a417bb108b188a8b25c4105cb0b8aaf5301b0c155e00fa8037b"
+    },
+    {
+      "file": "tests/stata_translation_holdout/holdout_panel.csv",
+      "sha256": "f5f2b30439c324712fbfd693929b75a1c9cde6a5eadf643cbb9b222acbb0265c"
+    }
+  ],
+  "inference_reliability": {
+    "nominal_level": 0.95,
+    "source": "tests/coverage_monte_carlo/results_b1000/",
+    "coverage": [
+      {
+        "design": "sp.regress (HC1) on RCT",
+        "B": 1000,
+        "covered": 952,
+        "failures": 0,
+        "rate": 0.952,
+        "mc_se": 0.0068,
+        "se_to_sd_ratio": 1.001,
+        "within_2_mc_se_of_nominal": true
+      },
+      {
+        "design": "sp.regress 2x2 DiD",
+        "B": 1000,
+        "covered": 955,
+        "failures": 0,
+        "rate": 0.955,
+        "mc_se": 0.0066,
+        "se_to_sd_ratio": 1.026,
+        "within_2_mc_se_of_nominal": true
+      },
+      {
+        "design": "sp.ivreg (HC1) on strong-Z IV",
+        "B": 1000,
+        "covered": 962,
+        "failures": 0,
+        "rate": 0.962,
+        "mc_se": 0.006,
+        "se_to_sd_ratio": 0.984,
+        "within_2_mc_se_of_nominal": true
+      },
+      {
+        "design": "sp.callaway_santanna simple ATT (staggered)",
+        "B": 1000,
+        "covered": 947,
+        "failures": 0,
+        "rate": 0.947,
+        "mc_se": 0.0071,
+        "se_to_sd_ratio": 1.009,
+        "within_2_mc_se_of_nominal": true
+      },
+      {
+        "design": "sp.sun_abraham overall ATT (staggered)",
+        "B": 1000,
+        "covered": 950,
+        "failures": 0,
+        "rate": 0.95,
+        "mc_se": 0.0069,
+        "se_to_sd_ratio": 1.017,
+        "within_2_mc_se_of_nominal": true
+      },
+      {
+        "design": "sp.panel two-way FE",
+        "B": 1000,
+        "covered": 948,
+        "failures": 0,
+        "rate": 0.948,
+        "mc_se": 0.007,
+        "se_to_sd_ratio": 0.99,
+        "within_2_mc_se_of_nominal": true
+      },
+      {
+        "design": "sp.fast.feols two-way FE (CR1 by unit)",
+        "B": 1000,
+        "covered": 955,
+        "failures": 0,
+        "rate": 0.955,
+        "mc_se": 0.0066,
+        "se_to_sd_ratio": 0.987,
+        "within_2_mc_se_of_nominal": true
+      },
+      {
+        "design": "sp.rdrobust sharp (robust CI)",
+        "B": 1000,
+        "covered": 934,
+        "failures": 0,
+        "rate": 0.934,
+        "mc_se": 0.0079,
+        "se_to_sd_ratio": 0.982,
+        "within_2_mc_se_of_nominal": false
+      },
+      {
+        "design": "sp.sdid placebo (1 treated)",
+        "B": 1000,
+        "covered": 928,
+        "failures": 0,
+        "rate": 0.928,
+        "mc_se": 0.0082,
+        "se_to_sd_ratio": 0.992,
+        "within_2_mc_se_of_nominal": false
+      },
+      {
+        "design": "sp.ebalance (CIA, ATT)",
+        "B": 1000,
+        "covered": 945,
+        "failures": 0,
+        "rate": 0.945,
+        "mc_se": 0.0072,
+        "se_to_sd_ratio": 0.969,
+        "within_2_mc_se_of_nominal": true
+      },
+      {
+        "design": "sp.causal_question(design='dml') IRM ATE",
+        "B": 1000,
+        "covered": 968,
+        "failures": 0,
+        "rate": 0.968,
+        "mc_se": 0.0056,
+        "se_to_sd_ratio": 1.045,
+        "within_2_mc_se_of_nominal": false
+      },
+      {
+        "design": "sp.dml(model='plr') theta",
+        "B": 1000,
+        "covered": 883,
+        "failures": 0,
+        "rate": 0.883,
+        "mc_se": 0.0102,
+        "se_to_sd_ratio": 0.885,
+        "within_2_mc_se_of_nominal": false
+      },
+      {
+        "design": "sp.causal_question(design='causal_forest') AIPW ATE",
+        "B": 1000,
+        "covered": 959,
+        "failures": 0,
+        "rate": 0.959,
+        "mc_se": 0.0063,
+        "se_to_sd_ratio": 1.036,
+        "within_2_mc_se_of_nominal": true
+      }
+    ],
+    "stress_designs": [
+      {
+        "design": "sp.ivreg (HC1) weak instrument (pi=0.10)",
+        "B": 1000,
+        "rate": 0.882,
+        "mc_se": 0.0102,
+        "documented_band": [
+          0.85,
+          0.95
+        ],
+        "note": null
+      },
+      {
+        "design": "sp.callaway_santanna heterogeneous timing+magnitude",
+        "B": 1000,
+        "rate": 0.946,
+        "mc_se": 0.0071,
+        "documented_band": [
+          0.92,
+          0.96
+        ],
+        "note": null
+      },
+      {
+        "design": "sp.causal_forest AIPW under overlap loss",
+        "B": 300,
+        "rate": 0.9,
+        "mc_se": 0.0173,
+        "documented_band": [
+          0.85,
+          0.99
+        ],
+        "note": "Capped at B=300 (wall-clock cap; AIPW IF dominates)."
+      }
+    ],
+    "size_and_power": [
+      {
+        "design": "sp.regress (HC1) RCT",
+        "B": 1000,
+        "size": 0.043,
+        "mc_se": 0.0064,
+        "power": {
+          "0.0": 0.043,
+          "0.1": 0.208,
+          "0.2": 0.596,
+          "0.3": 0.903
+        }
+      },
+      {
+        "design": "sp.did 2x2",
+        "B": 1000,
+        "size": 0.024,
+        "mc_se": 0.0048,
+        "power": {
+          "0.0": 0.024,
+          "0.2": 0.291,
+          "0.4": 0.871,
+          "0.6": 0.996
+        }
+      },
+      {
+        "design": "sp.ivreg strong-Z",
+        "B": 1000,
+        "size": 0.046,
+        "mc_se": 0.0066,
+        "power": {
+          "0.0": 0.046,
+          "0.2": 0.453,
+          "0.4": 0.935,
+          "0.6": 0.996
+        }
+      },
+      {
+        "design": "sp.rdrobust sharp",
+        "B": 500,
+        "size": 0.076,
+        "mc_se": 0.0119,
+        "power": {
+          "0.0": 0.076,
+          "0.2": 0.404,
+          "0.4": 0.888,
+          "0.6": 1.0
+        }
+      },
+      {
+        "design": "sp.panel two-way FE",
+        "B": 1000,
+        "size": 0.052,
+        "mc_se": 0.007,
+        "power": {
+          "0.0": 0.052,
+          "0.15": 0.231,
+          "0.3": 0.652,
+          "0.45": 0.954
+        }
+      },
+      {
+        "design": "sp.callaway_santanna staggered",
+        "B": 300,
+        "size": 0.05,
+        "mc_se": 0.0126,
+        "power": {
+          "0.0": 0.05,
+          "0.3": 0.7767,
+          "0.6": 1.0,
+          "0.9": 1.0
+        }
+      },
+      {
+        "design": "sp.ebalance (M-estimation SE)",
+        "B": 1000,
+        "size": 0.055,
+        "mc_se": 0.0072,
+        "power": {
+          "0.0": 0.055,
+          "0.4": 1.0,
+          "0.7": 1.0,
+          "1.0": 1.0
+        }
+      }
+    ]
+  }
 }

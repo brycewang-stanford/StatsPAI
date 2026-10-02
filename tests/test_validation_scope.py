@@ -664,8 +664,9 @@ def test_etwfe_headline_se_is_a_disclosure_and_the_default_call_is_attached():
         "tests/reference_parity/test_validation_entry_points.py"
     ]
     assert _scope_of(unit_w)[0]["status"] == "not_covered"
+    # A GLM family is routed to its own map rather than failing this one.
     scope, _ = _scope_of(logit)
-    assert scope["status"] == "not_covered" and "panel" in scope["unchecked"]
+    assert scope["function"] == "etwfe_glm" and scope["status"] == "estimate_only"
 
 
 def test_wooldridge_did_does_not_borrow_the_etwfe_map():
@@ -682,3 +683,25 @@ def test_wooldridge_did_does_not_borrow_the_etwfe_map():
         )
     with pytest.raises(MethodIncompatibility):
         sp.validation_scope(fit)
+
+
+def test_nonlinear_etwfe_has_its_own_map():
+    """family='poisson' is routed to the GLM map, whose option axes differ."""
+    panel = pd.read_csv(
+        ROOT / "tests/reference_parity/_fixtures/etwfe_poisson_panel.csv"
+    )
+    keys = dict(y="y", group="id", time="year", first_treat="g")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        poisson = sp.etwfe(panel, **keys, family="poisson")
+        unit_fe = sp.etwfe(panel, **keys, family="poisson", fe="unit")
+        linear = sp.etwfe(panel, **keys)
+    scope, out = _scope_of(poisson)
+    assert scope["function"] == "etwfe_glm" and scope["unchecked"] == []
+    assert out["estimate"] == "reference"
+    # ~1e-5 from etwfe::emfx: a finite-sample convention, not same-byte.
+    assert out["se"] == "disclosure"
+    assert _scope_of(unit_fe)[0]["status"] == "not_covered"
+    assert _scope_of(linear)[0]["function"] == "etwfe"
+    # The result card goes through the same routing.
+    assert sp.result_card(poisson)["evidence"]["outputs"]["se"] == "disclosure"

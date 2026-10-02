@@ -6605,38 +6605,21 @@
     },
     "reference": "Rosenbaum & Rubin (1983); Ho et al. (2007) Political Analysis; Stuart (2010) Statistical Science",
     "returns": {
-      "class": "MatchEstimator",
-      "description": "MatchEstimator result",
+      "class": "CausalResult",
+      "description": "CausalResult",
       "fields": {
-        "ai_matches": "int",
         "alpha": "float",
-        "bias_correction": "bool",
-        "bootstrap_reps": "int",
-        "bootstrap_seed": "Optional[int]",
-        "bwidth": "float",
-        "caliper": "Optional[float]",
-        "caliper_scale": "str",
-        "common_support": "str",
-        "covariates": "List[str]",
-        "data": "DataFrame",
-        "distance": "Optional[str]",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
         "estimand": "str",
-        "kernel": "str",
-        "llr_stata_compat": "bool",
-        "m_order": "str",
-        "mahalanobis_cov": "str",
+        "estimate": "float",
         "method": "str",
-        "n_bins": "Optional[int]",
-        "n_matches": "int",
-        "n_strata": "int",
-        "ps_poly": "int",
-        "replace": "bool",
-        "se_method": "str",
-        "tie_tolerance": "float",
-        "ties": "str",
-        "treat": "str",
-        "y": "str"
-      }
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
     },
     "signature": {
       "description": "Propensity score and covariate matching for treatment effect estimation. Validation: certified evidence with scoped limitations. Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; bias_correction=True follows a different convention from Matching::Match's BiasAdjust: StatsPAI regresses on the full covariate vector with unweighted OLS over all controls, the reference regresses on the matching variables weighted by match counts, so bias-corrected estimates can differ from it by about 0.1%. The uncorrected estimate and its Abadie-Imbens standard error are exact. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that.",
@@ -6727,11 +6710,6 @@
             ],
             "type": "string"
           },
-          "outcome": {
-            "description": "Outcome variable column name or outcome array.",
-            "type": "string",
-            "x-statspai-role": "column"
-          },
           "se_method": {
             "default": "auto",
             "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw. 'abadie_imbens_2016' is the Abadie-Imbens (2016) estimated-propensity-score variance Stata teffects psmatch reports (population ATT; the score-estimation term can be negative).",
@@ -6760,8 +6738,8 @@
             ],
             "type": "string"
           },
-          "treatment": {
-            "description": "Treatment indicator, treatment variable, or treatment array.",
+          "treat": {
+            "description": "Binary treatment column (0/1)",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -6769,12 +6747,17 @@
             "description": "Frequency weights (Stata [fw=], positive integers; the only weight teffects matching accepts). Sampling weights and cluster= are refused: use sp.ipw / sp.aipw / sp.tmle.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string",
+            "x-statspai-role": "column"
           }
         },
         "required": [
           "data",
-          "treatment",
-          "outcome",
+          "y",
+          "treat",
           "covariates"
         ],
         "type": "object"
@@ -7336,7 +7319,6 @@
               "pooled",
               "twoway",
               "mundlak",
-              "cre",
               "chamberlain",
               "ab",
               "system"
@@ -33643,10 +33625,10 @@
           },
           "control_group": {
             "default": "nevertreated",
-            "description": "Control arm",
+            "description": "Reference cohort: never-treated units, or the last-treated cohort when there are none. A not-yet-treated comparison is not an option of this estimator (use sp.callaway_santanna).",
             "enum": [
               "nevertreated",
-              "notyettreated"
+              "lastcohort"
             ],
             "type": "string"
           },
@@ -40719,11 +40701,10 @@
           },
           "estimand": {
             "default": "ATE",
-            "description": "Target estimand",
+            "description": "Target estimand (ATC is not implemented for AIPW; sp.ipw has it)",
             "enum": [
               "ATE",
-              "ATT",
-              "ATC"
+              "ATT"
             ],
             "type": "string"
           },
@@ -80687,9 +80668,17 @@
     },
     "reference": "correia2017linear",
     "returns": {
-      "class": "list",
+      "class": "EconometricResults",
       "description": "EconometricResults or list of EconometricResults: Single result for simple formulas, list for multiple estimations (e.g. csw0/sw/sw0 syntax).",
-      "fields": {}
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
     },
     "signature": {
       "description": "Estimate OLS / IV with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows.",

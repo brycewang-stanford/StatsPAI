@@ -121,3 +121,27 @@ def test_option_fixtures_are_read_and_hashed(built):
         assert fx["consumers"], f"{fx['fixture']} is read by no test"
         digest = hashlib.sha256((ROOT / fx["fixture"]).read_bytes()).hexdigest()
         assert fx["sha256"] == digest
+
+
+def test_reliability_rates_keep_every_replication_in_the_denominator(built):
+    """Coverage is covered / B with failures counted, never covered / successes."""
+    rel = built["inference_reliability"]
+    assert len(rel["coverage"]) >= 13
+    for row in rel["coverage"]:
+        assert row["rate"] == pytest.approx(row["covered"] / row["B"], abs=1e-12)
+        assert row["failures"] >= 0 and row["covered"] + row["failures"] <= row["B"]
+        expected_se = (row["rate"] * (1 - row["rate"]) / row["B"]) ** 0.5
+        assert row["mc_se"] == pytest.approx(expected_se, abs=5e-5)
+
+
+def test_reliability_flags_the_designs_that_miss_nominal(built):
+    """The table must not round a real shortfall into 'covers'."""
+    rows = {r["design"]: r for r in built["inference_reliability"]["coverage"]}
+    plr = rows["sp.dml(model='plr') theta"]
+    assert plr["rate"] == pytest.approx(0.883, abs=1e-9)
+    assert plr["within_2_mc_se_of_nominal"] is False
+    assert rows["sp.regress (HC1) on RCT"]["within_2_mc_se_of_nominal"] is True
+    stress = built["inference_reliability"]["stress_designs"]
+    weak = next(r for r in stress if "weak instrument" in r["design"])
+    lo, hi = weak["documented_band"]
+    assert lo <= weak["rate"] <= hi < 0.96

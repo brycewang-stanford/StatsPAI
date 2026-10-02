@@ -657,7 +657,12 @@ _BUILTIN_RETURN_NAMES = {
 
 #: Explicit return class for dispatchers annotated ``Any`` / ``Union`` whose
 #: every branch returns the same envelope.
-EXPLICIT_RESULT_CLASS: Dict[str, str] = {}
+EXPLICIT_RESULT_CLASS: Dict[str, str] = {
+    # ``Union[EconometricResults, List[EconometricResults]]``: the list is
+    # the multiple-estimation syntax (sw / csw); a plain formula returns one
+    # result. Read left to right the annotation parser landed on ``list``.
+    "feols": "EconometricResults",
+}
 
 
 def _resolve_name(text: str, obj: Any) -> Optional[Any]:

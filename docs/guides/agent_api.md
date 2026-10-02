@@ -434,6 +434,15 @@ Result shaping:
   this server) or `call_only` (inline or remote data, or an argument with
   no literal form). The replay line alone is not a reproduction script
   unless the level is `standalone`.
+- `replay_completeness.bundle_uri` (when the call used `as_handle=true`)
+  names a resource, `statspai://result/<id>/bundle`, that returns the data
+  file and its SHA-256, the `transform_data` steps, the call, the headline
+  numbers and a script that re-runs and checks them in a new process.
+  Read it before the session ends; handles do not survive a restart.
+- `result_card.assumptions.checks` lists every diagnostic the estimator
+  family expects with status `passed` / `failed` / `not_run` /
+  `not_applicable`. An empty `violations` list with `not_run` entries
+  means nothing was found because nothing looked.
 - `output_budget` is present whenever the result did not fit untouched:
   `status` is `truncated` (cut to fit, `actual_bytes <= max_bytes`) or
   `unavoidable_overflow` (the never-cut fields alone exceed the budget;

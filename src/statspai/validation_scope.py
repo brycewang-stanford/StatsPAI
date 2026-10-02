@@ -323,6 +323,22 @@ def _x_etwfe(r: Any) -> Dict[str, Optional[str]]:
     }
 
 
+def _x_etwfe_glm(r: Any) -> Dict[str, Optional[str]]:
+    mi = _mi(r)
+    family = _lower(mi.get("family"))
+    return {
+        "family": "logit" if family == "binomial" else family,
+        "cgroup": _lower(mi.get("cgroup")),
+        "fe": _lower(mi.get("fe")),
+        "hettype": _lower(mi.get("hettype")),
+        "scale": _lower(mi.get("scale")),
+        "response_se": _lower(mi.get("response_se")),
+        "controls": None if "controls" not in mi else _set(mi.get("controls")),
+        "xvar": None if "xvar" not in mi else _set(mi.get("xvar")),
+        "weights": _set(mi.get("weights")),
+    }
+
+
 def _x_rd(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
     if mi.get("cluster") is not None:
@@ -1450,6 +1466,66 @@ _add(
     )
 )
 
+_ETWFE_GLM_RAN = {
+    "family": _vals("poisson", "logit"),
+    "cgroup": _vals("notyet"),
+    "fe": _vals("cohort"),
+    "hettype": _vals("timecohort"),
+    "scale": _vals("response"),
+    "response_se": _vals("profile"),
+    "controls": _vals("none"),
+    "xvar": _vals("none"),
+    "weights": _vals("none"),
+}
+_ETWFE_GLM = _RP + "test_etwfe_glm_parity.py"
+
+#: The nonlinear branch of sp.etwfe has its own option axes, so it has its
+#: own map; sp.validation_scope routes a fit with family='poisson'/'logit'
+#: here (``function="etwfe_glm"`` in a by-name query).
+_add(
+    _Scope(
+        "etwfe_glm",
+        {
+            "family": ("poisson", "logit"),
+            "cgroup": ("notyet", "nevertreated"),
+            "fe": ("cohort", "unit"),
+            "hettype": ("timecohort", "time", "cohort", "event", "twfe"),
+            "scale": ("response", "link"),
+            "response_se": ("profile", "margins", "unconditional"),
+            "controls": ("none", "set"),
+            "xvar": ("none", "set"),
+            "weights": ("none", "set"),
+        },
+        _x_etwfe_glm,
+        (
+            _Row(
+                "T2",
+                _ETWFE_GLM,
+                dict(_ETWFE_GLM_RAN),
+                _EST,
+                "average marginal effect on the response scale (simple and by "
+                "event time) vs etwfe::emfx on the same panel, family poisson "
+                "and binomial",
+                "sp.etwfe(family='poisson'|'logit')",
+            ),
+            _Row(
+                "T4",
+                _ETWFE_GLM,
+                dict(_ETWFE_GLM_RAN),
+                ("se",),
+                "clustered delta-method SE: about 1e-5 from etwfe::emfx (the "
+                "test budget is 1e-4), because fixest and statsmodels apply "
+                "different finite-sample corrections to the clustered sandwich",
+                "sp.etwfe(family='poisson'|'logit')",
+            ),
+        ),
+        note="Unit fixed effects, the pooled hettype designs, the link scale, "
+        "never-treated controls, covariates and weights have no reference row "
+        "here. The SE is a documented finite-sample convention difference, not "
+        "a same-byte match.",
+    )
+)
+
 _add(
     _Scope(
         "rdrobust",
@@ -2202,6 +2278,13 @@ def validation_scope(
         # sp.causal_question(...).estimate() wraps the estimator it ran.
         result = result.underlying
     name = function or _function_of(result)
+    if (
+        name == "etwfe"
+        and result is not None
+        and _mi(result).get("estimator") == "etwfe_glm"
+    ):
+        # Same entry point, different option axes: the nonlinear branch.
+        name = "etwfe_glm"
     if name is None or name not in SCOPES:
         raise MethodIncompatibility(
             f"No configuration-level evidence map for {name!r}.",

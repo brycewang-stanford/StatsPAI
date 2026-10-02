@@ -554,6 +554,25 @@ changes its numbers.
   covers `structuredContent` only.
 - **A second `tools/call` reusing an in-flight request id took over its
   cancel handle.** It is refused with `-32600`.
+- **Agent cards that told an agent the wrong thing** (found by the card
+  audit). `sp.match`'s schema marked `treatment=` and `outcome=` as
+  required; the function accepts only `treat=` and `y=`, so a call built
+  from the schema failed. `sp.panel` advertised `method='cre'`,
+  `sp.sun_abraham` advertised `control_group='notyettreated'` (it takes
+  `'lastcohort'`), `sp.aipw` advertised `estimand='ATC'`: none is
+  accepted. `sp.feols` and `sp.match` named the wrong result class.
+- **`sp.match(method='llr')` raised `ZeroDivisionError` at the default
+  bandwidth.** In a bootstrap replicate whose local linear weights sum to
+  zero for some treated unit, the matched-outcome bookkeeping divided by
+  that sum and took the whole call down. The unit's matched outcome is now
+  left missing. Point estimates are unchanged.
+- **Tools reached through the registry returned no result card.** Only
+  the hand-curated MCP tools attached it, so the long tail (the forest
+  family among them) answered with no configuration-level evidence and no
+  diagnostic status.
+- **`sp.from_stata("areg ...")` did not say that the constant differs.**
+  Slopes and SEs equal `areg`'s; `Intercept` is the first group's level,
+  not `areg`'s `_cons`. The translation note now says so.
 - **Six seed spellings were invisible to the result card.** `sp.result_card`
   reports `seed` / `reproducible` / `seed_source` by argument name and
   knew only `seed` and `random_state`. `boot_seed` (`did_imputation`,
@@ -597,6 +616,49 @@ changes its numbers.
   supported protocol revision, an unknown revision, a text-only client, a
   client without sampling, a client that sends cursors, a server restart
   with stale handles, and a client that skips `initialize`.
+- **Reproduction bundles: `statspai://result/<id>/bundle`.** A cached
+  result can be exported as the data file and its SHA-256, the
+  `transform_data` steps in order, the `sp.<fn>(...)` call, the headline
+  numbers, and a script that re-runs all of it in a new process and
+  checks the numbers. Tested by running load, transform and fit in one
+  server and executing the exported script in a separate interpreter. The
+  script refuses a data file whose hash changed. Inline or remote data
+  gets no script, and the bundle says why.
+- **Agent card audit of the 30 most-used entry points**
+  (`scripts/agent_card_audit.py`, `docs/dev/agent_card_audit.md`). Each
+  card is checked against a real call: required arguments, result class,
+  all 283 schema enum values, recommended alternatives. See Fixed for
+  what it found.
+- **Stata translation holdout** (`tests/stata_translation_holdout/`): 39
+  commands written against Stata's documented grammar, with the numbers
+  Stata 18 MP gives for the 33 that run. Scored on five layers
+  (recognised, translated, executed, same sample, same numbers): 29 of 33
+  reproduce Stata, 4 are refused out loud (`[fweight=]`, `noconstant`,
+  `qreg`, `xtreg, re`), none is silently wrong, and all 6 commands that
+  must be refused are.
+- **Red-line scenarios** (`tests/agent_eval/test_red_line_scenarios.py`):
+  for each way an agent can produce a confidently wrong report (weak
+  instrument, few clusters, diagnostics not run, an unvalidated SE, a lost
+  handle, a truncated risk list, an untranslated Stata option) the real
+  MCP output must carry an unambiguous signal a reference policy can
+  read. No model is called.
+- **`docs/reproduction_manifest.json`**: per module and side, the status
+  of the last re-derivation, the reference version and platform, the
+  hashes of the bytes compared, whether CI re-derives it, and the measured
+  reason where a Stata side is missing.
+- **Evidence inventory additions**: a scope map for nonlinear `sp.etwfe`
+  (`family='poisson'` / `'logit'`); the Track B coverage, stress-design
+  and size/power results with Monte Carlo standard errors, failed
+  replications kept in the denominator; hashes of the option-fixture
+  inputs and of the translation holdout.
+  `scripts/evidence_track_manifest.py` reports, for all six evidence
+  tracks, which hash lock covers each file and whether anything reads it.
+- **Skill short path** (`references/quick-path.md`): route, describe, fit,
+  inspect, export for a single estimate, and the three points at which to
+  stop. Its code blocks are executed by the test suite. Calls to
+  functions that take `**kwargs` are now checked against the agent schema,
+  the routing questions (`sp.route`) or the wrapper signature
+  (`sp.power`), so all 275 calls in the skill are verified.
 - **`sp.result_card`: which expected diagnostics ran.** The `assumptions`
   section gains `checks` and `checks_summary`: every diagnostic the
   estimator family expects, with status `passed` / `failed` / `not_run` /

@@ -1,6 +1,6 @@
 # The AER-style empirical pipeline, step by step (default mode)
 
-> Reference file of the `statspai-analysis` skill. Read the section you need; `validate_api_claims.py` checks it against the installed StatsPAI: every `sp.*` name resolves, every `sp.*(...)` call in a code block binds to the real signature (keywords of functions that take `**kwargs` cannot be checked), and the result attributes on the gate's smoke-fit list exist.
+> Reference file of the `statspai-analysis` skill. Read the section you need; `validate_api_claims.py` checks it against the installed StatsPAI: every `sp.*` name resolves, every `sp.*(...)` call in a code block binds to the real signature (for a function that takes `**kwargs`, to its agent schema or forwarding target), and the result attributes on the gate's smoke-fit list exist.
 
 ## Step −1 — Pre-Analysis Plan (pre-data; AEA RCT Registry style)
 

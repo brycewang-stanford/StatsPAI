@@ -179,6 +179,25 @@ def dispatch_registry_tool(
         out["result_id"] = rid
         out["result_uri"] = f"statspai://result/{rid}"
 
+    # Result card, as on the curated path: without it a function reached
+    # through the registry (the long tail, including the forests) answered
+    # with no configuration-level evidence and no diagnostic status, and an
+    # agent could only fall back on the function-level tier.
+    if detail != "minimal" and (
+        hasattr(result, "params")
+        or hasattr(result, "estimate")
+        or isinstance(getattr(result, "model_info", None), dict)
+    ):
+        from ..result_card import result_card as _result_card
+        from ..workflow._degradation import record_degradation
+
+        try:
+            out["result_card"] = dict(_result_card(result))
+        except Exception as e:  # noqa: BLE001 - the fit itself succeeded
+            degr: list = []
+            record_degradation(degr, section="result_card", exc=e, detail=name)
+            out["result_card_error"] = degr[0] if degr else repr(e)
+
     from ._enrichment import enrich_payload
 
     enrich_payload(

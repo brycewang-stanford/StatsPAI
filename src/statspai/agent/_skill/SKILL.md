@@ -21,7 +21,8 @@ artifacts on disk at every step.
 - **Verified**: `validate_api_claims.py` checks this skill against the
   installed package (`statspai skill validate`). Every `sp.*` name resolves,
   every `sp.*(...)` call in a code block binds to the real signature
-  (keywords of functions that take `**kwargs` cannot be checked), and the
+  (for a function that takes `**kwargs`, to its agent schema or forwarding
+  target), and the
   result attributes on the gate's smoke-fit list exist. There is no version
   stamp to go stale.
 - **Paper**: Wang & Rozelle (2026), *Journal of Open Source Software* 11(125),
@@ -31,7 +32,9 @@ artifacts on disk at every step.
 
 1. **Route the mode first** from the user's words — default applied econ,
    Mode A epi, Mode B ML-causal, or an export-only path. Do not run the whole
-   paper pipeline for "make Table 1" or "export this regression".
+   paper pipeline for "make Table 1" or "export this regression". A request
+   for one estimate, one check or one table takes the short path in
+   `references/quick-path.md`.
 2. **Freeze the contract before estimating**: `y`, treatment / exposure,
    unit / time ids, estimand, design, required artifacts, install extras. Infer
    a missing field only when the column names make it obvious; otherwise return
@@ -122,6 +125,7 @@ Step-by-step code: `references/pipeline-econ.md`. Mode A:
 
 | Need | File |
 | --- | --- |
+| **one estimate, one check or one export**: route, describe, fit, inspect, export, and when to stop | `references/quick-path.md` |
 | operating loop in full, acceptance gates by request type, mode table, figure & table inventory | `references/operating-loop.md` |
 | the minimal end-to-end skeleton to copy | `references/verified-skeleton.md` |
 | Steps −1 → 8 with code, one paper section each | `references/pipeline-econ.md` |

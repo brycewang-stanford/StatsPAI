@@ -343,11 +343,10 @@
         },
         "estimand": {
           "default": "ATE",
-          "description": "Target estimand",
+          "description": "Target estimand (ATC is not implemented for AIPW; sp.ipw has it)",
           "enum": [
             "ATE",
-            "ATT",
-            "ATC"
+            "ATT"
           ],
           "type": "string"
         },
@@ -17360,11 +17359,6 @@
           ],
           "type": "string"
         },
-        "outcome": {
-          "description": "Outcome variable column name or outcome array.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
         "se_method": {
           "default": "auto",
           "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw. 'abadie_imbens_2016' is the Abadie-Imbens (2016) estimated-propensity-score variance Stata teffects psmatch reports (population ATT; the score-estimation term can be negative).",
@@ -17393,8 +17387,8 @@
           ],
           "type": "string"
         },
-        "treatment": {
-          "description": "Treatment indicator, treatment variable, or treatment array.",
+        "treat": {
+          "description": "Binary treatment column (0/1)",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -17402,12 +17396,17 @@
           "description": "Frequency weights (Stata [fw=], positive integers; the only weight teffects matching accepts). Sampling weights and cluster= are refused: use sp.ipw / sp.aipw / sp.tmle.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
         }
       },
       "required": [
         "covariates",
-        "outcome",
-        "treatment"
+        "treat",
+        "y"
       ],
       "type": "object"
     },
@@ -20225,7 +20224,6 @@
             "pooled",
             "twoway",
             "mundlak",
-            "cre",
             "chamberlain",
             "ab",
             "system"
@@ -30437,10 +30435,10 @@
         },
         "control_group": {
           "default": "nevertreated",
-          "description": "Control arm",
+          "description": "Reference cohort: never-treated units, or the last-treated cohort when there are none. A not-yet-treated comparison is not an option of this estimator (use sp.callaway_santanna).",
           "enum": [
             "nevertreated",
-            "notyettreated"
+            "lastcohort"
           ],
           "type": "string"
         },

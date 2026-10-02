@@ -379,7 +379,12 @@ def _h_areg(cmd: StataCommand) -> Dict[str, Any]:
         f"areg absorb({group}) -> C({group}) dummies in sp.regress: areg's "
         "standard errors count the absorbed groups in the degrees of "
         "freedom. sp.hdfe_ols gives the same coefficients faster but "
-        "follows reghdfe's degrees of freedom and drops singletons."
+        "follows reghdfe's degrees of freedom and drops singletons.",
+        "The slope coefficients and their SEs equal areg's. The constant "
+        "does not: areg's _cons is the intercept at the average absorbed "
+        "effect, while `Intercept` here is the first group's level and the "
+        f"C({group})[...] rows are contrasts with it. Do not report "
+        "`Intercept` as areg's _cons.",
     ]
     if cmd.if_cond:
         notes.append(

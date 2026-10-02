@@ -215,6 +215,15 @@ jobs:
           tests/test_mcp_replay_completeness.py \
           tests/test_mcp_isolation.py \
           tests/test_mcp_client_matrix.py \
+          tests/test_mcp_replay_bundle.py \
+          tests/agent_eval/test_red_line_scenarios.py \
+          tests/test_result_card_checks.py \
+          tests/test_seed_contract.py \
+          tests/test_stata_translation_holdout.py \
+          tests/test_evidence_tracks.py \
+          tests/test_reproduction_manifest.py \
+          tests/test_review_backlog.py \
+          tests/test_agent_card_audit.py \
           tests/test_mcp_data_handles.py \
           tests/test_mcp_result_handle.py \
           tests/test_mcp_error_envelope.py \

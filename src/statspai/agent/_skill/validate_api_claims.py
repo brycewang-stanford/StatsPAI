@@ -14,8 +14,10 @@ It verifies three layers of perishable claims the skill makes:
   2b. CALLS      — every ``sp.<fn>(...)`` call written in a Python code block
                    of the skill is parsed and bound against the real
                    signature: an unknown keyword or too many positional
-                   arguments fails. Functions taking ``**kwargs`` are only
-                   checked for positional count (the number is printed).
+                   arguments fails. For a function taking ``**kwargs`` the
+                   keywords are checked against its agent schema, the
+                   family / design its first argument names (``sp.route``,
+                   ``sp.power``) or a declared forwarding target.
   3. ATTRIBUTES  — the documented result-object attributes / return shapes hold
                    (the layer that drifts silently when the library adds a
                    convenience method, e.g. ``AFTResult.params`` in 1.19.0).
@@ -287,6 +289,73 @@ def _sp_call_target(node: ast.Call):
     return None
 
 
+#: ``sp.<fn>(**kwargs)`` forwards to this object's signature.
+_FORWARD_TARGETS = {"causal_forest": "CausalForest"}
+
+
+def _literal(node: ast.AST):
+    return node.value if isinstance(node, ast.Constant) else None
+
+
+def _forwarded_keyword_problems(name: str, node: ast.Call, params) -> list[str]:
+    """Check the keywords of a call to a function that takes ``**kwargs``.
+
+    The signature alone cannot say which keywords are accepted, so three
+    further sources are used, in order: the function's agent schema (which
+    lists the forwarded arguments of a dispatcher); for ``sp.route`` and
+    ``sp.power`` the family / design named by the first argument, whose
+    questions or wrapper signature define the keywords (and, for
+    ``route``, the legal answers); and a declared forwarding target. A
+    keyword none of them knows is reported: it may be accepted at run
+    time, but nothing here can show that it is.
+    """
+    accepted = set(params)
+    try:
+        accepted |= set(sp.function_schema(name)["parameters"]["properties"])
+    except Exception:  # noqa: BLE001 - no schema: fall through to the resolvers
+        pass
+    first = _literal(node.args[0]) if node.args else None
+    problems: list[str] = []
+    if name == "route" and isinstance(first, str):
+        try:
+            questions = {
+                q["key"]: set(q["options"])
+                for q in sp.decision_guide(first)["questions"]
+            }
+        except Exception as exc:  # noqa: BLE001
+            return [f"names an unknown family {first!r} ({type(exc).__name__})"]
+        for kw in node.keywords:
+            if not kw.arg or kw.arg in accepted:
+                continue
+            if kw.arg not in questions:
+                problems.append(
+                    f"asks {kw.arg!r}, not a question of the {first!r} guide"
+                )
+                continue
+            answer = _literal(kw.value)
+            if isinstance(answer, str) and answer not in questions[kw.arg]:
+                problems.append(
+                    f"answers {kw.arg}={answer!r}; the guide offers "
+                    f"{sorted(questions[kw.arg])}"
+                )
+        return problems
+    if name == "power" and isinstance(first, str):
+        wrapper = getattr(sp, f"power_{first}", None)
+        if wrapper is None:
+            return [f"names an unknown design {first!r}"]
+        accepted |= set(inspect.signature(wrapper).parameters)
+    target = _FORWARD_TARGETS.get(name)
+    if target and hasattr(sp, target):
+        accepted |= set(inspect.signature(getattr(sp, target).__init__).parameters)
+    unknown = [kw.arg for kw in node.keywords if kw.arg and kw.arg not in accepted]
+    if unknown:
+        problems.append(
+            f"passes {unknown}, which neither the signature, the schema nor a "
+            "forwarding target lists"
+        )
+    return problems
+
+
 def check_call_keywords(failures: list[str]) -> None:
     print(
         "\n== 2b. CALLS: every sp.<fn>(...) in a code block binds to the signature =="
@@ -325,6 +394,10 @@ def check_call_keywords(failures: list[str]) -> None:
                 kinds = {p.kind for p in params.values()}
                 if inspect.Parameter.VAR_KEYWORD in kinds:
                     n_open += 1
+                    problems.extend(
+                        f"{label} {msg}"
+                        for msg in _forwarded_keyword_problems(parts[-1], node, params)
+                    )
                 else:
                     unknown = [
                         k.arg for k in node.keywords if k.arg and k.arg not in params
@@ -351,7 +424,8 @@ def check_call_keywords(failures: list[str]) -> None:
         failures,
         not problems,
         f"{n_calls} calls in {n_blocks} code blocks "
-        f"({n_open} take **kwargs: keywords not checkable)",
+        f"({n_open} take **kwargs: keywords checked against the schema "
+        "or the forwarding target)",
         "; ".join(problems),
     )
 

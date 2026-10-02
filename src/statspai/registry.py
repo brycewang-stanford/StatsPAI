@@ -4779,8 +4779,10 @@ def _build_registry() -> None:
             description="Propensity score and covariate matching for treatment effect estimation.",
             params=[
                 ParamSpec("data", "DataFrame", True),
-                ParamSpec("treatment", "str", True),
-                ParamSpec("outcome", "str", True),
+                ParamSpec("y", "str", True, description="Outcome column"),
+                ParamSpec(
+                    "treat", "str", True, description="Binary treatment column (0/1)"
+                ),
                 ParamSpec("covariates", "list", True),
                 ParamSpec(
                     "method",
@@ -4950,7 +4952,7 @@ def _build_registry() -> None:
                     "and cluster= are refused: use sp.ipw / sp.aipw / sp.tmle.",
                 ),
             ],
-            returns="MatchEstimator result",
+            returns="CausalResult",
             example='sp.match(df, y="y", treat="treat", covariates=["x1","x2"])',
             tags=["matching", "propensity", "psm", "treatment"],
             reference="Rosenbaum & Rubin (1983); Ho et al. (2007) Political Analysis; Stuart (2010) Statistical Science",
@@ -5303,7 +5305,6 @@ def _build_registry() -> None:
                         "pooled",
                         "twoway",
                         "mundlak",
-                        "cre",
                         "chamberlain",
                         "ab",
                         "system",
@@ -14189,8 +14190,10 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "nevertreated",
-                    "Control arm",
-                    ["nevertreated", "notyettreated"],
+                    "Reference cohort: never-treated units, or the last-treated "
+                    "cohort when there are none. A not-yet-treated comparison is "
+                    "not an option of this estimator (use sp.callaway_santanna).",
+                    ["nevertreated", "lastcohort"],
                 ),
                 ParamSpec("covariates", "list", False, None),
                 ParamSpec(
@@ -17555,8 +17558,8 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "ATE",
-                    "Target estimand",
-                    ["ATE", "ATT", "ATC"],
+                    "Target estimand (ATC is not implemented for AIPW; sp.ipw has it)",
+                    ["ATE", "ATT"],
                 ),
                 ParamSpec("n_folds", "int", False, 5, "Cross-fitting folds (>= 2)"),
                 ParamSpec("alpha", "float", False, 0.05),

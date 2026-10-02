@@ -16,6 +16,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `did_imputation` | 240 | 18 / 240 | 7 / 240 | 1 / 240 | -- | -- | 6 / 240 |
 | `dml` | 9120 | 4 / 9120 | 4 / 9120 | -- | -- | -- | 4 / 9120 |
 | `etwfe` | 128 | 3 / 128 | 0 / 128 | 3 / 128 | -- | -- | 0 / 128 |
+| `etwfe_glm` | 1920 | 2 / 1920 | 0 / 1920 | -- | -- | -- | 0 / 1920 |
 | `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
 | `fast.feols` | 12 | 6 / 12 | 2 / 12 | -- | -- | -- | 2 / 12 |
 | `gardner_did` | 32 | 8 / 32 | 2 / 32 | 1 / 32 | -- | -- | 2 / 32 |
@@ -54,6 +55,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `etwfe` | estimate | 0 | 0 | 0 | 0 | 125 |
 | `etwfe` | se | 0 | 0 | 0 | 3 | 125 |
 | `etwfe` | vcov | 0 | 0 | 0 | 0 | 125 |
+| `etwfe_glm` | estimate | 0 | 0 | 0 | 0 | 1918 |
+| `etwfe_glm` | se | 0 | 0 | 0 | 2 | 1918 |
 | `event_study` | estimate | 0 | 0 | 0 | 0 | 511 |
 | `event_study` | se | 0 | 0 | 0 | 0 | 511 |
 | `event_study` | vcov | 0 | 0 | 0 | 0 | 511 |
@@ -163,6 +166,15 @@ Dimensions: `family` in {linear, glm}; `panel` in {true, false}; `cgroup` in {no
 | T2 | vcov | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=nevertreated | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.etwfe(cgroup='nevertreated')` |
 | T2 | estimate, vcov | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=notyet | `tests/reference_parity/test_validation_entry_points.py` | `sp.etwfe()` |
 | T4 | se | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=notyet | `tests/reference_parity/test_validation_entry_points.py` | `sp.etwfe()` |
+
+### `etwfe_glm`
+
+Dimensions: `family` in {poisson, logit}; `cgroup` in {notyet, nevertreated}; `fe` in {cohort, unit}; `hettype` in {timecohort, time, cohort, event, twfe}; `scale` in {response, link}; `response_se` in {profile, margins, unconditional}; `controls` in {none, set}; `xvar` in {none, set}; `weights` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate | family=logit/poisson; cgroup=notyet; fe=cohort; hettype=timecohort; scale=response; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_glm_parity.py` | `sp.etwfe(family='poisson'|'logit')` |
+| T4 | se | family=logit/poisson; cgroup=notyet; fe=cohort; hettype=timecohort; scale=response; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_glm_parity.py` | `sp.etwfe(family='poisson'|'logit')` |
 
 ### `event_study`
 
@@ -346,3 +358,60 @@ Fixtures under `tests/stata_parity/option_parity/` pin option switches within an
 | `tests/stata_parity/option_parity/results/85_multiplegt_dyn_options_Stata.json` | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` | `a6b6c27ad860d8a7` |
 | `tests/stata_parity/option_parity/results/86_lprobust_Stata.json` | `tests/reference_parity/test_lprobust_parity.py` | `5dc6478d44596acd` |
 | `tests/stata_parity/option_parity/results/87_did_had_Stata.json` | `tests/reference_parity/test_did_had_parity.py` | `0f158aa295005c95` |
+
+## Stata translation holdout
+
+A frozen corpus of 39 Stata commands and the numbers Stata 18 MP gives for the 33 that run, scored on five layers by `tests/test_stata_translation_holdout.py`. Hashed here so the corpus cannot drift towards what the translator already handles.
+
+| File | SHA-256 (first 16) |
+| --- | --- |
+| `tests/stata_translation_holdout/corpus.json` | `9ea252d8fcdafdbb` |
+| `tests/stata_translation_holdout/holdout_Stata.json` | `d7b73504feee42a6` |
+| `tests/stata_translation_holdout/holdout_cross.csv` | `5eca4a3640048a41` |
+| `tests/stata_translation_holdout/holdout_panel.csv` | `f5f2b30439c32471` |
+
+## Inference reliability (Track B)
+
+Reference evidence says an estimator reproduces another implementation. Whether its interval covers is a separate question, answered here from the committed Monte Carlo runs under `tests/coverage_monte_carlo/results_b1000/`. Every replication is in the denominator, failed ones included. `MC SE` is the Monte Carlo standard error of the rate; a rate within two of them of 0.95 is not distinguishable from nominal at this `B`.
+
+| Design | B | Failed | Coverage | MC SE | Mean SE / MC SD | Within 2 MC SE of 0.95 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| sp.regress (HC1) on RCT | 1000 | 0 | 0.952 | 0.0068 | 1.001 | yes |
+| sp.regress 2x2 DiD | 1000 | 0 | 0.955 | 0.0066 | 1.026 | yes |
+| sp.ivreg (HC1) on strong-Z IV | 1000 | 0 | 0.962 | 0.0060 | 0.984 | yes |
+| sp.callaway_santanna simple ATT (staggered) | 1000 | 0 | 0.947 | 0.0071 | 1.009 | yes |
+| sp.sun_abraham overall ATT (staggered) | 1000 | 0 | 0.950 | 0.0069 | 1.017 | yes |
+| sp.panel two-way FE | 1000 | 0 | 0.948 | 0.0070 | 0.990 | yes |
+| sp.fast.feols two-way FE (CR1 by unit) | 1000 | 0 | 0.955 | 0.0066 | 0.987 | yes |
+| sp.rdrobust sharp (robust CI) | 1000 | 0 | 0.934 | 0.0079 | 0.982 | **no** |
+| sp.sdid placebo (1 treated) | 1000 | 0 | 0.928 | 0.0082 | 0.992 | **no** |
+| sp.ebalance (CIA, ATT) | 1000 | 0 | 0.945 | 0.0072 | 0.969 | yes |
+| sp.causal_question(design='dml') IRM ATE | 1000 | 0 | 0.968 | 0.0056 | 1.045 | **no** |
+| sp.dml(model='plr') theta | 1000 | 0 | 0.883 | 0.0102 | 0.885 | **no** |
+| sp.causal_question(design='causal_forest') AIPW ATE | 1000 | 0 | 0.959 | 0.0063 | 1.036 | yes |
+
+Designs built to break an assumption. The band is the range documented in advance for that design, not a pass mark for nominal coverage.
+
+| Stress design | B | Coverage | MC SE | Documented band | Note |
+| --- | ---: | ---: | ---: | --- | --- |
+| sp.ivreg (HC1) weak instrument (pi=0.10) | 1000 | 0.882 | 0.0102 | 0.85 to 0.95 |  |
+| sp.callaway_santanna heterogeneous timing+magnitude | 1000 | 0.946 | 0.0071 | 0.92 to 0.96 |  |
+| sp.causal_forest AIPW under overlap loss | 300 | 0.900 | 0.0173 | 0.85 to 0.99 | Capped at B=300 (wall-clock cap; AIPW IF dominates). |
+
+| Design | B | Size at 5% | MC SE | Power by effect size |
+| --- | ---: | ---: | ---: | --- |
+| sp.regress (HC1) RCT | 1000 | 0.043 | 0.0064 | 0.0: 0.043, 0.1: 0.208, 0.2: 0.596, 0.3: 0.903 |
+| sp.did 2x2 | 1000 | 0.024 | 0.0048 | 0.0: 0.024, 0.2: 0.291, 0.4: 0.871, 0.6: 0.996 |
+| sp.ivreg strong-Z | 1000 | 0.046 | 0.0066 | 0.0: 0.046, 0.2: 0.453, 0.4: 0.935, 0.6: 0.996 |
+| sp.rdrobust sharp | 500 | 0.076 | 0.0119 | 0.0: 0.076, 0.2: 0.404, 0.4: 0.888, 0.6: 1.000 |
+| sp.panel two-way FE | 1000 | 0.052 | 0.0070 | 0.0: 0.052, 0.15: 0.231, 0.3: 0.652, 0.45: 0.954 |
+| sp.callaway_santanna staggered | 300 | 0.050 | 0.0126 | 0.0: 0.050, 0.3: 0.777, 0.6: 1.000, 0.9: 1.000 |
+| sp.ebalance (M-estimation SE) | 1000 | 0.055 | 0.0072 | 0.0: 0.055, 0.4: 1.000, 0.7: 1.000, 1.0: 1.000 |
+
+Inputs those do-files read (the other fixtures use `tests/orig_parity/data/02_mpdta_original.csv`):
+
+| Input | SHA-256 (first 16) |
+| --- | --- |
+| `tests/stata_parity/option_parity/data_85_dcdh_switch.csv` | `776bafc6c4c8e2f4` |
+| `tests/stata_parity/option_parity/data_86_lprobust.csv` | `895c4205c6d1012b` |
+| `tests/stata_parity/option_parity/data_87_did_had.csv` | `7609daa994c6aca4` |

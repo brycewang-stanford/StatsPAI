@@ -1,0 +1,236 @@
+[
+  {
+    "id": "ols",
+    "dataset": "cross",
+    "command": "regress y x1 x2",
+    "expect": "run"
+  },
+  {
+    "id": "ols_robust",
+    "dataset": "cross",
+    "command": "regress y x1 x2, vce(robust)",
+    "expect": "run"
+  },
+  {
+    "id": "ols_abbrev_r",
+    "dataset": "cross",
+    "command": "reg y x1 x2, r",
+    "expect": "run"
+  },
+  {
+    "id": "ols_cluster",
+    "dataset": "cross",
+    "command": "regress y x1 x2, vce(cluster g)",
+    "expect": "run"
+  },
+  {
+    "id": "ols_abbrev_cl",
+    "dataset": "cross",
+    "command": "reg y x1 x2, cl(g)",
+    "expect": "run"
+  },
+  {
+    "id": "ols_hc3",
+    "dataset": "cross",
+    "command": "regress y x1 x2, vce(hc3)",
+    "expect": "run"
+  },
+  {
+    "id": "ols_if",
+    "dataset": "cross",
+    "command": "regress y x1 x2 if d == 1",
+    "expect": "run"
+  },
+  {
+    "id": "ols_in",
+    "dataset": "cross",
+    "command": "regress y x1 x2 in 1/200",
+    "expect": "run"
+  },
+  {
+    "id": "ols_if_and",
+    "dataset": "cross",
+    "command": "regress y x1 x2 if d == 1 & x1 > 0",
+    "expect": "run"
+  },
+  {
+    "id": "ols_aweight",
+    "dataset": "cross",
+    "command": "regress y x1 x2 [aweight=w]",
+    "expect": "run"
+  },
+  {
+    "id": "ols_pweight",
+    "dataset": "cross",
+    "command": "regress y x1 x2 [pweight=w]",
+    "expect": "run"
+  },
+  {
+    "id": "ols_fweight",
+    "dataset": "cross",
+    "command": "regress y x1 x2 [fweight=fw]",
+    "expect": "run"
+  },
+  {
+    "id": "ols_interaction",
+    "dataset": "cross",
+    "command": "regress y c.x1##c.x2",
+    "expect": "run"
+  },
+  {
+    "id": "ols_factor",
+    "dataset": "cross",
+    "command": "regress y i.k x1",
+    "expect": "run"
+  },
+  {
+    "id": "ols_factor_slope",
+    "dataset": "cross",
+    "command": "regress y x1 i.d#c.x2",
+    "expect": "run"
+  },
+  {
+    "id": "ols_noconstant",
+    "dataset": "cross",
+    "command": "regress y x1 x2, noconstant",
+    "expect": "run"
+  },
+  {
+    "id": "ols_level",
+    "dataset": "cross",
+    "command": "regress y x1 x2, level(90)",
+    "expect": "run"
+  },
+  {
+    "id": "ols_beta_display",
+    "dataset": "cross",
+    "command": "regress y x1 x2, beta",
+    "expect": "run"
+  },
+  {
+    "id": "ols_quietly",
+    "dataset": "cross",
+    "command": "quietly regress y x1 x2",
+    "expect": "run"
+  },
+  {
+    "id": "ols_missing",
+    "dataset": "cross",
+    "command": "regress y x1 xm",
+    "expect": "run"
+  },
+  {
+    "id": "iv_2sls",
+    "dataset": "cross",
+    "command": "ivregress 2sls y x1 (x2 = z)",
+    "expect": "run"
+  },
+  {
+    "id": "iv_2sls_robust",
+    "dataset": "cross",
+    "command": "ivregress 2sls y x1 (x2 = z), vce(robust)",
+    "expect": "run"
+  },
+  {
+    "id": "iv_liml",
+    "dataset": "cross",
+    "command": "ivregress liml y x1 (x2 = z z2)",
+    "expect": "run"
+  },
+  {
+    "id": "logit",
+    "dataset": "cross",
+    "command": "logit yb x1 x2",
+    "expect": "run"
+  },
+  {
+    "id": "probit_robust",
+    "dataset": "cross",
+    "command": "probit yb x1 x2, vce(robust)",
+    "expect": "run"
+  },
+  {
+    "id": "poisson",
+    "dataset": "cross",
+    "command": "poisson cnt x1 x2",
+    "expect": "run"
+  },
+  {
+    "id": "poisson_robust",
+    "dataset": "cross",
+    "command": "poisson cnt x1 x2, vce(robust)",
+    "expect": "run"
+  },
+  {
+    "id": "qreg",
+    "dataset": "cross",
+    "command": "qreg y x1 x2",
+    "expect": "run"
+  },
+  {
+    "id": "areg",
+    "dataset": "cross",
+    "command": "areg y x1 x2, absorb(g)",
+    "expect": "run"
+  },
+  {
+    "id": "reghdfe_cluster",
+    "dataset": "cross",
+    "command": "reghdfe y x1 x2, absorb(g) vce(cluster g)",
+    "expect": "run"
+  },
+  {
+    "id": "xtreg_fe",
+    "dataset": "panel",
+    "command": "xtreg y x, fe",
+    "expect": "run"
+  },
+  {
+    "id": "xtreg_fe_cluster",
+    "dataset": "panel",
+    "command": "xtreg y x, fe vce(cluster id)",
+    "expect": "run"
+  },
+  {
+    "id": "xtreg_re",
+    "dataset": "panel",
+    "command": "xtreg y x, re",
+    "expect": "run"
+  },
+  {
+    "id": "refuse_unknown_option",
+    "dataset": "cross",
+    "command": "regress y x1 x2, weirdopt(3)",
+    "expect": "refuse"
+  },
+  {
+    "id": "refuse_bootstrap",
+    "dataset": "cross",
+    "command": "bootstrap, reps(50): regress y x1 x2",
+    "expect": "refuse"
+  },
+  {
+    "id": "refuse_by",
+    "dataset": "cross",
+    "command": "by d: regress y x1 x2",
+    "expect": "refuse"
+  },
+  {
+    "id": "refuse_svy",
+    "dataset": "cross",
+    "command": "svy: regress y x1 x2",
+    "expect": "refuse"
+  },
+  {
+    "id": "refuse_macro",
+    "dataset": "cross",
+    "command": "regress y `controls'",
+    "expect": "refuse"
+  },
+  {
+    "id": "refuse_unknown_command",
+    "dataset": "cross",
+    "command": "frobnicate y x1 x2",
+    "expect": "refuse"
+  }
+]

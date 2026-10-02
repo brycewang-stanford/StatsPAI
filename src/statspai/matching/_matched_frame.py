@@ -509,7 +509,13 @@ def build_matched_frame(
             pdif[t_pos] = float(abs(pscore[t_pos] - pscore[ctrl_pos[0]]))
 
         if outcome_arr is not None:
-            matched_y[t_pos] = float(np.average(outcome_arr[ctrl_pos], weights=w_arr))
+            # Local linear weights can be negative and, on a thin
+            # neighbourhood, cancel to zero: the matched outcome is then
+            # undefined for this unit. np.average raises ZeroDivisionError
+            # there, which took down every bootstrap replicate that hit it.
+            total = float(w_arr.sum())
+            if abs(total) > 1e-12 * max(1.0, float(np.abs(w_arr).sum())):
+                matched_y[t_pos] = float(np.dot(outcome_arr[ctrl_pos], w_arr) / total)
 
         # Accumulate each matched control's frequency weight.
         for pos, share in zip(ctrl_pos, w_arr):

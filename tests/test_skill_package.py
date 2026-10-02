@@ -128,6 +128,22 @@ _BAD_BLOCKS = {
         "```python\nr = sp.regress('y ~ x', data=df\n```",
         "not valid Python",
     ),
+    "kwargs function, misspelled keyword": (
+        "```python\nf = sp.causal_forest('y ~ t | x', df, n_estimators=50, honset=True)\n```",
+        "passes ['honset']",
+    ),
+    "route, question the guide does not ask": (
+        "```python\nsp.route('did', design='staggered', timing='random')\n```",
+        "not a question of the 'did' guide",
+    ),
+    "route, answer the guide does not offer": (
+        "```python\nsp.route('did', design='staggered', covariates='some')\n```",
+        "the guide offers ['none', 'yes']",
+    ),
+    "power, argument of another design": (
+        "```python\nsp.power('did', n=100, effect_size=0.2, icc=0.1)\n```",
+        "passes ['icc']",
+    ),
     "inside a blockquote": (
         "> ```python\n> sp.rdrobust(df, y='y', x='x', cutof=0)\n> ```",
         "has no argument ['cutof']",
@@ -198,3 +214,34 @@ def test_references_cover_the_original_playbook():
     packaged = "\n".join(p.read_text(encoding="utf-8") for p in REFERENCES.glob("*.md"))
     missing = [h for h in headings if f"## {h}" not in packaged]
     assert not missing, missing
+
+
+def test_kwargs_calls_in_the_shipped_skill_are_all_verified(capsys):
+    """Every keyword of a ``**kwargs`` call resolves to a named source."""
+    ns = _gate()
+    failures: list = []
+    ns["check_call_keywords"](failures)
+    out, _ = capsys.readouterr()
+    assert not failures, out[-3000:]
+    assert "keywords checked against the schema" in out
+
+
+def test_quick_path_blocks_run_end_to_end(tmp_path, monkeypatch):
+    """The short path is executed, not just parsed: five blocks, one session."""
+    pytest.importorskip("docx")
+    import warnings
+
+    ns = _gate()
+    blocks = [src for _, src in ns["_python_blocks"](REFERENCES / "quick-path.md")]
+    assert len(blocks) == 5
+    monkeypatch.chdir(tmp_path)
+    env: dict = {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for src in blocks:
+            exec(compile(src, "quick-path.md", "exec"), env)  # noqa: S102
+    assert (tmp_path / "table1.docx").stat().st_size > 1000
+    summary = env["card"]["assumptions"]["checks_summary"]
+    # The point of step 4: an empty violations list with checks not run.
+    assert summary["not_run"] >= 1 and summary["failed"] == 0
+    assert env["card"]["evidence"]["outputs"]["se"] == "reference"

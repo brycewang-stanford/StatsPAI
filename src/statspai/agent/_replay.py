@@ -158,4 +158,169 @@ def replay_completeness(
     return {"level": REPLAY_LEVELS[rank], "needs": needs}
 
 
-__all__ = ["REPLAY_LEVELS", "build_replay", "data_comment", "replay_completeness"]
+# --------------------------------------------------------------------------- #
+#  Reproduction bundle
+# --------------------------------------------------------------------------- #
+def replay_transforms(data: Any, steps: Any) -> Any:
+    """Re-apply recorded ``transform_data`` steps to a DataFrame, in order.
+
+    ``steps`` is the ``steps`` list of a reproduction bundle: each item is
+    ``{"op": ..., **arguments}`` exactly as the server ran it.
+    """
+    from .workflow_tools import _apply_transform
+
+    for step in steps:
+        data = _apply_transform(data, dict(step))
+    return data
+
+
+def _headline(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    """The numbers a re-run is checked against."""
+    expected: Dict[str, Any] = {}
+    for key in ("estimate", "std_error", "n_obs"):
+        value = payload.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            expected[key] = value
+    coefs = payload.get("coefficients")
+    if isinstance(coefs, Mapping):
+        table = {
+            str(name): row.get("estimate")
+            for name, row in coefs.items()
+            if isinstance(row, Mapping)
+            and isinstance(row.get("estimate"), (int, float))
+        }
+        if table:
+            expected["coefficients"] = table
+    return expected
+
+
+_SCRIPT = """\
+# Reproduction bundle for StatsPAI result {result_id}
+# written by statspai {version}. Run in a fresh Python process:
+#     python this_file.py
+# It checks the data file against the recorded SHA-256, rebuilds the
+# analysis data, re-runs the call and compares the headline numbers.
+import hashlib
+import math
+
+import statspai as sp
+from statspai.agent._data_loader import load_dataframe
+from statspai.agent._replay import replay_transforms
+
+SOURCE = {source!r}
+SHA256 = {sha256!r}
+STEPS = {steps!r}
+EXPECTED = {expected!r}
+
+with open(SOURCE, "rb") as fh:
+    digest = hashlib.sha256(fh.read()).hexdigest()
+if digest != SHA256:
+    raise SystemExit(f"{{SOURCE}} is not the file that was analysed (sha256 {{digest}})")
+
+data = load_dataframe(SOURCE, columns={columns!r}, sample_n={sample_n!r})
+data = replay_transforms(data, STEPS)
+result = {call}
+
+
+def _close(a, b):
+    return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-12)
+
+
+checked = 0
+if "estimate" in EXPECTED and hasattr(result, "estimate"):
+    assert _close(float(result.estimate), EXPECTED["estimate"]), "estimate differs"
+    checked += 1
+for name, value in EXPECTED.get("coefficients", {{}}).items():
+    assert _close(float(result.params[name]), value), f"coefficient {{name}} differs"
+    checked += 1
+print(f"reproduced: {{checked}} number(s) match")
+"""
+
+
+def build_bundle(
+    *,
+    result_id: str,
+    replay: str,
+    data_provenance: Optional[Mapping[str, Any]],
+    payload: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Everything a new process needs to re-run a cached result, or why not.
+
+    Returns ``{"completeness", "needs", "source", "steps", "call",
+    "expected", "script"}``. ``script`` is present only when the bundle is
+    ``standalone``: the data came from a local file whose hash was
+    recorded (directly, or through a chain of ``transform_data`` steps),
+    and every argument of the call has a literal form. Otherwise
+    ``completeness`` and ``needs`` say what is missing, and no script is
+    offered that could not run.
+    """
+    import statspai
+
+    call = replay.split("  #", 1)[0].strip()
+    prov = dict(data_provenance or {})
+    needs = []
+    root: Dict[str, Any] = {}
+    steps: list = []
+    if prov.get("source_type") == "handle":
+        root = dict(prov.get("root") or {})
+        for item in reversed(prov.get("lineage") or []):
+            if item.get("missing"):
+                needs.append(f"dataset handle {item.get('data_id')} was evicted")
+            for op in item.get("operations") or []:
+                steps.append({"op": op.get("op"), **dict(op.get("arguments") or {})})
+    elif prov.get("source_type") == "local":
+        root = prov
+    elif "data=data" in call:
+        needs.append(
+            "the data was sent inline or fetched remotely; only a hash "
+            "(or nothing) was recorded"
+            if prov
+            else "the source of `data` was not recorded"
+        )
+    if "data=data" in call and not needs:
+        if root.get("source_type") != "local":
+            needs.append("the data does not trace back to a local file")
+        elif not root.get("sha256"):
+            needs.append("the data file was not hashed")
+    if _PLACEHOLDER.search(call):
+        needs.append("argument values shown as <TypeName> have no literal form")
+    if "result=result_" in call:
+        needs.append("the call consumes another fitted result held by the server")
+    bundle: Dict[str, Any] = {
+        "bundle_version": 1,
+        "result_id": result_id,
+        "statspai_version": statspai.__version__,
+        "completeness": "standalone" if not needs else "call_only",
+        "needs": needs,
+        "source": {
+            k: root[k]
+            for k in ("source", "sha256", "format", "columns_requested", "sample_n")
+            if k in root
+        },
+        "steps": steps,
+        "call": call,
+        "expected": _headline(payload),
+    }
+    if not needs and "data=data" in call:
+        bundle["script"] = _SCRIPT.format(
+            result_id=result_id,
+            version=statspai.__version__,
+            source=root.get("source"),
+            sha256=root.get("sha256"),
+            steps=steps,
+            expected=bundle["expected"],
+            columns=root.get("columns_requested"),
+            sample_n=root.get("sample_n"),
+            call=call,
+        )
+    return bundle
+
+
+__all__ = [
+    "REPLAY_LEVELS",
+    "build_bundle",
+    "build_replay",
+    "data_comment",
+    "replay_completeness",
+    "replay_transforms",
+]

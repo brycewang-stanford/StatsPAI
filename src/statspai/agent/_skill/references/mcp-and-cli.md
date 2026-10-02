@@ -75,6 +75,11 @@ every profile, and `statspai://functions` always indexes all of them.
   `session_replayable` depends on a handle in this server; `call_only`
   documents the call but cannot re-run it. Say which when you hand a user
   reproduction code.
+- **Reproduction bundle.** After a fit with `as_handle=true`, read
+  `replay_completeness.bundle_uri` (`resources/read`). It returns a script
+  that re-runs the analysis in a new process and checks the numbers, or
+  says why it cannot (inline data, an argument with no literal form). Hand
+  the user that script, not the one-line `replay`.
 - **`output_budget`.** Present when the result did not fit untouched.
   `status: "unavoidable_overflow"` means the never-cut fields exceed the
   budget and the response is larger than asked for.
