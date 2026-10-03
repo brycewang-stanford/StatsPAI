@@ -76,15 +76,19 @@ of the 20 variants with the same API and return type.
 - **Convex hull.** `model_info['in_predictor_hull']` reports (by exact linear
   programming) whether the treated unit's predictors lie inside the donors'
   convex hull. If they do, infinitely many weight vectors fit the predictors
-  exactly and the default ADH search (`perfect_fit='legacy'`) returns weights
-  that depend on the optimiser's path, often after minutes of search.
+  exactly. The default ADH search (`perfect_fit='legacy'`) then takes, for
+  each V, the minimum-norm weights among those that fit equally well: the
+  most evenly spread ones, and the same on every platform. Through 1.35 the
+  choice was whatever SLSQP reached from a uniform start, often after
+  minutes of search.
 - **`perfect_fit='exact_balance'`** instead balances *every* predictor
   exactly and picks the best pre-treatment outcome fit among those weights
   (a certified convex QP, well under a second). It is a different estimator,
   not a faster ADH: the V search can drop predictors by giving them zero
   weight and fit the outcome better. On Prop 99 with four covariates,
-  Montana's pre-period SSE is 12417 under `exact_balance` against 2898 under
-  the search, while Georgia's is 122 against 1022. Report which rule you used.
+  measured with the earlier inner solver, Montana's pre-period SSE was 12417
+  under `exact_balance` against 2898 under the search, while Georgia's was
+  122 against 1022. Report which rule you used.
 
 ### Staggered adoption and covariates with SDID
 

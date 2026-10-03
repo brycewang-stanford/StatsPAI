@@ -135,6 +135,16 @@ donors.** Donor weights move by up to 2e-5 and estimates by about 1e-7
 where the solution is unique, because it is now solved exactly. Fits where
 the solution is not unique are unchanged.
 
+**`sp.synth` when the donor weights are not unique.** For a treated unit
+inside the donors' predictor hull (`model_info['in_predictor_hull']`), and
+for placebo units in that position, the weights are now the minimum-norm
+ones among those with the best fit. Before they were SLSQP's choice from a
+uniform start. Estimates for such units change, and a placebo p-value that
+ranks them can change with them. Fits with a unique solution do not move.
+There is no switch back: the old choice was not reproducible across
+solvers. `perfect_fit='exact_balance'` remains the alternative estimator
+for the in-hull case.
+
 **`sp.cr2_se` p-values and confidence intervals.** The standard errors are
 unchanged. The degrees of freedom were an approximation that is not the
 Bell-McCaffrey formula, and every coefficient was referred to the smallest

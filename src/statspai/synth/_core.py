@@ -137,9 +137,11 @@ def _eq_bounded_lsq(C: np.ndarray, t: np.ndarray, lb: float, ub: float) -> np.nd
     raise ConvergenceFailure("bounded least squares (active set) did not converge")
 
 
-def _unique_simplex_lsq(y: np.ndarray, X: np.ndarray) -> Optional[np.ndarray]:
-    """``min ||y - X w||^2`` on the simplex when ``X`` has fewer rows than
-    columns, returned only if the minimiser is certified unique.
+def _simplex_lsq_optimum(
+    y: np.ndarray, X: np.ndarray
+) -> Optional[Tuple[np.ndarray, bool]]:
+    """A minimiser of ``||y - X w||^2`` on the simplex for ``X`` with fewer
+    rows than columns, and whether it is the only one.
 
     Active-set method that builds the support up from the single best donor
     (Lawson-Hanson with the adding-up constraint): add the donor with the
@@ -149,10 +151,11 @@ def _unique_simplex_lsq(y: np.ndarray, X: np.ndarray) -> Optional[np.ndarray]:
     support never exceeds ``rows + 1`` donors, so each step is a small
     linear solve.
 
-    The certificate has two parts. Optimality: no donor has a negative
-    reduced gradient. Uniqueness: the donors whose reduced gradient is zero
-    are affinely independent, so the optimal face is a single point.
-    ``None`` is returned when either fails or the iteration does not finish.
+    Returns ``(w, unique)``. ``w`` satisfies the optimality conditions (no
+    donor has a negative reduced gradient). ``unique`` is True when the
+    donors whose reduced gradient is zero are affinely independent, so that
+    the optimal face is a single point. ``None`` when the iteration does not
+    finish or the optimality conditions cannot be verified.
     """
     n, J = X.shape
     scale = max(1.0, 2.0 * float(np.abs(X.T @ y).max()))
@@ -216,12 +219,122 @@ def _unique_simplex_lsq(y: np.ndarray, X: np.ndarray) -> Optional[np.ndarray]:
     if (reduced < -1e-9 * scale).any():
         return None
     tight = np.flatnonzero(reduced <= 1e-7 * scale)
-    if tight.size > n + 1:
+    unique = tight.size <= n + 1
+    if unique:
+        face = np.vstack([X[:, tight], np.ones((1, tight.size))])
+        unique = bool(np.linalg.matrix_rank(face) == tight.size)
+    return w, unique
+
+
+def _unique_simplex_lsq(y: np.ndarray, X: np.ndarray) -> Optional[np.ndarray]:
+    """The minimiser of ``||y - X w||^2`` on the simplex if it is certified
+    unique, else ``None`` (see :func:`_simplex_lsq_optimum`)."""
+    found = _simplex_lsq_optimum(y, X)
+    if found is None or not found[1]:
         return None
-    face = np.vstack([X[:, tight], np.ones((1, tight.size))])
-    if np.linalg.matrix_rank(face) < tight.size:
+    return found[0]
+
+
+def _least_norm_weights(
+    A: np.ndarray, b: np.ndarray, w0: np.ndarray
+) -> Optional[np.ndarray]:
+    """``min ||w||^2`` subject to ``A w = b``, ``w >= 0``, from a feasible ``w0``.
+
+    Primal active-set method. On the free set the least-norm solution of
+    ``A_F w_F = b`` is what ``lstsq`` returns; a step that would make a
+    weight negative stops at the boundary and fixes that weight at zero, and
+    at a stationary point the fixed weight with the largest positive
+    multiplier is released. ``||w||`` falls at every step, so the method
+    ends at the unique minimiser. ``None`` if ``w0`` is not feasible or the
+    iteration cap is reached.
+    """
+    J = A.shape[1]
+    w = np.clip(np.asarray(w0, dtype=np.float64), 0.0, None).copy()
+    free = w > 1e-14
+    if not free.any():
         return None
-    return w
+    b_scale = max(1.0, float(np.abs(b).max()))
+    a_scale = max(1.0, float(np.abs(A).max()))
+    last_released = -1
+    visited = set()
+    for _ in range(20 * J + 50):
+        F = np.flatnonzero(free)
+        # A degenerate vertex (the feasible set is a single point, or
+        # several weights sit exactly at zero) can send the method round a
+        # loop of free sets without lowering the norm. The point it is
+        # circling is feasible and no step from it is possible.
+        pattern = free.tobytes()
+        if pattern in visited:
+            return w
+        visited.add(pattern)
+        AF = A[:, F]
+        target = np.linalg.lstsq(AF, b, rcond=None)[0]
+        if np.abs(AF @ target - b).max() > 1e-8 * b_scale:
+            return None
+        current = w[F]
+        negative = target < -1e-14
+        if negative.any():
+            ratios = current[negative] / (current[negative] - target[negative])
+            k = int(np.flatnonzero(negative)[int(np.argmin(ratios))])
+            step = float(ratios.min())
+            if F[k] == last_released and step <= 0.0:
+                return w
+            w[F] = current + step * (target - current)
+            w[F[k]] = 0.0
+            free[F[k]] = False
+            last_released = -1
+            continue
+        w[:] = 0.0
+        w[F] = np.clip(target, 0.0, None)
+        multipliers = np.linalg.lstsq(AF.T, w[F], rcond=None)[0]
+        cost = A.T @ multipliers
+        cost[free] = -np.inf
+        release = int(np.argmax(cost))
+        if cost[release] <= 1e-11 * a_scale:
+            return w
+        free[release] = True
+        last_released = release
+    return None
+
+
+def _exact_simplex_lsq(y: np.ndarray, X: np.ndarray) -> Optional[np.ndarray]:
+    """Exact simplex least squares for ``X`` with fewer rows than columns.
+
+    If the minimiser is unique, that point. If it is not (a treated unit
+    inside the donors' hull, or a predictor the outer search has weighted to
+    zero), every minimiser has the same fitted values ``X w``, and the one
+    returned is the minimum-norm one, the most evenly spread weights that
+    reproduce the optimal fit:
+
+        min ||w||^2  s.t.  X w = X w*,  sum(w) = 1,  w >= 0.
+
+    That is a property of the problem, not of the path an optimiser took,
+    so it does not depend on the starting point, the solver or the
+    platform. ``None`` when either stage cannot be completed; the caller
+    then falls back to SLSQP.
+    """
+    found = _simplex_lsq_optimum(y, X)
+    if found is None:
+        return None
+    w_opt, unique = found
+    if unique:
+        return w_opt
+    J = X.shape[1]
+    A = np.vstack([X, np.ones((1, J))])
+    b = np.append(X @ w_opt, 1.0)
+    w = _least_norm_weights(A, b, w_opt)
+    if w is None:
+        return None
+    total = float(w.sum())
+    if total <= 0:
+        return None
+    w = w / total
+    resid_opt = y - X @ w_opt
+    resid = y - X @ w
+    tolerance = 1e-12 * max(1.0, float(y @ y))
+    if float(resid @ resid) > float(resid_opt @ resid_opt) + tolerance:
+        return None
+    return np.asarray(w)
 
 
 def solve_simplex_weights(
@@ -279,9 +392,9 @@ def solve_simplex_weights(
     # primal active-set method instead of stopping at SLSQP's tolerance
     # (which left weights ~1e-7 and gaps ~1e-6 away from the optimum).
     # Rank-deficient problems (fewer rows than donors, the usual Prop. 99
-    # shape) can have a set of minimisers. When the minimiser is certified
-    # unique it is returned exactly; otherwise SLSQP's choice is kept so
-    # that the selected point does not change.
+    # shape) can have a set of minimisers. A unique minimiser is returned
+    # exactly; among several the minimum-norm one is. SLSQP is the fallback
+    # if the exact method does not finish.
     y_arr = np.asarray(y, dtype=np.float64).ravel()
     X_arr = np.asarray(X, dtype=np.float64)
     if penalization > 0:
@@ -301,11 +414,10 @@ def solve_simplex_weights(
                 )
 
         elif penalization == 0:
-            # Rank deficient, but the minimiser is usually still unique: the
-            # target lies outside the donors' hull and its projection has
-            # one representation. Solve that case exactly; when uniqueness
-            # cannot be certified SLSQP's choice below is kept.
-            w_exact = _unique_simplex_lsq(y_arr, X_arr)
+            # Rank deficient. Outside the donors' hull the projection has
+            # one representation and it is returned exactly; otherwise the
+            # minimum-norm minimiser is.
+            w_exact = _exact_simplex_lsq(y_arr, X_arr)
             if w_exact is not None:
                 return w_exact
 
@@ -606,7 +718,7 @@ def _hull_feasibility(
     Solves the linear feasibility problem ``{w >= 0, 1'w = 1, X0 w = X1}``.
     Inside the hull every V with full support attains a zero predictor
     discrepancy and the inner problem has a whole polytope of solutions, so
-    the nested V-W weights depend on the optimiser's path.
+    the inner problem needs a selection rule (the minimum-norm weights).
 
     Returns ``(True, feasible_w)``, ``(False, None)``, or ``(None, None)``
     with a ``RuntimeWarning`` when the LP does not finish.
@@ -776,8 +888,9 @@ def solve_synth_weights_adh(
         Seed for random Dirichlet starts.
     perfect_fit : {'legacy', 'exact_balance'}, default 'legacy'
         Rule when ``X1`` lies in the convex hull of the columns of ``X0``.
-        ``'legacy'`` runs the V search regardless (the ADH estimator; its
-        weights are then path-dependent). ``'exact_balance'`` skips the V
+        ``'legacy'`` runs the V search regardless (the ADH estimator; for
+        each V the inner weights are the minimum-norm minimiser, see
+        ``_exact_simplex_lsq``). ``'exact_balance'`` skips the V
         search and returns the weights that balance every predictor exactly
         with the smallest outer loss (see ``_exact_balance_weights``) — a
         different estimator, not a tie-break. Only applies when
@@ -879,12 +992,13 @@ def solve_synth_weights_adh(
             "exact_balance_gap": pf["fw_gap"],
         }
 
-    # The inner solve deliberately starts from the uniform simplex point on
-    # every evaluation. Warm-starting from the previous evaluation's W is
-    # ~2x faster, but when W(V) is non-unique (K predictors < J donors) it
-    # selects a history-dependent point on the optimal face, so the outer
-    # loss stops being a function of V and Nelder-Mead drifts into worse
-    # basins (observed on the Basque special-predictor specification).
+    # W(V) must be a function of V alone. When the inner minimiser is not
+    # unique (K predictors < J donors and the treated unit inside the hull,
+    # or a V entry at zero) ``solve_simplex_weights`` returns the
+    # minimum-norm one. A history-dependent choice, such as warm-starting
+    # from the previous evaluation's W, makes the outer loss stop being a
+    # function of V, and Nelder-Mead then drifts into worse basins (observed
+    # on the Basque special-predictor specification).
     def outer_loss(v_params: np.ndarray) -> float:
         V = _v_from_params(v_params, K)
         w = _inner_w_given_v(V, X1_s, X0_s, penalization=penalization)

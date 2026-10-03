@@ -7,8 +7,9 @@ fit on the Proposition 99 data. When the treated unit lies outside the
 donors' hull the minimiser is nevertheless unique, and
 ``_unique_simplex_lsq`` returns it exactly with a certificate. Where the
 certificate fails (a treated unit inside the hull, a predictor weighted to
-zero) SLSQP's choice is kept, so no selection among equivalent solutions
-changes.
+zero) every minimiser has the same fitted values, and the minimum-norm one
+is returned: a property of the problem, where SLSQP's choice depended on its
+starting point.
 """
 
 import time
@@ -76,10 +77,63 @@ def test_no_certificate_inside_the_hull(seed):
     # a target inside the donors' hull is matched by a whole face of weights
     y, X = _problem(seed, inside=True)
     assert _core._unique_simplex_lsq(y, X) is None
-    # the public solver then falls back and still returns a simplex point
+    # the public solver returns the minimum-norm point of that face
     w = _core.solve_simplex_weights(y, X)
     assert w.min() >= 0 and w.sum() == pytest.approx(1.0, abs=1e-9)
     assert float(((y - X @ w) ** 2).sum()) < 1e-8
+
+
+@pytest.mark.parametrize("seed", range(8))
+def test_non_unique_problems_get_the_minimum_norm_weights(seed):
+    from scipy import optimize
+
+    y, X = _problem(seed, inside=True)
+    J = X.shape[1]
+    w = _core.solve_simplex_weights(y, X)
+    A = np.vstack([X, np.ones((1, J))])
+    b = np.append(y, 1.0)
+    # exact fit, on the simplex
+    assert np.abs(A @ w - b).max() < 1e-10 and w.min() >= 0
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ref = optimize.minimize(
+            lambda v: float(v @ v),
+            np.full(J, 1 / J),
+            jac=lambda v: 2 * v,
+            method="trust-constr",
+            bounds=optimize.Bounds(0, 1),
+            constraints=optimize.LinearConstraint(A, b, b),
+            options={"gtol": 1e-12, "xtol": 1e-14, "maxiter": 5000},
+        )
+    # a generic QP solver finds the same point, and never a shorter one
+    assert float(w @ w) <= float(ref.x @ ref.x) + 1e-10
+    np.testing.assert_allclose(w, ref.x, atol=1e-4)
+
+
+def test_the_selection_does_not_depend_on_donor_order():
+    y, X = _problem(2, inside=True)
+    perm = np.random.default_rng(0).permutation(X.shape[1])
+    a = _core.solve_simplex_weights(y, X)
+    b = _core.solve_simplex_weights(y, X[:, perm])
+    np.testing.assert_allclose(a[perm], b, atol=1e-10)
+
+
+def test_a_unique_representation_inside_the_hull_is_recovered_exactly():
+    # three donors in general position span a triangle: a point inside it
+    # has one set of weights, although the fit is exact and every reduced
+    # gradient is zero (which is why the uniqueness certificate cannot fire)
+    X = np.array([[0.0, 4.0, 1.0], [0.0, 0.0, 3.0]])
+    truth = np.array([0.5, 0.3, 0.2])
+    w = _core.solve_simplex_weights(X @ truth, X)
+    np.testing.assert_allclose(w, truth, atol=1e-13)
+
+
+def test_least_norm_handles_a_degenerate_vertex():
+    # the feasible set is the single point w0: nothing to improve, no loop
+    A = np.array([[1.0, 0.0, 2.0], [0.0, 1.0, 2.0], [1.0, 1.0, 1.0]])
+    w0 = np.array([0.5, 0.5, 0.0])
+    w = _core._least_norm_weights(A, A @ w0, w0)
+    np.testing.assert_allclose(w, w0, atol=1e-12)
 
 
 def test_no_certificate_when_a_row_is_weighted_out():

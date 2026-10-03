@@ -433,6 +433,24 @@ test.
   -0.0300. They now go to `sp.didregress`. `wildbootstrap()`,
   `aggregate()` and `nogteffects` are reported as untranslated, and
   `estat <test>` after an estimation command runs `sp.estat`.
+- **Synthetic-control weights that are not unique are now the minimum-norm
+  ones, and a nested fit with its placebos takes seconds.** A treated unit
+  inside the donors' hull, or a predictor the V search has weighted to
+  zero, is fitted equally well by a whole face of weight vectors. The
+  weights returned were whatever SLSQP reached from a uniform start: a
+  choice that depends on the solver, and one that took 20 to 350 seconds
+  per placebo unit. Every such minimiser has the same fitted values, so the
+  rule is now a property of the problem: among them, the weights with the
+  smallest norm (the most evenly spread). It is computed exactly in two
+  steps, the optimal fit and then the least-norm weights that reproduce
+  it, and it does not depend on the starting point or the order of the
+  donors. On Proposition 99 a nested fit with 38 placebo fits, which had
+  not finished after ten minutes, takes 41 seconds, with no fallback to
+  SLSQP in 120,000 inner problems. Where the true weights are unique but the fit is exact
+  (Track A `52_scm_unique`) the error falls from 1.5e-7 to 2e-14. Fits
+  whose solution was already unique do not change, which includes Track A
+  `07_scm` and the README's Proposition 99 fit. Placebo fits of units
+  inside the hull do change, and with them a placebo p-value can.
 - **A nested synthetic-control fit took a minute.** With fewer predictors
   than donors every evaluation of the outer search solved its inner
   problem with SLSQP, a few thousand times. When the treated unit lies

@@ -1244,9 +1244,11 @@ class SyntheticControl:
         exactly by linear programming and reported as
         ``model_info['in_predictor_hull']``. Inside the hull every V with
         full support fits the predictors perfectly and infinitely many
-        donor-weight vectors do so, so the nested weights depend on the
-        optimiser's path and each fit can take minutes.
-        ``'legacy'`` (default) runs the ADH outer V search regardless.
+        donor-weight vectors do so. ``'legacy'`` (default) runs the ADH outer
+        V search regardless, and for each V takes the minimum-norm weights
+        among those that fit equally well, so the weights are a function of
+        V and not of an optimiser's path (through 1.35 they were SLSQP's
+        choice from a uniform start, and a fit could take minutes).
         ``'exact_balance'`` instead returns, among the weights that balance
         *every* predictor exactly, the one with the smallest pre-treatment
         outcome MSPE: a convex QP solved once in well under a second and
@@ -1254,9 +1256,10 @@ class SyntheticControl:
         then False and the reported V is the identity. This is a different
         estimator, not a faster ADH: the V search can push some V entries
         to zero, dropping those predictors, and so can fit the outcome
-        better (on Prop 99 with four covariates, Montana's pre-period SSE is
-        12417 under ``'exact_balance'`` against 2898 under the V search,
-        while Georgia's is 122 against 1022). Placebo fits follow the same
+        better or worse (on Prop 99 with four covariates, measured with
+        the earlier inner solver, Montana's pre-period SSE was 12417 under
+        ``'exact_balance'`` against 2898 under the V search, while Georgia's
+        was 122 against 1022). Placebo fits follow the same
         rule. It does not apply with ``penalization > 0`` or on the
         outcome-lags-only equal-V path.
 
