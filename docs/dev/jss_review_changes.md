@@ -31,6 +31,20 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 37, 42, 47 and 58 after the count models learned to drop missing rows
+
+- **Commits.** `3917e872`.
+- **Reason.** `sp.poisson`, `sp.nbreg` and `sp.ppmlhdfe` failed when a
+  plain-column formula met a missing value; they now drop those rows.
+  The edit is in `src/statspai/regression/count.py`, on the estimation
+  path of the four modules.
+- **Effect on the paper.** None. The four fixtures have no missing
+  values, so the new step returns the frame untouched: the Python result
+  files are byte-identical on the parent tree and on the fixed tree.
+  Only `exercised_sources` digests and `seconds` changed in the trace.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded for 03, 15, 47 and 53 after `sp.fast.feols_jax` took the convention of `sp.fast.feols`
 
 - **Commits.** `ca410f77`.
