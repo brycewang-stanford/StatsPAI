@@ -7,37 +7,37 @@ Provides Stata-style data manipulation tools:
 - Winsorization (winsor)
 """
 
-from .labels import label_var, label_vars, get_label, get_labels, describe
 from .data_tools import pwcorr, winsor
-from .egen import (
-    rowmean,
-    rowtotal,
-    rowmax,
-    rowmin,
-    rowsd,
-    rowcount,
-    rank,
-    outlier_indicator,
-)
-from .io import read_data
-from .iv_helpers import scalar_iv_projection
 from .dgp import (
+    dgp_bartik,
+    dgp_bunching,
+    dgp_cluster_rct,
     dgp_did,
+    dgp_iv,
+    dgp_observational,
+    dgp_panel,
+    dgp_rct,
     dgp_rd,
+    dgp_rd_2d,
+    dgp_rd_hte,
     dgp_rd_kink,
     dgp_rd_multi,
-    dgp_rd_hte,
-    dgp_rd_2d,
     dgp_rdit,
-    dgp_iv,
-    dgp_rct,
-    dgp_panel,
-    dgp_observational,
-    dgp_cluster_rct,
-    dgp_bunching,
     dgp_synth,
-    dgp_bartik,
 )
+from .egen import (
+    outlier_indicator,
+    rank,
+    rowcount,
+    rowmax,
+    rowmean,
+    rowmin,
+    rowsd,
+    rowtotal,
+)
+from .io import read_data, write_data
+from .iv_helpers import scalar_iv_projection
+from .labels import describe, get_label, get_labels, label_var, label_vars
 
 __all__ = [
     "label_var",
@@ -56,6 +56,7 @@ __all__ = [
     "rank",
     "outlier_indicator",
     "read_data",
+    "write_data",
     "scalar_iv_projection",
     # Data Generating Processes
     "dgp_did",

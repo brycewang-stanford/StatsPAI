@@ -4,6 +4,42 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Stata labels on the way out, and through the MCP server
+
+`sp.read_data` keeps a .dta file's labels; nothing wrote them
+back, and the MCP data path did not use it.
+
+#### Added
+
+- **`sp.write_data(data, path)`**, the counterpart of `sp.read_data`. For
+  .dta it writes the variable labels (`attrs['_labels']`), value labels
+  (`attrs['_value_labels']`) and dataset label (`attrs['_data_label']`) into
+  the file; `labels=` / `value_labels=` / `data_label=` add to or override
+  them. The default format is 118, so non-ASCII labels survive. A label
+  longer than Stata's 80 characters, value labels on a string column or on
+  non-integer codes raise, naming the variable. Parquet carries the labels
+  too; .csv / .xlsx / .feather / .json cannot, and warn when the frame has
+  any. Checked by opening the written file in Stata 18 (`describe`,
+  `label list`, `tabulate`).
+- `sp.read_data` now also returns the dataset label, in
+  `attrs['_data_label']`, and restores integer value-label codes after a
+  Parquet round trip (JSON metadata had turned them into strings).
+- The MCP data description (`describe_frame`, used by the data-handle tools
+  and the data resource) reports `variable_labels`, `value_labels` and
+  `data_label` when the frame carries them.
+
+#### Changed
+
+- **The MCP data loader reads .dta the way `sp.read_data` does.** It called
+  bare `pd.read_stata`, which dropped variable labels and turned every
+  value-labelled column into a string categorical, so `foreign`
+  (0 "Domestic" / 1 "Foreign") reached an estimator as text where Stata's
+  own commands use the codes. Value-labelled columns now keep their numeric
+  codes and the labels travel in `df.attrs`, on the whole-file, streamed
+  sample and remote paths alike. A tool call that relied on receiving the
+  label text as the column's values needs to map the codes through
+  `attrs['_value_labels']`.
+
 ### An undergraduate textbook's do-files, replayed against Stata
 
 The 18 chapter do-files of Chen Qiang's *Econometrics and Stata

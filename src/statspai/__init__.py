@@ -1117,6 +1117,7 @@ from .utils import (
     rowtotal,
     scalar_iv_projection,
     winsor,
+    write_data,
 )
 from .validation import (
     ReproductionResult,
@@ -1503,6 +1504,7 @@ __all__ = [
     "rank",
     "outlier_indicator",
     "read_data",
+    "write_data",
     "scalar_iv_projection",
     # Dynamic Panel GMM
     "xtabond",

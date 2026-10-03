@@ -130,7 +130,10 @@ def describe_frame(df: pd.DataFrame, *, head: int = HEAD_ROWS) -> Dict[str, Any]
 
     Shape, dtypes, missing counts per column, the first ``head`` rows,
     and a numeric summary (mean / sd / min / max) for numeric columns.
-    Bounded regardless of the frame's size.
+    Variable labels, value labels and the dataset label are included when
+    the frame carries them (a .dta loaded through the data loader does).
+    Bounded regardless of the frame's size, apart from the label maps,
+    which grow with the number of labelled columns.
     """
     n_rows, n_cols = df.shape
     dtypes = {str(c): str(t) for c, t in df.dtypes.items()}
@@ -151,7 +154,7 @@ def describe_frame(df: pd.DataFrame, *, head: int = HEAD_ROWS) -> Dict[str, Any]
                 "max": _jsonable_scalar(row.get("max")),
                 "n_unique": int(num[col].nunique(dropna=True)),
             }
-    return {
+    out: Dict[str, Any] = {
         "n_rows": int(n_rows),
         "n_cols": int(n_cols),
         "columns": [str(c) for c in df.columns],
@@ -160,6 +163,28 @@ def describe_frame(df: pd.DataFrame, *, head: int = HEAD_ROWS) -> Dict[str, Any]
         "head": head_rows,
         "numeric_summary": numeric,
     }
+    # Stata / SPSS metadata carried in attrs: without it a column called
+    # ``v12`` holding codes 1-5 tells an agent nothing.  Only present keys
+    # are emitted, so frames without labels describe exactly as before.
+    present = {str(c) for c in df.columns}
+    labels = df.attrs.get("_labels")
+    if isinstance(labels, dict):
+        kept = {str(c): str(v) for c, v in labels.items() if str(c) in present}
+        if kept:
+            out["variable_labels"] = kept
+    value_labels = df.attrs.get("_value_labels")
+    if isinstance(value_labels, dict):
+        kept_vl = {
+            str(c): {str(k): str(v) for k, v in m.items()}
+            for c, m in value_labels.items()
+            if str(c) in present and isinstance(m, dict)
+        }
+        if kept_vl:
+            out["value_labels"] = kept_vl
+    data_label = df.attrs.get("_data_label")
+    if data_label:
+        out["data_label"] = str(data_label)
+    return out
 
 
 # ---------------------------------------------------------------------------

@@ -75,6 +75,7 @@ DEFAULT_EXCLUDE: Set[str] = {
     "pwcorr",
     "winsor",
     "read_data",
+    "write_data",
 }
 
 # Max length for a tool description sent to the agent.  MCP / Anthropic

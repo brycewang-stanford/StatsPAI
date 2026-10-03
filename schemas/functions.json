@@ -28364,6 +28364,40 @@
     }
   },
   {
+    "description": "Write data to a file, keeping variable and value labels.",
+    "name": "write_data",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Data to write. The row index is not written.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "data_label": {
+          "description": "Dataset label (Stata's ``label data``). Default: the one in ``data.attrs['_data_label']``, if any.",
+          "type": "string"
+        },
+        "labels": {
+          "description": "``{column: label}``. Added to (and overriding) the labels already in ``data.attrs['_labels']``.",
+          "type": "object"
+        },
+        "path": {
+          "description": "Output file. The extension picks the format: .dta, .csv, .tsv, .xlsx, .parquet, .feather, .json.",
+          "type": "string"
+        },
+        "value_labels": {
+          "description": "``{column: {code: text}}``. Added to (and overriding) those in ``data.attrs['_value_labels']``.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "path"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Project a vector of instruments onto a scalar first-stage index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "scalar_iv_projection",
     "parameters": {

@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-mcp-dta-codes"></a>
+
+## Unreleased: the MCP data loader returns Stata value-labelled columns as codes
+
+A `.dta` passed to an MCP tool as `data_path` used to arrive with every
+value-labelled column converted to a string categorical (`foreign` became
+`"Domestic"` / `"Foreign"`). It now arrives as Stata stores it and as
+`sp.read_data` returns it: the numeric codes (0 / 1), with the labels in
+`df.attrs['_value_labels']` and the variable labels in
+`df.attrs['_labels']`.
+
+- A formula such as `price ~ weight + foreign` now fits the same model
+  Stata's `regress price weight foreign` does.
+- A call that filtered or grouped on the label text (`foreign == "Foreign"`)
+  should use the code, or map it through `attrs['_value_labels']`.
+
+Python calls to `sp.read_data` are unaffected.
+
+---
+
 <a id="oct2026-panel-vce"></a>
 
 ## Unreleased: ⚠️ `sp.panel(vce=...)` raises on a value it does not implement

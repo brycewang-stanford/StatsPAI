@@ -313,7 +313,14 @@ def _iter_chunks(path: str, columns: Optional[List[str]]) -> Any:
         for chunk in pd.read_json(path, lines=True, chunksize=_STREAM_CHUNK_ROWS):
             yield chunk[cols] if cols else chunk
     elif lower.endswith(".dta"):
-        with pd.read_stata(path, columns=cols, chunksize=_STREAM_CHUNK_ROWS) as reader:
+        # Numeric codes, as Stata's own estimation commands see them; the
+        # labels are attached once, after sampling (see _stream_sample).
+        with pd.read_stata(
+            path,
+            columns=cols,
+            chunksize=_STREAM_CHUNK_ROWS,
+            convert_categoricals=False,
+        ) as reader:
             yield from reader
     else:  # pragma: no cover — guarded by _is_streamable
         raise MethodIncompatibility(f"{path!r} cannot be streamed")
@@ -352,7 +359,12 @@ def _stream_sample(path: str, columns: Optional[List[str]], n: int) -> "pd.DataF
     if kept is None:
         return pd.DataFrame(columns=list(columns or []))
     order = np.argsort(kept_pos)
-    return kept.iloc[order].reset_index(drop=True)
+    out = kept.iloc[order].reset_index(drop=True)
+    if path.lower().endswith(".dta"):
+        from ..utils.io import stata_label_attrs
+
+        out.attrs.update(stata_label_attrs(path, list(out.columns)))
+    return out
 
 
 def load_dataframe(
@@ -498,8 +510,13 @@ def _load_local_cached(
         return pd.read_excel(path, usecols=cols)
     if lower.endswith(".dta"):
         # Stata native — alignment with Stata is StatsPAI's tagline,
-        # so being able to read .dta is non-negotiable.
-        return pd.read_stata(path, columns=cols)
+        # so being able to read .dta is non-negotiable.  Same layout as
+        # ``sp.read_data``: value-labelled columns keep their numeric codes
+        # (what Stata's estimation commands use), and variable / value
+        # labels ride along in ``df.attrs``.
+        from ..utils.io import _read_stata_pandas
+
+        return _read_stata_pandas(path, columns=cols)
     if lower.endswith(".jsonl"):
         df = pd.read_json(path, lines=True)
         return df[cols] if cols else df
@@ -621,7 +638,9 @@ def _load_remote(url: str, columns: Optional[List[str]] = None) -> "pd.DataFrame
     if lower.endswith((".feather", ".arrow")):
         return pd.read_feather(buf, columns=cols)
     if lower.endswith(".dta"):
-        return pd.read_stata(buf, columns=cols)
+        from ..utils.io import _read_stata_pandas
+
+        return _read_stata_pandas(buf, columns=cols)
     if lower.endswith(".jsonl"):
         df = pd.read_json(buf, lines=True)
         return df[cols] if cols else df
