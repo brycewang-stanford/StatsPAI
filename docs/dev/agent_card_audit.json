@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "generated_by": "scripts/agent_card_audit.py",
-  "n_functions": 30,
+  "n_functions": 40,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 249,
+    "ok": 293,
     "precondition": 40,
     "rejected": 0
   },
@@ -1545,7 +1545,8 @@
         }
       ],
       "provenance": {
-        "curated": 10
+        "curated+family": 1,
+        "curated": 9
       }
     },
     {
@@ -1722,19 +1723,19 @@
           },
           "rcm": {
             "status": "precondition",
-            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.\n  -> re"
+            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 candidate predictors, which 19 pre-treatment periods cannot fit.\n"
           },
           "hcw": {
             "status": "precondition",
-            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.\n  -> re"
+            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 candidate predictors, which 19 pre-treatment periods cannot fit.\n"
           },
           "regression_control": {
             "status": "precondition",
-            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.\n  -> re"
+            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 candidate predictors, which 19 pre-treatment periods cannot fit.\n"
           },
           "pda": {
             "status": "precondition",
-            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 control units, which 19 pre-treatment periods cannot fit.\n  -> re"
+            "error": "MethodIncompatibility: sp.synth(method='rcm'): selection='best' starts from the model with all 38 candidate predictors, which 19 pre-treatment periods cannot fit.\n"
           },
           "cluster": {
             "status": "ok"
@@ -2478,6 +2479,540 @@
       ],
       "provenance": {
         "curated": 8
+      }
+    },
+    {
+      "function": "nbreg",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [
+          "formula",
+          "data"
+        ],
+        "schema_only": {
+          "formula": "fails without it (MethodIncompatibility)",
+          "data": "fails without it (MethodIncompatibility)"
+        }
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {
+        "robust": {
+          "nonrobust": {
+            "status": "ok"
+          },
+          "robust": {
+            "status": "ok"
+          },
+          "hc0": {
+            "status": "ok"
+          },
+          "hc1": {
+            "status": "ok"
+          }
+        },
+        "dispersion": {
+          "mean": {
+            "status": "ok"
+          },
+          "constant": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "poisson",
+          "exists": true
+        },
+        {
+          "name": "ppmlhdfe",
+          "exists": true
+        },
+        {
+          "name": "xtnbreg",
+          "exists": true
+        },
+        {
+          "name": "menbreg",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "glm",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {
+        "family": {
+          "gaussian": {
+            "status": "ok"
+          },
+          "binomial": {
+            "status": "ok"
+          },
+          "poisson": {
+            "status": "ok"
+          },
+          "gamma": {
+            "status": "ok"
+          },
+          "inverse_gaussian": {
+            "status": "ok"
+          },
+          "negative_binomial": {
+            "status": "ok"
+          }
+        },
+        "link": {
+          "identity": {
+            "status": "ok"
+          },
+          "log": {
+            "status": "ok"
+          },
+          "logit": {
+            "status": "ok"
+          },
+          "probit": {
+            "status": "ok"
+          },
+          "inverse": {
+            "status": "ok"
+          },
+          "cloglog": {
+            "status": "ok"
+          },
+          "power": {
+            "status": "ok"
+          },
+          "sqrt": {
+            "status": "ok"
+          }
+        },
+        "information": {
+          "observed": {
+            "status": "ok"
+          },
+          "expected": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "fracreg",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "ppmlhdfe",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {
+        "separation": {
+          "drop": {
+            "status": "ok"
+          },
+          "warn": {
+            "status": "ok"
+          }
+        },
+        "ssc": {
+          "stata": {
+            "status": "ok"
+          },
+          "fixest": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "nbreg",
+          "exists": true
+        },
+        {
+          "name": "glm",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "curated+family": 1,
+        "curated": 1,
+        "docstring": 3
+      }
+    },
+    {
+      "function": "hdfe_ols",
+      "defects": [],
+      "required": {
+        "signature": [
+          "formula",
+          "data"
+        ],
+        "schema": [
+          "formula",
+          "data"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "FEOLSResult",
+        "actual": "FEOLSResult",
+        "matches": true
+      },
+      "enums": {
+        "se_type": {
+          "iid": {
+            "status": "ok"
+          },
+          "cluster": {
+            "status": "ok"
+          },
+          "multiway_cluster": {
+            "status": "ok"
+          },
+          "wild_cluster": {
+            "status": "ok"
+          }
+        },
+        "wild_weight_type": {
+          "rademacher": {
+            "status": "ok"
+          },
+          "webb": {
+            "status": "ok"
+          },
+          "mammen": {
+            "status": "ok"
+          }
+        },
+        "conley_kernel": {
+          "uniform": {
+            "status": "ok"
+          },
+          "bartlett": {
+            "status": "ok"
+          }
+        },
+        "conley_time_kernel": {
+          "bartlett": {
+            "status": "ok"
+          },
+          "uniform": {
+            "status": "ok"
+          }
+        },
+        "df_inference": {
+          "resid": {
+            "status": "ok"
+          },
+          "normal": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "feols",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        },
+        {
+          "name": "qreg",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 7,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "ologit",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "margins",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        },
+        {
+          "name": "glm",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 6,
+        "docstring": 3
+      }
+    },
+    {
+      "function": "mlogit",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "margins",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        },
+        {
+          "name": "glm",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 6,
+        "docstring": 3
+      }
+    },
+    {
+      "function": "tobit",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "LimitedDepResult",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "qreg",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "cloglog",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {
+        "perfect_prediction": {
+          "drop": {
+            "status": "ok"
+          },
+          "keep": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "margins",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        },
+        {
+          "name": "glm",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 6,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "fepois",
+      "defects": [],
+      "required": {
+        "signature": [
+          "fml",
+          "data"
+        ],
+        "schema": [
+          "fml",
+          "data"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "feols",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        },
+        {
+          "name": "panel",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 6,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "feglm",
+      "defects": [],
+      "required": {
+        "signature": [
+          "fml",
+          "data"
+        ],
+        "schema": [
+          "fml",
+          "data"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {
+        "family": {
+          "gaussian": {
+            "status": "ok"
+          },
+          "logit": {
+            "status": "ok"
+          },
+          "probit": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "fracreg",
+          "exists": true
+        },
+        {
+          "name": "glm",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "docstring": 2
       }
     }
   ]

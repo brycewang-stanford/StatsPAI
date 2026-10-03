@@ -1,4 +1,4 @@
-"""The agent cards of the 30 most-used entry points say true things.
+"""The agent cards of the 40 most-used entry points say true things.
 
 ``scripts/agent_card_audit.py`` checks each card against a real call
 (review item A1). The enum sweep takes about ten minutes, so it runs
@@ -40,11 +40,18 @@ def report():
     return json.loads(REPORT.read_text(encoding="utf-8"))
 
 
-def test_thirty_functions_each_with_a_call(audit):
+def test_forty_functions_each_with_a_call(audit):
     assert len(audit.TOP_30) == len(set(audit.TOP_30)) == 30
-    assert set(audit.TOP_30) <= set(audit.CALLS)
+    assert len(audit.AUDITED) == len(set(audit.AUDITED)) == 40
+    assert set(audit.AUDITED) <= set(audit.CALLS)
     registered = set(sp.list_functions())
-    assert set(audit.TOP_30) <= registered
+    assert set(audit.AUDITED) <= registered
+
+
+@pytest.mark.parametrize("name", ["feols", "fepois", "feglm"])
+def test_multiple_estimation_entry_points_declare_the_single_result(name):
+    """``Union[EconometricResults, List[...]]``: a plain formula returns one."""
+    assert sp.describe_function(name)["result_class"] == "EconometricResults"
 
 
 def test_fast_layer_finds_no_defect(audit):
@@ -60,7 +67,7 @@ def test_fast_layer_finds_no_defect(audit):
 
 
 def test_committed_enum_sweep_has_no_rejected_value(report):
-    assert report["n_functions"] == 30
+    assert report["n_functions"] == 40
     assert report["n_with_defects"] == 0
     assert report["enum_values"]["rejected"] == 0
     assert report["enum_values"]["ok"] > 200
@@ -70,7 +77,7 @@ def test_enum_values_added_since_the_sweep_are_accepted(audit, report):
     """The committed sweep may lag the schemas; a new value is tried here.
 
     Re-running the whole sweep takes about ten minutes, so a commit that
-    adds an enum value to one of the thirty is not asked to. Instead every
+    adds an enum value to one of the forty is not asked to. Instead every
     value the committed report has not seen is called for real, now: it may
     need a precondition, it may not be refused. Regenerate the report
     (``python scripts/agent_card_audit.py``) when convenient.
@@ -82,7 +89,7 @@ def test_enum_values_added_since_the_sweep_are_accepted(audit, report):
         for value in per_value
     }
     fresh = []
-    for name in audit.TOP_30:
+    for name in audit.AUDITED:
         props = sp.function_schema(name)["parameters"]["properties"]
         for arg, spec in props.items():
             for value in spec.get("enum") or []:

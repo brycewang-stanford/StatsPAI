@@ -662,6 +662,8 @@ EXPLICIT_RESULT_CLASS: Dict[str, str] = {
     # the multiple-estimation syntax (sw / csw); a plain formula returns one
     # result. Read left to right the annotation parser landed on ``list``.
     "feols": "EconometricResults",
+    "fepois": "EconometricResults",
+    "feglm": "EconometricResults",
 }
 
 

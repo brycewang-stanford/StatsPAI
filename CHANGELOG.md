@@ -261,6 +261,11 @@ evidence map listed as having none.
   estimate and standard error to 1e-10. The MatchIt comparisons made
   through `sp.match(method='nearest')`, which is the same fit as
   `sp.psm`, are entered in the `psm` map.
+- **`sp.fepois` and `sp.feglm` cards declared the result as a list.** The
+  annotation is `Union[EconometricResults, List[EconometricResults]]`
+  (the list is the multiple-estimation syntax); a plain formula returns
+  one result, and the card now says so. Found by extending the
+  real-call card audit from 30 to 40 entry points.
 - **`sp.panel` names its default small-sample convention.** With no
   `ssc=` the result now carries `model_info['ssc'] = 'linearmodels'` and a
   one-line description (`N/(N-k)` on the covariance, no `G/(G-1)` cluster

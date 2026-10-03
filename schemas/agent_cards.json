@@ -80357,9 +80357,17 @@
     },
     "reference": "silva2006log",
     "returns": {
-      "class": "list",
+      "class": "EconometricResults",
       "description": "EconometricResults or list of EconometricResults",
-      "fields": {}
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
     },
     "signature": {
       "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence.",
@@ -80530,9 +80538,17 @@
     },
     "reference": "",
     "returns": {
-      "class": "list",
+      "class": "EconometricResults",
       "description": "EconometricResults or list of EconometricResults",
-      "fields": {}
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
     },
     "signature": {
       "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem.",
