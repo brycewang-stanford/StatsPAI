@@ -31,6 +31,24 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 37, 42, 47 and 58 after weighted Poisson fits took their weights into the covariance
+
+- **Commits.** `ddceeee9`.
+- **Reason.** `sp.poisson(weights=)` and `sp.ppmlhdfe(weights=)` computed
+  the covariance without the weights, and three count models reported an
+  unweighted log-likelihood for a weighted fit. The edit is in
+  `src/statspai/regression/count.py`, on the estimation path of the four
+  modules.
+- **Effect on the paper.** None. The four modules are unweighted, and
+  without weights the new code multiplies by nothing: their Python
+  result files are byte-identical on the parent tree and on the fixed
+  tree. Only `exercised_sources` digests and `seconds` changed in the
+  trace. The parity index gains one reference test
+  (`tests/reference_parity/test_count_weights_stata_parity.py`).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `src/statspai/_parity_index.json`
+
 ### 2026-10-03 — call traces re-recorded for 37, 42, 47 and 58 after the count models learned to drop missing rows
 
 - **Commits.** `3917e872`.
