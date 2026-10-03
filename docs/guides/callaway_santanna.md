@@ -271,11 +271,8 @@ event time — call [`cs_report()`](cs_report.md).
 - Parallel trends conditional on X (if covariates supplied)
 - No anticipation (or adjust via anticipation= parameter)
 - Overlap: positive propensity for each cohort
-- SUTVA
 - Parallel trends: treated and control groups would have followed the same trajectory absent treatment
-- No anticipation: outcomes in pre-treatment periods are unaffected by future treatment
 - SUTVA: no spillovers between units
-- For staggered / heterogeneous effects: use CS or SA — TWFE can produce negative weights (Goodman-Bacon)
 
 **Failure modes → recovery**
 
@@ -285,7 +282,6 @@ event time — call [`cs_report()`](cs_report.md).
 | Cohort with only one unit — insufficient variation | `DataInsufficient` | Aggregate small cohorts or drop; check sp.diagnose_result. |  |
 | All units treated at the same time (no staggering) | `MethodIncompatibility` | Fall back to 2x2 DID via sp.did(method='2x2'). | `sp.did` |
 | Pre-trend joint test p < 0.05 (or underpowered at 0.10) | `AssumptionViolation` | Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna. | `sp.sensitivity_rr` |
-| Staggered treatment timing with TWFE method | `AssumptionWarning` | TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation. | `sp.callaway_santanna` |
 | Pre-trend test underpowered (Roth 2022) | `AssumptionWarning` | Check sp.pretrends_power — if low, report honest CI via sp.sensitivity_rr. | `sp.sensitivity_rr` |
 | Few clusters at unit level | `AssumptionWarning` | Use wild cluster bootstrap (sp.wild_cluster_bootstrap). | `sp.wild_cluster_bootstrap` |
 | Few *treated* clusters (one or a handful) | `AssumptionWarning` | Cluster-robust SEs over-reject whatever the total cluster count; use sp.did_few_treated (Conley-Taber / Ferman-Pinto) or sp.cs_jackknife (CV3). | `sp.did_few_treated` |
