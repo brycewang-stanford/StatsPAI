@@ -31,6 +31,30 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after CR2 / CR3 / two-way clustering took the t(G - 1) reference
+
+- **Commits.** `9a922b3d`.
+- **Reason.** `sp.regress`, `sp.feols` and `sp.ivreg` with `vce='cr2'` /
+  `'cr3'`, and `sp.regress(cluster=[a, b])`, now take p-values and
+  intervals from t(G - 1) instead of the normal. The edits are in
+  `src/statspai/regression/ols.py`, `src/statspai/regression/iv.py`,
+  `src/statspai/fixest/wrapper.py`, `src/statspai/inference/jackknife.py`
+  and `src/statspai/core/_agent_summary.py`, on the estimation path of
+  Track A modules 01, 02, 14, 35, 51, 53, 54, 55, 56, 59 and 67 and of
+  original-data modules 01, 04, 04b and 09.
+- **Effect on the paper.** None on the tables. The Track A rows compare
+  estimates and standard errors, which this change does not touch, and
+  modules 53, 54 and 56 call the standalone helpers (`sp.cr2_se`,
+  `sp.twoway_cluster`, `sp.multiway_cluster_vcov`), not the changed
+  branches: the Python result files of 02, 14, 53, 54, 56, 59 and 67 are
+  byte-identical on the parent tree and on the changed tree. Only
+  `exercised_sources` digests and `seconds` changed in the traces. If the
+  text states the reference distribution of the CR2 / CR3 options, it is
+  now t(G - 1).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded after `sp.regress` gained the effective-cluster diagnostic
 
 - **Commits.** `99f78beb`.
