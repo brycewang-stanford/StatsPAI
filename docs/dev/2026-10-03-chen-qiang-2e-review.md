@@ -250,7 +250,8 @@ Taken on 2026-10-03, after the first pass was pushed.
 
 ## Open items
 
-| Item | Why it matters | Size |
-| --- | --- | --- |
-| `sp.synth(v_method='regression')` refuses a specification with as many predictors as units | Stata's `synth` fits it. Found while building the `synth2` fixture; the fixture uses eight predictors | small |
-| `synth2, placebo(unit(numlist))` and `preperiod()` | restrict the pretend units and the fitting periods; reported as untranslated | small |
+None from this pass. The two small items the second round left were closed
+the same day: `v_method='regression'` follows Stata's pivoted sweep when
+the regression behind V is not identified, and `synth2`'s
+`placebo(unit(numlist))` and `preperiod()` map to `placebo_units=` and
+`pre_periods=`. Declined, with reasons above: `rcm, method(lasso)`.

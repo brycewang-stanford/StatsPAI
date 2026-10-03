@@ -421,8 +421,10 @@ def _dispatch_synth_impl(
         (``model_info['placebo_time']``); ``loo=True`` drops, one at a
         time, each donor with a weight of at least 0.0005 and reports the
         range of the synthetic path (``model_info['loo']``);
-        ``post_periods=[...]`` restricts the periods the effect is
-        measured on. These are the reports of Stata's ``synth2``.
+        ``placebo_units=[...]`` restricts the pretend-treated units of
+        those tables (and of ``pvalue``); ``pre_periods=[...]`` and
+        ``post_periods=[...]`` restrict the periods the fit and the effect
+        use. These are the reports of Stata's ``synth2``.
     alpha : float, default 0.05
         Significance level.
     inference : str, optional
@@ -618,6 +620,8 @@ def _dispatch_synth_impl(
         perfect_fit = kwargs.pop("perfect_fit", "legacy")
         placebo_cutoff = kwargs.pop("placebo_cutoff", None)
         placebo_time = kwargs.pop("placebo_time", None)
+        placebo_units = kwargs.pop("placebo_units", None)
+        pre_periods = kwargs.pop("pre_periods", None)
         post_periods = kwargs.pop("post_periods", None)
         loo = bool(kwargs.pop("loo", False))
         # Anything left over used to be dropped here, so a misspelled option
@@ -636,6 +640,17 @@ def _dispatch_synth_impl(
                     diagnostics={"post_periods": bad},
                 )
             data = data[(data[time] < treatment_time) | data[time].isin(wanted)]
+        if pre_periods is not None:
+            wanted = list(pre_periods)
+            known = set(data[time].unique().tolist())
+            bad = [t for t in wanted if t not in known or t >= treatment_time]
+            if bad or not wanted:
+                raise MethodIncompatibility(
+                    "synth(pre_periods=): every entry must be a period of "
+                    "the data before treatment_time.",
+                    diagnostics={"pre_periods": bad},
+                )
+            data = data[(data[time] >= treatment_time) | data[time].isin(wanted)]
 
         def build(*, treatment_time: Any = treatment_time, drop_unit: Any = None):
             frame = data if drop_unit is None else data[data[unit] != drop_unit]
@@ -662,10 +677,13 @@ def _dispatch_synth_impl(
 
         info = result.model_info
         report.add_fit_statistics(info)
-        if placebo and "placebo_gaps" in info:
-            report.add_placebo_tables(info, placebo_cutoff)
-        elif placebo_cutoff is not None:
-            report.add_placebo_tables(info, placebo_cutoff)  # raises: no placebos
+        if (placebo and "placebo_gaps" in info) or not (
+            placebo_cutoff is None and placebo_units is None
+        ):
+            # without placebo fits this raises, naming the missing option
+            report.add_placebo_tables(info, placebo_cutoff, placebo_units)
+            if placebo_units is not None:
+                result.pvalue = info["placebo_pvalue"]
 
         def refit(**changes: Any) -> CausalResult:
             return build(**changes).fit(placebo=False)

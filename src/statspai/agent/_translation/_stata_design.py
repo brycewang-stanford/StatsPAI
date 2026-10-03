@@ -93,11 +93,11 @@ def _h_rcm(cmd: StataCommand) -> Dict[str, Any]:
         sub = _parse_options(placebo)
         if "unit" in sub:
             if sub["unit"]:
-                lost.append("placebo")
-                notes.append(
-                    "placebo(unit(numlist)) restricts the pretend-treated "
-                    "units; sp.synth(method='rcm') uses every control unit."
-                )
+                chosen = _numlist(sub["unit"])
+                if chosen is None:
+                    lost.append("placebo")
+                else:
+                    args["placebo_units"] = chosen
             args["placebo"] = True
         if sub.get("cut") is not None:
             try:
@@ -159,11 +159,11 @@ def _h_synth2(cmd: StataCommand) -> Dict[str, Any]:
             lost.append("placebo")
         if "unit" in sub:
             if sub["unit"]:
-                lost.append("placebo")
-                notes.append(
-                    "placebo(unit(numlist)) restricts the pretend-treated "
-                    "units; sp.synth uses every control unit."
-                )
+                chosen = _numlist(sub["unit"])
+                if chosen is None:
+                    lost.append("placebo")
+                else:
+                    args["placebo_units"] = chosen
             args["placebo"] = True
         cut = sub.get("cut", sub.get("cutoff"))
         if cut is not None:
@@ -190,9 +190,15 @@ def _h_synth2(cmd: StataCommand) -> Dict[str, Any]:
             lost.append("postperiod")
         else:
             args["post_periods"] = values
-    for name in ("preperiod", "ctrlunit"):
-        if opts.get(name) is not None:
-            lost.append(name)
+    raw = opts.get("preperiod")
+    if raw is not None:
+        values = _numlist(raw)
+        if values is None:
+            lost.append("preperiod")
+        else:
+            args["pre_periods"] = values
+    if opts.get("ctrlunit") is not None:
+        lost.append("ctrlunit")
     if args.get("v_method") == "nested":
         notes.append(
             "The nested search is a non-convex problem: its solutions, here "

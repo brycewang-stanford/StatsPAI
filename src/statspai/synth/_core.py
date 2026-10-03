@@ -662,6 +662,33 @@ def _regression_v_init(
         return np.ones(K)
 
 
+def _swept_columns(A: np.ndarray, tol: float = 1e-10) -> list[int]:
+    """Columns a pivoted sweep of the cross-product matrix ``A`` keeps.
+
+    At each step the unswept column with the largest current diagonal
+    element is swept; the sweep stops when that element is no larger than
+    ``tol`` times its original value. The columns never swept are linearly
+    dependent on the ones that were (Mata's ``invsym``).
+    """
+    A = np.array(A, dtype=np.float64)
+    original = np.diag(A).copy()
+    rest = list(range(A.shape[0]))
+    kept: list[int] = []
+    while rest:
+        k = max(rest, key=lambda i: A[i, i])
+        if A[k, k] <= tol * original[k]:
+            break
+        rest.remove(k)
+        pivot = A[k, k]
+        column, row = A[:, k].copy(), A[k, :].copy()
+        A -= np.outer(column, row) / pivot
+        A[k, :] = row / pivot
+        A[:, k] = -column / pivot
+        A[k, k] = 1.0 / pivot
+        kept.append(k)
+    return sorted(kept)
+
+
 def regression_based_v(
     X1: np.ndarray,
     X0: np.ndarray,
@@ -682,6 +709,13 @@ def regression_based_v(
     deviations the predictors were divided by. Checked against
     ``e(V_matrix)`` of Stata ``synth`` on the Proposition 99 data: all
     eight printed digits.
+
+    With no more units than coefficients the regression is not identified.
+    Stata's ``synth`` then inverts the cross-product matrix by sweeping the
+    column with the largest remaining diagonal element first and gives a
+    zero coefficient to the columns that cannot be swept; a predictor left
+    out that way gets weight zero. The same rule is applied here
+    (``_swept_columns``) and reproduces ``e(V_matrix)`` in that case too.
     """
     K, J = X0.shape
     X_all = np.column_stack([X1[:, None], X0])  # (K, J + 1)
@@ -689,14 +723,15 @@ def regression_based_v(
     scale = np.where(scale > 0, scale, 1.0)
     design = np.column_stack([np.ones(J + 1), (X_all / scale[:, None]).T])
     outcomes = np.column_stack([Z1[:, None], Z0]).T  # (J + 1, T0)
-    if J + 1 <= K + 1:
-        raise DataInsufficient(
-            "synth(v_method='regression'): regression-based V needs more "
-            f"units than predictors: {J + 1} units, {K} predictors.",
-            recovery_hint="Use fewer predictors, or v_method='nested' / 'equal'.",
-            diagnostics={"n_units": int(J + 1), "n_predictors": int(K)},
-        )
-    coef = np.linalg.lstsq(design, outcomes, rcond=None)[0][1:]  # (K, T0)
+    if J + 1 > K + 1:
+        coef = np.linalg.lstsq(design, outcomes, rcond=None)[0][1:]  # (K, T0)
+    else:
+        # constant last, as synth orders the columns
+        ordered = np.column_stack([design[:, 1:], design[:, 0]])
+        keep = _swept_columns(ordered.T @ ordered)
+        full = np.zeros((K + 1, outcomes.shape[1]))
+        full[keep] = np.linalg.lstsq(ordered[:, keep], outcomes, rcond=None)[0]
+        coef = full[:K]
     v = np.einsum("kt,kt->k", coef, coef)
     if not np.all(np.isfinite(v)) or v.sum() <= 0:
         raise DataInsufficient(

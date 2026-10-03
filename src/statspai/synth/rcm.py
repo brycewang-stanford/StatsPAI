@@ -243,6 +243,7 @@ def rcm(
     placebo: bool = False,
     placebo_cutoff: Optional[float] = None,
     placebo_time: Optional[Any] = None,
+    placebo_units: Optional[Sequence[Any]] = None,
     alpha: float = 0.05,
     max_nodes: int = 50_000_000,
 ) -> CausalResult:
@@ -287,6 +288,8 @@ def rcm(
         Leave out pretend-treated units whose pre-treatment mean squared
         prediction error exceeds this multiple of the treated unit's when
         computing the period-by-period p-values.
+    placebo_units : sequence, optional
+        The control units to use as pretend treated ones. Default: all.
     placebo_time : scalar, optional
         A pretend treatment date before ``treatment_time``: the model is
         fitted on the periods before it and the "effects" from it onwards
@@ -470,7 +473,14 @@ def rcm(
     if placebo:
         rows = []
         effects = {}
-        for fake in pool:
+        fakes = pool if placebo_units is None else list(placebo_units)
+        unknown = [u for u in fakes if u not in pool]
+        if unknown or not fakes:
+            raise MethodIncompatibility(
+                "sp.synth(method='rcm'): placebo_units must list control units.",
+                diagnostics={"unknown": unknown},
+            )
+        for fake in fakes:
             # the treated unit moves into the donor pool of a pretend-treated
             # one, as in Abadie, Diamond and Hainmueller's placebo runs
             others = [u for u in pool if u != fake] + [treated_unit]

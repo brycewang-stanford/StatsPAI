@@ -968,6 +968,16 @@ TIER3_ROUND_TRIPS = [
             "post_periods": [1989, 1990, 1991, 1992, 1993, 1994, 1995],
         },
     ),
+    (
+        "synth2 cigsale beer, trunit(3) trperiod(1989) preperiod(1980(1)1988) "
+        "placebo(unit(1 2 5)) i(state) t(year)",
+        "synth",
+        {
+            "placebo": True,
+            "placebo_units": [1, 2, 5],
+            "pre_periods": [1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988],
+        },
+    ),
 ]
 
 

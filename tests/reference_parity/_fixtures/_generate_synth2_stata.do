@@ -83,6 +83,26 @@ matrix M = e(mspe)
 emit post.mspe_post_treated M[1,2]
 emit post.ratio_treated M[1,3]
 
+* --- a list of pretend-treated units, and a shortened fitting period
+synth2 `spec', trunit(6) trperiod(31) placebo(unit(1 2 3 4 5 7 8) cut(1.5)) nofigure frame(s4)
+matrix P = e(pval)
+forvalues i = 1/10 {
+    emit some.p_two.`i' P[`i',2]
+    emit some.p_right.`i' P[`i',3]
+}
+matrix M = e(mspe)
+emit some.rows rowsof(M)
+emit some.pre_last M[rowsof(M),1]
+synth2 y y(12) y(15) y(18) y(21) y(24) y(27) y(11(1)20) y(21(1)30), trunit(6) trperiod(31) preperiod(11(1)30) nofigure frame(s5)
+emit short.rmse e(rmse)
+emit short.T0 e(T0)
+matrix W = e(U_wt)
+local names : rownames W
+forvalues i = 1/`=rowsof(W)' {
+    local u : word `i' of `names'
+    emit short.weight.`u' W[`i',1]
+}
+
 * ============================================ rcm with covariates (Hsiao-Zhou)
 import delimited using "textbook_rcm_x.csv", clear asdouble
 xtset unit t
@@ -112,6 +132,14 @@ forvalues i = 1/10 {
     emit rcmx.placebo.p_two.`i' P[`i',2]
     emit rcmx.placebo.p_right.`i' P[`i',3]
 }
+rcm y x, trunit(1) trperiod(31) nofigure method(forward) criterion(bic) placebo(unit(2 3 4 5) cut(2))
+matrix P = e(pval)
+forvalues i = 1/10 {
+    emit rcmx.some.p_two.`i' P[`i',2]
+    emit rcmx.some.p_left.`i' P[`i',4]
+}
+matrix M = e(mspe)
+emit rcmx.some.rows rowsof(M)
 * the pretend date as a fit of its own: same model, effects from period 28
 rcm y x, trunit(1) trperiod(28) nofigure method(forward) criterion(bic)
 emit rcmx.time28.K e(K_preds_sel)

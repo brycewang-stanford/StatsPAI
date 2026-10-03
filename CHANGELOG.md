@@ -75,7 +75,17 @@ numbers and refuses no command. 324 numbers differ for documented reasons,
   MSPE to 1e-8 and every p-value exactly; paths and post-treatment MSPE
   after rounding our weights to three decimals as `synth` stores them.
   `synth2`'s R-squared divides by the variation of the synthetic path, ours
-  by that of the treated unit's outcome.
+  by that of the treated unit's outcome. `placebo_units=` (also in
+  `method='rcm'`) and `pre_periods=` cover `placebo(unit(numlist))` and
+  `preperiod()`.
+- **`sp.synth(v_method='regression')` no longer refuses a specification
+  with as many predictors as units.** The regression behind V is not
+  identified there; Stata's `synth` sweeps the cross-product matrix with
+  the largest remaining diagonal first and gives the columns it cannot
+  sweep a zero coefficient. The same rule now applies and reproduces
+  `e(V_matrix)` to 5e-11 and `e(RMSPE)` to 1e-8, with 12 units and 12
+  predictors and with 9 units and 12 predictors
+  (`test_synth_regression_v_stata.py`).
 
 ### `sp.regress`: weights and dropped rows under CR2, CR3 and two-way clustering
 

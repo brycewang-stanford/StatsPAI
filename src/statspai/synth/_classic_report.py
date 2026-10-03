@@ -50,11 +50,16 @@ def add_fit_statistics(info: Dict[str, Any]) -> None:
     info["pre_r2"] = float(1.0 - (gap @ gap) / sst) if sst > 0 else float("nan")
 
 
-def add_placebo_tables(info: Dict[str, Any], cutoff: Optional[float]) -> None:
+def add_placebo_tables(
+    info: Dict[str, Any],
+    cutoff: Optional[float],
+    only: Optional[List[Any]] = None,
+) -> None:
     """Unit table and period-by-period p-values from the in-space placebos.
 
     The p-values count the treated unit among the units compared, so the
-    smallest attainable value is one over their number.
+    smallest attainable value is one over their number. ``only`` restricts
+    the pretend-treated units to a list.
     """
     if "placebo_gaps" not in info:
         raise MethodIncompatibility(
@@ -74,6 +79,17 @@ def add_placebo_tables(info: Dict[str, Any], cutoff: Optional[float]) -> None:
     cloud = np.asarray(info["placebo_gaps"], dtype=float)  # periods x units
     units = list(info["placebo_units"])
     treated = info["treated_unit"]
+    if only is not None:
+        unknown = [u for u in only if u not in units]
+        if unknown or not list(only):
+            raise MethodIncompatibility(
+                "sp.synth(method='classic'): placebo_units must list control "
+                "units with a placebo fit.",
+                diagnostics={"unknown": unknown},
+            )
+        chosen = [units.index(u) for u in only]
+        cloud = cloud[:, chosen]
+        units = [units[j] for j in chosen]
 
     def row(unit: Any, gap: np.ndarray) -> Dict[str, Any]:
         return {

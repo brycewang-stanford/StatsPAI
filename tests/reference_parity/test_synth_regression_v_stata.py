@@ -178,21 +178,53 @@ def test_requires_predictors(df):
         )
 
 
-def test_more_predictors_than_units_is_refused(df):
-    few = df[df["state"].isin(["California", "Nevada", "Utah", "Colorado"])]
-    with pytest.raises(DataInsufficient, match="more units than predictors"):
-        sp.synth(
-            few,
-            "packspercapita",
-            "state",
-            "year",
-            "California",
-            1989,
-            method="classic",
-            special_predictors=SPEC,
-            v_method="regression",
-            placebo=False,
-        )
+# No more units than coefficients: the regression behind V is not identified.
+# Stata 18, synth 0.0.8, on _fixtures/textbook_rcm.csv:
+#   synth y y(2) y(5) y(8) y(11) y(14) y(17) y(20) y(23) y(26) y(29)
+#         y(1(1)15) y(16(1)30), trunit(6) trperiod(31) [counit(1 2 3 4 5 7 8 9)]
+# vecdiag(e(V_matrix)) %14.11f and e(RMSPE) %18.12f. With 12 units the
+# constant is the column that cannot be swept; with 9 units three predictors
+# and the constant are left out, and those predictors get weight zero.
+UNDER_IDENTIFIED = {
+    12: (
+        [0.00587784254, 0.09342564234, 0.01402255917, 0.00731886058,
+         0.02219887455, 0.19212400170, 0.32787194210, 0.00361166371,
+         0.09293378796, 0.14777398055, 0.06661408628, 0.02622675853],
+        0.462222007743,
+    ),
+    9: (
+        [0.0, 0.04636015382, 0.19946801331, 0.09113036274, 0.0,
+         0.17430375679, 0.0, 0.04981422633, 0.14375430443, 0.15185117841,
+         0.08557924025, 0.05773876393],
+        0.469186743369,
+    ),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("n_units", [12, 9])
+def test_under_identified_v_follows_statas_sweep(n_units):
+    from pathlib import Path
+
+    import pandas as pd
+
+    data = pd.read_csv(Path(__file__).parent / "_fixtures" / "textbook_rcm.csv")
+    if n_units == 9:
+        data = data[data["unit"] <= 9]
+    spec = [("y", t, "mean") for t in range(2, 30, 3)] + [
+        ("y", list(range(1, 16)), "mean"),
+        ("y", list(range(16, 31)), "mean"),
+    ]
+    fit = sp.synth(
+        data, "y", "unit", "t", treated_unit=6, treatment_time=31,
+        method="classic", special_predictors=spec, v_method="regression",
+        placebo=False,
+    )  # fmt: skip
+    stata_v, stata_rmspe = UNDER_IDENTIFIED[n_units]
+    v = fit.model_info["v_weights"]["v_weight"].to_numpy()
+    np.testing.assert_allclose(v / v.sum(), stata_v, atol=5e-11)
+    gaps = fit.model_info["gap_table"]
+    pre = gaps.loc[~gaps["post_treatment"], "gap"].to_numpy()
+    assert np.sqrt((pre**2).mean()) == pytest.approx(stata_rmspe, rel=1e-8)
 
 
 def test_unknown_v_method_lists_regression(df):

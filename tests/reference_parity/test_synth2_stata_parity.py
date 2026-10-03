@@ -208,6 +208,51 @@ def test_post_periods(G, data, wide):
     )
 
 
+def test_placebo_on_a_list_of_units(G, data):
+    chosen = [1, 2, 3, 4, 5, 7, 8]
+    fit = fit_with(data, placebo=True, placebo_units=chosen, placebo_cutoff=1.5)
+    info = fit.model_info
+    table = info["placebo_table"]
+    assert list(table.index) == [6] + chosen
+    assert len(table) == G["some.rows"]
+    assert table["pre_mspe"].iloc[-1] == pytest.approx(G["some.pre_last"], rel=1e-8)
+    effects = info["placebo_effects"].reset_index(drop=True)
+    for i in range(10):
+        assert effects.loc[i, "p_two_sided"] == pytest.approx(
+            G[f"some.p_two.{i + 1}"], abs=1e-12
+        )
+        assert effects.loc[i, "p_right"] == pytest.approx(
+            G[f"some.p_right.{i + 1}"], abs=1e-12
+        )
+    # the headline p-value is over the same units
+    assert fit.pvalue == pytest.approx(
+        np.mean(table["ratio"] >= table["ratio"].iloc[0])
+    )
+
+
+def test_pre_periods(G, data):
+    spec = [("y", t, "mean") for t in (12, 15, 18, 21, 24, 27)] + [
+        ("y", list(range(11, 21)), "mean"),
+        ("y", list(range(21, 31)), "mean"),
+    ]
+    fit = sp.synth(
+        data, "y", "unit", "t", treated_unit=6, treatment_time=31,
+        method="classic", special_predictors=spec, v_method="regression",
+        placebo=False, pre_periods=list(range(11, 31)),
+    )  # fmt: skip
+    info = fit.model_info
+    assert info["n_pre_periods"] == G["short.T0"] == 20
+    gaps = info["gap_table"]
+    pre = gaps.loc[~gaps["post_treatment"], "gap"]
+    assert np.sqrt((pre**2).mean()) == pytest.approx(G["short.rmse"], rel=1e-8)
+    weights = dict(zip(info["weights"]["unit"], info["weights"]["weight"]))
+    stata = {
+        int(k.split(".")[2]): v for k, v in G.items() if k.startswith("short.weight.")
+    }
+    for unit, w in stata.items():
+        assert round(weights[unit], 3) == pytest.approx(w, abs=1e-12)
+
+
 # ------------------------------------------------------------------ edges
 def test_options_that_cannot_be_honoured_raise(data):
     with pytest.raises(MethodIncompatibility, match="placebo=True"):
@@ -218,6 +263,12 @@ def test_options_that_cannot_be_honoured_raise(data):
         fit_with(data, placebo=False, placebo_time=35)
     with pytest.raises(MethodIncompatibility, match="post_periods"):
         fit_with(data, placebo=False, post_periods=[20])
+    with pytest.raises(MethodIncompatibility, match="pre_periods"):
+        fit_with(data, placebo=False, pre_periods=[35])
+    with pytest.raises(MethodIncompatibility, match="placebo_units"):
+        fit_with(data, placebo=True, placebo_units=[6])
+    with pytest.raises(MethodIncompatibility, match="placebo=True"):
+        fit_with(data, placebo=False, placebo_units=[2])
 
 
 # ------------------------------------------ rcm with covariates (Hsiao-Zhou)
@@ -280,6 +331,22 @@ def test_rcm_covariates_placebos(G, data_x):
     fake = info["placebo_time"]
     assert len(info["placebo_time_selected"]) == G["rcmx.time28.K"]
     assert fake["effect"].mean() == pytest.approx(G["rcmx.time28.att"], rel=1e-6)
+
+
+def test_rcm_placebo_on_a_list_of_units(G, data_x):
+    fit = rcm_x(
+        data_x, selection="forward", criterion="bic",
+        placebo=True, placebo_cutoff=2, placebo_units=[2, 3, 4, 5],
+    )  # fmt: skip
+    assert len(fit.model_info["placebo_table"]) == G["rcmx.some.rows"] == 5
+    post = fit.detail[fit.detail["post"]].reset_index(drop=True)
+    for i in range(10):
+        assert post.loc[i, "p_two_sided"] == pytest.approx(
+            G[f"rcmx.some.p_two.{i + 1}"], abs=1e-6
+        )
+        assert post.loc[i, "p_left"] == pytest.approx(
+            G[f"rcmx.some.p_left.{i + 1}"], abs=1e-6
+        )
 
 
 def test_rcm_does_not_select_the_saturated_model(G, data_x):
