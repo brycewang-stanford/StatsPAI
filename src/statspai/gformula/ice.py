@@ -270,7 +270,7 @@ def _ice_designs(
     treatment_cols: Sequence[str],
     confounder_cols: Sequence[Sequence[str]],
     strategy: Sequence[Any],
-):
+) -> Any:
     """Per-stage observed design X_t and intervened design X*_t."""
     K = len(treatment_cols)
     out = []

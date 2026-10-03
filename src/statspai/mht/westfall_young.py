@@ -14,7 +14,7 @@ Stata ``wyoung, permute()`` (Jones, Molitor and Reif 2019) and R
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional, Sequence
+from typing import List, Optional, Sequence
 
 import numpy as np
 import pandas as pd

@@ -64,7 +64,7 @@ _VALID_SE = ("robust", "unadjusted")
 _VALID_VCOV = ("mds", "iid", "hac", "cluster")
 
 
-def _as_moments(moment_fn, theta, data) -> np.ndarray:
+def _as_moments(moment_fn: Any, theta: Any, data: Any) -> np.ndarray:
     """Evaluate the moment function into a 2-D ``(n, q)`` array."""
     G = np.asarray(moment_fn(np.asarray(theta, dtype=float), data), dtype=float)
     if G.ndim == 1:

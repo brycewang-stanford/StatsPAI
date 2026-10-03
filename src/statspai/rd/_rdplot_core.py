@@ -353,7 +353,7 @@ def rdplot_numbers(
     bin_l = _find_interval(x_l, jumps_l) - J_l - 1
     bin_r = _find_interval(x_r, jumps_r)
 
-    def _per_bin(bins: np.ndarray, xs: np.ndarray, ys: np.ndarray):
+    def _per_bin(bins: np.ndarray, xs: np.ndarray, ys: np.ndarray) -> Any:
         ub = np.unique(bins)
         mx = np.array([xs[bins == b].mean() for b in ub])
         my = np.array([ys[bins == b].mean() for b in ub])
@@ -368,7 +368,7 @@ def rdplot_numbers(
 
     if covs is not None:
         # R: lm(y ~ z + factor(bin)) per side, then bin means of the fit.
-        def _cov_means(ys, zs, bins, ub):
+        def _cov_means(ys: Any, zs: Any, bins: Any, ub: Any) -> Any:
             F = (bins[:, None] == ub[None, :]).astype(float)
             Xd = np.column_stack([F, zs])
             beta = np.linalg.lstsq(Xd, ys, rcond=None)[0]
@@ -378,7 +378,7 @@ def rdplot_numbers(
         my_l = _cov_means(y_l, covs[ind_l], bin_l, ub_l)
         my_r = _cov_means(y_r, covs[ind_r], bin_r, ub_r)
 
-    def _edges(jumps: np.ndarray, J: int):
+    def _edges(jumps: np.ndarray, J: int) -> Any:
         lo = np.full(J, np.nan)
         hi = np.full(J, np.nan)
         m = min(J, len(jumps) - 1)
@@ -484,7 +484,7 @@ def lpdensity_numbers(
     else:
         Fn = np.arange(1, n + 1) / n
 
-    def _fit(order: int, j: int):
+    def _fit(order: int, j: int) -> Any:
         u = (data - grid[j]) / bw[j]
         inside = np.abs(u) <= 1
         X = np.vander(u, order + 1, increasing=True)

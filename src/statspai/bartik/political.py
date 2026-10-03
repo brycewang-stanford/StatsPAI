@@ -110,7 +110,8 @@ class ShiftSharePoliticalResult(ResultProtocolMixin):
             f"  Industries in exposure  : {self.n_industries}",
             f"  IV estimate             : {est:+.6f}",
             f"  SE (HC1)                : {se:.6f}",
-            f"  SE (AKM shock-level)    : {self.diagnostics.get('akm_se', float('nan')):.6f}",
+            "  SE (AKM shock-level)    : "
+            f"{self.diagnostics.get('akm_se', float('nan')):.6f}",
             f"  95% CI                  : [{lo:+.6f}, {hi:+.6f}]",
             "",
             "  Rotemberg top-5 industries (by weight):",
@@ -141,7 +142,9 @@ def _require_dataframe(obj: Any, *, name: str, function: str) -> pd.DataFrame:
     if obj.empty:
         raise DataInsufficient(
             f"`{name}` must contain at least one row and one column.",
-            recovery_hint=f"Provide non-empty `{name}` data before calling `{function}`.",
+            recovery_hint=(
+                f"Provide non-empty `{name}` data before calling `{function}`."
+            ),
             diagnostics={"function": function, "argument": name, "shape": obj.shape},
         )
     return obj
@@ -161,7 +164,9 @@ def _require_series(obj: Any, *, name: str, function: str) -> pd.Series:
     if obj.empty:
         raise DataInsufficient(
             f"`{name}` must contain at least one industry shock.",
-            recovery_hint=f"Provide non-empty `{name}` shocks before calling `{function}`.",
+            recovery_hint=(
+                f"Provide non-empty `{name}` shocks before calling `{function}`."
+            ),
             diagnostics={"function": function, "argument": name},
         )
     return obj
@@ -171,7 +176,9 @@ def _require_column_name(name: Any, *, argument: str) -> str:
     if not isinstance(name, str) or not name:
         raise MethodIncompatibility(
             f"`{argument}` must be a non-empty column name string.",
-            recovery_hint=f"Pass the name of an existing DataFrame column for `{argument}`.",
+            recovery_hint=(
+                f"Pass the name of an existing DataFrame column for `{argument}`."
+            ),
             diagnostics={"argument": argument, "type": type(name).__name__},
         )
     return name
@@ -257,7 +264,9 @@ def _finite_frame(df: pd.DataFrame, *, name: str) -> np.ndarray:
     if not np.all(np.isfinite(arr)):
         raise NumericalInstability(
             f"`{name}` contains non-finite values.",
-            recovery_hint=f"Drop or impute NaN/Inf values in `{name}` before estimation.",
+            recovery_hint=(
+                f"Drop or impute NaN/Inf values in `{name}` before estimation."
+            ),
             diagnostics={"argument": name, "shape": arr.shape},
         )
     return arr
@@ -281,7 +290,9 @@ def _finite_series(series: pd.Series, *, name: str) -> np.ndarray:
     if not np.all(np.isfinite(arr)):
         raise NumericalInstability(
             f"`{name}` contains non-finite values.",
-            recovery_hint=f"Drop or impute NaN/Inf values in `{name}` before estimation.",
+            recovery_hint=(
+                f"Drop or impute NaN/Inf values in `{name}` before estimation."
+            ),
             diagnostics={"argument": name},
         )
     return arr
@@ -480,7 +491,10 @@ def shift_share_political(
         if not common:
             raise MethodIncompatibility(
                 "shares.columns and shocks.index have no overlap.",
-                recovery_hint="Use the same industry labels for `shares` columns and `shocks` index.",
+                recovery_hint=(
+                    "Use the same industry labels for `shares` columns and `shocks` "
+                    "index."
+                ),
                 diagnostics={
                     "shares_columns": list(shares.columns),
                     "shocks_index": list(shocks.index),
@@ -490,7 +504,8 @@ def shift_share_political(
         shocks = shocks.loc[common]
     if data[time].nunique() < 2:
         raise DataInsufficient(
-            "`data` must contain at least two time periods for long-difference shift-share IV.",
+            "`data` must contain at least two time periods for long-difference "
+            "shift-share IV.",
             recovery_hint="Provide pre/post or multi-period panel data.",
             diagnostics={
                 "function": "shift_share_political",
@@ -510,7 +525,9 @@ def shift_share_political(
     if cs.empty:
         raise DataInsufficient(
             "No units remain after aligning `data` with `shares`.",
-            recovery_hint="Ensure `shares.index` contains the unit identifiers in `data`.",
+            recovery_hint=(
+                "Ensure `shares.index` contains the unit identifiers in `data`."
+            ),
             diagnostics={"function": "shift_share_political"},
         )
     # Guard the differenced outcome/endog: an all-NaN (or non-numeric) outcome
@@ -769,14 +786,18 @@ def _resolve_shares(
             if t not in shares:
                 raise MethodIncompatibility(
                     f"shares missing entry for time={t!r}",
-                    recovery_hint="Provide a share matrix for every time period in the data.",
+                    recovery_hint=(
+                        "Provide a share matrix for every time period in the data."
+                    ),
                     diagnostics={"time": t, "available_times": list(shares.keys())},
                 )
             s = shares[t]
             if not isinstance(s, pd.DataFrame):
                 raise MethodIncompatibility(
                     f"shares[{t!r}] must be DataFrame, got {type(s).__name__}",
-                    recovery_hint="Use pandas DataFrames for all time-specific share matrices.",
+                    recovery_hint=(
+                        "Use pandas DataFrames for all time-specific share matrices."
+                    ),
                     diagnostics={"time": t, "type": type(s).__name__},
                 )
             _finite_frame(s, name=f"shares[{t!r}]")
@@ -785,7 +806,10 @@ def _resolve_shares(
             elif list(s.columns) != cols0:
                 raise MethodIncompatibility(
                     f"shares[{t!r}].columns != shares[{times[0]!r}].columns",
-                    recovery_hint="Use the same industry columns in every time-specific share matrix.",
+                    recovery_hint=(
+                        "Use the same industry columns in every time-specific share "
+                        "matrix."
+                    ),
                     diagnostics={
                         "time": t,
                         "columns": list(s.columns),
@@ -797,7 +821,10 @@ def _resolve_shares(
     raise MethodIncompatibility(
         "shares must be a DataFrame or dict[time → DataFrame]; "
         f"got {type(shares).__name__}",
-        recovery_hint="Pass a time-invariant share DataFrame or a dict of time-specific DataFrames.",
+        recovery_hint=(
+            "Pass a time-invariant share DataFrame or a dict of time-specific "
+            "DataFrames."
+        ),
         diagnostics={"argument": "shares", "type": type(shares).__name__},
     )
 
@@ -818,7 +845,9 @@ def _resolve_shocks(
             if t not in shocks.index:
                 raise MethodIncompatibility(
                     f"shocks row missing for time={t!r}",
-                    recovery_hint="Provide one shock row for every time period in the data.",
+                    recovery_hint=(
+                        "Provide one shock row for every time period in the data."
+                    ),
                     diagnostics={"time": t, "available_times": list(shocks.index)},
                 )
             out[t] = shocks.loc[t]
@@ -830,14 +859,18 @@ def _resolve_shocks(
             if t not in shocks:
                 raise MethodIncompatibility(
                     f"shocks missing entry for time={t!r}",
-                    recovery_hint="Provide one shock vector for every time period in the data.",
+                    recovery_hint=(
+                        "Provide one shock vector for every time period in the data."
+                    ),
                     diagnostics={"time": t, "available_times": list(shocks.keys())},
                 )
             s = shocks[t]
             if not isinstance(s, pd.Series):
                 raise MethodIncompatibility(
                     f"shocks[{t!r}] must be Series, got {type(s).__name__}",
-                    recovery_hint="Use pandas Series for all time-specific shock vectors.",
+                    recovery_hint=(
+                        "Use pandas Series for all time-specific shock vectors."
+                    ),
                     diagnostics={"time": t, "type": type(s).__name__},
                 )
             _finite_series(s, name=f"shocks[{t!r}]")
@@ -845,7 +878,10 @@ def _resolve_shocks(
         return out
     raise MethodIncompatibility(
         "shocks must be Series, DataFrame(time × industry), or dict[time → Series]",
-        recovery_hint="Pass shocks as a Series, a time-by-industry DataFrame, or a dict of Series.",
+        recovery_hint=(
+            "Pass shocks as a Series, a time-by-industry DataFrame, or a dict of "
+            "Series."
+        ),
         diagnostics={"argument": "shocks", "type": type(shocks).__name__},
     )
 
@@ -868,7 +904,10 @@ def _build_bartik_panel(
         if not cols:
             raise MethodIncompatibility(
                 f"no shared industries at time={t!r}",
-                recovery_hint="Align share-matrix columns with shock-vector indexes for every period.",
+                recovery_hint=(
+                    "Align share-matrix columns with shock-vector indexes for every "
+                    "period."
+                ),
                 diagnostics={
                     "time": t,
                     "shares_columns": list(shares_t.columns),
@@ -1026,7 +1065,9 @@ def shift_share_political_panel(
         raise DataInsufficient(
             f"{n_missing} rows have missing Bartik IV — check that "
             "every (unit, time) is covered by shares + shocks.",
-            recovery_hint="Ensure every unit and period is covered by the share and shock inputs.",
+            recovery_hint=(
+                "Ensure every unit and period is covered by the share and shock inputs."
+            ),
             diagnostics={
                 "function": "shift_share_political_panel",
                 "n_missing": n_missing,

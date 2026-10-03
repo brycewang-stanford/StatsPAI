@@ -334,7 +334,9 @@ def _battery_iv(result: Any, alpha: float = 0.05) -> Dict[str, Any]:
             {
                 "test": "First-stage F-statistic",
                 "pass": None,
-                "interpretation": "Not available — re-run with first_stage=True if supported",
+                "interpretation": (
+                    "Not available — re-run with first_stage=True if supported"
+                ),
             }
         )
 
@@ -398,7 +400,9 @@ def _battery_did(result: Any, alpha: float = 0.05) -> Dict[str, Any]:
         p_val = pretrend.get("pvalue", pretrend.get("p_value"))
         checks.append(
             {
-                "test": "Pre-trend test (joint significance of pre-treatment coefficients)",
+                "test": (
+                    "Pre-trend test (joint significance of pre-treatment coefficients)"
+                ),
                 "statistic": pretrend.get("statistic"),
                 "pvalue": round(float(p_val), 4) if p_val is not None else None,
                 "pass": float(p_val) >= alpha if p_val is not None else None,
@@ -424,7 +428,9 @@ def _battery_did(result: Any, alpha: float = 0.05) -> Dict[str, Any]:
                     "n_pre_periods": len(pre),
                     "n_significant": sig_pre,
                     "pass": sig_pre == 0,
-                    "interpretation": f"{sig_pre}/{len(pre)} pre-treatment periods significant at 5%"
+                    "interpretation": (
+                        f"{sig_pre}/{len(pre)} pre-treatment periods significant at 5%"
+                    )
                     + (
                         " — parallel trends concern"
                         if sig_pre > 0
@@ -564,7 +570,9 @@ def _battery_synth(result: Any, alpha: float = 0.05) -> Dict[str, Any]:
                 "test": "Donor pool composition",
                 "n_donors_with_weight": n_nonzero,
                 "pass": True,
-                "interpretation": f"{n_nonzero} donors contribute to the synthetic unit.",
+                "interpretation": (
+                    f"{n_nonzero} donors contribute to the synthetic unit."
+                ),
             }
         )
 

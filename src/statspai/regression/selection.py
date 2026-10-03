@@ -275,7 +275,7 @@ def biprobit(
 def _probit_coefficients(Z: np.ndarray, D: np.ndarray) -> np.ndarray:
     """Probit MLE coefficients for the selection equation."""
 
-    def _neg(g):
+    def _neg(g: Any) -> Any:
         zg = Z @ g
         ll = np.where(D == 1, stats.norm.logcdf(zg), stats.norm.logcdf(-zg))
         q = 2.0 * D - 1.0
@@ -295,7 +295,7 @@ def _etregress_scores(
     W: np.ndarray,
     Z: np.ndarray,
     D: np.ndarray,
-):
+) -> Any:
     """Log-likelihood and **per-observation** scores for Stata ``etregress``.
 
     The model is the common-slopes endogenous-treatment regression
@@ -344,7 +344,7 @@ def _etregress_scores(
     return float(np.sum(ll_i)), scores
 
 
-def _etregress_hessian(theta, yv, W, Z, D):
+def _etregress_hessian(theta: Any, yv: Any, W: Any, Z: Any, D: Any) -> Any:
     """Observed information: the analytic score differenced once.
 
     Stata reports ``vce(oim)`` here. Differencing the *score* rather than
@@ -353,7 +353,7 @@ def _etregress_hessian(theta, yv, W, Z, D):
     standard errors an order of magnitude further from Stata's.
     """
 
-    def _g(t):
+    def _g(t: Any) -> Any:
         return _etregress_scores(t, yv, W, Z, D)[1].sum(0)
 
     n_ = len(theta)
@@ -368,7 +368,9 @@ def _etregress_hessian(theta, yv, W, Z, D):
     return 0.5 * (H + H.T)
 
 
-def _etregress_fit_mle(yv, W, Z, D, maxiter: int, tol: float):
+def _etregress_fit_mle(
+    yv: Any, W: Any, Z: Any, D: Any, maxiter: int, tol: float
+) -> Any:
     """Full-information ML, matching ``etregress`` (no ``twostep`` option).
 
     Returns ``(theta, hessian, loglik)``.
@@ -392,7 +394,7 @@ def _etregress_fit_mle(yv, W, Z, D, maxiter: int, tol: float):
         ]
     )
 
-    def _neg(t):
+    def _neg(t: Any) -> Any:
         ll, s = _etregress_scores(t, yv, W, Z, D)
         return -ll, -s.sum(0)
 
@@ -428,7 +430,7 @@ def _etregress_fit_mle(yv, W, Z, D, maxiter: int, tol: float):
     return theta, _etregress_hessian(theta, yv, W, Z, D), best_ll
 
 
-def _sandwich(H, scores, cluster_vals):
+def _sandwich(H: Any, scores: Any, cluster_vals: Any) -> Any:
     """Robust / cluster covariance from the observed information and scores."""
     Hinv = np.linalg.inv(H)
     n, k = scores.shape

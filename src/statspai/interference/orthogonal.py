@@ -156,8 +156,10 @@ class InwardOutwardResult(ResultProtocolMixin):
             [
                 "Inward / Outward Spillover Decomposition",
                 "=" * 60,
-                f"  Inward spillover   : {self.inward_effect:+.6f}  (SE {self.inward_se:.6f})",
-                f"  Outward spillover  : {self.outward_effect:+.6f}  (SE {self.outward_se:.6f})",
+                f"  Inward spillover   : {self.inward_effect:+.6f}  (SE "
+                f"{self.inward_se:.6f})",
+                f"  Outward spillover  : {self.outward_effect:+.6f}  (SE "
+                f"{self.outward_se:.6f})",
                 f"  Ratio (in / out)   : {self.ratio_in_out:.4f}",
             ]
         )

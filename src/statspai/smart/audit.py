@@ -864,7 +864,7 @@ class AuditReport(dict):
         """Checks that do not exist for this fit (each carries a ``reason``)."""
         return self.checks_by_status["not_applicable"]
 
-    def to_frame(self):
+    def to_frame(self) -> Any:
         """The checklist as a :class:`pandas.DataFrame`, one row per check."""
         import pandas as pd  # noqa: PLC0415 - keep pandas off the import path
 

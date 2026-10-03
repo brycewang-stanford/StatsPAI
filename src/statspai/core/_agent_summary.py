@@ -631,7 +631,9 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
                 "value": result.se,
                 "threshold": 0,
                 "message": "Standard error is non-positive / NaN.",
-                "recovery_hint": "Check sandwich / cluster setup; inspect influence functions.",
+                "recovery_hint": (
+                    "Check sandwich / cluster setup; inspect influence functions."
+                ),
                 "alternatives": [],
             }
         )

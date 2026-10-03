@@ -18,8 +18,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from ._core import _kernel_fn
 from .._result_serialize import ResultProtocolMixin
+from ._core import _kernel_fn
 
 
 @dataclass
@@ -64,10 +64,12 @@ class RDInterferenceResult(ResultProtocolMixin):
             "=" * 42 + "\n"
             f"  N = {self.n_obs},  h = {self.bandwidth:.4f}\n"
             f"  Direct    : {self.direct_effect:+.4f} (SE {self.direct_se:.4f})\n"
-            f"             95% CI [{self.direct_effect - z_crit * self.direct_se:+.4f}, "
+            "             95% CI "
+            f"[{self.direct_effect - z_crit * self.direct_se:+.4f}, "
             f"{self.direct_effect + z_crit * self.direct_se:+.4f}]\n"
             f"  Spillover : {self.spillover_effect:+.4f} (SE {self.spillover_se:.4f})\n"
-            f"             95% CI [{self.spillover_effect - z_crit * self.spillover_se:+.4f}, "
+            "             95% CI "
+            f"[{self.spillover_effect - z_crit * self.spillover_se:+.4f}, "
             f"{self.spillover_effect + z_crit * self.spillover_se:+.4f}]\n"
         )
 

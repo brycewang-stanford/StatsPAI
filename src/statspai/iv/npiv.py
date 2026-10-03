@@ -65,7 +65,8 @@ class NPIVResult(ResultProtocolMixin):
             "Nonparametric IV (Newey-Powell 2003 sieve)",
             "-" * 60,
             f"  Observations         : {self.n_obs}",
-            f"  Basis                : {self.basis_type}  (k_d={self.k_d}, k_z={self.k_z})",
+            f"  Basis                : {self.basis_type}  (k_d={self.k_d}, "
+            f"k_z={self.k_z})",
             f"  Regularization α     : {self.regularization:.4g}",
             f"  First-stage F        : {self.first_stage_f:.2f}",
             f"  h(D) evaluated at    : {len(self.d_grid)} grid points "

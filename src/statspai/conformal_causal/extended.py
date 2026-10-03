@@ -71,7 +71,8 @@ class ContinuousConformalResult(ResultProtocolMixin):
         ]
         if self.dose_grid is not None:
             lines.append(
-                f"  dose grid      : [{self.dose_grid[0]:.3f}, {self.dose_grid[-1]:.3f}] ({len(self.dose_grid)} pts)"
+                f"  dose grid      : [{self.dose_grid[0]:.3f}, "
+                f"{self.dose_grid[-1]:.3f}] ({len(self.dose_grid)} pts)"
             )
         return "\n".join(lines)
 

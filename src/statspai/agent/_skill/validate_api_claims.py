@@ -42,6 +42,7 @@ import pathlib
 import re
 import textwrap
 import types
+from typing import Any
 
 import statspai as sp
 
@@ -246,7 +247,7 @@ def check_signatures(failures: list[str]) -> None:
 _FENCE_OPEN = re.compile(r"^```(?:python|py)\s*$")
 
 
-def _python_blocks(path: pathlib.Path):
+def _python_blocks(path: pathlib.Path) -> Any:
     """Yield ``(first_line_number, source)`` for each fenced Python block.
 
     Fences inside a blockquote (``> ```python``) count, and a fence closes
@@ -277,7 +278,7 @@ def _python_blocks(path: pathlib.Path):
         yield start, textwrap.dedent("\n".join(body))
 
 
-def _sp_call_target(node: ast.Call):
+def _sp_call_target(node: ast.Call) -> Any:
     """``['did', 'callaway_santanna']`` for ``sp.did.callaway_santanna(...)``."""
     parts = []
     cur = node.func
@@ -293,11 +294,11 @@ def _sp_call_target(node: ast.Call):
 _FORWARD_TARGETS = {"causal_forest": "CausalForest"}
 
 
-def _literal(node: ast.AST):
+def _literal(node: ast.AST) -> Any:
     return node.value if isinstance(node, ast.Constant) else None
 
 
-def _forwarded_keyword_problems(name: str, node: ast.Call, params) -> list[str]:
+def _forwarded_keyword_problems(name: str, node: ast.Call, params: Any) -> list[str]:
     """Check the keywords of a call to a function that takes ``**kwargs``.
 
     The signature alone cannot say which keywords are accepted, so three
@@ -433,7 +434,7 @@ def check_call_keywords(failures: list[str]) -> None:
 
 
 # ---------------------------------------------------------------- attributes
-def _make_data():
+def _make_data() -> Any:
     import numpy as np
     import pandas as pd
 
@@ -652,7 +653,7 @@ def check_attributes(failures: list[str]) -> None:
         _record(failures, False, "modern methods", f"{type(exc).__name__}: {exc}")
 
 
-def _silent_ok(thunk) -> bool:
+def _silent_ok(thunk: Any) -> bool:
     try:
         thunk()
         return True
@@ -671,7 +672,8 @@ def main() -> int:
     args = ap.parse_args()
 
     print(
-        f"statspai {sp.__version__}  ·  validating skill API claims ({len(SKILL_FILES)} files)"
+        f"statspai {sp.__version__}  ·  validating skill API claims "
+        f"({len(SKILL_FILES)} files)"
     )
     failures: list[str] = []
     check_references(failures)

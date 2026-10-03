@@ -68,10 +68,13 @@ class EvidenceSynthesisResult(ResultProtocolMixin):
             [
                 "Next-Generation Evidence Synthesis (RCT + RWD + ML)",
                 "=" * 64,
-                f"  RCT estimate         : {self.rct_estimate:+.6f}  (SE {self.rct_se:.6f})",
-                f"  RWD estimate         : {self.rwd_estimate:+.6f}  (SE {self.rwd_se:.6f})",
+                f"  RCT estimate         : {self.rct_estimate:+.6f}  (SE "
+                f"{self.rct_se:.6f})",
+                f"  RWD estimate         : {self.rwd_estimate:+.6f}  (SE "
+                f"{self.rwd_se:.6f})",
                 f"  Transport shift      : {self.transport_shift:+.6f}",
-                f"  Pooled estimate      : {self.pooled_estimate:+.6f}  (SE {self.pooled_se:.6f})",
+                f"  Pooled estimate      : {self.pooled_estimate:+.6f}  (SE "
+                f"{self.pooled_se:.6f})",
                 f"  95% pooled CI        : [{lo:+.6f}, {hi:+.6f}]",
                 f"  Weights (RCT / RWD)  : "
                 f"{self.weights['rct']:.3f} / {self.weights['rwd']:.3f}",

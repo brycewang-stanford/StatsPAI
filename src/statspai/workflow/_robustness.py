@@ -600,7 +600,8 @@ def _add_evalue(result: Any, findings: List[RobustnessFinding]) -> None:
         elif val >= 2:
             sev, interp = (
                 "info",
-                "≥ 2 — moderate robustness; sensible to unmeasured confounders of similar strength",
+                "≥ 2 — moderate robustness; sensible to unmeasured confounders of "
+                "similar strength",
             )
         else:
             sev, interp = (

@@ -27,7 +27,7 @@ recommend (``ivreg2 y (x = g) [aw = s_n], robust``: intercept, HC0).
 from __future__ import annotations
 
 import warnings
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -274,7 +274,7 @@ def _bhj_aggregate(
     S: np.ndarray,
     g: np.ndarray,
     Z: np.ndarray,
-    shock_ids,
+    shock_ids: Any,
     y_name: str,
     x_name: str,
     w: Optional[np.ndarray] = None,

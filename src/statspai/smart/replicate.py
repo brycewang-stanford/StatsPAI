@@ -1072,7 +1072,8 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
                 "    kernel='triangular', bwselect='cct')",
                 "conv = rd.diagnostics['conventional']",
                 "print(f'Conventional jump: {conv[\"estimate\"]:.3f} '",
-                '      f\'(SE {conv["se"]:.3f}) at h={rd.diagnostics["bandwidth_h"]:.2f}\')',
+                '      f\'(SE {conv["se"]:.3f}) at '
+                'h={rd.diagnostics["bandwidth_h"]:.2f}\')',
             ],
             "golden_numbers": [
                 (

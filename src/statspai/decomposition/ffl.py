@@ -91,8 +91,10 @@ class FFLResult(DecompResultMixin):
             "━" * w,
             f"  Firpo-Fortin-Lemieux Two-Step Decomposition — {name}",
             "━" * w,
-            f"  Group A (ref={self.reference == 0}): stat = {self.stat_a: .4f}  N={self.n_a}",
-            f"  Group B:                          stat = {self.stat_b: .4f}  N={self.n_b}",
+            f"  Group A (ref={self.reference == 0}): stat = {self.stat_a: .4f}  "
+            f"N={self.n_a}",
+            f"  Group B:                          stat = {self.stat_b: .4f}  "
+            f"N={self.n_b}",
             f"  Counterfactual:                   stat = {self.stat_cf: .4f}",
             "",
             f"  Total gap:            {self.gap: .4f}",

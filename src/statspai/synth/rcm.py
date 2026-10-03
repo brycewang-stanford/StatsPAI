@@ -42,7 +42,8 @@ def _sweep_in_all(G: np.ndarray, p: int) -> np.ndarray:
         d = M[k, k]
         if abs(d) < 1e-12 * max(1.0, abs(G[k, k])):
             raise MethodIncompatibility(
-                "sp.synth(method='rcm'): the control units are collinear in the pre-treatment "
+                "sp.synth(method='rcm'): the control units are collinear in the "
+                "pre-treatment "
                 "periods.",
                 recovery_hint="Drop duplicated control units, or use "
                 "selection='forward'.",
@@ -92,14 +93,16 @@ def _candidates(
     largest = min(p, T0 - 2)  # one residual degree of freedom at least
     if largest < 1:
         raise DataInsufficient(
-            f"sp.synth(method='rcm'): {T0} pre-treatment periods are too few to fit a model.",
+            f"sp.synth(method='rcm'): {T0} pre-treatment periods are too few to fit a "
+            "model.",
             recovery_hint="The method needs at least four pre-treatment periods.",
         )
     if selection == "forward":
         return _stepwise(y, X, True, largest)
     if p > T0 - 2:
         raise MethodIncompatibility(
-            f"sp.synth(method='rcm'): selection={selection!r} starts from the model with all "
+            f"sp.synth(method='rcm'): selection={selection!r} starts from the model "
+            "with all "
             f"{p} candidate predictors, which {T0} pre-treatment periods cannot fit.",
             recovery_hint="Use selection='forward', or restrict donors=.",
         )
@@ -114,7 +117,8 @@ def _candidates(
     best, masks, nodes = best_subsets(swept, max_nodes)
     if nodes < 0:
         raise MethodIncompatibility(
-            f"sp.synth(method='rcm'): the exact best-subset search over {p} control units did "
+            f"sp.synth(method='rcm'): the exact best-subset search over {p} control "
+            "units did "
             f"not finish within {max_nodes} branches.",
             recovery_hint="Use selection='forward', or restrict donors=.",
         )
@@ -355,7 +359,8 @@ def rcm(
     selection, criterion = selection.lower(), criterion.lower()
     if selection not in _METHODS or criterion not in _CRITERIA:
         raise MethodIncompatibility(
-            f"sp.synth(method='rcm'): selection must be one of {_METHODS} and criterion one "
+            f"sp.synth(method='rcm'): selection must be one of {_METHODS} and "
+            "criterion one "
             f"of {_CRITERIA}; got {selection!r}, {criterion!r}.",
             recovery_hint="Use selection='best', criterion='aicc'.",
         )
@@ -369,7 +374,8 @@ def rcm(
     wide = data.pivot(index=time, columns=unit, values=outcome).sort_index()
     if treated_unit not in wide.columns:
         raise MethodIncompatibility(
-            f"sp.synth(method='rcm'): treated_unit={treated_unit!r} is not a value of {unit!r}.",
+            f"sp.synth(method='rcm'): treated_unit={treated_unit!r} is not a value of "
+            f"{unit!r}.",
             recovery_hint="Pass one of the unit identifiers.",
         )
     pool = [u for u in wide.columns if u != treated_unit]
@@ -377,7 +383,8 @@ def rcm(
         unknown = [u for u in donors if u not in pool]
         if unknown:
             raise MethodIncompatibility(
-                f"sp.synth(method='rcm'): donors {unknown} are not control units of the data.",
+                f"sp.synth(method='rcm'): donors {unknown} are not control units of "
+                "the data.",
                 recovery_hint="List identifiers other than the treated unit.",
             )
         pool = list(donors)
@@ -396,7 +403,8 @@ def rcm(
     if used.isna().any().any():
         missing = used.columns[used.isna().any()].tolist()
         raise DataInsufficient(
-            f"sp.synth(method='rcm'): unit(s) {missing} have missing outcomes in the periods "
+            f"sp.synth(method='rcm'): unit(s) {missing} have missing outcomes in the "
+            "periods "
             "used.",
             recovery_hint="Drop those units from donors=, or fill the gaps.",
         )
@@ -540,7 +548,8 @@ def rcm(
         fake_post = np.asarray(periods >= placebo_time) & (pre | post)
         if fake_pre.sum() < 4:
             raise DataInsufficient(
-                "sp.synth(method='rcm'): placebo_time leaves fewer than four periods to fit.",
+                "sp.synth(method='rcm'): placebo_time leaves fewer than four periods "
+                "to fit.",
                 recovery_hint="Choose a later placebo_time.",
             )
         run = _fit_unit(

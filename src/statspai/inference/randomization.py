@@ -958,7 +958,7 @@ def _absorbed_ols_stat_factory(
 _SWEEP_CACHE: Dict[Any, tuple] = {}
 
 
-def _sweep_key(y, s, absorber, cl_codes, parts) -> str:
+def _sweep_key(y: Any, s: Any, absorber: Any, cl_codes: Any, parts: Any) -> str:
     """Fingerprint of everything the swept cluster blocks depend on."""
     import hashlib
 
@@ -974,7 +974,9 @@ def _sweep_key(y, s, absorber, cl_codes, parts) -> str:
     return h.hexdigest()
 
 
-def _cluster_stat(a, B, Ag, Bg, first_row, n, k, *, t_stat: bool) -> StatFn:
+def _cluster_stat(
+    a: Any, B: Any, Ag: Any, Bg: Any, first_row: Any, n: Any, k: Any, *, t_stat: bool
+) -> StatFn:
     """The statistic from the swept cluster blocks, for row- or cluster-level input."""
     G = B.shape[0]
 

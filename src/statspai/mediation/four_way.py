@@ -213,7 +213,7 @@ def four_way_decomposition(
     beta_c = np.asarray(mlm.coef_[2:], dtype=float)
     Cfix = Cbar if Xc.size else np.zeros(0)
 
-    def _grad(name: str):
+    def _grad(name: str) -> Any:
         gt = np.zeros(X_out.shape[1])
         gb = np.zeros(X_med.shape[1])
         if name in ("cde", "te"):

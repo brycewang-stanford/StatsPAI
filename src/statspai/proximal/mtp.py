@@ -146,7 +146,9 @@ def pci_mtp(
         model_info={
             "estimator": "pci_mtp",
             "delta": delta,
-            "reference": "Olivas-Martinez, Gilbert & Rotnitzky (2025), arXiv 2512.12038",
+            "reference": (
+                "Olivas-Martinez, Gilbert & Rotnitzky (2025), arXiv 2512.12038"
+            ),
         },
         _citation_key="pci_mtp",
     )

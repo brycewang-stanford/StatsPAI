@@ -32,8 +32,8 @@ from typing import Any, Dict, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
-from .bcf import bcf as _bcf_binary
 from .._result_serialize import ResultProtocolMixin
+from .bcf import bcf as _bcf_binary
 
 __all__ = ["bcf_factor_exposure", "BCFFactorExposureResult"]
 
@@ -86,7 +86,8 @@ class BCFFactorExposureResult(ResultProtocolMixin):
 
     def summary(self) -> str:
         lines = [
-            "BCF with Factor-based Exposure Mapping (Zorzetto et al. 2026, arXiv:2601.16595)",
+            "BCF with Factor-based Exposure Mapping (Zorzetto et al. 2026, "
+            "arXiv:2601.16595)",
             "-" * 68,
             f"  Exposures       : {len(self.factor_loadings.index)}",
             f"  Factors kept    : {len(self.factor_loadings.columns)}",

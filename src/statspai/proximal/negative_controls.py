@@ -42,7 +42,7 @@ confounder." *Biometrika*, 105(4), 987-993. [@miao2018identifying]
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Dict, Any
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -269,7 +269,8 @@ def negative_control_exposure(
     crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (est - crit * sd, est + crit * sd)
     interp = (
-        "NCE coefficient is significant => possible residual confounding via exposure channel."
+        "NCE coefficient is significant => possible residual confounding via exposure "
+        "channel."
         if pval < alpha
         else "NCE coefficient not significant => no evidence of confounding via exposure proxy."
     )

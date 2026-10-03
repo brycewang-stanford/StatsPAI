@@ -70,8 +70,10 @@ class KleibergenPaapResult(ResultProtocolMixin):
         return (
             "Kleibergen-Paap (2006) rank test\n"
             f"{'-' * 48}\n"
-            f"  rk LM statistic      : {self.rk_lm:>10.4f}   p={self.rk_lm_pvalue:.4f}\n"
-            f"  rk Wald statistic    : {self.rk_wald:>10.4f}   p={self.rk_wald_pvalue:.4f}\n"
+            f"  rk LM statistic      : {self.rk_lm:>10.4f}   "
+            f"p={self.rk_lm_pvalue:.4f}\n"
+            f"  rk Wald statistic    : {self.rk_wald:>10.4f}   "
+            f"p={self.rk_wald_pvalue:.4f}\n"
             f"  rk Wald F-statistic  : {self.rk_f:>10.4f}\n"
             f"  n_endog = {self.n_endog},  n_instruments = {self.n_instruments}\n"
             f"  covariance type      : {self.cov_type}"
@@ -571,7 +573,8 @@ def sanderson_windmeijer(
         df2 = n - n_W - k - (p - 1)  # SW (2016) eq. 7 denominator df
         if df1 <= 0:
             raise ValueError(
-                f"Not enough instruments: k - (p-1) = {df1} for endogenous '{names[j]}'."
+                f"Not enough instruments: k - (p-1) = {df1} for endogenous "
+                f"'{names[j]}'."
             )
         if df2 <= 0:
             raise ValueError(

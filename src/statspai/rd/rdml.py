@@ -169,7 +169,10 @@ def _restrict_to_bandwidth(
         raise DataInsufficient(  # pragma: no cover
             f"Only {len(sub)} observations within bandwidth h={h:.4f}. "
             "Increase h or check data.",
-            recovery_hint="Increase `h`, use a denser window near the cutoff, or check the running variable.",
+            recovery_hint=(
+                "Increase `h`, use a denser window near the cutoff, or check the "
+                "running variable."
+            ),
             diagnostics={
                 "n_bandwidth": int(len(sub)),
                 "h": float(h),
@@ -405,7 +408,9 @@ def rd_forest(
         raise MethodIncompatibility(  # pragma: no cover
             "rd_forest requires at least one covariate in `covs` for "
             "heterogeneity estimation.",
-            recovery_hint="Pass at least one covariate for ML heterogeneity estimation.",
+            recovery_hint=(
+                "Pass at least one covariate for ML heterogeneity estimation."
+            ),
             diagnostics={"function": "rd_forest"},
         )
     if x in covs:
@@ -439,7 +444,9 @@ def rd_forest(
         raise DataInsufficient(  # pragma: no cover
             f"Too few observations on one side of cutoff (treated={n_treated}, "
             f"control={n_control}). Increase bandwidth or reduce min_leaf.",
-            recovery_hint="Increase bandwidth, reduce min_leaf, or collect more near-cutoff data.",
+            recovery_hint=(
+                "Increase bandwidth, reduce min_leaf, or collect more near-cutoff data."
+            ),
             diagnostics={
                 "function": "rd_forest",
                 "n_treated": int(n_treated),
@@ -687,7 +694,9 @@ def rd_boost(
     if not covs:
         raise MethodIncompatibility(  # pragma: no cover
             "rd_boost requires at least one covariate in `covs`.",
-            recovery_hint="Pass at least one covariate for ML heterogeneity estimation.",
+            recovery_hint=(
+                "Pass at least one covariate for ML heterogeneity estimation."
+            ),
             diagnostics={"function": "rd_boost"},
         )
     if x in covs:
@@ -1314,7 +1323,9 @@ def _importance_plot(
         raise MethodIncompatibility(  # pragma: no cover
             "No variable_importance found in result.model_info. "
             "Pass a CausalResult from rd_forest or rd_boost.",
-            recovery_hint="Call _importance_plot with a result from rd_forest or rd_boost.",
+            recovery_hint=(
+                "Call _importance_plot with a result from rd_forest or rd_boost."
+            ),
             diagnostics={"result_method": getattr(result, "method", None)},
         )
 

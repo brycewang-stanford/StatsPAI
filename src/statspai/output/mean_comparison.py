@@ -250,10 +250,12 @@ class MeanComparisonResult:
         lines.append("<tr>")
         lines.append('<th style="text-align:left;"></th>')
         lines.append(
-            '<th style="text-align:center; font-weight:normal; font-size:11px;">Mean (SD)</th>'
+            '<th style="text-align:center; font-weight:normal; font-size:11px;">Mean '
+            "(SD)</th>"
         )
         lines.append(
-            '<th style="text-align:center; font-weight:normal; font-size:11px;">Mean (SD)</th>'
+            '<th style="text-align:center; font-weight:normal; font-size:11px;">Mean '
+            "(SD)</th>"
         )
         lines.append("<th></th><th></th>")
         lines.append("</tr>")
@@ -270,13 +272,16 @@ class MeanComparisonResult:
 
             lines.append("<tr>")
             lines.append(
-                f'<td style="text-align:left; padding:2px 10px;">{_html_escape(row["variable"])}</td>'
+                '<td style="text-align:left; padding:2px '
+                f'10px;">{_html_escape(row["variable"])}</td>'
             )
             lines.append(
-                f'<td style="text-align:center; padding:2px 10px;">{fmt_mean0} ({fmt_sd0})</td>'
+                f'<td style="text-align:center; padding:2px 10px;">{fmt_mean0} '
+                f"({fmt_sd0})</td>"
             )
             lines.append(
-                f'<td style="text-align:center; padding:2px 10px;">{fmt_mean1} ({fmt_sd1})</td>'
+                f'<td style="text-align:center; padding:2px 10px;">{fmt_mean1} '
+                f"({fmt_sd1})</td>"
             )
             lines.append(
                 f'<td style="text-align:center; padding:2px 10px;">{fmt_diff}</td>'
@@ -288,7 +293,8 @@ class MeanComparisonResult:
 
         # N row
         lines.append(
-            '<tr><td colspan="5" style="border-top:1px solid black; padding:0;"></td></tr>'
+            '<tr><td colspan="5" style="border-top:1px solid black; '
+            'padding:0;"></td></tr>'
         )
         lines.append("<tr>")
         lines.append('<td style="text-align:left; padding:2px 10px;">N</td>')
@@ -301,13 +307,15 @@ class MeanComparisonResult:
         lines.append("<td></td><td></td>")
         lines.append("</tr>")
         lines.append(
-            '<tr><td colspan="5" style="border-top:3px solid black; padding:0;"></td></tr>'
+            '<tr><td colspan="5" style="border-top:3px solid black; '
+            'padding:0;"></td></tr>'
         )
 
         lines.append("</tbody>")
         lines.append("<tfoot>")
         lines.append(
-            '<tr><td colspan="5" style="text-align:left; font-size:11px; padding:4px 10px;">'
+            '<tr><td colspan="5" style="text-align:left; font-size:11px; padding:4px '
+            '10px;">'
             "* p&lt;0.10, ** p&lt;0.05, *** p&lt;0.01</td></tr>"
         )
         lines.append("</tfoot>")

@@ -686,7 +686,10 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                 "answers": {
                     "type": "object",
                     "additionalProperties": {"type": "string"},
-                    "description": "question_key -> answer (see the questions returned when omitted).",
+                    "description": (
+                        "question_key -> answer (see the questions returned when "
+                        "omitted)."
+                    ),
                 },
             },
             "required": ["family"],
@@ -2122,7 +2125,9 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
         if not isinstance(expr, str) or not expr.strip():
             raise MethodIncompatibility(
                 "op='query' needs a string `expr`.",
-                recovery_hint="e.g. {'op': 'query', 'expr': 'year >= 2005 and age < 65'}",
+                recovery_hint=(
+                    "e.g. {'op': 'query', 'expr': 'year >= 2005 and age < 65'}"
+                ),
             )
         _validate_expression(expr)
         return df.query(expr, engine="python")
@@ -2167,7 +2172,9 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
         if not isinstance(column, str) or not isinstance(expr, str):
             raise MethodIncompatibility(
                 "op='assign' needs `column` and a string `expr`.",
-                recovery_hint="e.g. {'op': 'assign', 'column': 'lwage', 'expr': 'log(wage)'}",
+                recovery_hint=(
+                    "e.g. {'op': 'assign', 'column': 'lwage', 'expr': 'log(wage)'}"
+                ),
             )
         _validate_expression(expr)
         out = df.copy()
@@ -2255,7 +2262,9 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
     if not isinstance(name, str) or not name.strip():
         raise MethodIncompatibility(
             "op='function' needs `name` (a registered sp.<name>).",
-            recovery_hint="e.g. {'op': 'function', 'name': 'winsor', 'arguments': {...}}",
+            recovery_hint=(
+                "e.g. {'op': 'function', 'name': 'winsor', 'arguments': {...}}"
+            ),
         )
     name = name.strip()
     if name.startswith("sp."):

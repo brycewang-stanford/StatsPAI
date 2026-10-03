@@ -11,6 +11,7 @@ simulation of ``insampleUncertaintyGetDiag``, ``e.des.prep`` + ``scpi.out``
 from __future__ import annotations
 
 import warnings
+from typing import Any, Optional
 
 import numpy as np
 
@@ -22,7 +23,9 @@ from . import _scpi_solvers as _sv
 # ====================================================================== #
 
 
-def _regularize_w(kind: str, rho_max, res, B, T0, J, d0) -> float:
+def _regularize_w(
+    kind: str, rho_max: Any, res: Any, B: Any, T0: Any, J: Any, d0: Any
+) -> float:
     """R ``regularize.w``."""
     sigma_u = np.sqrt(np.mean((res - res.mean()) ** 2))
     if kind == "type-1":
@@ -50,7 +53,7 @@ def _regularize_w(kind: str, rho_max, res, B, T0, J, d0) -> float:
     return float(rho)
 
 
-def _local_geometry(spec, w, rho, rho_max, res, B):
+def _local_geometry(spec: Any, w: Any, rho: Any, rho_max: Any, res: Any, B: Any) -> Any:
     """R ``local.geom`` + ``local.geom.2step`` (single unit, KM = 0)."""
     T0, J = B.shape
     d0 = int(np.sum(np.abs(w) >= 1e-6))
@@ -119,7 +122,7 @@ def _local_geometry(spec, w, rho, rho_max, res, B):
     }
 
 
-def _df_est(spec, w, B) -> float:
+def _df_est(spec: Any, w: Any, B: Any) -> float:
     """R ``df.EST`` (KM = 0)."""
     name, p, direction = spec["name"], spec["p"], spec["dir"]
     if name == "ols" or p == "no norm":
@@ -135,7 +138,7 @@ def _df_est(spec, w, B) -> float:
     return float(np.sum(d**2 / (d**2 + lam)))
 
 
-def _hc_scale(u_sigma, Z, TT, df):
+def _hc_scale(u_sigma: Any, Z: Any, TT: Any, df: Any) -> Any:
     if u_sigma == "HC0":
         return np.ones(TT)
     if u_sigma == "HC1":
@@ -162,7 +165,7 @@ def _proj_fitted(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     return X @ np.linalg.lstsq(X, y, rcond=None)[0]
 
 
-def _e_design(B, P_rows, index_w, e_order, T0):
+def _e_design(B: Any, P_rows: Any, index_w: Any, e_order: Any, T0: Any) -> Any:
     """``e.des.prep`` (out.feat = TRUE, constant = FALSE) + scpi.R fallbacks."""
     if e_order == 0:
         X0 = np.ones((T0, 1))
@@ -175,7 +178,7 @@ def _e_design(B, P_rows, index_w, e_order, T0):
         X1 = np.ones((P_rows.shape[0], 1))
         e_order = 0
 
-    def detect_constant(x):
+    def detect_constant(x: Any) -> Any:
         keep = (np.sum(x == 1, axis=0) != x.shape[0]) & (np.sum(x, axis=0) != 0)
         return np.column_stack([x[:, keep], np.ones(x.shape[0])])
 
@@ -187,7 +190,7 @@ def _e_design(B, P_rows, index_w, e_order, T0):
     return X0, X1, e_order
 
 
-def _scpi_out(res, x, ev, e_method, alpha):
+def _scpi_out(res: Any, x: Any, ev: Any, e_method: Any, alpha: Any) -> Any:
     """R ``scpi.out`` (effect = unit-time, out.feat = TRUE)."""
     n_eval = ev.shape[0]
     if e_method in ("gaussian", "ls"):
@@ -215,7 +218,7 @@ def _scpi_out(res, x, ev, e_method, alpha):
     return qp[:, 0], qp[:, 1], np.full(n_eval, np.nan), np.full(n_eval, np.nan)
 
 
-def _insample_problem(spec, geom, beta, Qm):
+def _insample_problem(spec: Any, geom: Any, beta: Any, Qm: Any) -> Any:
     """Map R's (p, dir) constraint set to the active-set solver's arguments."""
     p, direction = spec["p"], spec["dir"]
     J = beta.shape[0]
@@ -262,7 +265,9 @@ def _insample_problem(spec, geom, beta, Qm):
     )  # pragma: no cover
 
 
-def _insample_sims(Z, P_rows, beta, spec, geom, zeta):
+def _insample_sims(
+    Z: Any, P_rows: Any, beta: Any, spec: Any, geom: Any, zeta: Any
+) -> Any:
     """Per-draw bounds of ``insampleUncertaintyGetDiag`` (lb, ub columns).
 
     Each (draw, horizon, side) problem is solved by the exact active-set
@@ -278,7 +283,7 @@ def _insample_sims(Z, P_rows, beta, spec, geom, zeta):
     prob = _insample_problem(spec, geom, beta, Qm)
     n_fallback = 0
 
-    def solve(cc, Qq, Gg, kk):
+    def solve(cc: Any, Qq: Any, Gg: Any, kk: Any) -> Any:
         return _sv.insample_active_set(
             cc,
             Qq,
@@ -330,24 +335,24 @@ def _insample_sims(Z, P_rows, beta, spec, geom, zeta):
 
 
 def scpi_inference(
-    A,
-    B,
-    P,
-    w,
-    spec,
-    sims=200,
-    draws=None,
-    rng=None,
-    u_missp=True,
-    u_sigma="HC1",
-    u_order=1,
-    u_alpha=0.05,
-    e_order=1,
-    e_alpha=0.05,
-    rho=None,
-    rho_max=0.2,
-    aggregate=False,
-):
+    A: Any,
+    B: Any,
+    P: Any,
+    w: Any,
+    spec: Any,
+    sims: int = 200,
+    draws: Optional[Any] = None,
+    rng: Optional[Any] = None,
+    u_missp: bool = True,
+    u_sigma: str = "HC1",
+    u_order: int = 1,
+    u_alpha: float = 0.05,
+    e_order: int = 1,
+    e_alpha: float = 0.05,
+    rho: Optional[Any] = None,
+    rho_max: float = 0.2,
+    aggregate: bool = False,
+) -> Any:
     """Inference layer of R ``scpi`` given data matrices and weights.
 
     Separated from :func:`scpi` so the reference-parity test can hold it

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence, Union
+from typing import Any, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -778,7 +778,7 @@ def mr_presso(
     if n >= n_boot:
         raise ValueError("mr_presso: n_boot must exceed the number of variants")
 
-    def _wls(mask):
+    def _wls(mask: Any) -> Any:
         """lm(by ~ -1 + bx, weights = w): estimate, residual-scaled SE, p."""
         xw, yw = bx[mask] * np.sqrt(w[mask]), by[mask] * np.sqrt(w[mask])
         beta = float(xw @ yw / (xw @ xw))
@@ -788,12 +788,12 @@ def mr_presso(
         pval = float(2.0 * stats.t.sf(abs(beta / se), df)) if se > 0 else 1.0
         return beta, se, pval
 
-    def _loo_betas(x, y):
+    def _loo_betas(x: Any, y: Any) -> Any:
         xw, yw = x * np.sqrt(w), y * np.sqrt(w)
         sxx, sxy = float(xw @ xw), float(xw @ yw)
         return (sxy - xw * yw) / (sxx - xw * xw)
 
-    def _rss(x, y):
+    def _rss(x: Any, y: Any) -> Any:
         xw, yw = x * np.sqrt(w), y * np.sqrt(w)
         return float(np.sum((yw - _loo_betas(x, y) * xw) ** 2))
 

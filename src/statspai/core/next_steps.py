@@ -424,7 +424,8 @@ def causal_next_steps(result: Any) -> List[Step]:
             steps.append(
                 Step(
                     "sp.did_imputation(data=df, ...)",
-                    "Try BJS (2024) imputation estimator — robust to heterogeneous effects",
+                    "Try BJS (2024) imputation estimator — robust to heterogeneous "
+                    "effects",
                     priority="recommended",
                     category="alternative",
                 )

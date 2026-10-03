@@ -19,7 +19,11 @@ from typing import Optional, Sequence
 # Ratcheted 2026-09-26 from 1000 (main had drifted to 1023 and the CI gate
 # had been red since 09-24) to 929, measured in the canonical CI env
 # (ubuntu/py3.10 ``.[dev,fixest]``; flake8 7.3). Lower as fixes land.
-DEFAULT_FLAKE8_MAX = 929
+# 2026-10-03: 855. Main had drifted to 1120 and the gate had been red since
+# 09-28, which also hid the mypy gate and the test run behind it. Long card
+# strings in ``_routing`` / ``_family_cards`` and elsewhere were split into
+# adjacent literals; files hashed by a parity trace were left alone.
+DEFAULT_FLAKE8_MAX = 855
 # Baseline for StatsPAI-authored type debt only (see ``run_mypy`` — the count is
 # scoped to ``src/statspai/`` lines). Reset 2026-09-22 to the first real
 # measurement: the earlier value of 25 was set against runs that aborted on a
@@ -28,6 +32,10 @@ DEFAULT_FLAKE8_MAX = 929
 # ``.[dev,fixest]`` CI env on py3.10. Lower as fixes land — never raise it.
 # 2026-09-26: 827 in that env (main had drifted to 843; the step was
 # masked by the red flake8 gate before it).
+# 2026-10-03: main had drifted to about 970 behind the red flake8 gate again;
+# brought back under 827 by annotating the defs flagged [no-untyped-def]
+# outside the trace-hashed files (816 on a local py3.10 env that read 822 at
+# the last green commit). The constant is unchanged until CI measures it.
 DEFAULT_MYPY_MAX = 827
 FORBIDDEN_IMPORT_PREFIXES = (
     "numba",

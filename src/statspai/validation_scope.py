@@ -773,7 +773,8 @@ _add(
                     "small": _vals("true"),
                 },
                 _EST_SE,
-                "coefficient, SE and p-value vs Stata ivregress 2sls / liml, small under default, robust and cluster variances (SE to 1e-12)",
+                "coefficient, SE and p-value vs Stata ivregress 2sls / liml, small "
+                "under default, robust and cluster variances (SE to 1e-12)",
                 "sp.iv(formula, data, method=..., small=True)",
             ),
             _Row(
@@ -787,7 +788,8 @@ _add(
                     "small": _vals("false"),
                 },
                 _EST_SE,
-                "the same without small: N divisor, HC0 under vce(robust), no finite-sample cluster factor, z p-values, vs Stata ivregress",
+                "the same without small: N divisor, HC0 under vce(robust), no "
+                "finite-sample cluster factor, z p-values, vs Stata ivregress",
                 "sp.iv(formula, data, method=..., small=False)",
             ),
             _Row(
@@ -801,7 +803,8 @@ _add(
                     "small": _vals("true"),
                 },
                 _EST_SE,
-                "absorbed two-way fixed effects: coefficient and SE vs Stata ivreghdfe under iid, robust, one-way and two-way clustering (SE to 1e-10)",
+                "absorbed two-way fixed effects: coefficient and SE vs Stata ivreghdfe "
+                "under iid, robust, one-way and two-way clustering (SE to 1e-10)",
                 "sp.iv(formula, data, absorb=[...])",
             ),
             _Row(
@@ -843,7 +846,8 @@ _add(
                     "small": _vals("true"),
                 },
                 ("se",),
-                "absorbed LIML SE within 5e-5 of ivreghdfe: ivreg2 builds the k-class meat from X_hat, StatsPAI from AX",
+                "absorbed LIML SE within 5e-5 of ivreghdfe: ivreg2 builds the k-class "
+                "meat from X_hat, StatsPAI from AX",
                 "sp.iv(formula, data, absorb=[...], method='liml')",
             ),
             _Row(
@@ -871,7 +875,8 @@ _add(
                     "small": _vals("true"),
                 },
                 ("se",),
-                "absorbed Fuller(1) SE within 5e-5 of ivreghdfe (same k-class meat convention)",
+                "absorbed Fuller(1) SE within 5e-5 of ivreghdfe (same k-class meat "
+                "convention)",
                 "sp.iv(formula, data, absorb=[...], method='fuller')",
             ),
         ),
@@ -1825,7 +1830,8 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "conventional / robust estimates, SEs and h, b vs rdrobust (R and Stata)",
+                "conventional / robust estimates, SEs and h, b vs rdrobust (R and "
+                "Stata)",
                 "sp.rdrobust(df, y, x, c)",
             ),
             _Row(
@@ -2048,7 +2054,8 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "36-cell grid vs R rdrobust: both estimates, both SEs and h, b on each side, all within 1e-9",
+                "36-cell grid vs R rdrobust: both estimates, both SEs and h, b on each "
+                "side, all within 1e-9",
                 "sp.rdrobust(df, y, x, c)",
             ),
             _Row(
@@ -2133,7 +2140,8 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "clustered, covariate-adjusted fit on a CER bandwidth: bias-corrected estimate and robust SE vs R rdrobust",
+                "clustered, covariate-adjusted fit on a CER bandwidth: bias-corrected "
+                "estimate and robust SE vs R rdrobust",
                 "sp.rdrobust(df, y, x, c)",
             ),
             _Row(
@@ -2150,7 +2158,8 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "two-sided fuzzy RD at p = 1, 2, with and without covariates, vs R rdrobust",
+                "two-sided fuzzy RD at p = 1, 2, with and without covariates, vs R "
+                "rdrobust",
                 "sp.rdrobust(df, y, x, c)",
             ),
             _Row(
@@ -2201,7 +2210,8 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "fuzzy RD under hc0-hc3: conventional estimate, conventional and robust SE vs R rdrobust",
+                "fuzzy RD under hc0-hc3: conventional estimate, conventional and "
+                "robust SE vs R rdrobust",
                 "sp.rdrobust(df, y, x, c)",
             ),
             _Row(
@@ -2218,7 +2228,8 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "kink (deriv = 1, p = 2): bandwidth, conventional estimate and its SE vs R rdrobust",
+                "kink (deriv = 1, p = 2): bandwidth, conventional estimate and its SE "
+                "vs R rdrobust",
                 "sp.rdrobust(df, y, x, c)",
             ),
         ),
@@ -2638,7 +2649,8 @@ class ValidationScope(dict):
             lines.append("evidence differing in one dimension:")
             for row in self["near_misses"]:
                 lines.append(
-                    f"  {row['kind']:<3} {row['artifact']} (differs in {row['differs_in']})"
+                    f"  {row['kind']:<3} {row['artifact']} (differs in "
+                    f"{row['differs_in']})"
                 )
         if self.get("note"):
             lines.append(f"note: {self['note']}")

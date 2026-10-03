@@ -66,12 +66,16 @@ SPECS: List[Dict[str, Any]] = [
                 },
                 "exposure": {
                     "type": "string",
-                    "description": "Positive exposure column; log(exposure) is used as offset.",
+                    "description": (
+                        "Positive exposure column; log(exposure) is used as offset."
+                    ),
                 },
                 "irr": {
                     "type": "boolean",
                     "default": False,
-                    "description": "Report incidence-rate ratios instead of log coefficients.",
+                    "description": (
+                        "Report incidence-rate ratios instead of log coefficients."
+                    ),
                 },
                 "dispersion": {
                     "type": "string",
@@ -120,7 +124,9 @@ SPECS: List[Dict[str, Any]] = [
                 },
                 "cluster": {
                     "type": "string",
-                    "description": 'Cluster variable; defaults to entity for model="fe".',
+                    "description": (
+                        'Cluster variable; defaults to entity for model="fe".'
+                    ),
                 },
                 "offset": {"type": "string"},
                 "exposure": {"type": "string"},

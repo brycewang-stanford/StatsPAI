@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 import numpy as np
 from scipy import integrate, optimize, stats
@@ -136,7 +136,7 @@ class MRRapsResult(ResultProtocolMixin):
 def _rho(loss: str, k: float) -> Callable[..., np.ndarray]:
     if loss == "huber":
 
-        def rho(r, deriv=0):
+        def rho(r: Any, deriv: int = 0) -> Any:
             r = np.asarray(r, dtype=float)
             a = np.abs(r) <= k
             if deriv == 0:
@@ -147,7 +147,7 @@ def _rho(loss: str, k: float) -> Callable[..., np.ndarray]:
 
         return rho
 
-    def rho(r, deriv=0):  # Tukey, with the package's own scaling
+    def rho(r: Any, deriv: int = 0) -> Any:  # Tukey, with the package's own scaling
         r = np.asarray(r, dtype=float)
         if deriv == 0:
             return np.minimum(1 - (1 - (r / k) ** 2) ** 3, 1.0)
@@ -168,8 +168,8 @@ def _gauss_moment(f: Callable[[float], float]) -> float:
 # ── the three estimators ────────────────────────────────────────────────────
 
 
-def _raps_simple(bx, by, sx, sy) -> Tuple[float, float]:
-    def negll(b):
+def _raps_simple(bx: Any, by: Any, sx: Any, sy: Any) -> Tuple[float, float]:
+    def negll(b: Any) -> Any:
         return 0.5 * np.sum((by - bx * b) ** 2 / (sy**2 + sx**2 * b**2))
 
     bound = float(np.quantile(np.abs(by / bx), 0.95)) * 2
@@ -185,7 +185,7 @@ def _raps_simple(bx, by, sx, sy) -> Tuple[float, float]:
     return float(beta), float(np.sqrt(score_var / info**2))
 
 
-def _bounded_argmin(f, bound: float) -> float:
+def _bounded_argmin(f: Any, bound: float) -> float:
     """Golden-section / Brent on [-bound, bound] to R optimize()'s tolerance."""
     res = optimize.minimize_scalar(
         f, bounds=(-bound, bound), method="bounded", options={"xatol": _EPS_HALF}
@@ -193,19 +193,21 @@ def _bounded_argmin(f, bound: float) -> float:
     return float(res.x)
 
 
-def _raps_overdispersed(bx, by, sx, sy, niter: int, tol: float):
+def _raps_overdispersed(
+    bx: Any, by: Any, sx: Any, sy: Any, niter: int, tol: float
+) -> Any:
     beta, _ = _raps_simple(bx, by, sx, sy)
     tau2 = 0.0
     bound_beta = float(np.quantile(np.abs(by / bx), 0.95)) * 10
     bound_tau2 = float(np.quantile(sy**2, 0.95)) * 100
 
-    def negll_fixbeta(t2, b):
+    def negll_fixbeta(t2: Any, b: Any) -> Any:
         v = t2 + sy**2 + sx**2 * b**2
         return 0.5 * np.sum(sx**2 * np.log(v)) + 0.5 * np.sum(
             sx**2 * (by - bx * b) ** 2 / v
         )
 
-    def negll_fixtau(b, t2):
+    def negll_fixtau(b: Any, t2: Any) -> Any:
         return 0.5 * np.sum((by - bx * b) ** 2 / (t2 + sy**2 + sx**2 * b**2))
 
     converged = False
@@ -267,7 +269,9 @@ def _sandwich(info: np.ndarray, score_var: np.ndarray) -> np.ndarray:
     return Ii @ score_var @ Ii.T
 
 
-def _robust_vcov(bx, by, sx, sy, beta, tau2, consts) -> np.ndarray:
+def _robust_vcov(
+    bx: Any, by: Any, sx: Any, sy: Any, beta: Any, tau2: Any, consts: Any
+) -> np.ndarray:
     """Sandwich covariance of (beta, tau2) for a robust loss.
 
     ``consts`` = (delta, c1, c2, c3), the loss's Gaussian moments. Split out
@@ -306,19 +310,21 @@ def _robust_vcov(bx, by, sx, sy, beta, tau2, consts) -> np.ndarray:
     return _sandwich(info, score_var)
 
 
-def _raps_robust(bx, by, sx, sy, loss: str, k: float, niter: int, tol: float):
+def _raps_robust(
+    bx: Any, by: Any, sx: Any, sy: Any, loss: str, k: float, niter: int, tol: float
+) -> Any:
     rho = _rho(loss, k)
     delta = _gauss_moment(lambda x: x * rho(x, 1))
     c1 = _gauss_moment(lambda x: rho(x, 1) ** 2)
     c2 = _gauss_moment(lambda x: x**2 * rho(x, 1) ** 2) - delta**2
     c3 = _gauss_moment(lambda x: x**2 * rho(x, 2))
 
-    def neg_robust(b, t2):
+    def neg_robust(b: Any, t2: Any) -> Any:
         return 0.5 * np.sum(
             rho((by - bx * b) / np.sqrt(np.maximum(0.0, t2 + sy**2 + sx**2 * b**2)))
         )
 
-    def tau_eq(t2, b):
+    def tau_eq(t2: Any, b: Any) -> Any:
         v = t2 + sy**2 + sx**2 * b**2
         t = (by - b * bx) / np.sqrt(np.maximum(0.0, v))
         return float(np.sum(sx**2 * (t * rho(t, 1) - delta) / v))
@@ -361,7 +367,7 @@ def _raps_robust(bx, by, sx, sy, loss: str, k: float, niter: int, tol: float):
     return beta, tau2, vcov, neg_robust(beta, tau2), converged
 
 
-def _root_tau2(f, bound: float) -> float:
+def _root_tau2(f: Any, bound: float) -> float:
     """uniroot on [0, bound] with extendInt = 'yes', floored at 0."""
     lo, hi = 0.0, bound
     flo, fhi = f(lo), f(hi)

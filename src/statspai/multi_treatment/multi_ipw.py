@@ -18,7 +18,7 @@ Cattaneo, M. D. (2010).
 Journal of Econometrics, 155(2), 138-154. [@cattaneo2010efficient]
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -319,7 +319,7 @@ class MultiTreatment:
         D: np.ndarray,
         X: np.ndarray,
         levels: np.ndarray,
-    ):
+    ) -> Any:
         """AIPW potential-outcome means; the same estimator for the point
         estimate and every bootstrap replicate."""
         gps, gamma, Xc = _mlogit_gps(X, D, levels)
@@ -368,7 +368,7 @@ class MultiTreatment:
         return ey, phi, parts
 
 
-def _mlogit_gps(X: np.ndarray, D: np.ndarray, levels: np.ndarray):
+def _mlogit_gps(X: np.ndarray, D: np.ndarray, levels: np.ndarray) -> Any:
     """Unpenalised multinomial-logit generalized propensity scores.
 
     Newton-Raphson on the full multinomial log-likelihood with the first
@@ -423,7 +423,9 @@ def _mlogit_gps(X: np.ndarray, D: np.ndarray, levels: np.ndarray):
     return gps, gamma, Xc
 
 
-def _stacked_if(X, D, Y, levels, parts, phi, ey):
+def _stacked_if(
+    X: Any, D: Any, Y: Any, levels: Any, parts: Any, phi: Any, ey: Any
+) -> Any:
     """Influence functions of the AIPW means under the stacked M-estimator.
 
     Parameters: multinomial-logit ``gamma`` (non-base levels), per-arm OLS

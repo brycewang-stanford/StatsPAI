@@ -152,20 +152,32 @@ _DID = Family(
             when={"design": "ddd", "covariates": "none"},
             call="ddd",
             example="sp.ddd(df, y='y', treat='d', time='t', subgroup='eligible')",
-            why="Triple differences remove a group-specific shock common to eligible and ineligible units.",
+            why=(
+                "Triple differences remove a group-specific shock common to eligible "
+                "and ineligible units."
+            ),
             read_more='1. Two-period, two-group ("2x2 DID")',
         ),
         Route(
             when={"design": "ddd", "covariates": "yes"},
             call="ddd",
-            example="sp.ddd(df, y='y', treat='d', time='t', subgroup='eligible', covariates=[...], id='unit', method='dr')",
-            why="Covariates must not go in the 3WFE regression; use the conditional (DR) triple-difference estimator.",
+            example=(
+                "sp.ddd(df, y='y', treat='d', time='t', subgroup='eligible', "
+                "covariates=[...], id='unit', method='dr')"
+            ),
+            why=(
+                "Covariates must not go in the 3WFE regression; use the conditional "
+                "(DR) triple-difference estimator."
+            ),
             read_more='1. Two-period, two-group ("2x2 DID")',
         ),
         Route(
             when={"design": "staggered", "timing_random": "yes"},
             call="staggered_rollout",
-            example="sp.staggered_rollout(df, y='y', g='first_treat', t='year', i='id', estimand='simple')",
+            example=(
+                "sp.staggered_rollout(df, y='y', g='first_treat', t='year', i='id', "
+                "estimand='simple')"
+            ),
             why=(
                 "With randomised timing parallel trends is neither assumed nor needed; "
                 "the design-based estimator uses the randomisation and reports "
@@ -178,10 +190,13 @@ _DID = Family(
         Route(
             when={"design": "staggered", "timing_random": "no", "covariates": "none"},
             call="callaway_santanna",
-            example="sp.callaway_santanna(df, y='y', g='first_treat', t='year', i='id')",
+            example=(
+                "sp.callaway_santanna(df, y='y', g='first_treat', t='year', i='id')"
+            ),
             why=(
                 "Group-time ATT(g,t) with never/not-yet-treated controls is robust to "
-                "heterogeneous effects where static TWFE is not; aggregate with sp.aggte."
+                "heterogeneous effects where static TWFE is not; aggregate with "
+                "sp.aggte."
             ),
             assumptions_added=[
                 "Parallel trends for the chosen control group (PT-GT-NEV / PT-GT-NYT)"
@@ -192,7 +207,10 @@ _DID = Family(
         Route(
             when={"design": "staggered", "timing_random": "no", "covariates": "yes"},
             call="callaway_santanna",
-            example="sp.callaway_santanna(df, y='y', g='first_treat', t='year', i='id', x=[...], estimator='dr')",
+            example=(
+                "sp.callaway_santanna(df, y='y', g='first_treat', t='year', i='id', "
+                "x=[...], estimator='dr')"
+            ),
             why="Doubly-robust group-time ATT under conditional parallel trends.",
             assumptions_added=["Conditional parallel trends given the covariates"],
             read_more="Q3 — Do you need covariates, and how do they enter?",
@@ -201,7 +219,10 @@ _DID = Family(
             when={"design": "staggered", "target": "event_study"},
             call="aggte",
             example="sp.aggte(cs, type='dynamic')",
-            why="Event-study aggregation of the group-time ATTs; sp.sun_abraham is the interaction-weighted alternative.",
+            why=(
+                "Event-study aggregation of the group-time ATTs; sp.sun_abraham is the "
+                "interaction-weighted alternative."
+            ),
             read_more="Q1 — What is the target parameter?",
             also=["sun_abraham", "uniform_bands"],
         ),
@@ -223,15 +244,24 @@ _DID = Family(
             when={"pretrends_concern": "yes"},
             call="honest_did",
             example="sp.honest_did(result, m_grid=[0.0, 0.1, 0.2])",
-            why="Rambachan-Roth honest confidence sets bound the post-treatment effect under restricted deviations from parallel trends; a passed pre-test is not evidence for it.",
+            why=(
+                "Rambachan-Roth honest confidence sets bound the post-treatment effect "
+                "under restricted deviations from parallel trends; a passed pre-test "
+                "is not evidence for it."
+            ),
             read_more="3. Sensitivity and robustness",
             also=["pretrends_power", "pretrends_test"],
         ),
         Route(
             when={"few_treated": "yes"},
             call="did_few_treated",
-            example="sp.did_few_treated(df, y='y', treat='treated', time='post', id='id')",
-            why="Cluster-robust SEs over-reject badly with one or a few treated clusters; the placebo-based inversion is the appropriate inference.",
+            example=(
+                "sp.did_few_treated(df, y='y', treat='treated', time='post', id='id')"
+            ),
+            why=(
+                "Cluster-robust SEs over-reject badly with one or a few treated "
+                "clusters; the placebo-based inversion is the appropriate inference."
+            ),
             read_more="3. Sensitivity and robustness",
         ),
     ],
@@ -292,7 +322,10 @@ _IV = Family(
             when={"strength": "strong", "n_instruments": "few", "exogeneity": "tight"},
             call="ivreg",
             example="sp.ivreg('y ~ x1 + (d ~ z1 + z2)', data=df, robust='hc1')",
-            why="2SLS with robust SEs; report first-stage F, endogeneity and over-identification tests.",
+            why=(
+                "2SLS with robust SEs; report first-stage F, endogeneity and "
+                "over-identification tests."
+            ),
             assumptions_added=["Instrument relevance and exclusion"],
             read_more="1. The default: 2SLS with robust SE",
             also=["iv_diag", "effective_f_test"],
@@ -301,7 +334,10 @@ _IV = Family(
             when={"strength": "weak"},
             call="liml",
             example="sp.liml(df, y='y', x_endog=['d'], z=['z1', 'z2'], fuller=1)",
-            why="LIML / Fuller are less biased than 2SLS under weak instruments; report Anderson-Rubin sets alongside.",
+            why=(
+                "LIML / Fuller are less biased than 2SLS under weak instruments; "
+                "report Anderson-Rubin sets alongside."
+            ),
             read_more="2. Weak instruments",
             also=["anderson_rubin_ci", "tF_critical_value"],
         ),
@@ -309,7 +345,10 @@ _IV = Family(
             when={"strength": "very_weak"},
             call="anderson_rubin_ci",
             example="sp.anderson_rubin_ci(result)",
-            why="Anderson-Rubin confidence sets are valid at any first-stage strength; do not report 2SLS t-ratios.",
+            why=(
+                "Anderson-Rubin confidence sets are valid at any first-stage strength; "
+                "do not report 2SLS t-ratios."
+            ),
             read_more="2. Weak instruments",
             also=["conditional_lr_ci", "effective_f_test"],
         ),
@@ -317,7 +356,10 @@ _IV = Family(
             when={"n_instruments": "many"},
             call="iv",
             example="sp.iv('y ~ (d ~ z1 + ... + z50)', data=df, method='ujive')",
-            why="Jackknife IV (UJIVE) removes the many-instrument bias of 2SLS; post-lasso IV selects instruments with valid inference.",
+            why=(
+                "Jackknife IV (UJIVE) removes the many-instrument bias of 2SLS; "
+                "post-lasso IV selects instruments with valid inference."
+            ),
             read_more="3. Many instruments",
             also=["jive", "rlasso_iv"],
         ),
@@ -325,21 +367,29 @@ _IV = Family(
             when={"exogeneity": "plausible"},
             call="iv",
             example="sp.iv('y ~ (d ~ z)', data=df, method='ltz', gamma_grid=[...])",
-            why="Conley-Hansen-Rossi plausibly-exogenous analysis shows how the conclusion moves with a direct Z→Y channel.",
+            why=(
+                "Conley-Hansen-Rossi plausibly-exogenous analysis shows how the "
+                "conclusion moves with a direct Z→Y channel."
+            ),
             read_more="4. Plausibly exogenous instruments",
         ),
         Route(
             when={"exogeneity": "untestable"},
             call="partial_identification",
             example="sp.partial_identification(df, y='y', treat='d', instrument='z')",
-            why="Without a defensible exclusion restriction only bounds are identified.",
+            why=(
+                "Without a defensible exclusion restriction only bounds are identified."
+            ),
             read_more="4. Plausibly exogenous instruments",
         ),
         Route(
             when={"instrument_type": "shift_share"},
             call="bartik",
             example="sp.bartik(df, y='y', shares=[...], shocks=[...], ...)",
-            why="Shift-share designs need shock-level (Adão-Kolesár-Morales / Borusyak-Hull-Jaravel) inference, not plain 2SLS SEs.",
+            why=(
+                "Shift-share designs need shock-level (Adão-Kolesár-Morales / "
+                "Borusyak-Hull-Jaravel) inference, not plain 2SLS SEs."
+            ),
             read_more="7. Shift-share / Bartik IV",
             also=["shift_share_se", "ssaggregate"],
         ),
@@ -389,7 +439,10 @@ _RD = Family(
             {
                 "local_polynomial": "continuity-based (CCT robust bias-corrected)",
                 "local_randomization": "as-if random in a window",
-                "honest": "Armstrong-Kolesár honest CIs under a bound on the second derivative",
+                "honest": (
+                    "Armstrong-Kolesár honest CIs under a bound on the second "
+                    "derivative"
+                ),
             },
         ),
         Question(
@@ -411,8 +464,14 @@ _RD = Family(
                 "inference": "local_polynomial",
             },
             call="rdrobust",
-            example="sp.rdrobust(df, y='y', x='running', c=0.0, kernel='triangular', bwselect='mserd')",
-            why="Calonico-Cattaneo-Titiunik bias-corrected local polynomial with robust CIs is the default sharp RD.",
+            example=(
+                "sp.rdrobust(df, y='y', x='running', c=0.0, kernel='triangular', "
+                "bwselect='mserd')"
+            ),
+            why=(
+                "Calonico-Cattaneo-Titiunik bias-corrected local polynomial with "
+                "robust CIs is the default sharp RD."
+            ),
             assumptions_added=[
                 "Continuity of the potential-outcome regression functions at the cutoff"
             ],
@@ -423,7 +482,10 @@ _RD = Family(
             when={"assignment": "fuzzy", "running": "continuous"},
             call="rdrobust",
             example="sp.rdrobust(df, y='y', x='running', c=0.0, fuzzy='treatment')",
-            why="Fuzzy RD is a local Wald ratio; report the first-stage jump and a Kitagawa-type validity test.",
+            why=(
+                "Fuzzy RD is a local Wald ratio; report the first-stage jump and a "
+                "Kitagawa-type validity test."
+            ),
             assumptions_added=["Monotonicity of compliance at the cutoff"],
             read_more="2. Fuzzy RD",
             also=["kitagawa_test"],
@@ -432,14 +494,20 @@ _RD = Family(
             when={"assignment": "none"},
             call="bunching",
             example="sp.bunching(df, x='running', cutoff=0.0)",
-            why="No change in treatment probability means RD is not identified; a bunching design or DiD is the fallback.",
+            why=(
+                "No change in treatment probability means RD is not identified; a "
+                "bunching design or DiD is the fallback."
+            ),
             read_more="8. When NOT to use RD",
         ),
         Route(
             when={"running": "discrete"},
             call="rdit",
             example="sp.rdit(df, y='y', x='date', c=cutoff_date)",
-            why="Regression discontinuity in time / discrete running variables need the RDiT machinery and clustered-by-mass-point inference.",
+            why=(
+                "Regression discontinuity in time / discrete running variables need "
+                "the RDiT machinery and clustered-by-mass-point inference."
+            ),
             read_more="3. Decision tree for method variants",
         ),
         Route(
@@ -467,7 +535,10 @@ _RD = Family(
             when={"inference": "local_randomization"},
             call="rdrandinf",
             example="sp.rdrandinf(df, y='y', x='running', c=0.0, window=(-w, w))",
-            why="Local randomization treats units in a window as an experiment; choose the window with sp.rdwinselect.",
+            why=(
+                "Local randomization treats units in a window as an experiment; choose "
+                "the window with sp.rdwinselect."
+            ),
             assumptions_added=["As-if random assignment inside the window"],
             read_more="3. Decision tree for method variants",
             also=["rdwinselect"],
@@ -476,14 +547,20 @@ _RD = Family(
             when={"inference": "honest"},
             call="rd_honest",
             example="sp.rd_honest(df, y='y', x='running', c=0.0, M=0.05)",
-            why="Honest CIs are valid uniformly over functions with bounded second derivative M.",
+            why=(
+                "Honest CIs are valid uniformly over functions with bounded second "
+                "derivative M."
+            ),
             read_more="3. Decision tree for method variants",
         ),
         Route(
             when={"heterogeneity": "yes"},
             call="rdhte",
             example="sp.rdhte(df, y='y', x='running', c=0.0, covs=[...])",
-            why="Heterogeneous RD effects by covariate; sp.rd_forest for a nonparametric version.",
+            why=(
+                "Heterogeneous RD effects by covariate; sp.rd_forest for a "
+                "nonparametric version."
+            ),
             read_more="3. Decision tree for method variants",
             also=["rd_forest"],
         ),
@@ -491,7 +568,10 @@ _RD = Family(
             when={"manipulation": "yes"},
             call="rddensity",
             example="sp.rddensity(df, x='running', c=0.0)",
-            why="A density discontinuity at the cutoff is evidence of sorting; pair with a donut-hole specification.",
+            why=(
+                "A density discontinuity at the cutoff is evidence of sorting; pair "
+                "with a donut-hole specification."
+            ),
             read_more="4. Mandatory diagnostics",
             also=["bunching"],
         ),
@@ -537,7 +617,10 @@ _MATCHING = Family(
             when={"estimand": "att", "covariates": "few"},
             call="ebalance",
             example="sp.ebalance(df, y='y', treat='d', covariates=[...])",
-            why="Entropy balancing hits exact moment balance for the treated with no model search.",
+            why=(
+                "Entropy balancing hits exact moment balance for the treated with no "
+                "model search."
+            ),
             assumptions_added=["Unconfoundedness given the balanced moments"],
             read_more='1. Entropy balancing (ebal) — the "just works" default for ATT',
             also=["match", "love_plot"],
@@ -546,7 +629,10 @@ _MATCHING = Family(
             when={"estimand": "ate", "covariates": "few"},
             call="cbps",
             example="sp.cbps(df, y='y', treat='d', covariates=[...], estimand='ATE')",
-            why="Covariate-balancing propensity scores target ATE balance directly; sp.aipw is the doubly-robust alternative.",
+            why=(
+                "Covariate-balancing propensity scores target ATE balance directly; "
+                "sp.aipw is the doubly-robust alternative."
+            ),
             read_more="3. Covariate Balancing Propensity Score (CBPS)",
             also=["aipw"],
         ),
@@ -554,21 +640,32 @@ _MATCHING = Family(
             when={"estimand": "ato"},
             call="overlap_weights",
             example="sp.overlap_weights(df, y='y', treat='d', covariates=[...])",
-            why="Overlap weights emphasise units with propensity near 0.5 and are bounded by construction.",
+            why=(
+                "Overlap weights emphasise units with propensity near 0.5 and are "
+                "bounded by construction."
+            ),
             read_more="4. Overlap weights (ATO)",
         ),
         Route(
             when={"estimand": "atc"},
             call="match",
             example="sp.match(df, y='y', treat='d', covariates=[...], estimand='ATC')",
-            why="Nearest-neighbour matching with the control units as the target population.",
+            why=(
+                "Nearest-neighbour matching with the control units as the target "
+                "population."
+            ),
             read_more="2. Nearest-neighbor matching",
         ),
         Route(
             when={"estimand": "cate"},
             call="metalearner",
-            example="sp.metalearner(df, y='y', treat='d', covariates=[...], learner='x')",
-            why="Meta-learners and causal forests estimate conditional effects; report calibration, not only the CATE map.",
+            example=(
+                "sp.metalearner(df, y='y', treat='d', covariates=[...], learner='x')"
+            ),
+            why=(
+                "Meta-learners and causal forests estimate conditional effects; report "
+                "calibration, not only the CATE map."
+            ),
             read_more="6. Meta-learners (for heterogeneous effects)",
             also=["causal_forest", "calibrate_cate"],
         ),
@@ -576,14 +673,20 @@ _MATCHING = Family(
             when={"covariates": "many"},
             call="dml",
             example="sp.dml(df, y='y', treat='d', covariates=[...], model='irm')",
-            why="Double / debiased ML handles high-dimensional nuisances with cross-fitting and valid inference.",
+            why=(
+                "Double / debiased ML handles high-dimensional nuisances with "
+                "cross-fitting and valid inference."
+            ),
             read_more="5. Doubly-robust estimators",
         ),
         Route(
             when={"overlap": "poor"},
             call="trimming",
             example="sp.trimming(df, treatment='d', covariates=[...], method='crump')",
-            why="Trim to the overlap region (Crump et al.) or switch to overlap weights; report the trimmed share.",
+            why=(
+                "Trim to the overlap region (Crump et al.) or switch to overlap "
+                "weights; report the trimmed share."
+            ),
             read_more="8. Mandatory diagnostics",
             also=["overlap_weights", "overlap_plot"],
         ),
@@ -632,7 +735,10 @@ _ML = Family(
             when={"goal": "ate", "treatment": "binary", "outcome": "continuous"},
             call="dml",
             example="sp.dml(df, y='y', treat='d', covariates=[...], model='irm')",
-            why="Interactive regression model DML gives the ATE with Neyman-orthogonal scores.",
+            why=(
+                "Interactive regression model DML gives the ATE with Neyman-orthogonal "
+                "scores."
+            ),
             read_more="`dml` — Double / Debiased ML [chernozhukov2018double]",
         ),
         Route(
@@ -646,30 +752,53 @@ _ML = Family(
             when={"goal": "ate", "outcome": "binary"},
             call="tmle",
             example="sp.tmle(df, y='y', treat='d', covariates=[...])",
-            why="TMLE with a Super Learner respects the outcome's support and targets the ATE with the efficient influence function.",
+            why=(
+                "TMLE with a Super Learner respects the outcome's support and targets "
+                "the ATE with the efficient influence function."
+            ),
             read_more="`tmle` — Targeted Maximum Likelihood [vanderlaan2006targeted]",
         ),
         Route(
             when={"goal": "late"},
             call="dml",
-            example="sp.dml(df, y='y', treat='d', covariates=[...], instruments=['z'], model='iivm')",
-            why="Interactive IV model (binary instrument) or partially linear IV for the LATE with ML nuisances.",
+            example=(
+                "sp.dml(df, y='y', treat='d', covariates=[...], instruments=['z'], "
+                "model='iivm')"
+            ),
+            why=(
+                "Interactive IV model (binary instrument) or partially linear IV for "
+                "the LATE with ML nuisances."
+            ),
             read_more="`dml` — Double / Debiased ML [chernozhukov2018double]",
         ),
         Route(
             when={"goal": "cate", "cate_style": "tree"},
             call="causal_forest",
             example="sp.causal_forest(df, y='y', treat='d', covariates=[...])",
-            why="Honest generalized random forest with out-of-bag CATEs and doubly-robust ATE / BLP / calibration.",
-            read_more="`causal_forest` — honest random forest [athey2019generalized; wager2018estimation]",
+            why=(
+                "Honest generalized random forest with out-of-bag CATEs and "
+                "doubly-robust ATE / BLP / calibration."
+            ),
+            read_more=(
+                "`causal_forest` — honest random forest [athey2019generalized; "
+                "wager2018estimation]"
+            ),
             also=["best_linear_projection", "calibrate_cate", "rate"],
         ),
         Route(
             when={"goal": "cate", "cate_style": "dr_rloss"},
             call="metalearner",
-            example="sp.metalearner(df, y='y', treat='d', covariates=[...], learner='dr')",
-            why="DR- / R-learners are doubly robust for the CATE and accept any base learner.",
-            read_more="`metalearner` — S/T/X/R/DR-Learner [kunzel2019metalearners; nie2021quasi]",
+            example=(
+                "sp.metalearner(df, y='y', treat='d', covariates=[...], learner='dr')"
+            ),
+            why=(
+                "DR- / R-learners are doubly robust for the CATE and accept any base "
+                "learner."
+            ),
+            read_more=(
+                "`metalearner` — S/T/X/R/DR-Learner [kunzel2019metalearners; "
+                "nie2021quasi]"
+            ),
         ),
     ],
 )
@@ -714,29 +843,44 @@ _QTE = Family(
         Route(
             when={"estimand": "unconditional", "design": "cross_section"},
             call="qte",
-            example="sp.qte(df, y='wage', treatment='program', covariates=[...], method='firpo_qte')",
+            example=(
+                "sp.qte(df, y='wage', treatment='program', covariates=[...], "
+                "method='firpo_qte')"
+            ),
             why="Firpo's IPW unconditional QTE under unconfoundedness and overlap.",
             read_more="`sp.qte` — cross-section",
         ),
         Route(
             when={"estimand": "treated", "design": "cross_section"},
             call="qte",
-            example="sp.qte(df, y='wage', treatment='program', covariates=[...], method='firpo_qtt')",
+            example=(
+                "sp.qte(df, y='wage', treatment='program', covariates=[...], "
+                "method='firpo_qtt')"
+            ),
             why="The same contrast among the treated.",
             read_more="`sp.qte` — cross-section",
         ),
         Route(
             when={"estimand": "conditional"},
             call="qte",
-            example="sp.qte(df, y='wage', treatment='program', covariates=[...], method='conditional_qr')",
-            why="A conditional quantile-regression coefficient; no causal reading without rank invariance.",
+            example=(
+                "sp.qte(df, y='wage', treatment='program', covariates=[...], "
+                "method='conditional_qr')"
+            ),
+            why=(
+                "A conditional quantile-regression coefficient; no causal reading "
+                "without rank invariance."
+            ),
             read_more="`sp.qte` — cross-section",
         ),
         Route(
             when={"design": "endogenous"},
             call="dist_iv",
             example="sp.dist_iv(df, y='y', treat='d', instrument='z')",
-            why="Distributional IV for compliers (random assignment, exclusion, monotonicity).",
+            why=(
+                "Distributional IV for compliers (random assignment, exclusion, "
+                "monotonicity)."
+            ),
             read_more="`sp.dist_iv` / `sp.beyond_average_late` — endogenous treatment",
             also=["beyond_average_late"],
         ),
@@ -744,34 +888,52 @@ _QTE = Family(
             when={"design": "two_period", "outcome": "continuous"},
             call="qdid",
             example="sp.qdid(df, y='y', treat='d', time='post', method='cic')",
-            why="Changes-in-changes (Athey-Imbens) is preferred; the quantile-DiD variant needs a constant rank-shift assumption.",
+            why=(
+                "Changes-in-changes (Athey-Imbens) is preferred; the quantile-DiD "
+                "variant needs a constant rank-shift assumption."
+            ),
             read_more="`sp.qdid` — repeated cross-section / two-period panel",
         ),
         Route(
             when={"design": "two_period", "outcome": "discrete"},
             call="qdid",
             example="sp.qdid(df, y='y', treat='d', time='post', method='cic')",
-            why="With discrete outcomes changes-in-changes identifies only bounds; report them as bounds.",
+            why=(
+                "With discrete outcomes changes-in-changes identifies only bounds; "
+                "report them as bounds."
+            ),
             read_more="`sp.qdid` — repeated cross-section / two-period panel",
         ),
         Route(
             when={"design": "three_period_panel"},
             call="panel_qtet",
             example="sp.panel_qtet(df, y='y', treat='d', unit='id', time='year')",
-            why="Callaway-Li distributional DiD with copula stability needs three balanced periods.",
+            why=(
+                "Callaway-Li distributional DiD with copula stability needs three "
+                "balanced periods."
+            ),
             read_more="`sp.panel_qtet` — three-period panel, Callaway & Li (2019)",
         ),
         Route(
             when={"design": "panel_many_controls"},
             call="qte_hd_panel",
-            example="sp.qte_hd_panel(df, y='y', treat='d', unit='id', time='year', method='canay')",
-            why="Canay's two-step treats the unit effect as a location shift; large T needed.",
+            example=(
+                "sp.qte_hd_panel(df, y='y', treat='d', unit='id', time='year', "
+                "method='canay')"
+            ),
+            why=(
+                "Canay's two-step treats the unit effect as a location shift; large T "
+                "needed."
+            ),
             read_more="`sp.qte_hd_panel` — panel with many controls",
         ),
         Route(
             when={"estimand": "distribution"},
             call="distributional_te",
-            example="sp.distributional_te(df, y='y', treat='d', covariates=[...], method='dr')",
+            example=(
+                "sp.distributional_te(df, y='y', treat='d', covariates=[...], "
+                "method='dr')"
+            ),
             why="The whole counterfactual distribution rather than selected quantiles.",
             read_more="`sp.distributional_te` — the whole counterfactual distribution",
         ),
@@ -821,8 +983,14 @@ _DYNPANEL = Family(
         Route(
             when={"persistence": "near_unit_root"},
             call="xtdpdsys",
-            example="sp.xtdpdsys(df, y='n', x=['w', 'k'], id='id', time='year', twostep=True)",
-            why="System GMM adds the level equation; lagged differences instrument levels when the series is persistent.",
+            example=(
+                "sp.xtdpdsys(df, y='n', x=['w', 'k'], id='id', time='year', "
+                "twostep=True)"
+            ),
+            why=(
+                "System GMM adds the level equation; lagged differences instrument "
+                "levels when the series is persistent."
+            ),
             assumptions_added=["Stationarity of initial conditions"],
             read_more="3. System GMM — `sp.xtdpdsys` / `method='system'`",
         ),
@@ -837,7 +1005,10 @@ _DYNPANEL = Family(
             when={"instrument_count": "yes"},
             call="xtabond",
             example="sp.xtabond(..., collapse=True)",
-            why="Collapsing the instrument matrix stops proliferation from weakening the Hansen test.",
+            why=(
+                "Collapsing the instrument matrix stops proliferation from weakening "
+                "the Hansen test."
+            ),
             read_more="`collapse=True` — instrument proliferation",
         ),
         Route(

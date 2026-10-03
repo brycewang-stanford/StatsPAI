@@ -336,7 +336,8 @@ class RecommendationResult(ResultProtocolMixin):
         steps.append("Run sp.sumstats(df) to check data quality")
         if self.data_profile.get("missing_pct", 0) > 5:
             steps.append(
-                f"Handle missing data: sp.mice(df, m=5) — {self.data_profile['missing_pct']:.0%} missing"
+                "Handle missing data: sp.mice(df, m=5) — "
+                f"{self.data_profile['missing_pct']:.0%} missing"
             )
 
         if self._treatment:
@@ -734,7 +735,10 @@ def recommend(
                 "Add covariates for precision.",
                 "assumptions": ["Random assignment", "SUTVA", "No attrition bias"],
                 "robustness": "Check sp.balance_check() and sp.attrition_test()",
-                "code": f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, robust='hc1')",
+                "code": (
+                    f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, "
+                    "robust='hc1')"
+                ),
                 "params": {
                     "formula": f"{y} ~ {treatment}",
                     "data": data,
@@ -865,7 +869,9 @@ def recommend(
                         "No anticipation",
                         "Staggered adoption",
                     ],
-                    "robustness": "Run sp.pretrends_test(), sp.honest_did(), sp.event_study()",
+                    "robustness": (
+                        "Run sp.pretrends_test(), sp.honest_did(), sp.event_study()"
+                    ),
                     "code": f"# Derived cohort column = first period treated\n"
                     f"sp.callaway_santanna(df, y='{y}', g='{cohort_col}', "
                     f"t='{time}', i='{id}')",
@@ -1135,12 +1141,16 @@ def recommend(
                 {
                     "method": "Local polynomial RD (CCT 2014)",
                     "function": "rdrobust",
-                    "reason": "Sharp RD with MSE-optimal bandwidth and bias correction.",
+                    "reason": (
+                        "Sharp RD with MSE-optimal bandwidth and bias correction."
+                    ),
                     "assumptions": [
                         "Continuity of potential outcomes at cutoff",
                         "No manipulation of running variable",
                     ],
-                    "robustness": "Run sp.rddensity(), sp.rdbwsensitivity(), sp.rdplacebo()",
+                    "robustness": (
+                        "Run sp.rddensity(), sp.rdbwsensitivity(), sp.rdplacebo()"
+                    ),
                     "code": f"sp.rdrobust(df, y='{y}', x='{rv}', c={cutoff_value})",
                     "params": {"data": data, "y": y, "x": rv, "c": cutoff_value},
                 }
@@ -1428,7 +1438,10 @@ def recommend(
                 "reason": _ols_reason,
                 "assumptions": _ols_assumptions,
                 "robustness": _ols_robust,
-                "code": f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, robust='hc1')",
+                "code": (
+                    f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, "
+                    "robust='hc1')"
+                ),
                 "params": {
                     "formula": f"{y} ~ {treatment}",
                     "data": data,
@@ -1464,7 +1477,9 @@ def recommend(
             {
                 "method": "Correlated Random Effects (Mundlak)",
                 "function": "panel",
-                "reason": "Mundlak projection allows RE efficiency with FE consistency.",
+                "reason": (
+                    "Mundlak projection allows RE efficiency with FE consistency."
+                ),
                 "code": f"sp.panel(df, '{panel_formula}', "
                 f"entity='{id}', time='{time}', method='mundlak')",
                 "params": {
@@ -1620,7 +1635,9 @@ def recommend(
                 "method": "OLS with robust SE",
                 "function": "regress",
                 "reason": "Cross-sectional data with continuous outcome.",
-                "code": f"sp.regress('{y} ~ {ctrl_str or '...'}', data=df, robust='hc1')",
+                "code": (
+                    f"sp.regress('{y} ~ {ctrl_str or '...'}', data=df, robust='hc1')"
+                ),
                 "params": {"formula": formula, "data": data, "robust": "hc1"},
             }
         )
@@ -1900,7 +1917,9 @@ def recommend(
                 "method": "Poisson regression (count outcome)",
                 "function": "poisson",
                 "reason": "Count outcome → Poisson with robust SE is consistent.",
-                "code": f"sp.poisson(data=df, y='{y}', x=['{treatment}'] + controls[:5])",
+                "code": (
+                    f"sp.poisson(data=df, y='{y}', x=['{treatment}'] + controls[:5])"
+                ),
                 "params": {
                     "data": data,
                     "y": y,
@@ -1914,7 +1933,9 @@ def recommend(
                 "method": "Fractional logit (outcome in [0,1])",
                 "function": "fracreg",
                 "reason": "Proportional outcome → fractional logit (Papke-Wooldridge).",
-                "code": f"sp.fracreg(data=df, y='{y}', x=['{treatment}'] + controls[:5])",
+                "code": (
+                    f"sp.fracreg(data=df, y='{y}', x=['{treatment}'] + controls[:5])"
+                ),
                 "params": {
                     "data": data,
                     "y": y,

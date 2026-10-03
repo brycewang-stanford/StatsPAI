@@ -630,7 +630,7 @@ def romano_wolf(
 
     rng = np.random.default_rng(seed)
 
-    def _fit_outcome(frame: pd.DataFrame, outcome: str):
+    def _fit_outcome(frame: pd.DataFrame, outcome: str) -> Any:
         sub = frame[frame[outcome].notna()]
         y_vec, X_mat = _build_design(sub, outcome, x, controls or None)
         cl = sub[cluster].values if cluster is not None else None

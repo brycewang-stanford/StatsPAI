@@ -308,7 +308,7 @@ def _score(
     return {"MSPE": mspe, "GMSPE": gmspe, "Moment": moment}
 
 
-def _aggregate(fold_results: List[Tuple[np.ndarray, List[str]]], count_w):
+def _aggregate(fold_results: List[Tuple[np.ndarray, List[str]]], count_w: Any) -> Any:
     """Port of ``fect:::.fect_cv_aggregate_folds``: pooled score over all
     holdout residuals plus the fold-level standard error
     ``sd(fold scores) / sqrt(#finite folds)``."""

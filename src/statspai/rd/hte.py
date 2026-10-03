@@ -663,7 +663,7 @@ def rdhte_lincom(
     wald = float(est_bc @ np.linalg.pinv(LVL) @ est_bc)
     one = L.shape[0] == 1
 
-    def _s(a):
+    def _s(a: Any) -> Any:
         return float(a[0]) if one else a
 
     return {

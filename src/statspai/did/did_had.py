@@ -172,7 +172,9 @@ def quasi_untreated_test(dose: Sequence[float]) -> Dict[str, float]:
     }
 
 
-def _panel_matrices(data: pd.DataFrame, y: str, group: str, time: str, treat: str):
+def _panel_matrices(
+    data: pd.DataFrame, y: str, group: str, time: str, treat: str
+) -> Any:
     """Reshape to group x period matrices and locate the common adoption date."""
     for col in (y, group, time, treat):
         if col not in data.columns:

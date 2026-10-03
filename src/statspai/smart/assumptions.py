@@ -422,7 +422,10 @@ def _audit_linear(
                 statistic=reset.get("F", reset.get("statistic", None)),
                 p_value=p,
                 detail="Critical — misspecification invalidates all inference",
-                remedy="Add polynomial terms, use log transform, or nonparametric methods (sp.lpoly)",
+                remedy=(
+                    "Add polynomial terms, use log transform, or nonparametric methods "
+                    "(sp.lpoly)"
+                ),
             )
         )
     except Exception as exc:
@@ -585,7 +588,9 @@ def _audit_linear(
                     statistic=delta,
                     p_value=None,
                     detail=detail,
-                    remedy="Consider IV estimation or sensitivity analysis (sp.sensemakr)",
+                    remedy=(
+                        "Consider IV estimation or sensitivity analysis (sp.sensemakr)"
+                    ),
                 )
             )
     except Exception as exc:
@@ -629,7 +634,10 @@ def _audit_iv(
                 statistic=f_stat,
                 p_value=None,
                 detail=f"Critical — F={f_stat:.1f}. Weak if < 10 (Stock-Yogo).",
-                remedy="Use LIML (sp.liml) or weak-IV robust inference (sp.anderson_rubin_test)",
+                remedy=(
+                    "Use LIML (sp.liml) or weak-IV robust inference "
+                    "(sp.anderson_rubin_test)"
+                ),
             )
         )
 
@@ -712,7 +720,9 @@ def _audit_did(
             passed=None,
             statistic=None,
             p_value=None,
-            detail="Check that pre-treatment coefficients are near zero in event study.",
+            detail=(
+                "Check that pre-treatment coefficients are near zero in event study."
+            ),
             remedy="Run sp.event_study() and inspect pre-period coefficients.",
         )
     )
@@ -853,7 +863,10 @@ def _audit_panel(
             statistic=None,
             p_value=None,
             detail="Check with Wooldridge test or use clustered SE by default.",
-            remedy='Use cluster SE: sp.panel(..., cluster=id) or sp.panel_fgls(..., corr="ar1")',
+            remedy=(
+                "Use cluster SE: sp.panel(..., cluster=id) or sp.panel_fgls(..., "
+                'corr="ar1")'
+            ),
         )
     )
 
@@ -1207,7 +1220,9 @@ def _audit_front_door(
                 statistic=None,
                 p_value=None,
                 detail="Binary uses closed-form sums; continuous uses MC Gaussian.",
-                remedy="If the mediator is categorical with >2 levels, not yet supported.",
+                remedy=(
+                    "If the mediator is categorical with >2 levels, not yet supported."
+                ),
             )
         )
 

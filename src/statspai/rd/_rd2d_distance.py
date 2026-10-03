@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 
@@ -38,12 +38,12 @@ from ._rd2d_location import (
 __all__ = ["rd2d_distance_bw", "rd2d_distance_fit"]
 
 
-def _bw_rate(n, frm: float, to: float):
+def _bw_rate(n: Any, frm: float, to: float) -> Any:
     """R ``rd2d_bw_rate_factor``."""
     return np.asarray(n, dtype=float) ** (frm - to)
 
 
-def _bwcheck_limits(dist: np.ndarray, bwcheck: int):
+def _bwcheck_limits(dist: np.ndarray, bwcheck: int) -> Any:
     """R ``rd2d_distance_bwcheck_limits``."""
     n = len(dist)
     if n == 0:
@@ -52,14 +52,14 @@ def _bwcheck_limits(dist: np.ndarray, bwcheck: int):
     return float(np.partition(dist, k - 1)[k - 1]), float(dist.max())
 
 
-def _unique_counts(dist: np.ndarray):
+def _unique_counts(dist: np.ndarray) -> Any:
     """R ``rd2d_distance_unique_counts``."""
     u = np.unique(dist)
     m0 = int((u < 0).sum())
     return m0 + (len(u) - m0), m0, len(u) - m0
 
 
-def masspoint_counts(D: np.ndarray, masspoints: str, p: int, bwcheck):
+def masspoint_counts(D: np.ndarray, masspoints: str, p: int, bwcheck: Any) -> Any:
     """Unique-distance counts per column and the mass-point warning."""
     N, neval = D.shape
     n1 = int((D[:, 0] >= 0).sum())
@@ -87,7 +87,18 @@ def masspoint_counts(D: np.ndarray, masspoints: str, p: int, bwcheck):
     return M, M0, M1, bwcheck
 
 
-def _vce_mult(vce, eN0, eN1, p, sw0, sw1, iG0, iG1, joint, clustered):
+def _vce_mult(
+    vce: Any,
+    eN0: Any,
+    eN1: Any,
+    p: Any,
+    sw0: Any,
+    sw1: Any,
+    iG0: Any,
+    iG1: Any,
+    joint: Any,
+    clustered: Any,
+) -> Any:
     if vce == "hc0":
         return 1.0, 1.0
     if vce == "hc1":
@@ -104,7 +115,9 @@ def _vce_mult(vce, eN0, eN1, p, sw0, sw1, iG0, iG1, joint, clustered):
     return 1 / (1 - h0), 1 / (1 - h1)
 
 
-def _dist_vce(wR, resd, eC, h, k_df, cluster_df, clusters):
+def _dist_vce(
+    wR: Any, resd: Any, eC: Any, h: Any, k_df: Any, cluster_df: Any, clusters: Any
+) -> Any:
     """R ``rd2d_distance_vce``."""
     if eC is None:
         s = resd[:, None] * wR
@@ -226,14 +239,14 @@ def rd2d_distance_fit(
     return out
 
 
-def dist_cov(fa, fb, clustered_joint: bool) -> np.ndarray:
+def dist_cov(fa: Any, fb: Any, clustered_joint: bool) -> np.ndarray:
     """R ``rd2d_distance_cov_from_projects`` (both sides)."""
     if clustered_joint:
         return (fa["P1"] - fa["P0"]).T @ (fb["P1"] - fb["P0"])
     return fa["P0"].T @ fb["P0"] + fa["P1"].T @ fb["P1"]
 
 
-def _poly_lm(y: np.ndarray, x: np.ndarray, degree: int):
+def _poly_lm(y: np.ndarray, x: np.ndarray, degree: int) -> Any:
     """R ``rd2d_distance_poly_lm``: OLS of y on 1, x, ..., x^degree."""
     X = x[:, None] ** np.arange(degree + 1)[None, :]
     k = X.shape[1]
@@ -258,7 +271,7 @@ def _rot_distance(dist: np.ndarray, kernel: str) -> float:
     return ((2 * l2K) / (len(dist) * mu2K * trace)) ** (1 / 6)
 
 
-def _local_intercepts(y, f, dist, h, p, kernel):
+def _local_intercepts(y: Any, f: Any, dist: Any, h: Any, p: Any, kernel: Any) -> Any:
     """R ``rdbw2d_distance_local_intercepts_multi``."""
     w = kernel_weight(dist / h, kernel) / h**2
     ind = w > 0
@@ -272,8 +285,18 @@ def _local_intercepts(y, f, dist, h, p, kernel):
 
 
 def _distance_bw_consts(
-    y, D, p, kernel, vce, cluster, bwcheck, cqt, fuzzy, bwparam, fitmethod
-):
+    y: Any,
+    D: Any,
+    p: Any,
+    kernel: Any,
+    vce: Any,
+    cluster: Any,
+    bwcheck: Any,
+    cqt: Any,
+    fuzzy: Any,
+    bwparam: Any,
+    fitmethod: Any,
+) -> Any:
     """R ``rdbw2d_distance_bw`` (no covariates, ``rot = NULL``)."""
     N, neval = D.shape
     joint = fitmethod == "joint"
@@ -408,18 +431,18 @@ def rd2d_distance_bw(
     D: np.ndarray,
     eval_pts: Optional[np.ndarray],
     p: int,
-    kink_unknown,
+    kink_unknown: Any,
     kink_position: np.ndarray,
     kernel: str,
     bwselect: str,
     vce: str,
-    bwcheck,
+    bwcheck: Any,
     masspoints: str,
-    cluster,
+    cluster: Any,
     scaleregul: float,
     cqt: float,
     fitmethod: str,
-    fuzzy=None,
+    fuzzy: Optional[Any] = None,
     bwparam: str = "main",
 ) -> Dict[str, object]:
     """R ``rdbw2d.distance``: returns ``h0``, ``h1`` per evaluation point."""
@@ -518,21 +541,21 @@ def rd2d_distance_estimate(
     y: np.ndarray,
     D: np.ndarray,
     eval_pts: Optional[np.ndarray],
-    h,
+    h: Any,
     p: int,
     q: Optional[int],
-    kink_unknown,
+    kink_unknown: Any,
     kink_position: np.ndarray,
     kernel: str,
     bwselect: str,
     vce: str,
-    bwcheck,
+    bwcheck: Any,
     masspoints: str,
-    cluster,
+    cluster: Any,
     fitmethod: str,
     scaleregul: float,
     cqt: float,
-    fuzzy=None,
+    fuzzy: Optional[Any] = None,
     bwparam: str = "main",
 ) -> Dict[str, object]:
     """R ``rd2d.distance`` (no covariates, no uniform bands)."""

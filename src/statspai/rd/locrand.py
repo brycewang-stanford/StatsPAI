@@ -21,7 +21,7 @@ Cattaneo, M.D., Titiunik, R. and Vazquez-Bare, G. (2016).
 """
 
 import warnings
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,7 @@ from ..core.results import CausalResult
 from ._core import _complete_cases
 
 
-def _drop_incomplete(frame, columns, *, where: str):
+def _drop_incomplete(frame: Any, columns: Any, *, where: str) -> Any:
     """Drop non-finite rows and say so, rather than propagating a NaN.
 
     The local-randomization entry points had no missing-data handling,
@@ -197,7 +197,7 @@ def _permutation_pvalue(
 def _pvalue_from_assignments(
     y: np.ndarray,
     obs_stat: float,
-    assignments,
+    assignments: Any,
     stat_name: str,
     two_sided: bool = True,
 ) -> float:
@@ -1019,7 +1019,7 @@ def rdsensitivity(
 def _rdrbounds_rows(
     yv: np.ndarray,
     z: np.ndarray,
-    gamma_list,
+    gamma_list: Any,
     U: np.ndarray,
     statistic: str,
 ) -> List[Dict[str, float]]:

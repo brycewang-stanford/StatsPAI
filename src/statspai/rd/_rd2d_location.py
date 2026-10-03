@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -197,11 +197,11 @@ class _Side:
 
     __slots__ = ("x1", "x2", "dist", "Y", "cl")
 
-    def __init__(self, x1, x2, dist, Y, cl):
+    def __init__(self, x1: Any, x2: Any, dist: Any, Y: Any, cl: Any) -> None:
         self.x1, self.x2, self.dist, self.Y, self.cl = x1, x2, dist, Y, cl
 
 
-def _h_normalize(h, kernel_type: str) -> Tuple[np.ndarray, Tuple[float, float]]:
+def _h_normalize(h: Any, kernel_type: str) -> Tuple[np.ndarray, Tuple[float, float]]:
     h = np.atleast_1d(np.asarray(h, dtype=float))
     if kernel_type == "prod":
         if h.size == 1:
@@ -212,7 +212,7 @@ def _h_normalize(h, kernel_type: str) -> Tuple[np.ndarray, Tuple[float, float]]:
     return h, (float(h[0]), float(h[0]))
 
 
-def _weights(s: _Side, h, kernel: str, kernel_type: str) -> np.ndarray:
+def _weights(s: _Side, h: Any, kernel: str, kernel_type: str) -> np.ndarray:
     h, _ = _h_normalize(h, kernel_type)
     if kernel_type == "prod":
         return (
@@ -223,7 +223,7 @@ def _weights(s: _Side, h, kernel: str, kernel_type: str) -> np.ndarray:
     return kernel_weight(s.dist / h[0], kernel) / h[0] ** 2
 
 
-def _local_design(s: _Side, h, p: int, kernel: str, kernel_type: str) -> dict:
+def _local_design(s: _Side, h: Any, p: int, kernel: str, kernel_type: str) -> dict:
     """R ``rd2d_local_design``."""
     _, hxy = _h_normalize(h, kernel_type)
     w = _weights(s, h, kernel, kernel_type)
@@ -250,7 +250,9 @@ def _local_design(s: _Side, h, p: int, kernel: str, kernel_type: str) -> dict:
     }
 
 
-def _lm(s: _Side, h, p: int, vce: str, kernel: str, kernel_type: str, varr: bool):
+def _lm(
+    s: _Side, h: Any, p: int, vce: str, kernel: str, kernel_type: str, varr: bool
+) -> Any:
     """R ``rd2d_lm`` / ``rd2d_lm_multi``: beta (k x m) and per-outcome cov.const."""
     loc = _local_design(s, h, p, kernel, kernel_type)
     sqrtw_Y = loc["sqrt_ew"][:, None] * loc["eY"]
@@ -280,14 +282,14 @@ def _lm(s: _Side, h, p: int, vce: str, kernel: str, kernel_type: str, varr: bool
 
 def _cov_half(
     s: _Side,
-    h,
+    h: Any,
     p: int,
     vce: str,
     kernel: str,
     kernel_type: str,
     clusters: Optional[np.ndarray],
     cluster_df: bool,
-):
+) -> Any:
     """R ``get_cov_half_v2`` / ``get_cov_half_multi_v2``: (ind, half[:, k*m])."""
     loc = _local_design(s, h, p, kernel, kernel_type)
     sqrtw_Y = loc["sqrt_ew"][:, None] * loc["eY"]
@@ -327,7 +329,9 @@ def _cov_half(
 class Rd2dData:
     """NA-free design: coordinates, assignment, outcome matrix, clusters."""
 
-    def __init__(self, x1, x2, d, Y, cluster=None):
+    def __init__(
+        self, x1: Any, x2: Any, d: Any, Y: Any, cluster: Optional[Any] = None
+    ) -> None:
         self.x1 = np.asarray(x1, dtype=float)
         self.x2 = np.asarray(x2, dtype=float)
         self.d = np.asarray(d, dtype=float)
@@ -342,7 +346,12 @@ class Rd2dData:
         return len(self.x1)
 
     def side(
-        self, side: int, ev: Tuple[float, float], metric: str, sd=(1.0, 1.0), Y=None
+        self,
+        side: int,
+        ev: Tuple[float, float],
+        metric: str,
+        sd: Any = (1.0, 1.0),
+        Y: Optional[Any] = None,
     ) -> _Side:
         mask = self.s0 if side == 0 else self.s1
         dx1 = self.x1[mask] - ev[0]
@@ -357,7 +366,14 @@ class Rd2dData:
 
 
 def bwcheck_bounds(
-    x1, x2, d, eval_pts, bwcheck: int, masspoints: str, metric: str, scale=(1.0, 1.0)
+    x1: Any,
+    x2: Any,
+    d: Any,
+    eval_pts: Any,
+    bwcheck: int,
+    masspoints: str,
+    metric: str,
+    scale: Any = (1.0, 1.0),
 ) -> np.ndarray:
     """R ``rd2d_bwcheck_bounds``: columns min.0, min.1, max.0, max.1."""
     if masspoints == "adjust":
@@ -529,7 +545,9 @@ def project_sides(
     return P0, P1, clustered
 
 
-def cov_from_projects(A0, A1, B0, B1, clustered_joint: bool) -> np.ndarray:
+def cov_from_projects(
+    A0: Any, A1: Any, B0: Any, B1: Any, clustered_joint: bool
+) -> np.ndarray:
     """Cross-covariance of two projected estimators (sides combined)."""
     if clustered_joint:
         return (A1 - A0).T @ (B1 - B0)
@@ -599,7 +617,9 @@ def _get_coeff(
     return np.concatenate([np.zeros(kp), vq])
 
 
-def _joint_info(s0: _Side, s1: _Side, h0, h1, kernel, kernel_type):
+def _joint_info(
+    s0: _Side, s1: _Side, h0: Any, h1: Any, kernel: Any, kernel_type: Any
+) -> Any:
     """R ``rdbw2d_joint_effective_info``."""
     i0 = _weights(s0, h0, kernel, kernel_type) > 0
     i1 = _weights(s1, h1, kernel, kernel_type) > 0
@@ -621,8 +641,8 @@ def _bw_consts(
     kernel_type: str,
     fitmethod: str,
     clusters: Optional[np.ndarray],
-    jinfo_v,
-    jinfo_b,
+    jinfo_v: Any,
+    jinfo_b: Any,
 ) -> Dict[str, object]:
     """R ``rdbw2d_bw_v2`` (no covariates)."""
     joint = fitmethod == "joint"
@@ -721,7 +741,9 @@ def cer_factor(n: float, p: int) -> float:
     return n ** (1 / (2 * p + 4) - 1 / (p + 4))
 
 
-def e_deriv_matrix(neval: int, p: int, deriv: Sequence[int], tangvec) -> np.ndarray:
+def e_deriv_matrix(
+    neval: int, p: int, deriv: Sequence[int], tangvec: Any
+) -> np.ndarray:
     """R's ``e_deriv``: selection vector of the target derivative."""
     e = np.zeros((neval, n_basis(p)))
     ds = int(deriv[0]) + int(deriv[1])
@@ -742,7 +764,7 @@ def rd2d_location_bw(
     eval_pts: np.ndarray,
     p: int,
     deriv: Sequence[int],
-    tangvec,
+    tangvec: Any,
     kernel: str,
     kernel_type: str,
     bwselect: str,
@@ -1053,11 +1075,11 @@ def rd2d_location_bw(
 def rd2d_location_fit(
     data: Rd2dData,
     eval_pts: np.ndarray,
-    h,
+    h: Any,
     p: int,
     q: int,
     deriv: Sequence[int],
-    tangvec,
+    tangvec: Any,
     kernel: str,
     kernel_type: str,
     vce: str,
@@ -1179,7 +1201,7 @@ def rd2d_location_fit(
         )
     )
 
-    def _hp(f):
+    def _hp(f: Any) -> Any:
         return np.column_stack([f["h0x"], f["h0y"]]), np.column_stack(
             [f["h1x"], f["h1y"]]
         )
@@ -1205,7 +1227,7 @@ def rd2d_location_fit(
     joint = fitmethod == "joint"
     clustered_joint = joint and data.cluster is not None
 
-    def _cov_tables(f, ed, order):
+    def _cov_tables(f: Any, ed: Any, order: Any) -> Any:
         g0, g1 = _hp(f)
         P0, P1, _ = project_sides(
             data, eval_pts, ed, order, g0, g1, kernel, kernel_type, vce, fitmethod

@@ -133,7 +133,7 @@ def _mbe_estimate(
     if not np.isfinite(h) or h <= 0:
         return float(ratios[np.argmax(w)]), float(h)
 
-    def _dens(x):
+    def _dens(x: Any) -> Any:
         x = np.atleast_1d(x)
         return (
             w[None, :] * np.exp(-0.5 * ((x[:, None] - ratios[None, :]) / h) ** 2)

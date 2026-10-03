@@ -646,7 +646,7 @@ def _bai_perron_sequential(
     def seg(a: int, b: int) -> float:  # SSR of observations a..b-1 (0-based)
         return float(rss[a, b - 1])
 
-    def best_split(a: int, b: int):
+    def best_split(a: int, b: int) -> Any:
         """SSR-minimising split of observations a..b-1 and its statistic."""
         L = b - a
         best, date = np.inf, None

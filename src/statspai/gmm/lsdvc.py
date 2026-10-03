@@ -42,7 +42,7 @@ Nickell, S. (1981). *Econometrica*, 49(6), 1417-1426. [@nickell1981biases]
 from __future__ import annotations
 
 import warnings
-from typing import List, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -57,7 +57,7 @@ __all__ = ["xtlsdvc"]
 _INITIAL_CHOICES = ("ab", "ah", "bb")
 
 
-def _within_ols(y: np.ndarray, X: np.ndarray, unit: np.ndarray):
+def _within_ols(y: np.ndarray, X: np.ndarray, unit: np.ndarray) -> Any:
     """Fixed-effects (within) OLS. Returns ``(beta, resid, dof)``."""
     yd = y.copy()
     Xd = X.copy()
@@ -241,7 +241,7 @@ def xtlsdvc(
     Lmat = np.eye(T, k=-1)
     C = Lmat @ np.linalg.inv(eye - gamma * Lmat)
 
-    def _grid(arr):
+    def _grid(arr: Any) -> Any:
         out = np.nan_to_num(arr[:, 1:], nan=0.0)[keep_units]
         return out * sel
 
@@ -384,7 +384,17 @@ def xtlsdvc(
 
 
 def _bootstrap_se(
-    data, y, x, id, time, initial, bias_order, beta, s2, reps, seed
+    data: Any,
+    y: Any,
+    x: Any,
+    id: Any,
+    time: Any,
+    initial: Any,
+    bias_order: Any,
+    beta: Any,
+    s2: Any,
+    reps: Any,
+    seed: Any,
 ) -> np.ndarray:
     """Parametric bootstrap over the fitted dynamic process.
 
@@ -440,7 +450,7 @@ def _bootstrap_se(
     return np.asarray(draws).std(axis=0, ddof=1)
 
 
-def _base_vars(x) -> List[str]:
+def _base_vars(x: Any) -> List[str]:
     return [t.var for t in parse_terms(list(x or []))]
 
 

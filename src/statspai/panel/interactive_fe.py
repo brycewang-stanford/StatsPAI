@@ -26,7 +26,7 @@ Interactive Fixed Effects." *Econometrica*, 83(4), 1543-1579. [@moon2015linear]
 """
 
 import warnings
-from typing import List
+from typing import Any, List
 
 import numpy as np
 import pandas as pd
@@ -180,7 +180,7 @@ def interactive_fe(
         X_mats = [xm[valid] for xm in X_mats]
         N = Y_mat.shape[0]
 
-    def _factors(beta_):
+    def _factors(beta_: Any) -> Any:
         E_ = Y_mat.copy()
         for j_ in range(k):
             E_ -= beta_[j_] * X_mats[j_]

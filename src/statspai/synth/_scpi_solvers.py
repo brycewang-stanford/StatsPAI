@@ -25,7 +25,7 @@ with the locally-relaxed constraint set of ``local.geom`` / ``local.geom.2step``
 from __future__ import annotations
 
 import warnings
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 from scipy import optimize
@@ -294,7 +294,7 @@ def shrinkage_ridge(
 # ---------------------------------------------------------------------- #
 
 
-def _min_linear_one_quad(g, M, b, k):
+def _min_linear_one_quad(g: Any, M: Any, b: Any, k: Any) -> Any:
     """min g'z s.t. z'Mz + 2b'z + k <= 0 for positive semi-definite M.
 
     Returns ``(z, mu)``; ``("ray", d)`` when M is singular and the objective
@@ -329,11 +329,11 @@ def _min_linear_one_quad(g, M, b, k):
     return -Mb - r * Mg / t, t / (2 * r)
 
 
-def _quad_val(z, M, b, k):
+def _quad_val(z: Any, M: Any, b: Any, k: Any) -> Any:
     return z @ M @ z + 2 * b @ z + k
 
 
-def _min_linear_two_quads(g, q1, q2):
+def _min_linear_two_quads(g: Any, q1: Any, q2: Any) -> Any:
     """min g'z s.t. q1(z) <= 0, q2(z) <= 0 (both convex, M1 PD, M2 PD).
 
     Single-constraint closed forms first.  If both bind, the KKT point is
@@ -354,10 +354,10 @@ def _min_linear_two_quads(g, q1, q2):
         if _quad_val(o2[0], M1, b1, k1) <= 1e-13 * s1:
             return o2[0], (0.0, o2[1])
 
-    def solve_t(t):
+    def solve_t(t: Any) -> Any:
         return _min_linear_one_quad(g, M1 + t * M2, b1 + t * b2, k1 + t * k2)
 
-    def psi(logt):
+    def psi(logt: Any) -> Any:
         out = solve_t(np.exp(logt))
         if out is None or isinstance(out[0], str):  # pragma: no cover
             raise FloatingPointError
@@ -382,7 +382,17 @@ def _min_linear_two_quads(g, q1, q2):
     return z, (mu1, t * mu1)
 
 
-def _subproblem(c, Qm, G, k0, ell, fixed, sum_on, sum_val, ball):
+def _subproblem(
+    c: Any,
+    Qm: Any,
+    G: Any,
+    k0: Any,
+    ell: Any,
+    fixed: Any,
+    sum_on: Any,
+    sum_val: Any,
+    ball: Any,
+) -> Any:
     """Minimise c'y over {q(y) <= 0, y[fixed] = ell[fixed], [1'y = sum_val],
     [ball]} in closed form / by the two-multiplier dual Newton."""
     n = c.shape[0]
@@ -414,7 +424,7 @@ def _subproblem(c, Qm, G, k0, ell, fixed, sum_on, sum_val, ball):
         b1 = v[a_] - v[l_]
         g = c[a_] - c[l_]
 
-        def lift(z):
+        def lift(z: Any) -> Any:
             out = np.zeros(n)
             out[a_] = z
             out[l_] = -z.sum()
@@ -425,7 +435,7 @@ def _subproblem(c, Qm, G, k0, ell, fixed, sum_on, sum_val, ball):
         b1 = v[idx]
         g = c[idx]
 
-        def lift(z):
+        def lift(z: Any) -> Any:
             out = np.zeros(n)
             out[idx] = z
             return out
@@ -577,20 +587,20 @@ def insample_slsqp(
         xneg = np.clip(-beta, 0, None)
         z0 = np.concatenate([xpos, xneg])
 
-        def to_y(z):
+        def to_y(z: Any) -> Any:
             return z[:J] - z[J:] - beta
 
-        def dy(g):  # chain rule dy/dz
+        def dy(g: Any) -> Any:  # chain rule dy/dz
             return np.concatenate([g, -g])
 
         bounds = [(0.0, None)] * (2 * J)
     else:
         z0 = np.zeros(J)
 
-        def to_y(z):
+        def to_y(z: Any) -> Any:
             return z
 
-        def dy(g):
+        def dy(g: Any) -> Any:
             return g
 
         bounds = [
@@ -671,7 +681,7 @@ def rq_fit(X: np.ndarray, y: np.ndarray, tau: float) -> np.ndarray:
     if np.linalg.matrix_rank(Xb) == p:
         cand = np.linalg.solve(Xb, y[basis])
 
-        def obj(b):
+        def obj(b: Any) -> Any:
             u = y - X @ b
             return np.sum(u * (tau - (u < 0)))
 
@@ -680,7 +690,7 @@ def rq_fit(X: np.ndarray, y: np.ndarray, tau: float) -> np.ndarray:
     return beta
 
 
-def rrq(X: np.ndarray, y: np.ndarray, taus) -> np.ndarray:
+def rrq(X: np.ndarray, y: np.ndarray, taus: Any) -> np.ndarray:
     """``Qtools::rrq`` restricted regression quantiles (He, 1997 location-scale).
 
     beta = LAD(y ~ X); gamma = LAD(|r| ~ X); zeta_k = rq(r ~ s - 1, tau_k)

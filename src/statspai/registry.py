@@ -23299,7 +23299,9 @@ def _apply_agent_card_seeds() -> None:
     except ImportError:  # pragma: no cover - wheel without the module
         pass
 
-    def merge_curated(source: Dict[str, Dict[str, Any]], *, template_names) -> None:
+    def merge_curated(
+        source: Dict[str, Dict[str, Any]], *, template_names: Any
+    ) -> None:
         # A hand-written per-name entry keeps the last word, and a
         # per-function card *adds* to it (lists appended after the
         # hand-written items, scalars only filled when empty). A family

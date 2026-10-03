@@ -335,7 +335,7 @@ def iv_wild_bootstrap(
     # --- projection / 2SLS bread (instruments are fixed across bootstrap) ---
     P_W = W @ np.linalg.solve(W.T @ W, W.T)  # A = P_W for kappa = 1 (2SLS)
 
-    def _fit(Xmat: np.ndarray, yvec: np.ndarray):
+    def _fit(Xmat: np.ndarray, yvec: np.ndarray) -> Any:
         AX = P_W @ Xmat
         bread = np.linalg.inv(Xmat.T @ AX)
         beta = bread @ (AX.T @ yvec)
@@ -357,7 +357,7 @@ def iv_wild_bootstrap(
     # draws serve every null value, as in boottest's test inversion.
     weights, enumerated = _wild_weight_matrix(n_clusters, n_boot, weight_type, rng)
 
-    def _restricted(b0: float):
+    def _restricted(b0: float) -> Any:
         # Fix the tested coefficient and re-estimate the rest by 2SLS (the
         # *other* endogenous regressors stay endogenous), giving the
         # restricted structural residual u_tilde; then the (efficient)

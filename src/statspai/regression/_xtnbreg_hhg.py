@@ -35,7 +35,7 @@ formulas.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 import numpy as np
 from scipy import special
@@ -60,7 +60,7 @@ def _segment(values: np.ndarray, gidx: np.ndarray, n_groups: int) -> np.ndarray:
     return np.bincount(gidx, weights=values, minlength=n_groups)
 
 
-def _hhg_parts(beta, X, y, off, gidx, n_groups):
+def _hhg_parts(beta: Any, X: Any, y: Any, off: Any, gidx: Any, n_groups: Any) -> Any:
     lam = np.exp(X @ beta + off)
     Lam = _segment(lam, gidx, n_groups)
     Y = _segment(y, gidx, n_groups)
@@ -72,13 +72,15 @@ def _hhg_parts(beta, X, y, off, gidx, n_groups):
     return lam, Lam, Y, lnA
 
 
-def fe_loglik(theta, X, y, off, gidx, n_groups) -> float:
+def fe_loglik(theta: Any, X: Any, y: Any, off: Any, gidx: Any, n_groups: Any) -> float:
     lam, Lam, Y, lnA = _hhg_parts(theta, X, y, off, gidx, n_groups)
     lnB = special.gammaln(Lam) + special.gammaln(Y + 1.0) - special.gammaln(Lam + Y)
     return float(np.sum(lnA + lnB))
 
 
-def fe_score(theta, X, y, off, gidx, n_groups) -> np.ndarray:
+def fe_score(
+    theta: Any, X: Any, y: Any, off: Any, gidx: Any, n_groups: Any
+) -> np.ndarray:
     lam, Lam, Y, _ = _hhg_parts(theta, X, y, off, gidx, n_groups)
     g = (
         special.digamma(lam + y)
@@ -88,7 +90,7 @@ def fe_score(theta, X, y, off, gidx, n_groups) -> np.ndarray:
     return X.T @ (g * lam)
 
 
-def re_loglik(theta, X, y, off, gidx, n_groups) -> float:
+def re_loglik(theta: Any, X: Any, y: Any, off: Any, gidx: Any, n_groups: Any) -> float:
     k = X.shape[1]
     beta = theta[:k]
     r, s = np.exp(theta[k]), np.exp(theta[k + 1])
@@ -104,7 +106,9 @@ def re_loglik(theta, X, y, off, gidx, n_groups) -> float:
     return float(np.sum(lnA + lnC))
 
 
-def re_score(theta, X, y, off, gidx, n_groups) -> np.ndarray:
+def re_score(
+    theta: Any, X: Any, y: Any, off: Any, gidx: Any, n_groups: Any
+) -> np.ndarray:
     k = X.shape[1]
     beta = theta[:k]
     r, s = np.exp(theta[k]), np.exp(theta[k + 1])
@@ -126,7 +130,7 @@ def re_score(theta, X, y, off, gidx, n_groups) -> np.ndarray:
 
 def _jacobian(
     score: Callable[[np.ndarray], np.ndarray], theta: np.ndarray, h: float = 1e-5
-):
+) -> Any:
     k = theta.size
     J = np.empty((k, k))
     for j in range(k):

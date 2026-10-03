@@ -89,7 +89,8 @@ class MRResult(ResultProtocolMixin):
             f"Outcome:  {self.outcome}",
             f"Number of SNPs: {self.n_snps}",
             "",
-            f"{'Method':<25s} {'Estimate':>10s} {'SE':>10s} {'95% CI':>22s} {'p-value':>10s}",
+            f"{'Method':<25s} {'Estimate':>10s} {'SE':>10s} {'95% CI':>22s} "
+            f"{'p-value':>10s}",
             "-" * 65,
         ]
         for _, row in self.estimates.iterrows():

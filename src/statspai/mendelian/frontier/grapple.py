@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from scipy import stats
@@ -89,7 +89,7 @@ class GrappleResult(ResultProtocolMixin):
         )
 
 
-def _l2_rho(r, deriv=0):
+def _l2_rho(r: Any, deriv: int = 0) -> Any:
     r = np.asarray(r, dtype=float)
     if deriv == 0:
         return r**2 / 2
@@ -98,7 +98,7 @@ def _l2_rho(r, deriv=0):
     return np.ones_like(r)
 
 
-def _t_values(beta, tau2, bx, by, vx, vy):
+def _t_values(beta: Any, tau2: Any, bx: Any, by: Any, vx: Any, vy: Any) -> Any:
     return (by - bx * beta) / np.sqrt(vx * beta**2 + vy + tau2)
 
 
@@ -212,17 +212,17 @@ def grapple(
     c4 = _gauss_moment(lambda x: rho(x, deriv=1) * x)
     c3 = c4
 
-    def obj(b, t2):  # to minimise
+    def obj(b: Any, t2: Any) -> Any:  # to minimise
         return float(np.sum(rho(_t_values(b, t2, bx, by, vx, vy))))
 
-    def tau_eq(t2, b):
+    def tau_eq(t2: Any, b: Any) -> Any:
         return float(np.sum(rho(_t_values(b, t2, bx, by, vx, vy)))) - (p - 1) * delta
 
     ratio = np.abs(by / bx)
     bound_beta = 2.0 * float(np.quantile(ratio[np.isfinite(ratio)], 0.95))
     bound_tau2 = 2.0 * float(np.median(by**2))
 
-    def solve_tau2(b):
+    def solve_tau2(b: Any) -> Any:
         if tau_eq(0.0, b) < 0:
             return 0.0
         hi = bound_tau2
@@ -234,7 +234,9 @@ def grapple(
             )
         )
 
-    def score(b, t2):  # d/d beta of sum rho(t), up to the loss's scaling
+    def score(
+        b: Any, t2: Any
+    ) -> Any:  # d/d beta of sum rho(t), up to the loss's scaling
         res = by - bx * b
         v = vx * b**2 + vy + t2
         return float(
@@ -244,7 +246,7 @@ def grapple(
     grid = np.linspace(-bound_beta, bound_beta, 5000)
     h = grid[1] - grid[0]
 
-    def solve_beta(t2, start):
+    def solve_beta(t2: Any, start: Any) -> Any:
         # Global search on GRAPPLE's grid, local polish, then the root of
         # the score in a bracket around the minimiser (machine precision;
         # a minimiser of a flat objective is only good to ~sqrt(eps)).
@@ -335,7 +337,19 @@ def grapple(
     )
 
 
-def _grapple_vcov(beta, tau2, bx, by, vx, vy, rho, c1, c2, c3, c4) -> np.ndarray:
+def _grapple_vcov(
+    beta: Any,
+    tau2: Any,
+    bx: Any,
+    by: Any,
+    vx: Any,
+    vy: Any,
+    rho: Any,
+    c1: Any,
+    c2: Any,
+    c3: Any,
+    c4: Any,
+) -> np.ndarray:
     """GRAPPLE's asymptotic variance of (beta, tau2), one exposure.
 
     Transcribes ``grappleRobustEst``'s block for ``r = 1`` and

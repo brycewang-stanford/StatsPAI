@@ -74,7 +74,7 @@ def _center(Z: np.ndarray, fixed_effects: str) -> np.ndarray:
     return Z
 
 
-def _svt(E: np.ndarray, theta: float, max_rank: Optional[int] = None):
+def _svt(E: np.ndarray, theta: float, max_rank: Optional[int] = None) -> Any:
     U, s, Vt = np.linalg.svd(E, full_matrices=False)
     s_thr = np.maximum(s - theta, 0.0)
     if max_rank is not None:

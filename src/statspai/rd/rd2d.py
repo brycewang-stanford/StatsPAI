@@ -164,7 +164,9 @@ def _numeric(
     return out
 
 
-def _eval_points(eval_points, X1, X2, boundary, n_eval) -> np.ndarray:
+def _eval_points(
+    eval_points: Any, X1: Any, X2: Any, boundary: Any, n_eval: Any
+) -> np.ndarray:
     if eval_points is not None:
         b = np.asarray(eval_points, dtype=float)
         if b.ndim == 1 and b.size == 2:
@@ -210,7 +212,7 @@ def _bwcheck_value(bwcheck: Any, default: int) -> Optional[int]:
     return int(bwcheck)
 
 
-def _kink_position(kink_position, neval: int) -> np.ndarray:
+def _kink_position(kink_position: Any, neval: int) -> np.ndarray:
     if kink_position is None:
         return np.zeros(neval, dtype=bool)
     k = np.asarray(kink_position)
@@ -232,7 +234,7 @@ def _kink_position(kink_position, neval: int) -> np.ndarray:
     return out
 
 
-def _kink_unknown(kink_unknown) -> Tuple[bool, bool]:
+def _kink_unknown(kink_unknown: Any) -> Tuple[bool, bool]:
     if isinstance(kink_unknown, (bool, np.bool_)):
         return bool(kink_unknown), bool(kink_unknown)
     k = tuple(bool(v) for v in kink_unknown)
@@ -249,7 +251,9 @@ def _kink_unknown(kink_unknown) -> Tuple[bool, bool]:
     return k
 
 
-def _distance_matrix(X1, X2, T, b, distance, data, valid) -> np.ndarray:
+def _distance_matrix(
+    X1: Any, X2: Any, T: Any, b: Any, distance: Any, data: Any, valid: Any
+) -> np.ndarray:
     """Signed distances: user-supplied, or Euclidean to each boundary point."""
     if distance is not None:
         if isinstance(distance, (list, tuple)) and all(
@@ -283,7 +287,7 @@ def _distance_matrix(X1, X2, T, b, distance, data, valid) -> np.ndarray:
 # ======================================================================
 
 
-def _signed_boundary_distance(X1, X2, T, boundary) -> np.ndarray:
+def _signed_boundary_distance(X1: Any, X2: Any, T: Any, boundary: Any) -> np.ndarray:
     """Distance to the boundary curve, positive for treated units."""
     if boundary is None:
         dist = np.abs(X1)
@@ -321,8 +325,18 @@ def _signed_boundary_distance(X1, X2, T, boundary) -> np.ndarray:
 
 
 def _rd2d_pooled(
-    data, arrs, valid, boundary, p, kernel, h, bwselect, alpha, fuzzy, cluster
-):
+    data: Any,
+    arrs: Any,
+    valid: Any,
+    boundary: Any,
+    p: Any,
+    kernel: Any,
+    h: Any,
+    bwselect: Any,
+    alpha: Any,
+    fuzzy: Any,
+    cluster: Any,
+) -> Any:
     from .rdrobust import rdrobust
 
     X1, X2, T, Y = arrs["x1"], arrs["x2"], arrs["t"], arrs["y"]
@@ -769,7 +783,7 @@ def rd2d(
     )
 
 
-def _inference(est: np.ndarray, se: np.ndarray, alpha: float, side: str):
+def _inference(est: np.ndarray, se: np.ndarray, alpha: float, side: str) -> Any:
     t = est / se
     pv = 2 * stats.norm.sf(np.abs(t))
     if side == "two":
@@ -782,21 +796,21 @@ def _inference(est: np.ndarray, se: np.ndarray, alpha: float, side: str):
 
 
 def _build_result(
-    res,
-    b,
-    approach,
-    p,
-    kernel,
-    kernel_type,
-    vce,
-    fitmethod,
-    alpha,
-    side,
-    n,
-    is_fuzzy,
-    cluster,
-    masspoints,
-    weights=None,
+    res: Any,
+    b: Any,
+    approach: Any,
+    p: Any,
+    kernel: Any,
+    kernel_type: Any,
+    vce: Any,
+    fitmethod: Any,
+    alpha: Any,
+    side: Any,
+    n: Any,
+    is_fuzzy: Any,
+    cluster: Any,
+    masspoints: Any,
+    weights: Optional[Any] = None,
 ) -> CausalResult:
     est_p, se_p = res["tau_p"], res["se_p"]
     est_q, se_q = res["tau_q"], res["se_q"]

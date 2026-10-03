@@ -599,7 +599,7 @@ def scpi(
 # ====================================================================== #
 
 
-def _warn_deprecated_lambdas(lasso_lambda, ridge_lambda) -> None:
+def _warn_deprecated_lambdas(lasso_lambda: Any, ridge_lambda: Any) -> None:
     if lasso_lambda is not None or ridge_lambda is not None:
         warnings.warn(
             "lasso_lambda / ridge_lambda are ignored: sp.scest / sp.scpi follow "
@@ -621,7 +621,11 @@ def _normalise_constr(w_constr: str) -> str:
 
 
 def _constraint_spec(
-    A: np.ndarray, B: np.ndarray, name: str, Q=None, Q2=None
+    A: np.ndarray,
+    B: np.ndarray,
+    name: str,
+    Q: Optional[Any] = None,
+    Q2: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """R ``w.constr.OBJ`` for a single feature (the outcome), V = identity."""
     J = B.shape[1]
@@ -675,7 +679,9 @@ def _solve_weights(A: np.ndarray, B: np.ndarray, spec: Dict[str, Any]) -> np.nda
     return coef
 
 
-def _fit_weights(A, B, w_constr, Q=None, Q2=None):
+def _fit_weights(
+    A: Any, B: Any, w_constr: Any, Q: Optional[Any] = None, Q2: Optional[Any] = None
+) -> Any:
     name = _normalise_constr(w_constr)
     spec = _constraint_spec(A, B, name, Q=Q, Q2=Q2)
     return _solve_weights(A, B, spec), spec

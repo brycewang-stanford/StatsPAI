@@ -81,7 +81,8 @@ class BootstrapResult(ResultProtocolMixin):
             "Bootstrap Inference",
             f"  Estimate:   {self.estimate:.6f}",
             f"  Std. Error: {self.se:.6f}",
-            f"  CI ({1 - self.alpha:.0%}):    [{self.ci_lower:.6f}, {self.ci_upper:.6f}]  ({self.ci_method})",
+            f"  CI ({1 - self.alpha:.0%}):    [{self.ci_lower:.6f}, "
+            f"{self.ci_upper:.6f}]  ({self.ci_method})",
             f"  p-value:    {self.pvalue:.4f}",
             f"  Replications: {self.n_boot}",
         ]

@@ -383,7 +383,8 @@ class PanelUnitRootResult(ResultProtocolMixin):
             f"N units:   {self.n_units}",
             f"T periods: {self.n_periods}",
             "",
-            f"Conclusion: {'Reject H0' if self.p_value < 0.05 else 'Fail to reject H0'} at 5%",
+            "Conclusion: "
+            f"{'Reject H0' if self.p_value < 0.05 else 'Fail to reject H0'} at 5%",
             "=" * 55,
         ]
         return "\n".join(lines)
@@ -397,7 +398,7 @@ def _det_matrix(n: int, trend: str, start: int = 1) -> Optional[np.ndarray]:
     return np.column_stack([np.ones(n), np.arange(start, start + n, dtype=float)])
 
 
-def _ols(X: np.ndarray, y: np.ndarray):
+def _ols(X: np.ndarray, y: np.ndarray) -> Any:
     b = np.linalg.lstsq(X, y, rcond=None)[0]
     r = y - X @ b
     return b, r

@@ -54,7 +54,7 @@ difference-in-differences estimators." *Journal of Econometrics*, 219(1),
 
 from __future__ import annotations
 
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import numpy as np
 
@@ -534,7 +534,7 @@ def ipw_did_rc(
     a_co_pre, a_co_post = mean(eta_co_pre), mean(eta_co_post)
     att = float((a_tr_post - a_tr_pre) - (a_co_post - a_co_pre))
 
-    def _cell_inf(eta: np.ndarray, a: float, period: np.ndarray, denom: float):
+    def _cell_inf(eta: np.ndarray, a: float, period: np.ndarray, denom: float) -> Any:
         """η − a, plus the estimation error of Π̂ and of λ̂ (or 1 − λ̂)."""
         return (
             (eta - a) - (w * d - pi_hat) * a / pi_hat - (w * period - denom) * a / denom

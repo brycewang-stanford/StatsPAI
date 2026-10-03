@@ -229,7 +229,9 @@ class QTEResult(ResultProtocolMixin):
 
     # ── functional (curve-level) inference ────────────────────────── #
 
-    def test_no_effect(self, kind: str = "ks", n_boot: int = 1000, seed: int = 0):
+    def test_no_effect(
+        self, kind: str = "ks", n_boot: int = 1000, seed: int = 0
+    ) -> Any:
         """Test ``QTE(tau) = 0 at EVERY tau`` against "somewhere non-zero".
 
         Not what a row of pointwise p-values tests: with 19 quantiles at the
@@ -238,7 +240,9 @@ class QTEResult(ResultProtocolMixin):
         """
         return self._functional_test(None, kind, n_boot, seed)
 
-    def test_constant_effect(self, kind: str = "ks", n_boot: int = 1000, seed: int = 0):
+    def test_constant_effect(
+        self, kind: str = "ks", n_boot: int = 1000, seed: int = 0
+    ) -> Any:
         """Test ``QTE(tau)`` is the same at every tau against "it varies".
 
         Rejecting means treatment does something an average effect cannot
@@ -274,7 +278,7 @@ class QTEResult(ResultProtocolMixin):
             )
         return np.asarray(influence, dtype=float)
 
-    def _functional_test(self, null, kind: str, n_boot: int, seed: int):
+    def _functional_test(self, null: Any, kind: str, n_boot: int, seed: int) -> Any:
         from ._core import functional_test
 
         return functional_test(

@@ -1232,13 +1232,16 @@ def _reviewer_audit_section(
     lines.append("**Reviewer checklist**")
     lines.append("- Re-run the replication script or `sp.replication_pack()` output.")
     lines.append(
-        "- Check identification assumptions against the study design, not only the code."
+        "- Check identification assumptions against the study design, not only the "
+        "code."
     )
     lines.append(
-        "- Inspect overlap, pre-trends, weak instruments, or bandwidth sensitivity when relevant."
+        "- Inspect overlap, pre-trends, weak instruments, or bandwidth sensitivity "
+        "when relevant."
     )
     lines.append(
-        "- Confirm exported tables are generated from `tidy()`/`glance()`/`sp.collect()` artifacts."
+        "- Confirm exported tables are generated from "
+        "`tidy()`/`glance()`/`sp.collect()` artifacts."
     )
     return "\n".join(lines)
 

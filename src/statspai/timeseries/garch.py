@@ -18,7 +18,7 @@ This module provides:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -173,7 +173,7 @@ def _garch_filter(
     mean: bool,
     presample: str,
     want_grad: bool = False,
-):
+) -> Any:
     """Conditional variances, log-likelihood contributions and scores.
 
     theta = (mu?, omega, alpha_1..alpha_q, beta_1..beta_p). Pre-sample

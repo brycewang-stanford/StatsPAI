@@ -344,10 +344,10 @@ def _efficient_components(
     eD = {g: float(np.mean(wg[g] * t)) for g in (0, 1)}
     ipo = {0: ipo0, 1: ipo1}
 
-    def psi_dgg(d, g1, g2):
+    def psi_dgg(d: Any, g1: Any, g2: Any) -> Any:
         return psi[(d, g1)] * eD[g2]
 
-    def eif_dgg(d, g1, g2):
+    def eif_dgg(d: Any, g1: Any, g2: Any) -> Any:
         return (
             wg[g1] * ipo[d] * eD[g2]
             + wg[g2] * psi[(d, g1)] * (t - eD[g2])
@@ -369,7 +369,7 @@ def _efficient_components(
     if_eff = eif_dgg(1, 1, 1) - eif_dgg(0, 1, 1) - eif_dgg(1, 0, 1) + eif_dgg(0, 0, 1)
     if_sel = if_total - if_base - if_prev - if_eff
 
-    def _se(v):
+    def _se(v: Any) -> Any:
         return float(np.sqrt(np.mean(v**2) / n))
 
     comps = dict(

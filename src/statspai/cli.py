@@ -169,7 +169,9 @@ def _add_run_common(parser: argparse.ArgumentParser) -> None:
         "-f",
         default="json",
         choices=["json", "summary"],
-        help="json (default; the agent payload) or summary (the result's text summary).",
+        help=(
+            "json (default; the agent payload) or summary (the result's text summary)."
+        ),
     )
     parser.add_argument(
         "--detail",
@@ -508,7 +510,9 @@ def _make_parser() -> argparse.ArgumentParser:
         "family",
         nargs="?",
         default=None,
-        help="did | iv | rd | matching | ml_causal | qte | dynamic_panel (omit to list).",
+        help=(
+            "did | iv | rd | matching | ml_causal | qte | dynamic_panel (omit to list)."
+        ),
     )
     p_route.add_argument(
         "--answer",
@@ -743,7 +747,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 SKILL_NAME = "statspai-analysis"
 
 
-def _packaged_skill_dir():
+def _packaged_skill_dir() -> Any:
     from pathlib import Path
 
     return Path(__file__).resolve().parent / "agent" / "_skill"

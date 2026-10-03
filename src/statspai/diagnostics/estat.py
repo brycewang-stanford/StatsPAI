@@ -70,7 +70,6 @@ import textwrap
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
-import pandas as pd
 from scipy import stats as sp_stats
 
 from ..exceptions import MethodIncompatibility
@@ -570,7 +569,8 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     if n_influential > 0:
         pct = 100.0 * n_influential / n
         interp_parts.append(
-            f"{n_influential} observation(s) ({pct:.1f}%) have Cook's D > {threshold:.4f} (= 4/n)."
+            f"{n_influential} observation(s) ({pct:.1f}%) have Cook's D > "
+            f"{threshold:.4f} (= 4/n)."
         )
     else:
         interp_parts.append("No observations exceed the Cook's D threshold (4/n).")
@@ -1017,7 +1017,8 @@ def _print_result(out: Dict[str, Any]) -> None:
         for key in ("sensitivity", "specificity", "ppv", "npv"):
             print(f"  {key:<22} = {100 * out[key]:>8.2f}%")
         print(
-            f"  {'correctly classified':<22} = {100 * out['correctly_classified']:>8.2f}%"
+            f"  {'correctly classified':<22} = "
+            f"{100 * out['correctly_classified']:>8.2f}%"
         )
         print()
 

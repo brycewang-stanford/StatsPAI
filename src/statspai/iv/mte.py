@@ -44,6 +44,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -74,7 +75,8 @@ class MTEResult(ResultProtocolMixin):
             "Marginal Treatment Effects (BMW 2017 polynomial MTR)",
             "-" * 60,
             f"  Polynomial degree    : {self.poly_degree}",
-            f"  Observations         : {self.n_obs}  (treated share = {self.treated_share:.3f})",
+            f"  Observations         : {self.n_obs}  (treated share = "
+            f"{self.treated_share:.3f})",
             f"  Propensity support   : [{u_min:.3f}, {u_max:.3f}]",
             "",
             "  Aggregate parameters (at mean X)",

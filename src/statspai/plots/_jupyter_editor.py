@@ -89,6 +89,7 @@ def create_jupyter_panel(editor: FigureEditor) -> None:
         return
 
     import io
+
     import matplotlib.pyplot as plt
 
     fig = editor.fig
@@ -472,7 +473,10 @@ def create_jupyter_panel(editor: FigureEditor) -> None:
     # --- Size preset dropdown (sizes only, independent of font) ---
     size_preset_options = [("-- Choose size --", "")]
     for name, sp_info in SIZE_PRESETS.items():
-        label = f"{name}  (title {sp_info['title_size']}, label {sp_info['label_size']}, tick {sp_info['tick_size']})"
+        label = (
+            f"{name}  (title {sp_info['title_size']}, label {sp_info['label_size']}, "
+            f"tick {sp_info['tick_size']})"
+        )
         size_preset_options.append((label, name))
     size_preset = widgets.Dropdown(
         options=size_preset_options,

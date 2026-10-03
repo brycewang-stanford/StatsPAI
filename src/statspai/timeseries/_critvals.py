@@ -19,6 +19,8 @@ against an independent machine-readable copy in
 
 from __future__ import annotations
 
+from typing import Any
+
 MACKINNON_2010 = {
     "nc": {
         (1, 1): (-2.56574, -2.2358, -3.627, 0.0),
@@ -198,7 +200,7 @@ _JO_TRACE_99 = (
 )
 
 
-def _by_case(rows):
+def _by_case(rows: Any) -> Any:
     return {c: tuple(r[j] for r in rows) for j, c in enumerate(_JO_CASES)}
 
 

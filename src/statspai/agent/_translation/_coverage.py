@@ -143,7 +143,7 @@ def translation_coverage(*, fmt: str = "dict") -> Any:
     return {"stata": stata, "r": r, "summary": summary, "limitations": LIMITATIONS}
 
 
-def _render_markdown(stata, r, summary) -> str:
+def _render_markdown(stata: Any, r: Any, summary: Any) -> str:
     lines: List[str] = ["## Stata → StatsPAI\n"]
     lines.append("| Stata command | aliases | → StatsPAI |")
     lines.append("| --- | --- | --- |")

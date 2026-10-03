@@ -52,7 +52,7 @@ for Parallel Trends." *American Economic Review: Insights*, 4(3), 305-322.
 
 from __future__ import annotations
 
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import numpy as np
 from scipy import stats
@@ -223,7 +223,7 @@ def pretrend_equivalence(
 
 
 def pretrends_equivalence(
-    result,
+    result: Any,
     f_threshold: float = 0.6,
     tost_threshold: Optional[float] = None,
     alpha: float = 0.05,

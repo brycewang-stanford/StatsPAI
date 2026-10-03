@@ -83,9 +83,11 @@ class BalkePearlResult(ResultProtocolMixin):
             "Balke-Pearl ATE bounds\n"
             "----------------------\n"
             f"  N            : {self.n_obs}\n"
-            f"  [lower, upper] (no monotonicity) : [{self.lower:+.4f}, {self.upper:+.4f}]\n"
+            f"  [lower, upper] (no monotonicity) : [{self.lower:+.4f}, "
+            f"{self.upper:+.4f}]\n"
             f"  width                              : {self.width:.4f}\n"
-            f"  [lower, upper] (monotone)          : [{self.lower_monotone:+.4f}, {self.upper_monotone:+.4f}]"
+            f"  [lower, upper] (monotone)          : [{self.lower_monotone:+.4f}, "
+            f"{self.upper_monotone:+.4f}]"
         )
 
     def __repr__(self) -> str:  # pragma: no cover

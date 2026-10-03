@@ -555,19 +555,24 @@ def render_markdown(card: Dict[str, Any]) -> str:
     lines = [
         "# Recommendation Hit-Rate Scorecard",
         "",
-        f"- corpus: `{card['corpus_version']}`  |  statspai: `{card['statspai_version']}`"
+        f"- corpus: `{card['corpus_version']}`  |  statspai: "
+        f"`{card['statspai_version']}`"
         f"  |  entries: **{card['n_entries']}**"
-        f" ({card.get('n_core', card['n_entries'])} core + {fr.get('n_frontier', 0)} frontier;"
+        f" ({card.get('n_core', card['n_entries'])} core + {fr.get('n_frontier', 0)} "
+        "frontier;"
         f" {card.get('n_tier_a', '?')} Tier-A + {card.get('n_tier_b', '?')} Tier-B)",
-        f"- **core top-1 hit-rate: {s['hit_rate_top1']}**  |  top-k: {s['hit_rate_topk']}"
+        f"- **core top-1 hit-rate: {s['hit_rate_top1']}**  |  top-k: "
+        f"{s['hit_rate_topk']}"
         f"  |  hard-miss rate: {s['hard_miss_rate']}  |  errors: {s['n_errors']}",
         f"- audit catalog mean recall (static): {s['audit_catalog_mean_recall']}"
-        f"  |  audit dynamic mean recall (fit+audit): {s.get('audit_dynamic_mean_recall')}"
+        "  |  audit dynamic mean recall (fit+audit): "
+        f"{s.get('audit_dynamic_mean_recall')}"
         f"  |  audit errors: {s.get('n_audit_errors')}",
         f"- frontier coverage (gap-probe designs recommend is being taught): "
         f"**{fr.get('coverage')}** ({fr.get('n_hit', 0)}/{fr.get('n_frontier', 0)})"
         + (
-            f"  |  frontier fit+audit OK: {fr.get('n_fit_ok')}/{fr.get('n_frontier', 0)}"
+            "  |  frontier fit+audit OK: "
+            f"{fr.get('n_fit_ok')}/{fr.get('n_frontier', 0)}"
             if fr.get("n_fit_ok") is not None
             else ""
         ),
@@ -597,8 +602,10 @@ def render_markdown(card: Dict[str, Any]) -> str:
     for r in card["recommend"]:
         gp = " ⊕" if r.get("gap_probe") else ""
         lines.append(
-            f"| {r.get('design', '')}{gp} | `{r['id']}` | {_STATUS_GLYPH.get(r.get('status'), r.get('status'))}"
-            f" | {r.get('detected_design', '')} | `{r.get('top1_tag', r.get('error', ''))}` |"
+            f"| {r.get('design', '')}{gp} | `{r['id']}` | "
+            f"{_STATUS_GLYPH.get(r.get('status'), r.get('status'))}"
+            f" | {r.get('detected_design', '')} | "
+            f"`{r.get('top1_tag', r.get('error', ''))}` |"
         )
     if card.get("audit_dynamic"):
         lines += [
