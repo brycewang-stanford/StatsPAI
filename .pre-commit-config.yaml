@@ -27,12 +27,20 @@
 #      are byte-exact anchors from R / Stata / NIST — a whitespace "fix" would
 #      corrupt a numerical-parity baseline (JOSS-sensitive). Never let an
 #      auto-fixer rewrite them.
-#   2. The flake8 / mypy COUNT ratchets (scripts/quality_gate.py) are NOT
-#      mirrored here: they are interpreter/tool-version sensitive (local flake8
-#      7.x reports ~110 more than CI's pinned 6.1.0), so a local ratchet would
-#      red even when CI is green. They live only in CI's pinned canonical env.
-#      The pinned flake8 hook below (rev 6.1.0, hard-error select) is the
-#      version-stable subset that is safe to run locally.
+#   2. The mypy COUNT ratchet (scripts/quality_gate.py) is NOT mirrored here:
+#      it depends on which third-party packages are installed and takes
+#      minutes. It lives only in CI's pinned canonical env.
+#      The flake8 COUNT ratchet IS mirrored, at pre-push (hook
+#      ``flake8-count`` below), since 2026-10-03. It used to be CI-only for
+#      the same reason, and the result was that nobody saw a long line
+#      locally: main went from 929 to 1120 in a week and the gate, which
+#      fails before mypy and pytest run, kept CI from testing anything from
+#      09-28 to 10-03. The day it was brought back to 855, a push added 15
+#      long strings within the hour. CI now runs flake8 7.3 and a local 7.3
+#      reports the same count (1120 and 855 were both read identically on
+#      both sides). If your local flake8 disagrees with CI, align the version
+#      (``pip install "flake8==7.3.0"``) instead of skipping the hook.
+#      The pinned flake8 pre-commit hook below (hard-error select) stays.
 
 default_install_hook_types: [pre-commit, pre-push]
 
@@ -174,6 +182,14 @@ repos:
       - id: guides-packaged-sync
         name: packaged estimator-choice guides == docs/guides (sp.decision_guide / statspai://guide)
         entry: python3 scripts/sync_guides.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: flake8-count
+        name: quality_gate flake8 (violation-count ratchet, same as CI)
+        entry: python3 scripts/quality_gate.py flake8
         language: system
         pass_filenames: false
         always_run: true

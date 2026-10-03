@@ -12,8 +12,8 @@ learners -- is the one the parity row exercised; and a row that pins the
 nothing about the HC3 standard error of the same coefficient.
 
 This module records, for the estimators listed in ``SCOPE_FUNCTIONS`` (the
-paper's validation suite and the event-study estimators added since), which configurations each artifact exercised and which outputs it
-compared. Every dimension has an enumerated domain; every row lists the
+paper's validation suite and the event-study estimators added since), which
+configurations each artifact exercised and which outputs it compared. Every dimension has an enumerated domain; every row lists the
 values it actually ran, never a wildcard. A dimension can be ignored only
 for an output that provably does not depend on it (the 2SLS point
 estimate does not depend on the covariance estimator), and the reason is
@@ -863,7 +863,8 @@ _add(
                     "small": _vals("true"),
                 },
                 _EST,
-                "absorbed Fuller(1) coefficient and kappa vs Stata ivreghdfe, fuller(1)",
+                "absorbed Fuller(1) coefficient and kappa vs Stata ivreghdfe, "
+                "fuller(1)",
                 "sp.iv(formula, data, absorb=[...], method='fuller')",
             ),
             _Row(
@@ -1730,7 +1731,8 @@ _add(
                     "agg_weights": _vals("estimation"),
                 },
                 _EST,
-                "weighted simple / event / group / calendar ATTs vs Stata jwdid [pw=] + estat on two real panels (1e-6)",
+                "weighted simple / event / group / calendar ATTs vs Stata jwdid [pw=] "
+                "+ estat on two real panels (1e-6)",
                 "sp.etwfe(panel, ..., weights=...)",
             ),
             _Row(
@@ -1746,7 +1748,9 @@ _add(
                     "agg_weights": _vals("estimation"),
                 },
                 ("se",),
-                "Stata's SEs are rebuilt to 1e-9 after sqrt((n - K)/(n - K_Stata)): reghdfe leaves the cohort levels nested in the unit cluster out of K, fixest counts them",
+                "Stata's SEs are rebuilt to 1e-9 after sqrt((n - K)/(n - K_Stata)): "
+                "reghdfe leaves the cohort levels nested in the unit cluster out of K, "
+                "fixest counts them",
                 "sp.etwfe(panel, ..., weights=...)",
             ),
             _Row(
@@ -1762,7 +1766,8 @@ _add(
                     "agg_weights": _vals("unit"),
                 },
                 _EST,
-                "weighted ATTs under R emfx's aggregation rule vs etwfe::emfx on the same two panels (1e-6)",
+                "weighted ATTs under R emfx's aggregation rule vs etwfe::emfx on the "
+                "same two panels (1e-6)",
                 "sp.etwfe(panel, ..., weights=...)",
             ),
             _Row(
@@ -1778,7 +1783,8 @@ _add(
                     "agg_weights": _vals("unit"),
                 },
                 ("se",),
-                "SEs within 1e-5 of etwfe::emfx; R's carry marginaleffects' finite-difference Jacobian noise (up to 3.3e-6)",
+                "SEs within 1e-5 of etwfe::emfx; R's carry marginaleffects' "
+                "finite-difference Jacobian noise (up to 3.3e-6)",
                 "sp.etwfe(panel, ..., weights=...)",
             ),
         ),
@@ -1861,7 +1867,8 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and event-time ATTs, estimates to 1e-10 and SEs to 1e-9; every hettype",
+                "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and "
+                "event-time ATTs, estimates to 1e-10 and SEs to 1e-9; every hettype",
                 "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
             ),
             _Row(
@@ -1879,7 +1886,9 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and event-time ATTs, estimates to 1e-10 and SEs to 1e-9; never-treated controls",
+                "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and "
+                "event-time ATTs, estimates to 1e-10 and SEs to 1e-9; never-treated "
+                "controls",
                 "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
             ),
             _Row(
@@ -1897,7 +1906,9 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and event-time ATTs, estimates to 1e-10 and SEs to 1e-9; with a categorical or continuous moderator, and per-level ATTs",
+                "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and "
+                "event-time ATTs, estimates to 1e-10 and SEs to 1e-9; with a "
+                "categorical or continuous moderator, and per-level ATTs",
                 "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
             ),
             _Row(
@@ -1915,7 +1926,9 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and event-time ATTs, estimates to 1e-10 and SEs to 1e-9; moderator with never-treated controls",
+                "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and "
+                "event-time ATTs, estimates to 1e-10 and SEs to 1e-9; moderator with "
+                "never-treated controls",
                 "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
             ),
             _Row(
@@ -1933,7 +1946,9 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST,
-                "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): link-scale estimates to 1e-9 and response-scale to 1e-6; every hettype",
+                "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): "
+                "link-scale estimates to 1e-9 and response-scale to 1e-6; every "
+                "hettype",
                 "sp.etwfe(panel, family='poisson', fe='unit', ...)",
             ),
             _Row(
@@ -1951,7 +1966,9 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST,
-                "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): link-scale estimates to 1e-9 and response-scale to 1e-6; never-treated controls",
+                "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): "
+                "link-scale estimates to 1e-9 and response-scale to 1e-6; "
+                "never-treated controls",
                 "sp.etwfe(panel, family='poisson', fe='unit', ...)",
             ),
             _Row(
@@ -1969,7 +1986,9 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST,
-                "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): link-scale estimates to 1e-9 and response-scale to 1e-6; with a categorical or continuous moderator, and per-level ATTs",
+                "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): "
+                "link-scale estimates to 1e-9 and response-scale to 1e-6; with a "
+                "categorical or continuous moderator, and per-level ATTs",
                 "sp.etwfe(panel, family='poisson', fe='unit', ...)",
             ),
             _Row(
@@ -1987,7 +2006,9 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST,
-                "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): link-scale estimates to 1e-9 and response-scale to 1e-6; moderator with never-treated controls",
+                "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): "
+                "link-scale estimates to 1e-9 and response-scale to 1e-6; moderator "
+                "with never-treated controls",
                 "sp.etwfe(panel, family='poisson', fe='unit', ...)",
             ),
             _Row(
@@ -2005,7 +2026,8 @@ _add(
                     "weights": _vals("none"),
                 },
                 _EST_SE,
-                "response-scale ATTs and SEs under response_se='margins' vs Stata jwdid estat (margins), SEs to 1e-6",
+                "response-scale ATTs and SEs under response_se='margins' vs Stata "
+                "jwdid estat (margins), SEs to 1e-6",
                 "sp.etwfe(panel, family='poisson', fe='unit', response_se='margins')",
             ),
             _Row(
@@ -2043,7 +2065,8 @@ _add(
                 },
                 _EST_SE,
                 "Poisson ETWFE on the link scale vs Stata jwdid, "
-                "method(ppmlhdfe): estimates to 1e-9, SEs to 1e-7; never-treated controls",
+                "method(ppmlhdfe): estimates to 1e-9, SEs to 1e-7; never-treated "
+                "controls",
                 "sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)",
             ),
             _Row(
@@ -2081,7 +2104,8 @@ _add(
                 },
                 _EST_SE,
                 "Poisson ETWFE on the link scale vs Stata jwdid, "
-                "method(ppmlhdfe): estimates to 1e-9, SEs to 1e-7; moderator, never-treated controls",
+                "method(ppmlhdfe): estimates to 1e-9, SEs to 1e-7; moderator, "
+                "never-treated controls",
                 "sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)",
             ),
         ),
@@ -3057,7 +3081,8 @@ def validation_scope(
             recovery_hint=(
                 "validation_scope covers these estimators: "
                 + ", ".join(SCOPE_FUNCTIONS)
-                + ". For other functions read sp.describe_function(name)['validation_notes']."
+                + ". For other functions read "
+                "sp.describe_function(name)['validation_notes']."
             ),
             diagnostics={"function": name},
         )
