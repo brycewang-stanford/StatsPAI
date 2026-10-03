@@ -831,6 +831,12 @@ TIER2_ROUND_TRIPS = [
 
 
 TIER3_ROUND_TRIPS = [
+    # Quantile regression — Stata's quantile() maps to sp.qreg's quantile=
+    (
+        "qreg y x1 x2, quantile(0.25)",
+        "qreg",
+        {"formula": "y ~ x1 + x2", "quantile": 0.25},
+    ),
     # Poisson HDFE — absorb is a "+"-joined string (sp.ppmlhdfe's real arg)
     (
         "ppmlhdfe trade gravity, absorb(orig dest year) cluster(orig)",
