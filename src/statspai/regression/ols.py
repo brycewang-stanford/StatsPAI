@@ -1557,7 +1557,7 @@ def regress(
 
     References
     ----------
-    [@newey1987simple]
+    [@newey1987simple],
     [@lazarus2018har]
 
     Examples

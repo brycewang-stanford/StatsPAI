@@ -1736,7 +1736,10 @@ class CausalForest(BaseModel):
         decay_exponent, max_depth
             Options of the ``"split"`` measure.
 
-        Returns a normalised importance (sums to 1).
+        Returns
+        -------
+        pandas.Series
+            Normalised importance, indexed by covariate (sums to 1).
         """
         if not self.fitted_:
             raise MethodIncompatibility(

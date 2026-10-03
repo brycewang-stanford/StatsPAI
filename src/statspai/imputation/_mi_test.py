@@ -129,7 +129,7 @@ def mi_test(
 
     References
     ----------
-    [@reiter2007small] [@barnard1999small] [@marchenko2009improved];
+    [@reiter2007small], [@barnard1999small], [@marchenko2009improved];
     Stata 18 [MI] manual, ``mi estimate`` methods and formulas.
     """
     method = str(method).lower()

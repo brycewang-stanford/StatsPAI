@@ -542,6 +542,12 @@ SURNAME_STOPWORDS = {
     "academic",
     "pubmed",
     "worldcat",
+    # Language names. A changelog entry about the README editions ("the
+    # English text moved to README_EN.md ... the published JOSS article
+    # (doi)") puts "English" inside the DOI's text window. Neither is an
+    # author surname in paper.bib.
+    "english",
+    "chinese",
 }
 
 

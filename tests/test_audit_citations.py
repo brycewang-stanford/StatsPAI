@@ -241,6 +241,13 @@ def test_q_network_in_stopwords():
     assert "q-learning" in ac.SURNAME_STOPWORDS
 
 
+def test_language_names_in_stopwords():
+    """'the English text moved to README_EN.md ... (doi)' read 'English' as
+    a phantom author of the JOSS article and kept the audit red."""
+    assert "english" in ac.SURNAME_STOPWORDS
+    assert "chinese" in ac.SURNAME_STOPWORDS
+
+
 def test_common_ml_acronyms_in_stopwords():
     for tok in ("dqn", "ppo", "a3c", "trpo", "actor-critic"):
         assert tok in ac.SURNAME_STOPWORDS, f"{tok!r} should be a stopword"

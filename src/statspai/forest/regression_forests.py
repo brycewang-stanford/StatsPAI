@@ -244,7 +244,7 @@ def regression_forest(
     ----------
     y : str or array-like
         Outcome.
-    (see below for the shared forest options)
+        (see below for the shared forest options)
 
     Returns
     -------
@@ -312,7 +312,7 @@ def regression_forest(
 
 
 regression_forest.__doc__ = (regression_forest.__doc__ or "").replace(
-    "    (see below for the shared forest options)\n", _COMMON_DOC
+    "        (see below for the shared forest options)\n", _COMMON_DOC
 )
 
 
@@ -366,8 +366,8 @@ def multi_regression_forest(
     ----------
     y : list of str or 2-D array
         Outcomes.
-    (see below for the shared forest options; ``ci_group_size`` defaults
-    to 1 as grf does not report variances here)
+        (see below for the shared forest options; ``ci_group_size`` defaults
+        to 1 as grf does not report variances here)
 
     Returns
     -------
@@ -419,8 +419,8 @@ def multi_regression_forest(
 
 
 multi_regression_forest.__doc__ = (multi_regression_forest.__doc__ or "").replace(
-    "    (see below for the shared forest options; ``ci_group_size`` defaults\n"
-    "    to 1 as grf does not report variances here)\n",
+    "        (see below for the shared forest options; ``ci_group_size`` defaults\n"
+    "        to 1 as grf does not report variances here)\n",
     _COMMON_DOC,
 )
 
@@ -460,7 +460,7 @@ def probability_forest(
     ----------
     y : str or array-like
         Class labels (any hashable values; classes are sorted).
-    (see below for the shared forest options)
+        (see below for the shared forest options)
 
     Returns
     -------
@@ -533,7 +533,7 @@ def probability_forest(
 
 
 probability_forest.__doc__ = (probability_forest.__doc__ or "").replace(
-    "    (see below for the shared forest options)\n", _COMMON_DOC
+    "        (see below for the shared forest options)\n", _COMMON_DOC
 )
 
 
@@ -594,7 +594,7 @@ def quantile_forest(
         Use ordinary regression splits instead (grf
         ``regression.splitting``; the quantile regression forest of
         Meinshausen 2006).
-    (see below for the shared forest options)
+        (see below for the shared forest options)
 
     Returns
     -------
@@ -672,7 +672,7 @@ def quantile_forest(
 
 
 quantile_forest.__doc__ = (quantile_forest.__doc__ or "").replace(
-    "    (see below for the shared forest options)\n", _COMMON_DOC
+    "        (see below for the shared forest options)\n", _COMMON_DOC
 )
 
 __all__ = [

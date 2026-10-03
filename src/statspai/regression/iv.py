@@ -1367,16 +1367,18 @@ class IVRegression(BaseModel):
         cluster : str, list of str, Series or DataFrame, optional
             Clustering dimension(s). More than one selects multiway
             (Cameron-Gelbach-Miller) clustering.
-        weights : str or array-like, optional
-            Analytic regression weights (Stata ``[aw=]``): a column name, or
-            one strictly positive value per estimation-sample row. Every
-            estimator runs on the ``sqrt(w)``-scaled design, so point
-            estimates, classical / robust / cluster SEs and the first stage
-            are the weighted ones ``ivregress ... [aw=w]`` reports.
-        alpha : float, default 0.05
-            Significance level of the reported confidence intervals.
-        gmm_vcov : str, default 'sandwich'
-            ``method='gmm'`` only.
+        **kwargs
+            Three further options:
+
+            - ``weights`` (str or array-like, optional): analytic regression
+              weights (Stata ``[aw=]``), a column name or one strictly
+              positive value per estimation-sample row. Every estimator runs
+              on the ``sqrt(w)``-scaled design, so point estimates,
+              classical / robust / cluster SEs and the first stage are the
+              weighted ones ``ivregress ... [aw=w]`` reports.
+            - ``alpha`` (float, default 0.05): significance level of the
+              reported confidence intervals.
+            - ``gmm_vcov`` (str, default 'sandwich'): ``method='gmm'`` only.
 
         Returns
         -------

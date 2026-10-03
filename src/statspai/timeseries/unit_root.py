@@ -318,10 +318,10 @@ def unitroot(
 
     References
     ----------
-    [@dickey1979distribution]
-    [@said1984testing]
-    [@elliott1996efficient]
-    [@mackinnon1994approximate]
+    [@dickey1979distribution],
+    [@said1984testing],
+    [@elliott1996efficient],
+    [@mackinnon1994approximate],
     [@schwert1989tests]
     """
     test_key = str(test).lower().replace("-", "").replace("_", "")
