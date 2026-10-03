@@ -52,7 +52,7 @@ StatsPAI 面向那些原本需要在 Stata、R 和 Python 之间来回切换的�
 pip install statspai
 ```
 
-支持 Python 3.9 – 3.13。核心安装已包含估计、诊断、内置数据集，以及 `.xlsx` / `.docx` / LaTeX 导出。画图和较重的后端是可选 extras：
+支持 Python 3.10 – 3.13（Linux 与 macOS）。核心安装已包含估计、诊断、内置数据集，以及 `.xlsx` / `.docx` / LaTeX 导出。画图和较重的后端是可选 extras：
 
 | Extra | 增加 | 用途 |
 | --- | --- | --- |

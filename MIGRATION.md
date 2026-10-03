@@ -5,6 +5,22 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-python310"></a>
+
+## Unreleased: Python 3.10 or later is required
+
+`pip install statspai` on Python 3.9 now resolves to the last release that
+supported it (1.36.0). Upgrade the interpreter to get later versions. There
+was no deprecation period: 3.9 has been end-of-life since October 2025, and
+the functions built on `pyfixest` (`sp.feols`, `sp.xtevent` with its default
+engine, `sp.ssc`) already could not run on it.
+
+Windows users: the package installs as before, but its tests are not run on
+Windows for now, and the MCP server's stdio transport failed its tests there
+on 2026-10-03. See `docs/dev/2026-10-04-windows-test-gaps.md`.
+
+---
+
 <a id="oct2026-dta-widths"></a>
 
 ## Unreleased: ⚠️ labels on `.a` ... `.z` move to `attrs['_missing_labels']`; `sp.tab` prints value labels

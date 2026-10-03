@@ -17,7 +17,7 @@
 | | |
 | --- | --- |
 | 版本 | 以 [`pyproject.toml`](pyproject.toml) / `sp.__version__` 为准（不在此处写死，2026-09 审查发现此行停在 1.24.0） |
-| Python | 3.9 – 3.13 |
+| Python | 3.10 – 3.13（2026-10-04 起不再支持 3.9；Windows 暂不在测试矩阵里，见 `docs/dev/2026-10-04-windows-test-gaps.md`） |
 | License | MIT |
 | 作者 | Biaoyue (Bryce) Wang · <brycew6m@stanford.edu> · CoPaper.AI / Stanford REAP |
 | PyPI | <https://pypi.org/project/StatsPAI/> |

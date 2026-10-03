@@ -1,6 +1,6 @@
 """Every reviewer-facing harness script compiles on the running Python.
 
-The package supports Python 3.9-3.13, and the JSS reproduction lock pins
+The package supports Python 3.10-3.13, and the JSS reproduction lock pins
 3.10. ``tests/r_parity/verify_reproduce.py`` -- the Tier 2 entry point --
 once used a backslash inside an f-string expression, which only Python 3.12
 accepts, so the documented R reproduction path died with a ``SyntaxError``

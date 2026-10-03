@@ -21,7 +21,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -39,7 +38,7 @@ keywords = [
     "tmle", "dragonnet", "causal-discovery", "policy-learning",
     "conformal-inference", "bayesian-causal-forest",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.20.0",
     "pandas>=1.3.0",
@@ -91,12 +90,7 @@ neural = [
     "torch>=2.0.0",
 ]
 fixest = [
-    # pyfixest >= 0.25 requires Python >= 3.10, so an unmarked pin makes
-    # ``pip install statspai[fixest]`` unresolvable on the 3.9 leg we still
-    # support. Mark it: on 3.9 the extra installs nothing and every
-    # pyfixest-backed test skips via ``pytest.importorskip``; on 3.10+ it
-    # installs normally and those tests run.
-    "pyfixest>=0.25.0; python_version >= '3.10'",
+    "pyfixest>=0.25.0",
 ]
 plotting = [
     "matplotlib>=3.5.0",
@@ -192,7 +186,7 @@ where = ["src"]
 
 [tool.black]
 line-length = 88
-target-version = ['py39']
+target-version = ['py310']
 # Frozen test fixtures/contracts — black must NOT reformat these or their guards
 # break: tests/r_parity and tests/stata_parity files are SHA-locked by
 # scripts/tier_a_fixture_lock.py, and tests/external_parity/*.py have their
@@ -252,12 +246,8 @@ markers = [
 ]
 
 [tool.mypy]
-# Match the interpreter the CI gate runs on (ubuntu + 3.10), not the 3.9 floor
-# in ``requires-python``. Installed third-party packages target the running
-# interpreter; under ``python_version = "3.9"`` mypy hit ``match`` in
-# ``coverage/debug.py``, reported a blocking [syntax] error and never
-# type-checked src/statspai at all. 3.9 compatibility is enforced by the 3.9
-# leg of the test matrix, which actually imports and runs the code.
+# The interpreter the CI gate runs on (ubuntu + 3.10), which is also the
+# floor in ``requires-python``.
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true

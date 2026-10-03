@@ -164,11 +164,26 @@ def test_frozen_python_draws_are_current():
     Refits the first two 2,000-tree seeds; an engine change that moves
     them means the fixture must be regenerated (and the conclusions
     re-checked), not that the tolerance should widen.
+
+    The fixture was generated on macOS arm64, and a forest is reproducible
+    to the bit only on the platform that grew it: on Linux x86-64 the same
+    seed gives 0.98356 against the frozen 0.98396, because near-tied split
+    scores resolve differently in the last bits. That gap is 0.09 of the
+    seed-to-seed standard deviation the study measures (0.0044 at 2,000
+    trees), so it leaves the study's conclusions alone, but it is far
+    outside 1e-12 and failed the scheduled Linux run from 2026-09-28. So:
+    to the bit on the generating platform, and within half a seed-to-seed
+    SD elsewhere. An engine change moves a same-seed draw by about one SD.
     """
+    import platform
+
     import statspai as sp
 
     py, _ = _load("grf_data")
     df = pd.read_csv(_FIX / "grf_data.csv")
+    same_platform = (platform.system(), platform.machine()) == ("Darwin", "arm64")
+    seed_sd = float(np.std([r["ate"] for r in py["trees_2000"]], ddof=1))
+    tol = 1e-12 if same_platform else 0.5 * seed_sd
     for row in py["trees_2000"][:2]:
         cf = sp.causal_forest(
             "y ~ W | X1 + X2 + X3 + X4 + X5",
@@ -178,4 +193,4 @@ def test_frozen_python_draws_are_current():
             discrete_treatment=True,
         )
         ate = cf.average_treatment_effect(target_sample="all")
-        assert float(ate["estimate"]) == pytest.approx(row["ate"], abs=1e-12)
+        assert float(ate["estimate"]) == pytest.approx(row["ate"], abs=tol)

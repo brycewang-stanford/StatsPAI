@@ -4,6 +4,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Python 3.10 is the floor; Windows is untested for now
+
+#### Changed
+
+- **Python 3.9 is no longer supported** (`requires-python = ">=3.10"`).
+  3.9 reached end of life in October 2025, and `pyfixest` and current SciPy
+  no longer install on it, so `sp.xtevent` (default engine), `sp.ssc` and the
+  TWFE arm of the DiD calibrated simulation did not run there. A full test
+  run on 3.9 failed 47 tests, 45 of them for that reason. The `fixest` extra
+  loses its `python_version >= '3.10'` marker.
+- **Windows is out of the test matrix for now.** A full run on Windows
+  failed about 18 tests that pass on Linux and macOS, most of them the MCP
+  server's stdio tests. The project has no Windows machine to debug them.
+  The package still installs on Windows and the Rust backend's wheels are
+  still built for it, but nothing is verified there until the list in
+  `docs/dev/2026-10-04-windows-test-gaps.md` is cleared.
+
 ### Value labels, in use
 
 Variable labels already reached `df.attrs` and went back out to .dta.

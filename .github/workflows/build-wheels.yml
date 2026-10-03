@@ -85,26 +85,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Linux — manylinux_2_17 covers Python >=3.9 on most distros;
+          # Linux — manylinux_2_17 covers Python >=3.10 on most distros;
           # musllinux covers Alpine/containers where glibc is absent.
           - os: ubuntu-latest
             arch: x86_64
-            cibw_build: "cp39-manylinux_x86_64 cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64 cp39-musllinux_x86_64 cp310-musllinux_x86_64 cp311-musllinux_x86_64 cp312-musllinux_x86_64 cp313-musllinux_x86_64"
+            cibw_build: "cp310-manylinux_x86_64 cp311-manylinux_x86_64 cp312-manylinux_x86_64 cp313-manylinux_x86_64 cp310-musllinux_x86_64 cp311-musllinux_x86_64 cp312-musllinux_x86_64 cp313-musllinux_x86_64"
           - os: ubuntu-latest
             arch: aarch64
-            cibw_build: "cp39-manylinux_aarch64 cp310-manylinux_aarch64 cp311-manylinux_aarch64 cp312-manylinux_aarch64 cp313-manylinux_aarch64"
+            cibw_build: "cp310-manylinux_aarch64 cp311-manylinux_aarch64 cp312-manylinux_aarch64 cp313-manylinux_aarch64"
           # macOS split — macos-13 runs x86_64 natively; macos-14 is
           # Apple-silicon and only builds arm64 wheels.
           - os: macos-13
             arch: x86_64
-            cibw_build: "cp39-macosx_x86_64 cp310-macosx_x86_64 cp311-macosx_x86_64 cp312-macosx_x86_64 cp313-macosx_x86_64"
+            cibw_build: "cp310-macosx_x86_64 cp311-macosx_x86_64 cp312-macosx_x86_64 cp313-macosx_x86_64"
           - os: macos-14
             arch: arm64
-            cibw_build: "cp39-macosx_arm64 cp310-macosx_arm64 cp311-macosx_arm64 cp312-macosx_arm64 cp313-macosx_arm64"
+            cibw_build: "cp310-macosx_arm64 cp311-macosx_arm64 cp312-macosx_arm64 cp313-macosx_arm64"
           # Windows — x86_64 only.
           - os: windows-latest
             arch: AMD64
-            cibw_build: "cp39-win_amd64 cp310-win_amd64 cp311-win_amd64 cp312-win_amd64 cp313-win_amd64"
+            cibw_build: "cp310-win_amd64 cp311-win_amd64 cp312-win_amd64 cp313-win_amd64"
 
     env:
       CIBW_ARCHS: ${{ matrix.arch }}

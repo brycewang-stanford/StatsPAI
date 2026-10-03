@@ -72,10 +72,18 @@ jobs:
       - id: compute
         shell: bash
         run: |
+          # Full matrix: Linux and macOS on Python 3.10 to 3.13.
+          # Windows is not in it for now (2026-10-04). A full run there
+          # failed about 18 tests the other platforms pass (the MCP stdio
+          # subprocess tests time out, two assertions hard-code POSIX paths,
+          # two parity checks miss by a few ulp), nobody on the project has a
+          # Windows machine to debug them, and a Windows leg takes five
+          # hours. The list is in docs/dev/2026-10-04-windows-test-gaps.md;
+          # put the legs back when it is empty.
           if [ "$EVENT_NAME" = "release" ] ||
              [ "$TEST_SCOPE" = "full" ] ||
              [ "$PUBLISH_TARGET" != "none" ]; then
-            echo 'matrix={"include":[{"os":"ubuntu-latest","python-version":"3.9","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.10","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.11","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.12","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.13","test_scope":"full"},{"os":"windows-latest","python-version":"3.10","test_scope":"full"},{"os":"windows-latest","python-version":"3.11","test_scope":"full"},{"os":"windows-latest","python-version":"3.12","test_scope":"full"},{"os":"windows-latest","python-version":"3.13","test_scope":"full"},{"os":"macos-latest","python-version":"3.10","test_scope":"full"},{"os":"macos-latest","python-version":"3.11","test_scope":"full"},{"os":"macos-latest","python-version":"3.12","test_scope":"full"},{"os":"macos-latest","python-version":"3.13","test_scope":"full"}]}' >> "$GITHUB_OUTPUT"
+            echo 'matrix={"include":[{"os":"ubuntu-latest","python-version":"3.10","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.11","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.12","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.13","test_scope":"full"},{"os":"macos-latest","python-version":"3.10","test_scope":"full"},{"os":"macos-latest","python-version":"3.11","test_scope":"full"},{"os":"macos-latest","python-version":"3.12","test_scope":"full"},{"os":"macos-latest","python-version":"3.13","test_scope":"full"}]}' >> "$GITHUB_OUTPUT"
           else
             echo 'matrix={"include":[{"os":"ubuntu-latest","python-version":"3.10","test_scope":"fast"}]}' >> "$GITHUB_OUTPUT"
           fi
@@ -108,9 +116,7 @@ jobs:
       # HDFE surface — sp.feols / sp.feglm / sp.fepois, the Stata/R
       # translators that target them, and the castle / SASP / iv-hdfe
       # parity pins — is actually EXERCISED cross-platform rather than
-      # skipped. It is environment-marked to python>=3.10 in pyproject
-      # (pyfixest ships no 3.9 wheel), so the 3.9 leg resolves the extra
-      # to nothing and those tests skip there; every other leg runs them.
+      # skipped.
       # ``io`` brings pyreadstat. ``sp.read_data`` picks its .dta reader by
       # whether that package is importable, and without it here every
       # pyreadstat-path test skipped on CI and locally alike: the two readers

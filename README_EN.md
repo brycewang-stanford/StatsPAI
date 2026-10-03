@@ -77,7 +77,7 @@ on a number for publication.
 pip install statspai
 ```
 
-Python 3.9 – 3.13. The core install covers estimation, diagnostics, the bundled
+Python 3.10 – 3.13 on Linux and macOS. The core install covers estimation, diagnostics, the bundled
 datasets, and `.xlsx` / `.docx` / LaTeX export. Plotting and heavier backends
 are optional extras:
 
