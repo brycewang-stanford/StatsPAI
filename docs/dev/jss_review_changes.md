@@ -31,6 +31,31 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after `sp.write_data` was exported and the matched-frame helper changed
+
+- **Commits.** `bed80f3f` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` for Track A modules
+  03, 13, 15, 24, 25, 26, 27, 53, 65 and 66, and
+  `tests/orig_parity/results/_implementation_trace.json` for original-data
+  modules 04, 04b and 08.
+- **Reason.** The traces bind SHA-256 digests of every source file on each
+  module's estimation path. `a6465c4a` edited `src/statspai/__init__.py`
+  (the `sp.write_data` export), which those Track A modules and module 08
+  execute lazily while estimating, and earlier commits edited
+  `src/statspai/matching/_matched_frame.py`, which original-data modules 04
+  and 04b execute (`824d202d`, `7fc9ce22`, `ac01445f`; that helper builds
+  the matched-sample frame, and the Track A side of those commits was
+  re-traced in the entry below). This entry re-records traces only: no
+  committed result file was regenerated or edited.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` changed; every other field of all 13 modules was compared with
+  the previous file and is identical, so the native / port / third-party
+  census and the original-data ledger's provenance marks are unchanged. No
+  estimate, standard error or table cell is read from these files.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded for 11, 35 and 69 after a matching bookkeeping fix and the panel vce check
 
 - **Commits.** `ac01445f` (module 11), `25aeed06` (modules 35 and 69).
