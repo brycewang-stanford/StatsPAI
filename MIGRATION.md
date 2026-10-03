@@ -66,6 +66,19 @@ Python calls to `sp.read_data` are unaffected.
 
 ---
 
+<a id="oct2026-feols-jax-ssc"></a>
+
+## Unreleased: ⚠️ `sp.fast.feols_jax` standard errors follow `sp.fast.feols`; `ssc=` added
+
+`sp.fast.feols_jax` now uses the same small-sample convention as
+`sp.fast.feols` (R `fixest` defaults). Before, the two backends disagreed:
+on a panel with unit effects clustered above the unit, the JAX backend's
+clustered standard errors were 8% larger. Coefficients do not change.
+Pass `ssc='statspai'` for the previous numbers. Results fitted on a GPU
+with clustered standard errors should be refit or rescaled.
+
+---
+
 <a id="oct2026-fast-fepois-ssc"></a>
 
 ## Unreleased: ⚠️ `sp.fast.fepois` standard errors follow fixest; `ssc=` added

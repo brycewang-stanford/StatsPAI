@@ -43,7 +43,7 @@ from ._validation import nonnegative_finite_float as _nonnegative_finite_float
 from ._validation import open_unit_float as _open_unit_float
 from ._validation import positive_int as _positive_int
 from ._validation import positive_weight_mass as _positive_weight_mass
-from .feols import FeolsResult
+from .feols import FeolsResult, _fixest_cluster_fe_dof, _fixest_fe_dof
 
 # ---------------------------------------------------------------------------
 # JAX availability + helpers (mirrors jax_backend.py's policy)
@@ -218,6 +218,7 @@ def feols_jax(
     fe_tol: float = 1e-10,
     fe_maxiter: int = 1_000,
     dtype: str = "float64",
+    ssc: str = "fixest",
 ) -> FeolsResult:
     """JAX-backed OLS / WLS with high-dimensional fixed effects.
 
@@ -235,6 +236,11 @@ def feols_jax(
         Working precision on the JAX device. ``"float32"`` is roughly
         2x faster on CUDA and 32x on TPU but trades ~1 ulp of
         precision; only flip it if the parity drift is acceptable.
+    ssc : {"fixest", "statspai"}, default "fixest"
+        Small-sample convention, as in :func:`statspai.fast.feols`:
+        ``"fixest"`` reproduces R ``fixest`` defaults; ``"statspai"`` is
+        the count this function used through 1.36.0
+        (``fe_dof = Σ(G_k - 1)``, every absorbed level charged in CR1).
 
     Returns
     -------
@@ -269,6 +275,11 @@ def feols_jax(
     if dtype not in ("float64", "float32"):
         raise MethodIncompatibility(
             f"feols_jax: dtype={dtype!r}; supported: 'float64' or 'float32'"
+        )
+    if ssc not in ("fixest", "statspai"):
+        raise MethodIncompatibility(
+            f"feols_jax: ssc={ssc!r}; supported: 'fixest' or 'statspai'",
+            diagnostics={"ssc": ssc},
         )
     fe_maxiter = _positive_int(
         fe_maxiter,
@@ -496,6 +507,18 @@ def feols_jax(
     _require_full_rank("feols_jax", XtWX_inv, np_dtype)
     r_squared_within = 1.0 - rss / max(tss, 1e-30)
 
+    # Same small-sample convention as sp.fast.feols, so the two backends
+    # return the same standard errors (see ``ssc`` there). Until 1.36.0
+    # this path kept the pre-1.31 count while the result said 'fixest'.
+    if ssc == "fixest":
+        fe_dof = _fixest_fe_dof(fe_card)
+        cr1_extra_df = (
+            _fixest_cluster_fe_dof(data, fe_terms, fe_card, keep_mask, cluster)
+            if vcov == "cr1"
+            else fe_dof
+        )
+    else:
+        cr1_extra_df = fe_dof
     df_resid = n - p - fe_dof
 
     if vcov == "iid":
@@ -515,7 +538,7 @@ def feols_jax(
             weights=w,
             bread=XtWX_inv,
             type="cr1",
-            extra_df=fe_dof,
+            extra_df=cr1_extra_df,
         )
 
     return FeolsResult(
@@ -535,6 +558,7 @@ def feols_jax(
         vcov_type=vcov,
         cluster_var=cluster,
         backend="statspai-jax",
+        ssc=ssc,
     )
 
 

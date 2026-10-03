@@ -87,6 +87,22 @@ numbers and refuses no command. 324 numbers differ for documented reasons,
   predictors and with 9 units and 12 predictors
   (`test_synth_regression_v_stata.py`).
 
+### `sp.fast.feols_jax`: the same standard errors as `sp.fast.feols`
+
+#### ⚠️ Correctness
+
+- **`sp.fast.feols_jax` returned different standard errors from
+  `sp.fast.feols` on the same call.** When the default of `sp.fast.feols`
+  moved to fixest's small-sample convention in 1.31, the JAX backend kept
+  the old count, and its result still reported `ssc='fixest'`. Clustered
+  standard errors were 8% above fixest's (and above the NumPy backend's)
+  when the absorbed effects were nested in the clusters; `iid` and `hc1`
+  were 5.7e-4 low. It now takes `ssc=` (default `'fixest'`), agrees with
+  fixest 0.14 on the same 21 configurations to 6.3e-10, and reports the
+  convention it used. `ssc='statspai'` returns the old numbers.
+  Coefficients are unchanged. `sp.fast.feols_jax_bootstrap` does not use
+  a small-sample factor and is unchanged. See `MIGRATION.md`.
+
 ### `sp.fast.fepois`: fixest's small-sample factors, and weights in the HC1 score
 
 #### ⚠️ Correctness

@@ -116,3 +116,40 @@ def test_hdfe_ols_and_feols_agree_with_the_same_reference(ref, data):
                 assert float(fit.std_errors[name]) == pytest.approx(
                     cell[f"se_{name}"], rel=RTOL
                 )
+
+
+# ── the JAX backend returns the same standard errors ────────────────────── #
+
+
+def _all_cells(ref):
+    for key in sorted(k for k in ref if k != "_meta"):
+        if key.startswith("layout_"):
+            body = key[len("layout_") :]
+            cluster = body.rsplit("_", 1)[1]
+            fe = body[: -(len(cluster) + 1)].replace("_", " + ")
+            yield key, f"y ~ x1 + x2 | {fe}", None, dict(vcov="cr1", cluster=cluster)
+        else:
+            fe, weights, vcov = key.split("_")
+            yield key, FORMULAS[fe], ("w" if weights == "set" else None), VCOV[vcov]
+
+
+def test_jax_backend_matches_fixest_and_the_numpy_backend(ref, data):
+    """``sp.fast.feols_jax`` on all 21 cells.
+
+    Through 1.36.0 this backend kept the pre-1.31 count while its result
+    said ``ssc='fixest'``: clustered standard errors 8% above fixest's and
+    above ``sp.fast.feols`` on the same call.
+    """
+    pytest.importorskip("jax")
+    for key, formula, weights, kw in _all_cells(ref):
+        fit = sp.fast.feols_jax(formula, data, weights=weights, **kw)
+        _assert_matches(fit, ref[key])
+        base = sp.fast.feols(formula, data, weights=weights, **kw)
+        assert fit.df_resid == base.df_resid, key
+        assert fit.ssc == "fixest"
+    old = sp.fast.feols_jax(
+        FORMULAS["one"], data, vcov="cr1", cluster="g", ssc="statspai"
+    )
+    _, se_old = _values(old)
+    assert se_old["x1"] / ref["one_none_cluster"]["se_x1"] > 1.07
+    assert old.ssc == "statspai"

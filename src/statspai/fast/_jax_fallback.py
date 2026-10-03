@@ -31,6 +31,7 @@ def feols_jax(
     fe_tol: float = 1e-10,
     fe_maxiter: int = 1_000,
     dtype: str = "float64",
+    ssc: str = "fixest",
 ) -> FeolsResult:
     raise ImportError(
         "jax is not installed; pip install jax jaxlib to enable "
