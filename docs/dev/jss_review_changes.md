@@ -31,6 +31,22 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 03, 15, 47 and 53 after `sp.fast.fepois` took fixest's small-sample factors
+
+- **Commits.** `01260115`.
+- **Reason.** `sp.fast.fepois` gained `ssc=` (default `'fixest'`) and a
+  weighted `hc1` score. The edit is in `src/statspai/fast/fepois.py`,
+  which the four modules import through `statspai.fast`.
+- **Effect on the paper.** None. No Track A module calls
+  `sp.fast.fepois`: the Poisson modules (37, 47, 58, 67) run
+  `sp.ppmlhdfe` / `sp.fepois`, which were not touched. The Python result
+  files of 03, 15, 17, 37, 47, 58 and 67 are byte-identical on the parent
+  tree and on the fixed tree. Only `exercised_sources` digests and
+  `seconds` changed in the trace.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `src/statspai/_parity_index.json`
+
 ### 2026-10-03 — call traces re-recorded for 03, 15, 47 and 53 after the `sp.fast.feols` degrees-of-freedom count for one absorbed dimension
 
 - **Commits.** `67492d1a`.
