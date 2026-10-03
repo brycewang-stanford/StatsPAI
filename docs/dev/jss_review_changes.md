@@ -31,6 +31,17 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 17 and 38 after a docstring edit in the ETWFE module
+
+- **Commits.** `794e1a9f`.
+- **Reason.** The `controls` entry of the `sp.etwfe` docstring was
+  rewritten in `src/statspai/did/wooldridge_did.py`, which is on the
+  estimation path of modules 17 and 38. No executable line changed.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` changed in the trace.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded for 37, 42, 47 and 58 after weighted Poisson fits took their weights into the covariance
 
 - **Commits.** `ddceeee9`.
