@@ -5,7 +5,8 @@ Equivalent to Stata's ``tab var1 var2, chi2 exact``.
 Exports to text, LaTeX, Excel, Word.
 """
 
-from typing import Optional, Any, Union
+from typing import Any, Optional, Union
+
 import pandas as pd
 from scipy import stats
 
@@ -19,6 +20,7 @@ def tab(
     margins: bool = True,
     normalize: Optional[str] = None,
     title: Optional[str] = None,
+    labels: bool = True,
 ) -> Union[str, pd.DataFrame]:
     """
     Cross-tabulation with chi-squared / Fisher's exact test.
@@ -41,6 +43,12 @@ def tab(
         'row', 'col', 'all', or None. Normalize to proportions.
     title : str, optional
         Table title.
+    labels : bool, default True
+        Show value labels (``data.attrs['_value_labels']``, as attached by
+        ``sp.read_data`` on a .dta file or by ``sp.label_values``) in place
+        of the codes, as Stata's ``tabulate`` does.  The categories stay in
+        the order of the codes.  ``False`` is Stata's ``nolabel``.  Without
+        value labels the table is the same either way.
 
     Returns
     -------
@@ -64,7 +72,15 @@ def tab(
     True
     >>> _ = sp.tab(df, 'treatment')  # one-way frequency
     >>> sp.tab(df, 'treatment', 'outcome', output='crosstab.docx')  # doctest: +SKIP
+
+    Value labels are used when the data carry them:
+
+    >>> sp.label_values(df, 'treatment', {0: 'control', 1: 'treated'})
+    >>> list(sp.tab(df, 'treatment', output='dataframe').index)
+    ['control', 'treated', 'Total']
     """
+    if labels:
+        data = _with_value_labels(data, [row] if col is None else [row, col])
     if col is None:
         return _one_way_tab(data, row, output, title)
 
@@ -112,10 +128,34 @@ def tab(
     return _format_tab(ct_display, test_result, output, title)
 
 
+def _with_value_labels(data: pd.DataFrame, columns: list) -> pd.DataFrame:
+    """``data`` with the value-labelled ``columns`` decoded, else ``data``."""
+    from ..utils.labels import _decode_series
+
+    value_labels = getattr(data, "attrs", {}).get("_value_labels") or {}
+    todo = [
+        c
+        for c in dict.fromkeys(columns)
+        if value_labels.get(c) and pd.api.types.is_numeric_dtype(data[c])
+    ]
+    if not todo:
+        return data
+    out = data[list(dict.fromkeys(columns))].copy()
+    for c in todo:
+        decoded = _decode_series(data[c], value_labels[c])
+        # only the categories that occur, as a table of the codes would show
+        out[c] = decoded.cat.remove_unused_categories()
+    return out
+
+
 def _one_way_tab(data: Any, var: str, output: str, title: Optional[str]) -> Any:
     """One-way frequency table."""
     counts = data[var].value_counts().sort_index()
     pcts = data[var].value_counts(normalize=True).sort_index()
+    if isinstance(counts.index, pd.CategoricalIndex):
+        # plain labels, so that the Total row can be appended
+        counts.index = counts.index.astype(object)
+        pcts.index = pcts.index.astype(object)
 
     df = pd.DataFrame(
         {
@@ -241,17 +281,17 @@ def _tab_to_excel(
 def _tab_to_word(df: Any, test_result: Any, filename: str, title: Optional[str]) -> Any:
     try:
         from docx import Document
-        from docx.shared import Pt
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
         from docx.enum.table import WD_TABLE_ALIGNMENT
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.shared import Pt
     except ImportError:
         raise ImportError("python-docx required. Install: pip install python-docx")
 
     from ._aer_style import (
-        apply_word_document_defaults,
-        apply_word_booktab_rules,
-        style_word_table_typography,
         add_word_notes_paragraph,
+        apply_word_booktab_rules,
+        apply_word_document_defaults,
+        style_word_table_typography,
     )
 
     doc = Document()

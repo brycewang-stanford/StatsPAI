@@ -51,7 +51,7 @@ _DESCRIPTIVE_TOOLS = frozenset(
 _SKIPPED = re.compile(
     r"\s*(?:set\s+(?:more|linesize|matsize|scheme|graphics|type\s+double)|"
     r"log\s|cap(?:ture)?\s+log\s|label\s|format\s|describe\b|desc\b|"
-    r"list\b|browse\b|notes?\b|version\s|clear\s+(?:all|matrix|mata)\s*$|"
+    r"list\b|browse\b|notes?\b|codebook\b|labelbook\b|version\s|clear\s+(?:all|matrix|mata)\s*$|"
     r"macro\s+drop|eststo\s+clear|graph\s+(?:export|save)|"
     r"return\s+list\b|ereturn\s+list\b|sysdir\b|help\s|xtdes(?:cribe)?\b|"
     r"irf\s+(?:create|set|drop|describe)\b|"
@@ -499,6 +499,17 @@ class StataSession:
                 if keys and not self._steps.data.empty:
                     self._steps._sort(keys, None)
             return False
+        if self._steps is not None:
+            try:
+                if self._steps.apply_label(line):
+                    return False
+            except StataExprError as exc:
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: {exc}.",
+                    recovery_hint="Attach the labels in Python with "
+                    "sp.label_var / sp.label_values and drop the line.",
+                    diagnostics={"command": line},
+                ) from exc
         if _SKIPPED.match(line):
             # session settings and output-only commands: nothing to run
             return False

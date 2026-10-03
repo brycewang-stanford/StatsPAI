@@ -8400,6 +8400,10 @@
             "description": "Coefficient/SE precision. Unset resolves to the journal template's precision, else 'auto', which picks decimals per row so an estimate and its own SE always agree (journal style); an int N or printf '%.Nf' fixes it",
             "type": "integer"
           },
+          "labels": {
+            "description": "The estimation data; rows are labelled from its variable and value labels (df.attrs), as Stata's esttab, label does. coef_labels entries take precedence",
+            "type": "string"
+          },
           "multi_se": {
             "description": "Stack alternative SE specs under primary SE",
             "type": "object"

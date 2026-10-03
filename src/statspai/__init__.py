@@ -1085,6 +1085,7 @@ from .tmle import (
     tmle,
 )
 from .utils import (
+    decode,
     describe,
     dgp_bartik,
     dgp_bunching,
@@ -1103,6 +1104,7 @@ from .utils import (
     dgp_synth,
     get_label,
     get_labels,
+    label_values,
     label_var,
     label_vars,
     outlier_indicator,
@@ -1490,6 +1492,8 @@ __all__ = [
     # Utils
     "label_var",
     "label_vars",
+    "label_values",
+    "decode",
     "get_label",
     "get_labels",
     "describe",

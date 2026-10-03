@@ -2290,7 +2290,7 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
 
 
 #: ``attrs`` keys that map column name -> metadata for that column.
-_PER_COLUMN_LABEL_ATTRS = ("_labels", "_value_labels", "_formats")
+_PER_COLUMN_LABEL_ATTRS = ("_labels", "_value_labels", "_missing_labels", "_formats")
 
 
 def _carry_label_attrs(

@@ -15,6 +15,8 @@ lines that follow see the data Stata would have had:
     ipolate y x, generate(new) [epolate]
     mvdecode varlist, mv(#)
     encode strvar, generate(newvar)
+    decode var, generate(newvar)
+    label variable / define / values / data / drop
     preserve / restore
     set obs #               clear / drop _all
 
@@ -46,6 +48,37 @@ _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _ASSIGN = re.compile(r"\s*(?:(\w+)\s+)?([A-Za-z_]\w*)\s*=(?!=)\s*(.+)\Z", re.S)
 
 
+#: ``label <subcommand> ...``, the command abbreviated down to ``la``
+_LABEL = re.compile(r"\s*la(?:b(?:e(?:l)?)?)?\s+(\w+)\s*(.*)\Z", re.S | re.I)
+#: one `# "text"` pair of `label define`; the text may be bare or in
+#: double or compound quotes
+_LABEL_PAIR = re.compile(r"\s*(-?\d+|\.[a-z])\s+(`\"[^`]*?\"'|\"[^\"]*\"|[^\s,]+)\s*")
+
+
+def _abbrev(word: str, full: str, minimum: int) -> bool:
+    return len(word) >= minimum and full.startswith(word)
+
+
+def _unquote(text: str) -> str:
+    text = text.strip()
+    if text.startswith('`"') and text.endswith("\"'"):
+        return text[2:-2]
+    if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
+        return text[1:-1]
+    return text
+
+
+def _split_options(rest: str) -> tuple:
+    """Split ``body, options`` at the first comma outside quotes."""
+    quoted = False
+    for i, ch in enumerate(rest):
+        if ch == '"':
+            quoted = not quoted
+        elif ch == "," and not quoted:
+            return rest[:i], ",", rest[i + 1 :]
+    return rest, "", ""
+
+
 def _is_generate(word: str) -> bool:
     return bool(word) and "generate".startswith(word)
 
@@ -68,6 +101,7 @@ def is_data_step(command: str) -> bool:
             "restore",
             "mvdecode",
             "encode",
+            "decode",
             "collapse",
             "ipolate",
         )
@@ -127,6 +161,10 @@ class DataSteps:
         self._stack: List[tuple] = []
         #: r() / e() / _b[] / scalars, filled in by the session
         self.stored: Dict[str, Any] = {}
+        #: value-label sets defined by `label define`, by name, and the set
+        #: each variable was given by `label values`
+        self._label_sets: Dict[str, Dict[Any, str]] = {}
+        self._set_of: Dict[str, str] = {}
 
     def _own(self) -> None:
         if not self._owned:
@@ -146,6 +184,9 @@ class DataSteps:
             return True
         if cmd.command == "encode":
             self._encode(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
+            return True
+        if cmd.command == "decode":
+            self._decode(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
             return True
         if cmd.command == "collapse":
             self._collapse(cmd.varlist, dict(cmd.options), cmd.if_cond, cmd.in_range)
@@ -172,11 +213,18 @@ class DataSteps:
         elif cmd.command.startswith("ren"):
             self._rename(cmd.varlist, cmd.if_cond or cmd.in_range)
         elif cmd.command == "preserve":
-            self._stack.append((self.data.copy(), set(self._float)))
+            self._stack.append(
+                (
+                    self.data.copy(),
+                    set(self._float),
+                    {k: dict(v) for k, v in self._label_sets.items()},
+                    dict(self._set_of),
+                )
+            )
         else:  # restore
             if not self._stack:
                 raise StataExprError("`restore` without a `preserve`")
-            self.data, self._float = self._stack.pop()
+            self.data, self._float, self._label_sets, self._set_of = self._stack.pop()
             self._owned = True
         return True
 
@@ -275,6 +323,179 @@ class DataSteps:
         codes = col.astype(str).map({lv: i + 1.0 for i, lv in enumerate(levels)})
         self._own()
         self.data[new] = np.where(present, codes, np.nan)
+        # Stata defines a value label named after the new variable
+        self._label_sets[new] = {i + 1: lv for i, lv in enumerate(levels)}
+        self._set_of[new] = new
+        self._sync_value_labels([new])
+        source_label = (self.data.attrs.get("_labels") or {}).get(source)
+        if source_label:
+            self._set_attr("_labels", new, source_label)
+
+    def _decode(self, varlist: List[str], options: dict, qualifier: Any) -> None:
+        """``decode var, generate(newvar)``: the label texts, as a string.
+
+        A value without a label, and a missing value, gives ``""``.
+        """
+        new = _generate_option(options)
+        if qualifier or options or new is None or len(varlist) != 1:
+            raise StataExprError("only `decode var, generate(newvar)` is implemented")
+        source = varlist[0]
+        if source not in self.data.columns:
+            raise StataExprError(f"decode: variable {source!r} is not in the data")
+        if new in self.data.columns:
+            raise StataExprError(f"decode: variable {new!r} already exists")
+        mapping = (self.data.attrs.get("_value_labels") or {}).get(source)
+        if not mapping:
+            raise StataExprError(f"decode: {source!r} has no value label")
+        col = self.data[source]
+        texts = col.map(
+            lambda v: mapping.get(int(v), "") if pd.notna(v) and v == int(v) else ""
+        )
+        self._own()
+        self.data[new] = texts.astype(object)
+        source_label = (self.data.attrs.get("_labels") or {}).get(source)
+        if source_label:
+            self._set_attr("_labels", new, source_label)
+
+    # ----------------------------------------------------------- labels
+    def _set_attr(self, key: str, column: str, value: Any) -> None:
+        """Set (or with ``None`` remove) one column's entry of a label attr."""
+        self._own()
+        store = dict(self.data.attrs.get(key) or {})
+        if value is None or value == {} or value == "":
+            store.pop(column, None)
+        else:
+            store[column] = value
+        if store:
+            self.data.attrs[key] = store
+        else:
+            self.data.attrs.pop(key, None)
+
+    def _sync_value_labels(self, variables: List[str]) -> None:
+        """Write each variable's label set into the frame's attrs."""
+        for var in variables:
+            name = self._set_of.get(var)
+            mapping = self._label_sets.get(name, {}) if name else {}
+            regular = {k: v for k, v in mapping.items() if not isinstance(k, str)}
+            gaps = {k: v for k, v in mapping.items() if isinstance(k, str)}
+            self._set_attr("_value_labels", var, regular)
+            self._set_attr("_missing_labels", var, gaps)
+
+    def apply_label(self, line: str) -> bool:
+        """Run a ``label`` command that changes labels; ``False`` otherwise.
+
+        ``label variable``, ``label define``, ``label values``, ``label
+        data`` and ``label drop`` are run on the frame's label metadata
+        (``attrs``).  ``label list`` / ``dir`` / ``language`` and the rest
+        only print or are not modelled, and are left to the caller.
+        """
+        m = _LABEL.match(line)
+        if m is None:
+            return False
+        sub, rest = m.group(1).lower(), m.group(2).strip()
+        if _abbrev(sub, "variable", 3):
+            name, _, text = rest.partition(" ")
+            if name not in self.data.columns:
+                raise StataExprError(
+                    f"label variable: variable {name!r} is not in the data"
+                )
+            self._set_attr("_labels", name, _unquote(text.strip()))
+            return True
+        if _abbrev(sub, "data", 2):
+            text = _unquote(rest)
+            self._own()
+            if text:
+                self.data.attrs["_data_label"] = text
+            else:
+                self.data.attrs.pop("_data_label", None)
+            return True
+        if _abbrev(sub, "define", 2):
+            self._label_define(rest)
+            return True
+        if _abbrev(sub, "values", 3):
+            self._label_values(rest)
+            return True
+        if sub == "drop":
+            names = rest.split()
+            if names == ["_all"]:
+                names = list(self._label_sets)
+            for name in names:
+                self._label_sets.pop(name, None)
+            self._sync_value_labels([v for v, n in self._set_of.items() if n in names])
+            return True
+        return False
+
+    def _label_define(self, rest: str) -> None:
+        body, _, opts = _split_options(rest)
+        options = set(opts.replace(",", " ").split())
+        unknown = options - {"add", "modify", "replace", "nofix"}
+        if unknown:
+            raise StataExprError(
+                f"label define: option(s) {sorted(unknown)} are not implemented"
+            )
+        name, _, pairs = body.strip().partition(" ")
+        if not _NAME.match(name):
+            raise StataExprError(f"label define: {name!r} is not a label name")
+        mapping: Dict[Any, str] = {}
+        pos = 0
+        pairs = pairs.strip()
+        while pos < len(pairs):
+            m = _LABEL_PAIR.match(pairs, pos)
+            if m is None:
+                raise StataExprError(
+                    f'label define: expected `# "text"` at {pairs[pos:]!r}'
+                )
+            code = m.group(1)
+            key: Any = code if code.startswith(".") else int(code)
+            mapping[key] = _unquote(m.group(2))
+            pos = m.end()
+        exists = name in self._label_sets
+        if exists and not options & {"add", "modify", "replace"}:
+            raise StataExprError(f"label define: label {name} already defined")
+        if "replace" in options or not exists:
+            self._label_sets[name] = mapping
+        else:
+            current = self._label_sets[name]
+            if "modify" not in options:
+                clash = [k for k in mapping if k in current]
+                if clash:
+                    raise StataExprError(
+                        f"label define, add: {name} already labels {clash}; "
+                        "use `modify`"
+                    )
+            current.update(mapping)
+        self._sync_value_labels([v for v, n in self._set_of.items() if n == name])
+
+    def _label_values(self, rest: str) -> None:
+        body, _, opts = _split_options(rest)
+        if opts.strip() and opts.strip() != "nofix":
+            raise StataExprError(
+                f"label values: option(s) {opts.strip()!r} are not implemented"
+            )
+        words = body.split()
+        if not words:
+            raise StataExprError("label values needs a variable")
+        # the last word is the label name, or '.' to detach; a line whose
+        # words are all variables detaches too
+        if words[-1] == ".":
+            variables, name = words[:-1], None
+        elif len(words) > 1 and words[-1] not in self.data.columns:
+            variables, name = words[:-1], words[-1]
+        elif len(words) > 1 and words[-1] in self._label_sets:
+            variables, name = words[:-1], words[-1]
+        else:
+            variables, name = words, None
+        unknown = [v for v in variables if v not in self.data.columns]
+        if unknown:
+            raise StataExprError(
+                f"label values: variable(s) {unknown} are not in the data"
+            )
+        for var in variables:
+            if name is None:
+                self._set_of.pop(var, None)
+            else:
+                self._set_of[var] = name
+        self._sync_value_labels(variables)
 
     def add_column(self, name: str, values: np.ndarray, *, double: bool) -> None:
         """Store a computed variable (``predict``), as ``generate`` would."""
@@ -383,7 +604,17 @@ class DataSteps:
         if new in self.data.columns:
             raise StataExprError(f"rename: variable {new!r} already exists")
         self._own()
+        attrs = dict(self.data.attrs)
         self.data = self.data.rename(columns={old: new})
+        # the labels go with the variable
+        for key in ("_labels", "_value_labels", "_missing_labels", "_formats"):
+            store = attrs.get(key)
+            if isinstance(store, dict) and old in store:
+                store = dict(store)
+                store[new] = store.pop(old)
+                self.data.attrs[key] = store
+        if old in self._set_of:
+            self._set_of[new] = self._set_of.pop(old)
         if old in self._float:
             self._float.discard(old)
             self._float.add(new)

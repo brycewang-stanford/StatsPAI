@@ -3163,6 +3163,7 @@ def regtable(
     vcov: Optional[str] = None,
     transpose: bool = False,
     rules: str = "auto",
+    labels: Optional[pd.DataFrame] = None,
 ) -> RegtableResult:
     """
     Unified publication-quality regression table.
@@ -3180,6 +3181,17 @@ def regtable(
         Labels for each panel (e.g., ``["Panel A: Wages", "Panel B: Hours"]``).
     coef_labels : dict, optional
         Rename variables: ``{"education": "Years of Education"}``.
+    labels : pd.DataFrame, optional
+        The estimation data, to label the rows from its variable and value
+        labels (Stata's ``esttab, label``): ``wage`` is shown by its
+        variable label, ``C(edu)[T.2]`` / ``edu::2`` as
+        ``"<label of edu>: <label of code 2>"``, and the parts of an
+        interaction are joined by ``" × "``.  The labels are those in
+        ``labels.attrs`` (set by ``sp.read_data`` on a .dta file, or by
+        ``sp.label_var`` / ``sp.label_values``).  Entries of
+        ``coef_labels`` take precedence; with ``coef_map`` the labels fill
+        in only what the map does not rename, which is nothing, so the two
+        are mutually exclusive.
     dep_var_labels : list of str, optional
         Dependent variable labels shown below column headers.
     model_labels : list of str, optional
@@ -3536,7 +3548,19 @@ def regtable(
     # ordered dict. Conflicts with the legacy keep/drop/order/coef_labels
     # parameters are rejected up front because resolving them is ambiguous
     # and silent precedence would surprise users.
+    if labels is not None and not isinstance(labels, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"labels must be the DataFrame the models were fit on; got "
+            f"{type(labels).__name__}.",
+            recovery_hint="Pass labels=df, or a dict through coef_labels=.",
+        )
     if coef_map is not None:
+        if labels is not None:
+            raise MethodIncompatibility(
+                "Pass either coef_map or labels, not both: coef_map names "
+                "every row it keeps.",
+                recovery_hint="Drop labels=, or use coef_labels= with it.",
+            )
         if coef_labels is not None:
             raise MethodIncompatibility(
                 "Pass either coef_map or coef_labels, not both. coef_map is "
@@ -3571,6 +3595,16 @@ def regtable(
         model_data_list = [_extract_model_data(r) for r in raw]
         panels.append(_PanelData(model_data_list))
         total_models += len(model_data_list)
+
+    if labels is not None:
+        from ..utils.labels import term_labels
+
+        names: List[str] = []
+        for r in flat_results:
+            index = getattr(getattr(r, "params", None), "index", None)
+            if index is not None:
+                names.extend(str(v) for v in index)
+        coef_labels = {**term_labels(names, labels), **(coef_labels or {})}
 
     # --- vcov= : recompute SE / t / p / CI for OLS-style results ------
     # The recompute happens *after* extraction so that journal templates

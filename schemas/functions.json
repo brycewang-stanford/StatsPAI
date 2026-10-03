@@ -3908,6 +3908,10 @@
           "description": "Coefficient/SE precision. Unset resolves to the journal template's precision, else 'auto', which picks decimals per row so an estimate and its own SE always agree (journal style); an int N or printf '%.Nf' fixes it",
           "type": "integer"
         },
+        "labels": {
+          "description": "The estimation data; rows are labelled from its variable and value labels (df.attrs), as Stata's esttab, label does. coef_labels entries take precedence",
+          "type": "string"
+        },
         "multi_se": {
           "description": "Stack alternative SE specs under primary SE",
           "type": "object"
@@ -26806,6 +26810,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "labels": {
+          "default": true,
+          "description": "Show value labels (``data.attrs['_value_labels']``, as attached by ``sp.read_data`` on a .dta file or by ``sp.label_values``) in place of the codes, as Stata's ``tabulate`` does. The categories stay in the order of the codes. ``False`` is Stata's ``nolabel``. Without value labels the table is the same either way.",
+          "type": "boolean"
+        },
         "margins": {
           "default": true,
           "description": "Show row/column totals.",
@@ -27880,12 +27889,12 @@
     }
   },
   {
-    "description": "Attach labels to multiple variables at once.",
+    "description": "Attach labels to multiple variables at once, or copy them from a frame.",
     "name": "label_vars",
     "parameters": {
       "properties": {
         "df": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "DataFrame to label (modified in place).",
           "type": "object",
           "x-aliases": [
             "data"
@@ -27894,13 +27903,84 @@
           "x-statspai-role": "dataframe"
         },
         "labels": {
-          "description": "{column_name: label_string} mapping.",
+          "description": "``{column_name: label_string}``, or a labelled DataFrame to copy from. Copying carries variable labels, value labels, the labels of extended missing values and display formats for every column the two frames share by name, and leaves labels ``df`` already has alone. It is the way to get labels back after a pandas operation that drops them: ``merge``, ``pd.get_dummies``, ``pivot``, and ``pd.concat`` of frames whose labels differ all return a frame with empty ``attrs``.",
+          "type": "object"
+        },
+        "rename": {
+          "description": "``{old_name: new_name}``, only when copying: the columns of ``labels`` that go by another name in ``df``. ``DataFrame.rename`` keeps ``attrs`` but leaves the labels under the old names.",
           "type": "object"
         }
       },
       "required": [
         "df",
         "labels"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Attach value labels to the codes of one or more variables.",
+    "name": "label_values",
+    "parameters": {
+      "properties": {
+        "df": {
+          "description": "DataFrame to label (modified in place).",
+          "type": "object",
+          "x-aliases": [
+            "data"
+          ],
+          "x-canonical": "data",
+          "x-statspai-role": "dataframe"
+        },
+        "labels": {
+          "description": "``{code: text}``. Codes are integers; ``'.a'`` ... ``'.z'`` label Stata's extended missing values. The mapping replaces any labels the variable already has; ``None`` (or ``{}``) removes them.",
+          "type": "object"
+        },
+        "var": {
+          "description": "Column(s) the labels apply to.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "df",
+        "var",
+        "labels"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Replace value-labelled codes by their label texts.",
+    "name": "decode",
+    "parameters": {
+      "properties": {
+        "columns": {
+          "description": "Columns to decode. Default: every column that has value labels.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "df": {
+          "description": "Data with value labels in ``df.attrs['_value_labels']``.",
+          "type": "object",
+          "x-aliases": [
+            "data"
+          ],
+          "x-canonical": "data",
+          "x-statspai-role": "dataframe"
+        },
+        "missing": {
+          "default": false,
+          "description": "Also show the labels of extended missing values (``.a`` \"Refused\") instead of leaving those rows missing. Needs the ``<var>__miss`` column that ``sp.read_data(extended_missing='column')`` adds.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "df"
       ],
       "type": "object"
     }
@@ -28352,6 +28432,15 @@
           "description": "Character encoding (for CSV).",
           "type": "string"
         },
+        "extended_missing": {
+          "default": "nan",
+          "description": "What to do with Stata's extended missing values ``.a`` ... ``.z`` in a .dta file (survey codes such as \"refused\" or \"don't know\"). ``'nan'`` reads them as ``NaN``, like ``.``; which of them a row held is then gone. ``'column'`` also reads them as ``NaN`` and adds, for every variable that has any, a column ``<var>__miss`` holding ``'.a'`` ... ``'.z'`` on those rows and missing elsewhere. Either way the labels attached to these codes are in ``df.attrs['_missing_labels']``.",
+          "enum": [
+            "nan",
+            "column"
+          ],
+          "type": "string"
+        },
         "path": {
           "description": "File path. Supported: .dta, .csv, .xlsx, .xls, .parquet, .sas7bdat, .sav, .feather, .json.",
           "type": "string"
@@ -28386,7 +28475,7 @@
           "type": "string"
         },
         "value_labels": {
-          "description": "``{column: {code: text}}``. Added to (and overriding) those in ``data.attrs['_value_labels']``.",
+          "description": "``{column: {code: text}}``. Added to (and overriding) those in ``data.attrs['_value_labels']``. A code may be ``'.a'`` ... ``'.z'`` to label an extended missing value.",
           "type": "object"
         }
       },

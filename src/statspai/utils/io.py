@@ -9,6 +9,9 @@ and are used by StatsPAI output functions (modelsummary, outreg2, etc.).
 Value labels go to ``df.attrs['_value_labels']`` and the dataset label to
 ``df.attrs['_data_label']``.  :func:`write_data` writes all three back, so
 ``read_data`` -> edit -> ``write_data`` keeps a .dta file's labels.
+Labels on Stata's extended missing values (``.a`` ... ``.z``) are kept apart
+in ``df.attrs['_missing_labels']``, keyed ``'.a'``; they are not codes a row
+can hold once the missing values are ``NaN``.
 
 References
 ----------
@@ -29,10 +32,20 @@ from ..exceptions import MethodIncompatibility, MissingDependencyError
 # Stata's limit on a variable label and on the dataset label (``help limits``).
 _STATA_LABEL_MAX = 80
 
+# In a .dta value-label table the missing values sit above the largest
+# ``long``: ``.`` is 2147483621 and ``.a`` ... ``.z`` follow (``help dta``).
+_STATA_MISSING_CODE = 2147483621
+_STATA_MISSING_NAMES = ("",) + tuple("abcdefghijklmnopqrstuvwxyz")
+_EXTENDED_MISSING_MODES = ("nan", "column")
+#: Suffix of the column that holds a variable's ``.a`` ... ``.z`` codes when
+#: a file is read with ``extended_missing='column'``.
+MISSING_CODE_SUFFIX = "__miss"
+
 
 def read_data(
     path: str,
     encoding: Optional[str] = None,
+    extended_missing: str = "nan",
     **kwargs: Any,
 ) -> pd.DataFrame:
     """
@@ -48,6 +61,15 @@ def read_data(
         .sas7bdat, .sav, .feather, .json.
     encoding : str, optional
         Character encoding (for CSV).
+    extended_missing : {'nan', 'column'}, default 'nan'
+        What to do with Stata's extended missing values ``.a`` ... ``.z``
+        in a .dta file (survey codes such as "refused" or "don't know").
+        ``'nan'`` reads them as ``NaN``, like ``.``; which of them a row
+        held is then gone.  ``'column'`` also reads them as ``NaN`` and
+        adds, for every variable that has any, a column ``<var>__miss``
+        holding ``'.a'`` ... ``'.z'`` on those rows and missing elsewhere.
+        Either way the labels attached to these codes are in
+        ``df.attrs['_missing_labels']``.
     **kwargs
         Passed to the underlying pandas reader.
 
@@ -55,6 +77,13 @@ def read_data(
     -------
     pd.DataFrame
         With variable labels in ``df.attrs['_labels']`` if available.
+
+    Warns
+    -----
+    UserWarning
+        When a .dta file labels an extended missing value and
+        ``extended_missing='nan'``: the rows that held it are no longer
+        told apart from ``.``.
 
     Examples
     --------
@@ -69,9 +98,14 @@ def read_data(
     """
     p = Path(path)
     ext = p.suffix.lower()
+    if extended_missing not in _EXTENDED_MISSING_MODES:
+        raise MethodIncompatibility(
+            f"extended_missing must be one of {_EXTENDED_MISSING_MODES}; "
+            f"got {extended_missing!r}"
+        )
 
     if ext == ".dta":
-        df = _read_stata(path, **kwargs)
+        df = _read_stata(path, extended_missing=extended_missing, **kwargs)
     elif ext in (".csv", ".tsv"):
         df = pd.read_csv(path, encoding=encoding, **kwargs)
     elif ext in (".xlsx", ".xls"):
@@ -96,7 +130,9 @@ def read_data(
     return df
 
 
-def _read_stata(path: str, **kwargs: Any) -> pd.DataFrame:
+def _read_stata(
+    path: str, extended_missing: str = "nan", **kwargs: Any
+) -> pd.DataFrame:
     """Read .dta with variable and value labels preserved.
 
     ``pyreadstat`` (``pip install statspai[io]``) is preferred.  Without it
@@ -110,12 +146,37 @@ def _read_stata(path: str, **kwargs: Any) -> pd.DataFrame:
     try:
         import pyreadstat
     except ImportError:
-        return _read_stata_pandas(path, **kwargs)
+        return _read_stata_pandas(
+            path, extended_missing=extended_missing, _stacklevel=5, **kwargs
+        )
 
     convert_dates = not kwargs.get("disable_datetime_conversion", False)
     if convert_dates:
         kwargs.setdefault("dates_as_pandas_datetime", True)
+    keep_codes = extended_missing == "column"
     df, meta = pyreadstat.read_dta(path, **kwargs)
+    # pyreadstat returns a numeric variable that holds .a ... .z as an
+    # ``object`` column of numbers and NaN.
+    storage = getattr(meta, "readstat_variable_types", None) or {}
+    for col in df.columns:
+        if df[col].dtype == object and storage.get(col, "string") != "string":
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
+    holders = [c for c in df.columns if storage.get(c, "string") != "string"]
+    if keep_codes and holders:
+        # A second pass for the letters only.  With user_missing pyreadstat
+        # (1.3.4) returns garbage for a plain '.' in an integer variable, so
+        # the values above come from the default read.
+        lettered, _ = pyreadstat.read_dta(
+            path, **{**kwargs, "usecols": holders, "user_missing": True}
+        )
+        for col in holders:
+            if lettered[col].dtype != object:
+                continue
+            _insert_missing_codes(
+                df,
+                col,
+                lettered[col].map(lambda v: "." + v if isinstance(v, str) else None),
+            )
     if convert_dates:
         _convert_stata_period_dates(
             df, getattr(meta, "original_variable_types", None) or {}
@@ -124,14 +185,102 @@ def _read_stata(path: str, **kwargs: Any) -> pd.DataFrame:
         df.attrs["_labels"] = {
             k: v for k, v in meta.column_names_to_labels.items() if v
         }
-    if meta.variable_value_labels:
-        df.attrs["_value_labels"] = meta.variable_value_labels
+    value_labels, missing_labels = _split_value_labels(meta.variable_value_labels or {})
+    if value_labels:
+        df.attrs["_value_labels"] = value_labels
+    if missing_labels:
+        df.attrs["_missing_labels"] = missing_labels
     if getattr(meta, "file_label", None):
         df.attrs["_data_label"] = meta.file_label
     formats = _informative_formats(getattr(meta, "original_variable_types", None) or {})
     if formats:
         df.attrs["_formats"] = formats
+    if not keep_codes:
+        _warn_missing_labels(path, missing_labels)
     return df
+
+
+def _missing_name(code: Any) -> Optional[str]:
+    """``'.a'`` for the key of an extended missing value, else ``None``.
+
+    The key is the table's integer (pandas), the bare letter (pyreadstat),
+    or already ``'.a'`` (a label handed to :func:`write_data`).
+    """
+    if isinstance(code, str):
+        letter = code[1:] if code.startswith(".") else code
+        if letter in _STATA_MISSING_NAMES:
+            return "." + letter
+        return None
+    try:
+        offset = int(code) - _STATA_MISSING_CODE
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if 0 <= offset < len(_STATA_MISSING_NAMES) and int(code) == code:
+        return "." + _STATA_MISSING_NAMES[offset]
+    return None
+
+
+def _split_value_labels(
+    by_variable: Dict[Any, Dict[Any, str]],
+) -> "tuple[Dict[Any, Dict[Any, str]], Dict[Any, Dict[str, str]]]":
+    """Separate the labels of ``.a`` ... ``.z`` from those of real codes."""
+    regular: Dict[Any, Dict[Any, str]] = {}
+    missing: Dict[Any, Dict[str, str]] = {}
+    for col, mapping in by_variable.items():
+        codes: Dict[Any, str] = {}
+        gaps: Dict[str, str] = {}
+        for code, text in mapping.items():
+            name = _missing_name(code)
+            if name is None:
+                codes[code.item() if hasattr(code, "item") else code] = text
+            else:
+                gaps[name] = text
+        if codes:
+            regular[col] = codes
+        if gaps:
+            missing[col] = gaps
+    return regular, missing
+
+
+def _warn_missing_labels(
+    path: Any, missing_labels: Dict[Any, Dict[str, str]], stacklevel: int = 4
+) -> None:
+    if not missing_labels:
+        return
+    shown = "; ".join(
+        f"{col}: " + ", ".join(f"{k} {v!r}" for k, v in m.items())
+        for col, m in list(missing_labels.items())[:5]
+    )
+    more = len(missing_labels) - 5
+    name = Path(path).name if isinstance(path, (str, Path)) else "the file"
+    warnings.warn(
+        f"{name} labels extended missing values ({shown}"
+        + (f"; and {more} more variables" if more > 0 else "")
+        + "). They are read as NaN, so a row that held .a can no longer be "
+        "told apart from one that held '.'. The label texts are in "
+        "df.attrs['_missing_labels']; read with extended_missing='column' "
+        f"to keep each row's code in a '<var>{MISSING_CODE_SUFFIX}' column.",
+        UserWarning,
+        stacklevel=stacklevel,
+    )
+
+
+def _insert_missing_codes(df: pd.DataFrame, col: Any, codes: pd.Series) -> None:
+    """Put ``codes`` (``'.a'`` ... ``'.z'`` or ``None``) right after ``col``.
+
+    In place, as ``<col>__miss``; nothing is added when no row has a code.
+    """
+    if not codes.notna().any():
+        return
+    name = f"{col}{MISSING_CODE_SUFFIX}"
+    if name in df.columns:
+        raise MethodIncompatibility(
+            f"extended_missing='column' needs the column name '{name}', "
+            f"which the file already uses."
+        )
+    values = codes.where(codes.notna(), None).astype(object)
+    values.index = df.index
+    df.insert(df.columns.get_loc(col) + 1, name, values)
 
 
 #: Stata date formats whose stored value is a count of periods since 1960
@@ -202,15 +351,43 @@ def _convert_stata_period_dates(df: pd.DataFrame, formats: Dict[str, Any]) -> No
         df[col] = dates.where(~missing)
 
 
-def _read_stata_pandas(path: Any, **kwargs: Any) -> pd.DataFrame:
+def _read_stata_pandas(
+    path: Any, extended_missing: str = "nan", _stacklevel: int = 3, **kwargs: Any
+) -> pd.DataFrame:
     """pandas fallback for .dta that still carries labels into ``attrs``.
 
     ``path`` may be a file path or a binary buffer.
     """
     kwargs.setdefault("convert_categoricals", False)
+    keep_codes = extended_missing == "column"
+    if keep_codes:
+        kwargs["convert_missing"] = True
     with pd.read_stata(path, iterator=True, **kwargs) as reader:
         df = reader.read()
         attrs = _stata_reader_attrs(reader, list(df.columns))
+    if keep_codes:
+        # pandas hands back every missing value as a StataMissingValue, in an
+        # ``object`` column; '.' itself needs no code.
+        from pandas.io.stata import StataMissingValue
+
+        def code_of(v: Any) -> Optional[str]:
+            if isinstance(v, StataMissingValue) and v.string != ".":
+                return str(v.string)
+            return None
+
+        for col in list(df.columns):
+            values = df[col]
+            if values.dtype != object:
+                continue
+            marker = values.map(lambda v: isinstance(v, StataMissingValue))
+            if not marker.any():
+                continue
+            df[col] = pd.to_numeric(values.where(~marker), errors="coerce").astype(
+                "float64"
+            )
+            _insert_missing_codes(df, col, values.map(code_of))
+    else:
+        _warn_missing_labels(path, attrs.get("_missing_labels") or {}, _stacklevel)
     df.attrs.update(attrs)
     widen_stata_numerics(df)
     # pandas returns a %ty column with a missing value as ``object``
@@ -248,7 +425,8 @@ def stata_label_attrs(path: Any, columns: Optional[list] = None) -> Dict[str, An
     """Label metadata of a .dta file, without loading its rows.
 
     Returns the ``attrs`` entries :func:`read_data` would set
-    (``_labels`` / ``_value_labels`` / ``_data_label`` / ``_formats``, each
+    (``_labels`` / ``_value_labels`` / ``_missing_labels`` / ``_data_label`` /
+    ``_formats``, each
     only when present), restricted to ``columns`` if given.  Used by readers that
     stream the rows in chunks and so cannot go through ``read_data``.
     """
@@ -296,12 +474,12 @@ def _stata_reader_attrs(reader: Any, columns: list) -> Dict[str, Any]:
     for col in columns:
         lbl = set_of.get(col)
         if lbl and lbl in label_sets:
-            value_labels[col] = {
-                (k.item() if hasattr(k, "item") else k): v
-                for k, v in label_sets[lbl].items()
-            }
+            value_labels[col] = dict(label_sets[lbl])
+    value_labels, missing_labels = _split_value_labels(value_labels)
     if value_labels:
         attrs["_value_labels"] = value_labels
+    if missing_labels:
+        attrs["_missing_labels"] = missing_labels
     data_label = getattr(reader, "data_label", "")
     if data_label:
         attrs["_data_label"] = data_label
@@ -388,7 +566,8 @@ def write_data(
         in ``data.attrs['_labels']``.
     value_labels : dict, optional
         ``{column: {code: text}}``.  Added to (and overriding) those in
-        ``data.attrs['_value_labels']``.
+        ``data.attrs['_value_labels']``.  A code may be ``'.a'`` ... ``'.z'``
+        to label an extended missing value.
     data_label : str, optional
         Dataset label (Stata's ``label data``).  Default: the one in
         ``data.attrs['_data_label']``, if any.
@@ -420,8 +599,13 @@ def write_data(
     Notes
     -----
     Labels for columns that are not in ``data`` (dropped since the labels
-    were attached) are skipped.  Stata notes and characteristics are not
-    part of ``data.attrs`` and are not written.  Of the display formats in
+    were attached) are skipped.  Labels of extended missing values
+    (``data.attrs['_missing_labels']``) are written into the file's label
+    tables, but every missing value in the data is written as ``.``: a
+    ``<var>__miss`` column from ``read_data(extended_missing='column')`` is
+    written as the string column it is, not folded back into ``<var>``.
+    Stata notes and characteristics are not part of ``data.attrs`` and are
+    not written.  Of the display formats in
     ``data.attrs['_formats']`` only the unit of a date is used: a
     ``datetime64`` column read from a ``%td`` / ``%tm`` / ``%tq`` variable is
     written back with that unit unless ``convert_dates=`` says otherwise.
@@ -446,8 +630,12 @@ def write_data(
 
     var_lab = dict(data.attrs.get("_labels") or {})
     var_lab.update(labels or {})
-    val_lab = dict(data.attrs.get("_value_labels") or {})
-    val_lab.update(value_labels or {})
+    val_lab = {c: dict(m) for c, m in (data.attrs.get("_value_labels") or {}).items()}
+    for c, m in (data.attrs.get("_missing_labels") or {}).items():
+        val_lab.setdefault(c, {}).update(m)
+    for c, m in (value_labels or {}).items():
+        # as documented, a column passed here replaces what attrs had for it
+        val_lab[c] = dict(m)
     for name, given in (("labels", labels), ("value_labels", value_labels)):
         unknown = [c for c in (given or {}) if c not in data.columns]
         if unknown:
@@ -467,10 +655,13 @@ def write_data(
         out = data
         if labels or value_labels or data_label:
             out = data.copy(deep=False)
+            regular, gaps = _split_value_labels(val_lab)
             if var_lab:
                 out.attrs["_labels"] = var_lab
-            if val_lab:
-                out.attrs["_value_labels"] = val_lab
+            if regular:
+                out.attrs["_value_labels"] = regular
+            if gaps:
+                out.attrs["_missing_labels"] = gaps
             if data_label:
                 out.attrs["_data_label"] = data_label
         kwargs.setdefault("index", False)
@@ -544,13 +735,27 @@ def _write_stata(
         # pandas < 1.4 has no value_labels argument; only pass it when needed.
         clean: Dict[str, Dict[int, str]] = {}
         for c, m in val_lab.items():
-            bad = [k for k in m if int(k) != k]
+            codes: Dict[int, str] = {}
+            bad = []
+            for k, v in m.items():
+                name = _missing_name(k) if isinstance(k, str) else None
+                if name is not None:
+                    # back to the table's own code for .a ... .z
+                    k = _STATA_MISSING_CODE + _STATA_MISSING_NAMES.index(name[1:])
+                try:
+                    whole = int(k) == k
+                except (TypeError, ValueError):
+                    whole = False
+                if not whole:
+                    bad.append(k)
+                else:
+                    codes[int(k)] = str(v)
             if bad:
                 raise MethodIncompatibility(
-                    f"Stata value labels attach to integer codes only; "
-                    f"'{c}' has non-integer codes {bad}."
+                    f"Stata value labels attach to integer codes and to "
+                    f"'.a' ... '.z' only; '{c}' has {bad}."
                 )
-            clean[c] = {int(k): str(v) for k, v in m.items()}
+            clean[c] = codes
         kwargs["value_labels"] = clean
     try:
         df.to_stata(

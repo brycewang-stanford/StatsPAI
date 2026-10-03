@@ -137,6 +137,7 @@ nav:
       - "Social network analysis (centrality / community / QAP / ERGM)": guides/social_network_analysis.md
       - "Migrating from R to StatsPAI": guides/migration-from-r.md
       - "Reproducing Stata defaults": guides/stata_defaults.md
+      - "Variable labels and value labels (.dta files)": guides/stata_labels.md
       - "sp.dml and the DoubleML reference implementation": guides/sp_dml_vs_doubleml.md
       - "Rigorous (data-driven) Lasso — sp.rlasso and the hdm port": guides/rigorous_lasso_hdm.md
       - "Case study: reproducing the DoubleML / hdm 401(k) result": guides/case_study_401k.md

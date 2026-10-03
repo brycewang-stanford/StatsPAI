@@ -313,8 +313,10 @@ def _tabulate(session: "StataSession", line: str) -> bool:
     options = dict(cmd.options)
     stub = _generate_option(options)
     missing = any(options.pop(k, 0) is None for k in ("missing", "miss", "m"))
-    for name in ("nolabel", "nol", "sort"):
-        options.pop(name, None)
+    nolabel = any(
+        [options.pop(k, 0) is None for k in ("nolabel", "nolabe", "nolab", "nol")]
+    )
+    options.pop("sort", None)
     if options:
         raise StataExprError(
             f"tabulate: option(s) {sorted(options)} are not implemented"
@@ -336,8 +338,15 @@ def _tabulate(session: "StataSession", line: str) -> bool:
             raise StataExprError("tabulate, generate() takes one variable")
         session._steps.tabulate_generate(varlist[0], stub, mask)
     rows = data.loc[mask]
+    if not nolabel:
+        # Stata prints the value labels, in the order of the codes
+        from ...output.tab import _with_value_labels
+
+        rows = _with_value_labels(rows, varlist)
     if len(varlist) == 1:
         counts = rows[varlist[0]].value_counts(dropna=not missing).sort_index()
+        if isinstance(counts.index, pd.CategoricalIndex):
+            counts.index = counts.index.astype(object)
         total = float(counts.sum())
         table = pd.DataFrame(
             {

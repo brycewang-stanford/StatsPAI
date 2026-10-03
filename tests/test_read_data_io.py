@@ -352,3 +352,118 @@ def test_write_data_compress_never_rounds(tmp_path):
     assert stored["big"].tolist() == [1, 2**40]
     assert str(stored["frac"].dtype) == "float64" and stored["frac"][0] == 0.1
     assert str(stored["half"].dtype) == "float32" and np.isnan(stored["half"][1])
+
+
+# ---------------------------------------------------------------------------
+# Extended missing values (.a ... .z) and the labels attached to them.
+#
+# The fixture is written by Stata (tests/fixtures/dta_labels/make_fixture.do):
+# region holds .a twice, .b once and . once, and labels .a "Refused" and
+# .b "Don't know"; income holds .b once and . once, unlabelled.
+# ---------------------------------------------------------------------------
+
+from pathlib import Path  # noqa: E402
+
+EXTMISS = Path(__file__).parent / "fixtures" / "dta_labels" / "extmiss118.dta"
+
+
+@pytest.fixture(params=["pandas", "pyreadstat"])
+def reader_path(request):
+    """Run a test once per .dta reader; both must give the same frame."""
+    if request.param == "pandas":
+        with mock.patch.dict(sys.modules, {"pyreadstat": None}):
+            yield request.param
+    else:
+        pytest.importorskip("pyreadstat")
+        yield request.param
+
+
+def test_extended_missing_labels_are_not_codes(reader_path):
+    with pytest.warns(UserWarning, match="labels extended missing values") as rec:
+        df = sp.read_data(str(EXTMISS))
+    # the warning names the variable and the label, and points at the caller
+    message = str(rec[0].message)
+    assert "region" in message and "Refused" in message
+    assert rec[0].filename == __file__
+    # a label on .a is not a label on some integer a row could hold
+    assert df.attrs["_value_labels"]["region"] == {
+        1: "North",
+        2: "South",
+        3: "East",
+        4: "West",
+    }
+    assert df.attrs["_missing_labels"] == {
+        "region": {".a": "Refused", ".b": "Don't know"}
+    }
+    # every Stata missing value is NaN in a float column, never ``object``
+    assert df["region"].dtype == np.float64
+    assert df["income"].dtype == np.float64
+    assert int(df["region"].isna().sum()) == 4
+    assert int(df["income"].isna().sum()) == 2
+    assert "region__miss" not in df.columns
+
+
+def test_extended_missing_codes_kept_in_a_column(reader_path, recwarn):
+    df = sp.read_data(str(EXTMISS), extended_missing="column")
+    assert not [w for w in recwarn if "extended missing" in str(w.message)]
+    assert list(df.columns) == [
+        "id",
+        "region",
+        "region__miss",
+        "income",
+        "income__miss",
+        "female",
+        "agree",
+    ]
+    # rows 3 and 7 are .a, row 9 is .b, row 11 is plain '.' (no code)
+    codes = df.set_index("id")["region__miss"]
+    assert codes[codes.notna()].to_dict() == {3: ".a", 7: ".a", 9: ".b"}
+    assert np.isnan(df.set_index("id").loc[11, "region"])
+    income = df.set_index("id")["income__miss"]
+    assert income[income.notna()].to_dict() == {2: ".b"}
+    assert df["region"].dtype == np.float64
+    assert int(df["region"].isna().sum()) == 4
+    # a variable without extended missing values gets no companion
+    assert "female__miss" not in df.columns
+    # the companion decodes through the missing labels
+    labels = df.attrs["_missing_labels"]["region"]
+    assert codes.map(labels).dropna().tolist() == [
+        "Refused",
+        "Refused",
+        "Don't know",
+    ]
+
+
+def test_missing_labels_survive_a_write(reader_path, tmp_path):
+    with pytest.warns(UserWarning, match="extended missing"):
+        df = sp.read_data(str(EXTMISS))
+    for name in ("out.dta", "out.parquet"):
+        if name.endswith(".parquet"):
+            pytest.importorskip("pyarrow")
+        out = sp.write_data(df, tmp_path / name)
+        if name.endswith(".dta"):
+            with pytest.warns(UserWarning, match="extended missing"):
+                back = sp.read_data(str(out))
+        else:
+            back = sp.read_data(str(out))
+        assert back.attrs["_missing_labels"] == df.attrs["_missing_labels"]
+        assert back.attrs["_value_labels"] == df.attrs["_value_labels"]
+
+
+def test_write_data_takes_dot_letter_codes(tmp_path):
+    df = pd.DataFrame({"q": [1.0, 2.0, np.nan]})
+    out = sp.write_data(
+        df, tmp_path / "q.dta", value_labels={"q": {1: "yes", 2: "no", ".c": "skip"}}
+    )
+    with mock.patch.dict(sys.modules, {"pyreadstat": None}):
+        with pytest.warns(UserWarning, match="extended missing"):
+            back = sp.read_data(str(out))
+    assert back.attrs["_value_labels"] == {"q": {1: "yes", 2: "no"}}
+    assert back.attrs["_missing_labels"] == {"q": {".c": "skip"}}
+    with pytest.raises(ValueError, match="integer codes"):
+        sp.write_data(df, tmp_path / "bad.dta", value_labels={"q": {"maybe": "x"}})
+
+
+def test_extended_missing_rejects_unknown_mode():
+    with pytest.raises(ValueError, match="extended_missing"):
+        sp.read_data(str(EXTMISS), extended_missing="keep")

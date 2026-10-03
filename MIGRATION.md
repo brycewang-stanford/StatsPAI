@@ -7,6 +7,40 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="oct2026-dta-widths"></a>
 
+## Unreleased: ⚠️ labels on `.a` ... `.z` move to `attrs['_missing_labels']`; `sp.tab` prints value labels
+
+**Extended missing values.** For a .dta file that labels an extended
+missing value (`label define r 1 "North" .a "Refused"`), `sp.read_data`
+used to return the label in `df.attrs['_value_labels']` under a key that
+depended on whether `pyreadstat` was installed: `2147483622` without it,
+`'a'` with it. Neither is a code a row can hold once the missing values
+are `NaN`. The label is now in `df.attrs['_missing_labels']`, keyed
+`'.a'`, on both paths, and a `UserWarning` reports it.
+
+```python
+# before
+df.attrs["_value_labels"]["region"]   # {1: 'North', ..., 2147483622: 'Refused'}
+# after
+df.attrs["_value_labels"]["region"]   # {1: 'North', ...}
+df.attrs["_missing_labels"]["region"] # {'.a': 'Refused'}
+```
+
+Code that looped over `_value_labels` and special-cased the large integer
+or the bare letter should read `_missing_labels` instead. To keep which
+rows held `.a`, read with `extended_missing='column'`.
+
+With `pyreadstat` installed, a numeric variable that holds `.a` ... `.z`
+used to come back as an `object` column; it is now `float64`. Code that
+worked around this with `pd.to_numeric` keeps working.
+
+**`sp.tab`.** On data that carry value labels, the table's categories are
+now the label texts (in the order of the codes) rather than the codes.
+Counts, percentages and tests are the same. Pass `labels=False` for the
+old layout. Data without value labels are unaffected.
+
+**`sp.describe`.** The returned frame has a sixth column, `value_labels`.
+Code that unpacks exactly five columns by position needs the extra name.
+
 ## Unreleased: ⚠️ `sp.read_data` returns `int64` / `float64` for every numeric .dta column
 
 This affects you only if `pyreadstat` is **not** installed (with it the

@@ -5757,6 +5757,15 @@ def _build_registry() -> None:
                     ["se", "t", "p", "ci"],
                 ),
                 ParamSpec(
+                    "labels",
+                    "DataFrame",
+                    False,
+                    None,
+                    "The estimation data; rows are labelled from its variable "
+                    "and value labels (df.attrs), as Stata's esttab, label does. "
+                    "coef_labels entries take precedence",
+                ),
+                ParamSpec(
                     "fmt",
                     "str|int",
                     False,

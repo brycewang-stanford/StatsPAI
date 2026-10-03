@@ -37,11 +37,21 @@ from .egen import (
 )
 from .io import read_data, write_data
 from .iv_helpers import scalar_iv_projection
-from .labels import describe, get_label, get_labels, label_var, label_vars
+from .labels import (
+    decode,
+    describe,
+    get_label,
+    get_labels,
+    label_values,
+    label_var,
+    label_vars,
+)
 
 __all__ = [
     "label_var",
     "label_vars",
+    "label_values",
+    "decode",
     "get_label",
     "get_labels",
     "describe",

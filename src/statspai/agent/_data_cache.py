@@ -168,6 +168,15 @@ def _label_payload(df: pd.DataFrame) -> Dict[str, Any]:
         if kept:
             out["variable_labels"] = kept
     value_labels = df.attrs.get("_value_labels")
+    missing_labels = df.attrs.get("_missing_labels")
+    if isinstance(missing_labels, dict) and missing_labels:
+        # labels of .a ... .z are listed with the variable's other labels,
+        # under the code Stata prints for them
+        merged = dict(value_labels) if isinstance(value_labels, dict) else {}
+        for c, m in missing_labels.items():
+            if isinstance(m, dict):
+                merged[c] = {**(merged.get(c) or {}), **m}
+        value_labels = merged
     if isinstance(value_labels, dict):
         kept_vl: Dict[str, Any] = {}
         truncated: Dict[str, int] = {}

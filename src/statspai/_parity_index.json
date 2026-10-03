@@ -6018,6 +6018,7 @@
         "tests/reference_parity/test_feols_varying_slopes_parity.py",
         "tests/reference_parity/test_feols_wild_boottest_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+        "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_sasp_within_parity.py",
         "tests/reference_parity/test_ssc_presets_Stata_parity.py"
       ],
@@ -8480,6 +8481,7 @@
         "tests/reference_parity/test_oct2026_third_pass.py",
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
+        "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],

@@ -81,7 +81,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `crossval` | 2,809 | 7 | 2 |
 | `postestimation` | 2,656 | 6 | 12 |
 | `conformal_causal` | 2,596 | 9 | 21 |
-| `utils` | 2,802 | 10 | 33 |
+| `utils` | 3,619 | 10 | 35 |
 | `epi` | 2,523 | 6 | 20 |
 | `rlasso` | 2,510 | 7 | 10 |
 | `interference` | 2,458 | 10 | 20 |

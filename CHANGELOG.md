@@ -4,6 +4,61 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Value labels, in use
+
+Variable labels already reached `df.attrs` and went back out to .dta.
+Value labels were stored and then used by nothing: `sp.tab` printed 1 / 2 /
+3, `sp.regtable` printed `C(edu)[T.2]`, and a do-file's `label` commands
+were skipped. See the new guide `docs/guides/stata_labels.md`.
+
+#### ⚠️ Correctness
+
+- **A label on an extended missing value is no longer attached to a
+  number.** For a file with `label define regionlbl ... .a "Refused"`,
+  `sp.read_data` returned `{..., 2147483622: 'Refused'}` in
+  `attrs['_value_labels']` without `pyreadstat` (the raw code of `.a` in a
+  label table, a value no row holds) and `{..., 'a': 'Refused'}` with it.
+  Both now return the real codes in `_value_labels` and
+  `{'region': {'.a': 'Refused'}}` in the new `attrs['_missing_labels']`.
+  A `UserWarning` says that the rows are read as `NaN` and can no longer be
+  told apart from `.`.
+- **With `pyreadstat` installed, a numeric variable holding `.a` ... `.z`
+  came back as an `object` column.** It is `float64` with `NaN`, as on the
+  pandas path. A regression on such a column failed or, worse, treated it
+  as categorical.
+
+#### Added
+
+- `sp.read_data(path, extended_missing='column')` keeps which missing value
+  each row held, in a `<var>__miss` column (`'.a'` ... `'.z'`) next to the
+  variable. The variable itself stays numeric with `NaN`.
+- `sp.label_values(df, var, {code: text})`: Stata's `label define` +
+  `label values`. `'.a'` ... `'.z'` label extended missing values.
+- `sp.decode(df, columns=None, missing=False)`: Stata's `decode`. Ordered
+  categoricals whose categories follow the codes.
+- `sp.regtable(..., labels=df)` labels the rows from the data's variable
+  and value labels (`esttab, label`): `C(edu)[T.2]` and `edu::2` become
+  `Education: secondary`, interactions are joined by `×`.
+- `sp.label_vars(df, other_frame, rename=None)` copies variable labels,
+  value labels and formats from a labelled frame, for after a `merge`,
+  `get_dummies` or `rename`, where pandas drops or misplaces them.
+- `sp.write_data(value_labels=)` takes `'.a'` ... `'.z'` codes, and writes
+  `attrs['_missing_labels']` back to .dta and Parquet.
+- `sp.stata` runs `label variable / define / values / data / drop` and
+  `decode` instead of skipping or refusing them; `encode` labels the new
+  variable; `rename` takes the labels along; `preserve` / `restore` cover
+  labels; `codebook` and `labelbook` are skipped as display commands.
+
+#### Changed
+
+- `sp.tab` prints value labels in place of codes when the data carry them,
+  in the order of the codes, as Stata's `tabulate` does. `labels=False`
+  gives the codes (`nolabel`). Counts and tests are unchanged, and so is
+  the output for data without value labels. `tabulate` inside `sp.stata`
+  does the same and honours `nolabel`.
+- `sp.describe` has a sixth column, `value_labels` (`0=No, 1=Yes`).
+
+
 ### `sp.ssc` without pyfixest
 
 #### Fixed
