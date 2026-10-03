@@ -180,8 +180,11 @@ r.plot()           # Falls back to coefplot; use sp.rdplot for binscatter
 **Identifying assumptions**
 - Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)
 - No manipulation of x at c (McCrary density test)
-- Local randomization only in a neighborhood of c — extrapolation away from c is not identified
 - Covariate balance at c (optional but recommended)
+- The estimand is local to c: the effect at the cutoff, not an average over the support of x; extrapolation away from c is not identified
+- fuzzy=: the probability of treatment jumps at c (first stage) and no unit is pushed out of treatment by crossing it (monotonicity); the estimand is the effect on compliers at c
+- deriv=1 (kink): the first derivative of the potential-outcome regression is continuous at c, and the policy rule has a kink there
+- cluster=: observations are independent across clusters; bandwidths and the variance then follow the clustered formulas
 
 **Failure modes → recovery**
 
