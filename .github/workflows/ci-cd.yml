@@ -111,9 +111,13 @@ jobs:
       # skipped. It is environment-marked to python>=3.10 in pyproject
       # (pyfixest ships no 3.9 wheel), so the 3.9 leg resolves the extra
       # to nothing and those tests skip there; every other leg runs them.
+      # ``io`` brings pyreadstat. ``sp.read_data`` picks its .dta reader by
+      # whether that package is importable, and without it here every
+      # pyreadstat-path test skipped on CI and locally alike: the two readers
+      # returned different values for Stata dates until 2026-10-03.
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev,fixest]"
+        pip install -e ".[dev,fixest,io]"
 
     - name: Install exact-parity extras (canonical env — runs DoubleML + CCT pins)
       # doubleml and rdrobust are opt-in extras (not in `dev`). Installing them
@@ -225,6 +229,8 @@ jobs:
           tests/test_review_backlog.py \
           tests/test_agent_card_audit.py \
           tests/test_mcp_data_handles.py \
+          tests/test_read_data_io.py \
+          tests/test_mcp_data_loader_dta_labels.py \
           tests/test_mcp_result_handle.py \
           tests/test_mcp_error_envelope.py \
           tests/test_registry_metadata_ratchet.py \
