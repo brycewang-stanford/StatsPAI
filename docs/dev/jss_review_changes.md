@@ -31,6 +31,35 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — minimum-norm rule for non-unique synthetic-control weights; `52_scm_unique` recovers its truth to 2e-14
+
+- **Commits.** `54ad1443`. The traces, parity index and fixture lock are
+  re-recorded in the commit that follows it, which carries this entry.
+- **Reason.** When the simplex least-squares minimiser is not unique (a
+  treated unit inside the donors' hull, a predictor weighted to zero) the
+  weights were SLSQP's choice from a uniform start. They are now the
+  minimum-norm weights among the minimisers, computed exactly. The rule
+  does not depend on the solver or the starting point, and a nested fit
+  with its placebo fits takes seconds.
+- **Effect on the paper.** `52_scm_unique` improves: `avg_post_gap`
+  2.000000155 to 2.000000000 (relative gap to R 7.78e-08 to 4.14e-10) and
+  the three donor weights to within 2e-14 of 0.5, 0.3, 0.2 (gaps to R
+  1e-7 to 1e-9, which is R's own error). `07_scm`, `18_augsynth`,
+  `19_gsynth`, `12_sdid` and original-data `03_basque_original` were
+  rerun and their result files are byte-identical: their solutions are
+  unique. No verdict, tier or implementation classification changes.
+  Track C synthetic-control timings are now far out of date in the
+  favourable direction; they are re-measured at the next re-anchor.
+- **Paths.**
+  - `tests/r_parity/results/52_scm_unique_py.json`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table.tex`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/results/parity_table_3way.tex`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded after `sp.write_data` was exported and the matched-frame helper changed
 
 - **Commits.** `bed80f3f` re-recorded
