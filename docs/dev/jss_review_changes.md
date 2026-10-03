@@ -31,6 +31,34 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after docstring repairs that unblock the strict docs build
+
+- **Commits.** `fd6c43ca` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` for Track A modules
+  01, 02, 13, 14, 24, 35, 51, 53, 54, 55, 56 and 59, and
+  `tests/orig_parity/results/_implementation_trace.json` for original-data
+  modules 01, 04, 04b and 09.
+- **Reason.** The traces bind SHA-256 digests of every source file on each
+  module's estimation path. The same commit edited four of those files,
+  docstrings only: `src/statspai/regression/ols.py` and
+  `src/statspai/regression/iv.py` (a References separator and the
+  `**kwargs` options of `IVRegression.fit`),
+  `src/statspai/forest/regression_forests.py` (indentation of the
+  placeholder that is replaced by the shared forest options at import; the
+  runtime docstrings were hashed before and after and are identical) and
+  `src/statspai/forest/causal_forest.py` (a Returns section).
+  `mkdocs build --strict` had aborted on these since 2026-09-28. No
+  executable line changed and no committed result file was regenerated or
+  edited.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` changed; every other field of all 16 modules was compared with
+  the previous file and is identical, so the native / port / third-party
+  census and the original-data ledger's provenance marks are unchanged. No
+  estimate, standard error or table cell is read from these files.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded for 03, 15, 47 and 53 after `sp.fast.fepois` took fixest's small-sample factors
 
 - **Commits.** `01260115`.
