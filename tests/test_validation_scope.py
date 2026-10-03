@@ -453,9 +453,13 @@ def test_joint_outputs_are_graded_separately_from_se():
 
     cr1 = sp.validation_scope(function="regress", vce="cr1", weights="none")
     assert cr1["outputs"]["joint_test"]["status"] == "reference"
+    # hc3 gained a joint-test row in 2026-10 (test_joint_wald_stata_parity);
+    # Newey-West has an SE row and still no joint-test row.
     hc3 = sp.validation_scope(function="regress", vce="hc3", weights="none")
-    assert hc3["outputs"]["joint_test"]["status"] == "not_covered"
-    assert hc3["outputs"]["se"]["status"] == "reference"
+    assert hc3["outputs"]["joint_test"]["status"] == "reference"
+    hac = sp.validation_scope(function="regress", vce="hac", weights="none")
+    assert hac["outputs"]["joint_test"]["status"] == "not_covered"
+    assert hac["outputs"]["se"]["status"] == "reference"
 
 
 def test_panel_scope_separates_the_default_and_the_reference_conventions():
@@ -705,3 +709,30 @@ def test_nonlinear_etwfe_has_its_own_map():
     assert _scope_of(linear)[0]["function"] == "etwfe"
     # The result card goes through the same routing.
     assert sp.result_card(poisson)["evidence"]["outputs"]["se"] == "disclosure"
+
+
+def test_panel_clustered_joint_test_depends_on_the_small_sample_convention():
+    """Same fit, same hypothesis: a match under ssc='stata', a disclosure by default."""
+    panel = pd.read_csv(ROOT / "tests/stata_translation_holdout/holdout_panel.csv")
+    keys = dict(entity="id", time="t", method="fe", cluster="id")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        default = sp.validation_scope(sp.panel(panel, "y ~ x", **keys))
+        stata = sp.validation_scope(sp.panel(panel, "y ~ x", ssc="stata", **keys))
+    assert default["outputs"]["joint_test"]["status"] == "disclosure"
+    assert stata["outputs"]["joint_test"]["status"] == "reference"
+    assert "ssc='stata'" in default["outputs"]["joint_test"]["evidence"][0]["compares"]
+
+
+def test_iv_joint_test_is_covered_where_the_variance_is():
+    cross = pd.read_csv(ROOT / "tests/stata_translation_holdout/holdout_cross.csv")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        hc1 = sp.validation_scope(
+            sp.ivreg("y ~ x1 + (x2 ~ z + z2)", data=cross, robust="hc1")
+        )
+        hc3 = sp.validation_scope(
+            sp.ivreg("y ~ x1 + (x2 ~ z + z2)", data=cross, robust="hc3")
+        )
+    assert hc1["outputs"]["joint_test"]["status"] == "reference"
+    assert hc3["outputs"]["joint_test"]["status"] == "not_covered"

@@ -8296,6 +8296,7 @@
         "tests/reference_parity/test_iv_small_Stata_parity.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_iv_weights_stata_parity.py",
+        "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py",
         "tests/reference_parity/test_regress_weights_iv_robust_parity.py",
         "tests/reference_parity/test_rotemberg_summary_Stata_parity.py",
@@ -8471,6 +8472,7 @@
         "tests/reference_parity/test_iv_weights_stata_parity.py",
         "tests/reference_parity/test_iv_wild_boottest_parity.py",
         "tests/reference_parity/test_iv_wild_ci_inversion_parity.py",
+        "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_liml_se_parity.py",
         "tests/reference_parity/test_oct2026_third_pass.py",
         "tests/reference_parity/test_paper_parity.py",
@@ -9379,6 +9381,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
@@ -12582,6 +12585,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_hausman_stata_parity.py",
+        "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py",
         "tests/reference_parity/test_panel_bias_reduced_parity.py",
         "tests/reference_parity/test_panel_parity.py",
@@ -12950,6 +12954,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_count_quantile_parity.py",
+        "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
@@ -15569,6 +15574,7 @@
         "tests/reference_parity/test_imputation_parity.py",
         "tests/reference_parity/test_inference_sens_R_parity.py",
         "tests/reference_parity/test_inference_sens_stata_parity.py",
+        "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_margins_at_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",
@@ -18843,6 +18849,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_dml_multi_treatment_parity.py",
+        "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py"
       ],

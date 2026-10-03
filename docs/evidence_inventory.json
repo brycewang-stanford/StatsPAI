@@ -1857,9 +1857,38 @@
         "diagnostic": {
           "reference": 1,
           "not_covered": 207
+        },
+        "joint_test": {
+          "reference": 3,
+          "not_covered": 205
         }
       },
       "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.ivreg(formula, data, robust=..., cluster=...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "Wald F, both degrees of freedom and p-value vs Stata ivregress 2sls, small + test (the df-adjusted convention sp.ivreg reports; Stata's default ivregress is an unadjusted chi2)"
+        },
         {
           "kind": "T2",
           "artifact": "tests/reference_parity/test_iv_card_aer_parity.py",
@@ -2049,9 +2078,38 @@
         "diagnostic": {
           "reference": 1,
           "not_covered": 207
+        },
+        "joint_test": {
+          "reference": 3,
+          "not_covered": 205
         }
       },
       "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.ivreg(formula, data, robust=..., cluster=...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "Wald F, both degrees of freedom and p-value vs Stata ivregress 2sls, small + test (the df-adjusted convention sp.ivreg reports; Stata's default ivregress is an unadjusted chi2)"
+        },
         {
           "kind": "T2",
           "artifact": "tests/reference_parity/test_iv_card_aer_parity.py",
@@ -2234,6 +2292,11 @@
         "se": {
           "reference": 46,
           "not_covered": 98
+        },
+        "joint_test": {
+          "reference": 5,
+          "disclosure": 1,
+          "not_covered": 138
         }
       },
       "rows": [
@@ -2260,6 +2323,144 @@
             ]
           },
           "compares": "FE / RE coefficients vs plm::plm (SE budget 1e-3)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.panel(data, formula, method='fe')",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "method": [
+              "fe"
+            ],
+            "vce": [
+              "unadjusted"
+            ],
+            "ssc": [
+              "linearmodels"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "joint F of the time effects vs Stata xtreg, fe + testparm"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.panel(data, formula, method='fe')",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "method": [
+              "fe"
+            ],
+            "vce": [
+              "unadjusted"
+            ],
+            "ssc": [
+              "stata"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "joint F of the time effects vs Stata xtreg, fe + testparm"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.panel(data, formula, method='fe')",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "method": [
+              "fe"
+            ],
+            "vce": [
+              "unadjusted"
+            ],
+            "ssc": [
+              "fixest"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "joint F of the time effects vs Stata xtreg, fe + testparm"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.panel(data, formula, method='fe', cluster=..., ssc=...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "method": [
+              "fe"
+            ],
+            "vce": [
+              "cluster"
+            ],
+            "ssc": [
+              "stata"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "joint F of the time effects on (q, G - 1) vs Stata xtreg, fe vce(cluster) + testparm"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.panel(data, formula, method='fe', cluster=..., ssc=...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "method": [
+              "fe"
+            ],
+            "vce": [
+              "cluster"
+            ],
+            "ssc": [
+              "fixest"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "joint F of the time effects on (q, G - 1) vs Stata xtreg, fe vce(cluster) + testparm"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.panel(data, formula, method='fe', cluster=...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "method": [
+              "fe"
+            ],
+            "vce": [
+              "cluster"
+            ],
+            "ssc": [
+              "linearmodels"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "default small-sample convention under clustering: the statistic is 1.7% above xtreg's and is referred to F(q, N - K) instead of F(q, G - 1), so the p-value is less than half of Stata's on 60 clusters; pass ssc='stata' for the xtreg number"
         },
         {
           "kind": "T2",
@@ -3231,8 +3432,8 @@
           "not_covered": 25
         },
         "joint_test": {
-          "reference": 3,
-          "not_covered": 23
+          "reference": 5,
+          "not_covered": 21
         }
       },
       "rows": [
@@ -3293,6 +3494,27 @@
             ]
           },
           "compares": "joint Wald F of the factor dummies (and its t(G - 1) / F(q, G - 1) reference law under clustering) vs Stata contrast's joint row"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_joint_wald_stata_parity.py",
+          "entry_point": "sp.regress(formula, data, robust=..., cluster=...)",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1",
+              "hc2",
+              "hc3"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Wald F, both degrees of freedom and p-value of three joint hypotheses vs Stata test / testparm after regress"
         },
         {
           "kind": "T2",
@@ -3767,8 +3989,9 @@
       "not_covered": 1295
     },
     "joint_test": {
-      "reference": 3,
-      "not_covered": 23
+      "reference": 16,
+      "disclosure": 1,
+      "not_covered": 569
     }
   },
   "option_fixtures": [

@@ -66,9 +66,9 @@ def test_every_scope_function_is_inventoried_over_its_whole_grid(built):
 def test_counts_agree_with_direct_queries(built):
     """Spot checks against ``sp.validation_scope`` itself, by hand."""
     reg = built["functions"]["regress"]
-    # joint Wald F is pinned for classical / hc1 / cr1, unweighted.
-    assert reg["by_output"]["joint_test"]["reference"] == 3
-    direct = sp.validation_scope(function="regress", vce="hc3", weights="none")
+    # joint Wald F is pinned for classical / hc1 / hc2 / hc3 / cr1, unweighted.
+    assert reg["by_output"]["joint_test"]["reference"] == 5
+    direct = sp.validation_scope(function="regress", vce="hac", weights="none")
     assert direct["outputs"]["joint_test"]["status"] == "not_covered"
 
     sa = built["functions"]["sun_abraham"]
@@ -145,3 +145,17 @@ def test_reliability_flags_the_designs_that_miss_nominal(built):
     weak = next(r for r in stress if "weak instrument" in r["design"])
     lo, hi = weak["documented_band"]
     assert lo <= weak["rate"] <= hi < 0.96
+
+
+def test_joint_test_evidence_reaches_iv_and_panel(built):
+    """Until 2026-10 only sp.regress had a joint-test reference."""
+    with_joint = {
+        name: inv["by_output"]["joint_test"].get("reference", 0)
+        for name, inv in built["functions"].items()
+        if "joint_test" in inv["by_output"]
+    }
+    assert with_joint["regress"] == 5
+    assert with_joint["iv"] == with_joint["ivreg"] == 3
+    assert with_joint["panel"] == 5
+    panel = built["functions"]["panel"]["by_output"]["joint_test"]
+    assert panel["disclosure"] == 1  # clustered, default small-sample convention

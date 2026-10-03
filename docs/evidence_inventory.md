@@ -20,13 +20,13 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
 | `fast.feols` | 12 | 6 / 12 | 2 / 12 | -- | -- | -- | 2 / 12 |
 | `gardner_did` | 32 | 8 / 32 | 2 / 32 | 1 / 32 | -- | -- | 2 / 32 |
-| `iv` | 208 | 39 / 208 | 7 / 208 | -- | -- | 1 / 208 | 7 / 208 |
-| `ivreg` | 208 | 39 / 208 | 7 / 208 | -- | -- | 1 / 208 | 7 / 208 |
-| `panel` | 144 | 99 / 144 | 46 / 144 | -- | -- | -- | 46 / 144 |
+| `iv` | 208 | 39 / 208 | 7 / 208 | -- | 3 / 208 | 1 / 208 | 7 / 208 |
+| `ivreg` | 208 | 39 / 208 | 7 / 208 | -- | 3 / 208 | 1 / 208 | 7 / 208 |
+| `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
 | `psm` | 3600 | 3 / 3600 | 1 / 3600 | -- | -- | -- | 1 / 3600 |
 | `rddensity` | 2 | -- | -- | -- | -- | 1 / 2 | 1 / 2 |
 | `rdrobust` | 25920 | 12 / 25920 | 12 / 25920 | -- | -- | -- | 12 / 25920 |
-| `regress` | 26 | 13 / 26 | 6 / 26 | -- | 3 / 26 | -- | 6 / 26 |
+| `regress` | 26 | 13 / 26 | 6 / 26 | -- | 5 / 26 | -- | 6 / 26 |
 | `sdid` | 288 | 52 / 288 | 24 / 288 | -- | -- | -- | 24 / 288 |
 | `sun_abraham` | 8 | 4 / 8 | 4 / 8 | 2 / 8 | -- | -- | 4 / 8 |
 | `synth` | 8 | 1 / 8 | -- | -- | -- | -- | 1 / 8 |
@@ -70,12 +70,15 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `iv` | se | 0 | 0 | 0 | 0 | 201 |
 | `iv` | coverage | 0 | 0 | 1 | 0 | 207 |
 | `iv` | diagnostic | 0 | 0 | 0 | 0 | 207 |
+| `iv` | joint_test | 0 | 0 | 0 | 0 | 205 |
 | `ivreg` | estimate | 0 | 0 | 0 | 0 | 169 |
 | `ivreg` | se | 0 | 0 | 0 | 0 | 201 |
 | `ivreg` | coverage | 0 | 0 | 1 | 0 | 207 |
 | `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 207 |
+| `ivreg` | joint_test | 0 | 0 | 0 | 0 | 205 |
 | `panel` | estimate | 0 | 0 | 0 | 0 | 45 |
 | `panel` | se | 0 | 0 | 0 | 0 | 98 |
+| `panel` | joint_test | 0 | 0 | 0 | 1 | 138 |
 | `psm` | estimate | 0 | 0 | 0 | 0 | 3597 |
 | `psm` | se | 0 | 0 | 0 | 0 | 3599 |
 | `rddensity` | diagnostic | 0 | 0 | 0 | 0 | 1 |
@@ -85,7 +88,7 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `regress` | estimate | 0 | 0 | 0 | 0 | 13 |
 | `regress` | se | 0 | 0 | 0 | 0 | 20 |
 | `regress` | coverage | 0 | 0 | 1 | 0 | 25 |
-| `regress` | joint_test | 0 | 0 | 0 | 0 | 23 |
+| `regress` | joint_test | 0 | 0 | 0 | 0 | 21 |
 | `sdid` | estimate | 0 | 0 | 0 | 0 | 236 |
 | `sdid` | se | 0 | 0 | 0 | 0 | 264 |
 | `sdid` | coverage | 0 | 0 | 1 | 0 | 287 |
@@ -216,6 +219,7 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
+| T2 | joint_test | estimator=2sls; vce=classical/cr1/hc1; identification=over; absorb=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.ivreg(formula, data, robust=..., cluster=...)` |
 | T2 | estimate, se | estimator=2sls; vce=classical/cr1/hc1; identification=just/over; absorb=none | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data, robust=..., cluster=...)` |
 | T2 | diagnostic | estimator=2sls; vce=classical; identification=over; absorb=none | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data)` |
 | T2 | estimate, se | estimator=2sls; vce=hc1; identification=just; absorb=none | `tests/r_parity/02_iv.py` | `sp.ivreg(robust='hc1')` |
@@ -230,6 +234,7 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
+| T2 | joint_test | estimator=2sls; vce=classical/cr1/hc1; identification=over; absorb=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.ivreg(formula, data, robust=..., cluster=...)` |
 | T2 | estimate, se | estimator=2sls; vce=classical/cr1/hc1; identification=just/over; absorb=none | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data, robust=..., cluster=...)` |
 | T2 | diagnostic | estimator=2sls; vce=classical; identification=over; absorb=none | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data)` |
 | T2 | estimate, se | estimator=2sls; vce=hc1; identification=just; absorb=none | `tests/r_parity/02_iv.py` | `sp.ivreg(robust='hc1')` |
@@ -245,6 +250,12 @@ Dimensions: `method` in {fe, twoway, pooled, fd, re, be, mundlak, chamberlain}; 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
 | T2 | estimate | method=fe/re; vce=unadjusted; ssc=linearmodels; weights=none | `tests/r_parity/35_panel.py` | `sp.panel(data=df, ...)` |
+| T2 | joint_test | method=fe; vce=unadjusted; ssc=linearmodels; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.panel(data, formula, method='fe')` |
+| T2 | joint_test | method=fe; vce=unadjusted; ssc=stata; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.panel(data, formula, method='fe')` |
+| T2 | joint_test | method=fe; vce=unadjusted; ssc=fixest; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.panel(data, formula, method='fe')` |
+| T2 | joint_test | method=fe; vce=cluster; ssc=stata; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.panel(data, formula, method='fe', cluster=..., ssc=...)` |
+| T2 | joint_test | method=fe; vce=cluster; ssc=fixest; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.panel(data, formula, method='fe', cluster=..., ssc=...)` |
+| T4 | joint_test | method=fe; vce=cluster; ssc=linearmodels; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.panel(data, formula, method='fe', cluster=...)` |
 | T2 | estimate, se | method=fd/fe/pooled/re/twoway; vce=cluster/robust/unadjusted; ssc=stata; weights=none | `tests/reference_parity/test_panel_ssc_stata_parity.py` | `sp.panel(data, ..., ssc=ssc)` |
 | T2 | estimate, se | method=be; vce=unadjusted; ssc=stata; weights=none | `tests/reference_parity/test_panel_ssc_stata_parity.py` | `sp.panel(data, ..., ssc=ssc)` |
 | T2 | estimate, se | method=mundlak; vce=cluster/unadjusted; ssc=stata; weights=none | `tests/reference_parity/test_panel_ssc_stata_parity.py` | `sp.panel(data, ..., ssc=ssc)` |
@@ -305,6 +316,7 @@ Dimensions: `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_mult
 | T2 | estimate, se | vce=hc1; weights=none | `tests/r_parity/01_ols.py` | `sp.regress(robust='hc1')` |
 | T2 | estimate, se | vce=classical/cr1/hc1/hc3; weights=none | `tests/reference_parity/test_vce_grammar_stata_parity.py` | `sp.regress(vce=...)` |
 | T2 | joint_test | vce=classical/cr1/hc1; weights=none | `tests/reference_parity/test_r2_postest_parity.py` | `sp.test(result, 'C(g)[T.2] = ... = 0')` |
+| T2 | joint_test | vce=classical/cr1/hc1/hc2/hc3; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.regress(formula, data, robust=..., cluster=...)` |
 | T2 | estimate, se | vce=hc2/hc3; weights=none | `tests/r_parity/55_hc2_hc3.py` | `sp.regress(robust='hc2'|'hc3')` |
 | T2 | estimate, se | vce=cr1; weights=none | `tests/r_parity/14_ols_cluster.py` | `sp.regress(cluster=...)` |
 | T2 | estimate, se | vce=hac; weights=none | `tests/r_parity/51_newey.py` | `sp.regress(robust='hac')` |

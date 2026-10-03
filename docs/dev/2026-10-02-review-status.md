@@ -4,7 +4,7 @@
 
 对应 `docs/dev/2026-10-02-repository-agent-parity-review.md`。审查基线是 d1025b29 (1.34.2)，工作基于 e4fdfddc (1.35.0)。
 
-共 36 项：已完成 **28**，部分完成 **2**，未做 **6**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
+共 36 项：已完成 **29**，部分完成 **2**，未做 **5**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
 
 ## 已完成
 
@@ -31,6 +31,7 @@
 | S3 | 短路径 playbook：一次估计、一次检查或一张表的五步流程，以及三个应当停下的地方 | `src/statspai/agent/_skill/references/quick-path.md` | `tests/test_skill_package.py` | 五个代码块在测试里端到端执行。 |
 | R1 | 入口 × 配置 × 输出的 evidence 清单，生成式，带漂移闸门 | `scripts/build_evidence_inventory.py`<br>`docs/evidence_inventory.md` | `tests/test_evidence_inventory.py` |  |
 | R1 | 登记已有但未入册的证据：`sun_abraham`、`did_imputation`、`gardner_did`、`event_study`、`etwfe`（含默认调用的逐位相等挂接）、非线性 `etwfe` | `src/statspai/validation_scope.py` | `tests/test_validation_scope.py`<br>`tests/reference_parity/test_validation_entry_points.py` |  |
+| R1 | joint test 的参考证据：`regress`、IV、面板 FE、logit、poisson | `tests/reference_parity/_fixtures/_generate_joint_test_stata.do`<br>`src/statspai/validation_scope.py` | `tests/reference_parity/test_joint_wald_stata_parity.py` | 本机 Stata 18 MP 双精度实跑 33 个 `test` / `testparm`。`sp.test` 在 `regress`（五种方差）、`ivreg`（三种方差，对应 `ivregress, small`）、面板 FE、logit、poisson 上的统计量、两个自由度和 p 值都对到 1e-10 以内。证据清单里 joint test 有参考的格子从 3 个变成 16 个。DiD 家族的联合预趋势检验、RD、DML 仍然没有 joint test 参考。 |
 | R2 | R parity CI 的范围写准确；每周一的上游漂移探针 | `.github/workflows/r-parity.yml`<br>`tests/r_parity/R_ENVIRONMENT.md` | `tests/test_r_parity_ci_scope.py` | 每周定时任务还没在 CI 上实际跑过。 |
 | R2 | 机器可读的 run manifest：每个模块每一侧的状态、参考版本、平台、输入输出哈希、是否由 CI 重推导、缺 Stata 侧的理由、上次重推导的提交与日期 | `scripts/build_reproduction_manifest.py`<br>`docs/reproduction_manifest.json` | `tests/test_reproduction_manifest.py` |  |
 | R3 | option fixture 双精度重生成、被测试直接读取、哈希入清单；跨六条证据轨道的统一清单 | `scripts/evidence_track_manifest.py`<br>`tests/stata_parity/option_parity/README.md` | `tests/reference_parity/test_option_fixture_bindings.py`<br>`tests/test_evidence_tracks.py` |  |
@@ -53,7 +54,6 @@
 | A3 | 把各估计器的默认种子统一成一个值 | 故意不做。259 个带种子的函数里默认值有 `None` 125、`42` 73、`0` 56 等；改默认值会改变已发表的带种子数字。审查本身也说不应机械统一。 | 若要改，逐个估计器走 ⚠️ correctness / MIGRATION 流程 |
 | S2 | 真实模型的行为评测（成功率、严重错误率、token、延迟） | 需要付费模型调用、预注册和你的授权；`tests/agent_bench` 的 900-trial 设计已经写明这三个前提。mock 结果只能验证 harness。 | 先批一个小规模 smoke 的预算和模型快照 |
 | R1 | 清单里空着的格子补参考（`etwfe` 的协变量 / `xvar` / 加权 / `agg_weights='unit'`，`event_study` 的其它窗口，`rdrobust` / `dml` / `psm` 的大部分网格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差，是逐格的 parity 工作。交错面板上的 TWFE 事件研究不该补。 | 按使用频率挑格子；每补一格重跑 `build_evidence_inventory.py` |
-| R1 | joint test 的参考证据（目前只有 `regress` 的 3 格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差；`test`、`lincom` 等后估计入口还没有 scope 映射。 | 先给 `sp.test` 的 Wald / F 建映射，再按估计器补 Stata `test` 的参考 |
 | R2 | 在 CI 里按 `renv.lock` 复现；重依赖 R 模块与 Stata 的定期自动重推导 | 需要自托管 runner（354 个 R 包，含仅 GitHub 发布的）和 Stata 许可。一个没法在 CI 上实测的 workflow job 我没有加：写了不跑等于没有，写了跑挂会挡住别人。 | 有 runner 之后加一个只在手动触发时运行的 job |
 | R5 | 新的仿真：少簇、不平衡面板、RD mass points、极端权重、学习器变化 | 需要预先定义设计和计算预算；审查也写明不应作为隐含任务执行。 | — |
 
@@ -80,3 +80,4 @@
 - **`areg` 翻译出来的常数项不是 Stata 的 `_cons`。** 斜率和 SE 与 `areg` 完全一致；`Intercept` 是第一组的水平，`_cons` 是平均吸收效应处的截距。翻译说明原来只提了 SE 的自由度，没提常数项。holdout 查出，已补说明。
 - **holdout 第一次真正派上用场。** 我补 `noconstant` 的同时，并行的另一条线也补了它，还补了 `[fweight=]` 和 `xtreg, re`。rebase 之后 holdout 对后两者是盲测：`xtreg, re` 的系数、常规 SE、聚类 SE、以及用正态分布的置信区间都与 Stata 逐位一致；`[fweight=]` 由 runner 按行展开，N 和 SE 也对。评分规则里有一处误判（把“只有 runner 能翻译”算成了静默错误），已修正。
 - **`sp.panel(vce=)` 静默忽略它不认识的值。** `vce='robust'`、`vce='cluster'`、甚至 `vce='nonsense'` 都悄悄返回常规 SE，所有面板方法都一样。核对 `xtreg, re vce(robust)` 的翻译时发现。已改为明确报错并提示正确写法（`robust='robust'` / `cluster=`），记了 ⚠️ correctness 和 MIGRATION。
+- **`sp.panel` 默认约定下，聚类后的 joint test 与 Stata 不同。** `sp.panel(..., method='fe', cluster='id')` 之后 `sp.test` 的 F 比 `xtreg, fe vce(cluster id)` 大 1.7%，并且参考分布用的是 F(q, N−K) 而不是 F(q, G−1)。60 个簇时 p 值是 0.0017，Stata 是 0.0040。传 `ssc='stata'`（或 `'fixest'`）后与 Stata 逐位一致。这是默认约定的问题，不是 bug：单个系数的这个差异此前已在 scope 里记为没有参考。我在 scope 里把它记成 `disclosure`，没有动默认值。簇少的时候默认 p 值偏乐观，是否把默认改成 `ssc='stata'` 需要你定，改了会变动已有数字。

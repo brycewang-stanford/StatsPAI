@@ -733,6 +733,18 @@ changes its numbers.
   supported protocol revision, an unknown revision, a text-only client, a
   client without sampling, a client that sends cursors, a server restart
   with stale handles, and a client that skips `initialize`.
+- **Joint Wald tests are pinned against Stata by variance option**
+  (`tests/reference_parity/test_joint_wald_stata_parity.py`, 33 tests run
+  on Stata 18 MP). `sp.test` matches `test` / `testparm` in statistic,
+  both degrees of freedom and p-value after `sp.regress` (classical,
+  robust, HC2, HC3, cluster), `sp.ivreg` (Stata's `ivregress, small`
+  convention), `sp.panel` fixed effects, `sp.logit` and `sp.poisson`.
+  Cells of the evidence inventory with a joint-test reference go from 3
+  to 16. One convention is recorded as a disclosure rather than a match:
+  `sp.panel(cluster=)` with the default small-sample convention refers a
+  1.7% larger statistic to `F(q, N - K)`, giving p = 0.0017 where
+  `xtreg, fe vce(cluster)` gives 0.0040 on 60 clusters; `ssc='stata'`
+  reproduces Stata exactly.
 - **Reproduction bundles: `statspai://result/<id>/bundle`.** A cached
   result can be exported as the data file and its SHA-256, the
   `transform_data` steps in order, the `sp.<fn>(...)` call, the headline

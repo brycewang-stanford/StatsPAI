@@ -493,6 +493,7 @@ _RP = "tests/reference_parity/"
 _B = "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json"
 _VCE = _RP + "test_vce_grammar_stata_parity.py"
 _ATTACH = _RP + "test_validation_entry_points.py"
+_JOINT = _RP + "test_joint_wald_stata_parity.py"
 _EST_SE = ("estimate", "se")
 _EST = ("estimate",)
 _COV = ("coverage",)
@@ -561,6 +562,18 @@ _add(
             ),
             _Row(
                 "T2",
+                _JOINT,
+                {
+                    "vce": _vals("classical", "hc1", "hc2", "hc3", "cr1"),
+                    "weights": _vals("none"),
+                },
+                ("joint_test",),
+                "Wald F, both degrees of freedom and p-value of three joint "
+                "hypotheses vs Stata test / testparm after regress",
+                "sp.regress(formula, data, robust=..., cluster=...)",
+            ),
+            _Row(
+                "T2",
                 _R + "55_hc2_hc3.py",
                 {"vce": _vals("hc2", "hc3"), "weights": _vals("none")},
                 _EST_SE,
@@ -607,6 +620,21 @@ _add(
         },
         _x_iv,
         (
+            _Row(
+                "T2",
+                _JOINT,
+                {
+                    "estimator": _vals("2sls"),
+                    "vce": _vals("classical", "hc1", "cr1"),
+                    "identification": _vals("over"),
+                    "absorb": _vals("none"),
+                },
+                ("joint_test",),
+                "Wald F, both degrees of freedom and p-value vs Stata ivregress "
+                "2sls, small + test (the df-adjusted convention sp.ivreg "
+                "reports; Stata's default ivregress is an unadjusted chi2)",
+                "sp.ivreg(formula, data, robust=..., cluster=...)",
+            ),
             _Row(
                 "T2",
                 _RP + "test_iv_card_aer_parity.py",
@@ -802,6 +830,49 @@ _add(
                 _EST,
                 "FE / RE coefficients vs plm::plm (SE budget 1e-3)",
                 "sp.panel(data=df, ...)",
+            ),
+            *(
+                _panel_row(
+                    "T2",
+                    _JOINT,
+                    ("fe",),
+                    ("unadjusted",),
+                    ssc,
+                    "none",
+                    ("joint_test",),
+                    "joint F of the time effects vs Stata xtreg, fe + testparm",
+                    "sp.panel(data, formula, method='fe')",
+                )
+                for ssc in ("linearmodels", "stata", "fixest")
+            ),
+            *(
+                _panel_row(
+                    "T2",
+                    _JOINT,
+                    ("fe",),
+                    ("cluster",),
+                    ssc,
+                    "none",
+                    ("joint_test",),
+                    "joint F of the time effects on (q, G - 1) vs Stata xtreg, fe "
+                    "vce(cluster) + testparm",
+                    "sp.panel(data, formula, method='fe', cluster=..., ssc=...)",
+                )
+                for ssc in ("stata", "fixest")
+            ),
+            _panel_row(
+                "T4",
+                _JOINT,
+                ("fe",),
+                ("cluster",),
+                "linearmodels",
+                "none",
+                ("joint_test",),
+                "default small-sample convention under clustering: the statistic "
+                "is 1.7% above xtreg's and is referred to F(q, N - K) instead of "
+                "F(q, G - 1), so the p-value is less than half of Stata's on 60 "
+                "clusters; pass ssc='stata' for the xtreg number",
+                "sp.panel(data, formula, method='fe', cluster=...)",
             ),
             _panel_row(
                 "T2",

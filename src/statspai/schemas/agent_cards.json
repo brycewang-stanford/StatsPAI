@@ -7353,9 +7353,9 @@
       "Stata parity module 35_panel",
       "Cross-language parity (bit-exact) vs plm::plm + plm::phtest [R version 4.5.2 (2025-10-31), plm 2.6.7]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 35_panel; implementation: third party python -- tests/r_parity/35_panel.py",
       "tests/reference_parity/test_hausman_stata_parity.py",
+      "tests/reference_parity/test_joint_wald_stata_parity.py",
       "tests/reference_parity/test_oct2026_fourth_pass.py",
-      "tests/reference_parity/test_panel_bias_reduced_parity.py",
-      "tests/reference_parity/test_panel_parity.py"
+      "tests/reference_parity/test_panel_bias_reduced_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -61114,10 +61114,10 @@
       "R parity module 57_logit",
       "Stata parity module 57_logit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"logit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 57_logit -- tests/r_parity/57_logit.py",
+      "tests/reference_parity/test_joint_wald_stata_parity.py",
       "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py",
-      "tests/reference_parity/test_postestimation_stata_parity.py",
-      "tests/reference_parity/test_r2_postest_parity.py"
+      "tests/reference_parity/test_postestimation_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -61848,9 +61848,9 @@
       "Stata parity module 58_poisson",
       "Cross-language parity (bit-exact) vs stats::glm(family=poisson()) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 58_poisson -- tests/r_parity/58_poisson.py",
       "tests/reference_parity/test_count_quantile_parity.py",
+      "tests/reference_parity/test_joint_wald_stata_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py",
-      "tests/reference_parity/test_postestimation_stata_parity.py",
-      "tests/reference_parity/test_r2_postest_parity.py"
+      "tests/reference_parity/test_postestimation_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -62667,6 +62667,7 @@
     "validation_notes": [
       "Cross-language parity (aligned) vs Stata 18 test (after regress / ivregress / logit / poisson) [Stata 18]; tolerance 1e-6 rel (observed <= 2.3e-15 on linear fits, <= 8e-10 on ML fits, far-tail p <= 4.7e-8) -- tests/reference_parity/test_postestimation_stata_parity.py",
       "tests/reference_parity/test_dml_multi_treatment_parity.py",
+      "tests/reference_parity/test_joint_wald_stata_parity.py",
       "tests/reference_parity/test_postestimation_parity.py",
       "tests/reference_parity/test_r2_postest_parity.py"
     ],
