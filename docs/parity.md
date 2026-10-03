@@ -865,7 +865,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `ttest` | [`test_difference_in_means_estimatr.py`](../tests/reference_parity/test_difference_in_means_estimatr.py) (+1) |
 | `twfe_decomposition` | [`test_did_synth_R_parity.py`](../tests/reference_parity/test_did_synth_R_parity.py) |
 | `uniform_bands` | [`test_event_study_vcov_R_parity.py`](../tests/reference_parity/test_event_study_vcov_R_parity.py) (+1) |
-| `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+2) |
+| `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+3) |
 | `variable_importance` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) |
 | `varsoc` | [`test_textbook_methods_stata_parity.py`](../tests/reference_parity/test_textbook_methods_stata_parity.py) |
 | `vcnet` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |

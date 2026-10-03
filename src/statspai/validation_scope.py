@@ -218,6 +218,8 @@ def _x_iv(r: Any) -> Dict[str, Optional[str]]:
         "vce": _vce_linear(mi),
         "identification": ident,
         "absorb": _set(absorbed),
+        # sp.iv reports ivregress, small statistics unless small=False
+        "small": "false" if mi.get("small") is False else "true",
     }
 
 
@@ -494,6 +496,7 @@ _B = "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json"
 _VCE = _RP + "test_vce_grammar_stata_parity.py"
 _ATTACH = _RP + "test_validation_entry_points.py"
 _JOINT = _RP + "test_joint_wald_stata_parity.py"
+_REGW = _RP + "test_regress_vce_weights_stata_parity.py"
 _EST_SE = ("estimate", "se")
 _EST = ("estimate",)
 _COV = ("coverage",)
@@ -597,6 +600,55 @@ _add(
                 "sp.regress(robust='hac')",
             ),
             _Row(
+                "T2",
+                _REGW,
+                {
+                    "vce": _vals("classical", "hc1", "hc2", "hc3", "cr1", "cr2"),
+                    "weights": _vals("set"),
+                },
+                _EST_SE,
+                "weighted coefficients and SEs vs Stata regress [aw=w] under "
+                "ols, robust, hc2, hc3, cluster and vce(hc2 g), to 1e-10",
+                "sp.regress(FORMULA, data, weights=..., vce=...)",
+            ),
+            _Row(
+                "T2",
+                _REGW,
+                {"vce": _vals("cr2"), "weights": _vals("none")},
+                _EST_SE,
+                "CR2 SEs vs Stata regress, vce(hc2 g), to 1e-10",
+                "sp.regress(FORMULA, data, vce='cr2', cluster=...)",
+            ),
+            _Row(
+                "T1",
+                _REGW,
+                {"vce": _vals("cr3"), "weights": _vals("none", "set")},
+                ("se",),
+                "CR3 equals the brute-force delete-one-cluster jackknife "
+                "sum_g (b_(g) - b)(b_(g) - b)' to 1e-10",
+                "sp.regress(FORMULA, data, vce='cr3', cluster=...)",
+            ),
+            _Row(
+                "T4",
+                _REGW,
+                {"vce": _vals("cr3"), "weights": _vals("none")},
+                ("se",),
+                "Stata's vce(jackknife, cluster(g) mse) is (G - 1)/G times "
+                "this variance; equal to 1e-6 after that factor (Stata keeps "
+                "its replicates in single precision)",
+                "sp.regress(FORMULA, data, vce='cr3', cluster=...)",
+            ),
+            _Row(
+                "T4",
+                _REGW,
+                {"vce": _vals("cluster_multiway"), "weights": _vals("none", "set")},
+                ("se",),
+                "two-way SEs use one G_min/(G_min - 1) factor; Stata 18 scales "
+                "each component by its own. Both are rebuilt from the same "
+                "scores to 1e-10, and sp.twoway_cluster gives Stata's number",
+                "sp.regress(FORMULA, data, cluster=[a, b])",
+            ),
+            _Row(
                 "B",
                 _B,
                 {"vce": _vals("hc1"), "weights": _vals("none")},
@@ -617,6 +669,7 @@ _add(
             "vce": _REG_VCE,
             "identification": ("just", "over"),
             "absorb": ("none", "set"),
+            "small": ("true", "false"),
         },
         _x_iv,
         (
@@ -628,6 +681,7 @@ _add(
                     "vce": _vals("classical", "hc1", "cr1"),
                     "identification": _vals("over"),
                     "absorb": _vals("none"),
+                    "small": _vals("true"),
                 },
                 ("joint_test",),
                 "Wald F, both degrees of freedom and p-value vs Stata ivregress "
@@ -643,6 +697,7 @@ _add(
                     "vce": _vals("classical", "hc1", "cr1"),
                     "identification": _vals("just", "over"),
                     "absorb": _vals("none"),
+                    "small": _vals("true"),
                 },
                 _EST_SE,
                 "coefficient and classical / HC1 / CR1 SEs vs AER::ivreg + sandwich on "
@@ -657,6 +712,7 @@ _add(
                     "vce": _vals("classical"),
                     "identification": _vals("over"),
                     "absorb": _vals("none"),
+                    "small": _vals("true"),
                 },
                 ("diagnostic",),
                 "Sargan over-identification statistic vs AER",
@@ -670,6 +726,7 @@ _add(
                     "vce": _vals("hc1"),
                     "identification": _vals("just"),
                     "absorb": _vals("none"),
+                    "small": _vals("true"),
                 },
                 _EST_SE,
                 "coefficients and HC1 SEs vs AER::ivreg (via sp.ivreg, "
@@ -684,6 +741,7 @@ _add(
                     "vce": _vals("classical"),
                     "identification": _vals("over"),
                     "absorb": _vals("none"),
+                    "small": _vals("true"),
                 },
                 _EST_SE,
                 "LIML coefficient, SE and kappa vs ivmodel on Track A "
@@ -698,16 +756,131 @@ _add(
                     "vce": _vals("hc1"),
                     "identification": _vals("just"),
                     "absorb": _vals("none"),
+                    "small": _vals("true"),
                 },
                 _COV,
                 "95% CI coverage, strong single instrument (via sp.ivreg)",
                 "sp.ivreg(robust='hc1')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_iv_small_Stata_parity.py",
+                {
+                    "estimator": _vals("2sls", "liml"),
+                    "vce": _vals("classical", "hc1", "cr1"),
+                    "identification": _vals("just"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "coefficient, SE and p-value vs Stata ivregress 2sls / liml, small under default, robust and cluster variances (SE to 1e-12)",
+                "sp.iv(formula, data, method=..., small=True)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_iv_small_Stata_parity.py",
+                {
+                    "estimator": _vals("2sls", "liml"),
+                    "vce": _vals("classical", "hc0", "cr1"),
+                    "identification": _vals("just"),
+                    "absorb": _vals("none"),
+                    "small": _vals("false"),
+                },
+                _EST_SE,
+                "the same without small: N divisor, HC0 under vce(robust), no finite-sample cluster factor, z p-values, vs Stata ivregress",
+                "sp.iv(formula, data, method=..., small=False)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_iv_hdfe_stata_parity.py",
+                {
+                    "estimator": _vals("2sls"),
+                    "vce": _vals("classical", "hc1", "cr1", "cluster_multiway"),
+                    "identification": _vals("just"),
+                    "absorb": _vals("set"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "absorbed two-way fixed effects: coefficient and SE vs Stata ivreghdfe under iid, robust, one-way and two-way clustering (SE to 1e-10)",
+                "sp.iv(formula, data, absorb=[...])",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_iv_hdfe_stata_parity.py",
+                {
+                    "estimator": _vals("2sls"),
+                    "vce": _vals("hc1", "cr1"),
+                    "identification": _vals("over"),
+                    "absorb": _vals("set"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "absorbed, over-identified 2SLS vs Stata ivreghdfe",
+                "sp.iv(formula, data, absorb=[...])",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_iv_hdfe_stata_parity.py",
+                {
+                    "estimator": _vals("liml"),
+                    "vce": _vals("hc1", "cr1"),
+                    "identification": _vals("over"),
+                    "absorb": _vals("set"),
+                    "small": _vals("true"),
+                },
+                _EST,
+                "absorbed LIML coefficient and kappa vs Stata ivreghdfe, liml (1e-10)",
+                "sp.iv(formula, data, absorb=[...], method='liml')",
+            ),
+            _Row(
+                "T4",
+                _RP + "test_iv_hdfe_stata_parity.py",
+                {
+                    "estimator": _vals("liml"),
+                    "vce": _vals("hc1", "cr1"),
+                    "identification": _vals("over"),
+                    "absorb": _vals("set"),
+                    "small": _vals("true"),
+                },
+                ("se",),
+                "absorbed LIML SE within 5e-5 of ivreghdfe: ivreg2 builds the k-class meat from X_hat, StatsPAI from AX",
+                "sp.iv(formula, data, absorb=[...], method='liml')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_iv_hdfe_stata_parity.py",
+                {
+                    "estimator": _vals("fuller"),
+                    "vce": _vals("hc1"),
+                    "identification": _vals("over"),
+                    "absorb": _vals("set"),
+                    "small": _vals("true"),
+                },
+                _EST,
+                "absorbed Fuller(1) coefficient and kappa vs Stata ivreghdfe, fuller(1)",
+                "sp.iv(formula, data, absorb=[...], method='fuller')",
+            ),
+            _Row(
+                "T4",
+                _RP + "test_iv_hdfe_stata_parity.py",
+                {
+                    "estimator": _vals("fuller"),
+                    "vce": _vals("hc1"),
+                    "identification": _vals("over"),
+                    "absorb": _vals("set"),
+                    "small": _vals("true"),
+                },
+                ("se",),
+                "absorbed Fuller(1) SE within 5e-5 of ivreghdfe (same k-class meat convention)",
+                "sp.iv(formula, data, absorb=[...], method='fuller')",
             ),
         ),
         invariant={"vce": _VCE_INVARIANT},
         note="sp.iv and sp.ivreg share this map; they are asserted bit-identical "
         "on these configurations in " + _ATTACH + ". Module 59 itself runs "
         "sp.liml, a separate code path, so its row is attached through that test.",
+        # added 2026-10-03; every earlier row and by-name query ran the default
+        defaults={"small": "true"},
     )
 )
 SCOPES["ivreg"] = SCOPES["iv"]

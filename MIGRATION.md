@@ -66,6 +66,32 @@ Python calls to `sp.read_data` are unaffected.
 
 ---
 
+<a id="oct2026-regress-weights-cluster"></a>
+
+## Unreleased: ⚠️ `sp.regress` weights and missing rows under CR2, CR3 and two-way clustering
+
+Three calls returned numbers for a different model than the one asked
+for. Refit any table produced with them.
+
+| Call | Before | Now |
+| --- | --- | --- |
+| `sp.regress(..., weights=w, vce='cr2'/'cr3', cluster=g)` | unweighted coefficients and SEs | weighted; CR2 matches Stata `regress [aw=w], vce(hc2 g)` |
+| `sp.regress(..., weights=w, cluster=[a, b])` | unweighted coefficients and SEs | weighted |
+| the same three variances on data with missing values in a formula variable | cluster keys taken from the first `n` rows | cluster keys taken from the fitted rows |
+| `sp.twoway_cluster(fit, ...)`, `sp.cr2_se(fit, ...)` on a weighted `fit` | unweighted scores | weighted scores |
+| `sp.regress(..., weights=w, vce='wild' / 'conley')` | weights dropped | raises `MethodIncompatibility` |
+
+Calls without `weights=` on data without missing values are unchanged.
+
+Two conventions are documented rather than changed. Two-way clustering in
+`sp.regress(cluster=[a, b])` scales the whole meat by
+`G_min/(G_min - 1)`; Stata 18's `regress, vce(cluster a b)` scales each
+component by its own `G/(G - 1)`, which is what `sp.twoway_cluster`
+returns. `vce='cr3'` is `sum_g (b_(g) - b)(b_(g) - b)'`; Stata's
+`vce(jackknife, cluster(g) mse)` is `(G - 1)/G` times that.
+
+---
+
 <a id="oct2026-panel-vce"></a>
 
 ## 1.35.0 → 1.36.0: ⚠️ `sp.panel(vce=...)` raises on a value it does not implement

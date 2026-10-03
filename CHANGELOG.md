@@ -77,8 +77,55 @@ numbers and refuses no command. 324 numbers differ for documented reasons,
   `synth2`'s R-squared divides by the variation of the synthetic path, ours
   by that of the treated unit's outcome.
 
+### `sp.regress`: weights and dropped rows under CR2, CR3 and two-way clustering
+
+Found while generating a Stata reference for the configurations the
+evidence map listed as having none.
+
+#### ⚠️ Correctness
+
+- **`sp.regress(weights=)` was ignored under `vce='cr2'`, `vce='cr3'` /
+  `'jackknife'` and two-way clustering.** Those three paths refit the
+  model without the weights and returned the *unweighted* coefficients and
+  standard errors, with no warning. They now fit the weighted model, and
+  the variance is that of the weighted design: `vce='cr2'` with weights
+  reproduces Stata's `regress [aw=w], vce(hc2 g)` to 5e-16. With
+  `vce='wild'` and `vce='conley'`, which do not implement weights, the
+  call now raises instead of dropping them. Unweighted calls are
+  unchanged. See `MIGRATION.md`.
+- **Rows dropped for missing values shifted the cluster keys under
+  `vce='cr2'` / `'cr3'` and two-way clustering in `sp.regress`.** The
+  keys were read from the first `n` rows of the data, not from the rows
+  that were fitted. With four of 400 rows missing a regressor the CR2
+  standard errors were off by 17% and the two-way ones by 66%. The keys
+  are now read on the estimation sample; the result equals the fit on the
+  pre-cleaned data to 1e-12. `vce='wild'` raised an unrelated `ValueError`
+  in the same situation and now works. Data with no missing values in the
+  formula variables are unchanged.
+- **`sp.twoway_cluster` and `sp.cr2_se` ignored the weights of a weighted
+  fit.** `sp.twoway_cluster` built its scores from the unweighted design:
+  standard errors 11% to 17% below Stata's
+  `regress [aw=w], vce(cluster a b)` on the test fixture. `sp.cr2_se`
+  recomputed the unweighted fit from the stored design. Both now agree
+  with Stata to 1e-15, and both follow the fitted rows when the fit
+  dropped missing values (`sp.twoway_cluster` raised; `sp.cr2_se` fell
+  back to a re-parse of the formula).
+
 ### Agent surface
 
+- **Evidence maps credit reference tests that already existed, and gain
+  new ones.** `sp.validation_scope('rdrobust')` listed 12 configurations
+  with a reference; the R tests for the variance kinds, clustering,
+  covariates, fuzzy and kink designs and the 36-cell bandwidth x order x
+  kernel grid were never entered. They are now (75), and the grid test
+  asserts all eight outputs at 1e-9 where it asserted two at 1e-6 (the
+  worst measured gap is 8e-12). `regress` gains a Stata 18 reference for
+  analytic weights under six variances, CR2, two-way clustering and the
+  cluster jackknife (6 to 15 configurations). `iv` gains a `small`
+  dimension, so a `small=False` fit is no longer counted under the
+  `small=True` evidence, and the existing `ivregress` / `ivreghdfe` rows
+  (7 to 22). A weighted `sp.regress` fit was read as unweighted by the
+  map and reported as covered; it is now its own cell.
 - **`sp.panel` names its default small-sample convention.** With no
   `ssc=` the result now carries `model_info['ssc'] = 'linearmodels'` and a
   one-line description (`N/(N-k)` on the covariance, no `G/(G-1)` cluster

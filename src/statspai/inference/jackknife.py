@@ -610,17 +610,44 @@ def _design_from_result(
         X = np.asarray(stored_x, dtype=float)
         y = np.asarray(stored_y, dtype=float).ravel()
         cl_col = data[cluster]
-        # Trust the stored design only when it row-aligns to ``data`` and the
-        # cluster key is complete; otherwise the fitted sample was filtered and
-        # the rows would not correspond.
+        # A fit that dropped rows records which rows it kept; the cluster
+        # key is then read on those rows rather than giving up on the
+        # stored design.
+        kept = di.get("sample_index")
+        if kept is not None and len(kept) == X.shape[0] and len(kept) != len(data):
+            try:
+                picked = cl_col.loc[kept]
+                # Only if those rows are the fitted ones: the outcome on
+                # them must be the stored outcome.
+                dep = di.get("dependent_var")
+                same = dep in data.columns and np.array_equal(
+                    np.asarray(data[dep].loc[kept], dtype=float), y
+                )
+            except (KeyError, TypeError, ValueError):
+                same = False
+            if same and len(picked) == X.shape[0]:
+                cl_col = picked
+        # Trust the stored design only when it row-aligns to the cluster key
+        # and the key is complete; otherwise the fitted sample was filtered
+        # and the rows would not correspond.
         if (
             X.ndim == 2
-            and X.shape[0] == len(data)
+            and X.shape[0] == len(cl_col)
             and y.shape[0] == X.shape[0]
             and not cl_col.isna().any()
         ):
             var_names = [str(v) for v in stored_names]
+            X, y = _weighted_design(X, y, di.get("analytic_weights"))
             return X, y, var_names, cl_col.to_numpy(), "stored"
+
+    if di.get("analytic_weights") is not None:
+        raise MethodIncompatibility(
+            "This standard error cannot be computed for the weighted fit: its "
+            "stored design could not be aligned to the data, and the formula "
+            "re-parse fallback is unweighted.",
+            recovery_hint="Pass the same DataFrame the model was fitted on, "
+            "with no missing cluster keys.",
+        )
 
     # --- fallback: formula re-parse (plain-OLS design) -----------------------
     y_var, x_vars = _parse_formula(result.model_info.get("formula", ""), result)
@@ -764,6 +791,28 @@ def _ols_correction_from_cl_codes(
     return (g / (g - 1.0)) * ((n - 1) / (n - k))
 
 
+def _weighted_design(
+    X: np.ndarray, y: np.ndarray, weights: Any
+) -> Tuple[np.ndarray, np.ndarray]:
+    """The design a weighted least-squares fit is least squares on.
+
+    With analytic weights the estimator is OLS of ``sqrt(w) y`` on
+    ``sqrt(w) X``; the cluster scores, the hat blocks and the CR2 / CR3
+    adjustments are those of that design (Stata ``regress [aw=w],
+    vce(hc2 g)`` and ``vce(cluster a b)``).
+    """
+    if weights is None:
+        return X, y
+    w = np.asarray(weights, dtype=float).ravel()
+    if w.shape[0] != X.shape[0]:
+        raise MethodIncompatibility(
+            "stored weights do not match the stored design "
+            f"({w.shape[0]} weights for {X.shape[0]} rows)."
+        )
+    root = np.sqrt(w)
+    return X * root[:, None], y * root
+
+
 def cr_vcov_ols(
     result: "EconometricResults",
     cluster_codes: np.ndarray,
@@ -796,6 +845,7 @@ def cr_vcov_ols(
         )
     X = np.asarray(iv["X"], dtype=float)
     y = np.asarray(iv["y"], dtype=float).ravel()
+    X, y = _weighted_design(X, y, iv.get("analytic_weights"))
     names = list(iv["var_names"])
     vcov = cr_vcov_matrix(X, y, cluster_codes, power=power, small_sample=small_sample)
     return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
@@ -855,12 +905,17 @@ def two_way_correction_ols(
 
     Inclusion-exclusion on the projected-score meat ``M1 + M2 - M12``, with
     ``M_g = (X_g' e_g)(X_g' e_g)'``.  Default correction is
-    ``(G_min/(G_min-1))·((n-1)/(n-k))`` (Stata ``reg, cluster(a b) small``
-    convention). Pass ``small_sample=False`` for the bias-reduced variant.
+    ``(G_min/(G_min-1))·((n-1)/(n-k))`` on the whole meat. Stata 18's
+    ``regress, vce(cluster a b)`` scales each component by its own
+    ``G/(G-1)`` instead (``sp.twoway_cluster``); the two are rebuilt side by
+    side in ``tests/reference_parity/test_regress_vce_weights_stata_parity.py``.
+    Pass ``small_sample=False`` for the bias-reduced variant. Analytic
+    weights stored on the result are applied.
     """
     iv = getattr(result, "data_info", None) or {}
     X = np.asarray(iv["X"], dtype=float)
     y = np.asarray(iv["y"], dtype=float).ravel()
+    X, y = _weighted_design(X, y, iv.get("analytic_weights"))
     names = list(iv["var_names"])
     n, k = X.shape
     bread = np.linalg.inv(X.T @ X)

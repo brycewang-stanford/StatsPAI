@@ -1821,6 +1821,10 @@
         "absorb": [
           "none",
           "set"
+        ],
+        "small": [
+          "true",
+          "false"
         ]
       },
       "primary_outputs": [
@@ -1835,32 +1839,33 @@
           "reason": "the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator"
         }
       },
-      "cells": 208,
+      "cells": 416,
       "overall": {
-        "covered": 7,
-        "estimate_only": 32,
-        "not_covered": 169
+        "covered": 22,
+        "estimate_only": 108,
+        "not_covered": 286
       },
       "by_output": {
         "estimate": {
-          "reference": 39,
-          "not_covered": 169
+          "reference": 130,
+          "not_covered": 286
         },
         "se": {
-          "reference": 7,
-          "not_covered": 201
+          "reference": 22,
+          "disclosure": 3,
+          "not_covered": 391
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 207
+          "not_covered": 415
         },
         "diagnostic": {
           "reference": 1,
-          "not_covered": 207
+          "not_covered": 415
         },
         "joint_test": {
           "reference": 3,
-          "not_covered": 205
+          "not_covered": 413
         }
       },
       "rows": [
@@ -1885,6 +1890,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "Wald F, both degrees of freedom and p-value vs Stata ivregress 2sls, small + test (the df-adjusted convention sp.ivreg reports; Stata's default ivregress is an unadjusted chi2)"
@@ -1912,6 +1920,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "coefficient and classical / HC1 / CR1 SEs vs AER::ivreg + sandwich on the original Card extract, just- and over-identified"
@@ -1935,6 +1946,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "Sargan over-identification statistic vs AER"
@@ -1959,6 +1973,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "coefficients and HC1 SEs vs AER::ivreg (via sp.ivreg, bit-identical to sp.iv: tests/reference_parity/test_validation_entry_points.py)"
@@ -1983,6 +2000,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "LIML coefficient, SE and kappa vs ivmodel on Track A module 59's bytes, through sp.iv(method='liml')"
@@ -2006,9 +2026,236 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "95% CI coverage, strong single instrument (via sp.ivreg)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_small_Stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method=..., small=True)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "liml"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "coefficient, SE and p-value vs Stata ivregress 2sls / liml, small under default, robust and cluster variances (SE to 1e-12)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_small_Stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method=..., small=False)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "liml"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc0"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "false"
+            ]
+          },
+          "compares": "the same without small: N divisor, HC0 under vce(robust), no finite-sample cluster factor, z p-values, vs Stata ivregress"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...])",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical",
+              "cluster_multiway",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed two-way fixed effects: coefficient and SE vs Stata ivreghdfe under iid, robust, one-way and two-way clustering (SE to 1e-10)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...])",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed, over-identified 2SLS vs Stata ivreghdfe"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...], method='liml')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "estimator": [
+              "liml"
+            ],
+            "vce": [
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed LIML coefficient and kappa vs Stata ivreghdfe, liml (1e-10)"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...], method='liml')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "liml"
+            ],
+            "vce": [
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed LIML SE within 5e-5 of ivreghdfe: ivreg2 builds the k-class meat from X_hat, StatsPAI from AX"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...], method='fuller')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "estimator": [
+              "fuller"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed Fuller(1) coefficient and kappa vs Stata ivreghdfe, fuller(1)"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...], method='fuller')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "fuller"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed Fuller(1) SE within 5e-5 of ivreghdfe (same k-class meat convention)"
         }
       ]
     },
@@ -2042,6 +2289,10 @@
         "absorb": [
           "none",
           "set"
+        ],
+        "small": [
+          "true",
+          "false"
         ]
       },
       "primary_outputs": [
@@ -2056,32 +2307,33 @@
           "reason": "the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator"
         }
       },
-      "cells": 208,
+      "cells": 416,
       "overall": {
-        "covered": 7,
-        "estimate_only": 32,
-        "not_covered": 169
+        "covered": 22,
+        "estimate_only": 108,
+        "not_covered": 286
       },
       "by_output": {
         "estimate": {
-          "reference": 39,
-          "not_covered": 169
+          "reference": 130,
+          "not_covered": 286
         },
         "se": {
-          "reference": 7,
-          "not_covered": 201
+          "reference": 22,
+          "disclosure": 3,
+          "not_covered": 391
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 207
+          "not_covered": 415
         },
         "diagnostic": {
           "reference": 1,
-          "not_covered": 207
+          "not_covered": 415
         },
         "joint_test": {
           "reference": 3,
-          "not_covered": 205
+          "not_covered": 413
         }
       },
       "rows": [
@@ -2106,6 +2358,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "Wald F, both degrees of freedom and p-value vs Stata ivregress 2sls, small + test (the df-adjusted convention sp.ivreg reports; Stata's default ivregress is an unadjusted chi2)"
@@ -2133,6 +2388,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "coefficient and classical / HC1 / CR1 SEs vs AER::ivreg + sandwich on the original Card extract, just- and over-identified"
@@ -2156,6 +2414,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "Sargan over-identification statistic vs AER"
@@ -2180,6 +2441,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "coefficients and HC1 SEs vs AER::ivreg (via sp.ivreg, bit-identical to sp.iv: tests/reference_parity/test_validation_entry_points.py)"
@@ -2204,6 +2468,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "LIML coefficient, SE and kappa vs ivmodel on Track A module 59's bytes, through sp.iv(method='liml')"
@@ -2227,9 +2494,236 @@
             ],
             "absorb": [
               "none"
+            ],
+            "small": [
+              "true"
             ]
           },
           "compares": "95% CI coverage, strong single instrument (via sp.ivreg)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_small_Stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method=..., small=True)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "liml"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "coefficient, SE and p-value vs Stata ivregress 2sls / liml, small under default, robust and cluster variances (SE to 1e-12)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_small_Stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method=..., small=False)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls",
+              "liml"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc0"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "false"
+            ]
+          },
+          "compares": "the same without small: N divisor, HC0 under vce(robust), no finite-sample cluster factor, z p-values, vs Stata ivregress"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...])",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical",
+              "cluster_multiway",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed two-way fixed effects: coefficient and SE vs Stata ivreghdfe under iid, robust, one-way and two-way clustering (SE to 1e-10)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...])",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed, over-identified 2SLS vs Stata ivreghdfe"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...], method='liml')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "estimator": [
+              "liml"
+            ],
+            "vce": [
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed LIML coefficient and kappa vs Stata ivreghdfe, liml (1e-10)"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...], method='liml')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "liml"
+            ],
+            "vce": [
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed LIML SE within 5e-5 of ivreghdfe: ivreg2 builds the k-class meat from X_hat, StatsPAI from AX"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...], method='fuller')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "estimator": [
+              "fuller"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed Fuller(1) coefficient and kappa vs Stata ivreghdfe, fuller(1)"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, absorb=[...], method='fuller')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "fuller"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "set"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "absorbed Fuller(1) SE within 5e-5 of ivreghdfe (same k-class meat convention)"
         }
       ]
     },
@@ -3833,18 +4327,17 @@
       },
       "cells": 26,
       "overall": {
-        "covered": 6,
-        "estimate_only": 7,
-        "not_covered": 13
+        "covered": 15,
+        "estimate_only": 11
       },
       "by_output": {
         "estimate": {
-          "reference": 13,
-          "not_covered": 13
+          "reference": 26
         },
         "se": {
-          "reference": 6,
-          "not_covered": 20
+          "reference": 15,
+          "disclosure": 2,
+          "not_covered": 9
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -3989,6 +4482,100 @@
             ]
           },
           "compares": "Newey-West SEs vs sandwich::NeweyWest"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
+          "entry_point": "sp.regress(FORMULA, data, weights=..., vce=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cr1",
+              "cr2",
+              "hc1",
+              "hc2",
+              "hc3"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted coefficients and SEs vs Stata regress [aw=w] under ols, robust, hc2, hc3, cluster and vce(hc2 g), to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
+          "entry_point": "sp.regress(FORMULA, data, vce='cr2', cluster=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "cr2"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "CR2 SEs vs Stata regress, vce(hc2 g), to 1e-10"
+        },
+        {
+          "kind": "T1",
+          "artifact": "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
+          "entry_point": "sp.regress(FORMULA, data, vce='cr3', cluster=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "cr3"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "CR3 equals the brute-force delete-one-cluster jackknife sum_g (b_(g) - b)(b_(g) - b)' to 1e-10"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
+          "entry_point": "sp.regress(FORMULA, data, vce='cr3', cluster=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "cr3"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Stata's vce(jackknife, cluster(g) mse) is (G - 1)/G times this variance; equal to 1e-6 after that factor (Stata keeps its replicates in single precision)"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
+          "entry_point": "sp.regress(FORMULA, data, cluster=[a, b])",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "cluster_multiway"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "two-way SEs use one G_min/(G_min - 1) factor; Stata 18 scales each component by its own. Both are rebuilt from the same scores to 1e-10, and sp.twoway_cluster gives Stata's number"
         },
         {
           "kind": "B",
@@ -4384,24 +4971,24 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 417,
+      "reference": 612,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 42429
+      "not_covered": 42650
     },
     "se": {
-      "reference": 211,
+      "reference": 250,
       "stochastic_screen": 3,
-      "disclosure": 5,
-      "not_covered": 42627
+      "disclosure": 13,
+      "not_covered": 42996
     },
     "coverage": {
       "coverage_simulation": 11,
-      "not_covered": 36259
+      "not_covered": 36675
     },
     "diagnostic": {
       "reference": 3,
-      "not_covered": 415
+      "not_covered": 831
     },
     "vcov": {
       "reference": 9,
@@ -4410,7 +4997,7 @@
     "joint_test": {
       "reference": 16,
       "disclosure": 1,
-      "not_covered": 569
+      "not_covered": 985
     }
   },
   "option_fixtures": [

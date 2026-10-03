@@ -3339,7 +3339,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_difference_in_means_estimatr.py"
+        "tests/reference_parity/test_difference_in_means_estimatr.py",
+        "tests/reference_parity/test_regress_vce_weights_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -15588,6 +15589,7 @@
         "tests/reference_parity/test_r2_postest_parity.py",
         "tests/reference_parity/test_recovery_batch2_parity.py",
         "tests/reference_parity/test_regress_collinear_Stata_parity.py",
+        "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_regress_weights_iv_robust_parity.py",
         "tests/reference_parity/test_sasp_within_parity.py",
         "tests/reference_parity/test_spdep_parity.py",
@@ -19234,6 +19236,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_regress_vce_weights_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "evidence_grade": "T2",
       "function": "twoway_cluster",
       "headline": {
@@ -19359,6 +19367,7 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_iv_card_aer_parity.py",
+        "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_sunab_event_time_aggregate_parity.py",
         "tests/reference_parity/test_validation_entry_points.py"
       ],

@@ -20,13 +20,13 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
 | `fast.feols` | 12 | 6 / 12 | 2 / 12 | -- | -- | -- | 2 / 12 |
 | `gardner_did` | 32 | 8 / 32 | 2 / 32 | 1 / 32 | -- | -- | 2 / 32 |
-| `iv` | 208 | 39 / 208 | 7 / 208 | -- | 3 / 208 | 1 / 208 | 7 / 208 |
-| `ivreg` | 208 | 39 / 208 | 7 / 208 | -- | 3 / 208 | 1 / 208 | 7 / 208 |
+| `iv` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
+| `ivreg` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
 | `psm` | 3600 | 3 / 3600 | 1 / 3600 | -- | -- | -- | 1 / 3600 |
 | `rddensity` | 2 | -- | -- | -- | -- | 1 / 2 | 1 / 2 |
 | `rdrobust` | 25920 | 75 / 25920 | 75 / 25920 | -- | -- | -- | 75 / 25920 |
-| `regress` | 26 | 13 / 26 | 6 / 26 | -- | 5 / 26 | -- | 6 / 26 |
+| `regress` | 26 | 26 / 26 | 15 / 26 | -- | 5 / 26 | -- | 15 / 26 |
 | `sdid` | 288 | 52 / 288 | 24 / 288 | -- | -- | -- | 24 / 288 |
 | `sun_abraham` | 8 | 4 / 8 | 4 / 8 | 2 / 8 | -- | -- | 4 / 8 |
 | `synth` | 8 | 1 / 8 | -- | -- | -- | -- | 1 / 8 |
@@ -66,16 +66,16 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `gardner_did` | estimate | 0 | 0 | 0 | 0 | 24 |
 | `gardner_did` | se | 0 | 0 | 0 | 0 | 30 |
 | `gardner_did` | vcov | 0 | 0 | 0 | 0 | 31 |
-| `iv` | estimate | 0 | 0 | 0 | 0 | 169 |
-| `iv` | se | 0 | 0 | 0 | 0 | 201 |
-| `iv` | coverage | 0 | 0 | 1 | 0 | 207 |
-| `iv` | diagnostic | 0 | 0 | 0 | 0 | 207 |
-| `iv` | joint_test | 0 | 0 | 0 | 0 | 205 |
-| `ivreg` | estimate | 0 | 0 | 0 | 0 | 169 |
-| `ivreg` | se | 0 | 0 | 0 | 0 | 201 |
-| `ivreg` | coverage | 0 | 0 | 1 | 0 | 207 |
-| `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 207 |
-| `ivreg` | joint_test | 0 | 0 | 0 | 0 | 205 |
+| `iv` | estimate | 0 | 0 | 0 | 0 | 286 |
+| `iv` | se | 0 | 0 | 0 | 3 | 391 |
+| `iv` | coverage | 0 | 0 | 1 | 0 | 415 |
+| `iv` | diagnostic | 0 | 0 | 0 | 0 | 415 |
+| `iv` | joint_test | 0 | 0 | 0 | 0 | 413 |
+| `ivreg` | estimate | 0 | 0 | 0 | 0 | 286 |
+| `ivreg` | se | 0 | 0 | 0 | 3 | 391 |
+| `ivreg` | coverage | 0 | 0 | 1 | 0 | 415 |
+| `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 415 |
+| `ivreg` | joint_test | 0 | 0 | 0 | 0 | 413 |
 | `panel` | estimate | 0 | 0 | 0 | 0 | 45 |
 | `panel` | se | 0 | 0 | 0 | 0 | 98 |
 | `panel` | joint_test | 0 | 0 | 0 | 1 | 138 |
@@ -85,8 +85,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `rdrobust` | estimate | 0 | 0 | 0 | 0 | 25845 |
 | `rdrobust` | se | 0 | 0 | 0 | 0 | 25845 |
 | `rdrobust` | coverage | 0 | 0 | 1 | 0 | 25919 |
-| `regress` | estimate | 0 | 0 | 0 | 0 | 13 |
-| `regress` | se | 0 | 0 | 0 | 0 | 20 |
+| `regress` | estimate | 0 | 0 | 0 | 0 | 0 |
+| `regress` | se | 0 | 0 | 0 | 2 | 9 |
 | `regress` | coverage | 0 | 0 | 1 | 0 | 25 |
 | `regress` | joint_test | 0 | 0 | 0 | 0 | 21 |
 | `sdid` | estimate | 0 | 0 | 0 | 0 | 236 |
@@ -215,31 +215,47 @@ Dimensions: `vce` in {analytic, stage2, bootstrap, none}; `weights` in {none, se
 
 ### `iv`
 
-Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `identification` in {just, over}; `absorb` in {none, set}.
+Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `identification` in {just, over}; `absorb` in {none, set}; `small` in {true, false}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
-| T2 | joint_test | estimator=2sls; vce=classical/cr1/hc1; identification=over; absorb=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.ivreg(formula, data, robust=..., cluster=...)` |
-| T2 | estimate, se | estimator=2sls; vce=classical/cr1/hc1; identification=just/over; absorb=none | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data, robust=..., cluster=...)` |
-| T2 | diagnostic | estimator=2sls; vce=classical; identification=over; absorb=none | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data)` |
-| T2 | estimate, se | estimator=2sls; vce=hc1; identification=just; absorb=none | `tests/r_parity/02_iv.py` | `sp.ivreg(robust='hc1')` |
-| T2 | estimate, se | estimator=liml; vce=classical; identification=over; absorb=none | `tests/reference_parity/test_validation_entry_points.py` | `sp.iv(formula, data, method='liml')` |
-| B | coverage | estimator=2sls; vce=hc1; identification=just; absorb=none | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.ivreg(robust='hc1')` |
+| T2 | joint_test | estimator=2sls; vce=classical/cr1/hc1; identification=over; absorb=none; small=true | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.ivreg(formula, data, robust=..., cluster=...)` |
+| T2 | estimate, se | estimator=2sls; vce=classical/cr1/hc1; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data, robust=..., cluster=...)` |
+| T2 | diagnostic | estimator=2sls; vce=classical; identification=over; absorb=none; small=true | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data)` |
+| T2 | estimate, se | estimator=2sls; vce=hc1; identification=just; absorb=none; small=true | `tests/r_parity/02_iv.py` | `sp.ivreg(robust='hc1')` |
+| T2 | estimate, se | estimator=liml; vce=classical; identification=over; absorb=none; small=true | `tests/reference_parity/test_validation_entry_points.py` | `sp.iv(formula, data, method='liml')` |
+| B | coverage | estimator=2sls; vce=hc1; identification=just; absorb=none; small=true | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.ivreg(robust='hc1')` |
+| T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc1; identification=just; absorb=none; small=true | `tests/reference_parity/test_iv_small_Stata_parity.py` | `sp.iv(formula, data, method=..., small=True)` |
+| T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc0; identification=just; absorb=none; small=false | `tests/reference_parity/test_iv_small_Stata_parity.py` | `sp.iv(formula, data, method=..., small=False)` |
+| T2 | estimate, se | estimator=2sls; vce=classical/cluster_multiway/cr1/hc1; identification=just; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...])` |
+| T2 | estimate, se | estimator=2sls; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...])` |
+| T2 | estimate | estimator=liml; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='liml')` |
+| T4 | se | estimator=liml; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='liml')` |
+| T2 | estimate | estimator=fuller; vce=hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='fuller')` |
+| T4 | se | estimator=fuller; vce=hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='fuller')` |
 
 `vce` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator
 
 ### `ivreg`
 
-Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `identification` in {just, over}; `absorb` in {none, set}.
+Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `identification` in {just, over}; `absorb` in {none, set}; `small` in {true, false}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
-| T2 | joint_test | estimator=2sls; vce=classical/cr1/hc1; identification=over; absorb=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.ivreg(formula, data, robust=..., cluster=...)` |
-| T2 | estimate, se | estimator=2sls; vce=classical/cr1/hc1; identification=just/over; absorb=none | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data, robust=..., cluster=...)` |
-| T2 | diagnostic | estimator=2sls; vce=classical; identification=over; absorb=none | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data)` |
-| T2 | estimate, se | estimator=2sls; vce=hc1; identification=just; absorb=none | `tests/r_parity/02_iv.py` | `sp.ivreg(robust='hc1')` |
-| T2 | estimate, se | estimator=liml; vce=classical; identification=over; absorb=none | `tests/reference_parity/test_validation_entry_points.py` | `sp.iv(formula, data, method='liml')` |
-| B | coverage | estimator=2sls; vce=hc1; identification=just; absorb=none | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.ivreg(robust='hc1')` |
+| T2 | joint_test | estimator=2sls; vce=classical/cr1/hc1; identification=over; absorb=none; small=true | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.ivreg(formula, data, robust=..., cluster=...)` |
+| T2 | estimate, se | estimator=2sls; vce=classical/cr1/hc1; identification=just/over; absorb=none; small=true | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data, robust=..., cluster=...)` |
+| T2 | diagnostic | estimator=2sls; vce=classical; identification=over; absorb=none; small=true | `tests/reference_parity/test_iv_card_aer_parity.py` | `sp.iv(formula, data)` |
+| T2 | estimate, se | estimator=2sls; vce=hc1; identification=just; absorb=none; small=true | `tests/r_parity/02_iv.py` | `sp.ivreg(robust='hc1')` |
+| T2 | estimate, se | estimator=liml; vce=classical; identification=over; absorb=none; small=true | `tests/reference_parity/test_validation_entry_points.py` | `sp.iv(formula, data, method='liml')` |
+| B | coverage | estimator=2sls; vce=hc1; identification=just; absorb=none; small=true | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.ivreg(robust='hc1')` |
+| T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc1; identification=just; absorb=none; small=true | `tests/reference_parity/test_iv_small_Stata_parity.py` | `sp.iv(formula, data, method=..., small=True)` |
+| T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc0; identification=just; absorb=none; small=false | `tests/reference_parity/test_iv_small_Stata_parity.py` | `sp.iv(formula, data, method=..., small=False)` |
+| T2 | estimate, se | estimator=2sls; vce=classical/cluster_multiway/cr1/hc1; identification=just; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...])` |
+| T2 | estimate, se | estimator=2sls; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...])` |
+| T2 | estimate | estimator=liml; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='liml')` |
+| T4 | se | estimator=liml; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='liml')` |
+| T2 | estimate | estimator=fuller; vce=hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='fuller')` |
+| T4 | se | estimator=fuller; vce=hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='fuller')` |
 
 `vce` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator
 
@@ -331,6 +347,11 @@ Dimensions: `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_mult
 | T2 | estimate, se | vce=hc2/hc3; weights=none | `tests/r_parity/55_hc2_hc3.py` | `sp.regress(robust='hc2'|'hc3')` |
 | T2 | estimate, se | vce=cr1; weights=none | `tests/r_parity/14_ols_cluster.py` | `sp.regress(cluster=...)` |
 | T2 | estimate, se | vce=hac; weights=none | `tests/r_parity/51_newey.py` | `sp.regress(robust='hac')` |
+| T2 | estimate, se | vce=classical/cr1/cr2/hc1/hc2/hc3; weights=set | `tests/reference_parity/test_regress_vce_weights_stata_parity.py` | `sp.regress(FORMULA, data, weights=..., vce=...)` |
+| T2 | estimate, se | vce=cr2; weights=none | `tests/reference_parity/test_regress_vce_weights_stata_parity.py` | `sp.regress(FORMULA, data, vce='cr2', cluster=...)` |
+| T1 | se | vce=cr3; weights=none/set | `tests/reference_parity/test_regress_vce_weights_stata_parity.py` | `sp.regress(FORMULA, data, vce='cr3', cluster=...)` |
+| T4 | se | vce=cr3; weights=none | `tests/reference_parity/test_regress_vce_weights_stata_parity.py` | `sp.regress(FORMULA, data, vce='cr3', cluster=...)` |
+| T4 | se | vce=cluster_multiway; weights=none/set | `tests/reference_parity/test_regress_vce_weights_stata_parity.py` | `sp.regress(FORMULA, data, cluster=[a, b])` |
 | B | coverage | vce=hc1; weights=none | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.regress(robust='hc1')` |
 
 `vce` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator

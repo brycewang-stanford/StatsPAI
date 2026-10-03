@@ -175,13 +175,28 @@ def test_regress_hc1_is_covered_and_names_its_coverage_row(card):
     assert scope["outputs"]["coverage"]["status"] == "coverage_simulation"
 
 
-def test_regress_cr2_is_estimate_only(card):
+def test_regress_cr2_has_a_stata_reference_and_hc0_does_not(card):
     df = card.assign(cl=np.arange(len(card)) % 40)
     scope = sp.validation_scope(
         sp.regress("lwage ~ educ", data=df, vce="cr2", cluster="cl")
     )
     assert scope["configuration"]["vce"] == "cr2"
+    assert scope["status"] == "covered"
+    # Stata has no HC0 and no R row runs it: the SE has no reference.
+    scope = sp.validation_scope(sp.regress("lwage ~ educ", data=df, vce="hc0"))
+    assert scope["configuration"]["vce"] == "hc0"
     assert scope["status"] == "estimate_only"
+
+
+def test_a_weighted_regress_is_its_own_cell(card):
+    df = card.assign(w=1.0 + (np.arange(len(card)) % 5))
+    scope = sp.validation_scope(sp.regress("lwage ~ educ", data=df, weights="w"))
+    assert scope["configuration"]["weights"] == "set"
+    assert scope["status"] == "covered"
+    hac = sp.validation_scope(
+        sp.regress("lwage ~ educ", data=df, weights="w", vce="hac", hac_lags=2)
+    )
+    assert hac["status"] == "estimate_only"
 
 
 def test_default_learner_dml_is_stochastic_only_and_the_linear_row_is_a_near_miss(card):

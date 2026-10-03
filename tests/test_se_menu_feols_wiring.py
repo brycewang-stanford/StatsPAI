@@ -68,11 +68,23 @@ def test_design_source_stored_for_regress() -> None:
     assert X.shape == (len(df), 3)
 
 
-def test_design_source_falls_back_on_row_mismatch() -> None:
+def test_design_source_follows_the_fitted_rows_in_a_larger_frame() -> None:
+    """Extra rows appended to the fitted frame: the fitted rows are found by label."""
     df = _panel()
     r = sp.regress("y ~ x + z", df, cluster="firm")
-    bigger = pd.concat([df, df.iloc[:5]], ignore_index=True)  # rows != stored X
-    _, _, _, _, src = _design_from_result(r, bigger, "firm")
+    bigger = pd.concat([df, df.iloc[:5]], ignore_index=True)
+    X, _, _, cl, src = _design_from_result(r, bigger, "firm")
+    assert src == "stored"
+    assert X.shape[0] == len(df) == len(cl)
+    assert np.array_equal(cl, df["firm"].to_numpy())
+
+
+def test_design_source_falls_back_on_row_mismatch() -> None:
+    """A frame whose rows at the fitted labels are not the fitted rows."""
+    df = _panel()
+    r = sp.regress("y ~ x + z", df, cluster="firm")
+    other = pd.concat([df.iloc[::-1], df.iloc[:5]], ignore_index=True)
+    _, _, _, _, src = _design_from_result(r, other, "firm")
     assert src == "reparsed"
 
 

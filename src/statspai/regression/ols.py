@@ -1136,6 +1136,8 @@ class OLSRegression(BaseModel):
             "robust": robust,
             "cluster": cluster,
         }
+        if kwargs.get("weights", None) is not None:
+            model_info["weighted"] = True
         if omitted:
             model_info["omitted"] = omitted
         if cluster_var is not None:
@@ -1157,6 +1159,13 @@ class OLSRegression(BaseModel):
             "rss": float(results["rss"]),
             "tss": float(results["tss"]),
         }
+        # The rows of ``data`` the fit used, and the analytic weights on
+        # them: a variance computed afterwards on the stored design has to
+        # align its cluster keys to these rows and weight the same way.
+        if design_index is not None:
+            data_info["sample_index"] = design_index
+        if kwargs.get("weights", None) is not None:
+            data_info["analytic_weights"] = np.asarray(kwargs["weights"], dtype=float)
         if cluster_var is not None:
             # Stata ``regress, vce(cluster)``: t / F with G - 1 degrees of
             # freedom. p-values and intervals used t(N - K), which on 40
@@ -1416,6 +1425,45 @@ class OLSRegression(BaseModel):
         return out
 
 
+def _sample_codes(base: Any, data: pd.DataFrame, column: str) -> np.ndarray:
+    """Integer codes of ``data[column]`` on the rows ``base`` was fitted on.
+
+    The fit drops rows with a missing value in the formula; a cluster key
+    taken from ``data`` positionally would then belong to other rows.
+    """
+    if column not in data.columns:
+        raise MethodIncompatibility(f"cluster='{column}' is not a column in the data.")
+    keys = data[column]
+    idx = (getattr(base, "data_info", None) or {}).get("sample_index")
+    if idx is not None and len(idx) != len(data):
+        keys = keys.loc[idx]
+    if keys.isna().any():
+        raise MethodIncompatibility(
+            f"cluster='{column}' has missing values on the estimation sample.",
+            recovery_hint=f"Drop the rows where {column!r} is missing first.",
+        )
+    codes = np.asarray(pd.Categorical(keys).codes)
+    if len(codes) != len(base.data_info["y"]):
+        raise MethodIncompatibility(
+            f"cluster='{column}' cannot be aligned to the estimation sample "
+            f"({len(codes)} keys for {len(base.data_info['y'])} fitted rows).",
+            recovery_hint="Give the data a unique index, or drop missing rows "
+            "before calling sp.regress.",
+        )
+    return codes
+
+
+def _refuse_weights(weights: Any, what: str) -> None:
+    """``weights=`` with a variance that would ignore them is an error."""
+    if weights is not None:
+        raise MethodIncompatibility(
+            f"regress: weights= is not implemented with {what}.",
+            recovery_hint="Use vce='hc1', cluster=, vce='cr2' or two-way "
+            "clustering with weights, or drop weights=.",
+            diagnostics={"vce": what},
+        )
+
+
 @accepts_aliases(vce="robust")
 @markout_clusters
 def regress(
@@ -1453,13 +1501,20 @@ def regress(
         values whose degrees of freedom are the number of cosine terms: in
         time-series regressions it rejects a true null much less often than
         Newey-West with a short lag length.
-    cluster : str, optional
-        Variable name for clustering
+    cluster : str or list of two str, optional
+        Variable name for clustering. A list of two names gives two-way
+        clustering by inclusion-exclusion, with the whole meat scaled by
+        ``G_min/(G_min - 1) * (N - 1)/(N - K)``. Stata 18's
+        ``regress, vce(cluster a b)`` and R ``sandwich::vcovCL`` scale each
+        of the three components by its own ``G/(G - 1)`` instead;
+        ``sp.twoway_cluster(result, data, a, b)`` returns that version.
     weights : str or array-like, optional
         Analytic regression weights (Stata ``aweight`` semantics). Pass a
         column name or an array of length ``nobs``. Fits WLS — point
-        estimates, classical / robust / clustered SEs and R² match
-        ``regress y x [aw=w]``. Weights must be strictly positive and finite;
+        estimates, classical / HC1-HC3 / clustered / CR2 SEs and R² match
+        ``regress y x [aw=w]``. Also honoured by ``vce='cr3'`` and two-way
+        clustering; refused with ``vce='wild'`` and ``vce='conley'``, which
+        do not implement them. Weights must be strictly positive and finite;
         invalid weights raise ``ValueError`` rather than being silently
         ignored.
     vcov : str or dict, optional
@@ -1638,13 +1693,13 @@ def regress(
             robust="nonrobust",
             cluster=cluster,
             collinear=collinear,
+            weights=weights,
         )
         from scipy import stats as _stats
 
         from ..inference.jackknife import cr_vcov_ols
 
-        cl_codes = pd.Categorical(data[cluster]).codes
-        cl_codes = cl_codes[: len(base.data_info["y"])]  # align to fitted sample
+        cl_codes = _sample_codes(base, data, cluster)
         se = cr_vcov_ols(
             base, cl_codes, power=0.5 if kind == "CR2" else 1.0, small_sample=False
         )
@@ -1671,6 +1726,7 @@ def regress(
                 "regress(vce='conley') requires conley_lat=, conley_lon=, and "
                 "conley_cutoff= (planar distance cutoff in km; matches Stata acreg)."
             )
+        _refuse_weights(weights, "vce='conley'")
         base = regress(
             formula=formula,
             data=data,
@@ -1731,6 +1787,7 @@ def regress(
             )
         from ..inference.jackknife import wild_cluster_boot as _wcb
 
+        _refuse_weights(weights, "vce='wild'")
         base = regress(
             formula=formula,
             data=data,
@@ -1738,6 +1795,11 @@ def regress(
             cluster=cluster,
             collinear=collinear,
         )
+        # The bootstrap reuses the stored design, which it can only align to
+        # the rows that were fitted.
+        _idx = base.data_info.get("sample_index")
+        if _idx is not None and len(_idx) != len(data):
+            data = data.loc[_idx]
         wild_reps = kwargs.pop("wild_reps", 999)
         wild_weight_type = kwargs.pop("wild_weight_type", "rademacher")
         seed = kwargs.pop("seed", None)
@@ -1784,19 +1846,17 @@ def regress(
             robust="nonrobust",
             cluster=c1,
             collinear=collinear,
+            weights=weights,
         )
         from scipy import stats as _stats
 
         from ..inference.jackknife import two_way_correction_ols
 
-        c1_codes = pd.Categorical(data[c1]).codes
-        c2_codes = pd.Categorical(data[c2]).codes
+        c1_codes = _sample_codes(base, data, c1)
+        c2_codes = _sample_codes(base, data, c2)
         c12_codes = pd.factorize(
             pd.Series(list(zip(c1_codes.tolist(), c2_codes.tolist())))
         )[0]
-        c1_codes = c1_codes[: len(base.data_info["y"])]
-        c2_codes = c2_codes[: len(base.data_info["y"])]
-        c12_codes = c12_codes[: len(base.data_info["y"])]
         se = two_way_correction_ols(base, c1_codes, c2_codes, c12_codes)
         base.std_errors = se
         z = base.params / se

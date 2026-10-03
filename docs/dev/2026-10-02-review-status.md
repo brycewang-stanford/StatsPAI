@@ -4,7 +4,7 @@
 
 对应 `docs/dev/2026-10-02-repository-agent-parity-review.md`。审查基线是 d1025b29 (1.34.2)，工作基于 e4fdfddc (1.35.0)。
 
-共 36 项：已完成 **29**，部分完成 **2**，未做 **5**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
+共 36 项：已完成 **29**，部分完成 **3**，未做 **4**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
 
 ## 已完成
 
@@ -46,6 +46,7 @@
 | --- | --- | --- | --- | --- |
 | M3 | 进程级 worker：`STATSPAI_MCP_ISOLATION=process`，超时或取消时杀掉子进程 | `src/statspai/agent/_process_worker.py`<br>`tests/test_mcp_isolation.py` | 只覆盖不依赖服务器状态的调用（无 `result_id` / `data_id` / `as_handle`）。带句柄的调用仍走线程 runner，因为拟合结果没有序列化协议。每次隔离调用要付一次解释器冷启动。 | 给拟合结果定义可序列化的最小形态后，再把 `as_handle` 调用纳入 |
 | A1 | 30 个之外的入口：家族卡片陈述按成员限定范围 | `src/statspai/_family_cards.py`<br>`tests/test_agent_card_audit.py`<br>`tests/test_family_cards.py` | 通读了全部 30 张家族卡片（271 个成员）的 `assumptions` 和 `failure_modes`。52 条假设（分布在 24 个家族里）本来就点名了适用对象（“Cox: …”、“Frailty models: …”、“Romano-Wolf …”），现在限定到对应成员，220 个成员的卡片因此变短。41 条家族失败模式里有 28 条同样只关乎个别成员，142 张卡片原先带着不属于自己的那条（`kaplan_meier` 被告知比例风险检验拒绝时怎么办，`lincom` 被告知 Hausman 统计量为负时怎么办）。限定后有 55 个方法没有任何失败模式，为它们各写了属于自己的（`MEMBER_FAILURE_MODES`，31 条）。没做的：真实调用核对（必填参数、枚举值、返回类型）仍只覆盖 30 个；两个专门方法（`assimilative_causal`、`evidence_without_injustice`）限定后没有任何假设，我不熟悉到能替它们写的程度，留空了；新写的 31 条失败模式是统计常识层面的陈述，没有逐条对着实现验证触发条件，所以 `exception` 一律写的是“无，仅提示”。 | 给审查脚本每次加 10 个函数的调用；请领域作者过一遍新写的 31 条失败模式 |
+| R1 | 清单里空着的格子补参考（`etwfe` 的协变量 / `xvar` / 加权 / `agg_weights='unit'`，`event_study` 的其它窗口，`rdrobust` / `dml` / `psm` 的大部分网格） | `src/statspai/validation_scope.py`<br>`src/statspai/regression/ols.py`<br>`src/statspai/inference/jackknife.py`<br>`src/statspai/inference/twoway_cluster.py`<br>`tests/reference_parity/test_regress_vce_weights_stata_parity.py`<br>`tests/reference_parity/test_rdrobust_parity.py`<br>`tests/test_validation_scope.py`<br>`tests/reference_parity/test_iv_small_Stata_parity.py` | 2026-10-03 补了两处。`rdrobust`：已有的 R 参考测试（vce 种类、聚类、协变量、fuzzy、kink、36 格带宽×阶数×核网格）原先没有登记进映射，登记后有参考的格子从 12 个变成 75 个；36 格网格测试原来只在 1e-6 上断言带宽和常规系数，实测八个输出都在 9e-12 以内，收紧到 1e-9。`regress`：本机 Stata 18 实跑一份新参考（加权 × 六种方差、CR2、双向聚类、cluster jackknife），有参考的格子从 6 个变成 15 个。补参考的过程中查出四个静默错误，都已修并记 ⚠️：`weights=` 在 `vce='cr2'/'cr3'` 和双向聚类下被整个丢掉；数据有缺失行时这三种方差的聚类编码错位（CR2 偏 17%，双向偏 66%）；`sp.twoway_cluster` / `sp.cr2_se` 在加权拟合上不用权重；加权拟合在证据映射里被识别成不加权。两处约定差异按 T4 登记而不是改默认值：双向聚类的小样本因子（我们用 G_min，Stata 18 每个分量各用自己的），CR3 与 Stata jackknife 差 (G-1)/G。`iv`：映射加了 `small` 维度（`small=False` 的拟合原先被算进 `small=True` 的格子），并登记了已有的 Stata 参考（`ivregress` 带 / 不带 `small`、`ivreghdfe` 吸收固定效应），有参考的格子从 7 个变成 22 个；吸收 FE 下 LIML / Fuller 的标准误与 ivreg2 差 5e-5，按 T4 登记。仍然空着：`etwfe` 的协变量 / `xvar` / 加权，`event_study` 的其它窗口，`dml` / `psm` 的大部分网格（匹配已有的 Stata / R 参考测试调用的是 `sp.match` 和 `sp.psmatch2`，不是 `sp.psm`，不能记到 `psm` 的映射上；这两个入口自己还没有映射），`rdrobust` 的 p = 0 / 3 / 4，`iv` 的 GMM。交错面板上的 TWFE 事件研究不该补。 | 给 `sp.match` / `sp.psmatch2` 建映射并登记已有参考；`etwfe` 协变量格对 R etwfe 实跑 |
 
 ## 未做，以及为什么
 
@@ -53,7 +54,6 @@
 | --- | --- | --- | --- |
 | A3 | 把各估计器的默认种子统一成一个值 | 故意不做。259 个带种子的函数里默认值有 `None` 125、`42` 73、`0` 56 等；改默认值会改变已发表的带种子数字。审查本身也说不应机械统一。 | 若要改，逐个估计器走 ⚠️ correctness / MIGRATION 流程 |
 | S2 | 真实模型的行为评测（成功率、严重错误率、token、延迟） | 不做，已定。原因不是钱：`tests/agent_bench/BUDGET_RUNBOOK.md` 要求在第一次真实调用之前把提示集哈希、假设和模型版本预注册到 OSF，这一步只能由你本人完成；真实 API 路径按设计在预注册之前保持 `NotImplementedError`。本机也没有配置任何模型 API key。绕过预注册先跑一个 smoke 会让之后的正式结果失去预注册的意义。mock 结果只能验证 harness。 | 你做完 OSF 预注册并给出模型快照后，按 runbook 第 3 步接入 API 路径 |
-| R1 | 清单里空着的格子补参考（`etwfe` 的协变量 / `xvar` / 加权 / `agg_weights='unit'`，`event_study` 的其它窗口，`rdrobust` / `dml` / `psm` 的大部分网格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差，是逐格的 parity 工作。交错面板上的 TWFE 事件研究不该补。 | 按使用频率挑格子；每补一格重跑 `build_evidence_inventory.py` |
 | R2 | 在 CI 里按 `renv.lock` 复现；重依赖 R 模块与 Stata 的定期自动重推导 | 需要自托管 runner（354 个 R 包，含仅 GitHub 发布的）和 Stata 许可。一个没法在 CI 上实测的 workflow job 我没有加：写了不跑等于没有，写了跑挂会挡住别人。 2026-10-03 核对：`r-parity.yml` 的 job 在 10 月 2 日至 3 日的六次 push 上都对着当时的 CRAN 跑通，定时触发用的是同一个 job，所以每周一那次不需要另外验证。Stata 侧不上 CI 是定论：许可证不能放进托管 runner，本地 `verify_reproduce_stata.py` 是唯一的重推导途径。 | 有 runner 之后加一个只在手动触发时运行的 job |
 | R5 | 新的仿真：少簇、不平衡面板、RD mass points、极端权重、学习器变化 | 需要预先定义设计和计算预算；审查也写明不应作为隐含任务执行。 | — |
 

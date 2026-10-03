@@ -65169,7 +65169,8 @@
     "validation_notes": [
       "R parity module 54_twoway_cluster",
       "Stata parity module 54_twoway_cluster",
-      "Cross-language parity (bit-exact) vs sandwich::vcovCL(cluster=~g1+g2) [R version 4.5.2 (2025-10-31), sandwich 3.1.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 54_twoway_cluster -- tests/r_parity/54_twoway_cluster.py"
+      "Cross-language parity (bit-exact) vs sandwich::vcovCL(cluster=~g1+g2) [R version 4.5.2 (2025-10-31), sandwich 3.1.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 54_twoway_cluster -- tests/r_parity/54_twoway_cluster.py",
+      "tests/reference_parity/test_regress_vce_weights_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -65940,7 +65941,8 @@
       "R parity module 53_cr2",
       "Stata parity module 53_cr2",
       "Cross-language parity (bit-exact) vs clubSandwich::vcovCR(type=\"CR2\"/\"CR3\") [R version 4.5.2 (2025-10-31), clubSandwich 0.6.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 53_cr2 -- tests/r_parity/53_cr2.py",
-      "tests/reference_parity/test_difference_in_means_estimatr.py"
+      "tests/reference_parity/test_difference_in_means_estimatr.py",
+      "tests/reference_parity/test_regress_vce_weights_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -76933,6 +76935,7 @@
       "status": "analytical-only",
       "tests": [
         "tests/reference_parity/test_iv_card_aer_parity.py",
+        "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_sunab_event_time_aggregate_parity.py",
         "tests/reference_parity/test_validation_entry_points.py"
       ],

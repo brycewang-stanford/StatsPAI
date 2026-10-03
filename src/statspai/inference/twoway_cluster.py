@@ -31,6 +31,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import EconometricResults
+from ..exceptions import MethodIncompatibility
 
 
 def _cluster_robust_variance(
@@ -121,11 +122,34 @@ def twoway_cluster(
     >>> print(tw.summary())  # doctest: +SKIP
     """
     # --- Extract estimation objects ---
-    X = np.asarray(result.data_info["X"])
-    residuals = np.asarray(result.data_info["residuals"])
+    X = np.asarray(result.data_info["X"], dtype=float)
+    residuals = np.asarray(result.data_info["residuals"], dtype=float).ravel()
 
-    c1 = data[cluster1].values
-    c2 = data[cluster2].values
+    # The rows the fit kept (it drops missing values) and its analytic
+    # weights: the scores are those of the weighted design, on those rows.
+    keys = data[[cluster1, cluster2]]
+    kept = result.data_info.get("sample_index")
+    if kept is not None and len(kept) == X.shape[0] and len(kept) != len(data):
+        keys = keys.loc[kept]
+    if len(keys) != X.shape[0]:
+        raise MethodIncompatibility(
+            f"twoway_cluster: {len(keys)} cluster keys for {X.shape[0]} fitted "
+            "rows.",
+            recovery_hint="Pass the DataFrame the model was fitted on.",
+        )
+    if keys.isna().any().any():
+        raise MethodIncompatibility(
+            "twoway_cluster: a cluster key is missing on the estimation sample.",
+            recovery_hint="Drop those rows before fitting.",
+        )
+    w = result.data_info.get("analytic_weights")
+    if w is not None:
+        root = np.sqrt(np.asarray(w, dtype=float).ravel())
+        X = X * root[:, None]
+        residuals = residuals * root
+
+    c1 = keys[cluster1].values
+    c2 = keys[cluster2].values
 
     # Reuse the N-way core so intersection keys are factorized tuple-wise
     # instead of built from collision-prone string concatenation.
