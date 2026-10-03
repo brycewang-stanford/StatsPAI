@@ -25,7 +25,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
 | `psm` | 3600 | 3 / 3600 | 1 / 3600 | -- | -- | -- | 1 / 3600 |
 | `rddensity` | 2 | -- | -- | -- | -- | 1 / 2 | 1 / 2 |
-| `rdrobust` | 25920 | 12 / 25920 | 12 / 25920 | -- | -- | -- | 12 / 25920 |
+| `rdrobust` | 25920 | 75 / 25920 | 75 / 25920 | -- | -- | -- | 75 / 25920 |
 | `regress` | 26 | 13 / 26 | 6 / 26 | -- | 5 / 26 | -- | 6 / 26 |
 | `sdid` | 288 | 52 / 288 | 24 / 288 | -- | -- | -- | 24 / 288 |
 | `sun_abraham` | 8 | 4 / 8 | 4 / 8 | 2 / 8 | -- | -- | 4 / 8 |
@@ -82,8 +82,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `psm` | estimate | 0 | 0 | 0 | 0 | 3597 |
 | `psm` | se | 0 | 0 | 0 | 0 | 3599 |
 | `rddensity` | diagnostic | 0 | 0 | 0 | 0 | 1 |
-| `rdrobust` | estimate | 0 | 0 | 0 | 0 | 25908 |
-| `rdrobust` | se | 0 | 0 | 0 | 0 | 25908 |
+| `rdrobust` | estimate | 0 | 0 | 0 | 0 | 25845 |
+| `rdrobust` | se | 0 | 0 | 0 | 0 | 25845 |
 | `rdrobust` | coverage | 0 | 0 | 1 | 0 | 25919 |
 | `regress` | estimate | 0 | 0 | 0 | 0 | 13 |
 | `regress` | se | 0 | 0 | 0 | 0 | 20 |
@@ -306,6 +306,17 @@ Dimensions: `design` in {sharp, fuzzy, kink}; `bwselect` in {mserd, msetwo, mses
 | T2 | estimate, se | design=fuzzy; bwselect=mserd; kernel=triangular; p=1; vce=nn; covariates=none; code_path=native; weights=set | `tests/reference_parity/test_rd_weights_parity.py` | `sp.rdrobust(weights=)` |
 | T2 | estimate, se | design=fuzzy; bwselect=msecomb2; kernel=triangular; p=1; vce=nn; covariates=none; code_path=native; weights=set | `tests/reference_parity/test_rd_weights_parity.py` | `sp.rdrobust(weights=)` |
 | T2 | estimate, se | design=fuzzy; bwselect=msecomb2; kernel=triangular; p=1; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rd_weights_parity.py` | `sp.rdrobust(weights=)` |
+| T2 | estimate, se | design=sharp; bwselect=cerrd/cersum/certwo/mserd/msesum/msetwo; kernel=epanechnikov/triangular/uniform; p=1/2; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=sharp; bwselect=mserd; kernel=triangular; p=1/2; vce=hc0/hc1/hc2/hc3/nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rd_vce_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=sharp; bwselect=mserd; kernel=triangular; p=1; vce=hc0/hc2/hc3/nn; covariates=set; code_path=native; weights=none | `tests/reference_parity/test_rd_vce_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=sharp; bwselect=mserd; kernel=triangular; p=1/2; vce=cluster; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rd_vce_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=sharp; bwselect=mserd; kernel=triangular; p=1; vce=cluster; covariates=set; code_path=native; weights=none | `tests/reference_parity/test_rd_vce_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=sharp; bwselect=cerrd; kernel=triangular; p=1; vce=cluster; covariates=set; code_path=native; weights=none | `tests/reference_parity/test_rd_cluster_cer_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=fuzzy; bwselect=mserd; kernel=triangular; p=1/2; vce=nn; covariates=none/set; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_fuzzy_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=fuzzy; bwselect=cerrd/msetwo; kernel=triangular; p=1; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_fuzzy_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=fuzzy; bwselect=mserd; kernel=uniform; p=1; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_fuzzy_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=fuzzy; bwselect=mserd; kernel=triangular; p=1; vce=hc0/hc1/hc2/hc3; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_fuzzy_parity.py` | `sp.rdrobust(df, y, x, c)` |
+| T2 | estimate, se | design=kink; bwselect=mserd; kernel=triangular; p=2; vce=nn; covariates=none; code_path=native; weights=none | `tests/reference_parity/test_rdrobust_params_parity.py` | `sp.rdrobust(df, y, x, c)` |
 
 ### `regress`
 

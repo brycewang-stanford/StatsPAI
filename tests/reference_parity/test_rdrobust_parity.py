@@ -241,8 +241,42 @@ def test_headline_estimate_is_not_inflated(rjson, senate):
     assert float(res.estimate) == pytest.approx(ref["coef_robust"], rel=1e-3)
 
 
+#: Every output of every grid cell. Measured 2026-10-03: the worst of the
+#: 36 x 8 comparisons is 8.2e-12 (the bias bandwidth under ``msesum``,
+#: p = 2). The data-driven bandwidth is the result of a chain of pilot
+#: regressions, so 1e-9 leaves room for platform BLAS differences without
+#: admitting a difference of method.
+RTOL_GRID = 1e-9
+
+
+def _pair(value):
+    if isinstance(value, (tuple, list, np.ndarray)):
+        return float(value[0]), float(value[1])
+    return float(value), float(value)
+
+
+def _all_outputs(res):
+    h_l, h_r = _pair(res.model_info["bandwidth_h"])
+    b_l, b_r = _pair(res.model_info["bandwidth_b"])
+    return {
+        "coef_conventional": float(res.detail["estimate"][0]),
+        "coef_robust": float(res.detail["estimate"][1]),
+        "se_conventional": float(res.detail["se"][0]),
+        "se_robust": float(res.detail["se"][1]),
+        "h_left": h_l,
+        "h_right": h_r,
+        "b_left": b_l,
+        "b_right": b_r,
+    }
+
+
 def test_full_grid_agrees_with_r(rjson, senate):
-    """All 36 cells at once, so a partial fix cannot look complete."""
+    """All 36 cells and all eight outputs, so a partial fix cannot look complete.
+
+    Six bandwidth selectors x p in {1, 2} x three kernels, against R
+    ``rdrobust``: conventional and bias-corrected estimates, conventional
+    and robust standard errors, and both bandwidths on each side.
+    """
     failures = []
     for key in _specs(rjson):
         ref = rjson[key]
@@ -259,14 +293,13 @@ def test_full_grid_agrees_with_r(rjson, senate):
         except Exception as exc:  # noqa: BLE001 - reported, not swallowed
             failures.append(f"{key}: raised {type(exc).__name__}: {exc}")
             continue
-        h = _scalar(res.model_info["bandwidth_h"])
-        conv = float(res.detail["estimate"][0])
-        if h != pytest.approx(ref["h_left"], rel=RTOL):
-            failures.append(f"{key}: h {h:.4f} vs R {ref['h_left']:.4f}")
-        if conv != pytest.approx(ref["coef_conventional"], rel=RTOL):
-            failures.append(
-                f"{key}: conv {conv:.4f} vs R {ref['coef_conventional']:.4f}"
-            )
+        got = _all_outputs(res)
+        for name, value in got.items():
+            if value != pytest.approx(ref[name], rel=RTOL_GRID):
+                failures.append(
+                    f"{key}: {name} {value:.12g} vs R {ref[name]:.12g} "
+                    f"(rel {abs(value / ref[name] - 1):.1e})"
+                )
     assert not failures, (
         f"{len(failures)} mismatches across {len(_specs(rjson))} specs:\n  "
         + "\n  ".join(failures[:12])

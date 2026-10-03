@@ -2891,17 +2891,17 @@
       "invariant": {},
       "cells": 25920,
       "overall": {
-        "covered": 12,
-        "not_covered": 25908
+        "covered": 75,
+        "not_covered": 25845
       },
       "by_output": {
         "estimate": {
-          "reference": 12,
-          "not_covered": 25908
+          "reference": 75,
+          "not_covered": 25845
         },
         "se": {
-          "reference": 12,
-          "not_covered": 25908
+          "reference": 75,
+          "not_covered": 25845
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -3375,6 +3375,425 @@
             ]
           },
           "compares": "fuzzy RD, msecomb2 (comb recursion now keeps the first stage)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rdrobust_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "cerrd",
+              "cersum",
+              "certwo",
+              "mserd",
+              "msesum",
+              "msetwo"
+            ],
+            "kernel": [
+              "epanechnikov",
+              "triangular",
+              "uniform"
+            ],
+            "p": [
+              "1",
+              "2"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "36-cell grid vs R rdrobust: both estimates, both SEs and h, b on each side, all within 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_vce_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1",
+              "2"
+            ],
+            "vce": [
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3",
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "every vce kind at p = 1, 2 vs R rdrobust: estimates and SEs to 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_vce_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "hc0",
+              "hc2",
+              "hc3",
+              "nn"
+            ],
+            "covariates": [
+              "set"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "vce kinds with a covariate vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_vce_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1",
+              "2"
+            ],
+            "vce": [
+              "cluster"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "clustered estimates, SEs and bandwidth at p = 1, 2 vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_vce_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "cluster"
+            ],
+            "covariates": [
+              "set"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "clustered with a covariate vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_cluster_cer_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "cerrd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "cluster"
+            ],
+            "covariates": [
+              "set"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "clustered, covariate-adjusted fit on a CER bandwidth: bias-corrected estimate and robust SE vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rdrobust_fuzzy_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "fuzzy"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1",
+              "2"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "two-sided fuzzy RD at p = 1, 2, with and without covariates, vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rdrobust_fuzzy_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "fuzzy"
+            ],
+            "bwselect": [
+              "cerrd",
+              "msetwo"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "fuzzy RD under the other bandwidth selectors vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rdrobust_fuzzy_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "fuzzy"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "uniform"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "fuzzy RD, uniform kernel vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rdrobust_fuzzy_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "fuzzy"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "fuzzy RD under hc0-hc3: conventional estimate, conventional and robust SE vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rdrobust_params_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "kink"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "2"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "kink (deriv = 1, p = 2): bandwidth, conventional estimate and its SE vs R rdrobust"
         }
       ]
     },
@@ -3965,16 +4384,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 354,
+      "reference": 417,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 42492
+      "not_covered": 42429
     },
     "se": {
-      "reference": 148,
+      "reference": 211,
       "stochastic_screen": 3,
       "disclosure": 5,
-      "not_covered": 42690
+      "not_covered": 42627
     },
     "coverage": {
       "coverage_simulation": 11,
