@@ -9384,6 +9384,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
@@ -11740,6 +11741,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_count_quantile_parity.py",
+        "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],
       "also_verified_by": [
@@ -12957,6 +12959,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_count_quantile_parity.py",
+        "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
@@ -13450,6 +13453,7 @@
         "tests/r_parity/47_ppmlhdfe_3fe.py",
         "tests/r_parity/47_ppmlhdfe_3fe.R",
         "tests/stata_parity/47_ppmlhdfe_3fe.do",
+        "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_ppmlhdfe_singletons_Stata_parity.py",
         "tests/reference_parity/test_ppmlhdfe_twoway_parity.py"
       ],
@@ -13772,6 +13776,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",

@@ -192,6 +192,28 @@ evidence map listed as having none.
   dropped missing values (`sp.twoway_cluster` raised; `sp.cr2_se` fell
   back to a re-parse of the formula).
 
+### `sp.poisson` and `sp.ppmlhdfe`: weights in the covariance
+
+#### ⚠️ Correctness
+
+- **`sp.poisson(weights=)` and `sp.ppmlhdfe(weights=)` computed the
+  covariance without the weights.** The coefficients were the weighted
+  ones; the information, the scores and the cluster sums were not
+  weighted. Against Stata 18 the Poisson model-based standard errors
+  were 10% high (42% high with integer frequency weights), the robust
+  ones 7% low, and `ppmlhdfe`'s robust and clustered ones 8% and 12% off.
+  All now agree to 6e-10. The column is read as Stata reads it for the
+  variance asked for: `weights=w` alone is `[iw=w]` / `[fw=w]`
+  (model-based, scales with the weights), with `robust=` it is `[pw=w]`,
+  with `cluster=` it is `[pw=w], vce(cluster)`. That is what `sp.logit`,
+  `sp.probit` and `sp.glm` already did; they are pinned alongside.
+  Unweighted fits are unchanged. See `MIGRATION.md`.
+- **The log-likelihood reported by a weighted `sp.poisson`, `sp.nbreg`
+  or `sp.ppmlhdfe` was the unweighted sum.** `ll`, `ll_null`, the LR
+  statistic and the pseudo R-squared now use the weighted sums, as Stata
+  does (Poisson `e(ll)` and `e(ll_0)` to 1e-10). `sp.nbreg`'s
+  coefficients and standard errors under weights were already correct.
+
 ### Count models with missing values
 
 #### Fixed

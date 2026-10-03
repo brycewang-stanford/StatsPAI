@@ -322,15 +322,27 @@ def _safe_exp(eta: np.ndarray, cap: float = 700.0) -> np.ndarray:
     return np.asarray(np.exp(np.clip(eta, -cap, cap)), dtype=np.float64)
 
 
+def _obs_weighted(values: np.ndarray, weights: Optional[np.ndarray]) -> np.ndarray:
+    """``values`` times the observation weights (unchanged without weights)."""
+    if weights is None:
+        return values
+    return np.asarray(values, dtype=np.float64) * np.asarray(weights, dtype=np.float64)
+
+
 def _sandwich_vcov(
     X: np.ndarray,
     mu: np.ndarray,
     residuals: np.ndarray,
     XtX_inv_bread: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Robust (HC0) sandwich variance-covariance."""
+    """Robust (HC0) sandwich variance-covariance.
+
+    ``weights`` are the observation weights of a weighted fit: they scale
+    the information (``w * mu``) and the score (``w * (y - mu)``).
+    """
     n, k = X.shape
-    W = mu  # Poisson weight
+    W = _obs_weighted(mu, weights)  # Poisson weight
     if XtX_inv_bread is None:
         XtWX = X.T @ (X * W[:, None])
         try:
@@ -344,7 +356,11 @@ def _sandwich_vcov(
     # GLM-weighted (X'WX)^{-1}. Byte-identical to the prior HC0 sandwich.
     from ..core._vcov import sandwich_vcov
 
-    return sandwich_vcov(XtWX_inv, X * residuals[:, None], correction="none")
+    return sandwich_vcov(
+        XtWX_inv,
+        X * _obs_weighted(residuals, weights)[:, None],
+        correction="none",
+    )
 
 
 def _cluster_vcov(
@@ -352,11 +368,13 @@ def _cluster_vcov(
     mu: np.ndarray,
     residuals: np.ndarray,
     cluster_arr: np.ndarray,
+    weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Clustered sandwich variance-covariance."""
     from ..core._vcov import sandwich_vcov
 
-    W = mu
+    W = _obs_weighted(mu, weights)
+    residuals = _obs_weighted(residuals, weights)
     XtWX = X.T @ (X * W[:, None])
     try:
         XtWX_inv = np.linalg.inv(XtWX)
@@ -375,6 +393,7 @@ def _twoway_cluster_vcov(
     residuals: np.ndarray,
     c1_arr: np.ndarray,
     c2_arr: np.ndarray,
+    weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Two-way cluster sandwich (Cameron-Gelbach-Miller 2011).
 
@@ -386,14 +405,14 @@ def _twoway_cluster_vcov(
     meat — the one-way ``cluster(a)`` path reduces to ``G/(G-1)`` and matches
     ``_cluster_vcov`` exactly).
     """
-    W = mu
+    W = _obs_weighted(mu, weights)
     XtWX = X.T @ (X * W[:, None])
     try:
         bread = np.linalg.inv(XtWX)
     except np.linalg.LinAlgError:
         bread = np.linalg.pinv(XtWX)
 
-    scores = X * residuals[:, None]
+    scores = X * _obs_weighted(residuals, weights)[:, None]
     k = X.shape[1]
 
     def _meat(codes: np.ndarray) -> np.ndarray:
@@ -418,8 +437,13 @@ def _poisson_vcov(
     residuals: np.ndarray,
     robust: str,
     cluster_arr: Optional[np.ndarray],
+    weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Variance-covariance for Poisson-family models.
+
+    ``weights`` are the observation weights the coefficients were fitted
+    with. Until 1.36.0 they were left out here, so a weighted fit paired
+    weighted coefficients with the unweighted covariance formula.
 
     ``robust`` is a canonical SE kind (see ``core._vcov_spec``):
 
@@ -434,9 +458,9 @@ def _poisson_vcov(
     """
     n, k = X.shape
     if cluster_arr is not None:
-        return _cluster_vcov(X, mu, residuals, cluster_arr)
+        return _cluster_vcov(X, mu, residuals, cluster_arr, weights=weights)
 
-    W = mu
+    W = _obs_weighted(mu, weights)
     XtWX = X.T @ (X * W[:, None])
     try:
         XtWX_inv = np.linalg.inv(XtWX)
@@ -447,7 +471,7 @@ def _poisson_vcov(
     if kind == "nonrobust":
         return XtWX_inv
     if kind in ("robust", "hc0", "hc1"):
-        vcov = _sandwich_vcov(X, mu, residuals, XtWX_inv)
+        vcov = _sandwich_vcov(X, mu, residuals, XtWX_inv, weights=weights)
         if kind == "robust":
             vcov = vcov * (n / (n - 1.0))
         elif kind == "hc1":
@@ -460,12 +484,13 @@ def _poisson_vcov(
     )
 
 
-def _poisson_loglik(y: np.ndarray, mu: np.ndarray) -> float:
-    """Poisson log-likelihood (up to constant)."""
-    # l = sum(y*log(mu) - mu - log(y!))
-    return float(
-        np.sum(y * np.log(np.maximum(mu, 1e-300)) - mu - special.gammaln(y + 1))
-    )
+def _poisson_loglik(
+    y: np.ndarray, mu: np.ndarray, weights: Optional[np.ndarray] = None
+) -> float:
+    """Poisson log-likelihood; the weighted sum when ``weights`` is given."""
+    # l = sum(w * (y*log(mu) - mu - log(y!)))
+    terms = y * np.log(np.maximum(mu, 1e-300)) - mu - special.gammaln(y + 1)
+    return float(np.sum(_obs_weighted(terms, weights)))
 
 
 # ---------------------------------------------------------------------------
@@ -531,34 +556,38 @@ def _poisson_irls(
 # ---------------------------------------------------------------------------
 
 
-def _nb2_loglik(y: np.ndarray, mu: np.ndarray, alpha: float) -> float:
-    """NB2 log-likelihood: Var(y) = mu + alpha * mu^2."""
+def _nb2_loglik(
+    y: np.ndarray, mu: np.ndarray, alpha: float, weights: Optional[np.ndarray] = None
+) -> float:
+    """NB2 log-likelihood: Var(y) = mu + alpha * mu^2 (weighted sum with weights)."""
     r = 1.0 / max(alpha, 1e-300)
     # Sum lgamma(y + r) - lgamma(r) - lgamma(y+1)
     # plus r*log(r/(r+mu)) + y*log(mu/(r+mu)).
-    ll = np.sum(
+    terms = (
         special.gammaln(y + r)
         - special.gammaln(r)
         - special.gammaln(y + 1)
         + r * np.log(r / (r + mu))
         + y * np.log(np.maximum(mu, 1e-300) / (r + mu))
     )
-    return float(ll)
+    return float(np.sum(_obs_weighted(terms, weights)))
 
 
-def _nb1_loglik(y: np.ndarray, mu: np.ndarray, delta: float) -> float:
+def _nb1_loglik(
+    y: np.ndarray, mu: np.ndarray, delta: float, weights: Optional[np.ndarray] = None
+) -> float:
     """NB1 log-likelihood: Var(y) = mu + delta * mu  =>  Var = mu*(1+delta)."""
     # Parameterize as r = mu/delta  so Var = mu + delta*mu
     delta = max(delta, 1e-300)
     r = mu / delta
-    ll = np.sum(
+    terms = (
         special.gammaln(y + r)
         - special.gammaln(r)
         - special.gammaln(y + 1)
         + r * np.log(r / (r + mu))
         + y * np.log(np.maximum(mu, 1e-300) / (r + mu))
     )
-    return float(ll)
+    return float(np.sum(_obs_weighted(terms, weights)))
 
 
 def _nb2_fit(
@@ -1223,7 +1252,12 @@ def poisson(
     cluster : str, optional
         Variable name for clustered standard errors.
     weights : str, optional
-        Frequency/analytic weight variable.
+        Observation weight column. Read as Stata reads a weight for the
+        variance requested: alone it is ``[iw=w]`` (``[fw=w]`` for integer
+        weights), a model-based variance that scales with the weights;
+        with ``robust=`` it is ``[pw=w]``; with ``cluster=`` it is
+        ``[pw=w], vce(cluster)``. The reported log-likelihood is the
+        weighted sum.
     offset : str, optional
         Offset variable (log of exposure already computed).
     exposure : str, optional
@@ -1302,15 +1336,15 @@ def poisson(
     residuals = y_arr - mu
 
     # Variance-covariance
-    vcov = _poisson_vcov(X, mu, residuals, robust, cluster_arr)
+    vcov = _poisson_vcov(X, mu, residuals, robust, cluster_arr, weights=w_arr)
     se = np.sqrt(np.diag(vcov))
 
-    # Log-likelihood
-    ll = _poisson_loglik(y_arr, mu)
+    # Log-likelihood (the weighted sum under weights, as Stata reports)
+    ll = _poisson_loglik(y_arr, mu, w_arr)
 
     # Null model (intercept only)
-    mu_null = np.full(n, np.mean(y_arr))
-    ll_null = _poisson_loglik(y_arr, mu_null)
+    mu_null = np.full(n, np.average(y_arr, weights=w_arr))
+    ll_null = _poisson_loglik(y_arr, mu_null, w_arr)
 
     # LR chi2
     lr_chi2 = 2 * (ll - ll_null)
@@ -1584,17 +1618,19 @@ def nbreg(
     )
 
     # Log-likelihood
+    # Reported likelihoods are the weighted sums under weights (Stata's
+    # log pseudolikelihood); they were unweighted until 1.36.0.
     if is_nb2:
-        ll = _nb2_loglik(y_arr, mu, disp_param)
+        ll = _nb2_loglik(y_arr, mu, disp_param, w_arr)
     else:
-        ll = _nb1_loglik(y_arr, mu, disp_param)
+        ll = _nb1_loglik(y_arr, mu, disp_param, w_arr)
 
     # Null model
-    mu_null = np.full(n, np.mean(y_arr))
+    mu_null = np.full(n, np.average(y_arr, weights=w_arr))
     if is_nb2:
         # Optimize alpha for null model
         def neg_null_ll(log_a: float) -> float:
-            return -_nb2_loglik(y_arr, mu_null, float(np.exp(log_a)))
+            return -_nb2_loglik(y_arr, mu_null, float(np.exp(log_a)), w_arr)
 
         res_null = optimize.minimize_scalar(
             neg_null_ll, bounds=(np.log(1e-8), np.log(1e4)), method="bounded"
@@ -1603,7 +1639,7 @@ def nbreg(
     else:
 
         def neg_null_ll(log_a: float) -> float:
-            return -_nb1_loglik(y_arr, mu_null, float(np.exp(log_a)))
+            return -_nb1_loglik(y_arr, mu_null, float(np.exp(log_a)), w_arr)
 
         res_null = optimize.minimize_scalar(
             neg_null_ll, bounds=(np.log(1e-8), np.log(1e4)), method="bounded"
@@ -1611,7 +1647,7 @@ def nbreg(
         ll_null = -res_null.fun
 
     # Poisson ll for LR test of dispersion
-    ll_poisson = _poisson_loglik(y_arr, mu)
+    ll_poisson = _poisson_loglik(y_arr, mu, w_arr)
     lr_alpha = 2 * (ll - ll_poisson)
     # One-sided test (alpha >= 0), use chibar^2 (50:50 mixture of chi2_0 and chi2_1)
     lr_alpha_pvalue = 0.5 * stats.chi2.sf(max(lr_alpha, 0), 1)
@@ -3115,11 +3151,11 @@ def ppmlhdfe(
     ssc_factor = 1.0
     if cluster_pair is not None:
         vcov = _twoway_cluster_vcov(
-            X_for_vcov, mu, residuals, cluster_pair[0], cluster_pair[1]
+            X_for_vcov, mu, residuals, cluster_pair[0], cluster_pair[1], weights=w_arr
         )
     elif cluster_arr is None and robust.lower() in ("robust", "hc1"):
         # Plain sandwich, then the documented small-sample convention.
-        vcov = _poisson_vcov(X_for_vcov, mu, residuals, "hc0", None)
+        vcov = _poisson_vcov(X_for_vcov, mu, residuals, "hc0", None, weights=w_arr)
         n_v, k_v = X_for_vcov.shape
         if ssc_key == "stata":
             ssc_factor = n_v / (n_v - 1.0)
@@ -3129,15 +3165,17 @@ def ppmlhdfe(
             ssc_factor = n_v / max(n_v - (k_v + k_fe_fixest), 1.0)
         vcov = vcov * ssc_factor
     else:
-        vcov = _poisson_vcov(X_for_vcov, mu, residuals, robust, cluster_arr)
+        vcov = _poisson_vcov(
+            X_for_vcov, mu, residuals, robust, cluster_arr, weights=w_arr
+        )
     se = np.sqrt(np.diag(vcov))
 
-    # Log-likelihood (Poisson quasi-likelihood)
-    ll = _poisson_loglik(y_arr, mu)
+    # Log-likelihood (Poisson quasi-likelihood; weighted under weights)
+    ll = _poisson_loglik(y_arr, mu, w_arr)
 
     # Null model
-    mu_null = np.full(n, np.mean(y_arr))
-    ll_null = _poisson_loglik(y_arr, mu_null)
+    mu_null = np.full(n, np.average(y_arr, weights=w_arr))
+    ll_null = _poisson_loglik(y_arr, mu_null, w_arr)
 
     lr_chi2 = 2 * (ll - ll_null)
     lr_pvalue = stats.chi2.sf(lr_chi2, max(k - 1, 1)) if k > 1 else np.nan

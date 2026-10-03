@@ -29005,7 +29005,7 @@
           "type": "number"
         },
         "weights": {
-          "description": "Frequency/analytic weight variable.",
+          "description": "Observation weight column. Read as Stata reads a weight for the variance requested: alone it is ``[iw=w]`` (``[fw=w]`` for integer weights), a model-based variance that scales with the weights; with ``robust=`` it is ``[pw=w]``; with ``cluster=`` it is ``[pw=w], vce(cluster)``. The reported log-likelihood is the weighted sum.",
           "type": "string",
           "x-statspai-role": "column"
         },

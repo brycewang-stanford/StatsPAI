@@ -66,6 +66,27 @@ Python calls to `sp.read_data` are unaffected.
 
 ---
 
+<a id="oct2026-poisson-weights-vcov"></a>
+
+## Unreleased: ⚠️ weighted `sp.poisson` / `sp.ppmlhdfe` standard errors
+
+Refit any weighted Poisson or PPML-HDFE table: the coefficients stand,
+the standard errors do not.
+
+| Call | Stata equivalent | Before | Now |
+| --- | --- | --- | --- |
+| `sp.poisson(..., weights=w)` | `poisson [iw=w]` (`[fw=w]` if integer) | SE 10% high (42% with integer weights) | matches |
+| `sp.poisson(..., weights=w, robust='robust')` | `poisson [pw=w]` | SE 7% low | matches |
+| `sp.poisson(..., weights=w, cluster=g)` | `poisson [pw=w], vce(cluster g)` | unweighted cluster sums | matches |
+| `sp.ppmlhdfe(..., weights=w)` | `ppmlhdfe [pw=w], vce(robust)` | SE 8% off | matches |
+| `sp.ppmlhdfe(..., weights=w, cluster=g)` | `ppmlhdfe [pw=w], vce(cluster g)` | SE 12% off | matches |
+| `ll`, `ll_null`, LR chi2, pseudo R2 of a weighted `sp.poisson` / `sp.nbreg` / `sp.ppmlhdfe` | `e(ll)`, `e(ll_0)` | unweighted sums | weighted sums |
+
+The percentages are on the test fixture. Unweighted fits, `sp.logit`,
+`sp.probit`, `sp.glm` and `sp.fepois` are not affected.
+
+---
+
 <a id="oct2026-feols-jax-ssc"></a>
 
 ## Unreleased: ⚠️ `sp.fast.feols_jax` standard errors follow `sp.fast.feols`; `ssc=` added

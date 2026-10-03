@@ -1202,6 +1202,7 @@
       "Stata parity module 42_nbreg",
       "Cross-language parity (bit-exact) vs MASS::glm.nb [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=0.005; parity module 42_nbreg -- tests/r_parity/42_nbreg.py",
       "tests/reference_parity/test_count_quantile_parity.py",
+      "tests/reference_parity/test_count_weights_stata_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
       "API/unit contract evidence: tests/test_count_panel_nbreg.py"
     ],
@@ -60986,10 +60987,10 @@
       "R parity module 57_logit",
       "Stata parity module 57_logit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"logit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 57_logit -- tests/r_parity/57_logit.py",
+      "tests/reference_parity/test_count_weights_stata_parity.py",
       "tests/reference_parity/test_joint_wald_stata_parity.py",
       "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py",
-      "tests/reference_parity/test_postestimation_stata_parity.py"
+      "tests/reference_parity/test_margins_ext_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -61169,10 +61170,10 @@
       "R parity module 48_probit",
       "Stata parity module 48_probit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"probit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=0.01; parity module 48_probit -- tests/r_parity/48_probit.py",
+      "tests/reference_parity/test_count_weights_stata_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py",
       "tests/reference_parity/test_postestimation_stata_parity.py",
-      "tests/reference_parity/test_r2_postest_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_r2_postest_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -61692,7 +61693,7 @@
             "type": "number"
           },
           "weights": {
-            "description": "Frequency/analytic weight variable.",
+            "description": "Observation weight column. Read as Stata reads a weight for the variance requested: alone it is ``[iw=w]`` (``[fw=w]`` for integer weights), a model-based variance that scales with the weights; with ``robust=`` it is ``[pw=w]``; with ``cluster=`` it is ``[pw=w], vce(cluster)``. The reported log-likelihood is the weighted sum.",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -61720,9 +61721,9 @@
       "Stata parity module 58_poisson",
       "Cross-language parity (bit-exact) vs stats::glm(family=poisson()) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 58_poisson -- tests/r_parity/58_poisson.py",
       "tests/reference_parity/test_count_quantile_parity.py",
+      "tests/reference_parity/test_count_weights_stata_parity.py",
       "tests/reference_parity/test_joint_wald_stata_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py",
-      "tests/reference_parity/test_postestimation_stata_parity.py"
+      "tests/reference_parity/test_margins_ext_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -61948,7 +61949,7 @@
       "tests/r_parity/47_ppmlhdfe_3fe.py",
       "tests/r_parity/47_ppmlhdfe_3fe.R",
       "tests/stata_parity/47_ppmlhdfe_3fe.do",
-      "tests/reference_parity/test_ppmlhdfe_singletons_Stata_parity.py"
+      "tests/reference_parity/test_count_weights_stata_parity.py"
     ],
     "validation_status": "certified"
   },
