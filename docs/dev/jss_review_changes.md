@@ -31,6 +31,36 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after `sp.regress` kept its weights and its fitted rows under CR2, CR3 and two-way clustering
+
+- **Commits.** `87a128eb`.
+- **Reason.** `sp.regress(weights=)` with `vce='cr2'` / `'cr3'` or two-way
+  clustering refit the model without the weights; with missing values in
+  a formula variable those variances read their cluster keys from the
+  first `n` rows; `sp.twoway_cluster` and `sp.cr2_se` ignored the weights
+  of a weighted fit. The fixes are in `src/statspai/regression/ols.py`,
+  `src/statspai/inference/jackknife.py` and
+  `src/statspai/inference/twoway_cluster.py`, which are on the estimation
+  path of Track A modules 01, 14, 51, 53, 54, 55 and 56 and of
+  original-data modules 01, 04, 04b and 09.
+- **Effect on the paper.** None. Every one of those modules is unweighted
+  and runs on data with no missing values, which the fixes leave
+  untouched. Checked by running modules 01, 54 and 56 on the source tree
+  of the parent commit and on the fixed tree: the three result files are
+  byte-identical between the two. (Both differ from the committed files
+  in trailing floating-point digits, at most 3e-13, because this session
+  runs with `STATSPAI_SKIP_RUST=1` under load; the committed files were
+  kept.) Only `exercised_sources` digests and `seconds` changed in the
+  traces; no implementation classification moved. The parity index gains
+  one reference test
+  (`tests/reference_parity/test_regress_vce_weights_stata_parity.py`),
+  which is not a Track A module and feeds no table.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+  - `src/statspai/_parity_index.json`
+  - `docs/parity.md`
+
 ### 2026-10-03 — release 1.36.0: parity tables carry the new version string
 
 - **Commits.** `0f70d29c` (release 1.36.0) regenerated
