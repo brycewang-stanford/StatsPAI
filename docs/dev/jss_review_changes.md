@@ -53,6 +53,20 @@ Rules:
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
 
+### 2026-10-04 — release 1.37.0: parity tables carry the new version string
+
+- **Commits.** `db5fc782` (release 1.37.0) regenerated
+  `tests/r_parity/results/parity_table.tex` and
+  `tests/r_parity/results/parity_table_3way.tex` with
+  `python tests/r_parity/compare.py`, and refreshed
+  `tests/r_parity/TIER_A_FIXTURE_LOCK.json`.
+- **Reason.** The tables print the StatsPAI version in their caption.
+  One line changes in each; no row, estimate or standard error moves.
+- **Effect on the paper.** None while the manuscript stays anchored where
+  it is. If it is re-anchored to this release, the appendix parity tables
+  read "StatsPAI 1.37.0", the registry count is 1,294, and Python 3.10 is
+  the oldest supported version.
+
 ### 2026-10-03 — call traces re-recorded after `sp.label_values` and `sp.decode` were exported
 
 - **Commits.** `dbe20e11`.
