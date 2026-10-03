@@ -506,12 +506,19 @@ def _violation_string_value(node):
     Handles the four shapes the violation constructors actually use for
     ``message`` / ``recovery_hint``: a plain ``str`` constant, an f-string
     (``JoinedStr``), implicit/``+`` concatenation of those (``BinOp`` with
-    ``Add``), and a conditional (``a if cond else b``). Returns the
+    ``Add``), a conditional (``a if cond else b``), and the name of a
+    module-level string constant of ``_agent_summary`` (a hint shared with
+    the fit-time warning, e.g. ``FEW_CLUSTERS_HINT``). Returns the
     concatenated string, or ``None`` if the node is provably not a string
     expression (so the caller can flag "not a string").
     """
     import ast
 
+    if isinstance(node, ast.Name):
+        import statspai.core._agent_summary as agg
+
+        value = getattr(agg, node.id, None)
+        return value if isinstance(value, str) else None
     if isinstance(node, ast.Constant):
         return node.value if isinstance(node.value, str) else None
     if isinstance(node, ast.JoinedStr):
