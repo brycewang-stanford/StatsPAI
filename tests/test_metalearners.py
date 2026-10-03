@@ -970,7 +970,16 @@ class TestCDDFRegressionOnNull:
     Before 1.30.0 blp_test regressed on the T-learner's *in-sample* CATE
     predictions; with tau = 1 everywhere it reported beta2 ~ 1.4 with
     p ~ 1e-52 on this very design. The out-of-fold proxy removes that.
+
+    The bound on the cross-fitted p-value is 1e-3, not 0.05. Under a true
+    null the p-value is uniform, so ``p > 0.05`` on one draw fails on one
+    platform in twenty: the fitted learners differ in the last bits across
+    BLAS builds, and the 2026-10 full matrix read 0.025 for the GATES test
+    on Linux and Windows while macOS passed. 1e-3 still separates a valid
+    test from the defect by about fifty orders of magnitude.
     """
+
+    _NOT_THE_DEFECT = 1e-3
 
     def _data(self):
         rng = np.random.default_rng(0)
@@ -988,7 +997,7 @@ class TestCDDFRegressionOnNull:
             r, df, y="y", treat="d", covariates=["x1", "x2"], propensity="p"
         )
         assert out["proxy_source"] == "cross_fit"
-        assert out["beta2_pvalue"] > 0.05
+        assert out["beta2_pvalue"] > self._NOT_THE_DEFECT
         old = sp.blp_test(
             r,
             df,
@@ -1007,4 +1016,4 @@ class TestCDDFRegressionOnNull:
             r, df, by="cate", y="y", treat="d", covariates=["x1", "x2"], propensity="p"
         )
         assert out["method"] == "gates"
-        assert out["omnibus_pvalue"] > 0.05
+        assert out["omnibus_pvalue"] > self._NOT_THE_DEFECT
