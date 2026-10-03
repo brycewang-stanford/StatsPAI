@@ -31,6 +31,27 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 03, 15, 47 and 53 after the `sp.fast.feols` degrees-of-freedom count for one absorbed dimension
+
+- **Commits.** `67492d1a`.
+- **Reason.** With a single absorbed dimension `sp.fast.feols` used
+  `n - p - (G - 1)` residual degrees of freedom where fixest and reghdfe
+  use `n - p - G`; two clustered layouts were off by one as well. The fix
+  is in `src/statspai/fast/feols.py`, on the estimation path of modules
+  03, 15, 47 and 53.
+- **Effect on the paper.** None. Those modules fit two-way models
+  clustered on a key that nests one of the effects (or are unclustered
+  two-way fits), the case that was already exact: their Python result
+  files are byte-identical on the parent tree and on the fixed tree.
+  Only `exercised_sources` digests and `seconds` changed in the trace.
+  The Track C timings of `01_hdfe` were already marked stale by earlier
+  commits and are re-measured at the next re-anchor; the fix changes one
+  integer subtraction. The parity index gains one reference test
+  (`tests/reference_parity/test_fast_feols_weights_fixest_parity.py`).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `src/statspai/_parity_index.json`
+
 ### 2026-10-03 — call traces re-recorded after `sp.regress` kept its weights and its fitted rows under CR2, CR3 and two-way clustering
 
 - **Commits.** `87a128eb`.
