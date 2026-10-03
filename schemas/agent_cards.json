@@ -720,9 +720,7 @@
       "sp.evalue_rr"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
-      "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
+      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -5340,8 +5338,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -5484,8 +5480,6 @@
     "assumptions": [
       "the forest's nuisances are consistent (doubly-robust scores)",
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -7596,7 +7590,6 @@
       "Sequential exogeneity: errors are uncorrelated with past values of the regressors (lags are valid instruments)",
       "No second-order serial correlation in the differenced errors (Arellano-Bond AR(2) test) -- otherwise the lagged instruments are invalid",
       "System GMM additionally assumes the first differences of the instruments are uncorrelated with the fixed effect (stationarity of initial conditions)",
-      "Interactive fixed effects: the factor structure has a small, known number of factors",
       "Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0).",
       "Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain.",
       "Dynamic GMM: weak exogeneity and no second-order serial correlation in differenced errors.",
@@ -14055,9 +14048,7 @@
       "sp.msm"
     ],
     "assumptions": [
-      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three",
-      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured",
-      "Matrix completion / geolift: the untreated potential outcomes have a low-rank structure (plus noise) that the treated block shares"
+      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured"
     ],
     "category": "transport",
     "cost_profile": "",
@@ -14587,9 +14578,7 @@
       "sp.msm"
     ],
     "assumptions": [
-      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three",
-      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured",
-      "Matrix completion / geolift: the untreated potential outcomes have a low-rank structure (plus noise) that the treated block shares"
+      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three"
     ],
     "category": "gformula",
     "cost_profile": "",
@@ -17416,9 +17405,7 @@
       "sp.msm"
     ],
     "assumptions": [
-      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three",
-      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured",
-      "Matrix completion / geolift: the untreated potential outcomes have a low-rank structure (plus noise) that the treated block shares"
+      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three"
     ],
     "category": "target_trial",
     "cost_profile": "",
@@ -27665,10 +27652,7 @@
       "sp.regress",
       "sp.decompose"
     ],
-    "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
-    ],
+    "assumptions": [],
     "category": "fairness",
     "cost_profile": "",
     "description": "Kwak-Pleasants (2025) evidence-without-injustice counterfactual fairness test. Freezes admissible-evidence features at their factual values and tests whether predictions still change under do(A=a'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -27699,7 +27683,6 @@
     ],
     "provenance": {
       "alternatives": "family",
-      "assumptions": "family",
       "example": "curated",
       "pre_conditions": "family",
       "reference": "curated",
@@ -29393,9 +29376,7 @@
       "sp.causal_impact"
     ],
     "assumptions": [
-      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
-      "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
+      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions"
     ],
     "category": "assimilation",
     "cost_profile": "",
@@ -29527,10 +29508,7 @@
       "sp.regress",
       "sp.decompose"
     ],
-    "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
-    ],
+    "assumptions": [],
     "category": "assimilation",
     "cost_profile": "",
     "description": "End-to-end Assimilative Causal Inference pipeline (Nature Communications 2026): for each data batch, apply `estimator` to get (theta, SE), then fuse via Kalman filtering or particle filter. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -29561,7 +29539,6 @@
     ],
     "provenance": {
       "alternatives": "family",
-      "assumptions": "family",
       "example": "curated",
       "pre_conditions": "family",
       "reference": "curated",
@@ -31243,8 +31220,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -31365,8 +31341,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -31480,8 +31455,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -31724,8 +31698,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "Dyadic observations are not independent: rows sharing a node are correlated, so inference uses QAP permutations or dyadic-cluster (two-way by both members) standard errors",
-      "Peer-effects models (linear-in-means) face the reflection problem; identification needs network structure (intransitive triads) or exogenous peer characteristics, and the network itself must be exogenous to the outcome"
+      "Dyadic observations are not independent: rows sharing a node are correlated, so inference uses QAP permutations or dyadic-cluster (two-way by both members) standard errors"
     ],
     "category": "network",
     "cost_profile": "",
@@ -31858,8 +31831,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "Dyadic observations are not independent: rows sharing a node are correlated, so inference uses QAP permutations or dyadic-cluster (two-way by both members) standard errors",
-      "Peer-effects models (linear-in-means) face the reflection problem; identification needs network structure (intransitive triads) or exogenous peer characteristics, and the network itself must be exogenous to the outcome"
+      "Dyadic observations are not independent: rows sharing a node are correlated, so inference uses QAP permutations or dyadic-cluster (two-way by both members) standard errors"
     ],
     "category": "network",
     "cost_profile": "",
@@ -31982,8 +31954,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "Dyadic observations are not independent: rows sharing a node are correlated, so inference uses QAP permutations or dyadic-cluster (two-way by both members) standard errors",
-      "Peer-effects models (linear-in-means) face the reflection problem; identification needs network structure (intransitive triads) or exogenous peer characteristics, and the network itself must be exogenous to the outcome"
+      "Dyadic observations are not independent: rows sharing a node are correlated, so inference uses QAP permutations or dyadic-cluster (two-way by both members) standard errors"
     ],
     "category": "network",
     "cost_profile": "",
@@ -41819,11 +41790,7 @@
       "sp.ri_test",
       "sp.romano_wolf"
     ],
-    "assumptions": [
-      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)",
-      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)",
-      "Subgroup analyses are pre-specified; post-hoc subgroups need multiple-testing control and interaction tests, not per-group p-values"
-    ],
+    "assumptions": [],
     "category": "causal",
     "cost_profile": "",
     "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -41868,7 +41835,6 @@
     ],
     "provenance": {
       "alternatives": "curated+family",
-      "assumptions": "family",
       "example": "curated",
       "failure_modes": "curated+family",
       "pre_conditions": "curated+family",
@@ -45618,9 +45584,9 @@
       "sp.msm"
     ],
     "assumptions": [
-      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three",
-      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured",
-      "Matrix completion / geolift: the untreated potential outcomes have a low-rank structure (plus noise) that the treated block shares"
+      "Treatment is unconfounded given the covariates at every value of the moderator",
+      "The linear estimator assumes the marginal effect is linear in the moderator; the binning and kernel estimators relax that and are the check on it",
+      "Common support: every treatment level is observed across the range of the moderator over which effects are reported"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -48510,8 +48476,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -48770,8 +48734,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -48964,7 +48926,6 @@
     ],
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -50356,7 +50317,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
       "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
@@ -50541,8 +50501,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -50729,8 +50687,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -51117,7 +51073,6 @@
     ],
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -51299,8 +51254,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -57236,8 +57189,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -58171,10 +58122,6 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
-      "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
-      "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -58333,10 +58280,6 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
-      "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
-      "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -59494,8 +59437,7 @@
     "assumptions": [
       "Errors are independent across clusters; any within-cluster dependence is unrestricted",
       "Clusters are defined at (or above) the level at which treatment was assigned",
-      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs",
-      "Shift-share SEs: shocks are independent across sectors; inference is at the shock level (Adao-Kolesar-Morales / Borusyak-Hull-Jaravel)"
+      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -59654,8 +59596,7 @@
     "assumptions": [
       "Errors are independent across clusters; any within-cluster dependence is unrestricted",
       "Clusters are defined at (or above) the level at which treatment was assigned",
-      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs",
-      "Shift-share SEs: shocks are independent across sectors; inference is at the shock level (Adao-Kolesar-Morales / Borusyak-Hull-Jaravel)"
+      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -59811,8 +59752,7 @@
     "assumptions": [
       "Errors are independent across clusters; any within-cluster dependence is unrestricted",
       "Clusters are defined at (or above) the level at which treatment was assigned",
-      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs",
-      "Shift-share SEs: shocks are independent across sectors; inference is at the shock level (Adao-Kolesar-Morales / Borusyak-Hull-Jaravel)"
+      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -59942,8 +59882,7 @@
     "assumptions": [
       "Errors are independent across clusters; any within-cluster dependence is unrestricted",
       "Clusters are defined at (or above) the level at which treatment was assigned",
-      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs",
-      "Shift-share SEs: shocks are independent across sectors; inference is at the shock level (Adao-Kolesar-Morales / Borusyak-Hull-Jaravel)"
+      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -60059,8 +59998,7 @@
     "assumptions": [
       "Errors are independent across clusters; any within-cluster dependence is unrestricted",
       "Clusters are defined at (or above) the level at which treatment was assigned",
-      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs",
-      "Shift-share SEs: shocks are independent across sectors; inference is at the shock level (Adao-Kolesar-Morales / Borusyak-Hull-Jaravel)"
+      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -60177,10 +60115,6 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
-      "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
-      "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -60354,8 +60288,6 @@
       "sp.msm"
     ],
     "assumptions": [
-      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three",
-      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured",
       "Matrix completion / geolift: the untreated potential outcomes have a low-rank structure (plus noise) that the treated block shares"
     ],
     "category": "other",
@@ -60509,8 +60441,8 @@
       "sp.decompose"
     ],
     "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
+      "Absent treatment the two groups would have changed by the same amount between the pre and post measurements (no selection-by-time interaction)",
+      "No event other than the treatment affected one group and not the other between the two measurements"
     ],
     "category": "other",
     "cost_profile": "",
@@ -60659,9 +60591,6 @@
     ],
     "assumptions": [
       "Sequential exogeneity: errors are uncorrelated with past values of the regressors (lags are valid instruments)",
-      "No second-order serial correlation in the differenced errors (Arellano-Bond AR(2) test) -- otherwise the lagged instruments are invalid",
-      "System GMM additionally assumes the first differences of the instruments are uncorrelated with the fixed effect (stationarity of initial conditions)",
-      "Interactive fixed effects: the factor structure has a small, known number of factors",
       "Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0).",
       "Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain.",
       "Dynamic GMM: weak exogeneity and no second-order serial correlation in differenced errors.",
@@ -60859,10 +60788,6 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
-      "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
-      "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -61562,8 +61487,7 @@
     ],
     "assumptions": [
       "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)",
-      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs",
-      "Truncated regression: truncation is on the outcome at a known threshold and the error is normal -- misspecified normality biases everything, unlike OLS"
+      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -61938,7 +61862,6 @@
     ],
     "assumptions": [
       "The conditional mean is exp(x'b); Poisson pseudo-ML is consistent for the mean under this alone, but its default SEs assume equidispersion -- use robust / clustered SEs",
-      "Zero-inflated and hurdle models assume a separate process generates the excess zeros; they are not a fix for over-dispersion by itself",
       "Observations are independent conditional on covariates or the dependence is declared (cluster= / random effects)"
     ],
     "category": "regression",
@@ -62165,7 +62088,6 @@
     ],
     "assumptions": [
       "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
       "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
     ],
     "category": "postestimation",
@@ -62297,7 +62219,6 @@
     ],
     "assumptions": [
       "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
       "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
     ],
     "category": "postestimation",
@@ -62412,9 +62333,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "postestimation",
     "cost_profile": "",
@@ -62538,9 +62457,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "postestimation",
     "cost_profile": "",
@@ -62663,9 +62580,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "postestimation",
     "cost_profile": "",
@@ -62765,9 +62680,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "postestimation",
     "cost_profile": "",
@@ -63163,9 +63076,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "diagnostics",
     "cost_profile": "",
@@ -63275,9 +63186,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "diagnostics",
     "cost_profile": "",
@@ -63392,9 +63301,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "diagnostics",
     "cost_profile": "",
@@ -63670,8 +63577,7 @@
     ],
     "assumptions": [
       "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite"
     ],
     "category": "diagnostics",
     "cost_profile": "",
@@ -63803,7 +63709,6 @@
     "assumptions": [
       "Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity",
       "Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error",
-      "tF adjustment applies to a single instrument with a first-stage F reported on the same variance estimator",
       "Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb)",
       "Exclusion: instruments affect outcome only through the endogenous regressor",
       "Monotonicity (for LATE interpretation under heterogeneous effects)"
@@ -64007,8 +63912,6 @@
     ],
     "assumptions": [
       "Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity",
-      "Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error",
-      "tF adjustment applies to a single instrument with a first-stage F reported on the same variance estimator",
       "Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb)",
       "Exclusion: instruments affect outcome only through the endogenous regressor",
       "Monotonicity (for LATE interpretation under heterogeneous effects)"
@@ -64212,7 +64115,6 @@
     ],
     "assumptions": [
       "Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity",
-      "Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error",
       "tF adjustment applies to a single instrument with a first-stage F reported on the same variance estimator",
       "Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb)",
       "Exclusion: instruments affect outcome only through the endogenous regressor",
@@ -64354,7 +64256,6 @@
     "assumptions": [
       "Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity",
       "Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error",
-      "tF adjustment applies to a single instrument with a first-stage F reported on the same variance estimator",
       "Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb)",
       "Exclusion: instruments affect outcome only through the endogenous regressor",
       "Monotonicity (for LATE interpretation under heterogeneous effects)"
@@ -64737,9 +64638,7 @@
       "sp.evalue_rr"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
-      "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
+      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists"
     ],
     "category": "diagnostics",
     "cost_profile": "",
@@ -64981,9 +64880,7 @@
       "sp.evalue_rr"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
-      "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
+      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists"
     ],
     "category": "diagnostics",
     "cost_profile": "",
@@ -65217,9 +65114,7 @@
       "sp.romano_wolf"
     ],
     "assumptions": [
-      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)",
-      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)",
-      "Subgroup analyses are pre-specified; post-hoc subgroups need multiple-testing control and interaction tests, not per-group p-values"
+      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -65378,8 +65273,7 @@
     "assumptions": [
       "Errors are independent across clusters; any within-cluster dependence is unrestricted",
       "Clusters are defined at (or above) the level at which treatment was assigned",
-      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs",
-      "Shift-share SEs: shocks are independent across sectors; inference is at the shock level (Adao-Kolesar-Morales / Borusyak-Hull-Jaravel)"
+      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -65680,8 +65574,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -65867,9 +65759,7 @@
       "sp.romano_wolf"
     ],
     "assumptions": [
-      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)",
-      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)",
-      "Subgroup analyses are pre-specified; post-hoc subgroups need multiple-testing control and interaction tests, not per-group p-values"
+      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -66036,8 +65926,7 @@
     "assumptions": [
       "Errors are independent across clusters; any within-cluster dependence is unrestricted",
       "Clusters are defined at (or above) the level at which treatment was assigned",
-      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs",
-      "Shift-share SEs: shocks are independent across sectors; inference is at the shock level (Adao-Kolesar-Morales / Borusyak-Hull-Jaravel)"
+      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -66165,8 +66054,7 @@
     "assumptions": [
       "Errors are independent across clusters; any within-cluster dependence is unrestricted",
       "Clusters are defined at (or above) the level at which treatment was assigned",
-      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs",
-      "Shift-share SEs: shocks are independent across sectors; inference is at the shock level (Adao-Kolesar-Morales / Borusyak-Hull-Jaravel)"
+      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -66294,8 +66182,7 @@
     "assumptions": [
       "Errors are independent across clusters; any within-cluster dependence is unrestricted",
       "Clusters are defined at (or above) the level at which treatment was assigned",
-      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs",
-      "Shift-share SEs: shocks are independent across sectors; inference is at the shock level (Adao-Kolesar-Morales / Borusyak-Hull-Jaravel)"
+      "Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -66437,7 +66324,6 @@
       "sp.iv"
     ],
     "assumptions": [
-      "Mendelian randomization: the genetic instruments are associated with the exposure, independent of confounders, and affect the outcome only through the exposure (no horizontal pleiotropy); use the robust estimators in the sp.mr family to probe the third",
       "Meta-analysis: study effects are exchangeable (random effects) or identical (fixed effect); publication bias is diagnosed, not assumed away"
     ],
     "category": "inference",
@@ -69781,7 +69667,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
       "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
@@ -69895,7 +69780,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
       "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
@@ -70104,7 +69988,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
       "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
@@ -70230,7 +70113,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
       "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
@@ -71476,7 +71358,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
       "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
@@ -71850,7 +71731,6 @@
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
       "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -74182,8 +74062,6 @@
       "sp.romano_wolf"
     ],
     "assumptions": [
-      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)",
-      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)",
       "Subgroup analyses are pre-specified; post-hoc subgroups need multiple-testing control and interaction tests, not per-group p-values"
     ],
     "category": "robustness",
@@ -74301,8 +74179,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "Design weights are the inverse of the inclusion probabilities (times non-response adjustments); strata and primary sampling units are declared so the variance reflects the design",
-      "Raking assumes the population margins are correct and the iterative proportional fitting converges to positive weights"
+      "Design weights are the inverse of the inclusion probabilities (times non-response adjustments); strata and primary sampling units are declared so the variance reflects the design"
     ],
     "category": "survey",
     "cost_profile": "",
@@ -74437,8 +74314,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "Design weights are the inverse of the inclusion probabilities (times non-response adjustments); strata and primary sampling units are declared so the variance reflects the design",
-      "Raking assumes the population margins are correct and the iterative proportional fitting converges to positive weights"
+      "Design weights are the inverse of the inclusion probabilities (times non-response adjustments); strata and primary sampling units are declared so the variance reflects the design"
     ],
     "category": "survey",
     "cost_profile": "",
@@ -74572,8 +74448,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "Design weights are the inverse of the inclusion probabilities (times non-response adjustments); strata and primary sampling units are declared so the variance reflects the design",
-      "Raking assumes the population margins are correct and the iterative proportional fitting converges to positive weights"
+      "Design weights are the inverse of the inclusion probabilities (times non-response adjustments); strata and primary sampling units are declared so the variance reflects the design"
     ],
     "category": "survey",
     "cost_profile": "",
@@ -76284,8 +76159,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -76466,10 +76339,7 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
-      "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
       "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -76643,10 +76513,7 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
-      "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
       "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -76825,7 +76692,6 @@
     ],
     "assumptions": [
       "Each input p-value is valid on its own (correct size marginally)",
-      "Bonferroni / Holm control the family-wise error rate under arbitrary dependence; Benjamini-Hochberg controls the false discovery rate under independence or positive regression dependence",
       "Romano-Wolf uses the bootstrap to learn the dependence across hypotheses and is the least conservative FWER control -- the bootstrap must resample at the level of the actual dependence (clusters)"
     ],
     "category": "inference",
@@ -77067,8 +76933,7 @@
     ],
     "assumptions": [
       "Each input p-value is valid on its own (correct size marginally)",
-      "Bonferroni / Holm control the family-wise error rate under arbitrary dependence; Benjamini-Hochberg controls the false discovery rate under independence or positive regression dependence",
-      "Romano-Wolf uses the bootstrap to learn the dependence across hypotheses and is the least conservative FWER control -- the bootstrap must resample at the level of the actual dependence (clusters)"
+      "Bonferroni / Holm control the family-wise error rate under arbitrary dependence; Benjamini-Hochberg controls the false discovery rate under independence or positive regression dependence"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -77157,8 +77022,7 @@
     ],
     "assumptions": [
       "Each input p-value is valid on its own (correct size marginally)",
-      "Bonferroni / Holm control the family-wise error rate under arbitrary dependence; Benjamini-Hochberg controls the false discovery rate under independence or positive regression dependence",
-      "Romano-Wolf uses the bootstrap to learn the dependence across hypotheses and is the least conservative FWER control -- the bootstrap must resample at the level of the actual dependence (clusters)"
+      "Bonferroni / Holm control the family-wise error rate under arbitrary dependence; Benjamini-Hochberg controls the false discovery rate under independence or positive regression dependence"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -77247,8 +77111,7 @@
     ],
     "assumptions": [
       "Each input p-value is valid on its own (correct size marginally)",
-      "Bonferroni / Holm control the family-wise error rate under arbitrary dependence; Benjamini-Hochberg controls the false discovery rate under independence or positive regression dependence",
-      "Romano-Wolf uses the bootstrap to learn the dependence across hypotheses and is the least conservative FWER control -- the bootstrap must resample at the level of the actual dependence (clusters)"
+      "Bonferroni / Holm control the family-wise error rate under arbitrary dependence; Benjamini-Hochberg controls the false discovery rate under independence or positive regression dependence"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -77336,11 +77199,7 @@
       "sp.ri_test",
       "sp.romano_wolf"
     ],
-    "assumptions": [
-      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)",
-      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)",
-      "Subgroup analyses are pre-specified; post-hoc subgroups need multiple-testing control and interaction tests, not per-group p-values"
-    ],
+    "assumptions": [],
     "category": "validation",
     "cost_profile": "",
     "description": "Which validation artifacts cover the configuration and outputs that were run? Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -77380,7 +77239,6 @@
     ],
     "provenance": {
       "alternatives": "family",
-      "assumptions": "family",
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
@@ -77920,7 +77778,6 @@
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
       "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
       "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
     ],
     "category": "regression",
@@ -78086,7 +77943,6 @@
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
       "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
       "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
     ],
     "category": "regression",
@@ -78294,9 +78150,6 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
-      "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
-      "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
       "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
@@ -79193,8 +79046,6 @@
     ],
     "assumptions": [
       "Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity",
-      "Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error",
-      "tF adjustment applies to a single instrument with a first-stage F reported on the same variance estimator",
       "Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb)",
       "Exclusion: instruments affect outcome only through the endogenous regressor",
       "Monotonicity (for LATE interpretation under heterogeneous effects)"
@@ -80932,8 +80783,7 @@
     ],
     "assumptions": [
       "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)",
-      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs",
-      "Truncated regression: truncation is on the outcome at a known threshold and the error is normal -- misspecified normality biases everything, unlike OLS"
+      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs"
     ],
     "category": "panel",
     "cost_profile": "",
@@ -81085,10 +80935,7 @@
     ],
     "assumptions": [
       "Non-informative (independent) censoring conditional on covariates",
-      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
-      "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
+      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify"
     ],
     "category": "survival",
     "cost_profile": "",
@@ -81257,11 +81104,7 @@
       "sp.finegray"
     ],
     "assumptions": [
-      "Non-informative (independent) censoring conditional on covariates",
-      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
-      "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
+      "Non-informative (independent) censoring conditional on covariates"
     ],
     "category": "survival",
     "cost_profile": "",
@@ -81386,10 +81229,7 @@
     ],
     "assumptions": [
       "Non-informative (independent) censoring conditional on covariates",
-      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
-      "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
+      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified"
     ],
     "category": "survival",
     "cost_profile": "",
@@ -81541,11 +81381,7 @@
       "sp.finegray"
     ],
     "assumptions": [
-      "Non-informative (independent) censoring conditional on covariates",
-      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
-      "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
+      "Non-informative (independent) censoring conditional on covariates"
     ],
     "category": "survival",
     "cost_profile": "",
@@ -81664,10 +81500,7 @@
     ],
     "assumptions": [
       "Non-informative (independent) censoring conditional on covariates",
-      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
-      "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
+      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one"
     ],
     "category": "survival",
     "cost_profile": "",
@@ -81821,10 +81654,7 @@
     ],
     "assumptions": [
       "Non-informative (independent) censoring conditional on covariates",
-      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
-      "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
+      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one"
     ],
     "category": "survival",
     "cost_profile": "",
@@ -81996,8 +81826,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -82199,10 +82027,6 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
-      "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
-      "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -82371,8 +82195,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -82550,7 +82372,6 @@
     ],
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -82714,7 +82535,6 @@
     ],
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -82869,7 +82689,6 @@
     ],
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -83039,7 +82858,6 @@
     ],
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -83188,7 +83006,6 @@
     ],
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -83508,8 +83325,7 @@
     ],
     "assumptions": [
       "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
-      "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
+      "Granger causality is predictive precedence under the information set in the model, not structural causality"
     ],
     "category": "timeseries",
     "cost_profile": "",
@@ -83625,7 +83441,6 @@
     ],
     "assumptions": [
       "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
       "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
     ],
     "category": "timeseries",
@@ -83758,9 +83573,7 @@
       "sp.causal_impact"
     ],
     "assumptions": [
-      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
-      "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
+      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions"
     ],
     "category": "timeseries",
     "cost_profile": "",
@@ -83932,9 +83745,7 @@
       "sp.causal_impact"
     ],
     "assumptions": [
-      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
-      "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
+      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions"
     ],
     "category": "timeseries",
     "cost_profile": "",
@@ -84386,8 +84197,6 @@
       "sp.evalue_rr"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
       "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
     ],
     "category": "experimental",
@@ -84517,8 +84326,6 @@
       "sp.evalue_rr"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
       "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
     ],
     "category": "experimental",
@@ -84821,9 +84628,7 @@
       "sp.romano_wolf"
     ],
     "assumptions": [
-      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)",
-      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)",
-      "Subgroup analyses are pre-specified; post-hoc subgroups need multiple-testing control and interaction tests, not per-group p-values"
+      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)"
     ],
     "category": "missing",
     "cost_profile": "",
@@ -84949,9 +84754,7 @@
       "sp.romano_wolf"
     ],
     "assumptions": [
-      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)",
-      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)",
-      "Subgroup analyses are pre-specified; post-hoc subgroups need multiple-testing control and interaction tests, not per-group p-values"
+      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)"
     ],
     "category": "missing",
     "cost_profile": "",
@@ -85046,9 +84849,7 @@
       "sp.romano_wolf"
     ],
     "assumptions": [
-      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)",
-      "Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata)",
-      "Subgroup analyses are pre-specified; post-hoc subgroups need multiple-testing control and interaction tests, not per-group p-values"
+      "Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality)"
     ],
     "category": "missing",
     "cost_profile": "",
@@ -85153,8 +84954,7 @@
       "sp.iv"
     ],
     "assumptions": [
-      "Mendelian randomization: the genetic instruments are associated with the exposure, independent of confounders, and affect the outcome only through the exposure (no horizontal pleiotropy); use the robust estimators in the sp.mr family to probe the third",
-      "Meta-analysis: study effects are exchangeable (random effects) or identical (fixed effect); publication bias is diagnosed, not assumed away"
+      "Mendelian randomization: the genetic instruments are associated with the exposure, independent of confounders, and affect the outcome only through the exposure (no horizontal pleiotropy); use the robust estimators in the sp.mr family to probe the third"
     ],
     "category": "mendelian",
     "cost_profile": "",
@@ -87149,9 +86949,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "causal",
     "cost_profile": "",
@@ -87263,9 +87061,6 @@
       "regress"
     ],
     "assumptions": [
-      "Sequential exogeneity: errors are uncorrelated with past values of the regressors (lags are valid instruments)",
-      "No second-order serial correlation in the differenced errors (Arellano-Bond AR(2) test) -- otherwise the lagged instruments are invalid",
-      "System GMM additionally assumes the first differences of the instruments are uncorrelated with the fixed effect (stationarity of initial conditions)",
       "Interactive fixed effects: the factor structure has a small, known number of factors",
       "Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0).",
       "Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain.",
@@ -87641,9 +87436,7 @@
       "sp.causal_impact"
     ],
     "assumptions": [
-      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
-      "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
+      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions"
     ],
     "category": "timeseries",
     "cost_profile": "",
@@ -87788,9 +87581,7 @@
       "sp.causal_impact"
     ],
     "assumptions": [
-      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
-      "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
+      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions"
     ],
     "category": "timeseries",
     "cost_profile": "",
@@ -87937,8 +87728,7 @@
     ],
     "assumptions": [
       "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)",
-      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs",
-      "Truncated regression: truncation is on the outcome at a known threshold and the error is normal -- misspecified normality biases everything, unlike OLS"
+      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -88085,9 +87875,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)",
-      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs",
-      "Truncated regression: truncation is on the outcome at a known threshold and the error is normal -- misspecified normality biases everything, unlike OLS"
+      "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -88249,9 +88037,7 @@
     "assumptions": [
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
-      "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
-      "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
+      "No perfect separation: every outcome category occurs at every level of each discrete covariate"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -88413,9 +88199,7 @@
       "sp.evalue_rr"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
-      "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
+      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -88751,8 +88535,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -88964,7 +88746,6 @@
     ],
     "assumptions": [
       "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)",
-      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs",
       "Truncated regression: truncation is on the outcome at a known threshold and the error is normal -- misspecified normality biases everything, unlike OLS"
     ],
     "category": "regression",
@@ -89121,10 +88902,7 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
       "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
-      "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -89291,10 +89069,7 @@
       "tobit"
     ],
     "assumptions": [
-      "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
       "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
-      "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -90164,9 +89939,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)",
-      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs",
-      "Truncated regression: truncation is on the outcome at a known threshold and the error is normal -- misspecified normality biases everything, unlike OLS"
+      "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)"
     ],
     "category": "panel",
     "cost_profile": "",
@@ -90501,7 +90274,6 @@
     ],
     "assumptions": [
       "The conditional mean is exp(x'b); Poisson pseudo-ML is consistent for the mean under this alone, but its default SEs assume equidispersion -- use robust / clustered SEs",
-      "Zero-inflated and hurdle models assume a separate process generates the excess zeros; they are not a fix for over-dispersion by itself",
       "Observations are independent conditional on covariates or the dependence is declared (cluster= / random effects)"
     ],
     "category": "panel",
@@ -90651,7 +90423,6 @@
     ],
     "assumptions": [
       "The conditional mean is exp(x'b); Poisson pseudo-ML is consistent for the mean under this alone, but its default SEs assume equidispersion -- use robust / clustered SEs",
-      "Zero-inflated and hurdle models assume a separate process generates the excess zeros; they are not a fix for over-dispersion by itself",
       "Observations are independent conditional on covariates or the dependence is declared (cluster= / random effects)"
     ],
     "category": "panel",
@@ -90802,9 +90573,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)",
-      "Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs",
-      "Truncated regression: truncation is on the outcome at a known threshold and the error is normal -- misspecified normality biases everything, unlike OLS"
+      "The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples)"
     ],
     "category": "panel",
     "cost_profile": "",
@@ -90948,8 +90717,7 @@
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
       "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
-      "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
+      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold"
     ],
     "category": "panel",
     "cost_profile": "",
@@ -91121,8 +90889,7 @@
       "sp.decompose"
     ],
     "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
+      "A random-intercept model: group effects are independent of the residual and each has constant variance; the ICC is the group-level share of variance under that model"
     ],
     "category": "panel",
     "cost_profile": "",
@@ -91229,9 +90996,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "panel",
     "cost_profile": "",
@@ -91777,8 +91542,7 @@
       "sp.decompose"
     ],
     "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
+      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier"
     ],
     "category": "frontier",
     "cost_profile": "",
@@ -91915,8 +91679,7 @@
       "sp.decompose"
     ],
     "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
+      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier"
     ],
     "category": "frontier",
     "cost_profile": "",
@@ -92054,8 +91817,7 @@
       "sp.decompose"
     ],
     "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
+      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier"
     ],
     "category": "frontier",
     "cost_profile": "",
@@ -92152,8 +91914,7 @@
       "sp.decompose"
     ],
     "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
+      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier"
     ],
     "category": "frontier",
     "cost_profile": "",
@@ -92303,11 +92064,7 @@
       "sp.finegray"
     ],
     "assumptions": [
-      "Non-informative (independent) censoring conditional on covariates",
-      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
-      "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
+      "Non-informative (independent) censoring conditional on covariates"
     ],
     "category": "frontier",
     "cost_profile": "",
@@ -92475,9 +92232,6 @@
     ],
     "assumptions": [
       "GMM: the moment conditions are valid and the weighting matrix is consistently estimated; over-identification is testable (Hansen J), exogeneity is not",
-      "SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation",
-      "Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools",
-      "Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function",
       "Conditional mean independence: E[u|X] = 0",
       "No perfect collinearity",
       "For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3')",
@@ -92699,8 +92453,7 @@
     ],
     "assumptions": [
       "Sequential ignorability: treatment is as good as random given pre-treatment covariates, and the mediator is as good as random given treatment and those covariates",
-      "No treatment-induced mediator-outcome confounder (an intermediate confounder breaks the natural indirect effect; use interventional effects or the front-door adjustment when it is present)",
-      "Front-door: the mediator is fully caused by treatment and the mediator-outcome relation is unconfounded given treatment"
+      "No treatment-induced mediator-outcome confounder (an intermediate confounder breaks the natural indirect effect; use interventional effects or the front-door adjustment when it is present)"
     ],
     "category": "mediation",
     "cost_profile": "",
@@ -93475,10 +93228,7 @@
       "sp.regress",
       "sp.decompose"
     ],
-    "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
-    ],
+    "assumptions": [],
     "category": "causal",
     "cost_profile": "",
     "description": "Prepare data matrices for synthetic control estimation. Validation: certified parity evidence.",
@@ -93516,7 +93266,6 @@
     ],
     "provenance": {
       "alternatives": "family",
-      "assumptions": "family",
       "example": "docstring",
       "pre_conditions": "family",
       "returns": "docstring"
@@ -96416,10 +96165,7 @@
       "sp.regress",
       "sp.decompose"
     ],
-    "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
-      "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
-    ],
+    "assumptions": [],
     "category": "spatial",
     "cost_profile": "",
     "description": "Spatial weights matrix with CSR-sparse backing. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -96450,7 +96196,6 @@
     ],
     "provenance": {
       "alternatives": "family",
-      "assumptions": "family",
       "example": "docstring",
       "pre_conditions": "family"
     },
@@ -97447,8 +97192,6 @@
       "sar_gmm"
     ],
     "assumptions": [
-      "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
-      "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
       "Spatial weights matrix W is exogenous and known.",
@@ -98163,7 +97906,6 @@
       "sar_gmm"
     ],
     "assumptions": [
-      "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
       "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
@@ -98333,7 +98075,6 @@
       "sar_gmm"
     ],
     "assumptions": [
-      "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
       "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
@@ -98579,7 +98320,6 @@
       "sar_gmm"
     ],
     "assumptions": [
-      "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
       "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
@@ -98747,8 +98487,6 @@
       "sar_gmm"
     ],
     "assumptions": [
-      "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
-      "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
       "Spatial weights matrix W is exogenous and known.",
@@ -98891,8 +98629,6 @@
       "sar_gmm"
     ],
     "assumptions": [
-      "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
-      "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
       "Spatial weights matrix W is exogenous and known.",
@@ -99036,7 +98772,6 @@
     ],
     "assumptions": [
       "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
-      "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
       "Spatial weights matrix W is exogenous and known.",
@@ -99189,7 +98924,6 @@
     ],
     "assumptions": [
       "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
-      "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
       "Spatial weights matrix W is exogenous and known.",
@@ -99346,7 +99080,6 @@
     ],
     "assumptions": [
       "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
-      "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
       "Spatial weights matrix W is exogenous and known.",
@@ -99492,8 +99225,6 @@
       "sar_gmm"
     ],
     "assumptions": [
-      "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
-      "GWR / MGWR assume the relationship varies smoothly over space; the bandwidth controls the bias-variance trade-off and is selected by cross-validation or AICc",
       "Impacts (direct / indirect / total) are the interpretable quantities in lag models -- coefficients are not marginal effects",
       "Correct specification of the spatial process (SAR vs. SEM vs. SDM): mis-specification biases all coefficients.",
       "Spatial weights matrix W is exogenous and known.",
@@ -100048,7 +99779,6 @@
     ],
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -100345,8 +100075,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -100539,8 +100267,6 @@
       "bounds"
     ],
     "assumptions": [
-      "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
-      "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
@@ -101086,7 +100812,6 @@
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
       "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -101269,7 +100994,6 @@
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
       "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -101431,7 +101155,6 @@
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
       "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -101925,8 +101648,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -102272,7 +101993,6 @@
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
       "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -102456,8 +102176,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -102625,8 +102343,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -102764,7 +102480,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
       "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
@@ -102955,8 +102670,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -103112,8 +102825,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -103250,8 +102961,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -103512,8 +103221,7 @@
     ],
     "assumptions": [
       "Sequential ignorability: treatment is as good as random given pre-treatment covariates, and the mediator is as good as random given treatment and those covariates",
-      "No treatment-induced mediator-outcome confounder (an intermediate confounder breaks the natural indirect effect; use interventional effects or the front-door adjustment when it is present)",
-      "Front-door: the mediator is fully caused by treatment and the mediator-outcome relation is unconfounded given treatment"
+      "No treatment-induced mediator-outcome confounder (an intermediate confounder breaks the natural indirect effect; use interventional effects or the front-door adjustment when it is present)"
     ],
     "category": "decomposition",
     "cost_profile": "",
@@ -103670,8 +103378,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -103868,8 +103574,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -103997,8 +103701,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
-      "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
       "Conditional independence of group membership for causal interpretation (otherwise: descriptive decomposition only)."
@@ -104765,8 +104467,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -105038,10 +104738,7 @@
     ],
     "assumptions": [
       "Non-informative (independent) censoring conditional on covariates",
-      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
-      "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
+      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified"
     ],
     "category": "survival",
     "cost_profile": "",
@@ -105170,8 +104867,6 @@
     "assumptions": [
       "Non-informative (independent) censoring conditional on covariates",
       "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
       "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
     ],
     "category": "survival",
@@ -105643,9 +105338,7 @@
       "sp.causal_impact"
     ],
     "assumptions": [
-      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
-      "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
+      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions"
     ],
     "category": "timeseries",
     "cost_profile": "",
@@ -105811,7 +105504,6 @@
     ],
     "assumptions": [
       "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
       "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
     ],
     "category": "timeseries",
@@ -105951,9 +105643,7 @@
       "sp.causal_impact"
     ],
     "assumptions": [
-      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
-      "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
+      "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions"
     ],
     "category": "timeseries",
     "cost_profile": "",
@@ -106392,8 +106082,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -106547,7 +106235,6 @@
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
       "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -106977,7 +106664,6 @@
     "assumptions": [
       "Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity",
       "Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error",
-      "tF adjustment applies to a single instrument with a first-stage F reported on the same variance estimator",
       "Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb)",
       "Exclusion: instruments affect outcome only through the endogenous regressor",
       "Monotonicity (for LATE interpretation under heterogeneous effects)"
@@ -107178,7 +106864,6 @@
     "assumptions": [
       "Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity",
       "Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error",
-      "tF adjustment applies to a single instrument with a first-stage F reported on the same variance estimator",
       "Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb)",
       "Exclusion: instruments affect outcome only through the endogenous regressor",
       "Monotonicity (for LATE interpretation under heterogeneous effects)"
@@ -107384,7 +107069,6 @@
     ],
     "assumptions": [
       "Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity",
-      "Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error",
       "tF adjustment applies to a single instrument with a first-stage F reported on the same variance estimator",
       "Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb)",
       "Exclusion: instruments affect outcome only through the endogenous regressor",
@@ -108008,8 +107692,7 @@
     ],
     "assumptions": [
       "Sequential ignorability: treatment is as good as random given pre-treatment covariates, and the mediator is as good as random given treatment and those covariates",
-      "No treatment-induced mediator-outcome confounder (an intermediate confounder breaks the natural indirect effect; use interventional effects or the front-door adjustment when it is present)",
-      "Front-door: the mediator is fully caused by treatment and the mediator-outcome relation is unconfounded given treatment"
+      "No treatment-induced mediator-outcome confounder (an intermediate confounder breaks the natural indirect effect; use interventional effects or the front-door adjustment when it is present)"
     ],
     "category": "causal",
     "cost_profile": "",
@@ -108138,9 +107821,7 @@
       "sp.rosenbaum_bounds"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
-      "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
+      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists"
     ],
     "category": "causal",
     "cost_profile": "",
@@ -108352,9 +108033,7 @@
       "sp.msm"
     ],
     "assumptions": [
-      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three",
-      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured",
-      "Matrix completion / geolift: the untreated potential outcomes have a low-rank structure (plus noise) that the treated block shares"
+      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three"
     ],
     "category": "target_trial",
     "cost_profile": "",
@@ -108477,9 +108156,7 @@
       "sp.msm"
     ],
     "assumptions": [
-      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three",
-      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured",
-      "Matrix completion / geolift: the untreated potential outcomes have a low-rank structure (plus noise) that the treated block shares"
+      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three"
     ],
     "category": "target_trial",
     "cost_profile": "",
@@ -108602,9 +108279,7 @@
       "sp.msm"
     ],
     "assumptions": [
-      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three",
-      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured",
-      "Matrix completion / geolift: the untreated potential outcomes have a low-rank structure (plus noise) that the treated block shares"
+      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured"
     ],
     "category": "transport",
     "cost_profile": "",
@@ -108730,9 +108405,7 @@
       "sp.msm"
     ],
     "assumptions": [
-      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three",
-      "Transportability: the outcome model or the participation weights are correctly specified and the effect modifiers that differ between populations are measured",
-      "Matrix completion / geolift: the untreated potential outcomes have a low-rank structure (plus noise) that the treated block shares"
+      "Sequential exchangeability (no unmeasured time-varying confounding), positivity at every time point and consistency -- the g-formula and target-trial emulation identify effects of sustained strategies only under all three"
     ],
     "category": "gformula",
     "cost_profile": "",
@@ -108913,7 +108586,6 @@
       "sp.decompose"
     ],
     "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
       "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
     ],
     "category": "epi",
@@ -109011,7 +108683,6 @@
       "sp.decompose"
     ],
     "assumptions": [
-      "Stochastic-frontier and Malmquist tools assume the production technology and the inefficiency distribution (half-normal, truncated normal) are correctly specified; efficiency scores are relative to the sample frontier",
       "Epidemiological summaries (NNT, prevalence ratio) transform an already-estimated effect; their validity is that estimate's"
     ],
     "category": "epi",
@@ -109115,9 +108786,7 @@
       "sp.regress"
     ],
     "assumptions": [
-      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity",
-      "Hausman: the efficient estimator is efficient under the null, and the difference of covariance matrices is positive definite",
-      "Marginal effects are averages over the estimation sample unless margins_at fixes covariate values"
+      "The fitted model whose result is passed in is correctly specified for the test in question; Wald tests use that fit's variance estimator (robust / clustered if it was), so inference inherits its validity"
     ],
     "category": "epi",
     "cost_profile": "",
@@ -109261,8 +108930,6 @@
     ],
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -111415,11 +111082,7 @@
       "sp.finegray"
     ],
     "assumptions": [
-      "Non-informative (independent) censoring conditional on covariates",
-      "Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify",
-      "AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified",
-      "Competing risks (finegray / cuminc): the event of interest and the competing events are all recorded; the Fine-Gray subdistribution hazard answers a prediction question, the cause-specific hazard an etiologic one",
-      "Frailty models: shared unobserved heterogeneity within a cluster follows the assumed (gamma / log-normal) distribution"
+      "Non-informative (independent) censoring conditional on covariates"
     ],
     "category": "robustness",
     "cost_profile": "",
@@ -111541,9 +111204,7 @@
       "sp.evalue_rr"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
-      "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
+      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists"
     ],
     "category": "robustness",
     "cost_profile": "",
@@ -114256,8 +113917,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -114346,8 +114006,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -114434,8 +114093,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -114524,8 +114182,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -114615,8 +114272,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -114720,8 +114376,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -114823,8 +114478,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -114917,8 +114571,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -115015,8 +114668,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -115118,8 +114770,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -115228,8 +114879,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -115338,8 +114988,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -115438,8 +115087,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -115640,8 +115288,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -115730,8 +115377,7 @@
     ],
     "assumptions": [
       "The observed edges are the relevant ties: measurement of the network (censoring at a boundary, missing edges) drives every statistic",
-      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed",
-      "Community detection (modularity maximisation) has a resolution limit and is not deterministic -- fix the seed and report stability"
+      "Descriptive statistics carry no sampling model; compare across networks only with size / density held fixed"
     ],
     "category": "network",
     "cost_profile": "",
@@ -115819,7 +115465,6 @@
       "sp.regress"
     ],
     "assumptions": [
-      "Dyadic observations are not independent: rows sharing a node are correlated, so inference uses QAP permutations or dyadic-cluster (two-way by both members) standard errors",
       "Peer-effects models (linear-in-means) face the reflection problem; identification needs network structure (intransitive triads) or exogenous peer characteristics, and the network itself must be exogenous to the outcome"
     ],
     "category": "interference",
@@ -115950,7 +115595,6 @@
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
       "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -116246,7 +115890,6 @@
     "assumptions": [
       "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
       "Conformal intervals need exchangeable calibration data (or valid weights under covariate shift) and are marginal, not conditional, guarantees",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
       "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
       "fe=: conditional parallel trends and no anticipation; treatment varies within units",
@@ -119612,7 +119255,6 @@
     ],
     "assumptions": [
       "The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used",
-      "Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects)",
       "Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit",
       "Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap).",
       "Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this.",
@@ -119785,7 +119427,6 @@
     ],
     "assumptions": [
       "Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions",
-      "Granger causality is predictive precedence under the information set in the model, not structural causality",
       "Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date"
     ],
     "category": "timeseries",
@@ -120514,9 +120155,7 @@
       "sp.evalue_rr"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
-      "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
+      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists"
     ],
     "category": "diagnostics",
     "cost_profile": "",
@@ -120693,9 +120332,7 @@
       "sp.evalue_rr"
     ],
     "assumptions": [
-      "Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form",
-      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists",
-      "Attrition bounds (Lee / Manski-type) assume monotone selection (treatment affects attrition in one direction)"
+      "Rosenbaum bounds and E-values quantify how strong an unobserved confounder would have to be; they do not test whether one exists"
     ],
     "category": "diagnostics",
     "cost_profile": "",

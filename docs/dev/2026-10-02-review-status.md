@@ -4,7 +4,7 @@
 
 对应 `docs/dev/2026-10-02-repository-agent-parity-review.md`。审查基线是 d1025b29 (1.34.2)，工作基于 e4fdfddc (1.35.0)。
 
-共 36 项：已完成 **27**，部分完成 **2**，未做 **7**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
+共 36 项：已完成 **27**，部分完成 **3**，未做 **6**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
 
 ## 已完成
 
@@ -44,12 +44,12 @@
 | --- | --- | --- | --- | --- |
 | M3 | 进程级 worker：`STATSPAI_MCP_ISOLATION=process`，超时或取消时杀掉子进程 | `src/statspai/agent/_process_worker.py`<br>`tests/test_mcp_isolation.py` | 只覆盖不依赖服务器状态的调用（无 `result_id` / `data_id` / `as_handle`）。带句柄的调用仍走线程 runner，因为拟合结果没有序列化协议。每次隔离调用要付一次解释器冷启动。 | 给拟合结果定义可序列化的最小形态后，再把 `as_handle` 调用纳入 |
 | M3 | 资源压力实测 | `tests/test_mcp_isolation.py` | 量了连续超时后的 orphan 线程数、子进程残留、ping 延迟、下一次调用是否正常。没有量 RSS。 | 在长驻部署场景下补 RSS 曲线 |
+| A1 | 30 个之外的入口：家族卡片陈述按成员限定范围 | `src/statspai/_family_cards.py`<br>`tests/test_agent_card_audit.py` | 通读了全部 30 张家族卡片（271 个成员）的 `assumptions`，把 52 24 220 条（分布在  个家族里）本来就点名了适用对象的陈述（“Cox: …”、“Frailty models: …”、“Romano-Wolf …”）限定到对应成员，其它成员不再继承，共  个成员的卡片因此变短。例如 `kaplan_meier` 不再列 Cox 的比例风险，`bonferroni` 不再列 Romano-Wolf 的 bootstrap，`icc` 不再列随机前沿的假设。没做的：`failure_modes` 没有读；真实调用核对（必填参数、枚举值、返回类型）仍只覆盖 30 个；两个专门方法（`assimilative_causal`、`evidence_without_injustice`）限定后没有任何假设，我不熟悉到能替它们写的程度，留空了。 | 读家族卡片的 `failure_modes`；给审查脚本每次加 10 个函数的调用 |
 
 ## 未做，以及为什么
 
 | ID | 事项 | 理由 | 下一步 |
 | --- | --- | --- | --- |
-| A1 | 30 个之外的入口 | 审查脚本需要每个函数一份手写的小数据调用，目前只有 30 份；文字通读也只读了这 30 个加上同家族的 `mlogit` / `ologit` / `oprobit`。家族卡片共有几十个，其余成员上很可能还有同类问题。 | 按使用频率每次加 10 个 |
 | A3 | 把各估计器的默认种子统一成一个值 | 故意不做。259 个带种子的函数里默认值有 `None` 125、`42` 73、`0` 56 等；改默认值会改变已发表的带种子数字。审查本身也说不应机械统一。 | 若要改，逐个估计器走 ⚠️ correctness / MIGRATION 流程 |
 | S2 | 真实模型的行为评测（成功率、严重错误率、token、延迟） | 需要付费模型调用、预注册和你的授权；`tests/agent_bench` 的 900-trial 设计已经写明这三个前提。mock 结果只能验证 harness。 | 先批一个小规模 smoke 的预算和模型快照 |
 | R1 | 清单里空着的格子补参考（`etwfe` 的协变量 / `xvar` / 加权 / `agg_weights='unit'`，`event_study` 的其它窗口，`rdrobust` / `dml` / `psm` 的大部分网格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差，是逐格的 parity 工作。交错面板上的 TWFE 事件研究不该补。 | 按使用频率挑格子；每补一格重跑 `build_evidence_inventory.py` |

@@ -148,12 +148,16 @@
     },
     {
       "id": "A1",
-      "title": "30 个之外的入口",
-      "status": "not_done",
-      "where": [],
-      "tests": [],
-      "note": "审查脚本需要每个函数一份手写的小数据调用，目前只有 30 份；文字通读也只读了这 30 个加上同家族的 `mlogit` / `ologit` / `oprobit`。家族卡片共有几十个，其余成员上很可能还有同类问题。",
-      "next": "按使用频率每次加 10 个"
+      "title": "30 个之外的入口：家族卡片陈述按成员限定范围",
+      "status": "partial",
+      "where": [
+        "src/statspai/_family_cards.py"
+      ],
+      "tests": [
+        "tests/test_agent_card_audit.py"
+      ],
+      "note": "通读了全部 30 张家族卡片（271 个成员）的 `assumptions`，把 52 24 220 条（分布在  个家族里）本来就点名了适用对象的陈述（“Cox: …”、“Frailty models: …”、“Romano-Wolf …”）限定到对应成员，其它成员不再继承，共  个成员的卡片因此变短。例如 `kaplan_meier` 不再列 Cox 的比例风险，`bonferroni` 不再列 Romano-Wolf 的 bootstrap，`icc` 不再列随机前沿的假设。没做的：`failure_modes` 没有读；真实调用核对（必填参数、枚举值、返回类型）仍只覆盖 30 个；两个专门方法（`assimilative_causal`、`evidence_without_injustice`）限定后没有任何假设，我不熟悉到能替它们写的程度，留空了。",
+      "next": "读家族卡片的 `failure_modes`；给审查脚本每次加 10 个函数的调用"
     },
     {
       "id": "A2",

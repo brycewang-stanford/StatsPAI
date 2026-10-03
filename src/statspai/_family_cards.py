@@ -1347,13 +1347,6 @@ _USE_CS = "For staggered / heterogeneous effects: use CS or SA"
 _TWFE_STAGGERED = "Staggered treatment timing with TWFE method"
 
 VARIANT_OVERRIDES: Dict[str, Dict[str, Dict[str, List[str]]]] = {
-    "logit": {"drop": {"assumptions": [_ORDERED, _IIA]}},
-    "probit": {"drop": {"assumptions": [_ORDERED, _IIA]}},
-    "cloglog": {"drop": {"assumptions": [_ORDERED, _IIA]}},
-    "mlogit": {"drop": {"assumptions": [_ORDERED]}},
-    "ologit": {"drop": {"assumptions": [_IIA]}},
-    "oprobit": {"drop": {"assumptions": [_IIA]}},
-    "poisson": {"drop": {"assumptions": ["Zero-inflated and hurdle models"]}},
     # These estimators ARE the remedy the parent `did` card recommends; on
     # their own cards the advice and the TWFE failure mode do not apply.
     "callaway_santanna": {
@@ -1383,6 +1376,43 @@ VARIANT_OVERRIDES: Dict[str, Dict[str, Dict[str, List[str]]]] = {
     "gardner_did": {
         "drop": {
             "failure_modes": ["Two-way fixed-effects estimate is contaminated"],
+        },
+    },
+    # Filed in catch-all families none of whose statements is about them;
+    # after scoping they would be left with nothing. Utilities in the same
+    # position (weights constructors, data preparation, exporters) are
+    # left empty on purpose: they have no identifying assumption.
+    "interflex": {
+        "add": {
+            "assumptions": [
+                "Treatment is unconfounded given the covariates at every "
+                "value of the moderator",
+                "The linear estimator assumes the marginal effect is linear "
+                "in the moderator; the binning and kernel estimators relax "
+                "that and are the check on it",
+                "Common support: every treatment level is observed across the "
+                "range of the moderator over which effects are reported",
+            ],
+        },
+    },
+    "negd": {
+        "add": {
+            "assumptions": [
+                "Absent treatment the two groups would have changed by the "
+                "same amount between the pre and post measurements (no "
+                "selection-by-time interaction)",
+                "No event other than the treatment affected one group and not "
+                "the other between the two measurements",
+            ],
+        },
+    },
+    "icc": {
+        "add": {
+            "assumptions": [
+                "A random-intercept model: group effects are independent of "
+                "the residual and each has constant variance; the ICC is the "
+                "group-level share of variance under that model",
+            ],
         },
     },
     # The card described the sharp design only, and called the continuity
@@ -1427,10 +1457,208 @@ VARIANT_OVERRIDES: Dict[str, Dict[str, Dict[str, List[str]]]] = {
 }
 
 
+#: Statements of a family card that say, in their own words, which members
+#: they are about ("Cox: ...", "Frailty models: ...", "Romano-Wolf ...").
+#: ``expand_family_cards`` copies every statement to every member, so the
+#: Kaplan-Meier card listed the Cox model's proportional hazards and the
+#: Bonferroni card listed Romano-Wolf's bootstrap. Here each such statement
+#: (matched by prefix) is given the members it applies to; on any other
+#: member of the family it is dropped. A statement not listed applies to
+#: the whole family.
+#:
+#: Written from one reading of all 30 family cards on 2026-10-03; only
+#: ``assumptions`` were read, not ``failure_modes``.
+STATEMENT_SCOPE: Dict[str, Dict[str, Tuple[str, ...]]] = {
+    "binary_ordered_multinomial": {
+        _ORDERED: ("ologit", "oprobit", "meologit"),
+        _IIA: ("mlogit", "mixlogit", "clogit"),
+    },
+    "count_models": {
+        "Zero-inflated and hurdle models": ("zip_model", "zinb", "hurdle"),
+    },
+    "fractional_truncated_glm": {
+        "Fractional / quasi-likelihood models": ("fracreg", "glm", "feglm"),
+        "Truncated regression:": ("truncreg",),
+    },
+    "survival": {
+        "Cox: proportional hazards": ("cox", "cox_frailty"),
+        "AFT / parametric survival": ("aft", "survreg"),
+        "Competing risks (finegray / cuminc)": ("finegray", "cuminc"),
+        "Frailty models:": ("cox_frailty",),
+    },
+    "clustered_inference": {
+        "Shift-share SEs:": ("shift_share_se",),
+    },
+    "weak_iv_inference": {
+        "Anderson-Rubin / conditional LR sets": (
+            "anderson_rubin_ci",
+            "anderson_rubin_test",
+            "conditional_lr_ci",
+            "weakrobust",
+        ),
+        "tF adjustment applies": ("tF_adjustment", "tF_critical_value"),
+    },
+    "rd_tools": {
+        "Bandwidth selectors minimise": (
+            "rdbwselect",
+            "lpbwselect_ce_rot",
+            "lpbwselect_imse_dpi",
+            "lpbwselect_imse_rot",
+            "lpbwselect_mse_dpi",
+            "lpbwselect_mse_rot",
+            "rd2d_bw",
+            "rdbwhte",
+        ),
+        "Local randomization window selection": ("rdwinselect",),
+    },
+    "multiple_testing": {
+        "Bonferroni / Holm control": (
+            "holm",
+            "bonferroni",
+            "benjamini_hochberg",
+            "adjust_pvalues",
+        ),
+        "Romano-Wolf uses the bootstrap": ("romano_wolf", "adjust_pvalues"),
+    },
+    "spatial_models": {
+        "GMM spatial estimators": ("sar_gmm", "sarar_gmm", "sem_gmm"),
+        "GWR / MGWR assume": ("gwr", "gwr_bandwidth", "mgwr"),
+    },
+    "network_descriptives": {
+        "Community detection": ("community_detection", "network_modularity"),
+    },
+    "network_regression": {
+        "Dyadic observations are not independent": (
+            "netlm",
+            "netlogit",
+            "dyadic_regression",
+        ),
+        "Peer-effects models": ("peer_effects",),
+    },
+    "decomposition_family": {
+        "Distributional decompositions": (
+            "machado_mata",
+            "melly_decompose",
+            "cfm_decompose",
+            "rifreg",
+        ),
+        "Gap-closing and four-way": ("gap_closing", "four_way_decomposition"),
+    },
+    "mediation": {
+        "Front-door:": ("frontdoor",),
+    },
+    "selection_and_bounds": {
+        "Heckman / endogenous-treatment models": ("heckman", "etregress"),
+        "Rosenbaum bounds and E-values": (
+            "rosenbaum_bounds",
+            "rosenbaum_gamma",
+            "bias_factor",
+            "evalue_rr",
+            "evalue_from_result",
+            "calibrate_confounding_strength",
+        ),
+        "Attrition bounds": ("attrition_bounds", "attrition_test"),
+    },
+    "survey": {
+        "Raking assumes": ("rake",),
+    },
+    "time_series": {
+        "Granger causality is predictive": ("granger_causality",),
+        "Impulse responses depend": ("irf", "bvar", "its"),
+    },
+    "dynamic_panel": {
+        "Sequential exogeneity": ("xtdpdsys", "xtlsdvc"),
+        "No second-order serial correlation": ("xtdpdsys",),
+        "System GMM additionally": ("xtdpdsys",),
+        "Interactive fixed effects:": ("interactive_fe",),
+    },
+    "post_estimation": {
+        "Hausman:": ("hausman_test",),
+        "Marginal effects are averages": ("margins", "margins_at"),
+    },
+    "regression_extensions": {
+        "GMM:": ("gmm",),
+        "SUR / 3SLS": ("sureg", "three_sls"),
+        "Stepwise / lasso selection": ("stepwise", "lasso_select"),
+        "Quantile IV (ivqreg)": ("ivqreg",),
+    },
+    "ml_causal_helpers": {
+        "Conformal intervals need": (
+            "conformal_cate",
+            "conformal_ite",
+            "conformal_ite_interval",
+            "weighted_conformal_prediction",
+        ),
+        "Policy trees are evaluated": (
+            "policy_tree",
+            "policy_weight_ate",
+            "policy_weight_marginal",
+            "policy_weight_observed_prte",
+            "policy_weight_subsidy",
+        ),
+    },
+    "longitudinal_causal": {
+        "Sequential exchangeability (no unmeasured time-varying": (
+            "gformula_ice_fn",
+            "gformula_mc",
+            "target_trial_emulate",
+            "target_trial_report",
+            "immortal_time_check",
+        ),
+        "Transportability:": ("transport_generalize", "transport_weights_fn"),
+        "Matrix completion / geolift": ("geolift",),
+    },
+    "missing_data_and_randomization": {
+        "Multiple imputation:": ("mice", "mi_estimate", "mi_test"),
+        "Randomization / Fisher-exact inference": ("ri_test", "fisher_exact"),
+        "Subgroup analyses are pre-specified": ("subgroup_analysis",),
+    },
+    "mendelian_and_meta": {
+        "Mendelian randomization:": ("mendelian_randomization",),
+        "Meta-analysis:": ("meta_analysis",),
+    },
+    "frontier_and_misc": {
+        "Stochastic-frontier and Malmquist tools": (
+            "malmquist",
+            "metafrontier",
+            "translog_design",
+            "zisf",
+        ),
+        "Epidemiological summaries": ("number_needed_to_treat", "prevalence_ratio"),
+    },
+}
+
+
+def _family_of() -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for family, spec in FAMILY_CARDS.items():
+        for member in spec["members"]:
+            out.setdefault(member, family)
+    return out
+
+
+_FAMILY_OF = _family_of()
+
+
+def _out_of_scope_prefixes(name: str) -> Tuple[str, ...]:
+    """Prefixes of family statements that are about other members."""
+    family = _FAMILY_OF.get(name)
+    if family is None:
+        return ()
+    return tuple(
+        prefix
+        for prefix, members in STATEMENT_SCOPE.get(family, {}).items()
+        if name not in members
+    )
+
+
 def apply_variant_overrides(
     name: str, assumptions: List[str], failure_modes: List[Dict[str, Any]]
 ) -> Tuple[List[str], List[Dict[str, Any]]]:
     """Drop and add statements for one variant; no-op without an entry."""
+    scoped = _out_of_scope_prefixes(name)
+    if scoped:
+        assumptions = [a for a in assumptions if not str(a).startswith(scoped)]
     override = VARIANT_OVERRIDES.get(name)
     if not override:
         return assumptions, failure_modes
@@ -1452,6 +1680,7 @@ def apply_variant_overrides(
 
 __all__ = [
     "FAMILY_CARDS",
+    "STATEMENT_SCOPE",
     "VARIANT_OVERRIDES",
     "apply_variant_overrides",
     "expand_family_cards",

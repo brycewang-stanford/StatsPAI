@@ -667,8 +667,17 @@ changes its numbers.
   Point-treatment `sp.ipw` was described in the longitudinal g-methods'
   terms. `sp.dml` promised a "√n CATE". Fourteen cards corrected through
   a per-variant override table (`statspai._family_cards.VARIANT_OVERRIDES`)
-  after reading the thirty audited cards; the rest of the registry has
-  not been read this way.
+  after reading the thirty audited cards.
+- **Family cards copied member-specific assumptions to every member.**
+  All 30 family cards were read. 52 24 220 statements that name the members they
+  are about ("Cox: ...", "Frailty models: ...", "Romano-Wolf ...") are now
+  scoped to those members (`STATEMENT_SCOPE`), shortening  cards:
+  `sp.kaplan_meier` no longer lists the Cox model's proportional hazards,
+  `sp.bonferroni` no longer lists Romano-Wolf's bootstrap, `sp.icc` no
+  longer lists stochastic-frontier assumptions. `sp.interflex`, `sp.negd`
+  and `sp.icc` get assumptions of their own; utilities that have none
+  (`sp.W`, `sp.scdata`, exporters) now state none. Only `assumptions`
+  were read, not `failure_modes`.
 - **`sp.match(method='llr')` raised `ZeroDivisionError` at the default
   bandwidth.** In a bootstrap replicate whose local linear weights sum to
   zero for some treated unit, the matched-outcome bookkeeping divided by

@@ -185,3 +185,65 @@ def test_overrides_only_name_real_functions_and_real_statements():
             for prefix in prefixes:
                 left = [v for v in values if v.startswith(prefix) and v not in added]
                 assert not left, (name, prefix)
+
+
+# ---------------------------------------------------------------------------
+# Family statements reach only the members they name (all 30 family cards)
+# ---------------------------------------------------------------------------
+
+
+def test_scope_table_names_real_statements_and_real_members():
+    from statspai._family_cards import FAMILY_CARDS, STATEMENT_SCOPE
+
+    for family, table in STATEMENT_SCOPE.items():
+        statements = FAMILY_CARDS[family]["assumptions"]
+        members = set(FAMILY_CARDS[family]["members"])
+        for prefix, scoped in table.items():
+            hits = [a for a in statements if a.startswith(prefix)]
+            assert len(hits) == 1, (family, prefix, len(hits))
+            assert set(scoped) <= members, (family, prefix, set(scoped) - members)
+            assert 0 < len(scoped) < len(members), (family, prefix)
+
+
+@pytest.mark.parametrize(
+    "name,absent,present",
+    [
+        ("kaplan_meier", "proportional hazards", "censoring"),
+        ("logrank_test", "Frailty models", "censoring"),
+        ("cox", "baseline distribution", "proportional hazards"),
+        ("aft", "proportional hazards", "baseline distribution"),
+        ("bonferroni", "Romano-Wolf", "family-wise error rate"),
+        ("romano_wolf", "Bonferroni / Holm", "bootstrap"),
+        ("heckman", "Rosenbaum bounds", "exclusion restriction"),
+        ("rosenbaum_bounds", "joint normality", "unobserved confounder"),
+        ("granger_causality", "Cholesky", "predictive precedence"),
+        ("mice", "sharp null", "missing at random"),
+        ("ri_test", "missing at random", "sharp null"),
+        ("gmm", "SUR / 3SLS", "moment conditions"),
+        ("hausman_test", "Marginal effects are averages", "efficient under the null"),
+        ("peer_effects", "QAP permutations", "reflection problem"),
+        ("meta_analysis", "genetic instruments", "exchangeable"),
+    ],
+)
+def test_member_card_keeps_its_own_statement_and_loses_its_sibling_s(
+    name, absent, present
+):
+    text = _assumptions(name)
+    assert absent not in text, f"sp.{name} still lists a sibling's assumption"
+    assert present in text, f"sp.{name} lost the statement that is about it"
+
+
+def test_methods_left_without_a_family_statement_have_their_own():
+    """Scoping emptied these; a method with no stated assumption is a gap."""
+    assert "moderator" in _assumptions("interflex")
+    assert "random-intercept" in _assumptions("icc")
+    assert "selection-by-time" in _assumptions("negd")
+    # None of them keeps the unrelated statement it used to inherit.
+    assert "g-formula" not in _assumptions("interflex")
+    assert "inefficiency distribution" not in _assumptions("icc")
+
+
+def test_utilities_carry_no_borrowed_assumption():
+    """A weights constructor or an exporter has nothing to assume; say nothing."""
+    for name in ("W", "scdata", "influence_functions", "validation_scope"):
+        assert sp.describe_function(name)["assumptions"] == [], name
