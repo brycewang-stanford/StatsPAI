@@ -34,6 +34,10 @@ Labelled variables stay numeric, as Stata stores them, so a regression on
 
 The result is the same with or without the optional `pyreadstat`.
 
+An SPSS `.sav` file is read the same way (this one needs `pyreadstat`):
+variable labels, and value labels for numeric variables with whole-number
+codes.
+
 ## Attaching labels yourself
 
 ```python

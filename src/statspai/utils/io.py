@@ -837,15 +837,35 @@ def _read_sas(path: str, **kwargs: Any) -> pd.DataFrame:
 
 
 def _read_spss(path: str, **kwargs: Any) -> pd.DataFrame:
-    """Read SPSS .sav with labels."""
+    """Read SPSS .sav with variable labels and value labels.
+
+    Value labels go to ``attrs['_value_labels']`` for numeric variables whose
+    labelled codes are whole numbers, the kind :func:`write_data` can store
+    in a .dta and ``sp.decode`` can show.  SPSS also allows labels on string
+    values and on fractions; those are left out.
+    """
     try:
         import pyreadstat
-
-        df, meta = pyreadstat.read_sav(path, **kwargs)
-        if meta.column_names_to_labels:
-            df.attrs["_labels"] = {
-                k: v for k, v in meta.column_names_to_labels.items() if v
-            }
-        return df
     except ImportError:
         return pd.read_spss(path, **kwargs)
+
+    df, meta = pyreadstat.read_sav(path, **kwargs)
+    if meta.column_names_to_labels:
+        df.attrs["_labels"] = {
+            k: v for k, v in meta.column_names_to_labels.items() if v
+        }
+    value_labels: Dict[Any, Dict[int, str]] = {}
+    for col, mapping in (meta.variable_value_labels or {}).items():
+        if col not in df.columns or not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        codes: Dict[int, str] = {}
+        for code, text in mapping.items():
+            if isinstance(code, str) or code != code or int(code) != code:
+                codes = {}
+                break
+            codes[int(code)] = str(text)
+        if codes:
+            value_labels[col] = codes
+    if value_labels:
+        df.attrs["_value_labels"] = value_labels
+    return df

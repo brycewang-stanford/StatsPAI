@@ -44,6 +44,9 @@ were skipped. See the new guide `docs/guides/stata_labels.md`.
   `get_dummies` or `rename`, where pandas drops or misplaces them.
 - `sp.write_data(value_labels=)` takes `'.a'` ... `'.z'` codes, and writes
   `attrs['_missing_labels']` back to .dta and Parquet.
+- `sp.read_data` on an SPSS .sav file keeps value labels (for numeric
+  variables with whole-number codes) in `attrs['_value_labels']`; it used
+  to keep variable labels only.
 - `sp.stata` runs `label variable / define / values / data / drop` and
   `decode` instead of skipping or refusing them; `encode` labels the new
   variable; `rename` takes the labels along; `preserve` / `restore` cover

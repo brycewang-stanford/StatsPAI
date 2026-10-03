@@ -467,3 +467,35 @@ def test_write_data_takes_dot_letter_codes(tmp_path):
 def test_extended_missing_rejects_unknown_mode():
     with pytest.raises(ValueError, match="extended_missing"):
         sp.read_data(str(EXTMISS), extended_missing="keep")
+
+
+def test_spss_value_labels_are_read(tmp_path):
+    pyreadstat = pytest.importorskip("pyreadstat")
+    df = pd.DataFrame(
+        {
+            "sex": [1.0, 2.0, 1.0],
+            "score": [0.5, 1.5, 2.5],
+            "city": ["a", "b", "a"],
+        }
+    )
+    path = tmp_path / "s.sav"
+    pyreadstat.write_sav(
+        df,
+        str(path),
+        column_labels={"sex": "Sex of respondent"},
+        variable_value_labels={
+            "sex": {1: "male", 2: "female"},
+            "score": {0.5: "half"},  # a fraction: not a code Stata could hold
+            "city": {"a": "Amsterdam"},  # a label on a string value
+        },
+    )
+    back = sp.read_data(str(path))
+    assert sp.get_label(back, "sex") == "Sex of respondent"
+    assert back.attrs["_value_labels"] == {"sex": {1: "male", 2: "female"}}
+    assert sp.decode(back)["sex"].tolist() == ["male", "female", "male"]
+    # and the labels go on to a .dta
+    out = sp.write_data(back, tmp_path / "s.dta")
+    assert sp.read_data(str(out)).attrs["_value_labels"]["sex"] == {
+        1: "male",
+        2: "female",
+    }
