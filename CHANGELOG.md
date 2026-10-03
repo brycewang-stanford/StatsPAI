@@ -18,13 +18,29 @@ All notable changes to StatsPAI will be documented in this file.
   the period as `pd.read_stata` does. Found by running one notebook under
   two interpreters. The pandas path had its own gap: a `%ty` column with a
   missing value came back as `object`, and is now `datetime64` too.
-  Integer and float widths still differ between the two readers (`int64` /
-  `float64` with pyreadstat, the storage width with pandas).
 - **`sp.read_data` then `sp.write_data` keeps the unit of a date.** A
   `datetime64` column whose entry in `attrs['_formats']` is a Stata date
   format is written back with that unit (`%td` stays `%td`). pandas wrote
   every datetime column as `%tc`, and on the pyreadstat path the write
   failed outright on the `object` dates. `convert_dates=` still overrides.
+- **A Stata `byte` no longer overflows in Python.** Without pyreadstat,
+  `sp.read_data` and the MCP data loader returned Stata's storage types as
+  numpy dtypes: `int8` for a `byte`, `int16` for an `int`, `float32` for a
+  `float`. Stata computes in double precision whatever the storage type;
+  numpy does not, so `df["age"] ** 2` on an `int8` column wrapped past 127
+  and returned negative numbers without a warning. Numeric columns are now
+  `int64` / `float64`, which is also what the pyreadstat path returns, so
+  the two readers give the same frame. The MCP streamed-sample path widens
+  too.
+
+#### Changed
+
+- **`sp.write_data` stores each numeric column in the smallest Stata type
+  that holds it exactly**, as Stata's `compress` does for integers; a
+  `float64` column goes to `float` only when every value is already a
+  float32. Nothing is rounded. A .dta read and written back keeps its
+  storage types and its size, where pandas alone would have written every
+  widened `byte` as a `long`.
 
 ### Chen Qiang's do-files: `synth2` and `rcm` covariates
 

@@ -21,6 +21,7 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
+import numpy as np
 import pandas as pd
 
 from ..exceptions import MethodIncompatibility, MissingDependencyError
@@ -103,9 +104,8 @@ def _read_stata(path: str, **kwargs: Any) -> pd.DataFrame:
     well, and value-labelled columns keep their numeric codes (as with
     pyreadstat) rather than being converted to categoricals.  Stata dates
     (``%td``, ``%tc``, ``%tw``, ``%tm``, ``%tq``, ``%th``, ``%ty``) are
-    ``datetime64`` on both paths.  One difference remains: pyreadstat
-    returns every integer column as ``int64`` and every float as
-    ``float64``, pandas keeps the storage width (``int8`` for a byte).
+    ``datetime64`` on both paths, and numeric columns are ``int64`` or
+    ``float64`` on both, whatever storage type the file uses.
     """
     try:
         import pyreadstat
@@ -212,6 +212,7 @@ def _read_stata_pandas(path: Any, **kwargs: Any) -> pd.DataFrame:
         df = reader.read()
         attrs = _stata_reader_attrs(reader, list(df.columns))
     df.attrs.update(attrs)
+    widen_stata_numerics(df)
     # pandas returns a %ty column with a missing value as ``object``
     # (Timestamps and NaT); make it datetime64 like every other date.
     for col, fmt in (attrs.get("_formats") or {}).items():
@@ -222,6 +223,25 @@ def _read_stata_pandas(path: Any, **kwargs: Any) -> pd.DataFrame:
                 # dates outside the datetime64 range stay as pandas gave them
                 continue
     return df
+
+
+def widen_stata_numerics(df: pd.DataFrame) -> None:
+    """Widen Stata's storage types to ``int64`` / ``float64``, in place.
+
+    pandas reads a ``byte`` as ``int8``, an ``int`` as ``int16``, a ``long``
+    as ``int32`` and a ``float`` as ``float32``.  Stata itself computes in
+    double precision, so the storage type never limits a result there; in
+    numpy it does, without a word: ``age ** 2`` on an ``int8`` column wraps
+    past 127.  Widening also matches what pyreadstat returns.
+    """
+    for col in df.columns:
+        dtype = df[col].dtype
+        if not isinstance(dtype, np.dtype):
+            continue
+        if dtype.kind in "iu" and dtype.itemsize < 8:
+            df[col] = df[col].astype("int64")
+        elif dtype.kind == "f" and dtype.itemsize < 8:
+            df[col] = df[col].astype("float64")
 
 
 def stata_label_attrs(path: Any, columns: Optional[list] = None) -> Dict[str, Any]:
@@ -405,6 +425,8 @@ def write_data(
     ``data.attrs['_formats']`` only the unit of a date is used: a
     ``datetime64`` column read from a ``%td`` / ``%tm`` / ``%tq`` variable is
     written back with that unit unless ``convert_dates=`` says otherwise.
+    Each numeric column is stored in the smallest Stata type that holds its
+    values exactly (as Stata's ``compress`` does); no value is rounded.
 
     Examples
     --------
@@ -506,6 +528,7 @@ def _write_stata(
         )
     kwargs.setdefault("version", 118)
     kwargs.setdefault("write_index", False)
+    df = _compress_for_stata(df)
     if "convert_dates" not in kwargs:
         # A date read from a %td / %tm / %tq column goes back with that unit;
         # pandas would otherwise write every datetime column as %tc.
@@ -544,6 +567,53 @@ def _write_stata(
             f"found pandas {pd.__version__}.",
             recovery_hint='pip install -U "pandas>=1.4"',
         ) from e
+
+
+#: Largest non-missing value of each Stata integer type (``help data types``);
+#: the codes above it are the missing values ``.``, ``.a`` ... ``.z``.
+_STATA_INT_RANGES = (
+    ("int8", -127, 100),
+    ("int16", -32767, 32740),
+    ("int32", -2147483647, 2147483620),
+)
+
+
+def _compress_for_stata(df: pd.DataFrame) -> pd.DataFrame:
+    """Give each numeric column the smallest Stata type that holds it exactly.
+
+    What Stata's ``compress`` does for integers, plus ``float`` for a
+    ``float64`` column whose every value is a float32 (one read from a Stata
+    ``float``).  Nothing is rounded.  :func:`read_data` widens every column
+    on the way in, so without this a file read and written back would come
+    out several times its size.  Returns a shallow copy when anything
+    changed; the caller's frame is not modified.
+    """
+    narrowed: Dict[Any, Any] = {}
+    for col in df.columns:
+        values = df[col]
+        dtype = values.dtype
+        if not isinstance(dtype, np.dtype) or len(values) == 0:
+            continue
+        if dtype.kind in "iu":
+            lo, hi = values.min(), values.max()
+            for name, low, high in _STATA_INT_RANGES:
+                if low <= lo and hi <= high:
+                    if np.dtype(name).itemsize < dtype.itemsize:
+                        narrowed[col] = values.astype(name)
+                    break
+        elif dtype == np.float64:
+            arr = values.to_numpy()
+            with np.errstate(over="ignore"):
+                as_float = arr.astype("float32")
+            if np.array_equal(as_float.astype("float64"), arr, equal_nan=True):
+                narrowed[col] = values.astype("float32")
+    if not narrowed:
+        return df
+    out = df.copy(deep=False)
+    for col, values in narrowed.items():
+        out[col] = values
+    out.attrs = df.attrs
+    return out
 
 
 def _read_sas(path: str, **kwargs: Any) -> pd.DataFrame:

@@ -5,6 +5,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-dta-widths"></a>
+
+## Unreleased: ⚠️ `sp.read_data` returns `int64` / `float64` for every numeric .dta column
+
+This affects you only if `pyreadstat` is **not** installed (with it the
+dtypes were already these), and it also applies to a `.dta` loaded through
+the MCP server.
+
+- A Stata `byte` / `int` / `long` used to arrive as `int8` / `int16` /
+  `int32` and a `float` as `float32`. Arithmetic on the narrow integers
+  wrapped silently (`df["age"] ** 2` past 127). They are now `int64` and
+  `float64`. Values are unchanged; a Stata `float` keeps its float32 value.
+- A frame takes more memory: up to 8 times for a file of `byte` columns.
+  For a file too large to widen, read it with `pd.read_stata` directly.
+- Code that tested `df[col].dtype == "int8"` to recognise a dummy should
+  test the values instead.
+- `sp.write_data` picks the smallest exact Stata type for each column, so
+  a file read and written back is the same size as before.
+
+---
+
 <a id="oct2026-dta-dates"></a>
 
 ## Unreleased: ⚠️ `sp.read_data` returns Stata dates as `datetime64` when `pyreadstat` is installed

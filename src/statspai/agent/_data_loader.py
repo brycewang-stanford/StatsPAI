@@ -361,8 +361,10 @@ def _stream_sample(path: str, columns: Optional[List[str]], n: int) -> "pd.DataF
     order = np.argsort(kept_pos)
     out = kept.iloc[order].reset_index(drop=True)
     if path.lower().endswith(".dta"):
-        from ..utils.io import stata_label_attrs
+        from ..utils.io import stata_label_attrs, widen_stata_numerics
 
+        # same dtypes as the whole-file read, which widens on the way in
+        widen_stata_numerics(out)
         out.attrs.update(stata_label_attrs(path, list(out.columns)))
     return out
 

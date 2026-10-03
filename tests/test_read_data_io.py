@@ -275,3 +275,78 @@ def test_write_data_explicit_convert_dates_wins(dated_dta, tmp_path):
         out = sp.write_data(first, tmp_path / "again.dta", convert_dates={"d": "tm"})
         second = sp.read_data(str(out))
     assert second.attrs["_formats"]["d"] == "%tm"
+
+
+# --- numeric widths: Stata's storage type is not numpy's arithmetic type ---
+
+
+@pytest.fixture
+def typed_dta(tmp_path):
+    """One column per Stata numeric storage type."""
+    df = pd.DataFrame(
+        {
+            "b": np.array([1, 50, 100], dtype="int8"),
+            "i": np.array([1, 500, 32000], dtype="int16"),
+            "l": np.array([1, 70000, 2_000_000_000], dtype="int32"),
+            "f": np.array([0.1, 1.5, 2.25], dtype="float32"),
+            "d": np.array([0.1, 1.5, 2.25], dtype="float64"),
+        }
+    )
+    path = tmp_path / "typed.dta"
+    df.to_stata(path, write_index=False, version=118)
+    return path
+
+
+def test_dta_numerics_are_widened_without_pyreadstat(typed_dta):
+    with mock.patch.dict(sys.modules, {"pyreadstat": None}):
+        df = sp.read_data(str(typed_dta))
+    assert [str(df[c].dtype) for c in "bilfd"] == ["int64"] * 3 + ["float64"] * 2
+    # the point of widening: a byte squared no longer wraps past 127
+    assert (df["b"] ** 2).tolist() == [1, 2500, 10000]
+    # a Stata float keeps its float32 value exactly
+    assert (
+        df["f"].tolist() == np.array([0.1, 1.5, 2.25], "float32").astype(float).tolist()
+    )
+
+
+def test_dta_numeric_dtypes_with_pyreadstat_match_fallback(typed_dta):
+    pytest.importorskip("pyreadstat")
+    with mock.patch.dict(sys.modules, {"pyreadstat": None}):
+        fallback = sp.read_data(str(typed_dta))
+    native = sp.read_data(str(typed_dta))
+    pd.testing.assert_frame_equal(native, fallback)
+
+
+def test_write_data_round_trip_keeps_storage_types(typed_dta, tmp_path):
+    with mock.patch.dict(sys.modules, {"pyreadstat": None}):
+        df = sp.read_data(str(typed_dta))
+    before = df.copy()
+    out = sp.write_data(df, tmp_path / "again.dta")
+    pd.testing.assert_frame_equal(df, before)  # the caller's frame is untouched
+    stored = pd.read_stata(out)
+    assert [str(stored[c].dtype) for c in "bilfd"] == [
+        "int8",
+        "int16",
+        "int32",
+        "float32",
+        "float64",
+    ]
+    pd.testing.assert_frame_equal(stored, pd.read_stata(typed_dta))
+    assert out.stat().st_size == typed_dta.stat().st_size
+
+
+def test_write_data_compress_never_rounds(tmp_path):
+    df = pd.DataFrame(
+        {
+            "over_byte": np.array([1, 101], dtype="int64"),  # 101 is .a in a byte
+            "big": np.array([1, 2**40], dtype="int64"),
+            "frac": np.array([0.1, np.nan]),  # 0.1 is not a float32
+            "half": np.array([0.5, np.nan]),  # 0.5 is
+        }
+    )
+    stored = pd.read_stata(sp.write_data(df, tmp_path / "c.dta"))
+    assert str(stored["over_byte"].dtype) == "int16"
+    assert stored["over_byte"].tolist() == [1, 101]
+    assert stored["big"].tolist() == [1, 2**40]
+    assert str(stored["frac"].dtype) == "float64" and stored["frac"][0] == 0.1
+    assert str(stored["half"].dtype) == "float32" and np.isnan(stored["half"][1])
