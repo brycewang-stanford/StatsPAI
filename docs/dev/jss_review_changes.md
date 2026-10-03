@@ -31,6 +31,26 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 13 and 24 after the forest docstring splice was made version-independent
+
+- **Commits.** `6ae1fd6b` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` for Track A modules
+  13 and 24.
+- **Reason.** The traces bind SHA-256 digests of every source file on each
+  module's estimation path, and both modules execute
+  `src/statspai/forest/regression_forests.py`. The same commit changed how
+  that file splices the shared forest options into four docstrings at
+  import (clean the docstring, then substitute), because Python 3.13 strips
+  docstring indentation at compile time and the old indentation-sensitive
+  match never fired there. No estimation code changed and no committed
+  result file was regenerated or edited.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` changed for the two modules; the native / port / third-party
+  census is unchanged. No estimate, standard error or table cell is read
+  from this file.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded after CR2 / CR3 / two-way clustering took the t(G - 1) reference
 
 - **Commits.** `9a922b3d`.
