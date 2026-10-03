@@ -150,6 +150,68 @@ def effective_n_clusters(keys: Any) -> float:
 #: time whatever the number of controls.
 _FEW_TREATED_MIN = 10
 
+
+def few_treated_cluster_columns(
+    X: Any, names: Any, keys: Any, max_columns: int = 60
+) -> List[Dict[str, Any]]:
+    """Cluster-level 0/1 regressors with few clusters on one side.
+
+    A regressor that is constant within every cluster and takes the
+    values 0 and 1 is a cluster-level treatment. When fewer than
+    ``_FEW_TREATED_MIN`` clusters carry one of the two
+    values, and they are under a quarter of all clusters, the
+    cluster-robust variance of its coefficient rests on that many draws:
+    in ``tests/reliability/few_clusters.py``, with two treated clusters
+    out of 40, CR1 rejects a true null 31% of the time and the wild
+    cluster bootstrap never does.
+
+    Returns one record per such column (name, clusters at 1, clusters at
+    0). Designs wider than ``max_columns`` are not scanned, and the level
+    dummies of a categorical term (``C(state)[T.CA]``) are skipped: a set
+    of cluster indicators is not a treatment.
+    """
+    X = np.asarray(X)
+    if X.ndim != 2 or X.shape[1] > max_columns:
+        return []
+    codes = pd.factorize(np.asarray(keys))[0]
+    if codes.min(initial=0) < 0:
+        return []
+    n_clusters = int(codes.max()) + 1 if codes.size else 0
+    if n_clusters < 2:
+        return []
+    out: List[Dict[str, Any]] = []
+    for j, name in enumerate(names):
+        if "[T." in str(name) or str(name).startswith("C("):
+            continue
+        col = X[:, j]
+        lo, hi = col.min(), col.max()
+        if lo != 0.0 or hi != 1.0:
+            continue
+        if not np.all((col == 0.0) | (col == 1.0)):
+            continue
+        ones = np.bincount(codes, weights=col, minlength=n_clusters)
+        sizes = np.bincount(codes, minlength=n_clusters)
+        if not np.all((ones == 0) | (ones == sizes)):
+            continue  # varies within some cluster
+        treated = int((ones > 0).sum())
+        control = n_clusters - treated
+        # Few on one side in absolute terms and as a share: five of ten
+        # is the balanced few-cluster case, which the count warning covers
+        # and where the bootstrap does work.
+        if (
+            min(treated, control) < _FEW_TREATED_MIN
+            and 4 * min(treated, control) < n_clusters
+        ):
+            out.append(
+                {
+                    "variable": str(name),
+                    "clusters_at_one": treated,
+                    "clusters_at_zero": control,
+                }
+            )
+    return out
+
+
 #: Synthetic-control pre-fit quality: pre-treatment RMSPE divided by the
 #: pre-period SD of the treated outcome. Deliberately conservative (0.6 ⇒ the
 #: synthetic unit explains < ~64% of pre-period variance) so it clears the

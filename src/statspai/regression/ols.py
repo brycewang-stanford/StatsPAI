@@ -1107,6 +1107,7 @@ class OLSRegression(BaseModel):
                 _FEW_CLUSTERS_MIN,
                 FEW_CLUSTERS_HINT,
                 effective_n_clusters,
+                few_treated_cluster_columns,
             )
 
             n_clusters_obs = int(pd.Series(cluster_var).nunique())
@@ -1139,6 +1140,33 @@ class OLSRegression(BaseModel):
                             "sp.wild_cluster_bootstrap",
                             "sp.wild_cluster_ci_inv",
                         ],
+                    ),
+                    stacklevel=2,
+                )
+            few_treated = few_treated_cluster_columns(
+                self.X, self.var_names, cluster_var
+            )
+            # More than a few such columns is a hand-made set of cluster
+            # dummies, not a treatment: record them, do not warn.
+            for rec in few_treated if len(few_treated) <= 3 else ():
+                side = min(rec["clusters_at_one"], rec["clusters_at_zero"])
+                warnings.warn(
+                    AssumptionWarning(
+                        f"'{rec['variable']}' is a cluster-level 0/1 regressor "
+                        f"with {rec['clusters_at_one']} cluster(s) at 1 and "
+                        f"{rec['clusters_at_zero']} at 0. With {side} on one "
+                        "side its cluster-robust standard error is too small "
+                        "whatever the total number of clusters, and the wild "
+                        "cluster bootstrap can stop rejecting altogether.",
+                        recovery_hint=(
+                            "For a difference-in-differences design use "
+                            "sp.did_few_treated, which inverts a placebo "
+                            "distribution built from the control clusters; "
+                            "otherwise report the result as fragile. See "
+                            "tests/reliability/few_clusters_results.json."
+                        ),
+                        diagnostics=dict(rec, n_clusters=n_clusters_obs),
+                        alternative_functions=["sp.did_few_treated"],
                     ),
                     stacklevel=2,
                 )
@@ -1175,6 +1203,8 @@ class OLSRegression(BaseModel):
         if cluster_var is not None:
             model_info["n_clusters"] = n_clusters_obs
             model_info["n_clusters_effective"] = n_clusters_eff
+            if few_treated:
+                model_info["few_treated_clusters"] = few_treated
 
         data_info = {
             "nobs": results["nobs"],

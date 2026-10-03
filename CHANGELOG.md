@@ -322,8 +322,17 @@ evidence map listed as having none.
   index of the cluster sizes, and warns when there are 30 or more
   clusters but fewer than 30 in effect. In the study CR1 is at 6% above
   30 effective clusters and at 8% to 10% at 26 and 18. No estimate or
-  standard error changes. Few *treated* clusters are a separate problem
-  this diagnostic does not see.
+  standard error changes.
+- **`sp.regress` warns about few treated clusters.** A regressor that is
+  constant within clusters and takes the values 0 and 1 is a
+  cluster-level treatment. When fewer than 10 clusters, and under a
+  quarter of them, sit on one side, the fit warns and records
+  `model_info['few_treated_clusters']`. In the study, two treated
+  clusters out of 40 make CR1 reject a true null 31% of the time while
+  the wild cluster bootstrap never rejects. Level dummies of a
+  categorical term are not counted, and more than three such columns are
+  recorded without a warning (a set of cluster indicators is not a
+  treatment).
 - **Isolated MCP calls can return a result handle.** With
   `STATSPAI_MCP_ISOLATION=process`, a call that asked for a handle
   (`as_handle=true`) used to run on the thread runner, because a handle

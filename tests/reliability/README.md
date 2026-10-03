@@ -73,8 +73,10 @@ CR1 is at 6% when the effective number is above 30 and at 8% to 10% when
 it is 26 or 18, whatever the count. `sp.regress` therefore records
 `model_info['n_clusters_effective']` and warns when there are 30 or more
 clusters but fewer than 30 in effect, which covers the dominant-cluster
-case above (effective number 3.8 at 40 clusters). The few-treated case is
-not covered by this diagnostic.
+case above (effective number 3.8 at 40 clusters). For the few-treated
+case it records `model_info['few_treated_clusters']` and warns when a
+cluster-level 0/1 regressor has fewer than 10 clusters, and under a
+quarter of them, on one side.
 
 Rerun with `python tests/reliability/few_clusters.py` (about a quarter of
 an hour). `tests/test_reliability_few_clusters.py` recomputes one cell on

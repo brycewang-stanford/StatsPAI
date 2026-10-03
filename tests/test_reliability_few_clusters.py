@@ -204,3 +204,84 @@ def test_few_clusters_by_count_keeps_its_own_warning():
     with pytest.warns(AssumptionWarning, match="Only 10 clusters") as caught:
         sp.regress("y ~ d", _frame([30] * 10), cluster="g")
     assert len([w for w in caught if "effective number" in str(w.message)]) == 0
+
+
+# ---------------------------------------------------------------------------
+# Few treated clusters
+# ---------------------------------------------------------------------------
+
+
+def _treated_frame(n_treated, n_clusters=40, seed=0):
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(seed)
+    g = np.repeat(np.arange(n_clusters), 30)
+    return pd.DataFrame(
+        {
+            "y": rng.normal(size=g.size),
+            "d": np.isin(g, np.arange(n_treated)).astype(int),
+            "x": rng.normal(size=g.size),
+            "unit_level": (rng.uniform(size=g.size) < 0.5).astype(int),
+            "g": g,
+        }
+    )
+
+
+def test_regress_warns_about_two_treated_clusters_out_of_forty():
+    """The case where CR1 rejects 31% and the bootstrap 0% (see the table)."""
+    import statspai as sp
+    from statspai.exceptions import AssumptionWarning
+
+    with pytest.warns(AssumptionWarning, match="cluster-level 0/1") as caught:
+        res = sp.regress("y ~ d + x + unit_level", _treated_frame(2), cluster="g")
+    (warning,) = [w for w in caught if "cluster-level" in str(w.message)]
+    diag = warning.message.diagnostics
+    assert diag["variable"] == "d"
+    assert (diag["clusters_at_one"], diag["clusters_at_zero"]) == (2, 38)
+    assert res.model_info["few_treated_clusters"][0]["clusters_at_one"] == 2
+
+
+def test_no_warning_for_a_balanced_treatment_or_a_unit_level_dummy(results):
+    import warnings
+
+    import statspai as sp
+    from statspai.exceptions import AssumptionWarning
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AssumptionWarning)
+        res = sp.regress("y ~ d + x + unit_level", _treated_frame(20), cluster="g")
+    assert "few_treated_clusters" not in res.model_info
+    # and the balanced, half-treated design is where CR1 is fine
+    assert _rate(results, 40, "half", "balanced", "cr1")[0] < 0.06
+
+
+def test_five_treated_of_ten_is_not_the_few_treated_case(results):
+    """Balanced and few: the count warning speaks, the few-treated one does not."""
+    import statspai as sp
+    from statspai.exceptions import AssumptionWarning
+
+    with pytest.warns(AssumptionWarning) as caught:
+        sp.regress("y ~ d + x", _treated_frame(5, n_clusters=10), cluster="g")
+    texts = [str(w.message) for w in caught]
+    assert any("Only 10 clusters" in t for t in texts)
+    assert not any("cluster-level 0/1" in t for t in texts)
+    # ... and there the bootstrap is near nominal
+    assert _rate(results, 10, "half", "balanced", "wild")[0] < 0.08
+
+
+def test_cluster_dummies_are_not_mistaken_for_treatments():
+    import warnings
+
+    import statspai as sp
+    from statspai.exceptions import AssumptionWarning
+
+    df = _treated_frame(20)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AssumptionWarning)
+        sp.regress("y ~ x + C(g)", df, cluster="g")
+        # hand-made indicators for five clusters: recorded, not warned
+        for k in range(5):
+            df[f"c{k}"] = (df["g"] == k).astype(int)
+        res = sp.regress("y ~ x + c0 + c1 + c2 + c3 + c4", df, cluster="g")
+    assert len(res.model_info["few_treated_clusters"]) == 5
