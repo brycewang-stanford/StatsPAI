@@ -56,6 +56,7 @@ def test_multiple_estimation_entry_points_declare_the_single_result(name):
 
 def test_fast_layer_finds_no_defect(audit):
     """Required arguments, result class and alternatives, by real calls."""
+    pytest.importorskip("pyfixest")  # the audit calls sp.feols itself
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         fresh = audit.build(enums=False)

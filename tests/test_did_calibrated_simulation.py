@@ -122,6 +122,7 @@ def test_two_way_fit_matches_a_dummy_regression():
 
 
 def test_constant_effect_is_recovered_by_every_estimator():
+    pytest.importorskip("pyfixest")  # the TWFE estimator runs on sp.feols
     rng = np.random.default_rng(3)
     df = _panel(rng)
     study = sp.did_calibrated_simulation(
@@ -168,6 +169,7 @@ def test_size_and_coverage_under_a_true_null():
 
 def test_twfe_is_pulled_below_the_truth_by_dynamic_effects():
     """The Goodman-Bacon bad comparison, measured rather than asserted."""
+    pytest.importorskip("pyfixest")  # the TWFE estimator runs on sp.feols
     rng = np.random.default_rng(6)
     df = _panel(rng, n_units=48)
 

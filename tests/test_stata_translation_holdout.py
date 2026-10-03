@@ -184,6 +184,7 @@ def test_no_silent_error(scores):
 
 
 def test_gaps_are_exactly_the_known_refusals(scores):
+    pytest.importorskip("pyfixest")  # two holdout commands run on sp.feols
     refused = {
         cid: layers.get("error", "")
         for cid, (entry, layers) in scores.items()
@@ -211,6 +212,7 @@ def test_commands_that_must_be_refused_say_why(scores):
 
 def test_layer_counts(scores):
     """The five-layer baseline on the 33 runnable commands."""
+    pytest.importorskip("pyfixest")  # two holdout commands run on sp.feols
     runnable = [layers for entry, layers in scores.values() if entry["expect"] == "run"]
     counts = {
         key: sum(1 for layers in runnable if layers[key])

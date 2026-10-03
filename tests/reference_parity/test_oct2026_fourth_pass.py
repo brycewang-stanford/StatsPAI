@@ -281,6 +281,7 @@ def test_bayes_dml_conjugate_posterior_is_centred_on_the_dml_estimate():
 
 
 def test_did_calibrated_simulation_recovers_a_planted_effect():
+    pytest.importorskip("pyfixest")  # the TWFE estimator runs on sp.feols
     df = sp.dgp_did(n_units=120, n_periods=8, effect=0.5, staggered=True, seed=0)
     df["g"] = df["first_treat"].fillna(0)
     kw = dict(
