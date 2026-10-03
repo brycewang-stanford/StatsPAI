@@ -133,7 +133,7 @@ python scripts/stata_log_replay.py files/run --data files/run
 STATSPAI_CHENQIANG_DIR=files/run pytest tests/external_parity/test_chen_qiang_2e_logs.py
 ```
 
-18 章共比较约 2,900 个数字。除下面四处外全部一致。
+18 章共比较约 3,300 个数字。除下面四处外全部一致。
 
 1. **`estat ovtest, rhs`(第 9 章，模型含 `expr` 与 `expr2 = expr^2`)。** Stata
    报告 `F(11, 741) = 1.73`。它在辅助回归里把原变量 `expr2` 当作共线性剔除，
@@ -142,9 +142,14 @@ STATSPAI_CHENQIANG_DIR=files/run pytest tests/external_parity/test_chen_qiang_2e
 2. **`pscore[match1]`(第 15 章)。** Stata 列出最近邻的顺序不是距离顺序，
    StatsPAI 把最近的排在第一。匹配集合、ATET 及其标准误一致。
 3. **`synth, nested`(第 18 章)。** 预测变量权重 V 的搜索是非凸问题。StatsPAI 找到
-   的解在干预前的 MSPE 更低(3.086 对 Stata 的 3.227)，因此合成权重略有不同。
-4. **`synth2` 没有翻译。** 它是 `synth` 加安慰剂检验与留一法。可以分别调用
-   `sp.synth(..., placebo=True)`、`sp.synth_loo`、`sp.synth_time_placebo`。
+   的解在干预前的 MSPE 更低(3.084 对 Stata 的 3.227)，因此合成权重略有不同。
+4. **`synth2 ..., nested`(第 18 章)。** `synth2` 已翻译为
+   `sp.synth(method='classic', placebo=True, placebo_cutoff=, placebo_time=, loo=True)`。
+   书中三条命令都带 `nested`，每个安慰剂单位和每次留一都重新做一遍非凸搜索，所以
+   各州的 MSPE 与逐期效应和 Stata 不同，原因同第 3 条。两个安慰剂 p 值(0.0256 与
+   0.0526)和 36 个逐期 p 值全部一致。不带 `nested` 时 `synth2` 是确定性的，已在
+   自造数据上与 Stata 对齐。另外 `synth2` 的 R² 用合成路径的离差作分母，这里用
+   处理单位实际结果的离差。
 
 另外，`bysort treat: sum` 会排序，而 Stata 的排序不稳定，所以之后按行号读取的
 内容(如 `list in 1/2`)在 Stata 里每次运行也可能不同。
@@ -203,6 +208,10 @@ fit.model_info["coefficients"]        # 处理前的回归
 fit.detail                            # 各期的实际值、预测值、效应与安慰剂 p 值
 fit.model_info["placebo_units"]       # 各控制单位的处理前后 MSPE
 ```
+
+带协变量的 `rcm y x`(Hsiao 与 Zhou 2019 的扩展)对应 `covariates=["x"]`，
+每个单位的协变量都进入候选预测变量。`method(lasso)` 没有实现，候选变量多于处理前
+期数时用 `selection="forward"`。
 
 最优子集用分支定界精确求解。上面这个例子有 24 个控制单位，并对每个单位做一次
 安慰剂检验，Stata 的 `rcm` 需要约 25 分钟，这里约 2 秒，结果逐位相同。

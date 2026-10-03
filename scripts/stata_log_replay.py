@@ -1086,8 +1086,101 @@ def _cmp_synth(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
             )  # fmt: skip
 
 
+_SYNTH2_SECTIONS = (
+    ("Optimal Unit Weights", "weights"),
+    ("Prediction results in the posttreatment", "effects"),
+    ("In-space placebo test results using fake treatment units (continued", "pvalues"),
+    ("In-space placebo test results using fake treatment units:", "units"),
+    ("In-time placebo test results", "time"),
+    ("Leave-one-out robustness test results", "loo"),
+    ("Treatment Effect (LOO)", "loo-effect"),
+)
+
+
+def _cmp_synth2(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """``synth2``: fit, unit weights, effects, placebo tables, leave-one-out."""
+    info = out.model_info
+    text = "\n".join(buf)
+    gaps = info["gap_table"]
+    pre = gaps.loc[~gaps["post_treatment"], "gap"]
+    for label, pattern, ours in (
+        ("RMSE", rf"Root Mean Squared Error\s*=\s*({NUM})", np.sqrt((pre**2).mean())),
+        ("R-squared", rf"R-squared\s*=\s*({NUM})\s*$", info.get("pre_r2")),
+        ("ATT", rf"posttreatment period is ({NUM})\.\s*$", out.estimate),
+        ("placebo p-value", rf"Using all control units.*?is ({NUM})\.", info.get("placebo_pvalue")),
+        ("placebo p-value", rf"^Note: The probability of obtaining.*?is ({NUM})\.", info.get("placebo_pvalue")),
+        ("placebo p-value (cutoff)", rf"Excluding control units.*?is ({NUM})\.", info.get("placebo_pvalue_cutoff")),
+    ):  # fmt: skip
+        m = re.search(pattern, text, re.M | re.S)
+        if m:
+            self.report.number(self.name, cmd, label, Printed(m.group(1)), ours)
+    assert self.session is not None
+    codes = _unit_codes(self, self.session.panel[0] or "")
+    weights = dict(zip(info["weights"]["unit"], info["weights"]["weight"]))
+    post = gaps[gaps["post_treatment"]].set_index("time")
+    units = info.get("placebo_table")
+    pvals = info.get("placebo_effects")
+    pvals = None if pvals is None else pvals.set_index("time")
+    fake = info.get("placebo_time")
+    fake = None if fake is None else fake.set_index("time")
+    loo = info.get("loo")
+    loo = None if loo is None else loo.set_index("time")
+
+    def cell(frame: Any, key: Any, col: str) -> Any:
+        if frame is None or key not in frame.index:
+            return None
+        return frame.loc[key, col]
+
+    section = ""
+    for ln in buf:
+        for title, name in _SYNTH2_SECTIONS:
+            if title in ln:
+                section = name
+                break
+        m = re.match(rf"^\s*(\S+)\s*\|((?:\s+{NUM})+)\s*$", ln)
+        if not m or m.group(1) == "Mean":
+            continue
+        label, values = m.group(1), m.group(2).split()
+        code = codes.get(label, label)
+        period: Any = None
+        try:
+            period = int(label)
+        except ValueError:
+            pass
+        columns: List[Tuple[str, Any]] = []
+        if section == "weights" and len(values) == 1:
+            columns = [("weight", float(weights.get(code, 0.0)))]
+        elif section == "effects" and len(values) == 3:
+            columns = [("", None), ("synthetic", cell(post, period, "synthetic")),
+                       ("effect", cell(post, period, "gap"))]  # fmt: skip
+        elif section == "units" and len(values) == 4:
+            columns = [(name, cell(units, code, col)) for name, col in (
+                ("pre MSPE", "pre_mspe"), ("post MSPE", "post_mspe"),
+                ("ratio", "ratio"), ("relative", "pre_mspe_relative"))]  # fmt: skip
+        elif section == "pvalues" and len(values) == 4:
+            columns = [("", None)] + [(name, cell(pvals, period, col)) for name, col in (
+                ("p two-sided", "p_two_sided"), ("p right", "p_right"),
+                ("p left", "p_left"))]  # fmt: skip
+        elif section == "time" and len(values) == 3:
+            columns = [("", None), ("placebo-time synthetic", cell(fake, period, "synthetic")),
+                       ("placebo-time effect", cell(fake, period, "effect"))]  # fmt: skip
+        elif section == "loo" and len(values) == 4:
+            columns = [("", None), ("", None),
+                       ("loo synthetic min", cell(loo, period, "synthetic_min")),
+                       ("loo synthetic max", cell(loo, period, "synthetic_max"))]  # fmt: skip
+        elif section == "loo-effect" and len(values) == 3:
+            columns = [("", None), ("loo effect min", cell(loo, period, "effect_min")),
+                       ("loo effect max", cell(loo, period, "effect_max"))]  # fmt: skip
+        for value, (name, ours) in zip(values, columns):
+            if name:
+                self.report.number(
+                    self.name, cmd, f"{name}[{label}]", Printed(value), ours
+                )
+
+
 PANEL = {
     "synth": _cmp_synth,
+    "synth2": _cmp_synth2,
     "rcm": _cmp_rcm,
     "rdrobust": _cmp_rdrobust,
     "rddensity": _cmp_rddensity,

@@ -10,6 +10,7 @@ reference (_generate_textbook_methods_stata.do) and the test both read:
 * textbook_cs.csv      400 cross-section rows: heteroskedastic errors, an
                        endogenous regressor with two instruments, a binary
                        outcome, 25 clusters
+* textbook_rcm_x.csv   textbook_rcm.csv plus one covariate x per unit
 * textbook_rcm.csv     12 units x 40 periods from a one-factor model; unit 1
                        is treated from period 31
 
@@ -105,4 +106,8 @@ for j in range(1, J + 1):
     rows += [(j, t + 1, series[t]) for t in range(TT)]
 rcm = pd.DataFrame(rows, columns=["unit", "t", "y"])
 rcm.round(8).to_csv(HERE / "textbook_rcm.csv", index=False)
+# the same panel with one covariate per unit (Hsiao and Zhou's extension);
+# drawn after the outcomes, so textbook_rcm.csv is unchanged
+rcm["x"] = 0.5 * np.tile(factor, J) + rng.normal(scale=0.5, size=len(rcm))
+rcm.round(8).to_csv(HERE / "textbook_rcm_x.csv", index=False)
 print("written:", [p.name for p in sorted(HERE.glob("textbook_*.csv"))])

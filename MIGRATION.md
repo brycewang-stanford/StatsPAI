@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-dta-dates"></a>
+
+## Unreleased: ⚠️ `sp.read_data` returns Stata dates as `datetime64` when `pyreadstat` is installed
+
+This affects you only if `pyreadstat` is installed; without it
+`sp.read_data` already behaved as described.
+
+- A `%tm` / `%tq` / `%th` / `%tw` / `%ty` variable used to arrive as
+  Stata's period count (months since 1960m1, and so on). It now arrives as
+  `datetime64`, the first day of the period. Code that did arithmetic on
+  the count (`ym - 720`) should work on the date instead, or read the
+  counts with `sp.read_data(path, disable_datetime_conversion=True)`.
+- A `%td` variable used to arrive as an `object` column of
+  `datetime.date`. It is now `datetime64`; comparisons against
+  `datetime.date(2020, 1, 15)` should use `pd.Timestamp("2020-01-15")`.
+- `sp.write_data` writes a date read from a .dta back with its Stata unit
+  instead of as `%tc`. Pass `convert_dates=` to choose another.
+
+---
+
 <a id="oct2026-mcp-dta-codes"></a>
 
 ## 1.35.0 → 1.36.0: the MCP data loader returns Stata value-labelled columns as codes

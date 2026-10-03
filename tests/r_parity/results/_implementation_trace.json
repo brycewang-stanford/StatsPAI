@@ -272,7 +272,7 @@
    "result_sha256": "11558f8cc546da726e0e52d4e2fcbc7f4ff5b2c91ca72447a62b8b8a9a2683f5"
   },
   "07_scm": {
-   "seconds": 8.18,
+   "seconds": 3.0,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -295,9 +295,10 @@
     "src/statspai/core/results.py": "0f217ec51108e4fc0986fbb26e7d8a13a7dc720f7ff0b54e7142e17fc0bd8a01",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
+    "src/statspai/synth/_classic_report.py": "cd612c7470ae03d0ee49df1d72006a58392e0d0ef7c7d83fbb7b262d6aa8bbaf",
     "src/statspai/synth/_core.py": "11f5940be9d4ed2c81ab8ef48f16c65445a3b55b79bbc9b3982af8d7c7ff8def",
     "src/statspai/synth/datasets.py": "d4ba853a30ae823dc072ac2302ed006fd7db613b9c8fe708317bf740352f23b2",
-    "src/statspai/synth/scm.py": "a2789db4913fde6c10ef863de8f07568f051ffc80af1122768add236b0974f95"
+    "src/statspai/synth/scm.py": "8ba371d9fcd80c0231bf8d611a75f07861acc822a146cc09c08ed8d33fb70357"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -1168,7 +1169,7 @@
    "result_sha256": "87a99bf35a0082f9d98a029ed5e0a94ec97e7e7703b06ec7c4c8b59f29e42a1a"
   },
   "35_panel": {
-   "seconds": 0.89,
+   "seconds": 3.41,
    "error": null,
    "boundary_calls": [
     {
@@ -1328,7 +1329,7 @@
     "src/statspai/panel/__init__.py": "3a89d9f05eb1db9928b62d03d5170ed24667c063129fd47e62e60f9cafad0b8d",
     "src/statspai/panel/_ssc.py": "7485f5020c133f2c0efe491840ea037f4ec2bc2e205da16893aefb67e41d747a",
     "src/statspai/panel/panel_diagnostics.py": "8e30b5352579db889cc938f3dcda2811f2d18a739af7b02a6a0cebaaad4917c1",
-    "src/statspai/panel/panel_reg.py": "cb9afd9460e6199d1e70f0e95954bbb74b1b2600ab70bc590775ab0db8aabc24",
+    "src/statspai/panel/panel_reg.py": "41add481e1d4150bbd46bfb3615d21770022a1afa51c6d7d0b2f76c8a2083ca4",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
     "src/statspai/regression/iv.py": "658990199df900a216c0f691cc2acb770e3bbd100a1ffc5b7ebbd1b5c29010d6"
@@ -1857,7 +1858,7 @@
    "result_sha256": "4a10dedbcb6a421390e698e381ade8ad28838f3dc616ae729cda430f8533a459"
   },
   "52_scm_unique": {
-   "seconds": 2.14,
+   "seconds": 0.66,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1880,8 +1881,9 @@
     "src/statspai/core/results.py": "0f217ec51108e4fc0986fbb26e7d8a13a7dc720f7ff0b54e7142e17fc0bd8a01",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
+    "src/statspai/synth/_classic_report.py": "cd612c7470ae03d0ee49df1d72006a58392e0d0ef7c7d83fbb7b262d6aa8bbaf",
     "src/statspai/synth/_core.py": "11f5940be9d4ed2c81ab8ef48f16c65445a3b55b79bbc9b3982af8d7c7ff8def",
-    "src/statspai/synth/scm.py": "a2789db4913fde6c10ef863de8f07568f051ffc80af1122768add236b0974f95"
+    "src/statspai/synth/scm.py": "8ba371d9fcd80c0231bf8d611a75f07861acc822a146cc09c08ed8d33fb70357"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -2542,7 +2544,7 @@
    "result_sha256": "31d8b196641c98308e584ec2921381fe5bec778a34cb8ab6dd520c0edf4c9ec0"
   },
   "69_balance_panel": {
-   "seconds": 0.6,
+   "seconds": 2.63,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2550,7 +2552,7 @@
    "subprocesses": [],
    "exercised_sources": {
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
-    "src/statspai/panel/panel_reg.py": "cb9afd9460e6199d1e70f0e95954bbb74b1b2600ab70bc590775ab0db8aabc24",
+    "src/statspai/panel/panel_reg.py": "41add481e1d4150bbd46bfb3615d21770022a1afa51c6d7d0b2f76c8a2083ca4",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
    "dependency_versions": {

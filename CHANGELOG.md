@@ -4,6 +4,77 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Stata dates through `sp.read_data`
+
+#### ⚠️ Correctness
+
+- **A Stata date is the same value with and without `pyreadstat`.**
+  `sp.read_data` takes the pyreadstat reader when that optional package is
+  installed and the pandas reader otherwise, and the two disagreed on dates.
+  With pyreadstat a `%tm`, `%tq`, `%th`, `%tw` or `%ty` variable came back
+  as Stata's raw period count (`720.0` for 2020m1) and a `%td` variable as
+  an `object` column of `datetime.date`; without it every one of them was
+  `datetime64`. Both paths now return `datetime64`, set to the first day of
+  the period as `pd.read_stata` does. Found by running one notebook under
+  two interpreters. The pandas path had its own gap: a `%ty` column with a
+  missing value came back as `object`, and is now `datetime64` too.
+  Integer and float widths still differ between the two readers (`int64` /
+  `float64` with pyreadstat, the storage width with pandas).
+- **`sp.read_data` then `sp.write_data` keeps the unit of a date.** A
+  `datetime64` column whose entry in `attrs['_formats']` is a Stata date
+  format is written back with that unit (`%td` stays `%td`). pandas wrote
+  every datetime column as `%tc`, and on the pyreadstat path the write
+  failed outright on the `object` dates. `convert_dates=` still overrides.
+
+### Chen Qiang's do-files: `synth2` and `rcm` covariates
+
+The replay of the 18 chapter do-files (see 1.36.0) now reproduces 2,958
+numbers and refuses no command. 324 numbers differ for documented reasons,
+320 of them downstream of the non-convex nested search of `synth` and
+`synth2` in chapter 18, where the placebo p-values agree all the same.
+
+#### Added
+
+- **`sp.rcm(covariates=...)`.** `covariates=` adds every unit's covariates to the candidate
+  predictors (Hsiao and Zhou 2019; Stata `rcm y x`), checked against Stata
+  along the forward and the best-subset path. One deliberate difference:
+  with as many candidates as pre-treatment periods less one, Stata's `rcm`
+  selects the model that interpolates the data (R-squared 1, a BIC that is
+  the logarithm of rounding error); StatsPAI stops at one residual degree
+  of freedom. The command's lasso option is not implemented, because its
+  path and cross-validation folds are Stata's own and could not be checked.
+- **`sp.synth(method='classic')` returns the reports of Stata's `synth2`.**
+  With `placebo=True` the result has `model_info['placebo_table']` (pre-
+  and post-treatment MSPE and their ratio per unit),
+  `model_info['placebo_effects']` (two-, right- and left-sided placebo
+  p-values per period) and `model_info['placebo_weights']`. New keywords:
+  `placebo_cutoff=` leaves badly fitted pretend units out of those
+  p-values, `placebo_time=` refits at a pretend treatment date, `loo=True`
+  drops each weighted donor in turn and reports the range of the synthetic
+  path, `post_periods=` restricts the periods the effect is measured on.
+  `model_info['pre_r2']` is the pre-treatment R-squared. `sp.from_stata` /
+  `sp.stata` translate `synth2` to this call. Checked against `synth2`
+  2.1.0 on the regression-based predictor weights
+  (`tests/reference_parity/test_synth2_stata_parity.py`): pre-treatment
+  MSPE to 1e-8 and every p-value exactly; paths and post-treatment MSPE
+  after rounding our weights to three decimals as `synth` stores them.
+  `synth2`'s R-squared divides by the variation of the synthetic path, ours
+  by that of the treated unit's outcome.
+
+### Agent surface
+
+- **`sp.panel` names its default small-sample convention.** With no
+  `ssc=` the result now carries `model_info['ssc'] = 'linearmodels'` and a
+  one-line description (`N/(N-k)` on the covariance, no `G/(G-1)` cluster
+  factor, tests on `N - K` degrees of freedom); before, the field was
+  absent and a reader had to know what its absence meant. The
+  few-cluster warning now adds that `ssc='stata'` gives `xtreg`'s factor
+  and `t(G-1)`. The default itself is unchanged, and so is every number:
+  it is a documented convention, `ssc='stata'` and `ssc='fixest'` reproduce
+  `xtreg` and `fixest`, and the joint test that showed the difference
+  (p = 0.0017 against Stata's 0.0040 on 60 clusters) is pinned in
+  `tests/reference_parity/test_joint_wald_stata_parity.py`.
+
 ## [1.36.0] — 2026-10-03
 
 Three textbooks' do-files were run in Stata 18 and replayed through

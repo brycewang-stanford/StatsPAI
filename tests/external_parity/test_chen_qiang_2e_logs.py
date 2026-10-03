@@ -53,7 +53,7 @@ REPRODUCED = {
     "Chapter_15.log": 128,
     "Chapter_16.log": 120,
     "Chapter_17.log": 112,
-    "Chapter_18.log": 42,
+    "Chapter_18.log": 89,
     "Chapter_19.log": 490,
 }
 
@@ -75,8 +75,14 @@ DIFFERENT = {
     ),
     ("Chapter_18.log", "synth cigsale"): (
         "Nested predictor weights are a non-convex search. StatsPAI's "
-        "solution has the lower pre-treatment MSPE (3.086 against Stata's "
+        "solution has the lower pre-treatment MSPE (3.084 against Stata's "
         "3.227), so the donor weights and the predictor balance differ."
+    ),
+    ("Chapter_18.log", "synth2 cigsale"): (
+        "The nested search again, repeated for every pretend-treated state "
+        "and every dropped donor: MSPEs and effects differ, the placebo "
+        "p-values do not. synth2's R-squared divides by the variation of "
+        "the synthetic path; pre_r2 by that of the treated unit's outcome."
     ),
 }
 
@@ -84,12 +90,7 @@ DIFFERENT = {
 NO_COUNTERPART: dict = {}
 
 #: Commands sp.stata declines.
-DECLINED = {
-    "synth2": (
-        "synth plus nested placebo and leave-one-out runs: hours with the "
-        "nested search; the translation names the three sp calls instead."
-    ),
-}
+DECLINED: dict = {}
 
 
 @pytest.fixture(scope="module")
@@ -135,6 +136,16 @@ def test_only_documented_numbers_lack_a_counterpart(frame):
     missing = frame[frame.status == "no output"]
     stray = missing[[not _listed(r, NO_COUNTERPART) for r in missing.itertuples()]]
     assert stray.empty, stray[["log", "command", "what"]].to_string()
+
+
+def test_synth2_placebo_p_values_agree(frame):
+    # the non-convex search moves the MSPEs, not the inference
+    rows = frame[
+        (frame.log == "Chapter_18.log")
+        & frame.command.str.startswith("synth2")
+        & (frame.what.str.startswith("placebo p-value") | frame.what.str.startswith("p "))
+    ]
+    assert len(rows) >= 38 and (rows.status == "ok").all()
 
 
 def test_simulated_data_are_marked_not_compared(frame):
