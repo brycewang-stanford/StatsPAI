@@ -2280,6 +2280,43 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
     return out
 
 
+#: ``attrs`` keys that map column name -> metadata for that column.
+_PER_COLUMN_LABEL_ATTRS = ("_labels", "_value_labels", "_formats")
+
+
+def _carry_label_attrs(
+    attrs: Dict[Any, Any], df: pd.DataFrame, step: Dict[str, Any]
+) -> Dict[Any, Any]:
+    """Label metadata for the frame a transform step produced.
+
+    pandas keeps ``attrs`` through some operations and silently drops it in
+    others (``pivot``, ``melt``, ``concat``), so a loaded .dta would lose its
+    variable and value labels somewhere along a transform chain.  This
+    rebuilds them explicitly: a column keeps its labels while it survives
+    under the same name, ``rename`` moves them to the new name, and a column
+    that ``assign`` wrote gets none, since they described the old contents.
+    """
+    renamed = step.get("mapping") if step.get("op") == "rename" else None
+    renamed = renamed if isinstance(renamed, dict) else {}
+    overwritten = {step.get("column")} if step.get("op") == "assign" else set()
+    present = {str(c) for c in df.columns}
+    out: Dict[Any, Any] = {}
+    for key, value in attrs.items():
+        if key not in _PER_COLUMN_LABEL_ATTRS or not isinstance(value, dict):
+            out[key] = value
+            continue
+        kept = {}
+        for col, meta in value.items():
+            if col in overwritten:
+                continue
+            new_name = renamed.get(col, col)
+            if str(new_name) in present:
+                kept[new_name] = meta
+        if kept:
+            out[key] = kept
+    return out
+
+
 def _tool_transform_data(
     arguments: Dict[str, Any], data: Optional[pd.DataFrame]
 ) -> Dict[str, Any]:
@@ -2310,7 +2347,9 @@ def _tool_transform_data(
     for k, step in enumerate(ops):
         before = int(len(df))
         try:
+            previous_attrs = df.attrs
             df = _apply_transform(df, step)
+            df.attrs = _carry_label_attrs(previous_attrs, df, step)
         except Exception as exc:
             # A failed step aborts the chain: a partially transformed frame
             # is not what the agent asked for (CLAUDE.md §3.7).

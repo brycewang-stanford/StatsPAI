@@ -27,9 +27,38 @@ back, and the MCP data path did not use it.
 - The MCP data description (`describe_frame`, used by the data-handle tools
   and the data resource) reports `variable_labels`, `value_labels` and
   `data_label` when the frame carries them.
+- **Display formats that say something are kept.** `sp.read_data` and the
+  MCP loader put a .dta file's non-default display formats in
+  `attrs['_formats']`, and the data description reports them as
+  `display_formats`. `%td`, `%tm` and `%tq` all load as `datetime64`, so the
+  format is the only place the time unit of a date survives; `%12.2fc` marks
+  money. Stata's defaults (`%9.0g`, `%9s`, ...) are not reported.
+- **`sp.detect_design` reports `role_hints`**: columns whose name or
+  variable label points to a role (`time`, `unit`, `treatment`, `weight`,
+  `cluster`), with the matched word and the label. In a survey file the
+  names are often opaque (`v12`) and the label is where the meaning lives.
+  English words match whole words only (`id` does not fire on `paid`);
+  common Chinese terms match too. Hints are advisory. They never change
+  `design`, `confidence`, `identified` or `candidates`, and the key is absent
+  when nothing matches.
+- **Labels follow columns through `transform_data`.** pandas drops `attrs`
+  in some operations, so a loaded .dta lost its labels partway along a
+  transform chain. Each step now rebuilds them: a surviving column keeps its
+  labels, `rename` moves them, and a column `assign` overwrote gets none.
 
 #### Changed
 
+- **The label part of the MCP data description is bounded.** A value label
+  shared by many variables (one 1 to 5 scale on 300 survey items) is spelled
+  out once and later variables carry `{"same_as": <first variable>}`; a label
+  with more than 50 codes is cut, with the full count in
+  `value_labels_truncated`; Stata's missing-value codes print as `.a` rather
+  than `2147483622`; and strings in `head` longer than 200 characters are
+  clipped (a strL can run to megabytes).
+- **Value labels and formats survive a column projection.** pandas narrows
+  its per-variable lists after a `columns=` read; the reader fell back to
+  "label set named after its variable", which loses `label values region
+  regionlbl`. Both layouts are now resolved by name.
 - **The MCP data loader reads .dta the way `sp.read_data` does.** It called
   bare `pd.read_stata`, which dropped variable labels and turned every
   value-labelled column into a string categorical, so `foreign`

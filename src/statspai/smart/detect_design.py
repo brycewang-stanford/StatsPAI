@@ -19,6 +19,7 @@ considered, so an agent can override with hints (``unit=...`` /
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -283,6 +284,126 @@ def _detect_rd_running_var(
 
 
 # ---------------------------------------------------------------------------
+#  Role hints from names and variable labels
+# ---------------------------------------------------------------------------
+
+#: Words that suggest a column's role.  English entries match whole words in
+#: the column name or its variable label (``id`` must not fire on ``paid``);
+#: Chinese entries match as substrings, since Chinese has no word breaks.
+_ROLE_KEYWORDS: Dict[str, Dict[str, tuple]] = {
+    "time": {
+        "en": (
+            "year",
+            "yr",
+            "month",
+            "quarter",
+            "week",
+            "date",
+            "day",
+            "period",
+            "wave",
+            "time",
+        ),
+        "zh": ("年份", "年度", "月份", "季度", "日期", "时间", "时期", "期数"),
+    },
+    "unit": {
+        "en": (
+            "id",
+            "identifier",
+            "code",
+            "firm",
+            "company",
+            "household",
+            "individual",
+            "person",
+            "respondent",
+            "county",
+            "state",
+            "province",
+            "country",
+            "city",
+            "school",
+            "hospital",
+            "district",
+        ),
+        "zh": ("编号", "代码", "编码", "企业", "公司", "家庭", "个人", "省份", "城市"),
+    },
+    "treatment": {
+        "en": (
+            "treat",
+            "treated",
+            "treatment",
+            "policy",
+            "reform",
+            "intervention",
+            "program",
+            "programme",
+            "pilot",
+            "exposed",
+        ),
+        "zh": ("处理", "政策", "改革", "试点", "干预"),
+    },
+    "weight": {
+        "en": ("weight", "wgt", "wt", "pweight", "fweight"),
+        "zh": ("权重",),
+    },
+    "cluster": {
+        "en": ("cluster", "strata", "stratum", "psu"),
+        "zh": ("聚类", "分层", "抽样单元"),
+    },
+}
+
+_WORD_RE = re.compile(r"[A-Za-z]+")
+_CAMEL_RE = re.compile(r"(?<=[a-z])(?=[A-Z])")
+
+
+def _words(text: str) -> set:
+    """Lower-cased alphabetic words of ``text``; ``firmId`` -> {firm, id}."""
+    return {w.lower() for w in _WORD_RE.findall(_CAMEL_RE.sub(" ", text))}
+
+
+def _role_hints(data: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Roles a column's name or variable label points to.
+
+    Labels come from ``data.attrs['_labels']`` — set when a Stata / SPSS /
+    SAS file is read through ``sp.read_data`` or the MCP data loader.  In a
+    survey file the names are often opaque (``v12``, ``q3_a``) and the label
+    is the only place the meaning lives.
+
+    These are *hints*: they are reported alongside the shape-based result and
+    never change which design is chosen.  A column labelled "year of birth"
+    matches ``time`` without being the panel's time dimension.
+    """
+    labels = data.attrs.get("_labels")
+    labels = labels if isinstance(labels, dict) else {}
+    hints: List[Dict[str, Any]] = []
+    for col in data.columns:
+        name = str(col)
+        label = labels.get(col)
+        label = label if isinstance(label, str) else ""
+        sources = (("name", name), ("label", label))
+        for role, words in _ROLE_KEYWORDS.items():
+            for source, text in sources:
+                if not text:
+                    continue
+                matched = sorted(_words(text) & set(words["en"])) + [
+                    w for w in words["zh"] if w in text
+                ]
+                if matched:
+                    hint: Dict[str, Any] = {
+                        "column": name,
+                        "role": role,
+                        "source": source,
+                        "matched": matched[0],
+                    }
+                    if label:
+                        hint["label"] = label
+                    hints.append(hint)
+                    break  # one hint per (column, role); the name wins
+    return hints
+
+
+# ---------------------------------------------------------------------------
 #  Public API
 # ---------------------------------------------------------------------------
 
@@ -332,6 +453,13 @@ def detect_design(
           this to override when the top pick is wrong.
         - ``n_obs`` (int) — sample size
         - ``columns`` (list[str]) — input column names
+        - ``role_hints`` (list[dict], only when any are found) — columns
+          whose name or variable label suggests a role (``time`` / ``unit``
+          / ``treatment`` / ``weight`` / ``cluster``), each with the matched
+          word, its ``source`` (``"name"`` or ``"label"``) and the label.
+          Variable labels are read from ``data.attrs['_labels']``, which
+          ``sp.read_data`` fills in for Stata / SPSS / SAS files.  Hints are
+          advisory: they never change ``design`` or ``identified``.
 
     Examples
     --------
@@ -354,6 +482,15 @@ def detect_design(
     ...                    'y': rng.standard_normal(200)})
     >>> sp.detect_design(df)['design']
     'cross_section'
+
+    Variable labels (as carried by a Stata file) surface as role hints even
+    when the column names say nothing:
+
+    >>> df = pd.DataFrame({'v1': rng.integers(0, 2, 200),
+    ...                    'v2': rng.standard_normal(200)})
+    >>> sp.label_var(df, 'v1', 'Received the pilot program')
+    >>> [(h['column'], h['role']) for h in sp.detect_design(df)['role_hints']]
+    [('v1', 'treatment')]
 
     See Also
     --------
@@ -446,7 +583,7 @@ def detect_design(
         identified["running_var"] = winner["running_var"]
         identified["cutoff"] = winner["cutoff"]
 
-    return {
+    result: Dict[str, Any] = {
         "design": winner["design"],
         "confidence": winner["confidence"],
         "identified": identified,
@@ -454,6 +591,10 @@ def detect_design(
         "n_obs": n,
         "columns": list(data.columns),
     }
+    hints = _role_hints(data)
+    if hints:
+        result["role_hints"] = hints
+    return result
 
 
 __all__ = ["detect_design"]

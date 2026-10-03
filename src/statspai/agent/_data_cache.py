@@ -125,21 +125,97 @@ def _jsonable_scalar(v: Any) -> Any:
     return str(v)
 
 
+#: Longest string shown in ``head``; a Stata strL can run to megabytes.
+HEAD_STRING_MAX = 200
+#: Entries of one value label reported in full.
+VALUE_LABEL_MAX_ENTRIES = 50
+#: Stata stores value labels for ``.``, ``.a`` … ``.z`` under these codes.
+_STATA_MISSING_CODE_BASE = 2147483621
+
+
+def _clip_head_value(v: Any) -> Any:
+    if isinstance(v, str) and len(v) > HEAD_STRING_MAX:
+        return f"{v[:HEAD_STRING_MAX]}… (+{len(v) - HEAD_STRING_MAX} chars)"
+    return v
+
+
+def _value_label_code(code: Any) -> str:
+    """Print a value-label code; Stata's missing-value codes as ``.a`` etc."""
+    try:
+        k = int(code)
+    except (TypeError, ValueError):
+        return str(code)
+    if _STATA_MISSING_CODE_BASE <= k <= _STATA_MISSING_CODE_BASE + 26:
+        offset = k - _STATA_MISSING_CODE_BASE
+        return "." if offset == 0 else f".{chr(96 + offset)}"
+    return str(code)
+
+
+def _label_payload(df: pd.DataFrame) -> Dict[str, Any]:
+    """Label metadata for ``describe_frame``, bounded in size.
+
+    Two things keep a wide survey file from flooding the context: a value
+    label shared by many variables (one 1–5 agreement scale on 300 items) is
+    spelled out once and referenced by ``{"same_as": <first variable>}``
+    thereafter, and a label with more than ``VALUE_LABEL_MAX_ENTRIES`` codes
+    is cut, with the full count in ``value_labels_truncated``.
+    """
+    out: Dict[str, Any] = {}
+    present = {str(c) for c in df.columns}
+    labels = df.attrs.get("_labels")
+    if isinstance(labels, dict):
+        kept = {str(c): str(v) for c, v in labels.items() if str(c) in present}
+        if kept:
+            out["variable_labels"] = kept
+    value_labels = df.attrs.get("_value_labels")
+    if isinstance(value_labels, dict):
+        kept_vl: Dict[str, Any] = {}
+        truncated: Dict[str, int] = {}
+        first_with: Dict[Any, str] = {}
+        for c, m in value_labels.items():
+            col = str(c)
+            if col not in present or not isinstance(m, dict):
+                continue
+            signature = tuple((str(k), str(v)) for k, v in m.items())
+            if signature in first_with:
+                kept_vl[col] = {"same_as": first_with[signature]}
+                continue
+            first_with[signature] = col
+            items = list(m.items())
+            if len(items) > VALUE_LABEL_MAX_ENTRIES:
+                truncated[col] = len(items)
+                items = items[:VALUE_LABEL_MAX_ENTRIES]
+            kept_vl[col] = {_value_label_code(k): str(v) for k, v in items}
+        if kept_vl:
+            out["value_labels"] = kept_vl
+        if truncated:
+            out["value_labels_truncated"] = truncated
+    formats = df.attrs.get("_formats")
+    if isinstance(formats, dict):
+        kept_fmt = {str(c): str(v) for c, v in formats.items() if str(c) in present}
+        if kept_fmt:
+            out["display_formats"] = kept_fmt
+    data_label = df.attrs.get("_data_label")
+    if data_label:
+        out["data_label"] = str(data_label)
+    return out
+
+
 def describe_frame(df: pd.DataFrame, *, head: int = HEAD_ROWS) -> Dict[str, Any]:
     """Compact, JSON-safe description of a DataFrame for an agent.
 
     Shape, dtypes, missing counts per column, the first ``head`` rows,
     and a numeric summary (mean / sd / min / max) for numeric columns.
-    Variable labels, value labels and the dataset label are included when
-    the frame carries them (a .dta loaded through the data loader does).
-    Bounded regardless of the frame's size, apart from the label maps,
-    which grow with the number of labelled columns.
+    Variable labels, value labels, informative display formats and the
+    dataset label are included when the frame carries them (a .dta loaded
+    through the data loader does); see :func:`_label_payload` for how they
+    are kept bounded.  Long strings in ``head`` are clipped.
     """
     n_rows, n_cols = df.shape
     dtypes = {str(c): str(t) for c, t in df.dtypes.items()}
     missing = {str(c): int(v) for c, v in df.isna().sum().items() if int(v) > 0}
     head_rows = [
-        {str(k): _jsonable_scalar(v) for k, v in row.items()}
+        {str(k): _clip_head_value(_jsonable_scalar(v)) for k, v in row.items()}
         for row in df.head(head).to_dict(orient="records")
     ]
     numeric: Dict[str, Dict[str, Any]] = {}
@@ -166,24 +242,7 @@ def describe_frame(df: pd.DataFrame, *, head: int = HEAD_ROWS) -> Dict[str, Any]
     # Stata / SPSS metadata carried in attrs: without it a column called
     # ``v12`` holding codes 1-5 tells an agent nothing.  Only present keys
     # are emitted, so frames without labels describe exactly as before.
-    present = {str(c) for c in df.columns}
-    labels = df.attrs.get("_labels")
-    if isinstance(labels, dict):
-        kept = {str(c): str(v) for c, v in labels.items() if str(c) in present}
-        if kept:
-            out["variable_labels"] = kept
-    value_labels = df.attrs.get("_value_labels")
-    if isinstance(value_labels, dict):
-        kept_vl = {
-            str(c): {str(k): str(v) for k, v in m.items()}
-            for c, m in value_labels.items()
-            if str(c) in present and isinstance(m, dict)
-        }
-        if kept_vl:
-            out["value_labels"] = kept_vl
-    data_label = df.attrs.get("_data_label")
-    if data_label:
-        out["data_label"] = str(data_label)
+    out.update(_label_payload(df))
     return out
 
 

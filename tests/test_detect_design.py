@@ -313,3 +313,77 @@ class TestCandidatesList:
         out = sp.detect_design(balanced_panel)
         designs = {c["design"] for c in out["candidates"]}
         assert "cross_section" in designs
+
+
+class TestRoleHints:
+    """Names and variable labels are reported as hints, never as decisions."""
+
+    def _panel(self):
+        return pd.DataFrame(
+            {
+                "v1": np.repeat(np.arange(40), 5),
+                "v2": np.tile(np.arange(2015, 2020), 40),
+                "v3": np.tile([0, 0, 1, 1, 1], 40),
+                "v4": np.random.default_rng(0).standard_normal(200),
+            }
+        )
+
+    def test_opaque_names_get_hints_from_variable_labels(self):
+        df = self._panel()
+        sp.label_vars(
+            df,
+            {
+                "v1": "Firm identifier",
+                "v2": "Fiscal year",
+                "v3": "Covered by the pilot reform",
+                "v4": "Log sales",
+            },
+        )
+        hints = {(h["column"], h["role"]) for h in sp.detect_design(df)["role_hints"]}
+        assert hints == {("v1", "unit"), ("v2", "time"), ("v3", "treatment")}
+        by_col = {h["column"]: h for h in sp.detect_design(df)["role_hints"]}
+        assert by_col["v2"]["source"] == "label"
+        assert by_col["v2"]["label"] == "Fiscal year"
+
+    def test_hints_do_not_change_the_detected_design(self):
+        plain = self._panel()
+        labelled = self._panel()
+        # Labels that point the wrong way round must not move the result.
+        sp.label_vars(labelled, {"v1": "Survey year", "v2": "Firm identifier"})
+        a, b = sp.detect_design(plain), sp.detect_design(labelled)
+        for key in ("design", "confidence", "identified", "candidates"):
+            assert a[key] == b[key]
+
+    def test_no_hints_key_when_nothing_matches(self):
+        df = pd.DataFrame({"x": [1.0, 2.0, 3.0], "y": [2.0, 1.0, 0.0]})
+        assert "role_hints" not in sp.detect_design(df)
+
+    def test_whole_word_matching(self):
+        df = pd.DataFrame(
+            {
+                "paid": [1.0, 2.0, 3.0],  # contains "id"
+                "valid": [0, 1, 0],
+                "weighted_avg": [1.0, 2.0, 3.0],  # "weighted" is not "weight"
+                "firmId": [1, 2, 3],
+                "survey_weight": [1.0, 1.5, 2.0],
+            }
+        )
+        hints = {
+            (h["column"], h["role"]) for h in sp.detect_design(df).get("role_hints", [])
+        }
+        assert hints == {("firmId", "unit"), ("survey_weight", "weight")}
+
+    def test_chinese_labels(self):
+        df = pd.DataFrame({"a": [1, 2, 3], "b": [2019, 2020, 2021], "c": [0, 1, 1]})
+        sp.label_vars(df, {"a": "企业代码", "b": "年份", "c": "是否为试点城市"})
+        hints = {(h["column"], h["role"]) for h in sp.detect_design(df)["role_hints"]}
+        assert ("a", "unit") in hints and ("b", "time") in hints
+        assert ("c", "treatment") in hints
+
+    def test_name_wins_over_label_and_one_hint_per_role(self):
+        df = pd.DataFrame({"year": [2019, 2020, 2021]})
+        sp.label_var(df, "year", "Calendar year of the survey wave")
+        hints = sp.detect_design(df)["role_hints"]
+        assert [(h["role"], h["source"], h["matched"]) for h in hints] == [
+            ("time", "name", "year")
+        ]

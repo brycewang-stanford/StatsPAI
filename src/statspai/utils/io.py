@@ -16,6 +16,7 @@ This addresses the #1 pain point for Stata → Python migration:
 pandas' ``read_stata()`` loses variable labels silently.
 """
 
+import re
 import warnings
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
@@ -117,6 +118,9 @@ def _read_stata(path: str, **kwargs: Any) -> pd.DataFrame:
         df.attrs["_value_labels"] = meta.variable_value_labels
     if getattr(meta, "file_label", None):
         df.attrs["_data_label"] = meta.file_label
+    formats = _informative_formats(getattr(meta, "original_variable_types", None) or {})
+    if formats:
+        df.attrs["_formats"] = formats
     return df
 
 
@@ -137,8 +141,8 @@ def stata_label_attrs(path: Any, columns: Optional[list] = None) -> Dict[str, An
     """Label metadata of a .dta file, without loading its rows.
 
     Returns the ``attrs`` entries :func:`read_data` would set
-    (``_labels`` / ``_value_labels`` / ``_data_label``, each only when
-    present), restricted to ``columns`` if given.  Used by readers that
+    (``_labels`` / ``_value_labels`` / ``_data_label`` / ``_formats``, each
+    only when present), restricted to ``columns`` if given.  Used by readers that
     stream the rows in chunks and so cannot go through ``read_data``.
     """
     with pd.read_stata(
@@ -149,22 +153,41 @@ def stata_label_attrs(path: Any, columns: Optional[list] = None) -> Dict[str, An
         return _stata_reader_attrs(reader, list(columns))
 
 
+def _per_variable(reader: Any, attribute: str, columns: list) -> Dict[Any, Any]:
+    """A private per-variable list of a pandas ``StataReader``, keyed by name.
+
+    pandas keeps ``_lbllist`` / ``_fmtlist`` in file order for every variable
+    until rows are read; a read with ``columns=`` then narrows them to the
+    selected columns, in the order requested, while ``_varlist`` stays whole.
+    Both layouts are handled; anything else (the attribute is gone in a
+    future pandas) yields ``{}`` and the caller degrades.
+    """
+    values = getattr(reader, attribute, None) or []
+    all_names = getattr(reader, "_varlist", None) or []
+    if len(values) == len(all_names):
+        return dict(zip(all_names, values))
+    if len(values) == len(columns):
+        return dict(zip(columns, values))
+    return {}
+
+
 def _stata_reader_attrs(reader: Any, columns: list) -> Dict[str, Any]:
     """``attrs`` for the variables in ``columns``, read from an open reader."""
     var_labels = reader.variable_labels()
     label_sets = reader.value_labels()
     # value_labels() is keyed by label-set name; map sets to variables.
-    lbl_names = getattr(reader, "_lbllist", None) or []
-    if len(lbl_names) != len(columns):
-        # Private attribute gone in a future pandas: fall back to the common
-        # Stata convention of naming a label set after its variable.
-        lbl_names = [c if c in label_sets else "" for c in columns]
+    set_of = _per_variable(reader, "_lbllist", columns)
+    if not set_of:
+        # Fall back to the common Stata convention of naming a label set
+        # after its variable.
+        set_of = {c: c for c in columns if c in label_sets}
     attrs: Dict[str, Any] = {}
     labels = {c: var_labels[c] for c in columns if var_labels.get(c)}
     if labels:
         attrs["_labels"] = labels
     value_labels = {}
-    for col, lbl in zip(columns, lbl_names):
+    for col in columns:
+        lbl = set_of.get(col)
         if lbl and lbl in label_sets:
             value_labels[col] = {
                 (k.item() if hasattr(k, "item") else k): v
@@ -175,7 +198,32 @@ def _stata_reader_attrs(reader: Any, columns: list) -> Dict[str, Any]:
     data_label = getattr(reader, "data_label", "")
     if data_label:
         attrs["_data_label"] = data_label
+    formats = _informative_formats(
+        {
+            c: f
+            for c, f in _per_variable(reader, "_fmtlist", columns).items()
+            if c in columns
+        }
+    )
+    if formats:
+        attrs["_formats"] = formats
     return attrs
+
+
+#: Formats that say nothing beyond the storage type: Stata's defaults for
+#: numerics (``%9.0g``, ``%8.0g``, ``%10.0g``, ``%12.0g``) and for strings
+#: (``%9s``, ``%18s``).  Anything else is worth keeping: ``%td`` / ``%tm`` /
+#: ``%tq`` name the time unit of a date, ``%12.2fc`` marks money.
+_DEFAULT_FORMAT_RE = re.compile(r"^%-?\d+(\.0g|s)$")
+
+
+def _informative_formats(formats: Dict[str, Any]) -> Dict[str, str]:
+    """Keep only display formats that carry information (see above)."""
+    return {
+        str(col): str(fmt)
+        for col, fmt in formats.items()
+        if isinstance(fmt, str) and fmt and not _DEFAULT_FORMAT_RE.match(fmt)
+    }
 
 
 def _restore_value_label_keys(df: pd.DataFrame) -> None:
