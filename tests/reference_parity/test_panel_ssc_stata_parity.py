@@ -140,7 +140,8 @@ def test_default_scaling_is_unchanged(data):
     )
     res = sp.panel(data, "y ~ x1 + x2", entity="id", time="t", cluster="entity")
     np.testing.assert_allclose(res.std_errors, lm.std_errors, rtol=1e-14)
-    assert "ssc" not in res.model_info
+    # The default is named, not left blank (numbers above are unchanged).
+    assert res.model_info["ssc"] == "linearmodels"
     assert (
         abs(
             res.std_errors["x1"] / _fit(data, "fe_cluster_id", "stata").std_errors["x1"]

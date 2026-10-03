@@ -1433,7 +1433,18 @@ def _binding_n_clusters(
     return int(data[cluster].nunique())
 
 
-def _maybe_warn_few_clusters(n_clusters: int, cluster: Optional[str]) -> None:
+#: What ``ssc=None`` computes. Measured against ``ssc='stata'`` in
+#: ``tests/test_panel_vce_contract.py``.
+_LINEARMODELS_REFERENCE = (
+    "linearmodels scaling: N/(N-k) on the covariance, no G/(G-1) cluster factor, "
+    "tests referred to N - K degrees of freedom. ssc='stata' gives xtreg's "
+    "G/(G-1) factor and t(G-1); ssc='fixest' gives R fixest's."
+)
+
+
+def _maybe_warn_few_clusters(
+    n_clusters: int, cluster: Optional[str], default_convention: bool = False
+) -> None:
     """Emit a typed, actionable warning when cluster-robust SEs rest on too
     few clusters (Cameron-Gelbach-Miller 2008; MacKinnon-Webb 2017)."""
     from ..core._agent_summary import _FEW_CLUSTERS_MIN
@@ -1449,6 +1460,13 @@ def _maybe_warn_few_clusters(n_clusters: int, cluster: Optional[str]) -> None:
                 "Report sp.wild_cluster_bootstrap (or sp.wild_cluster_ci_inv "
                 "for CIs), which keeps correct size when the number of "
                 "clusters is small."
+                + (
+                    " The default small-sample convention applies no "
+                    "G/(G-1) factor and refers tests to N - K degrees of "
+                    "freedom; ssc='stata' uses xtreg's factor and t(G-1)."
+                    if default_convention
+                    else ""
+                )
             ),
             diagnostics={"n_clusters": int(n_clusters), "threshold": _FEW_CLUSTERS_MIN},
             alternative_functions=[
@@ -1504,9 +1522,16 @@ def _convert_lm_result(
         model_info["ssc_reference"] = ssc_inf.reference
         model_info["vce_type"] = ssc_inf.vce
         n_clusters = ssc_inf.n_clusters
+    else:
+        # The default is a convention too; say which one, so a reader of
+        # the result does not have to know that ``ssc=None`` means this.
+        model_info["ssc"] = "linearmodels"
+        model_info["ssc_reference"] = _LINEARMODELS_REFERENCE
     if n_clusters is not None:
         model_info["n_clusters"] = n_clusters
-        _maybe_warn_few_clusters(n_clusters, cluster)
+        _maybe_warn_few_clusters(
+            n_clusters, cluster, default_convention=ssc_inf is None
+        )
 
     data_info = {
         "nobs": int(lm_result.nobs),

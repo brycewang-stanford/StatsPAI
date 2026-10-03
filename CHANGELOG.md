@@ -612,6 +612,18 @@ Agent-surface hardening from the 2026-10-02 repository review
 (`docs/dev/2026-10-02-review-status.md` tracks every item). No estimator
 changes its numbers.
 
+- **`sp.panel` names its default small-sample convention.** With no
+  `ssc=` the result now carries `model_info['ssc'] = 'linearmodels'` and a
+  one-line description (`N/(N-k)` on the covariance, no `G/(G-1)` cluster
+  factor, tests on `N - K` degrees of freedom); before, the field was
+  absent and a reader had to know what its absence meant. The
+  few-cluster warning now adds that `ssc='stata'` gives `xtreg`'s factor
+  and `t(G-1)`. The default itself is unchanged, and so is every number:
+  it is a documented convention, `ssc='stata'` and `ssc='fixest'` reproduce
+  `xtreg` and `fixest`, and the joint test that showed the difference
+  (p = 0.0017 against Stata's 0.0040 on 60 clusters) is pinned in
+  `tests/reference_parity/test_joint_wald_stata_parity.py`.
+
 ### ⚠️ Correctness
 
 - **`sp.panel(vce=...)` silently ignored any value outside its extended
