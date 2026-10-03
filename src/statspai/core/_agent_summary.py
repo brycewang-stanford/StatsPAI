@@ -151,6 +151,84 @@ def effective_n_clusters(keys: Any) -> float:
 _FEW_TREATED_MIN = 10
 
 
+#: Kish effective sample size below which a weighted HC0 / HC1 interval
+#: is visibly too short (``tests/reliability/extreme_weights.py``: 93%
+#: coverage at 82, 88% at 53, 84% at 17, while HC3 stays at 93% to 94%).
+_FEW_EFFECTIVE_OBS = 100
+
+
+def kish_effective_n(weights: Any) -> float:
+    """Kish effective sample size ``(sum w)^2 / sum w^2`` of a weight vector."""
+    w = np.asarray(weights, dtype=float).ravel()
+    denom = float((w**2).sum())
+    return float(w.sum() ** 2 / denom) if denom > 0 else 0.0
+
+
+def warn_if_weights_extreme(weights: Any, variance: str, stacklevel: int = 3) -> float:
+    """Kish effective sample size; warn where the study found intervals short.
+
+    ``variance`` is ``"classical"``, ``"hc0"`` / ``"hc1"`` / ``"hc2"``, or anything
+    else (no warning). Two findings of
+    ``tests/reliability/extreme_weights.py`` (2,000 replications a cell):
+
+    * the classical weighted variance is right when the weights are
+      precisions (``Var(e) = 1 / w``) and badly wrong when they are
+      sampling weights: 78% coverage of a 95% interval at a Kish ratio of
+      0.4, 34% to 47% at 0.05 to 0.09;
+    * HC1 and HC2 are right in large effective samples and too short in
+      small ones (84% and 90% at a Kish size of 17), where HC3 holds.
+    """
+    import warnings
+
+    from ..exceptions import AssumptionWarning
+
+    w = np.asarray(weights, dtype=float).ravel()
+    n = int(w.size)
+    n_eff = kish_effective_n(w)
+    if n == 0:
+        return n_eff
+    ratio = n_eff / n
+    diagnostics = {"n_obs": n, "n_effective_weights": n_eff, "kish_ratio": ratio}
+    if variance == "classical" and ratio < 0.5:
+        warnings.warn(
+            AssumptionWarning(
+                f"The weights are dispersed (Kish effective sample size "
+                f"{n_eff:.0f} of {n}) and the standard errors are the "
+                "classical weighted ones, which assume the weights are "
+                "precisions (error variance proportional to 1 / w). If they "
+                "are sampling weights these intervals are far too short.",
+                recovery_hint=(
+                    "For sampling or inverse-probability weights pass "
+                    "robust='hc1' (Stata [pw=]), or vce='hc3' when the "
+                    "effective sample is small. Keep the default only for "
+                    "analytic weights (Stata [aw=]). See "
+                    "tests/reliability/extreme_weights_results.json."
+                ),
+                diagnostics=diagnostics,
+                alternative_functions=["sp.regress"],
+            ),
+            stacklevel=stacklevel,
+        )
+    elif (
+        variance in ("hc0", "hc1", "hc2") and n_eff < _FEW_EFFECTIVE_OBS and ratio < 0.5
+    ):
+        warnings.warn(
+            AssumptionWarning(
+                f"A few observations carry most of the weight (Kish effective "
+                f"sample size {n_eff:.0f} of {n}): {variance.upper()} "
+                "intervals are too short in that case.",
+                recovery_hint=(
+                    "Use vce='hc3', which held its coverage in the same "
+                    "designs; see tests/reliability/extreme_weights_results.json."
+                ),
+                diagnostics=diagnostics,
+                alternative_functions=["sp.regress"],
+            ),
+            stacklevel=stacklevel,
+        )
+    return n_eff
+
+
 def warn_if_clusters_unequal(keys: Any, cluster: Any, stacklevel: int = 3) -> float:
     """Effective number of clusters; warn when the count hides how few.
 

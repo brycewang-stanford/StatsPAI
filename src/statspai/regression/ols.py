@@ -1167,6 +1167,18 @@ class OLSRegression(BaseModel):
         }
         if kwargs.get("weights", None) is not None:
             model_info["weighted"] = True
+            from ..core._agent_summary import warn_if_weights_extreme
+
+            _kind = str(robust).lower() if isinstance(robust, str) else "other"
+            if cluster_var is not None:
+                _kind = "cluster"
+            elif _kind == "nonrobust":
+                _kind = "classical"
+            elif _kind == "robust":
+                _kind = "hc1"
+            model_info["n_effective_weights"] = warn_if_weights_extreme(
+                kwargs["weights"], _kind
+            )
         if omitted:
             model_info["omitted"] = omitted
         if cluster_var is not None:

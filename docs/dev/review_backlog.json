@@ -443,13 +443,16 @@
         "tests/reliability/few_clusters.py",
         "tests/reliability/few_clusters_results.json",
         "tests/reliability/README.md",
-        "src/statspai/core/_agent_summary.py"
+        "src/statspai/core/_agent_summary.py",
+        "tests/reliability/extreme_weights.py",
+        "tests/reliability/extreme_weights_results.json"
       ],
       "tests": [
-        "tests/test_reliability_few_clusters.py"
+        "tests/test_reliability_few_clusters.py",
+        "tests/test_reliability_extreme_weights.py"
       ],
-      "note": "做了少簇这一项（`tests/reliability/few_clusters.py`，设计在第一次运行前写进脚本：G = 6/10/20/40 × 处理簇占一半或只有两个 × 簇大小均衡或一个大簇占一半样本，每格 2,000 次，四种推断方法的真零假设拒绝率）。结论：均衡且一半处理时各方法到 40 簇都正常；一个大簇占一半样本时 CR1 的拒绝率随 G 上升到 36%，wild bootstrap 到 13%，CR3 稳在 3–5%；只有两个处理簇时 wild bootstrap 几乎从不拒绝。据此把少簇警告里“wild bootstrap 保持正确水平”的说法改成有证据的表述。仿真第二组设计（簇大小 2:1、对数正态 σ=0.5 / 1，40 和 60 簇）给出“按规模算的有效簇数”与 CR1 拒绝率的对应：有效簇数 30 以上约 6%，26 时 8%，18 时 10%。据此 `sp.regress` 现在记录 `n_clusters_effective`，并在“簇数 ≥ 30 但有效簇数 < 30”时警告，补上了大簇占优这一种漏报。少处理簇的情形另加了一个诊断：簇层面的 0/1 解释变量若一侧不足 10 个簇且不到全部簇的四分之一，`sp.regress` 警告并记录 `few_treated_clusters`（分类变量的水平哑变量不算；超过三列视为手工簇哑变量，只记录不警告）。仿真第一次跑时 CR2 / CR3 用的是正态参考，6 个均衡簇时 CR2 拒绝 12%。查下来 Stata 对这几种方差报的是 t(G−1)，我们的标准误对得上、p 值对不上；已把 `sp.regress` / `sp.feols` / `sp.ivreg` 的 CR2、CR3 和双向聚类改成 t(G−1)（⚠️），重跑后 CR2 为 6%、CR3 为 3%。没做的：不平衡面板、RD mass points、极端权重、学习器变化。 有效簇数诊断已接到 `sp.panel` / `sp.hdfe_ols` / `sp.feols`：仿真第三组（40 个单位的固定效应面板）里，均衡时拒绝率 5.5%，一个单位占一半观测时 21.8%。少处理簇诊断仍只在 `sp.regress`。",
-      "next": "其余四类仿真（不平衡面板的处理时点、RD mass points、极端权重、学习器变化）各自先写设计再跑"
+      "note": "做了少簇这一项（`tests/reliability/few_clusters.py`，设计在第一次运行前写进脚本：G = 6/10/20/40 × 处理簇占一半或只有两个 × 簇大小均衡或一个大簇占一半样本，每格 2,000 次，四种推断方法的真零假设拒绝率）。结论：均衡且一半处理时各方法到 40 簇都正常；一个大簇占一半样本时 CR1 的拒绝率随 G 上升到 36%，wild bootstrap 到 13%，CR3 稳在 3–5%；只有两个处理簇时 wild bootstrap 几乎从不拒绝。据此把少簇警告里“wild bootstrap 保持正确水平”的说法改成有证据的表述。仿真第二组设计（簇大小 2:1、对数正态 σ=0.5 / 1，40 和 60 簇）给出“按规模算的有效簇数”与 CR1 拒绝率的对应：有效簇数 30 以上约 6%，26 时 8%，18 时 10%。据此 `sp.regress` 现在记录 `n_clusters_effective`，并在“簇数 ≥ 30 但有效簇数 < 30”时警告，补上了大簇占优这一种漏报。少处理簇的情形另加了一个诊断：簇层面的 0/1 解释变量若一侧不足 10 个簇且不到全部簇的四分之一，`sp.regress` 警告并记录 `few_treated_clusters`（分类变量的水平哑变量不算；超过三列视为手工簇哑变量，只记录不警告）。仿真第一次跑时 CR2 / CR3 用的是正态参考，6 个均衡簇时 CR2 拒绝 12%。查下来 Stata 对这几种方差报的是 t(G−1)，我们的标准误对得上、p 值对不上；已把 `sp.regress` / `sp.feols` / `sp.ivreg` 的 CR2、CR3 和双向聚类改成 t(G−1)（⚠️），重跑后 CR2 为 6%、CR3 为 3%。没做的：不平衡面板、RD mass points、极端权重、学习器变化。 有效簇数诊断已接到 `sp.panel` / `sp.hdfe_ols` / `sp.feols`：仿真第三组（40 个单位的固定效应面板）里，均衡时拒绝率 5.5%，一个单位占一半观测时 21.8%。少处理簇诊断仍只在 `sp.regress`。 第二项仿真是极端权重（`tests/reliability/extreme_weights.py`，n = 200 / 1000 × 对数正态权重 σ = 0 / 1 / 2 × 权重是精度还是抽样权重，每格 2,000 次，四种方差的 95% 区间覆盖率）。结论：只给 `weights=` 的经典加权方差在精度权重下正确，在抽样权重下覆盖率掉到 78%（Kish 比 0.4）和 34–47%（Kish 比 0.05–0.09）；HC1 在 Kish 有效样本量 53 时 88%、17 时 84%，HC3 稳在 93–94%。据此 `sp.regress` 记录 `n_effective_weights` 并在这两种情形下警告。",
+      "next": "剩下三类仿真（不平衡面板的处理时点、RD mass points、学习器变化）各自先写设计再跑；权重诊断接到 `sp.panel` / `sp.feols` / 计数模型"
     },
     {
       "id": "R5",
@@ -459,13 +462,16 @@
         "tests/reliability/few_clusters.py",
         "tests/reliability/few_clusters_results.json",
         "tests/reliability/README.md",
-        "src/statspai/core/_agent_summary.py"
+        "src/statspai/core/_agent_summary.py",
+        "tests/reliability/extreme_weights.py",
+        "tests/reliability/extreme_weights_results.json"
       ],
       "tests": [
-        "tests/test_reliability_few_clusters.py"
+        "tests/test_reliability_few_clusters.py",
+        "tests/test_reliability_extreme_weights.py"
       ],
-      "note": "做了少簇这一项（`tests/reliability/few_clusters.py`，设计在第一次运行前写进脚本：G = 6/10/20/40 × 处理簇占一半或只有两个 × 簇大小均衡或一个大簇占一半样本，每格 2,000 次，四种推断方法的真零假设拒绝率）。结论：均衡且一半处理时各方法到 40 簇都正常；一个大簇占一半样本时 CR1 的拒绝率随 G 上升到 36%，wild bootstrap 到 13%，CR3 稳在 3–5%；只有两个处理簇时 wild bootstrap 几乎从不拒绝。据此把少簇警告里“wild bootstrap 保持正确水平”的说法改成有证据的表述。仿真第二组设计（簇大小 2:1、对数正态 σ=0.5 / 1，40 和 60 簇）给出“按规模算的有效簇数”与 CR1 拒绝率的对应：有效簇数 30 以上约 6%，26 时 8%，18 时 10%。据此 `sp.regress` 现在记录 `n_clusters_effective`，并在“簇数 ≥ 30 但有效簇数 < 30”时警告，补上了大簇占优这一种漏报。少处理簇的情形另加了一个诊断：簇层面的 0/1 解释变量若一侧不足 10 个簇且不到全部簇的四分之一，`sp.regress` 警告并记录 `few_treated_clusters`（分类变量的水平哑变量不算；超过三列视为手工簇哑变量，只记录不警告）。仿真第一次跑时 CR2 / CR3 用的是正态参考，6 个均衡簇时 CR2 拒绝 12%。查下来 Stata 对这几种方差报的是 t(G−1)，我们的标准误对得上、p 值对不上；已把 `sp.regress` / `sp.feols` / `sp.ivreg` 的 CR2、CR3 和双向聚类改成 t(G−1)（⚠️），重跑后 CR2 为 6%、CR3 为 3%。没做的：不平衡面板、RD mass points、极端权重、学习器变化。 有效簇数诊断已接到 `sp.panel` / `sp.hdfe_ols` / `sp.feols`：仿真第三组（40 个单位的固定效应面板）里，均衡时拒绝率 5.5%，一个单位占一半观测时 21.8%。少处理簇诊断仍只在 `sp.regress`。",
-      "next": "其余四类仿真（不平衡面板的处理时点、RD mass points、极端权重、学习器变化）各自先写设计再跑"
+      "note": "做了少簇这一项（`tests/reliability/few_clusters.py`，设计在第一次运行前写进脚本：G = 6/10/20/40 × 处理簇占一半或只有两个 × 簇大小均衡或一个大簇占一半样本，每格 2,000 次，四种推断方法的真零假设拒绝率）。结论：均衡且一半处理时各方法到 40 簇都正常；一个大簇占一半样本时 CR1 的拒绝率随 G 上升到 36%，wild bootstrap 到 13%，CR3 稳在 3–5%；只有两个处理簇时 wild bootstrap 几乎从不拒绝。据此把少簇警告里“wild bootstrap 保持正确水平”的说法改成有证据的表述。仿真第二组设计（簇大小 2:1、对数正态 σ=0.5 / 1，40 和 60 簇）给出“按规模算的有效簇数”与 CR1 拒绝率的对应：有效簇数 30 以上约 6%，26 时 8%，18 时 10%。据此 `sp.regress` 现在记录 `n_clusters_effective`，并在“簇数 ≥ 30 但有效簇数 < 30”时警告，补上了大簇占优这一种漏报。少处理簇的情形另加了一个诊断：簇层面的 0/1 解释变量若一侧不足 10 个簇且不到全部簇的四分之一，`sp.regress` 警告并记录 `few_treated_clusters`（分类变量的水平哑变量不算；超过三列视为手工簇哑变量，只记录不警告）。仿真第一次跑时 CR2 / CR3 用的是正态参考，6 个均衡簇时 CR2 拒绝 12%。查下来 Stata 对这几种方差报的是 t(G−1)，我们的标准误对得上、p 值对不上；已把 `sp.regress` / `sp.feols` / `sp.ivreg` 的 CR2、CR3 和双向聚类改成 t(G−1)（⚠️），重跑后 CR2 为 6%、CR3 为 3%。没做的：不平衡面板、RD mass points、极端权重、学习器变化。 有效簇数诊断已接到 `sp.panel` / `sp.hdfe_ols` / `sp.feols`：仿真第三组（40 个单位的固定效应面板）里，均衡时拒绝率 5.5%，一个单位占一半观测时 21.8%。少处理簇诊断仍只在 `sp.regress`。 第二项仿真是极端权重（`tests/reliability/extreme_weights.py`，n = 200 / 1000 × 对数正态权重 σ = 0 / 1 / 2 × 权重是精度还是抽样权重，每格 2,000 次，四种方差的 95% 区间覆盖率）。结论：只给 `weights=` 的经典加权方差在精度权重下正确，在抽样权重下覆盖率掉到 78%（Kish 比 0.4）和 34–47%（Kish 比 0.05–0.09）；HC1 在 Kish 有效样本量 53 时 88%、17 时 84%，HC3 稳在 93–94%。据此 `sp.regress` 记录 `n_effective_weights` 并在这两种情形下警告。",
+      "next": "剩下三类仿真（不平衡面板的处理时点、RD mass points、学习器变化）各自先写设计再跑；权重诊断接到 `sp.panel` / `sp.feols` / 计数模型"
     },
     {
       "id": "G1",

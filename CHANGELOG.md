@@ -4,6 +4,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Reliability
+
+- **`sp.regress` reports the Kish effective sample size of the weights
+  and warns in two cases a new coverage study found.** With
+  `weights=` alone the standard errors are the classical weighted ones,
+  which assume precision weights. Under sampling weights the 95%
+  interval of a slope covered 78% of the time at a Kish ratio of 0.4 and
+  34% to 47% at 0.05 to 0.09 (`tests/reliability/extreme_weights.py`,
+  2,000 replications a cell); the fit now warns when the ratio is under
+  0.5 and says which reading each option corresponds to. HC1 covers 88%
+  at a Kish size of 53 and 84% at 17 where HC3 stays at 93% to 94%; HC0 /
+  HC1 / HC2 fits warn when the Kish size is under 100 and under half of
+  n. `model_info['n_effective_weights']` is recorded on every weighted
+  fit. No estimate or standard error changes.
+
 ## [1.37.0] — 2026-10-04
 
 Value labels now do something. A .dta file's value labels were read and

@@ -97,3 +97,47 @@ Rerun with `python tests/reliability/few_clusters.py` (about twenty
 minutes). `tests/test_reliability_few_clusters.py` recomputes one cell on
 its first 60 replications and checks the statements above against the
 stored file.
+
+## Extreme weights (`extreme_weights.py`)
+
+Coverage of the 95% interval for a slope in `sp.regress(weights=)`,
+2,000 replications per cell (Monte Carlo standard error about 0.005).
+Weights are log-normal; "precision" errors have variance `1 / w` (what
+analytic weights assume), "sampling" errors have the same variance for
+every row (the survey reading). Kish n is `(sum w)^2 / sum w^2`.
+
+| errors | n | sigma of log w | Kish n (median) | classical | HC1 | HC2 | HC3 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| precision | 200 | 0 | 200 | 0.946 | 0.941 | 0.942 | 0.942 |
+| precision | 200 | 1 | 82 | 0.943 | 0.938 | 0.941 | 0.946 |
+| precision | 200 | 2 | 17 | 0.948 | 0.910 | 0.928 | 0.942 |
+| precision | 1000 | 0 | 1000 | 0.946 | 0.945 | 0.945 | 0.945 |
+| precision | 1000 | 1 | 382 | 0.954 | 0.955 | 0.956 | 0.957 |
+| precision | 1000 | 2 | 52 | 0.943 | 0.930 | 0.935 | 0.943 |
+| sampling | 200 | 0 | 200 | 0.945 | 0.944 | 0.946 | 0.947 |
+| sampling | 200 | 1 | 82 | 0.783 | 0.929 | 0.934 | 0.941 |
+| sampling | 200 | 2 | 17 | 0.471 | 0.842 | 0.895 | 0.939 |
+| sampling | 1000 | 0 | 1000 | 0.950 | 0.953 | 0.953 | 0.953 |
+| sampling | 1000 | 1 | 383 | 0.770 | 0.938 | 0.940 | 0.942 |
+| sampling | 1000 | 2 | 53 | 0.340 | 0.878 | 0.911 | 0.932 |
+
+What the table says:
+
+- With equal weights every variance covers at its nominal level.
+- The classical weighted variance, which is what `weights=` alone gives,
+  is right under precision weights at any dispersion and wrong under
+  sampling weights: 77% to 78% coverage when the Kish size is about 0.4
+  of n, 34% to 47% when it is 0.05 to 0.09 of n. The two cases cannot be
+  told apart from the data; the user has to know what the weights are.
+- HC1 covers 93% to 95% when the Kish size is 80 or more and falls to
+  88% at 53 and 84% at 17. HC2 is in between. HC3 stays at 93% to 94%
+  throughout.
+
+`sp.regress` therefore records `model_info['n_effective_weights']` and
+warns in two cases: classical standard errors with a Kish ratio under
+0.5, and HC0 / HC1 / HC2 with a Kish size under 100 that is also under
+half of n.
+
+Rerun with `python tests/reliability/extreme_weights.py` (a few minutes).
+`tests/test_reliability_extreme_weights.py` recomputes one cell on its
+first 60 replications and checks the statements above.
