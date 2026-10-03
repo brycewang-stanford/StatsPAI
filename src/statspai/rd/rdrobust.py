@@ -31,6 +31,7 @@ from ..exceptions import (
     ConvergenceFailure,
     DataInsufficient,
     MethodIncompatibility,
+    NumericalInstability,
 )
 
 Bandwidth = Union[float, Tuple[float, float]]
@@ -829,6 +830,32 @@ def rdrobust(
             cl_vals_all = cl_vals_all[_donut_keep]
     else:
         cl_vals_all = None
+    if cl_vals_all is not None and len(cl_vals_all) == len(X_c):
+        _per_cluster = pd.Series(X_c).groupby(pd.Series(cl_vals_all).to_numpy())
+        _n_cl = int(_per_cluster.ngroups)
+        if _n_cl < len(X_c) and int(_per_cluster.nunique().max()) == 1:
+            # One cluster per support point of the running variable. In
+            # tests/reliability/rd_mass_points.py the robust interval then
+            # covers 84-86% at 50 support points a side, 65-69% at 20 and
+            # 22-32% at 5, against 94-96% without the clustering.
+            warnings.warn(
+                AssumptionWarning(
+                    f"rdrobust: cluster='{cluster}' has one value of the "
+                    "running variable per cluster. Clustering on the support "
+                    "points of a discrete running variable makes the "
+                    "interval too short, not more honest.",
+                    recovery_hint=(
+                        "Drop cluster= (the heteroskedasticity-robust interval "
+                        "held its coverage down to 20 support points a side), "
+                        "or use sp.rd_discrete for honest intervals with a "
+                        "discrete running variable. See "
+                        "tests/reliability/rd_mass_points_results.json."
+                    ),
+                    diagnostics={"n_clusters": _n_cl, "n_obs": int(len(X_c))},
+                    alternative_functions=["sp.rd_discrete"],
+                ),
+                stacklevel=2,
+            )
 
     # A covariate collinear with the polynomial basis leaves the covariate
     # adjustment unidentified, and NumPy's Cholesky accepts the singular
@@ -839,6 +866,8 @@ def rdrobust(
 
     h_auto = h is None
     _cct: Optional[dict] = None
+    #: steps that fell back to the legacy implementation (warned, recorded)
+    _fallbacks: List[str] = []
     if h_auto:
         try:
             from ._cct_bandwidth import cct_bandwidth
@@ -859,14 +888,32 @@ def rdrobust(
                 weights=W_obs,
                 masspoints=masspoints,
             )
-        except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
+        except NumericalInstability:
+            # The selector says the bandwidth is undefined on this sample;
+            # another selector's number would not be rdrobust's.
+            raise
+        except (
+            ValueError,
+            IndexError,
+            ZeroDivisionError,
+            np.linalg.LinAlgError,
+        ) as exc:
             # Degenerate data (empty side, singular design, kernel/bwselect
             # rejected): fall back to the legacy selector rather than failing
             # the whole estimate -- except for a weighted fit, which the
             # legacy selector would silently treat as unweighted.
             if W_obs is not None:
                 raise
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "rdrobust bandwidth selector",
+                exc,
+                "using the legacy plug-in selector, whose bandwidth is not "
+                "the one R / Stata rdrobust would report",
+            )
             _cct = None
+            _fallbacks.append("bandwidth_selector")
 
     if h is None:
         if _cct is not None:
@@ -965,10 +1012,25 @@ def rdrobust(
             )
             # (tau_conv, tau_bc, se_conv, se_robust)
             _tau_bc_cct = _cctvals
-        except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
+        except NumericalInstability:
+            raise
+        except (
+            ValueError,
+            IndexError,
+            ZeroDivisionError,
+            np.linalg.LinAlgError,
+        ) as exc:
             if W_obs is not None:
                 raise
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "rdrobust bias-corrected fit",
+                exc,
+                "using the legacy local-polynomial estimate and variance",
+            )
             _tau_bc_cct = None
+            _fallbacks.append("bias_corrected_fit")
 
     tau_bc, se_robust, _, _ = _rd_estimate(
         Y,
@@ -1083,6 +1145,25 @@ def rdrobust(
         tau_conv, tau_bc = tau_conv * scalepar, tau_bc * scalepar
         se_conv, se_robust = se_conv * abs(scalepar), se_robust * abs(scalepar)
 
+    if not (np.isfinite(se_conv) and np.isfinite(se_robust)):
+        # A NaN standard error used to be returned with a NaN interval.
+        raise NumericalInstability(
+            "rdrobust: the standard error is not finite on this sample (too "
+            "few distinct values of the running variable inside the "
+            "bandwidth for the polynomial order).",
+            recovery_hint=(
+                "Use a larger bandwidth or a lower polynomial order, or a "
+                "method built for a discrete running variable "
+                "(sp.rd_discrete, sp.rdrandinf)."
+            ),
+            diagnostics={
+                "se_conventional": float(se_conv),
+                "se_robust": float(se_robust),
+                "fallbacks": list(_fallbacks),
+            },
+            alternative_functions=["sp.rd_discrete", "sp.rdrandinf"],
+        )
+
     # --- Inference ---
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
@@ -1129,6 +1210,7 @@ def rdrobust(
         # fed into the next estimate is the F3 defect from
         # sp.rdbwselect, one layer down.
         "bandwidth_h": h,
+        "legacy_fallbacks": list(_fallbacks),
         "bandwidth_b": b,
         "bwselect": bwselect if h_auto else "manual",
         "masspoints": mass_info,

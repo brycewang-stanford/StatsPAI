@@ -478,16 +478,51 @@ def _median3(a: float, b: float, d: float) -> float:
     return float(sorted((a, b, d))[1])
 
 
+def _bandwidth_from_ratio(ratio: float, rate: float) -> float:
+    """``ratio ** rate`` for a variance-to-squared-bias ratio.
+
+    The ratio is positive whenever the pilot regressions are well posed.
+    With a handful of support points and ``masspoints='off'`` the pilot
+    windows can hold too few distinct values: the variance or the bias
+    term comes out negative or undefined, and a fractional power of that
+    is a complex number (this used to surface as ``TypeError: float()
+    argument must be ... not 'complex'``).
+    """
+    if ratio < 0:
+        # (A zero or undefined ratio, as with a constant outcome, is left
+        # to the caller's bandwidth clamp, which handled it before.)
+        from ..exceptions import NumericalInstability
+
+        raise NumericalInstability(
+            "rdrobust: the data-driven bandwidth is not defined on this "
+            "sample (the pilot regressions are degenerate, as happens when "
+            "the running variable has only a few distinct values near the "
+            "cutoff).",
+            recovery_hint=(
+                "Keep masspoints='adjust' (the default), pass h= yourself, or "
+                "use a method built for a discrete running variable "
+                "(sp.rd_discrete, sp.rdrandinf)."
+            ),
+            diagnostics={"variance_bias_ratio": float(ratio)},
+            alternative_functions=["sp.rd_discrete", "sp.rdrandinf"],
+        )
+    return float(ratio**rate)
+
+
 def _combine(v_l: Dict, v_r: Dict, form: str, scale: float) -> float:
     """Assemble one side's or both sides' V/B/R into a bandwidth."""
     if form == "two_left":
-        return float((v_l["V"] / (v_l["B"] ** 2 + scale * v_l["R"])) ** v_l["rate"])
+        return _bandwidth_from_ratio(
+            v_l["V"] / (v_l["B"] ** 2 + scale * v_l["R"]), v_l["rate"]
+        )
     if form == "two_right":
-        return float((v_r["V"] / (v_r["B"] ** 2 + scale * v_r["R"])) ** v_r["rate"])
+        return _bandwidth_from_ratio(
+            v_r["V"] / (v_r["B"] ** 2 + scale * v_r["R"]), v_r["rate"]
+        )
     num = v_l["V"] + v_r["V"]
     bias = (v_r["B"] + v_l["B"]) if form == "sum" else (v_r["B"] - v_l["B"])
     den = bias**2 + scale * (v_r["R"] + v_l["R"])
-    return float((num / den) ** v_l["rate"])
+    return _bandwidth_from_ratio(num / den, v_l["rate"])
 
 
 def cct_bandwidth(
@@ -1116,8 +1151,32 @@ def cct_bias_corrected(
             V_rb = invG_p @ _vce_meat(Q_q.T, res_b, eC, q + 1) @ invG_p
         out.append((V_cl[deriv, deriv], V_rb[deriv, deriv]))
 
-    se_cl = fac * np.sqrt(out[0][0] + out[1][0])
-    se_rb = fac * np.sqrt(out[0][1] + out[1][1])
+    var_cl = out[0][0] + out[1][0]
+    var_rb = out[0][1] + out[1][1]
+    if not (np.isfinite(var_cl) and np.isfinite(var_rb)) or min(var_cl, var_rb) < 0:
+        from ..exceptions import NumericalInstability
+
+        # A negative or undefined variance used to come back as a NaN
+        # standard error and a NaN interval.
+        raise NumericalInstability(
+            "rdrobust: the variance of the local fit is negative or "
+            "undefined inside this bandwidth (too few distinct values of "
+            "the running variable for the polynomial order).",
+            recovery_hint=(
+                "Use a larger bandwidth or a lower polynomial order, keep "
+                "masspoints='adjust', or use sp.rd_discrete / sp.rdrandinf "
+                "for a discrete running variable."
+            ),
+            diagnostics={
+                "variance_conventional": float(var_cl),
+                "variance_robust": float(var_rb),
+                "h": float(h),
+                "b": float(b),
+            },
+            alternative_functions=["sp.rd_discrete", "sp.rdrandinf"],
+        )
+    se_cl = fac * np.sqrt(var_cl)
+    se_rb = fac * np.sqrt(var_rb)
     if components is not None:
         # The two sides' variances are computed separately above and then
         # summed. Sample-size calculation needs them *unsummed*: rdpower

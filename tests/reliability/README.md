@@ -141,3 +141,52 @@ half of n.
 Rerun with `python tests/reliability/extreme_weights.py` (a few minutes).
 `tests/test_reliability_extreme_weights.py` recomputes one cell on its
 first 60 replications and checks the statements above.
+
+## A discrete running variable (`rd_mass_points.py`)
+
+Coverage of the robust 95% interval of `sp.rdrobust` for a jump of 1,
+1,000 replications per cell (Monte Carlo standard error about 0.007 at
+95%). The running variable is uniform on (-1, 1), continuous or rounded
+to a number of equally spaced support points on each side; the regression
+function is a smooth cubic. "Refused" counts fits that raised a
+`NumericalInstability` or `DataInsufficient` error; coverage is over the
+fits that ran.
+
+| n | support points per side | default (`adjust`) | `masspoints='off'` | clustered on the support points |
+| ---: | --- | ---: | ---: | ---: |
+| 1000 | continuous | 0.944 | 0.944 | n/a |
+| 1000 | 50 | 0.955 | 0.955 | 0.856 |
+| 1000 | 20 | 0.955 | 0.956 | 0.691 |
+| 1000 | 10 | 0.888 | 0.949 (13 refused) | 0.631 |
+| 1000 | 5 | 0.891 (1 refused) | 0.733 (708 refused) | 0.320 |
+| 4000 | continuous | 0.943 | 0.943 | n/a |
+| 4000 | 50 | 0.941 | 0.940 | 0.844 |
+| 4000 | 20 | 0.937 | 0.936 | 0.648 |
+| 4000 | 10 | 0.689 | 0.919 (382 refused) | 0.451 |
+| 4000 | 5 | 0.710 | 0.604 (598 refused) | 0.224 |
+
+What the table says:
+
+- The default holds its coverage with a continuous running variable and
+  with 50 or 20 support points a side.
+- At 10 and 5 support points a side the default covers 89% at n = 1000
+  and 69% to 71% at n = 4000. The mass-point adjustment floors the pilot
+  bandwidth at the tenth distinct value from the cutoff, which at 10
+  points a side is the whole side: the conventional estimate is biased by
+  0.21 to 0.26 on a jump of 1, and more data narrows the interval around
+  the biased value. This is the reference behaviour (R `rdrobust` does
+  the same); `sp.rdrobust` already warns when the running variable has
+  fewer than 30 distinct values and points at `sp.rd_discrete`.
+- Clustering on the support points makes it worse at every level: 84% to
+  86% at 50 points a side, 65% to 69% at 20, 22% to 32% at 5.
+  `sp.rdrobust` now warns when each cluster holds a single value of the
+  running variable.
+- `masspoints='off'` treats the data as continuous. With 5 points a side
+  most fits are refused, and the ones that run have intervals thousands
+  of units long. Before this study those refusals were a
+  `TypeError: float() argument must be ... not 'complex'` and, in a few
+  cases, a NaN interval returned without an error.
+
+Rerun with `python tests/reliability/rd_mass_points.py` (about half an
+hour). `tests/test_reliability_rd_mass_points.py` recomputes one cell on
+its first 40 replications and checks the statements above.

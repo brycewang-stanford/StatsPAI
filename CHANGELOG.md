@@ -4,8 +4,38 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.rdrobust` with a few support points
+
+#### Fixed
+
+- **`sp.rdrobust(masspoints='off')` crashed with a complex number, or
+  returned a NaN interval, on a discrete running variable.** With five
+  support points a side the bandwidth selector took a fractional power of
+  a negative variance-to-bias ratio and stopped with `TypeError: float()
+  argument must be ... not 'complex'` in half the replications of a
+  simulation; in a few others a negative variance came back as a NaN
+  standard error and a NaN interval, with no error. Both now raise
+  `NumericalInstability` with a recovery hint (`masspoints='adjust'`, a
+  manual `h=`, or `sp.rd_discrete` / `sp.rdrandinf`). The default
+  `masspoints='adjust'` was not affected.
+- **A fall-back to the legacy bandwidth selector or estimator is no
+  longer silent.** When the CCT selector or the bias-corrected fit fails
+  on degenerate data and `sp.rdrobust` uses its older implementation
+  instead, it now warns and lists the step in
+  `model_info['legacy_fallbacks']`; an undefined bandwidth is raised
+  rather than replaced by another selector's number.
+
 ### Reliability
 
+- **A coverage study for `sp.rdrobust` on a discrete running variable**
+  (`tests/reliability/rd_mass_points.py`, 28 designs, 1,000 replications
+  each). The robust interval holds 94% to 96% down to 20 support points a
+  side and falls to 69% to 89% at 10 and 5, where the mass-point
+  bandwidth floor reaches the whole side; the existing warning for fewer
+  than 30 distinct values covers that range. Clustering on the support
+  points undercovers at every level (86% at 50 points a side, 22% at 5),
+  and `sp.rdrobust` now warns when each cluster holds a single value of
+  the running variable.
 - **`sp.regress` reports the Kish effective sample size of the weights
   and warns in two cases a new coverage study found.** With
   `weights=` alone the standard errors are the classical weighted ones,
