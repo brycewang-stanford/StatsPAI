@@ -1106,43 +1106,12 @@ class OLSRegression(BaseModel):
             from ..core._agent_summary import (
                 _FEW_CLUSTERS_MIN,
                 FEW_CLUSTERS_HINT,
-                effective_n_clusters,
                 few_treated_cluster_columns,
+                warn_if_clusters_unequal,
             )
 
             n_clusters_obs = int(pd.Series(cluster_var).nunique())
-            n_clusters_eff = effective_n_clusters(cluster_var)
-            if (
-                n_clusters_obs >= _FEW_CLUSTERS_MIN
-                and n_clusters_eff < _FEW_CLUSTERS_MIN
-            ):
-                # Enough clusters by count, few in effect: a handful of
-                # them hold most of the sample.
-                top_share = float(
-                    pd.Series(cluster_var).value_counts(normalize=True).iloc[0]
-                )
-                warnings.warn(
-                    AssumptionWarning(
-                        f"{n_clusters_obs} clusters for cluster='{cluster}', "
-                        f"but unequal in size: the effective number is "
-                        f"{n_clusters_eff:.1f} (< {_FEW_CLUSTERS_MIN}; the "
-                        f"largest holds {100 * top_share:.0f}% of the rows). "
-                        "Cluster-robust t-tests over-reject in that case as "
-                        "they do with few clusters.",
-                        recovery_hint=FEW_CLUSTERS_HINT,
-                        diagnostics={
-                            "n_clusters": n_clusters_obs,
-                            "n_clusters_effective": n_clusters_eff,
-                            "largest_cluster_share": top_share,
-                            "threshold": _FEW_CLUSTERS_MIN,
-                        },
-                        alternative_functions=[
-                            "sp.wild_cluster_bootstrap",
-                            "sp.wild_cluster_ci_inv",
-                        ],
-                    ),
-                    stacklevel=2,
-                )
+            n_clusters_eff = warn_if_clusters_unequal(cluster_var, cluster)
             few_treated = few_treated_cluster_columns(
                 self.X, self.var_names, cluster_var
             )

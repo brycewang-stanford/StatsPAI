@@ -1442,6 +1442,25 @@ _LINEARMODELS_REFERENCE = (
 )
 
 
+def _binding_cluster_keys(
+    cluster: Optional[str], entity: str, time: str, data: pd.DataFrame
+) -> Optional[pd.Series]:
+    """The one-way cluster key the CRVE rests on (``None`` for two-way)."""
+    if not cluster or cluster == "twoway":
+        return None
+    if cluster == "time" or cluster == time:
+        col = time
+    elif cluster in ("entity", entity) or cluster not in data.columns:
+        col = entity
+    else:
+        col = cluster
+    if col in data.columns:
+        return data[col]
+    if col in getattr(data.index, "names", ()):
+        return pd.Series(data.index.get_level_values(col))
+    return None
+
+
 def _maybe_warn_few_clusters(
     n_clusters: int, cluster: Optional[str], default_convention: bool = False
 ) -> None:
@@ -1530,6 +1549,13 @@ def _convert_lm_result(
         _maybe_warn_few_clusters(
             n_clusters, cluster, default_convention=ssc_inf is None
         )
+        _keys = _binding_cluster_keys(cluster, entity, time, raw_data)
+        if _keys is not None:
+            from ..core._agent_summary import warn_if_clusters_unequal
+
+            model_info["n_clusters_effective"] = warn_if_clusters_unequal(
+                _keys, cluster
+            )
 
     data_info = {
         "nobs": int(lm_result.nobs),

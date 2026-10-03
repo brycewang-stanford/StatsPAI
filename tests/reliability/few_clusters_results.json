@@ -508,5 +508,27 @@
     "mc_se": 0.0052477495176503994
    }
   }
+ ],
+ "panel_fixed_effects": [
+  {
+   "G": 40,
+   "sizes": "balanced",
+   "B": 2000,
+   "effective_clusters": 40.0,
+   "cr1": {
+    "rejection_rate": 0.055,
+    "mc_se": 0.005097793640389928
+   }
+  },
+  {
+   "G": 40,
+   "sizes": "dominant",
+   "B": 2000,
+   "effective_clusters": 3.9,
+   "cr1": {
+    "rejection_rate": 0.218,
+    "mc_se": 0.009232442797006652
+   }
+  }
  ]
 }

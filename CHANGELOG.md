@@ -378,6 +378,12 @@ evidence map listed as having none.
   clusters but fewer than 30 in effect. In the study CR1 is at 6% above
   30 effective clusters and at 8% to 10% at 26 and 18. No estimate or
   standard error changes.
+- **The effective-cluster warning also covers `sp.panel`, `sp.hdfe_ols`
+  and `sp.feols`.** In a fixed-effects panel of 40 units clustered by
+  unit, the cluster-robust t-test rejects a true null 5.5% of the time
+  when every unit has 8 periods and 21.8% when one unit has 312, so the
+  three entry points now record `n_clusters_effective` and raise the same
+  warning as `sp.regress` on one-way clustered fits.
 - **`sp.regress` warns about few treated clusters.** A regressor that is
   constant within clusters and takes the values 0 and 1 is a
   cluster-level treatment. When fewer than 10 clusters, and under a

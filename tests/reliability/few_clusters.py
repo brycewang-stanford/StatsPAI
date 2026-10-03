@@ -39,6 +39,12 @@ cluster shares), next to the rejection rates of CR1 and CR3. That is the
 evidence behind the ``n_clusters_effective`` diagnostic and warning in
 ``sp.regress``.
 
+A third block repeats the dominant-cluster question for a fixed-effects
+panel, where the regressor varies within units: 40 units, unit effects
+absorbed, AR(1) regressor and error (rho = 0.6), clustered by unit with
+``sp.panel(method='fe', ssc='stata')``; either every unit has 8 periods
+or one unit has 312 and the other 39 have 8.
+
 Run: ``python tests/reliability/few_clusters.py [B]`` (about a quarter of
 an hour at B = 2000). Writes ``few_clusters_results.json`` next to this
 file. ``tests/test_reliability_few_clusters.py`` recomputes one cell on
@@ -181,6 +187,61 @@ def run_dispersion_cell(G: int, kind: str, B: int) -> Dict[str, object]:
     return out
 
 
+PANEL_KINDS = ("balanced", "dominant")
+PANEL_G = 40
+
+
+def run_panel_cell(kind: str, B: int) -> Dict[str, object]:
+    sizes = (
+        [8] * PANEL_G
+        if kind == "balanced"
+        else [8 * (PANEL_G - 1)] + [8] * (PANEL_G - 1)
+    )
+    rho = 0.6
+    scale = np.sqrt(1 - rho**2)
+    rejections = 0
+    for rep in range(B):
+        rng = np.random.default_rng(5_000 + rep)
+        frames = []
+        for unit, T in enumerate(sizes):
+            x = np.empty(T)
+            e = np.empty(T)
+            x[0], e[0] = rng.normal(), rng.normal()
+            for t in range(1, T):
+                x[t] = rho * x[t - 1] + scale * rng.normal()
+                e[t] = rho * e[t - 1] + scale * rng.normal()
+            frames.append(
+                pd.DataFrame(
+                    {"id": unit, "t": np.arange(T), "x": x, "y": rng.normal() + e}
+                )
+            )
+        df = pd.concat(frames, ignore_index=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fit = sp.panel(
+                df,
+                "y ~ x",
+                entity="id",
+                time="t",
+                method="fe",
+                cluster="id",
+                ssc="stata",
+            )
+        rejections += int(float(fit.pvalues["x"]) < ALPHA)
+    n = np.asarray(sizes, dtype=float)
+    rate = rejections / B
+    return {
+        "G": PANEL_G,
+        "sizes": kind,
+        "B": B,
+        "effective_clusters": float(n.sum() ** 2 / (n**2).sum()),
+        "cr1": {
+            "rejection_rate": rate,
+            "mc_se": float(np.sqrt(rate * (1 - rate) / B)),
+        },
+    }
+
+
 def main() -> None:
     B = int(sys.argv[1]) if len(sys.argv) > 1 else 2000
     cells = []
@@ -209,6 +270,16 @@ def main() -> None:
                 f"cr3={cell['cr3']['rejection_rate']:.3f}",  # type: ignore[index]
                 flush=True,
             )
+    panel_cells = []
+    for kind in PANEL_KINDS:
+        cell = run_panel_cell(kind, B)
+        panel_cells.append(cell)
+        print(
+            f"panel FE G={PANEL_G} sizes={kind:9s} effective="
+            f"{cell['effective_clusters']:.1f} "
+            f"cr1={cell['cr1']['rejection_rate']:.3f}",  # type: ignore[index]
+            flush=True,
+        )
     payload = {
         "study": "few_clusters",
         "alpha": ALPHA,
@@ -218,6 +289,7 @@ def main() -> None:
         "statspai_version": sp.__version__,
         "cells": cells,
         "size_dispersion": dispersion,
+        "panel_fixed_effects": panel_cells,
     }
     OUT.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {OUT}")

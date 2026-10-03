@@ -285,3 +285,67 @@ def test_cluster_dummies_are_not_mistaken_for_treatments():
             df[f"c{k}"] = (df["g"] == k).astype(int)
         res = sp.regress("y ~ x + c0 + c1 + c2 + c3 + c4", df, cluster="g")
     assert len(res.model_info["few_treated_clusters"]) == 5
+
+
+# ---------------------------------------------------------------------------
+# The same diagnostic on the fixed-effects entry points
+# ---------------------------------------------------------------------------
+
+
+def _unit_panel(sizes, seed=0):
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(seed)
+    return pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "id": i,
+                    "t": np.arange(T),
+                    "x": rng.normal(size=T),
+                    "y": rng.normal(size=T),
+                }
+            )
+            for i, T in enumerate(sizes)
+        ],
+        ignore_index=True,
+    )
+
+
+_FE_CALLS = {
+    "panel": lambda sp, d: sp.panel(d, "y ~ x", entity="id", time="t", cluster="id"),
+    "hdfe_ols": lambda sp, d: sp.hdfe_ols("y ~ x | id", d, cluster="id"),
+    "feols": lambda sp, d: sp.feols("y ~ x | id", d, cluster="id"),
+}
+
+
+@pytest.mark.parametrize("entry", sorted(_FE_CALLS))
+def test_fixed_effects_entry_points_warn_on_a_dominant_unit(entry):
+    import warnings
+
+    import statspai as sp
+    from statspai.exceptions import AssumptionWarning
+
+    dominant = _unit_panel([8 * 39] + [8] * 39)
+    with pytest.warns(AssumptionWarning, match="effective number") as caught:
+        _FE_CALLS[entry](sp, dominant)
+    (w,) = [c for c in caught if "effective number" in str(c.message)]
+    assert w.message.diagnostics["n_clusters"] == 40
+    assert w.message.diagnostics["n_clusters_effective"] == pytest.approx(3.9)
+    assert w.message.diagnostics["largest_cluster_share"] == pytest.approx(0.5)
+
+    balanced = _unit_panel([8] * 40)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AssumptionWarning)
+        _FE_CALLS[entry](sp, balanced)
+
+
+def test_panel_block_shows_the_distortion_the_warning_is_about(results):
+    cells = {c["sizes"]: c for c in results["panel_fixed_effects"]}
+    bal, dom = cells["balanced"], cells["dominant"]
+    assert bal["effective_clusters"] == pytest.approx(40.0)
+    assert dom["effective_clusters"] == pytest.approx(3.9)
+    rate, se = bal["cr1"]["rejection_rate"], bal["cr1"]["mc_se"]
+    assert abs(rate - 0.05) < 3 * se
+    assert dom["cr1"]["rejection_rate"] > 0.20

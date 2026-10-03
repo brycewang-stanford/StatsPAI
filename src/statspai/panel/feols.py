@@ -1116,6 +1116,12 @@ def feols(
             "dof_fe_cluster": int(result.get("dof_fe_cluster", result["dof_fe"])),
             "nested_fe": nested_fe,
         }
+        if len(cluster_names) == 1:
+            from ..core._agent_summary import warn_if_clusters_unequal
+
+            cluster_info["n_clusters_effective"] = warn_if_clusters_unequal(
+                df[cluster_names[0]], cluster_names[0]
+            )
 
     # Optional wild bootstrap
     if wild and cluster_names:

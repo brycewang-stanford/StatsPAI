@@ -151,6 +151,51 @@ def effective_n_clusters(keys: Any) -> float:
 _FEW_TREATED_MIN = 10
 
 
+def warn_if_clusters_unequal(keys: Any, cluster: Any, stacklevel: int = 3) -> float:
+    """Effective number of clusters; warn when the count hides how few.
+
+    Returns :func:`effective_n_clusters` of ``keys``. When there are at
+    least ``_FEW_CLUSTERS_MIN`` clusters but fewer than that in effect, an
+    :class:`~statspai.exceptions.AssumptionWarning` is raised: the
+    few-cluster warning keyed on the count stays silent there, and in
+    ``tests/reliability/few_clusters.py`` cluster-robust t-tests reject a
+    true null 36% of the time (pooled regression) and 22% (fixed-effects
+    panel) with 40 clusters of which one holds half the sample.
+    """
+    import warnings
+
+    from ..exceptions import AssumptionWarning
+
+    series = pd.Series(np.asarray(keys))
+    n_clusters = int(series.nunique())
+    effective = effective_n_clusters(series)
+    if n_clusters >= _FEW_CLUSTERS_MIN and effective < _FEW_CLUSTERS_MIN:
+        top_share = float(series.value_counts(normalize=True).iloc[0])
+        warnings.warn(
+            AssumptionWarning(
+                f"{n_clusters} clusters for cluster='{cluster}', but unequal "
+                f"in size: the effective number is {effective:.1f} "
+                f"(< {_FEW_CLUSTERS_MIN}; the largest holds "
+                f"{100 * top_share:.0f}% of the rows). Cluster-robust "
+                "t-tests over-reject in that case as they do with few "
+                "clusters.",
+                recovery_hint=FEW_CLUSTERS_HINT,
+                diagnostics={
+                    "n_clusters": n_clusters,
+                    "n_clusters_effective": effective,
+                    "largest_cluster_share": top_share,
+                    "threshold": _FEW_CLUSTERS_MIN,
+                },
+                alternative_functions=[
+                    "sp.wild_cluster_bootstrap",
+                    "sp.wild_cluster_ci_inv",
+                ],
+            ),
+            stacklevel=stacklevel,
+        )
+    return effective
+
+
 def few_treated_cluster_columns(
     X: Any, names: Any, keys: Any, max_columns: int = 60
 ) -> List[Dict[str, Any]]:

@@ -78,7 +78,22 @@ case it records `model_info['few_treated_clusters']` and warns when a
 cluster-level 0/1 regressor has fewer than 10 clusters, and under a
 quarter of them, on one side.
 
-Rerun with `python tests/reliability/few_clusters.py` (about a quarter of
-an hour). `tests/test_reliability_few_clusters.py` recomputes one cell on
+### Fixed-effects panels
+
+The same question where the regressor varies within units: 40 units,
+unit effects absorbed, AR(1) regressor and error, clustered by unit with
+`sp.panel(method='fe', ssc='stata')`.
+
+| panel | effective clusters | rejection rate |
+| --- | ---: | ---: |
+| every unit has 8 periods | 40.0 | 0.055 |
+| one unit has 312 periods, 39 have 8 | 3.9 | 0.218 |
+
+The warning is therefore raised by `sp.panel`, `sp.hdfe_ols` and
+`sp.feols` as well, on one-way clustered fits. The few-treated
+diagnostic is in `sp.regress` only.
+
+Rerun with `python tests/reliability/few_clusters.py` (about twenty
+minutes). `tests/test_reliability_few_clusters.py` recomputes one cell on
 its first 60 replications and checks the statements above against the
 stored file.

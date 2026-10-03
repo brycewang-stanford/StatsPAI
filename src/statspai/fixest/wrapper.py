@@ -197,6 +197,9 @@ def _feols_varying_slopes(
     }
     if cluster is not None and n_cl:
         model_info["n_clusters"] = int(min(n_cl))
+        _eff = (res.cluster_info or {}).get("n_clusters_effective")
+        if _eff is not None:
+            model_info["n_clusters_effective"] = float(_eff)
     diagnostics = {
         "R-squared": float(res.r2),
         "Adj. R-squared": float(res.r2_a),
@@ -339,6 +342,29 @@ def _rename_terms(res: Any, renames: Dict[str, str]) -> Any:
     if isinstance(di, dict) and isinstance(di.get("var_names"), list):
         di["var_names"] = [renames.get(str(n), n) for n in di["var_names"]]
     return res
+
+
+def _note_cluster_sizes(result: Any, data: pd.DataFrame, vcov: Any) -> None:
+    """Record the effective number of clusters of a one-way clustered fit.
+
+    Warns, as ``sp.regress`` and ``sp.panel`` do, when many clusters are
+    few in effect. The key is read from ``data`` as passed, so rows the
+    fit dropped still count; for a diagnostic of cluster sizes that is
+    close enough.
+    """
+    if not isinstance(vcov, dict) or len(vcov) != 1:
+        return
+    column = next(iter(vcov.values()))
+    if not isinstance(column, str) or column not in getattr(data, "columns", ()):
+        return
+    from ..core._agent_summary import warn_if_clusters_unequal
+
+    keys = data[column].dropna()
+    if keys.empty:
+        return
+    info = dict(getattr(result, "model_info", None) or {})
+    info["n_clusters_effective"] = warn_if_clusters_unequal(keys, column, stacklevel=4)
+    result.model_info = info
 
 
 def _check_pyfixest() -> Any:
@@ -1234,7 +1260,9 @@ def feols(
     if hasattr(fit, "all_fitted_models"):
         return _multi_fit_to_results(fit, vcov=None)
 
-    return _pyfixest_to_econometric_results(fit)
+    out = _pyfixest_to_econometric_results(fit)
+    _note_cluster_sizes(out, data, vcov)
+    return out
 
 
 # --------------------------------------------------------------------------- #
