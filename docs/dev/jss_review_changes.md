@@ -31,6 +31,25 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 03, 15, 47 and 53 after `sp.fast.feols_jax` took the convention of `sp.fast.feols`
+
+- **Commits.** `ca410f77`.
+- **Reason.** The JAX backend kept the pre-1.31 small-sample count while
+  reporting `ssc='fixest'`. The edit is in
+  `src/statspai/fast/jax_feols.py` and `src/statspai/fast/_jax_fallback.py`,
+  which the four modules import through `statspai.fast`.
+- **Effect on the paper.** None on any table. No Track A module calls
+  `sp.fast.feols_jax`; only `exercised_sources` digests and `seconds`
+  changed in the trace. The Track C GPU benchmark times this function,
+  and the change adds integer arithmetic outside the timed linear
+  algebra, so the timings are not affected in any measurable way; they
+  are re-measured at the next re-anchor in any case. One sentence to
+  check at that point: wherever the manuscript says the JAX backend
+  returns the same result as the NumPy backend, that was true of the
+  coefficients and is now also true of the standard errors.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded after docstring repairs that unblock the strict docs build
 
 - **Commits.** `fd6c43ca` re-recorded
