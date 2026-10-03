@@ -22,6 +22,8 @@ from typing import Any, Dict, Optional, Union
 
 import pandas as pd
 
+from ..exceptions import MethodIncompatibility, MissingDependencyError
+
 # Stata's limit on a variable label and on the dataset label (``help limits``).
 _STATA_LABEL_MAX = 80
 
@@ -248,8 +250,8 @@ def write_data(
 
     Raises
     ------
-    ValueError
-        Unsupported extension; ``labels`` / ``value_labels`` naming a
+    MethodIncompatibility
+        (a ``ValueError``.)  Unsupported extension; ``labels`` / ``value_labels`` naming a
         column that is not in ``data``; a variable or dataset label longer
         than Stata's 80 characters; value labels on a non-numeric column
         or on non-integer codes.
@@ -289,7 +291,9 @@ def write_data(
     for name, given in (("labels", labels), ("value_labels", value_labels)):
         unknown = [c for c in (given or {}) if c not in data.columns]
         if unknown:
-            raise ValueError(f"{name} names columns not in the data: {unknown}")
+            raise MethodIncompatibility(
+                f"{name} names columns not in the data: {unknown}"
+            )
     var_lab = {c: v for c, v in var_lab.items() if c in data.columns and v}
     val_lab = {c: v for c, v in val_lab.items() if c in data.columns and v}
     if data_label is None:
@@ -326,7 +330,7 @@ def write_data(
     elif ext == ".json":
         data.to_json(p, **kwargs)
     else:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Unsupported file format: '{ext}'. "
             f"Supported: .dta, .csv, .tsv, .xlsx, .parquet, .feather, .json"
         )
@@ -352,13 +356,13 @@ def _write_stata(
     """Write .dta with labels, checking Stata's limits by variable name."""
     too_long = [c for c, v in var_lab.items() if len(str(v)) > _STATA_LABEL_MAX]
     if too_long:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Stata variable labels hold at most {_STATA_LABEL_MAX} "
             f"characters; too long for: {too_long}. Shorten them, e.g. "
             f"with sp.label_var."
         )
     if data_label is not None and len(data_label) > _STATA_LABEL_MAX:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Stata dataset labels hold at most {_STATA_LABEL_MAX} "
             f"characters; got {len(data_label)}."
         )
@@ -370,7 +374,7 @@ def _write_stata(
         for c, m in val_lab.items():
             bad = [k for k in m if int(k) != k]
             if bad:
-                raise ValueError(
+                raise MethodIncompatibility(
                     f"Stata value labels attach to integer codes only; "
                     f"'{c}' has non-integer codes {bad}."
                 )
@@ -386,9 +390,10 @@ def _write_stata(
     except TypeError as e:
         if "value_labels" not in str(e):
             raise
-        raise ImportError(
+        raise MissingDependencyError(
             "Writing value labels to .dta needs pandas >= 1.4; "
-            f"found pandas {pd.__version__}."
+            f"found pandas {pd.__version__}.",
+            recovery_hint='pip install -U "pandas>=1.4"',
         ) from e
 
 
