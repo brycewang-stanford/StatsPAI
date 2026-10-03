@@ -3068,7 +3068,8 @@ _add(
                     "caliper": _vals("none"),
                 },
                 _EST_SE,
-                "ATT with bias adjustment on all covariates vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "ATT with bias adjustment on all covariates vs Stata teffects "
+                "nnmatch, estimate and SE to 1e-10",
                 "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
             ),
             _Row(
@@ -3085,7 +3086,8 @@ _add(
                     "caliper": _vals("none"),
                 },
                 _EST_SE,
-                "ATT, inverse-variance metric, three matches vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "ATT, inverse-variance metric, three matches vs Stata teffects "
+                "nnmatch, estimate and SE to 1e-10",
                 "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
             ),
             _Row(
@@ -3102,7 +3104,8 @@ _add(
                     "caliper": _vals("none"),
                 },
                 _EST_SE,
-                "ATT, Euclidean metric vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "ATT, Euclidean metric vs Stata teffects nnmatch, estimate and SE to "
+                "1e-10",
                 "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
             ),
             _Row(
@@ -3136,7 +3139,8 @@ _add(
                     "caliper": _vals("none"),
                 },
                 _EST_SE,
-                "ATT, vce(robust, nn(4)) vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "ATT, vce(robust, nn(4)) vs Stata teffects nnmatch, estimate and SE "
+                "to 1e-10",
                 "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
             ),
             _Row(
@@ -3153,7 +3157,8 @@ _add(
                     "caliper": _vals("none"),
                 },
                 _EST_SE,
-                "ATT with exact matching and a partial bias adjustment vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "ATT with exact matching and a partial bias adjustment vs Stata "
+                "teffects nnmatch, estimate and SE to 1e-10",
                 "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
             ),
             _Row(
@@ -3170,7 +3175,8 @@ _add(
                     "caliper": _vals("none"),
                 },
                 _EST_SE,
-                "ATE, two matches, bias adjustment vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "ATE, two matches, bias adjustment vs Stata teffects nnmatch, "
+                "estimate and SE to 1e-10",
                 "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
             ),
         ),
