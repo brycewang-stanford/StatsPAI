@@ -113,9 +113,85 @@ def test_one_dominant_cluster_breaks_cr1_and_the_bootstrap_but_not_cr3(results):
     )
 
 
+def test_size_dispersion_block_supports_the_effective_cluster_threshold(results):
+    """Below about 30 effective clusters CR1 over-rejects; above, it does not."""
+    cells = results["size_dispersion"]
+    assert len(cells) == 6
+    for c in cells:
+        rate, se = c["cr1"]["rejection_rate"], c["cr1"]["mc_se"]
+        if c["effective_clusters_mean"] < 30:
+            assert rate - 2 * se > 0.06, c
+        else:
+            assert rate < 0.065 + 2 * se, c
+        # CR3 stays within two points of nominal throughout
+        assert c["cr3"]["rejection_rate"] < 0.07, c
+    by = {(c["G"], c["sizes"]): c["effective_clusters_mean"] for c in cells}
+    assert by[(40, "lognormal_1")] < 20 < 30 < by[(40, "lognormal_0.5")]
+
+
 def test_the_hint_says_what_the_study_found():
     text = FEW_CLUSTERS_HINT
     assert "one or two" in text and "almost never rejects" in text
     assert "one cluster" in text and "cr3" in text
     assert "few_clusters_results.json" in text
     assert "keeps correct size" not in text
+
+
+# ---------------------------------------------------------------------------
+# The diagnostic the study motivates
+# ---------------------------------------------------------------------------
+
+
+def _frame(sizes, seed=0):
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(seed)
+    g = np.repeat(np.arange(len(sizes)), sizes)
+    return pd.DataFrame({"y": rng.normal(size=g.size), "d": g % 2, "g": g})
+
+
+def test_effective_clusters_is_the_inverse_herfindahl_of_the_sizes():
+    import numpy as np
+
+    from statspai.core._agent_summary import effective_n_clusters
+
+    assert effective_n_clusters(np.repeat(np.arange(40), 30)) == pytest.approx(40.0)
+    sizes = np.array([600] + [15] * 39)
+    keys = np.repeat(np.arange(40), sizes)
+    expected = sizes.sum() ** 2 / (sizes**2).sum()
+    assert effective_n_clusters(keys) == pytest.approx(expected)
+    assert 3.5 < expected < 4.5
+    assert effective_n_clusters([]) == 0.0
+
+
+def test_regress_warns_when_many_clusters_are_few_in_effect():
+    """Forty clusters, one holding half the rows: the case the count misses."""
+    import warnings
+
+    import statspai as sp
+    from statspai.exceptions import AssumptionWarning
+
+    df = _frame([600] + [15] * 39)
+    with pytest.warns(AssumptionWarning, match="effective number") as caught:
+        res = sp.regress("y ~ d", df, cluster="g")
+    diag = caught[0].message.diagnostics
+    assert diag["n_clusters"] == 40
+    assert diag["n_clusters_effective"] == pytest.approx(3.81, abs=0.01)
+    assert diag["largest_cluster_share"] == pytest.approx(600 / 1185)
+    assert res.model_info["n_clusters_effective"] == pytest.approx(3.81, abs=0.01)
+
+    balanced = _frame([30] * 40)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AssumptionWarning)
+        res = sp.regress("y ~ d", balanced, cluster="g")
+    assert res.model_info["n_clusters_effective"] == pytest.approx(40.0)
+
+
+def test_few_clusters_by_count_keeps_its_own_warning():
+    import statspai as sp
+    from statspai.exceptions import AssumptionWarning
+
+    with pytest.warns(AssumptionWarning, match="Only 10 clusters") as caught:
+        sp.regress("y ~ d", _frame([30] * 10), cluster="g")
+    assert len([w for w in caught if "effective number" in str(w.message)]) == 0

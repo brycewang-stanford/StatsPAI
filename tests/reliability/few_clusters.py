@@ -28,6 +28,15 @@ Reported per cell and method: the rejection rate and its Monte Carlo
 standard error ``sqrt(p (1 - p) / B)``. With ``B = 2000`` a correctly
 sized test lands in 0.050 +/- 0.010 (two standard errors).
 
+A second block asks what the *number* of clusters hides. With 40 or 60
+clusters, half of them treated, cluster sizes are drawn as ``2:1`` (half
+the clusters twice the size of the rest) or log-normal with sigma 0.5 or
+1. For each design the file records the effective number of clusters by
+size, ``(sum n_g)^2 / sum n_g^2`` (the inverse Herfindahl index of the
+cluster shares), next to the rejection rates of CR1 and CR3. That is the
+evidence behind the ``n_clusters_effective`` diagnostic and warning in
+``sp.regress``.
+
 Run: ``python tests/reliability/few_clusters.py [B]`` (about a quarter of
 an hour at B = 2000). Writes ``few_clusters_results.json`` next to this
 file. ``tests/test_reliability_few_clusters.py`` recomputes one cell on
@@ -124,6 +133,52 @@ def run_cell(G: int, treated: str, sizes: str, B: int) -> Dict[str, object]:
     return cell
 
 
+DISPERSION_G = (40, 60)
+DISPERSION_KINDS = ("two_to_one", "lognormal_0.5", "lognormal_1")
+
+
+def dispersed_sizes(G: int, kind: str, rng: np.random.Generator) -> np.ndarray:
+    if kind == "two_to_one":
+        w = np.where(np.arange(G) < G // 2, 2.0, 1.0)
+    else:
+        w = np.exp(rng.normal(scale=float(kind.split("_")[1]), size=G))
+    return np.maximum((w / w.sum() * 30 * G).round().astype(int), 2)
+
+
+def run_dispersion_cell(G: int, kind: str, B: int) -> Dict[str, object]:
+    rejections = {"cr1": 0, "cr3": 0}
+    effective: List[float] = []
+    for rep in range(B):
+        rng = np.random.default_rng(900_000 + rep + 13 * G)
+        n_g = dispersed_sizes(G, kind, rng)
+        g = np.repeat(np.arange(G), n_g)
+        d_cluster = np.zeros(G, dtype=int)
+        d_cluster[rng.choice(G, size=G // 2, replace=False)] = 1
+        a = rng.normal(scale=np.sqrt(0.3), size=G)
+        e = rng.normal(scale=np.sqrt(0.7), size=g.size)
+        df = pd.DataFrame({"y": 1.0 + a[g] + e, "d": d_cluster[g], "g": g})
+        effective.append(float(n_g.sum() ** 2 / (n_g**2).sum()))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            p1 = sp.regress("y ~ d", df, cluster="g").pvalues["d"]
+            p3 = sp.regress("y ~ d", df, vce="cr3", cluster="g").pvalues["d"]
+        rejections["cr1"] += int(p1 < ALPHA)
+        rejections["cr3"] += int(p3 < ALPHA)
+    out: Dict[str, object] = {
+        "G": G,
+        "sizes": kind,
+        "B": B,
+        "effective_clusters_mean": float(np.mean(effective)),
+    }
+    for m, count in rejections.items():
+        rate = count / B
+        out[m] = {
+            "rejection_rate": rate,
+            "mc_se": float(np.sqrt(rate * (1 - rate) / B)),
+        }
+    return out
+
+
 def main() -> None:
     B = int(sys.argv[1]) if len(sys.argv) > 1 else 2000
     cells = []
@@ -140,6 +195,18 @@ def main() -> None:
                     ),
                     flush=True,
                 )
+    dispersion = []
+    for G in DISPERSION_G:
+        for kind in DISPERSION_KINDS:
+            cell = run_dispersion_cell(G, kind, B)
+            dispersion.append(cell)
+            print(
+                f"G={G:2d} sizes={kind:14s} effective="
+                f"{cell['effective_clusters_mean']:.1f} "
+                f"cr1={cell['cr1']['rejection_rate']:.3f} "  # type: ignore[index]
+                f"cr3={cell['cr3']['rejection_rate']:.3f}",  # type: ignore[index]
+                flush=True,
+            )
     payload = {
         "study": "few_clusters",
         "alpha": ALPHA,
@@ -148,6 +215,7 @@ def main() -> None:
         "prefix": PREFIX,
         "statspai_version": sp.__version__,
         "cells": cells,
+        "size_dispersion": dispersion,
     }
     OUT.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {OUT}")

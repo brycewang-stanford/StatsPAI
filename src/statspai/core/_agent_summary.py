@@ -123,6 +123,24 @@ FEW_CLUSTERS_HINT = (
     "tests/reliability/few_clusters_results.json."
 )
 
+
+def effective_n_clusters(keys: Any) -> float:
+    """Effective number of clusters by size: ``(sum n_g)^2 / sum n_g^2``.
+
+    The inverse Herfindahl index of the cluster shares. It equals the
+    number of clusters when they are the same size and falls toward 1 as
+    one of them dominates. In ``tests/reliability/few_clusters.py`` CR1
+    rejects a true null about 6% of the time when this is 36 or more, 8%
+    at 26, 10% at 18, and 36% when one of 40 clusters holds half the
+    sample (effective number 4), so the count of clusters alone does not
+    say whether cluster-robust inference is safe.
+    """
+    counts = pd.Series(np.asarray(keys)).value_counts().to_numpy(dtype=float)
+    if counts.size == 0:
+        return 0.0
+    return float(counts.sum() ** 2 / (counts**2).sum())
+
+
 #: Few *treated* clusters. The cluster-robust variance estimates the treated
 #: side's contribution from as many draws as there are treated clusters, so
 #: the over-rejection is governed by that count and not by the total (Conley

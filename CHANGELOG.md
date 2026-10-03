@@ -269,10 +269,18 @@ evidence map listed as having none.
   With two treated clusters it almost never rejects (0.0% at 40
   clusters), and with one cluster holding half the sample it over-rejects
   (13%) while CR3 stays at 5% to 8%. The hint in `sp.regress`, `sp.panel`
-  and the agent summary now says this. The study also records that the
-  warning, keyed on fewer than 30 clusters, does not fire in either hard
-  case at 40 clusters, and that `vce='cr2'` with its normal reference
-  over-rejects at small G.
+  and the agent summary now says this. The study also records that
+  `vce='cr2'` with its normal reference over-rejects at small G.
+- **`sp.regress` reports the effective number of clusters and warns when
+  it is small.** The few-cluster warning was keyed on the count (fewer
+  than 30) and stayed silent with 40 clusters of which one holds half the
+  sample, where CR1 rejects a true null 36% of the time. The fit now
+  records `model_info['n_clusters_effective']`, the inverse Herfindahl
+  index of the cluster sizes, and warns when there are 30 or more
+  clusters but fewer than 30 in effect. In the study CR1 is at 6% above
+  30 effective clusters and at 8% to 10% at 26 and 18. No estimate or
+  standard error changes. Few *treated* clusters are a separate problem
+  this diagnostic does not see.
 - **Isolated MCP calls can return a result handle.** With
   `STATSPAI_MCP_ISOLATION=process`, a call that asked for a handle
   (`as_handle=true`) used to run on the thread runner, because a handle

@@ -422,5 +422,91 @@
     "prefix_rejections": 1
    }
   }
+ ],
+ "size_dispersion": [
+  {
+   "G": 40,
+   "sizes": "two_to_one",
+   "B": 2000,
+   "effective_clusters_mean": 36.0,
+   "cr1": {
+    "rejection_rate": 0.0605,
+    "mc_se": 0.005331029450303197
+   },
+   "cr3": {
+    "rejection_rate": 0.0555,
+    "mc_se": 0.005119558086397693
+   }
+  },
+  {
+   "G": 40,
+   "sizes": "lognormal_0.5",
+   "B": 2000,
+   "effective_clusters_mean": 31.564807515140245,
+   "cr1": {
+    "rejection_rate": 0.0615,
+    "mc_se": 0.005372045699731156
+   },
+   "cr3": {
+    "rejection_rate": 0.054,
+    "mc_se": 0.005053909377897471
+   }
+  },
+  {
+   "G": 40,
+   "sizes": "lognormal_1",
+   "B": 2000,
+   "effective_clusters_mean": 18.092205064065343,
+   "cr1": {
+    "rejection_rate": 0.1,
+    "mc_se": 0.00670820393249937
+   },
+   "cr3": {
+    "rejection_rate": 0.064,
+    "mc_se": 0.005472842040475863
+   }
+  },
+  {
+   "G": 60,
+   "sizes": "two_to_one",
+   "B": 2000,
+   "effective_clusters_mean": 54.0,
+   "cr1": {
+    "rejection_rate": 0.056,
+    "mc_se": 0.005141206084179081
+   },
+   "cr3": {
+    "rejection_rate": 0.0535,
+    "mc_se": 0.005031786462082826
+   }
+  },
+  {
+   "G": 60,
+   "sizes": "lognormal_0.5",
+   "B": 2000,
+   "effective_clusters_mean": 47.06888857048713,
+   "cr1": {
+    "rejection_rate": 0.056,
+    "mc_se": 0.005141206084179081
+   },
+   "cr3": {
+    "rejection_rate": 0.05,
+    "mc_se": 0.004873397172404482
+   }
+  },
+  {
+   "G": 60,
+   "sizes": "lognormal_1",
+   "B": 2000,
+   "effective_clusters_mean": 25.943959373625038,
+   "cr1": {
+    "rejection_rate": 0.084,
+    "mc_se": 0.0062025801083097675
+   },
+   "cr3": {
+    "rejection_rate": 0.06,
+    "mc_se": 0.0053103672189407005
+   }
+  }
  ]
 }
