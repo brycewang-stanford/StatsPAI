@@ -66,6 +66,27 @@ Python calls to `sp.read_data` are unaffected.
 
 ---
 
+<a id="oct2026-fast-fepois-ssc"></a>
+
+## Unreleased: ⚠️ `sp.fast.fepois` standard errors follow fixest; `ssc=` added
+
+`sp.fast.fepois` now reproduces R `fixest::fepois` standard errors by
+default. Coefficients do not change. To get the previous numbers pass
+`ssc='statspai'`.
+
+| Variance | Before | Now (`ssc='fixest'`) | Size of the change on the reference panel |
+| --- | --- | --- | --- |
+| `cr1`, effects nested in the clusters | every absorbed level charged | nested dimensions left out of `K` | SEs fall by 8% |
+| `cr1`, effects not nested | `Σ(G_k - 1)` charged | `ΣG_k - (dims - 1)` charged | SEs rise by 0.06% |
+| `hc1` | `n/(n - p - Σ(G_k - 1))` | `n/(n - K)` | SEs rise by 0.06% |
+| `iid` | `n/(n - p - Σ(G_k - 1))` | `(n - 1)/(n - K)` | SEs rise by 0.008% |
+| `hc1` with `weights=` | weights missing from the score | weighted score | SEs change by 43% to 46% |
+
+The last row is a defect, not a convention: `ssc='statspai'` does not
+bring it back.
+
+---
+
 <a id="oct2026-fast-feols-one-fe-dof"></a>
 
 ## Unreleased: ⚠️ `sp.fast.feols` standard errors with one absorbed dimension

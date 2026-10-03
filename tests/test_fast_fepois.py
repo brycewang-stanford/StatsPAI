@@ -8,9 +8,9 @@ proxy and add a separate Rscript-based fixest comparison if R is found.
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
-import json
 from pathlib import Path
 
 import numpy as np
@@ -468,27 +468,36 @@ def test_fepois_cluster_closed_form():
 
 @pytest.mark.skipif(shutil.which("Rscript") is None, reason="Rscript not on PATH")
 def test_fepois_cluster_se_close_to_r_fixest(tmp_path):
-    """Cluster CR1 parity vs ``fixest::fepois(... cluster=~fe1)`` with
-    fixest's ``ssc(fixef.K='full')`` to match StatsPAI's Σ(G_k-1)
-    convention up to the same 1-DOF off-by-true-rank used by the rest
-    of fast/*. Tolerance 2% (looser than IID since the cluster meat
-    depends more sensitively on the IRLS convergence path)."""
+    """Cluster CR1 against ``fixest::fepois(cluster=~fe1)``.
+
+    The default ``ssc='fixest'`` is compared with fixest's own defaults
+    (1e-5: both sides iterate). ``ssc='statspai'``, the convention through
+    1.36.0, is compared with ``ssc(fixef.K='full')``, which it resembles
+    up to one degree of freedom (2%). Until 2026-10 the default was the
+    second convention and only the second comparison was made, so the
+    test passed while clustered standard errors were several percent
+    above fixest's defaults.
+    """
     df = _poisson_panel(seed=44, n_units=60, n_periods=20)
     csv_path = tmp_path / "panel.csv"
     df.to_csv(csv_path, index=False)
-    fit = sp.fast.fepois(
-        "y ~ x1 + x2 | fe1 + fe2",
-        df,
-        vcov="cr1",
-        cluster="fe1",
-    )
+    fits = {
+        "default": sp.fast.fepois(
+            "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1"
+        ),
+        "full": sp.fast.fepois(
+            "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1", ssc="statspai"
+        ),
+    }
 
     r_script = (
         "suppressMessages({library(data.table); library(fixest); library(jsonlite)})\n"
         f"d <- fread('{csv_path}')\n"
+        "a <- fepois(y ~ x1 + x2 | fe1 + fe2, data=d, cluster=~fe1,\n"
+        "            glm.tol=1e-10, glm.iter=50)\n"
         "f <- fepois(y ~ x1 + x2 | fe1 + fe2, data=d, cluster=~fe1,\n"
         "            ssc=ssc(fixef.K='full'), glm.tol=1e-10, glm.iter=50)\n"
-        "out <- list(se = as.list(se(f)))\n"
+        "out <- list(default = as.list(se(a)), full = as.list(se(f)))\n"
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
     )
     proc = subprocess.run(
@@ -500,27 +509,25 @@ def test_fepois_cluster_se_close_to_r_fixest(tmp_path):
     if proc.returncode != 0:
         pytest.skip(f"Rscript failed: {proc.stderr[:200]}")
     r_out = json.loads(proc.stdout.strip().splitlines()[-1])
-    for k in ("x1", "x2"):
-        sp_se = float(fit.se()[k])
-        r_se = float(r_out["se"][k])
-        rel = abs(sp_se - r_se) / max(abs(r_se), 1e-15)
-        assert rel < 0.02, (
-            f"Cluster SE drift at {k}: sp={sp_se:.6e} fixest={r_se:.6e} "
-            f"rel={rel:.3e}"
-        )
+    for which, budget in (("default", 1e-5), ("full", 0.02)):
+        for k in ("x1", "x2"):
+            sp_se = float(fits[which].se()[k])
+            r_se = float(r_out[which][k])
+            rel = abs(sp_se - r_se) / max(abs(r_se), 1e-15)
+            assert rel < budget, (
+                f"Cluster SE drift ({which}) at {k}: sp={sp_se:.6e} "
+                f"fixest={r_se:.6e} rel={rel:.3e}"
+            )
 
 
 @pytest.mark.skipif(shutil.which("Rscript") is None, reason="Rscript not on PATH")
 def test_se_matches_r_fixest_iid(tmp_path):
-    """SE parity vs R ``fixest::fepois`` IID variance.
+    """SE parity vs R ``fixest::fepois`` IID variance, at fixest's defaults.
 
-    StatsPAI's ``fe_dof = sum(G_k - 1)`` matches fixest's default
-    ``ssc(fixef.K='nested')`` for non-nested K=2 panels at the
-    one-DOF-off-from-true-rank convention, which is the convention
-    pyfixest also uses (validated separately to 1e-7). The diff vs R
-    fixest itself is dominated by the IRLS tolerance gap (StatsPAI
-    converges to 1e-8, fixest defaults vary), and the SSC small-sample
-    factor — which both sides apply identically.
+    The default ``ssc='fixest'`` applies fixest's ``(n - 1)/(n - K)`` with
+    ``K = p + ΣG_k - 1`` for two absorbed dimensions. What is left is the
+    two stopping rules (1e-5). Until 2026-10 this was asserted at 1%,
+    which hid a small-sample factor that was not fixest's.
     """
     df = _poisson_panel(seed=5)
     csv_path = tmp_path / "panel.csv"
@@ -531,8 +538,6 @@ def test_se_matches_r_fixest_iid(tmp_path):
     r_script = (
         "suppressMessages({library(data.table); library(fixest); library(jsonlite)})\n"
         f"d <- fread('{csv_path}')\n"
-        # fixest default: ssc(adj=TRUE, fixef.K='nested') — matches
-        # StatsPAI's fe_dof convention for non-nested 2-FE.
         "f <- fepois(y ~ x1 + x2 | fe1 + fe2, data=d, glm.tol=1e-10, glm.iter=50)\n"
         "out <- list(coefs = as.list(coef(f)), se = as.list(se(f)))\n"
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
@@ -544,16 +549,12 @@ def test_se_matches_r_fixest_iid(tmp_path):
         pytest.skip(f"Rscript failed: {proc.stderr[:200]}")
     r_out = json.loads(proc.stdout.strip().splitlines()[-1])
 
-    # SE parity: looser than coef parity since both sides depend on the IRLS
-    # working response at convergence and the SSC small-sample factor.
-    # 1% tolerance is comfortably tight: fixest's small-sample convention
-    # mismatch with StatsPAI (1 DOF) on this 5000-row panel is < 0.05%.
     for k in ("x1", "x2"):
         sp_se = float(fit.se()[k])
         r_se = float(r_out["se"][k])
         rel = abs(sp_se - r_se) / max(abs(r_se), 1e-15)
         assert (
-            rel < 0.01
+            rel < 1e-5
         ), f"SE drift at {k}: sp={sp_se:.6e} fixest={r_se:.6e} rel={rel:.3e}"
 
 
@@ -573,6 +574,7 @@ def test_rust_weighted_demean_matches_numpy_kernel():
     """
     pytest.importorskip("statspai_hdfe")
     import statspai_hdfe as _r
+
     from statspai.fast.fepois import _weighted_ap_demean_numpy as _numpy_weighted
 
     for seed in range(5):
@@ -735,6 +737,7 @@ def test_fepois_native_irls_vs_python_irls_parity(monkeypatch):
     """
     pytest.importorskip("statspai_hdfe")
     import importlib
+
     import statspai_hdfe
 
     _fepois_mod = importlib.import_module("statspai.fast.fepois")
@@ -783,10 +786,8 @@ def test_separation_rust_matches_python_fallback():
 
     if not hasattr(statspai_hdfe, "separation_mask"):
         pytest.skip("statspai_hdfe wheel pre-dates the separation_mask binding")
-    from statspai.fast.fepois import (
-        _drop_separation as _numpy_path,
-        _drop_separation_dispatcher,
-    )
+    from statspai.fast.fepois import _drop_separation as _numpy_path
+    from statspai.fast.fepois import _drop_separation_dispatcher
 
     for seed in range(10):
         rng = np.random.default_rng(seed)

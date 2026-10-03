@@ -80457,6 +80457,7 @@
       "R parity module 67_panel_glm",
       "Stata parity module 67_panel_glm",
       "Cross-language parity (bit-exact) vs fixest::feglm (family=\"logit\") / fixest::fepois [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 67_panel_glm; implementation: third party python -- tests/r_parity/67_panel_glm.py",
+      "tests/reference_parity/test_fast_fepois_fixest_parity.py",
       "tests/reference_parity/test_feglm_wild_boottest_parity.py",
       "tests/reference_parity/test_ppmlhdfe_extended_vce_parity.py"
     ],

@@ -87,6 +87,33 @@ numbers and refuses no command. 324 numbers differ for documented reasons,
   predictors and with 9 units and 12 predictors
   (`test_synth_regression_v_stata.py`).
 
+### `sp.fast.fepois`: fixest's small-sample factors, and weights in the HC1 score
+
+#### ⚠️ Correctness
+
+- **`sp.fast.fepois` clustered standard errors were 8% too large when the
+  absorbed effects were nested in the clusters.** The source said the
+  small-sample factors were fixest's; they were the pre-1.31
+  `sp.fast.feols` convention. `cr1` charged every absorbed level against
+  the degrees of freedom, where R `fixest::fepois` leaves out dimensions
+  nested in the clusters; `iid` used `n/(n - p - Σ(G_k - 1))` where fixest
+  uses `(n - 1)/(n - K)`; `hc1` was one degree of freedom short. A new
+  `ssc=` argument defaults to `'fixest'`, which reproduces fixest 0.14 on
+  20 configurations to 6.5e-8 (its own stopping rule);
+  `ssc='statspai'` returns the old numbers. Coefficients are unchanged.
+  `sp.fepois` and `sp.ppmlhdfe` were not affected. See `MIGRATION.md`.
+- **A weighted `sp.fast.fepois(vcov='hc1')` left the weights out of the
+  score.** The bread was weighted and the meat was not: standard errors
+  43% to 46% off fixest's on the reference panel. Unweighted fits and the
+  weighted `iid` / `cr1` variances were not affected.
+
+#### Changed
+
+- Two tests compared `sp.fast.fepois` with fixest at 1% and 2% (the
+  second against a non-default `ssc(fixef.K='full')`), which is how the
+  factors above went unnoticed. They now compare with fixest's defaults
+  at 1e-5.
+
 ### `sp.fast.feols`: degrees of freedom with one absorbed dimension
 
 #### ⚠️ Correctness

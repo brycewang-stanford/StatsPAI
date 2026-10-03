@@ -6079,6 +6079,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_fast_fepois_fixest_parity.py",
         "tests/reference_parity/test_feglm_wild_boottest_parity.py",
         "tests/reference_parity/test_ppmlhdfe_extended_vce_parity.py"
       ],

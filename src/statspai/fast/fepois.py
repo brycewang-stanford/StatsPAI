@@ -709,6 +709,7 @@ def fepois(
     fe_maxiter: int = 1000,
     drop_singletons: bool = True,
     drop_separation: bool = True,
+    ssc: str = "fixest",
 ) -> FePoisResult:
     """Poisson regression with high-dimensional fixed effects.
 
@@ -726,8 +727,8 @@ def fepois(
         Must contain all columns referenced in ``formula``.
     vcov : {"iid", "hc1", "cr1"}
         Variance-covariance estimator. ``"cr1"`` is one-way cluster-
-        robust (Liang-Zeger) with the FE-rank-aware small-sample factor
-        ``(G/(G-1)) * (n-1)/(n - p - Σ(G_k - 1))``. CR2/CR3 are not yet
+        robust (Liang-Zeger); its small-sample factor follows ``ssc``.
+        CR2/CR3 are not yet
         wired in for fepois — the WLS leverage adjustment requires
         weighting the H_gg matrix by ``μ`` (the IRLS working weight),
         which the generic :func:`crve` doesn't separate from the score
@@ -750,11 +751,32 @@ def fepois(
     drop_separation : bool
         Drop rows whose FE level has all-zero outcomes (Poisson cannot
         identify them anyway).
+    ssc : {"fixest", "statspai"}, default "fixest"
+        Small-sample convention for the covariance. Coefficients do not
+        depend on it.
+
+        - ``"fixest"`` reproduces R ``fixest::fepois`` defaults. With
+          ``K = p + ΣG_k - (dims - 1)`` (the absorbed effects span the
+          intercept): ``iid`` scales the inverse information by
+          ``(n - 1)/(n - K)``, ``hc1`` scales the sandwich by
+          ``n/(n - K)``, and ``cr1`` uses ``G/(G - 1) * (n - 1)/(n - K_c)``
+          where ``K_c`` leaves out absorbed dimensions nested in the
+          clusters (keeping the intercept when all of them are).
+        - ``"statspai"`` is the convention through 1.36.0, kept to reproduce
+          old numbers: ``n/(n - p - Σ(G_k - 1))`` for ``iid`` and ``hc1``,
+          and every absorbed level charged in ``cr1``, which inflates
+          clustered standard errors when the effects are nested in the
+          clusters (8% on the reference panel).
 
     Returns
     -------
     FePoisResult
     """
+    if ssc not in ("fixest", "statspai"):
+        raise MethodIncompatibility(
+            f"fepois: ssc={ssc!r}; supported: 'fixest' or 'statspai'",
+            diagnostics={"ssc": ssc},
+        )
     if vcov not in ("iid", "hc1", "cr1"):
         raise MethodIncompatibility(
             f"fepois: vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'"
@@ -1080,22 +1102,49 @@ def fepois(
     except np.linalg.LinAlgError as exc:
         raise NumericalInstability(f"vcov inversion failed: {exc}") from exc
 
-    # fixest / pyfixest small-sample correction: scale by n/(n-p-Σ(G_k-1))
-    # so that absorbed FE coefficients are charged against degrees of
-    # freedom. Matches ``ssc(adj=TRUE)`` in fixest, which is the default.
-    fe_dof = sum(int(c.size) - 1 for c in counts_list)
-    df_resid = n - p - fe_dof
+    # Small-sample convention (see ``ssc`` in the docstring). The fixest
+    # factors were identified against fixest 0.14 to eight digits on one-
+    # and two-dimension models; tests/reference_parity/
+    # test_fast_fepois_fixest_parity.py pins them.
+    fe_card = [int(c.size) for c in counts_list]
+    if ssc == "fixest":
+        from .feols import _fixest_fe_dof, _is_nested_in_cluster
+
+        fe_dof = _fixest_fe_dof(fe_card)
+        df_resid = n - p - fe_dof
+        iid_factor = (n - 1) / df_resid if df_resid > 0 else 1.0
+        if vcov == "cr1":
+            free = [
+                card
+                for codes_k, card in zip(fe_codes, fe_card)
+                if not _is_nested_in_cluster(codes_k, cluster_arr_full)
+            ]
+            if not fe_card:
+                cr1_extra_df = 0
+            elif not free:
+                cr1_extra_df = 1  # the intercept the nested effects span
+            else:
+                cr1_extra_df = int(sum(free) - (len(free) - 1))
+        else:
+            cr1_extra_df = fe_dof
+    else:
+        fe_dof = sum(card - 1 for card in fe_card)
+        df_resid = n - p - fe_dof
+        iid_factor = n / df_resid if df_resid > 0 else 1.0
+        cr1_extra_df = fe_dof
 
     if vcov == "iid":
-        # Poisson canonical: dispersion = 1, but apply the fixest-style
-        # SSC adjustment so SEs line up with pyfixest / fixest defaults.
-        vcov_mat = XtWX_inv
-        if df_resid > 0:
-            vcov_mat = vcov_mat * (n / df_resid)
+        # Poisson canonical: dispersion = 1; the inverse information is
+        # scaled by the small-sample factor only.
+        vcov_mat = XtWX_inv * iid_factor
     elif vcov == "hc1":
-        # HC1 sandwich: meat = Σ_i s_i s_i' where s_i is the score row.
-        # Score = X_tilde * (y - mu).
-        u = (y - mu)[:, None] * X_tilde
+        # HC1 sandwich: meat = Σ_i s_i s_i' where s_i is the score row,
+        # w_i * (y_i - mu_i) * x̃_i. The observation weight belongs in the
+        # score: without it a weighted fit paired a weighted bread with an
+        # unweighted meat (standard errors 43% to 46% off fixest's on the
+        # reference panel).
+        score_w = obs_weights if obs_weights is not None else 1.0
+        u = (score_w * (y - mu))[:, None] * X_tilde
         meat = u.T @ u
         vcov_mat = XtWX_inv @ meat @ XtWX_inv
         if df_resid > 0:
@@ -1120,7 +1169,7 @@ def fepois(
             weights=score_weights,
             bread=XtWX_inv,
             type="cr1",
-            extra_df=fe_dof,
+            extra_df=cr1_extra_df,
         )
 
     log_lik = float(np.sum(obs_weights * (y * np.log(np.maximum(mu, 1e-30)) - mu)))
