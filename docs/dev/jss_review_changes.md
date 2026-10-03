@@ -31,6 +31,25 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded after `sp.regress` gained the weight diagnostic
+
+- **Commits.** `712d3bf2`.
+- **Reason.** `sp.regress` now records `model_info['n_effective_weights']`
+  on a weighted fit and warns when the weights are dispersed and the
+  variance is the classical one, or when HC0 / HC1 / HC2 rest on a small
+  Kish effective sample. The edits are in `src/statspai/regression/ols.py`
+  and `src/statspai/core/_agent_summary.py`, on the estimation path of
+  Track A modules 01, 14, 35, 51, 53, 54, 55, 56 and 69 and of
+  original-data modules 01, 04, 04b and 09.
+- **Effect on the paper.** None. No Track A module is weighted; a field
+  may be added and a warning raised on weighted fits, and nothing is
+  computed differently. The Python result files of modules 01 and 14 are
+  byte-identical on the parent tree and on the changed tree. Only
+  `exercised_sources` digests and `seconds` changed in the traces.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded after the effective-cluster diagnostic reached the fixed-effects entry points
 
 - **Commits.** `f030cf55`.
