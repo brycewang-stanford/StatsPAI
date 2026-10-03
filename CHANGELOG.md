@@ -261,6 +261,17 @@ evidence map listed as having none.
   estimate and standard error to 1e-10. The MatchIt comparisons made
   through `sp.match(method='nearest')`, which is the same fit as
   `sp.psm`, are entered in the `psm` map.
+- **Isolated MCP calls can return a result handle.** With
+  `STATSPAI_MCP_ISOLATION=process`, a call that asked for a handle
+  (`as_handle=true`) used to run on the thread runner, because a handle
+  minted in a child process died with it; those are the long fits one
+  most wants to be able to kill. The worker now pickles the result it
+  cached into a private directory and the server adopts it under the
+  same id, so the `result_id` in the response works in follow-up calls
+  (`isolation.adopted_handles`). The file is signed with a one-time key
+  and unpickled only if the signature verifies. A result that cannot be
+  pickled is dropped from the response with the reason. Calls that read a handle
+  (`result_id`, `data_id`) and the data tools still run in the server.
 - **`sp.fepois` and `sp.feglm` cards declared the result as a list.** The
   annotation is `Union[EconometricResults, List[EconometricResults]]`
   (the list is the multiple-estimation syntax); a plain formula returns

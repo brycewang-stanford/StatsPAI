@@ -155,10 +155,11 @@ def data(tmp_path):
     [
         ("regress", {"formula": "y ~ x", "data_path": "/d.csv"}, True),
         ("regress", {"formula": "y ~ x", "data_records": [{"y": 1, "x": 2}]}, True),
+        # a result handle is handed over from the worker (see below)
         (
             "regress",
             {"formula": "y ~ x", "data_path": "/d.csv", "as_handle": True},
-            False,
+            True,
         ),
         ("regress", {"formula": "y ~ x", "data_id": "d_1"}, False),
         ("estat", {"result_id": "r_1", "test": "firststage"}, False),
@@ -322,18 +323,24 @@ def test_client_cancel_kills_the_isolated_worker(data):
         assert srv.close() == 0
 
 
-def test_stateful_calls_stay_in_process_and_keep_their_handles(data):
+def test_calls_that_read_a_handle_stay_in_process(data):
+    """The fit is isolated and hands its result over; the follow-up, which
+    reads a handle this server holds, runs in the server."""
     good, _ = data
     srv = _Server(STATSPAI_MCP_ISOLATION="process")
     try:
         fit = srv.wait(
             srv.call("regress", formula="y ~ x", data_path=good, as_handle=True)
         )["result"]["structuredContent"]
-        assert "isolation" not in fit
+        assert fit["isolation"]["adopted_handles"] == ["result_id"]
         rid = fit["result_id"]
         brief = srv.wait(srv.call("brief_result", result_id=rid))["result"]
         assert brief["isError"] is False
         assert brief["structuredContent"]["result_id"] == rid
+        assert "isolation" not in brief["structuredContent"]
+        loaded = srv.wait(srv.call("load_data", data_path=good))["result"]
+        assert "isolation" not in loaded["structuredContent"]
+        assert loaded["structuredContent"]["n_rows"] == 200
     finally:
         assert srv.close() == 0
 
@@ -425,3 +432,102 @@ def test_call_that_waited_past_the_queue_deadline_is_not_run(monkeypatch):
     assert late["structuredContent"]["error_kind"] == "server_busy"
     assert late["structuredContent"]["queued_seconds"] >= 1.0
     assert ran == ["first"], "the expired call was run anyway"
+
+
+# ---------------------------------------------------------------------------
+# Result handles cross the process boundary
+# ---------------------------------------------------------------------------
+
+
+def test_annotate_keeps_a_handle_the_parent_adopted():
+    payload = {
+        "estimate": 1.0,
+        "result_id": "r_live",
+        "result_uri": "statspai://result/r_live",
+        "data_id": "d_child",
+        "next_calls": [{"tool": "audit_result", "arguments": {"result_id": "r_live"}}],
+    }
+    result = {
+        "content": [{"type": "text", "text": json.dumps(payload)}],
+        "structuredContent": payload,
+        "isError": False,
+    }
+    out = _process_worker.annotate(result, adopted=["r_live"])["structuredContent"]
+    assert out["result_id"] == "r_live" and "result_uri" in out
+    assert "data_id" not in out
+    assert out["isolation"]["adopted_handles"] == ["result_id"]
+    assert out["isolation"]["dropped_handles"] == ["data_id"]
+
+
+def test_handle_from_an_isolated_fit_works_in_the_parent(data):
+    """Fit in a killable worker, then use the handle in the server itself."""
+    good, _ = data
+    answers = {}
+    for mode in ("thread", "process"):
+        srv = _Server(STATSPAI_MCP_ISOLATION=mode)
+        try:
+            fit = srv.wait(
+                srv.call("regress", formula="y ~ x", data_path=good, as_handle=True)
+            )["result"]["structuredContent"]
+            rid = fit["result_id"]
+            follow = srv.wait(srv.call("audit_result", result_id=rid))["result"]
+            answers[mode] = (fit, follow)
+        finally:
+            assert srv.close() == 0
+    (fit_t, follow_t), (fit_p, follow_p) = answers["thread"], answers["process"]
+    assert fit_p["isolation"] == {"mode": "process", "adopted_handles": ["result_id"]}
+    assert fit_p["coefficients"] == fit_t["coefficients"]
+    assert fit_p["n_obs"] == fit_t["n_obs"] == 200
+    # the follow-up ran in the parent, on the adopted object
+    assert follow_p["isError"] is False and follow_t["isError"] is False
+    assert sorted(follow_p["structuredContent"]) == sorted(
+        follow_t["structuredContent"]
+    )
+
+
+def test_cache_adopts_under_the_child_s_id_and_refuses_a_collision():
+    from statspai.agent._result_cache import CacheEntry, ResultCache
+
+    cache = ResultCache(max_size=4)
+    entry = CacheEntry(obj={"b": 1.5}, tool="regress", arguments={"formula": "y ~ x"})
+    assert cache.adopt("r_abc12345", entry) is True
+    assert cache.get("r_abc12345") == {"b": 1.5}
+    assert cache.get_entry("r_abc12345").tool == "regress"
+    assert cache.adopt("r_abc12345", CacheEntry(obj=2, tool="x")) is False
+    assert cache.get("r_abc12345") == {"b": 1.5}
+    assert len(cache) == 1
+
+
+def test_export_and_import_round_trip_and_report_what_cannot_be_pickled(
+    tmp_path, monkeypatch
+):
+    from statspai.agent._result_cache import RESULT_CACHE, CacheEntry
+
+    RESULT_CACHE.clear()
+    good = RESULT_CACHE.put({"estimate": 0.25}, tool="regress")
+    bad = RESULT_CACHE.put(lambda: 1, tool="regress")  # not picklable
+    key = "ab" * 32
+    monkeypatch.setenv(_process_worker.HANDOFF_ENV, str(tmp_path))
+    monkeypatch.setenv(_process_worker.HANDOFF_KEY_ENV, key)
+    _process_worker.export_handles()
+    assert (tmp_path / f"{good}.pkl").exists()
+    assert not (tmp_path / f"{bad}.pkl").exists()
+
+    # A file signed with another key is refused before it is unpickled.
+    RESULT_CACHE.clear()
+    adopted, failed = _process_worker.import_handles(str(tmp_path), "cd" * 32)
+    assert adopted == [] and "signature" in failed[good]
+    assert len(RESULT_CACHE) == 0
+
+    adopted, failed = _process_worker.import_handles(str(tmp_path), key)
+    assert adopted == [good]
+    assert bad in failed and "pickle" in failed[bad].lower()
+    assert RESULT_CACHE.get(good) == {"estimate": 0.25}
+    assert isinstance(RESULT_CACHE.get_entry(good), CacheEntry)
+    RESULT_CACHE.clear()
+
+
+def test_export_is_a_no_op_outside_a_worker(monkeypatch):
+    monkeypatch.delenv(_process_worker.HANDOFF_ENV, raising=False)
+    monkeypatch.delenv(_process_worker.HANDOFF_KEY_ENV, raising=False)
+    _process_worker.export_handles()  # must not raise or write anywhere

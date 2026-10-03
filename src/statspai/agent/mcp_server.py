@@ -66,9 +66,10 @@ directories, network URLs need ``STATSPAI_MCP_ALLOW_REMOTE=1``,
 ``STATSPAI_MCP_MAX_QUEUED_CALLS`` / ``STATSPAI_MCP_MAX_ORPHANED_CALLS`` /
 ``STATSPAI_MCP_MAX_QUEUE_SECONDS`` / ``STATSPAI_MCP_MAX_REQUEST_BYTES``
 bound what the stdio loop admits (``server_busy`` / ``-32600`` beyond
-them). ``STATSPAI_MCP_ISOLATION=process`` runs self-contained calls in a
-child process that is killed on timeout or cancel
-(:mod:`statspai.agent._process_worker`).
+them). ``STATSPAI_MCP_ISOLATION=process`` runs calls that read no
+server-side handle in a child process that is killed on timeout or
+cancel; a result handle they ask for (``as_handle``) is handed over to
+this server (:mod:`statspai.agent._process_worker`).
 
 Protocol features
 -----------------
@@ -852,9 +853,10 @@ _RESULT_OUTPUT_SCHEMA: Dict[str, Any] = {
             "type": "object",
             "description": (
                 "Present when the call ran in a child process "
-                "(STATSPAI_MCP_ISOLATION=process): mode, and dropped_handles "
-                "when the result carried process-local handles that could "
-                "not outlive the child."
+                "(STATSPAI_MCP_ISOLATION=process): mode; adopted_handles "
+                "when the result handle was handed over to this server and "
+                "works in follow-up calls; dropped_handles (with a reason) "
+                "for handles that could not outlive the child."
             ),
             "additionalProperties": True,
         },
@@ -1561,7 +1563,11 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
             name, arguments
         ):
             return _run_isolated_call(name, arguments, params)
-        return _run_tools_call(name, arguments, params)
+        try:
+            return _run_tools_call(name, arguments, params)
+        finally:
+            # An isolated worker leaves its cached results for the parent.
+            _process_worker.export_handles()
     except _ToolCallError as err:
         return _tool_error_result(err.kind, err.message, **err.fields)
 
@@ -1581,17 +1587,33 @@ def _run_isolated_call(
             sink.write(line + "\n")
             sink.flush()
 
+    import shutil
+    import tempfile
+
     timeout = tool_timeout()
-    status, payload = _process_worker.run_isolated(
-        name,
-        arguments,
-        meta,
-        timeout=timeout,
-        cancel_event=current_cancel_event(),
-        forward=_forward,
-    )
+    import secrets
+
+    handoff = tempfile.mkdtemp(prefix="statspai-mcp-handoff-")
+    handoff_key = secrets.token_hex(32)
+    try:
+        status, payload = _process_worker.run_isolated(
+            name,
+            arguments,
+            meta,
+            timeout=timeout,
+            cancel_event=current_cancel_event(),
+            forward=_forward,
+            handoff_dir=handoff,
+            handoff_key=handoff_key,
+        )
+        adopted: List[str] = []
+        failed: Dict[str, str] = {}
+        if status == "result":
+            adopted, failed = _process_worker.import_handles(handoff, handoff_key)
+    finally:
+        shutil.rmtree(handoff, ignore_errors=True)
     if status == "result":
-        return _process_worker.annotate(payload)
+        return _process_worker.annotate(payload, adopted=adopted, failed=failed)
     if status == "rpc_error":
         code = payload.get("code") if isinstance(payload, dict) else None
         message = str(payload.get("message")) if isinstance(payload, dict) else ""

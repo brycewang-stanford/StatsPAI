@@ -247,6 +247,41 @@ class ResultCache:
                     self._drop_locked(old_rid, EVICT_BYTES)
         return rid
 
+    def adopt(self, rid: str, entry: CacheEntry) -> bool:
+        """Insert an entry minted by another process under its own id.
+
+        Used by the process-isolation hand-off: a child server fitted the
+        model and cached it; the parent adopts that entry so the handle the
+        child reported keeps working. Returns ``False`` (and stores
+        nothing) when the id is already taken here.
+        """
+        from ._runner import check_cancelled
+
+        check_cancelled()
+        nbytes = self._entry_bytes(entry.obj) if self._max_bytes else 0
+        with self._lock:
+            self._purge_expired_locked()
+            if rid in self._store:
+                return False
+            entry.nbytes = nbytes
+            self._store[rid] = entry
+            self._total_bytes += nbytes
+            self._evicted.pop(rid, None)
+            while len(self._store) > self._max_size:
+                old_rid = next(iter(self._store))
+                self._drop_locked(old_rid, EVICT_LRU)
+            if self._max_bytes is not None:
+                while self._total_bytes > self._max_bytes and len(self._store) > 1:
+                    old_rid = next(iter(self._store))
+                    self._drop_locked(old_rid, EVICT_BYTES)
+        return rid in self
+
+    def snapshot(self) -> Dict[str, CacheEntry]:
+        """The live entries, by id (for the isolation hand-off)."""
+        with self._lock:
+            self._purge_expired_locked()
+            return dict(self._store)
+
     def set_replay(self, rid: str, replay: str) -> bool:
         """Replace the replay string of an existing entry."""
         with self._lock:
