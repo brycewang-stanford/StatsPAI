@@ -18,8 +18,10 @@ Design (16 cells, ``B`` replications each, one seed per replication):
 Methods, each as a user would call it:
 
 * ``cr1``  -- ``sp.regress(cluster=)``: CR1, t(G - 1) reference;
-* ``cr2``  -- ``sp.regress(vce='cr2', cluster=)``: CR2, normal reference;
-* ``cr3``  -- ``sp.regress(vce='cr3', cluster=)``: CR3, normal reference;
+* ``cr2``  -- ``sp.regress(vce='cr2', cluster=)``: CR2, t(G - 1);
+* ``cr3``  -- ``sp.regress(vce='cr3', cluster=)``: CR3, t(G - 1) (both were
+  on a normal reference when this study was first run; its CR2 column at
+  six balanced clusters, 12%, is what prompted the change);
 * ``wild`` -- ``sp.wild_cluster_bootstrap``: WCR bootstrap p-value, 999
   draws, Rademacher weights (Webb weights below 12 clusters, as the
   function itself recommends).

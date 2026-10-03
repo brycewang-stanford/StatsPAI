@@ -517,12 +517,19 @@ def _feols_bias_reduced(
             "jackknife": "CR3 cluster-robust (clubSandwich jackknife-type)",
         }[kind]
 
-    z = base.params / se
     base.std_errors = se
-    base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
-    crit = _stats.norm.ppf(0.975)
-    base.conf_int_lower = base.params - crit * se
-    base.conf_int_upper = base.params + crit * se
+    if kind == "conley":
+        z = base.params / se
+        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
+        crit = _stats.norm.ppf(0.975)
+        base.conf_int_lower = base.params - crit * se
+        base.conf_int_upper = base.params + crit * se
+    else:
+        # t(G - 1), as for the one-way cluster variance and as Stata's
+        # vce(hc2 clustvar); the normal was used through 1.36.0.
+        from ..inference.jackknife import set_cluster_t_inference
+
+        set_cluster_t_inference(base, se, len(np.unique(cl_codes)))
     base.model_info = dict(base.model_info)
     base.model_info["vcov_type"] = label
     if cluster is not None:

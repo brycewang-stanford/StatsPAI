@@ -66,6 +66,25 @@ Python calls to `sp.read_data` are unaffected.
 
 ---
 
+<a id="oct2026-cr2-t-reference"></a>
+
+## Unreleased: ⚠️ CR2 / CR3 / two-way p-values and intervals use t(G - 1)
+
+`sp.regress`, `sp.feols` and `sp.ivreg` with `vce='cr2'`, `vce='cr3'` /
+`'jackknife'`, and `sp.regress(cluster=[a, b])`, now refer the t ratio to
+`t(G - 1)` (`t(G_min - 1)` for two-way clustering), as the one-way cluster
+variance of the same functions and Stata's `vce(hc2 clustvar)`,
+`vce(jackknife, cluster())` and `vce(cluster a b)` do. They used the
+normal. Coefficients and standard errors do not change; p-values rise and
+intervals widen, by a little at 40 clusters (the 97.5% critical value
+goes from 1.960 to 2.023) and by a lot at 6 (2.571).
+
+`sp.hdfe_ols` and `sp.panel` already used `t(G - 1)` for these variances
+and are unchanged, as are the GLM variants (`sp.feglm`, `sp.fepois`),
+which keep the normal.
+
+---
+
 <a id="oct2026-poisson-weights-vcov"></a>
 
 ## Unreleased: ⚠️ weighted `sp.poisson` / `sp.ppmlhdfe` standard errors

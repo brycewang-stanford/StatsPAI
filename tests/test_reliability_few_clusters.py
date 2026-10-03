@@ -83,6 +83,15 @@ def test_balanced_half_treated_is_where_every_method_settles(results):
     assert 0.06 < rate < 0.11
 
 
+def test_cr2_and_cr3_on_the_t_reference_hold_their_size_when_balanced(results):
+    """On a normal reference CR2 rejected 12% at six clusters; on t(G-1), 6%."""
+    for G in (6, 10, 20, 40):
+        cr2, se2 = _rate(results, G, "half", "balanced", "cr2")
+        cr3, _ = _rate(results, G, "half", "balanced", "cr3")
+        assert cr2 < 0.06 + 2 * se2, (G, cr2)
+        assert 0.02 < cr3 < 0.055, (G, cr3)
+
+
 def test_wild_bootstrap_is_near_nominal_with_similar_clusters(results):
     for G in (6, 10, 20, 40):
         rate, se = _rate(results, G, "half", "balanced", "wild")
@@ -105,7 +114,7 @@ def test_one_dominant_cluster_breaks_cr1_and_the_bootstrap_but_not_cr3(results):
         cr3, se_3 = _rate(results, G, "half", "unbalanced", "cr3")
         assert cr1 > 0.20, (G, cr1)
         assert wild - 2 * se_w > 0.08, (G, wild)
-        assert 0.03 < cr3 < 0.08 + 2 * se_3, (G, cr3)
+        assert 0.03 < cr3 < 0.06 + 2 * se_3, (G, cr3)
     # more clusters do not help CR1 here: the large one still holds half
     assert (
         _rate(results, 40, "half", "unbalanced", "cr1")[0]

@@ -192,6 +192,26 @@ evidence map listed as having none.
   dropped missing values (`sp.twoway_cluster` raised; `sp.cr2_se` fell
   back to a re-parse of the formula).
 
+### CR2, CR3 and two-way clustering: t(G - 1), not the normal
+
+#### ⚠️ Correctness
+
+- **p-values and intervals of the bias-reduced and two-way cluster
+  variances came from the normal.** `sp.regress`, `sp.feols` and
+  `sp.ivreg` with `vce='cr2'` / `'cr3'` / `'jackknife'`, and
+  `sp.regress(cluster=[a, b])`, replaced the standard errors of a fitted
+  model and then referred the t ratio to N(0, 1), while the one-way
+  cluster variance of the same functions used t(G - 1). Stata reports
+  t(G - 1) for `vce(hc2 clustvar)` and `vce(jackknife, cluster())`, and
+  t(G_min - 1) for `vce(cluster a b)`. The standard errors agreed with
+  Stata and the p-values did not. They do now (1e-8 on the test fixture).
+  The size study shows what it was worth: with six clusters of equal size
+  CR2 rejected a true null 12% of the time on the normal reference and 6%
+  on t(G - 1); CR3 7% and 3%. Coefficients and standard errors are
+  unchanged; p-values rise and intervals widen, slightly at 40 clusters
+  and substantially below 10. `sp.hdfe_ols` and `sp.panel` already used
+  t(G - 1). See `MIGRATION.md`.
+
 ### `sp.poisson` and `sp.ppmlhdfe`: weights in the covariance
 
 #### ⚠️ Correctness
@@ -268,9 +288,8 @@ evidence map listed as having none.
   bootstrap rejects a true null 5% to 7% of the time from 6 clusters up.
   With two treated clusters it almost never rejects (0.0% at 40
   clusters), and with one cluster holding half the sample it over-rejects
-  (13%) while CR3 stays at 5% to 8%. The hint in `sp.regress`, `sp.panel`
-  and the agent summary now says this. The study also records that
-  `vce='cr2'` with its normal reference over-rejects at small G.
+  (13%) while CR3 stays at 3% to 5%. The hint in `sp.regress`, `sp.panel`
+  and the agent summary now says this.
 - **`sp.regress` reports the effective number of clusters and warns when
   it is small.** The few-cluster warning was keyed on the count (fewer
   than 30) and stayed silent with 40 clusters of which one holds half the

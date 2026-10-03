@@ -113,7 +113,7 @@ _FEW_CLUSTERS_MIN = 30
 #: bootstrap rejects a true null 5% to 7% of the time from 6 clusters up;
 #: with two treated clusters it almost never rejects (0.0% to 6%); with
 #: one cluster holding half the sample it over-rejects (up to 13%) while
-#: CR3 stays at 5% to 8%.
+#: CR3 stays at 3% to 5%.
 FEW_CLUSTERS_HINT = (
     "Report sp.wild_cluster_bootstrap (or sp.wild_cluster_ci_inv for CIs): "
     "near nominal size with few clusters of similar size when the regressor "

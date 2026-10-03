@@ -2974,22 +2974,18 @@ def ivreg(
             method="2sls",
             **kwargs,
         )
-        from scipy import stats as _stats
-
         from statspai.inference.iv_wild import iv_cr_vcov
 
         cr = iv_cr_vcov(base, data, cluster, kind=kind)
         se = cr["std_errors"]
         base.std_errors = se
-        z = base.params / se
-        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
-        crit = _stats.norm.ppf(0.975)
-        base.conf_int_lower = base.params - crit * se
-        base.conf_int_upper = base.params + crit * se
+        # t(G - 1), the reference the one-way cluster variance of this
+        # function already uses (ivregress, small); normal through 1.36.0.
+        from statspai.inference.jackknife import set_cluster_t_inference
+
+        _n_cl = base.model_info.get("n_clusters") or data[cluster].nunique()
+        set_cluster_t_inference(base, se, int(_n_cl))
         base.model_info = dict(base.model_info)
-        # These SEs replace the fitted ones and their p-values are normal;
-        # mark the fit so conf_int() / tidy() / sp.test use z as well.
-        base.data_info = dict(base.data_info, inference="z")
         base.model_info["vcov_type"] = (
             f"{kind} cluster-robust (clubSandwich, Pustejovsky-Tipton 2018)"
         )

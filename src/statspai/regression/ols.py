@@ -1728,8 +1728,6 @@ def regress(
             collinear=collinear,
             weights=weights,
         )
-        from scipy import stats as _stats
-
         from ..inference.jackknife import cr_vcov_ols
 
         cl_codes = _sample_codes(base, data, cluster)
@@ -1737,15 +1735,14 @@ def regress(
             base, cl_codes, power=0.5 if kind == "CR2" else 1.0, small_sample=False
         )
         base.std_errors = se
-        z = base.params / se
-        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
-        crit = _stats.norm.ppf(0.975)
-        base.conf_int_lower = base.params - crit * se
-        base.conf_int_upper = base.params + crit * se
+        # Reference distribution: t(G - 1), as Stata's vce(hc2 clustvar)
+        # and vce(jackknife, cluster()) use. Through 1.36.0 this was the
+        # normal, which at 6 clusters rejected a true null 12% (CR2) and
+        # 7% (CR3) of the time (tests/reliability/few_clusters.py).
+        from ..inference.jackknife import set_cluster_t_inference
+
+        set_cluster_t_inference(base, se, len(np.unique(cl_codes)))
         base.model_info = dict(base.model_info)
-        # These SEs replace the fitted ones and their p-values are normal;
-        # mark the fit so conf_int() / tidy() / sp.test use z as well.
-        base.data_info = dict(base.data_info, inference="z")
         base.model_info["vcov_type"] = (
             f"{kind} cluster-robust (Pustejovsky-Tipton 2018; matches R "
             "sandwich::vcovCL)"
@@ -1881,8 +1878,6 @@ def regress(
             collinear=collinear,
             weights=weights,
         )
-        from scipy import stats as _stats
-
         from ..inference.jackknife import two_way_correction_ols
 
         c1_codes = _sample_codes(base, data, c1)
@@ -1892,15 +1887,15 @@ def regress(
         )[0]
         se = two_way_correction_ols(base, c1_codes, c2_codes, c12_codes)
         base.std_errors = se
-        z = base.params / se
-        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
-        crit = _stats.norm.ppf(0.975)
-        base.conf_int_lower = base.params - crit * se
-        base.conf_int_upper = base.params + crit * se
+        # t(G_min - 1), the degrees of freedom Stata 18's
+        # regress, vce(cluster a b) and fixest report; the normal was
+        # used through 1.36.0.
+        from ..inference.jackknife import set_cluster_t_inference
+
+        set_cluster_t_inference(
+            base, se, min(len(np.unique(c1_codes)), len(np.unique(c2_codes)))
+        )
         base.model_info = dict(base.model_info)
-        # These SEs replace the fitted ones and their p-values are normal;
-        # mark the fit so conf_int() / tidy() / sp.test use z as well.
-        base.data_info = dict(base.data_info, inference="z")
         base.model_info["vcov_type"] = "two-way cluster (CGM 2011)"
         base.model_info["cluster"] = list(cluster)
         return base

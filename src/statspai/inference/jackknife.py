@@ -791,6 +791,33 @@ def _ols_correction_from_cl_codes(
     return (g / (g - 1.0)) * ((n - 1) / (n - k))
 
 
+def set_cluster_t_inference(base: Any, se: "pd.Series", n_clusters: int) -> int:
+    """p-values and intervals from ``t(G - 1)`` for replaced cluster SEs.
+
+    A bias-reduced or multiway cluster variance replaces the standard
+    errors of an already fitted result; this gives it the reference
+    distribution Stata uses for ``vce(hc2 clustvar)``, ``vce(jackknife,
+    cluster())`` and ``vce(cluster a b)``. ``data_info['df_inference']``
+    is what ``conf_int()`` / ``tidy()`` / ``sp.test`` read, so the same
+    distribution reaches them. Returns the degrees of freedom used.
+    """
+    from scipy import stats as _stats
+
+    df = max(int(n_clusters) - 1, 1)
+    t_stat = base.params / se
+    base.pvalues = pd.Series(
+        2 * _stats.t.sf(np.abs(t_stat), df), index=base.params.index
+    )
+    crit = _stats.t.ppf(0.975, df)
+    base.conf_int_lower = base.params - crit * se
+    base.conf_int_upper = base.params + crit * se
+    info = dict(base.data_info)
+    info.pop("inference", None)
+    info["df_inference"] = df
+    base.data_info = info
+    return df
+
+
 def _weighted_design(
     X: np.ndarray, y: np.ndarray, weights: Any
 ) -> Tuple[np.ndarray, np.ndarray]:

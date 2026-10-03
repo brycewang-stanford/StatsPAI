@@ -279,3 +279,79 @@ def test_helpers_follow_the_fitted_rows(data):
         a = helper(_fit(holed, weights="w"), holed)
         b = helper(_fit(clean, weights="w"), clean)
         np.testing.assert_allclose(a.std_errors, b.std_errors, rtol=1e-12)
+
+
+# ── reference distribution: t(G - 1), as Stata reports it ─────────────── #
+
+
+def _stata_p(cell, name):
+    from scipy import stats
+
+    t = cell[f"b_{name}"] / cell[f"se_{name}"]
+    return float(2 * stats.t.sf(abs(t), cell["df_r"]))
+
+
+@pytest.mark.parametrize(
+    "key,kw",
+    [
+        ("cr2", dict(vce="cr2", cluster="g")),
+        ("aw_cr2", dict(vce="cr2", cluster="g", weights="w")),
+    ],
+)
+def test_cr2_p_values_and_intervals_use_stata_s_degrees_of_freedom(ref, data, key, kw):
+    """``regress, vce(hc2 g)`` reports t(G - 1); so does ``vce='cr2'``.
+
+    Through 1.36.0 the p-values and intervals of the CR2 / CR3 / two-way
+    variances came from the normal, although the one-way cluster variance
+    of the same function used t(G - 1). The standard errors matched Stata
+    and the p-values did not (0.162 against 0.170 on x2 here; at six
+    clusters the normal rejects a true null 12% of the time).
+    """
+    from scipy import stats
+
+    res = _fit(data, **kw)
+    cell = ref[key]
+    g = data["g"].nunique()
+    assert cell["df_r"] == g - 1 == res.data_info["df_inference"]
+    assert "inference" not in res.data_info
+    for ours, theirs in _NAMES:
+        assert float(res.pvalues[ours]) == pytest.approx(
+            _stata_p(cell, theirs), rel=1e-8
+        )
+        half = float(res.conf_int_upper[ours] - res.params[ours])
+        assert half == pytest.approx(
+            stats.t.ppf(0.975, g - 1) * cell[f"se_{theirs}"], rel=1e-9
+        )
+
+
+def test_cr3_and_two_way_use_the_same_rule(ref, data):
+    g = data["g"].nunique()
+    cr3 = _fit(data, vce="cr3", cluster="g")
+    assert cr3.data_info["df_inference"] == g - 1
+    two = _fit(data, cluster=["g", "k"])
+    # Stata 18: e(df_r) = min(G_a, G_b) - 1
+    assert two.data_info["df_inference"] == ref["twoway"]["df_r"] == 2
+    assert float(two.pvalues["x1"]) > float(_fit(data, cluster="g").pvalues["x1"])
+
+
+def test_feols_and_ivreg_bias_reduced_variances_use_t_too(data):
+    from scipy import stats
+
+    g = data["g"].nunique()
+    crit = stats.t.ppf(0.975, g - 1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fits = [
+            sp.feols("y ~ x1 + x2 | k", data, vce="cr2", cluster="g"),
+            sp.feols("y ~ x1 + x2 | k", data, vce="cr3", cluster="g"),
+            sp.ivreg("y ~ x1 + (x2 ~ z + z2)", data, vce="cr2", cluster="g"),
+            sp.ivreg("y ~ x1 + (x2 ~ z + z2)", data, vce="cr3", cluster="g"),
+        ]
+    for fit in fits:
+        assert fit.data_info["df_inference"] == g - 1
+        half = float(fit.conf_int_upper["x1"] - fit.params["x1"])
+        assert half == pytest.approx(crit * float(fit.std_errors["x1"]), rel=1e-12)
+        t = abs(float(fit.params["x1"]) / float(fit.std_errors["x1"]))
+        assert float(fit.pvalues["x1"]) == pytest.approx(
+            2 * stats.t.sf(t, g - 1), rel=1e-10
+        )
