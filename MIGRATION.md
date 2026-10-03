@@ -7,7 +7,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="oct2026-python310"></a>
 
-## Unreleased: Python 3.10 or later is required
+## 1.36.0 → 1.37.0: Python 3.10 or later is required
 
 `pip install statspai` on Python 3.9 now resolves to the last release that
 supported it (1.36.0). Upgrade the interpreter to get later versions. There
@@ -23,7 +23,7 @@ on 2026-10-03. See `docs/dev/2026-10-04-windows-test-gaps.md`.
 
 <a id="oct2026-dta-widths"></a>
 
-## Unreleased: ⚠️ labels on `.a` ... `.z` move to `attrs['_missing_labels']`; `sp.tab` prints value labels
+## 1.36.0 → 1.37.0: ⚠️ labels on `.a` ... `.z` move to `attrs['_missing_labels']`; `sp.tab` prints value labels
 
 **Extended missing values.** For a .dta file that labels an extended
 missing value (`label define r 1 "North" .a "Refused"`), `sp.read_data`
@@ -57,7 +57,7 @@ old layout. Data without value labels are unaffected.
 **`sp.describe`.** The returned frame has a sixth column, `value_labels`.
 Code that unpacks exactly five columns by position needs the extra name.
 
-## Unreleased: ⚠️ `sp.read_data` returns `int64` / `float64` for every numeric .dta column
+## 1.36.0 → 1.37.0: ⚠️ `sp.read_data` returns `int64` / `float64` for every numeric .dta column
 
 This affects you only if `pyreadstat` is **not** installed (with it the
 dtypes were already these), and it also applies to a `.dta` loaded through
@@ -78,7 +78,7 @@ the MCP server.
 
 <a id="oct2026-dta-dates"></a>
 
-## Unreleased: ⚠️ `sp.read_data` returns Stata dates as `datetime64` when `pyreadstat` is installed
+## 1.36.0 → 1.37.0: ⚠️ `sp.read_data` returns Stata dates as `datetime64` when `pyreadstat` is installed
 
 This affects you only if `pyreadstat` is installed; without it
 `sp.read_data` already behaved as described.
@@ -118,7 +118,7 @@ Python calls to `sp.read_data` are unaffected.
 
 <a id="oct2026-cr2-t-reference"></a>
 
-## Unreleased: ⚠️ CR2 / CR3 / two-way p-values and intervals use t(G - 1)
+## 1.36.0 → 1.37.0: ⚠️ CR2 / CR3 / two-way p-values and intervals use t(G - 1)
 
 `sp.regress`, `sp.feols` and `sp.ivreg` with `vce='cr2'`, `vce='cr3'` /
 `'jackknife'`, and `sp.regress(cluster=[a, b])`, now refer the t ratio to
@@ -137,7 +137,7 @@ which keep the normal.
 
 <a id="oct2026-poisson-weights-vcov"></a>
 
-## Unreleased: ⚠️ weighted `sp.poisson` / `sp.ppmlhdfe` standard errors
+## 1.36.0 → 1.37.0: ⚠️ weighted `sp.poisson` / `sp.ppmlhdfe` standard errors
 
 Refit any weighted Poisson or PPML-HDFE table: the coefficients stand,
 the standard errors do not.
@@ -158,7 +158,7 @@ The percentages are on the test fixture. Unweighted fits, `sp.logit`,
 
 <a id="oct2026-feols-jax-ssc"></a>
 
-## Unreleased: ⚠️ `sp.fast.feols_jax` standard errors follow `sp.fast.feols`; `ssc=` added
+## 1.36.0 → 1.37.0: ⚠️ `sp.fast.feols_jax` standard errors follow `sp.fast.feols`; `ssc=` added
 
 `sp.fast.feols_jax` now uses the same small-sample convention as
 `sp.fast.feols` (R `fixest` defaults). Before, the two backends disagreed:
@@ -171,7 +171,7 @@ with clustered standard errors should be refit or rescaled.
 
 <a id="oct2026-fast-fepois-ssc"></a>
 
-## Unreleased: ⚠️ `sp.fast.fepois` standard errors follow fixest; `ssc=` added
+## 1.36.0 → 1.37.0: ⚠️ `sp.fast.fepois` standard errors follow fixest; `ssc=` added
 
 `sp.fast.fepois` now reproduces R `fixest::fepois` standard errors by
 default. Coefficients do not change. To get the previous numbers pass
@@ -192,7 +192,7 @@ bring it back.
 
 <a id="oct2026-fast-feols-one-fe-dof"></a>
 
-## Unreleased: ⚠️ `sp.fast.feols` standard errors with one absorbed dimension
+## 1.36.0 → 1.37.0: ⚠️ `sp.fast.feols` standard errors with one absorbed dimension
 
 `sp.fast.feols('y ~ x | firm', ...)` at the default `ssc='fixest'` now
 uses `n - p - G` residual degrees of freedom, as R `fixest` and Stata
@@ -214,7 +214,7 @@ with 150 firms and larger on short panels. Coefficients do not change.
 
 <a id="oct2026-regress-weights-cluster"></a>
 
-## Unreleased: ⚠️ `sp.regress` weights and missing rows under CR2, CR3 and two-way clustering
+## 1.36.0 → 1.37.0: ⚠️ `sp.regress` weights and missing rows under CR2, CR3 and two-way clustering
 
 Three calls returned numbers for a different model than the one asked
 for. Refit any table produced with them.

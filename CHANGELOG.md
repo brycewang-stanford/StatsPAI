@@ -4,6 +4,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.37.0] — 2026-10-04
+
+Value labels now do something. A .dta file's value labels were read and
+written back but used by nothing; they now reach tabulations, regression
+tables and do-files run through `sp.stata`, and the labels Stata attaches
+to its extended missing values (`.a` "Refused") are read correctly on both
+reader paths. The rest of the release is small-sample inference:
+cluster-robust p-values and intervals under CR2, CR3 and two-way
+clustering refer to t(G - 1), the `sp.fast` estimators count degrees of
+freedom as fixest does, and weighted Poisson standard errors use the
+weights.
+
+Python 3.10 is now the oldest supported version. Numbers that change are
+listed in `MIGRATION.md` under the `1.36.0 → 1.37.0` headings.
+
 ### Python 3.10 is the floor; Windows is untested for now
 
 #### Changed

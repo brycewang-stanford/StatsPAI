@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "StatsPAI"
-version = "1.36.0"
+version = "1.37.0"
 description = "Validation-tiered causal inference and econometrics workflows for Python"
 readme = "README_EN.md"
 license = "MIT"
