@@ -175,3 +175,103 @@ def test_read_data_columns_subset_keeps_labels_aligned(tmp_path):
     assert list(back.columns) == ["female"]
     assert back.attrs["_labels"] == {"female": "Sex"}
     assert back.attrs["_value_labels"] == {"female": {0: "male", 1: "female"}}
+
+
+# --- Stata dates: the same frame with and without pyreadstat --------------
+
+_DATE_UNITS = {
+    "d": "td",
+    "c": "tc",
+    "w": "tw",
+    "m": "tm",
+    "q": "tq",
+    "h": "th",
+    "y": "ty",
+}
+
+
+@pytest.fixture
+def dated_dta(tmp_path):
+    """One column per Stata date unit, with a missing value in each."""
+    stamps = pd.to_datetime(
+        ["1958-11-03 00:00", "1960-01-01 00:00", "2019-12-30 10:30", "2024-07-15 00:00"]
+    )
+    df = pd.DataFrame({name: stamps for name in _DATE_UNITS})
+    df.loc[1, list(_DATE_UNITS)] = pd.NaT
+    df["x"] = [1.0, 2.0, 3.0, 4.0]
+    path = tmp_path / "dates.dta"
+    # a copy: pandas rewrites the dict it is given ("td" becomes "%td")
+    df.to_stata(path, write_index=False, convert_dates=dict(_DATE_UNITS), version=118)
+    return path
+
+
+def test_period_date_conversion_matches_pandas(dated_dta):
+    # The helper the pyreadstat path uses, checked against what pandas
+    # itself returns for the same file; runs without pyreadstat installed.
+    from statspai.utils.io import _convert_stata_period_dates
+
+    with mock.patch.dict(sys.modules, {"pyreadstat": None}):
+        expected = sp.read_data(str(dated_dta))
+    counts = pd.read_stata(dated_dta, convert_dates=False)
+    formats = {name: f"%{unit}" for name, unit in _DATE_UNITS.items()}
+    _convert_stata_period_dates(counts, formats)
+    for name in ("w", "m", "q", "h", "y"):
+        assert pd.api.types.is_datetime64_any_dtype(counts[name]), name
+        pd.testing.assert_series_equal(
+            counts[name].astype("datetime64[ns]"),
+            expected[name].astype("datetime64[ns]"),
+        )
+    # %td / %tc are pyreadstat's job, and a plain number is left alone
+    assert pd.api.types.is_numeric_dtype(counts["d"])
+    assert counts["x"].tolist() == [1.0, 2.0, 3.0, 4.0]
+
+
+def test_period_date_out_of_range_warns_and_keeps_counts():
+    from statspai.utils.io import _convert_stata_period_dates
+
+    df = pd.DataFrame({"y": [1500.0, 2020.0]})  # year 1500 is before 1677
+    with pytest.warns(UserWarning, match="could not be converted"):
+        _convert_stata_period_dates(df, {"y": "%ty"})
+    assert df["y"].tolist() == [1500.0, 2020.0]
+
+
+def test_dta_dates_with_pyreadstat_match_fallback(dated_dta):
+    pytest.importorskip("pyreadstat")
+    with mock.patch.dict(sys.modules, {"pyreadstat": None}):
+        fallback = sp.read_data(str(dated_dta))
+    native = sp.read_data(str(dated_dta))
+    for name in _DATE_UNITS:
+        assert pd.api.types.is_datetime64_any_dtype(native[name]), name
+        pd.testing.assert_series_equal(
+            native[name].astype("datetime64[ns]"),
+            fallback[name].astype("datetime64[ns]"),
+        )
+    assert native.attrs["_formats"] == fallback.attrs["_formats"]
+
+
+@pytest.mark.parametrize("with_pyreadstat", [False, True])
+def test_write_data_round_trip_keeps_the_date_unit(
+    dated_dta, tmp_path, with_pyreadstat
+):
+    if with_pyreadstat:
+        pytest.importorskip("pyreadstat")
+        patch = {}
+    else:
+        patch = {"pyreadstat": None}
+    with mock.patch.dict(sys.modules, patch):
+        first = sp.read_data(str(dated_dta))
+        out = sp.write_data(first, tmp_path / "again.dta")
+        second = sp.read_data(str(out))
+    assert second.attrs["_formats"] == {n: f"%{u}" for n, u in _DATE_UNITS.items()}
+    for name in _DATE_UNITS:
+        pd.testing.assert_series_equal(
+            second[name].astype("datetime64[ns]"), first[name].astype("datetime64[ns]")
+        )
+
+
+def test_write_data_explicit_convert_dates_wins(dated_dta, tmp_path):
+    with mock.patch.dict(sys.modules, {"pyreadstat": None}):
+        first = sp.read_data(str(dated_dta))
+        out = sp.write_data(first, tmp_path / "again.dta", convert_dates={"d": "tm"})
+        second = sp.read_data(str(out))
+    assert second.attrs["_formats"]["d"] == "%tm"

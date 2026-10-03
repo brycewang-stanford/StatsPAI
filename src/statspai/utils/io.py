@@ -101,15 +101,25 @@ def _read_stata(path: str, **kwargs: Any) -> pd.DataFrame:
     ``pyreadstat`` (``pip install statspai[io]``) is preferred.  Without it
     the pandas reader is used; it keeps variable labels and value labels as
     well, and value-labelled columns keep their numeric codes (as with
-    pyreadstat) rather than being converted to categoricals, so the two
-    paths return the same frame layout.
+    pyreadstat) rather than being converted to categoricals.  Stata dates
+    (``%td``, ``%tc``, ``%tw``, ``%tm``, ``%tq``, ``%th``, ``%ty``) are
+    ``datetime64`` on both paths.  One difference remains: pyreadstat
+    returns every integer column as ``int64`` and every float as
+    ``float64``, pandas keeps the storage width (``int8`` for a byte).
     """
     try:
         import pyreadstat
     except ImportError:
         return _read_stata_pandas(path, **kwargs)
 
+    convert_dates = not kwargs.get("disable_datetime_conversion", False)
+    if convert_dates:
+        kwargs.setdefault("dates_as_pandas_datetime", True)
     df, meta = pyreadstat.read_dta(path, **kwargs)
+    if convert_dates:
+        _convert_stata_period_dates(
+            df, getattr(meta, "original_variable_types", None) or {}
+        )
     if meta.column_names_to_labels:
         df.attrs["_labels"] = {
             k: v for k, v in meta.column_names_to_labels.items() if v
@@ -124,6 +134,74 @@ def _read_stata(path: str, **kwargs: Any) -> pd.DataFrame:
     return df
 
 
+#: Stata date formats whose stored value is a count of periods since 1960
+#: (the year itself for ``%ty``).  pyreadstat converts ``%td`` and ``%tc``
+#: and returns these as the raw count; pandas converts them all.
+_STATA_PERIOD_UNITS = ("tw", "tm", "tq", "th", "ty")
+
+
+def _stata_date_unit(fmt: Any) -> Optional[str]:
+    """``'td'``, ``'tm'``, ... for a Stata date display format, else ``None``.
+
+    Follows the pandas reader: the format must start with the unit, with or
+    without the leading ``%`` (``%tm``, ``%tmCCYY!mNN``), and ``%d`` is the
+    old spelling of ``%td``.
+    """
+    if not isinstance(fmt, str):
+        return None
+    body = fmt[1:] if fmt.startswith("%") else fmt
+    for unit in ("tc", "td", "tw", "tm", "tq", "th", "ty"):
+        if body.startswith(unit):
+            return unit
+    if body.startswith("d"):
+        return "td"
+    return None
+
+
+def _convert_stata_period_dates(df: pd.DataFrame, formats: Dict[str, Any]) -> None:
+    """Turn ``%tw`` / ``%tm`` / ``%tq`` / ``%th`` / ``%ty`` counts into dates.
+
+    In place, to the first day of the period, as ``pd.read_stata`` does, so
+    a monthly date is the same value whether or not pyreadstat is installed.
+    A column whose dates fall outside the ``datetime64`` range keeps its
+    counts and warns.
+    """
+    for col, fmt in formats.items():
+        unit = _stata_date_unit(fmt)
+        if unit not in _STATA_PERIOD_UNITS or col not in df.columns:
+            continue
+        values = df[col]
+        if not pd.api.types.is_numeric_dtype(values):
+            continue
+        missing = values.isna()
+        # a placeholder count for missing rows, masked back to NaT below
+        n = values.fillna(1960 if unit == "ty" else 0).astype("int64")
+        days = None
+        if unit == "ty":
+            year, month = n, 1
+        elif unit == "th":
+            year, month = 1960 + n // 2, (n % 2) * 6 + 1
+        elif unit == "tq":
+            year, month = 1960 + n // 4, (n % 4) * 3 + 1
+        elif unit == "tm":
+            year, month = 1960 + n // 12, n % 12 + 1
+        else:  # tw: 52 weeks to a year, week 52 absorbs the extra days
+            year, month, days = 1960 + n // 52, 1, (n % 52) * 7
+        try:
+            dates = pd.to_datetime({"year": year, "month": month, "day": 1})
+            if days is not None:
+                dates = dates + pd.to_timedelta(days, unit="D")
+        except (ValueError, OverflowError) as exc:
+            warnings.warn(
+                f"'{col}' has Stata format {fmt} but its dates could not be "
+                f"converted ({exc}); the column keeps Stata's period counts.",
+                UserWarning,
+                stacklevel=4,
+            )
+            continue
+        df[col] = dates.where(~missing)
+
+
 def _read_stata_pandas(path: Any, **kwargs: Any) -> pd.DataFrame:
     """pandas fallback for .dta that still carries labels into ``attrs``.
 
@@ -134,6 +212,15 @@ def _read_stata_pandas(path: Any, **kwargs: Any) -> pd.DataFrame:
         df = reader.read()
         attrs = _stata_reader_attrs(reader, list(df.columns))
     df.attrs.update(attrs)
+    # pandas returns a %ty column with a missing value as ``object``
+    # (Timestamps and NaT); make it datetime64 like every other date.
+    for col, fmt in (attrs.get("_formats") or {}).items():
+        if _stata_date_unit(fmt) and df[col].dtype == object:
+            try:
+                df[col] = pd.to_datetime(df[col])
+            except (ValueError, TypeError, OverflowError):
+                # dates outside the datetime64 range stay as pandas gave them
+                continue
     return df
 
 
@@ -313,8 +400,11 @@ def write_data(
     Notes
     -----
     Labels for columns that are not in ``data`` (dropped since the labels
-    were attached) are skipped.  Stata notes, display formats and
-    characteristics are not part of ``data.attrs`` and are not written.
+    were attached) are skipped.  Stata notes and characteristics are not
+    part of ``data.attrs`` and are not written.  Of the display formats in
+    ``data.attrs['_formats']`` only the unit of a date is used: a
+    ``datetime64`` column read from a ``%td`` / ``%tm`` / ``%tq`` variable is
+    written back with that unit unless ``convert_dates=`` says otherwise.
 
     Examples
     --------
@@ -416,6 +506,17 @@ def _write_stata(
         )
     kwargs.setdefault("version", 118)
     kwargs.setdefault("write_index", False)
+    if "convert_dates" not in kwargs:
+        # A date read from a %td / %tm / %tq column goes back with that unit;
+        # pandas would otherwise write every datetime column as %tc.
+        units = {
+            c: _stata_date_unit(f)
+            for c, f in (df.attrs.get("_formats") or {}).items()
+            if c in df.columns and pd.api.types.is_datetime64_any_dtype(df[c])
+        }
+        units = {c: u for c, u in units.items() if u}
+        if units:
+            kwargs["convert_dates"] = units
     if val_lab:
         # pandas < 1.4 has no value_labels argument; only pass it when needed.
         clean: Dict[str, Dict[int, str]] = {}

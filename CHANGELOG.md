@@ -69,6 +69,26 @@ back, and the MCP data path did not use it.
   label text as the column's values needs to map the codes through
   `attrs['_value_labels']`.
 
+#### ⚠️ Correctness
+
+- **A Stata date is the same value with and without `pyreadstat`.**
+  `sp.read_data` takes the pyreadstat reader when that optional package is
+  installed and the pandas reader otherwise, and the two disagreed on dates.
+  With pyreadstat a `%tm`, `%tq`, `%th`, `%tw` or `%ty` variable came back
+  as Stata's raw period count (`720.0` for 2020m1) and a `%td` variable as
+  an `object` column of `datetime.date`; without it every one of them was
+  `datetime64`. Both paths now return `datetime64`, set to the first day of
+  the period as `pd.read_stata` does. Found by running one notebook under
+  two interpreters. The pandas path had its own gap: a `%ty` column with a
+  missing value came back as `object`, and is now `datetime64` too.
+  Integer and float widths still differ between the two readers (`int64` /
+  `float64` with pyreadstat, the storage width with pandas).
+- **`sp.read_data` then `sp.write_data` keeps the unit of a date.** A
+  `datetime64` column whose entry in `attrs['_formats']` is a Stata date
+  format is written back with that unit (`%td` stays `%td`). pandas wrote
+  every datetime column as `%tc`, and on the pyreadstat path the write
+  failed outright on the `object` dates. `convert_dates=` still overrides.
+
 ### An undergraduate textbook's do-files, replayed against Stata
 
 The 18 chapter do-files of Chen Qiang's *Econometrics and Stata
