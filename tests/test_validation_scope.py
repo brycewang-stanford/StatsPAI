@@ -720,7 +720,20 @@ def test_nonlinear_etwfe_has_its_own_map():
     assert out["estimate"] == "reference"
     # ~1e-5 from etwfe::emfx: a finite-sample convention, not same-byte.
     assert out["se"] == "disclosure"
-    assert _scope_of(unit_fe)[0]["status"] == "not_covered"
+    # Unit effects: Stata jwdid is the reference. The response-scale SE
+    # under the default response_se='profile' is not compared with it; on
+    # the link scale both the estimate and the SE are.
+    assert _scope_of(unit_fe)[0]["status"] == "estimate_only"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        link = sp.etwfe(panel, **keys, family="poisson", fe="unit", scale="link")
+        never = sp.etwfe(panel, **keys, fe="unit", cgroup="nevertreated")
+    assert _scope_of(link)[0]["status"] == "covered"
+    # The linear fe='unit' path records Stata's 'never'; the map reads it.
+    never_scope = _scope_of(never)[0]
+    assert never_scope["configuration"]["cgroup"] == "nevertreated"
+    assert never_scope["configuration"]["family"] == "gaussian"
+    assert never_scope["status"] == "covered"
     assert _scope_of(linear)[0]["function"] == "etwfe"
     # The result card goes through the same routing.
     assert sp.result_card(poisson)["evidence"]["outputs"]["se"] == "disclosure"

@@ -199,6 +199,13 @@ evidence map listed as having none.
   `small=True` evidence, and the existing `ivregress` / `ivreghdfe` rows
   (7 to 22). A weighted `sp.regress` fit was read as unweighted by the
   map and reported as covered; it is now its own cell.
+  `sp.fast.feols` gains the fixest rows above (2 to 6). For `sp.etwfe`,
+  the Stata `jwdid` references for unit effects, every `hettype`, a
+  moderator (`xvar`) and never-treated controls, linear and Poisson, and
+  the weighted references on two real panels were entered: a linear
+  `fe='unit'` fit was reported as having no evidence, partly because it
+  recorded the control group as `never` where the map says
+  `nevertreated`, so it could match nothing.
 - **`sp.panel` names its default small-sample convention.** With no
   `ssc=` the result now carries `model_info['ssc'] = 'linearmodels'` and a
   one-line description (`N/(N-k)` on the covariance, no `G/(G-1)` cluster

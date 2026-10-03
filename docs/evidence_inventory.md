@@ -15,8 +15,8 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | 0 / 96 |
 | `did_imputation` | 240 | 18 / 240 | 7 / 240 | 1 / 240 | -- | -- | 6 / 240 |
 | `dml` | 9120 | 4 / 9120 | 4 / 9120 | -- | -- | -- | 4 / 9120 |
-| `etwfe` | 128 | 3 / 128 | 0 / 128 | 3 / 128 | -- | -- | 0 / 128 |
-| `etwfe_glm` | 1920 | 2 / 1920 | 0 / 1920 | -- | -- | -- | 0 / 1920 |
+| `etwfe` | 128 | 7 / 128 | 0 / 128 | 3 / 128 | -- | -- | 0 / 128 |
+| `etwfe_glm` | 2880 | 37 / 2880 | 24 / 2880 | -- | -- | -- | 24 / 2880 |
 | `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
 | `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
 | `gardner_did` | 32 | 8 / 32 | 2 / 32 | 1 / 32 | -- | -- | 2 / 32 |
@@ -52,11 +52,11 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `dml` | estimate | 0 | 0 | 0 | 0 | 9116 |
 | `dml` | se | 0 | 0 | 0 | 0 | 9116 |
 | `dml` | coverage | 0 | 0 | 2 | 0 | 9118 |
-| `etwfe` | estimate | 0 | 0 | 0 | 0 | 125 |
-| `etwfe` | se | 0 | 0 | 0 | 3 | 125 |
+| `etwfe` | estimate | 0 | 0 | 0 | 0 | 121 |
+| `etwfe` | se | 0 | 0 | 0 | 7 | 121 |
 | `etwfe` | vcov | 0 | 0 | 0 | 0 | 125 |
-| `etwfe_glm` | estimate | 0 | 0 | 0 | 0 | 1918 |
-| `etwfe_glm` | se | 0 | 0 | 0 | 2 | 1918 |
+| `etwfe_glm` | estimate | 0 | 0 | 0 | 0 | 2843 |
+| `etwfe_glm` | se | 0 | 0 | 0 | 2 | 2854 |
 | `event_study` | estimate | 0 | 0 | 0 | 0 | 511 |
 | `event_study` | se | 0 | 0 | 0 | 0 | 511 |
 | `event_study` | vcov | 0 | 0 | 0 | 0 | 511 |
@@ -169,15 +169,32 @@ Dimensions: `family` in {linear, glm}; `panel` in {true, false}; `cgroup` in {no
 | T2 | vcov | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=nevertreated | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.etwfe(cgroup='nevertreated')` |
 | T2 | estimate, vcov | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=notyet | `tests/reference_parity/test_validation_entry_points.py` | `sp.etwfe()` |
 | T4 | se | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=notyet | `tests/reference_parity/test_validation_entry_points.py` | `sp.etwfe()` |
+| T2 | estimate | family=linear; panel=true; cgroup=nevertreated/notyet; controls=none; xvar=none; weights=set; agg_weights=estimation | `tests/test_etwfe_weights_reference.py` | `sp.etwfe(panel, ..., weights=...)` |
+| T4 | se | family=linear; panel=true; cgroup=nevertreated/notyet; controls=none; xvar=none; weights=set; agg_weights=estimation | `tests/test_etwfe_weights_reference.py` | `sp.etwfe(panel, ..., weights=...)` |
+| T2 | estimate | family=linear; panel=true; cgroup=nevertreated/notyet; controls=none; xvar=none; weights=set; agg_weights=unit | `tests/test_etwfe_weights_reference.py` | `sp.etwfe(panel, ..., weights=...)` |
+| T4 | se | family=linear; panel=true; cgroup=nevertreated/notyet; controls=none; xvar=none; weights=set; agg_weights=unit | `tests/test_etwfe_weights_reference.py` | `sp.etwfe(panel, ..., weights=...)` |
 
 ### `etwfe_glm`
 
-Dimensions: `family` in {poisson, logit}; `cgroup` in {notyet, nevertreated}; `fe` in {cohort, unit}; `hettype` in {timecohort, time, cohort, event, twfe}; `scale` in {response, link}; `response_se` in {profile, margins, unconditional}; `controls` in {none, set}; `xvar` in {none, set}; `weights` in {none, set}.
+Dimensions: `family` in {poisson, logit, gaussian}; `cgroup` in {notyet, nevertreated}; `fe` in {cohort, unit}; `hettype` in {timecohort, time, cohort, event, twfe}; `scale` in {response, link}; `response_se` in {profile, margins, unconditional}; `controls` in {none, set}; `xvar` in {none, set}; `weights` in {none, set}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
 | T2 | estimate | family=logit/poisson; cgroup=notyet; fe=cohort; hettype=timecohort; scale=response; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_glm_parity.py` | `sp.etwfe(family='poisson'|'logit')` |
 | T4 | se | family=logit/poisson; cgroup=notyet; fe=cohort; hettype=timecohort; scale=response; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_glm_parity.py` | `sp.etwfe(family='poisson'|'logit')` |
+| T2 | estimate, se | family=gaussian; cgroup=notyet; fe=unit; hettype=cohort/event/time/timecohort/twfe; scale=link; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_linear_jwdid_parity.py` | `sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)` |
+| T2 | estimate, se | family=gaussian; cgroup=nevertreated; fe=unit; hettype=cohort/event/timecohort; scale=link; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_linear_jwdid_parity.py` | `sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)` |
+| T2 | estimate, se | family=gaussian; cgroup=notyet; fe=unit; hettype=event/timecohort; scale=link; response_se=profile; controls=none; xvar=set; weights=none | `tests/reference_parity/test_etwfe_linear_jwdid_parity.py` | `sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)` |
+| T2 | estimate, se | family=gaussian; cgroup=nevertreated; fe=unit; hettype=timecohort; scale=link; response_se=profile; controls=none; xvar=set; weights=none | `tests/reference_parity/test_etwfe_linear_jwdid_parity.py` | `sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)` |
+| T2 | estimate | family=poisson; cgroup=notyet; fe=unit; hettype=cohort/event/time/timecohort/twfe; scale=response; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_poisson_jwdid_parity.py` | `sp.etwfe(panel, family='poisson', fe='unit', ...)` |
+| T2 | estimate | family=poisson; cgroup=nevertreated; fe=unit; hettype=cohort/event/timecohort; scale=response; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_poisson_jwdid_parity.py` | `sp.etwfe(panel, family='poisson', fe='unit', ...)` |
+| T2 | estimate | family=poisson; cgroup=notyet; fe=unit; hettype=event/timecohort; scale=response; response_se=profile; controls=none; xvar=set; weights=none | `tests/reference_parity/test_etwfe_poisson_jwdid_parity.py` | `sp.etwfe(panel, family='poisson', fe='unit', ...)` |
+| T2 | estimate | family=poisson; cgroup=nevertreated; fe=unit; hettype=timecohort; scale=response; response_se=profile; controls=none; xvar=set; weights=none | `tests/reference_parity/test_etwfe_poisson_jwdid_parity.py` | `sp.etwfe(panel, family='poisson', fe='unit', ...)` |
+| T2 | estimate, se | family=poisson; cgroup=notyet; fe=unit; hettype=timecohort; scale=response; response_se=margins; controls=none; xvar=none/set; weights=none | `tests/reference_parity/test_etwfe_poisson_jwdid_parity.py` | `sp.etwfe(panel, family='poisson', fe='unit', response_se='margins')` |
+| T2 | estimate, se | family=poisson; cgroup=notyet; fe=unit; hettype=cohort/event/time/timecohort/twfe; scale=link; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_poisson_jwdid_parity.py` | `sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)` |
+| T2 | estimate, se | family=poisson; cgroup=nevertreated; fe=unit; hettype=cohort/event/timecohort; scale=link; response_se=profile; controls=none; xvar=none; weights=none | `tests/reference_parity/test_etwfe_poisson_jwdid_parity.py` | `sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)` |
+| T2 | estimate, se | family=poisson; cgroup=notyet; fe=unit; hettype=event/timecohort; scale=link; response_se=profile; controls=none; xvar=set; weights=none | `tests/reference_parity/test_etwfe_poisson_jwdid_parity.py` | `sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)` |
+| T2 | estimate, se | family=poisson; cgroup=nevertreated; fe=unit; hettype=timecohort; scale=link; response_se=profile; controls=none; xvar=set; weights=none | `tests/reference_parity/test_etwfe_poisson_jwdid_parity.py` | `sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)` |
 
 ### `event_study`
 

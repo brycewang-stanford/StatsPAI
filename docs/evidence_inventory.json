@@ -1003,17 +1003,17 @@
       "invariant": {},
       "cells": 128,
       "overall": {
-        "estimate_only": 3,
-        "not_covered": 125
+        "estimate_only": 7,
+        "not_covered": 121
       },
       "by_output": {
         "estimate": {
-          "reference": 3,
-          "not_covered": 125
+          "reference": 7,
+          "not_covered": 121
         },
         "se": {
-          "disclosure": 3,
-          "not_covered": 125
+          "disclosure": 7,
+          "not_covered": 121
         },
         "vcov": {
           "reference": 3,
@@ -1277,6 +1277,138 @@
             ]
           },
           "compares": "same SE as the panel=False fit, so the same convention difference from etwfe::emfx and jwdid applies"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/test_etwfe_weights_reference.py",
+          "entry_point": "sp.etwfe(panel, ..., weights=...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "set"
+            ],
+            "agg_weights": [
+              "estimation"
+            ]
+          },
+          "compares": "weighted simple / event / group / calendar ATTs vs Stata jwdid [pw=] + estat on two real panels (1e-6)"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/test_etwfe_weights_reference.py",
+          "entry_point": "sp.etwfe(panel, ..., weights=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "set"
+            ],
+            "agg_weights": [
+              "estimation"
+            ]
+          },
+          "compares": "Stata's SEs are rebuilt to 1e-9 after sqrt((n - K)/(n - K_Stata)): reghdfe leaves the cohort levels nested in the unit cluster out of K, fixest counts them"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/test_etwfe_weights_reference.py",
+          "entry_point": "sp.etwfe(panel, ..., weights=...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "set"
+            ],
+            "agg_weights": [
+              "unit"
+            ]
+          },
+          "compares": "weighted ATTs under R emfx's aggregation rule vs etwfe::emfx on the same two panels (1e-6)"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/test_etwfe_weights_reference.py",
+          "entry_point": "sp.etwfe(panel, ..., weights=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "set"
+            ],
+            "agg_weights": [
+              "unit"
+            ]
+          },
+          "compares": "SEs within 1e-5 of etwfe::emfx; R's carry marginaleffects' finite-difference Jacobian noise (up to 3.3e-6)"
         }
       ]
     },
@@ -1284,7 +1416,8 @@
       "dimensions": {
         "family": [
           "poisson",
-          "logit"
+          "logit",
+          "gaussian"
         ],
         "cgroup": [
           "notyet",
@@ -1328,19 +1461,21 @@
         "se"
       ],
       "invariant": {},
-      "cells": 1920,
+      "cells": 2880,
       "overall": {
-        "estimate_only": 2,
-        "not_covered": 1918
+        "covered": 24,
+        "estimate_only": 13,
+        "not_covered": 2843
       },
       "by_output": {
         "estimate": {
-          "reference": 2,
-          "not_covered": 1918
+          "reference": 37,
+          "not_covered": 2843
         },
         "se": {
+          "reference": 24,
           "disclosure": 2,
-          "not_covered": 1918
+          "not_covered": 2854
         }
       },
       "rows": [
@@ -1421,6 +1556,531 @@
             ]
           },
           "compares": "clustered delta-method SE: about 1e-5 from etwfe::emfx (the test budget is 1e-4), because fixest and statsmodels apply different finite-sample corrections to the clustered sandwich"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
+          "entry_point": "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "gaussian"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "cohort",
+              "event",
+              "time",
+              "timecohort",
+              "twfe"
+            ],
+            "scale": [
+              "link"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and event-time ATTs, estimates to 1e-10 and SEs to 1e-9; every hettype"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
+          "entry_point": "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "gaussian"
+            ],
+            "cgroup": [
+              "nevertreated"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "cohort",
+              "event",
+              "timecohort"
+            ],
+            "scale": [
+              "link"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and event-time ATTs, estimates to 1e-10 and SEs to 1e-9; never-treated controls"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
+          "entry_point": "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "gaussian"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "event",
+              "timecohort"
+            ],
+            "scale": [
+              "link"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and event-time ATTs, estimates to 1e-10 and SEs to 1e-9; with a categorical or continuous moderator, and per-level ATTs"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
+          "entry_point": "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "gaussian"
+            ],
+            "cgroup": [
+              "nevertreated"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "link"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "linear ETWFE with unit effects vs Stata jwdid (reghdfe): simple and event-time ATTs, estimates to 1e-10 and SEs to 1e-9; moderator with never-treated controls"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+          "entry_point": "sp.etwfe(panel, family='poisson', fe='unit', ...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "cohort",
+              "event",
+              "time",
+              "timecohort",
+              "twfe"
+            ],
+            "scale": [
+              "response"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): link-scale estimates to 1e-9 and response-scale to 1e-6; every hettype"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+          "entry_point": "sp.etwfe(panel, family='poisson', fe='unit', ...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "nevertreated"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "cohort",
+              "event",
+              "timecohort"
+            ],
+            "scale": [
+              "response"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): link-scale estimates to 1e-9 and response-scale to 1e-6; never-treated controls"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+          "entry_point": "sp.etwfe(panel, family='poisson', fe='unit', ...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "event",
+              "timecohort"
+            ],
+            "scale": [
+              "response"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): link-scale estimates to 1e-9 and response-scale to 1e-6; with a categorical or continuous moderator, and per-level ATTs"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+          "entry_point": "sp.etwfe(panel, family='poisson', fe='unit', ...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "nevertreated"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "response"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Poisson ETWFE with unit effects vs Stata jwdid, method(ppmlhdfe): link-scale estimates to 1e-9 and response-scale to 1e-6; moderator with never-treated controls"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+          "entry_point": "sp.etwfe(panel, family='poisson', fe='unit', response_se='margins')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "response"
+            ],
+            "response_se": [
+              "margins"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none",
+              "set"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "response-scale ATTs and SEs under response_se='margins' vs Stata jwdid estat (margins), SEs to 1e-6"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+          "entry_point": "sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "cohort",
+              "event",
+              "time",
+              "timecohort",
+              "twfe"
+            ],
+            "scale": [
+              "link"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Poisson ETWFE on the link scale vs Stata jwdid, method(ppmlhdfe): estimates to 1e-9, SEs to 1e-7; every hettype"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+          "entry_point": "sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "nevertreated"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "cohort",
+              "event",
+              "timecohort"
+            ],
+            "scale": [
+              "link"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Poisson ETWFE on the link scale vs Stata jwdid, method(ppmlhdfe): estimates to 1e-9, SEs to 1e-7; never-treated controls"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+          "entry_point": "sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "notyet"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "event",
+              "timecohort"
+            ],
+            "scale": [
+              "link"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Poisson ETWFE on the link scale vs Stata jwdid, method(ppmlhdfe): estimates to 1e-9, SEs to 1e-7; with a moderator"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+          "entry_point": "sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "poisson"
+            ],
+            "cgroup": [
+              "nevertreated"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "link"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "set"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Poisson ETWFE on the link scale vs Stata jwdid, method(ppmlhdfe): estimates to 1e-9, SEs to 1e-7; moderator, never-treated controls"
         }
       ]
     },
@@ -4993,16 +5653,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 618,
+      "reference": 657,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 42644
+      "not_covered": 43565
     },
     "se": {
-      "reference": 254,
+      "reference": 278,
       "stochastic_screen": 3,
-      "disclosure": 13,
-      "not_covered": 42992
+      "disclosure": 17,
+      "not_covered": 43924
     },
     "coverage": {
       "coverage_simulation": 11,
