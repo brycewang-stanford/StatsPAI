@@ -764,3 +764,34 @@ def test_iv_joint_test_is_covered_where_the_variance_is():
         )
     assert hc1["outputs"]["joint_test"]["status"] == "reference"
     assert hc3["outputs"]["joint_test"]["status"] == "not_covered"
+
+
+def test_nnmatch_has_its_own_map_and_matchit_rows_reach_psm():
+    """``sp.match`` is a dispatcher: two estimators, two maps.
+
+    ``method='nnmatch'`` (Abadie-Imbens covariate matching) used to be
+    routed to the propensity-score map, where none of its options exist,
+    so every fit read as "no evidence" although nine Stata commands pin it.
+    ``method='nearest'`` is the same fit as ``sp.psm``, which is why the
+    MatchIt comparisons made through ``sp.match`` count for that map.
+    """
+    df = sp.datasets.nsw_dw()
+    covs = ["age", "education", "black", "hispanic", "married", "nodegree"]
+    keys = dict(y="re78", treat="treat", covariates=covs)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        nn = sp.match(df, method="nnmatch", **keys)
+        nn5 = sp.match(df, method="nnmatch", n_matches=5, **keys)
+        via_match = sp.match(df, method="nearest", **keys)
+        via_psm = sp.psm(df, **keys)
+        no_replace = sp.match(df, method="nearest", replace=False, **keys)
+    scope = sp.validation_scope(nn)
+    assert scope["function"] == "nnmatch" and scope["status"] == "covered"
+    assert scope["configuration"]["estimand"] == "att"
+    assert sp.validation_scope(nn5)["status"] == "not_covered"
+    # the dispatcher and the direct entry point are one fit
+    assert via_match.estimate == via_psm.estimate and via_match.se == via_psm.se
+    assert sp.validation_scope(via_match)["function"] == "psm"
+    out = sp.validation_scope(no_replace)["outputs"]
+    assert out["estimate"]["status"] == "reference"
+    assert any("MatchIt" in e["compares"] for e in out["estimate"]["evidence"])

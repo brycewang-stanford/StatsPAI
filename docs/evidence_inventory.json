@@ -3449,6 +3449,394 @@
         }
       ]
     },
+    "nnmatch": {
+      "dimensions": {
+        "estimand": [
+          "att",
+          "ate"
+        ],
+        "metric": [
+          "mahalanobis",
+          "ivariance",
+          "euclidean"
+        ],
+        "n_matches": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+        ],
+        "exact": [
+          "none",
+          "set"
+        ],
+        "bias_adjust": [
+          "none",
+          "set"
+        ],
+        "vce": [
+          "robust",
+          "iid"
+        ],
+        "vce_nn": [
+          "2",
+          "3",
+          "4",
+          "na"
+        ],
+        "caliper": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {},
+      "cells": 1920,
+      "overall": {
+        "covered": 9,
+        "not_covered": 1911
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 9,
+          "not_covered": 1911
+        },
+        "se": {
+          "reference": 9,
+          "not_covered": 1911
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_nnmatch_teffects_parity.py",
+          "entry_point": "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATT, defaults vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_nnmatch_teffects_parity.py",
+          "entry_point": "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "ate"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATE vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_nnmatch_teffects_parity.py",
+          "entry_point": "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "set"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATT with bias adjustment on all covariates vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_nnmatch_teffects_parity.py",
+          "entry_point": "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "ivariance"
+            ],
+            "n_matches": [
+              "3"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATT, inverse-variance metric, three matches vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_nnmatch_teffects_parity.py",
+          "entry_point": "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "euclidean"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATT, Euclidean metric vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_nnmatch_teffects_parity.py",
+          "entry_point": "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "iid"
+            ],
+            "vce_nn": [
+              "na"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATT, vce(iid) vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_nnmatch_teffects_parity.py",
+          "entry_point": "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "none"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "4"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATT, vce(robust, nn(4)) vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_nnmatch_teffects_parity.py",
+          "entry_point": "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "att"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "exact": [
+              "set"
+            ],
+            "bias_adjust": [
+              "set"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATT with exact matching and a partial bias adjustment vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_nnmatch_teffects_parity.py",
+          "entry_point": "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimand": [
+              "ate"
+            ],
+            "metric": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "2"
+            ],
+            "exact": [
+              "none"
+            ],
+            "bias_adjust": [
+              "set"
+            ],
+            "vce": [
+              "robust"
+            ],
+            "vce_nn": [
+              "2"
+            ],
+            "caliper": [
+              "none"
+            ]
+          },
+          "compares": "ATE, two matches, bias adjustment vs Stata teffects nnmatch, estimate and SE to 1e-10"
+        }
+      ]
+    },
     "panel": {
       "dimensions": {
         "method": [
@@ -3926,13 +4314,13 @@
       "cells": 3600,
       "overall": {
         "covered": 1,
-        "estimate_only": 2,
-        "not_covered": 3597
+        "estimate_only": 11,
+        "not_covered": 3588
       },
       "by_output": {
         "estimate": {
-          "reference": 3,
-          "not_covered": 3597
+          "reference": 12,
+          "not_covered": 3588
         },
         "se": {
           "reference": 1,
@@ -4004,6 +4392,73 @@
             ]
           },
           "compares": "Abadie-Imbens (2016) estimated-score SE vs Stata teffects psmatch"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_matching_r_parity.py",
+          "entry_point": "sp.match(lalonde, ..., method='nearest', replace=False)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1",
+              "2"
+            ],
+            "replace": [
+              "false"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens",
+              "abadie_imbens_2016"
+            ]
+          },
+          "compares": "k:1 propensity-score matching without replacement: ATT vs MatchIt to 1e-9 (reached through sp.match, the same fit)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_matching_r_parity.py",
+          "entry_point": "sp.match(lalonde, ..., distance='mahalanobis', replace=False)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "mahalanobis"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "false"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens",
+              "abadie_imbens_2016"
+            ]
+          },
+          "compares": "Mahalanobis matching without replacement, pooled covariance, data and closest orderings: ATT vs MatchIt to 1e-9"
         }
       ]
     },
@@ -5693,16 +6148,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 659,
+      "reference": 677,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 43563
+      "not_covered": 45465
     },
     "se": {
-      "reference": 280,
+      "reference": 289,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 43922
+      "not_covered": 45833
     },
     "coverage": {
       "coverage_simulation": 11,

@@ -488,6 +488,23 @@ def _x_psm(r: Any) -> Dict[str, Optional[str]]:
     }
 
 
+def _x_nnmatch(r: Any) -> Dict[str, Optional[str]]:
+    mi = _mi(r)
+    vce = _lower(mi.get("vce"))
+    vce_nn = mi.get("vce_nn")
+    return {
+        "estimand": _lower(getattr(r, "estimand", None)),
+        "metric": _lower(mi.get("metric")),
+        "n_matches": None if mi.get("n_matches") is None else str(mi.get("n_matches")),
+        "exact": None if "exact" not in mi else _set(mi.get("exact")),
+        "bias_adjust": None if "bias_adjust" not in mi else _set(mi.get("bias_adjust")),
+        # the iid variance has no neighbour count; 'na' keeps it one cell
+        "vce": vce,
+        "vce_nn": "na" if vce == "iid" else (None if vce_nn is None else str(vce_nn)),
+        "caliper": "none" if mi.get("caliper") is None else "set",
+    }
+
+
 # --------------------------------------------------------------------------- #
 #  The evidence map
 # --------------------------------------------------------------------------- #
@@ -2941,11 +2958,224 @@ _add(
                 "Abadie-Imbens (2016) estimated-score SE vs Stata teffects " "psmatch",
                 "sp.psm(se_method='abadie_imbens_2016')",
             ),
+            _Row(
+                "T2",
+                _RP + "test_matching_r_parity.py",
+                {
+                    "method": _vals("nearest"),
+                    "distance": _vals("propensity"),
+                    "n_matches": _vals("1", "2"),
+                    "replace": _vals("false"),
+                    "caliper": _vals("none"),
+                    "bias_correction": _vals("false"),
+                    "se_method": _vals("abadie_imbens", "abadie_imbens_2016"),
+                },
+                _EST,
+                "k:1 propensity-score matching without replacement: ATT vs "
+                "MatchIt to 1e-9 (reached through sp.match, the same fit)",
+                "sp.match(lalonde, ..., method='nearest', replace=False)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_matching_r_parity.py",
+                {
+                    "method": _vals("nearest"),
+                    "distance": _vals("mahalanobis"),
+                    "n_matches": _vals("1"),
+                    "replace": _vals("false"),
+                    "caliper": _vals("none"),
+                    "bias_correction": _vals("false"),
+                    "se_method": _vals("abadie_imbens", "abadie_imbens_2016"),
+                },
+                _EST,
+                "Mahalanobis matching without replacement, pooled covariance, "
+                "data and closest orderings: ATT vs MatchIt to 1e-9",
+                "sp.match(lalonde, ..., distance='mahalanobis', replace=False)",
+            ),
         ),
         invariant={
             "se_method": (_EST, "the variance estimator does not change the matches")
         },
         note="The default Abadie-Imbens (2006) SE has no reference row.",
+    )
+)
+
+_NNMATCH = _RP + "test_nnmatch_teffects_parity.py"
+
+#: sp.match(method='nnmatch') is Abadie-Imbens covariate matching with its
+#: own option axes; sp.validation_scope routes such a fit here
+#: (``function="nnmatch"`` in a by-name query).
+_add(
+    _Scope(
+        "nnmatch",
+        {
+            "estimand": ("att", "ate"),
+            "metric": ("mahalanobis", "ivariance", "euclidean"),
+            "n_matches": ("1", "2", "3", "4", "5"),
+            "exact": ("none", "set"),
+            "bias_adjust": ("none", "set"),
+            "vce": ("robust", "iid"),
+            "vce_nn": ("2", "3", "4", "na"),
+            "caliper": ("none", "set"),
+        },
+        _x_nnmatch,
+        (
+            _Row(
+                "T2",
+                _NNMATCH,
+                {
+                    "estimand": _vals("att"),
+                    "metric": _vals("mahalanobis"),
+                    "n_matches": _vals("1"),
+                    "exact": _vals("none"),
+                    "bias_adjust": _vals("none"),
+                    "vce": _vals("robust"),
+                    "vce_nn": _vals("2"),
+                    "caliper": _vals("none"),
+                },
+                _EST_SE,
+                "ATT, defaults vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+            ),
+            _Row(
+                "T2",
+                _NNMATCH,
+                {
+                    "estimand": _vals("ate"),
+                    "metric": _vals("mahalanobis"),
+                    "n_matches": _vals("1"),
+                    "exact": _vals("none"),
+                    "bias_adjust": _vals("none"),
+                    "vce": _vals("robust"),
+                    "vce_nn": _vals("2"),
+                    "caliper": _vals("none"),
+                },
+                _EST_SE,
+                "ATE vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+            ),
+            _Row(
+                "T2",
+                _NNMATCH,
+                {
+                    "estimand": _vals("att"),
+                    "metric": _vals("mahalanobis"),
+                    "n_matches": _vals("1"),
+                    "exact": _vals("none"),
+                    "bias_adjust": _vals("set"),
+                    "vce": _vals("robust"),
+                    "vce_nn": _vals("2"),
+                    "caliper": _vals("none"),
+                },
+                _EST_SE,
+                "ATT with bias adjustment on all covariates vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+            ),
+            _Row(
+                "T2",
+                _NNMATCH,
+                {
+                    "estimand": _vals("att"),
+                    "metric": _vals("ivariance"),
+                    "n_matches": _vals("3"),
+                    "exact": _vals("none"),
+                    "bias_adjust": _vals("none"),
+                    "vce": _vals("robust"),
+                    "vce_nn": _vals("2"),
+                    "caliper": _vals("none"),
+                },
+                _EST_SE,
+                "ATT, inverse-variance metric, three matches vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+            ),
+            _Row(
+                "T2",
+                _NNMATCH,
+                {
+                    "estimand": _vals("att"),
+                    "metric": _vals("euclidean"),
+                    "n_matches": _vals("1"),
+                    "exact": _vals("none"),
+                    "bias_adjust": _vals("none"),
+                    "vce": _vals("robust"),
+                    "vce_nn": _vals("2"),
+                    "caliper": _vals("none"),
+                },
+                _EST_SE,
+                "ATT, Euclidean metric vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+            ),
+            _Row(
+                "T2",
+                _NNMATCH,
+                {
+                    "estimand": _vals("att"),
+                    "metric": _vals("mahalanobis"),
+                    "n_matches": _vals("1"),
+                    "exact": _vals("none"),
+                    "bias_adjust": _vals("none"),
+                    "vce": _vals("iid"),
+                    "vce_nn": _vals("na"),
+                    "caliper": _vals("none"),
+                },
+                _EST_SE,
+                "ATT, vce(iid) vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+            ),
+            _Row(
+                "T2",
+                _NNMATCH,
+                {
+                    "estimand": _vals("att"),
+                    "metric": _vals("mahalanobis"),
+                    "n_matches": _vals("1"),
+                    "exact": _vals("none"),
+                    "bias_adjust": _vals("none"),
+                    "vce": _vals("robust"),
+                    "vce_nn": _vals("4"),
+                    "caliper": _vals("none"),
+                },
+                _EST_SE,
+                "ATT, vce(robust, nn(4)) vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+            ),
+            _Row(
+                "T2",
+                _NNMATCH,
+                {
+                    "estimand": _vals("att"),
+                    "metric": _vals("mahalanobis"),
+                    "n_matches": _vals("1"),
+                    "exact": _vals("set"),
+                    "bias_adjust": _vals("set"),
+                    "vce": _vals("robust"),
+                    "vce_nn": _vals("2"),
+                    "caliper": _vals("none"),
+                },
+                _EST_SE,
+                "ATT with exact matching and a partial bias adjustment vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+            ),
+            _Row(
+                "T2",
+                _NNMATCH,
+                {
+                    "estimand": _vals("ate"),
+                    "metric": _vals("mahalanobis"),
+                    "n_matches": _vals("2"),
+                    "exact": _vals("none"),
+                    "bias_adjust": _vals("set"),
+                    "vce": _vals("robust"),
+                    "vce_nn": _vals("2"),
+                    "caliper": _vals("none"),
+                },
+                _EST_SE,
+                "ATE, two matches, bias adjustment vs Stata teffects nnmatch, estimate and SE to 1e-10",
+                "sp.match(df, y, treat, covariates, method='nnmatch', ...)",
+            ),
+        ),
+        note="Nine Stata commands on the NSW-PSID sample, one cell each; the "
+        "options are not crossed beyond those nine.",
     )
 )
 
@@ -3094,6 +3324,13 @@ def validation_scope(
     ):
         # Same entry point, different option axes: the nonlinear branch.
         name = "etwfe_glm"
+    if (
+        name == "psm"
+        and result is not None
+        and _mi(result).get("estimator") == "nnmatch"
+    ):
+        # sp.match(method='nnmatch'): covariate matching, its own map.
+        name = "nnmatch"
     if name is None or name not in SCOPES:
         raise MethodIncompatibility(
             f"No configuration-level evidence map for {name!r}.",

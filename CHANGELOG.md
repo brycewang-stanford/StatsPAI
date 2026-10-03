@@ -255,6 +255,12 @@ evidence map listed as having none.
   `jwdid, exovar()` (1e-10), and the docstring says what the default
   cohort-effects design does with a time-varying control: it is a
   different regression from the unit-effects one and has no reference.
+  `sp.match(method='nnmatch')` gets a map of its own: its fits were
+  routed to the propensity-score map, where none of its options exist,
+  and read as unverified although nine `teffects nnmatch` commands pin
+  estimate and standard error to 1e-10. The MatchIt comparisons made
+  through `sp.match(method='nearest')`, which is the same fit as
+  `sp.psm`, are entered in the `psm` map.
 - **`sp.panel` names its default small-sample convention.** With no
   `ssc=` the result now carries `model_info['ssc'] = 'linearmodels'` and a
   one-line description (`N/(N-k)` on the covariance, no `G/(G-1)` cluster

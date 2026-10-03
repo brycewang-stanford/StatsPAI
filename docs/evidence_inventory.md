@@ -22,8 +22,9 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `gardner_did` | 32 | 8 / 32 | 2 / 32 | 1 / 32 | -- | -- | 2 / 32 |
 | `iv` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
 | `ivreg` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
+| `nnmatch` | 1920 | 9 / 1920 | 9 / 1920 | -- | -- | -- | 9 / 1920 |
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
-| `psm` | 3600 | 3 / 3600 | 1 / 3600 | -- | -- | -- | 1 / 3600 |
+| `psm` | 3600 | 12 / 3600 | 1 / 3600 | -- | -- | -- | 1 / 3600 |
 | `rddensity` | 2 | -- | -- | -- | -- | 1 / 2 | 1 / 2 |
 | `rdrobust` | 25920 | 75 / 25920 | 75 / 25920 | -- | -- | -- | 75 / 25920 |
 | `regress` | 26 | 26 / 26 | 15 / 26 | -- | 5 / 26 | -- | 15 / 26 |
@@ -76,10 +77,12 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `ivreg` | coverage | 0 | 0 | 1 | 0 | 415 |
 | `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 415 |
 | `ivreg` | joint_test | 0 | 0 | 0 | 0 | 413 |
+| `nnmatch` | estimate | 0 | 0 | 0 | 0 | 1911 |
+| `nnmatch` | se | 0 | 0 | 0 | 0 | 1911 |
 | `panel` | estimate | 0 | 0 | 0 | 0 | 45 |
 | `panel` | se | 0 | 0 | 0 | 0 | 98 |
 | `panel` | joint_test | 0 | 0 | 0 | 1 | 138 |
-| `psm` | estimate | 0 | 0 | 0 | 0 | 3597 |
+| `psm` | estimate | 0 | 0 | 0 | 0 | 3588 |
 | `psm` | se | 0 | 0 | 0 | 0 | 3599 |
 | `rddensity` | diagnostic | 0 | 0 | 0 | 0 | 1 |
 | `rdrobust` | estimate | 0 | 0 | 0 | 0 | 25845 |
@@ -278,6 +281,22 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 
 `vce` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator
 
+### `nnmatch`
+
+Dimensions: `estimand` in {att, ate}; `metric` in {mahalanobis, ivariance, euclidean}; `n_matches` in {1, 2, 3, 4, 5}; `exact` in {none, set}; `bias_adjust` in {none, set}; `vce` in {robust, iid}; `vce_nn` in {2, 3, 4, na}; `caliper` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=1; exact=none; bias_adjust=none; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+| T2 | estimate, se | estimand=ate; metric=mahalanobis; n_matches=1; exact=none; bias_adjust=none; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+| T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=1; exact=none; bias_adjust=set; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+| T2 | estimate, se | estimand=att; metric=ivariance; n_matches=3; exact=none; bias_adjust=none; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+| T2 | estimate, se | estimand=att; metric=euclidean; n_matches=1; exact=none; bias_adjust=none; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+| T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=1; exact=none; bias_adjust=none; vce=iid; vce_nn=na; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+| T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=1; exact=none; bias_adjust=none; vce=robust; vce_nn=4; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+| T2 | estimate, se | estimand=att; metric=mahalanobis; n_matches=1; exact=set; bias_adjust=set; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+| T2 | estimate, se | estimand=ate; metric=mahalanobis; n_matches=2; exact=none; bias_adjust=set; vce=robust; vce_nn=2; caliper=none | `tests/reference_parity/test_nnmatch_teffects_parity.py` | `sp.match(df, y, treat, covariates, method='nnmatch', ...)` |
+
 ### `panel`
 
 Dimensions: `method` in {fe, twoway, pooled, fd, re, be, mundlak, chamberlain}; `vce` in {unadjusted, robust, cluster}; `ssc` in {linearmodels, stata, fixest}; `weights` in {none, set}.
@@ -311,6 +330,8 @@ Dimensions: `method` in {nearest, caliper, kernel, radius, stratify}; `distance`
 | --- | --- | --- | --- | --- |
 | T2 | estimate | method=nearest; distance=propensity; n_matches=1; replace=true; caliper=none; bias_correction=false; se_method=abadie_imbens/abadie_imbens_2016 | `tests/r_parity/11_psm.py` | `sp.psm(method='nn')` |
 | T2 | se | method=nearest; distance=propensity; n_matches=1; replace=true; caliper=none; bias_correction=false; se_method=abadie_imbens_2016 | `tests/r_parity/11_psm.py` | `sp.psm(se_method='abadie_imbens_2016')` |
+| T2 | estimate | method=nearest; distance=propensity; n_matches=1/2; replace=false; caliper=none; bias_correction=false; se_method=abadie_imbens/abadie_imbens_2016 | `tests/reference_parity/test_matching_r_parity.py` | `sp.match(lalonde, ..., method='nearest', replace=False)` |
+| T2 | estimate | method=nearest; distance=mahalanobis; n_matches=1; replace=false; caliper=none; bias_correction=false; se_method=abadie_imbens/abadie_imbens_2016 | `tests/reference_parity/test_matching_r_parity.py` | `sp.match(lalonde, ..., distance='mahalanobis', replace=False)` |
 
 `se_method` is ignored for estimate: the variance estimator does not change the matches
 
