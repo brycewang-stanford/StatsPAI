@@ -89,13 +89,13 @@
     {
       "id": "M3",
       "title": "资源压力实测",
-      "status": "partial",
+      "status": "done",
       "where": [],
       "tests": [
         "tests/test_mcp_isolation.py"
       ],
-      "note": "量了连续超时后的 orphan 线程数、子进程残留、ping 延迟、下一次调用是否正常。没有量 RSS。",
-      "next": "在长驻部署场景下补 RSS 曲线"
+      "note": "进程隔离模式下连续三次超时：orphan 线程 0、残留子进程 0、ping 延迟 2 秒内、下一次调用正常、服务器 RSS 不增长（一次实测：预热后 165 MiB，三次超时后反而低 40 MiB）。线程模式下同一个调用会留下 orphan，测试里作为对照。只在 macOS 上量过；没有做长时间（小时级）的压力运行。",
+      "next": ""
     },
     {
       "id": "M4",

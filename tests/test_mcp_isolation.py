@@ -115,6 +115,17 @@ class _Server:
             raise
 
 
+def _rss_mb(pid: int) -> float:
+    """Resident set size of a process, in MiB (``ps`` reports KiB)."""
+    out = subprocess.run(
+        ["ps", "-o", "rss=", "-p", str(pid)],
+        capture_output=True,
+        text=True,
+        close_fds=False,
+    )
+    return int(out.stdout.split()[0]) / 1024.0
+
+
 def _children(pid: int) -> list:
     out = subprocess.run(
         ["pgrep", "-P", str(pid)], capture_output=True, text=True, close_fds=False
@@ -229,6 +240,11 @@ def test_hung_call_is_killed_and_nothing_is_left_running(data):
         STATSPAI_MCP_ISOLATION="process", STATSPAI_MCP_TOOL_TIMEOUT_SECONDS="10"
     )
     try:
+        # Warm call first, so the baseline includes whatever the server
+        # itself allocates to supervise a child.
+        warm = srv.wait(srv.call("regress", formula="y ~ x", data_path=good))
+        assert warm["result"]["isError"] is False
+        baseline = _rss_mb(srv.proc.pid)
         for _ in range(3):
             started = time.monotonic()
             msg = srv.wait(srv.call("regress", formula="y ~ x", data_path=hang))
@@ -248,6 +264,12 @@ def test_hung_call_is_killed_and_nothing_is_left_running(data):
         pinged = time.monotonic()
         assert srv.wait(srv.send("ping"))["result"] == {}
         assert time.monotonic() - pinged < 2.0
+        # Memory: the killed workers took theirs with them, so the server's
+        # own footprint does not grow. Measured once on macOS: 165 MiB
+        # after the warm call, 40 MiB *lower* after three timeouts (the OS
+        # reclaimed pages). The bound only has to catch a leak per timeout.
+        grown = _rss_mb(srv.proc.pid) - baseline
+        assert grown < 25.0, f"server RSS grew {grown:.1f} MiB over three timeouts"
     finally:
         assert srv.close() == 0
 

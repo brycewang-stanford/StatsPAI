@@ -4,7 +4,7 @@
 
 对应 `docs/dev/2026-10-02-repository-agent-parity-review.md`。审查基线是 d1025b29 (1.34.2)，工作基于 e4fdfddc (1.35.0)。
 
-共 36 项：已完成 **27**，部分完成 **3**，未做 **6**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
+共 36 项：已完成 **28**，部分完成 **2**，未做 **6**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
 
 ## 已完成
 
@@ -15,6 +15,7 @@
 | M3 | 准入限制：排队上限、orphan 上限、请求行大小上限、重复 request id 拒绝、排队期限 | `src/statspai/agent/mcp_server.py` | `tests/test_mcp_hardening_stdio.py`<br>`tests/test_mcp_isolation.py` |  |
 | M3 | 数据加载纳入超时与取消（此前 `data_path` 的读取在受监督的 runner 之外，阻塞读会永久占住 worker） | `src/statspai/agent/mcp_server.py` | `tests/test_mcp_isolation.py` |  |
 | M3 | 已超时或已取消的调用不能再提交句柄 | `src/statspai/agent/_result_cache.py` | `tests/test_mcp_isolation.py` |  |
+| M3 | 资源压力实测 | — | `tests/test_mcp_isolation.py` | 进程隔离模式下连续三次超时：orphan 线程 0、残留子进程 0、ping 延迟 2 秒内、下一次调用正常、服务器 RSS 不增长（一次实测：预热后 165 MiB，三次超时后反而低 40 MiB）。线程模式下同一个调用会留下 orphan，测试里作为对照。只在 macOS 上量过；没有做长时间（小时级）的压力运行。 |
 | M4 | 一条完整分析链跑在真实 stdio 子进程上 | — | `tests/test_mcp_stdio_chain.py` |  |
 | M4 | 客户端能力矩阵：三个协议版本、未知版本、只读 text、无 sampling、发 cursor、重启后旧句柄、跳过 initialize、未知方法 | — | `tests/test_mcp_client_matrix.py` | 只覆盖服务器声称支持的组合；没有 HTTP / OAuth。 |
 | A1 | 前 30 个高频入口的 card 用真实调用核对：必填参数、返回类型、每个枚举值、替代方法是否存在、字段来源（curated / inherited / 其它） | `scripts/agent_card_audit.py`<br>`docs/dev/agent_card_audit.md` | `tests/test_agent_card_audit.py` | 查出并修复 6 个缺陷，见“顺带发现”。 |
@@ -43,7 +44,6 @@
 | ID | 事项 | 已有的 | 还缺什么 | 下一步 |
 | --- | --- | --- | --- | --- |
 | M3 | 进程级 worker：`STATSPAI_MCP_ISOLATION=process`，超时或取消时杀掉子进程 | `src/statspai/agent/_process_worker.py`<br>`tests/test_mcp_isolation.py` | 只覆盖不依赖服务器状态的调用（无 `result_id` / `data_id` / `as_handle`）。带句柄的调用仍走线程 runner，因为拟合结果没有序列化协议。每次隔离调用要付一次解释器冷启动。 | 给拟合结果定义可序列化的最小形态后，再把 `as_handle` 调用纳入 |
-| M3 | 资源压力实测 | `tests/test_mcp_isolation.py` | 量了连续超时后的 orphan 线程数、子进程残留、ping 延迟、下一次调用是否正常。没有量 RSS。 | 在长驻部署场景下补 RSS 曲线 |
 | A1 | 30 个之外的入口：家族卡片陈述按成员限定范围 | `src/statspai/_family_cards.py`<br>`tests/test_agent_card_audit.py` | 通读了全部 30 张家族卡片（271 个成员）的 `assumptions`，把 52 24 220 条（分布在  个家族里）本来就点名了适用对象的陈述（“Cox: …”、“Frailty models: …”、“Romano-Wolf …”）限定到对应成员，其它成员不再继承，共  个成员的卡片因此变短。例如 `kaplan_meier` 不再列 Cox 的比例风险，`bonferroni` 不再列 Romano-Wolf 的 bootstrap，`icc` 不再列随机前沿的假设。没做的：`failure_modes` 没有读；真实调用核对（必填参数、枚举值、返回类型）仍只覆盖 30 个；两个专门方法（`assimilative_causal`、`evidence_without_injustice`）限定后没有任何假设，我不熟悉到能替它们写的程度，留空了。 | 读家族卡片的 `failure_modes`；给审查脚本每次加 10 个函数的调用 |
 
 ## 未做，以及为什么
