@@ -4,6 +4,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.36.0] — 2026-10-03
+
+Three textbooks' do-files were run in Stata 18 and replayed through
+StatsPAI: Chen Qiang's *Econometrics and Stata Applications*, Zhao
+Xiliang's *Design-Based Econometrics*, and Stock and Watson's
+*Introduction to Econometrics*. Most of what they exercise already agreed.
+What did not is fixed here, and some of it changes numbers. The affected
+calls are listed in `MIGRATION.md` under the `1.35.0 → 1.36.0` headings.
+
+Numbers that change: the model F statistic of `sp.regress` under robust or
+clustered errors, fit statistics of a regression without a constant, `AIC`
+/ `BIC`, several `sp.estat` defaults, `sp.etwfe` when every unit is
+eventually treated, data-driven RD bandwidths when the interquartile range
+sets the pilot scale, the LIML `kappa`, CR2 degrees of freedom,
+synthetic-control weights when the minimiser is not unique, and the
+standard errors `sp.stata` asks for on robust ML commands and large-sample
+IV. `sp.panel(vce=...)` now raises on a value it does not implement, where
+it returned classical standard errors.
+
+Stata labels now make the whole trip. `sp.write_data` writes variable,
+value and dataset labels back to .dta, the MCP data loader keeps them, and
+an agent sees them, with informative display formats, in the data
+description and as role hints from `sp.detect_design`.
+
 ### Stata labels on the way out, and through the MCP server
 
 `sp.read_data` keeps a .dta file's labels; nothing wrote them

@@ -7,7 +7,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="oct2026-mcp-dta-codes"></a>
 
-## Unreleased: the MCP data loader returns Stata value-labelled columns as codes
+## 1.35.0 → 1.36.0: the MCP data loader returns Stata value-labelled columns as codes
 
 A `.dta` passed to an MCP tool as `data_path` used to arrive with every
 value-labelled column converted to a string categorical (`foreign` became
@@ -27,7 +27,7 @@ Python calls to `sp.read_data` are unaffected.
 
 <a id="oct2026-panel-vce"></a>
 
-## Unreleased: ⚠️ `sp.panel(vce=...)` raises on a value it does not implement
+## 1.35.0 → 1.36.0: ⚠️ `sp.panel(vce=...)` raises on a value it does not implement
 
 `sp.panel(..., vce='robust')` (and `'cluster'`, `'hc1'`, or any other
 string outside `'CR2'` / `'CR3'` / `'jackknife'` / `'conley'` / `'wild'`)
@@ -46,7 +46,7 @@ robust label and should be refit.
 
 <a id="oct2026-crossval-next-steps"></a>
 
-## Unreleased: `CrossValidationResult.next_steps()` returns dicts
+## 1.35.0 → 1.36.0: `CrossValidationResult.next_steps()` returns dicts
 
 `sp.cross_validate(...).next_steps()` returned a list of strings; every
 other result class returns a list of `{"action", "reason", "priority",
@@ -58,7 +58,7 @@ entry of its `to_dict()`. Code that printed the strings should print
 
 <a id="oct2026-intro-textbook-fixes"></a>
 
-## Unreleased: ⚠️ model F under robust errors, fit statistics without a constant, AIC / BIC, `sp.estat` defaults
+## 1.35.0 → 1.36.0: ⚠️ model F under robust errors, fit statistics without a constant, AIC / BIC, `sp.estat` defaults
 
 **`sp.regress(..., robust=...)` / `cluster=`.** `diagnostics['F-statistic']`
 and its p-value change whenever the covariance is not the classical one.
@@ -103,7 +103,7 @@ balanced panels are unchanged.
 
 <a id="oct2026-dbe-textbook-fixes"></a>
 
-## Unreleased: ⚠️ `sp.etwfe` without an untreated group, RD pilot bandwidth, LIML `kappa`, CR2 degrees of freedom, `didregress` translation
+## 1.35.0 → 1.36.0: ⚠️ `sp.etwfe` without an untreated group, RD pilot bandwidth, LIML `kappa`, CR2 degrees of freedom, `didregress` translation
 
 **`sp.etwfe`, every unit eventually treated.** Results from such a panel
 were arbitrary before (the design was rank deficient and a warning said
@@ -175,7 +175,7 @@ the sixth digit because the probability is integrated more finely.
 
 <a id="oct2026-stata-translation-conventions"></a>
 
-## Unreleased: ⚠️ `sp.stata` standard errors for robust ML commands and large-sample IV
+## 1.35.0 → 1.36.0: ⚠️ `sp.stata` standard errors for robust ML commands and large-sample IV
 
 **Who is affected.** Anyone who ran these Stata lines through `sp.stata`,
 `sp.from_stata` or the MCP `from_stata` tool and reported the standard
