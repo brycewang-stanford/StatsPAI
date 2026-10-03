@@ -184,6 +184,21 @@ evidence map listed as having none.
   dropped missing values (`sp.twoway_cluster` raised; `sp.cr2_se` fell
   back to a re-parse of the formula).
 
+### Count models with missing values
+
+#### Fixed
+
+- **`sp.poisson`, `sp.nbreg` and `sp.ppmlhdfe` failed on a missing
+  regressor or outcome.** A formula of plain columns passed the missing
+  values into the IRLS, which stopped with `LinAlgError: SVD did not
+  converge`. Rows with a missing outcome or regressor are now dropped, as
+  Stata does and as these functions already did for formulas with `C()`,
+  `I()` or interactions; weights, exposure, offset and cluster keys are
+  read on the rows that remain. The fit equals the fit on the cleaned
+  frame to 1e-12. Nothing that ran before changes. Twenty other
+  regression-family estimators were put through the same comparison and
+  already handled missing rows.
+
 ### Agent surface
 
 - **Evidence maps credit reference tests that already existed, and gain

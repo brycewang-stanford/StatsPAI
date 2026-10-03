@@ -181,6 +181,29 @@ def _patsy_count_design(
     )
 
 
+def _complete_cases(data: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
+    """Rows with the outcome and every regressor observed (Stata's rule).
+
+    The plain-column path used to pass missing values straight into the
+    IRLS, which then failed with ``LinAlgError: SVD did not converge``; the
+    patsy path (``C()`` / ``I()`` / interactions) already dropped them. The
+    returned frame is what offsets, weights and cluster keys are read
+    from, so they stay aligned with the design.
+    """
+    cols = list(dict.fromkeys(columns))
+    observed = data[cols].notna().all(axis=1)
+    if bool(observed.all()):
+        return data
+    if not bool(observed.any()):
+        raise DataInsufficient(
+            "count regression: no row has the outcome and every regressor " "observed.",
+            recovery_hint="Check the columns for missing values: "
+            + ", ".join(map(str, cols)),
+            diagnostics={"columns": cols},
+        )
+    return data.loc[observed]
+
+
 def _parse_formula_or_xy(
     formula: Optional[str],
     data: Any,
@@ -199,6 +222,7 @@ def _parse_formula_or_xy(
         if _needs_patsy(formula) and dep_var in data.columns:
             return _patsy_count_design(formula, data, add_constant, fe_vars)
         _require_columns(data, [dep_var, *indep_vars], "formula")
+        data = _complete_cases(data, [dep_var, *indep_vars])
 
         y_arr = data[dep_var].values.astype(np.float64)
         X_cols = indep_vars
@@ -217,6 +241,7 @@ def _parse_formula_or_xy(
         dep_var = _require_column_name(y, "y")
         X_cols = _normalize_column_list(x, "x")
         _require_columns(data, [dep_var, *X_cols], "y/x")
+        data = _complete_cases(data, [dep_var, *X_cols])
         y_arr = data[dep_var].values.astype(np.float64)
         X_arr_parts = [data[v].values.astype(np.float64) for v in X_cols]
         if add_constant:
