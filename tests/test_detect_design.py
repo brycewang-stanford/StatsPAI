@@ -380,6 +380,26 @@ class TestRoleHints:
         assert ("a", "unit") in hints and ("b", "time") in hints
         assert ("c", "treatment") in hints
 
+    def test_entity_noun_in_a_label_is_not_a_unit_hint(self):
+        # The label says what the variable is about; only an identifier word
+        # ("id", "code", "编号") marks it as the unit.
+        df = pd.DataFrame({"a": [1.0, 2.0, 3.0], "b": [1, 2, 3], "c": [3, 2, 1]})
+        sp.label_vars(
+            df,
+            {
+                "a": "State unemployment rate",
+                "b": "企业成立日期",
+                "c": "试点政策是否已对该企业生效",
+            },
+        )
+        hints = {(h["column"], h["role"]) for h in sp.detect_design(df)["role_hints"]}
+        assert hints == {("b", "time"), ("c", "treatment")}
+
+    def test_entity_noun_as_a_column_name_is_a_unit_hint(self):
+        df = pd.DataFrame({"state": [1, 2, 3], "firm": [1, 2, 3], "y": [0.1, 0.2, 0.3]})
+        hints = {(h["column"], h["role"]) for h in sp.detect_design(df)["role_hints"]}
+        assert hints == {("state", "unit"), ("firm", "unit")}
+
     def test_name_wins_over_label_and_one_hint_per_role(self):
         df = pd.DataFrame({"year": [2019, 2020, 2021]})
         sp.label_var(df, "year", "Calendar year of the survey wave")

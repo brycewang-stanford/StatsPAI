@@ -307,10 +307,14 @@ _ROLE_KEYWORDS: Dict[str, Dict[str, tuple]] = {
         "zh": ("年份", "年度", "月份", "季度", "日期", "时间", "时期", "期数"),
     },
     "unit": {
-        "en": (
-            "id",
-            "identifier",
-            "code",
+        # Identifier words only.  An entity noun in a *label* says what the
+        # variable is about, not that it identifies the unit: "State
+        # unemployment rate", "企业成立日期".
+        "en": ("id", "identifier", "code"),
+        "zh": ("编号", "代码", "编码"),
+        # In a column *name*, though, a bare entity noun usually is the
+        # unit: ``firm``, ``state``, ``county``.
+        "en_name_only": (
             "firm",
             "company",
             "household",
@@ -326,7 +330,6 @@ _ROLE_KEYWORDS: Dict[str, Dict[str, tuple]] = {
             "hospital",
             "district",
         ),
-        "zh": ("编号", "代码", "编码", "企业", "公司", "家庭", "个人", "省份", "城市"),
     },
     "treatment": {
         "en": (
@@ -386,7 +389,10 @@ def _role_hints(data: pd.DataFrame) -> List[Dict[str, Any]]:
             for source, text in sources:
                 if not text:
                     continue
-                matched = sorted(_words(text) & set(words["en"])) + [
+                english = set(words["en"])
+                if source == "name":
+                    english |= set(words.get("en_name_only", ()))
+                matched = sorted(_words(text) & english) + [
                     w for w in words["zh"] if w in text
                 ]
                 if matched:
