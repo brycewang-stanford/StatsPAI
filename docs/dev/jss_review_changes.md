@@ -31,6 +31,23 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after `sp.label_values` and `sp.decode` were exported
+
+- **Commits.** `dbe20e11`.
+- **Reason.** Two label helpers were added to the public namespace, so
+  `src/statspai/__init__.py` changed. That file is on the recorded
+  estimation path of Track A modules 03, 13, 15, 24, 25, 26, 27, 53, 65
+  and 66. The rest of the commit is label handling in `sp.read_data`,
+  `sp.tab`, `sp.describe`, `sp.regtable(labels=)` and `sp.stata`, none of
+  which a parity module calls.
+- **Effect on the paper.** None. No estimator was touched and no Python
+  result file changed; only the `exercised_sources` digest of
+  `__init__.py` and `seconds` changed in the trace. The registered
+  function count goes from 1,292 to 1,294, which matters only when the
+  manuscript is next re-anchored.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded after `sp.regress` gained the few-treated-clusters diagnostic
 
 - **Commits.** `6c2d7e3a`.
