@@ -69,7 +69,13 @@ def ssc(preset: str = "fixest", **overrides: Any) -> Dict[str, Any]:
             recovery_hint=f"Use one of {sorted(_PRESETS)}.",
             diagnostics={"preset": preset},
         )
-    import pyfixest as pf
+    from .._optional_deps import require_optional
+
+    pf = require_optional(
+        "pyfixest",
+        extra="fixest",
+        purpose="small-sample correction presets for sp.feols",
+    )
 
     cfg = dict(_PRESETS[key])
     cfg.update(overrides)

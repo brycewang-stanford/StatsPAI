@@ -4,6 +4,14 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.ssc` without pyfixest
+
+#### Fixed
+
+- `sp.ssc(...)` raised a bare `ModuleNotFoundError` when the optional
+  `pyfixest` was not installed. It now raises `MissingDependencyError` (still
+  an `ImportError`) naming the `fixest` extra, as `sp.feols` does.
+
 ### Stata dates through `sp.read_data`
 
 #### ⚠️ Correctness
