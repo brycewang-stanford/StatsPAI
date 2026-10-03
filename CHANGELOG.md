@@ -87,6 +87,26 @@ numbers and refuses no command. 324 numbers differ for documented reasons,
   predictors and with 9 units and 12 predictors
   (`test_synth_regression_v_stata.py`).
 
+### `sp.fast.feols`: degrees of freedom with one absorbed dimension
+
+#### ⚠️ Correctness
+
+- **`sp.fast.feols` charged one degree of freedom too few for a single
+  absorbed dimension.** With `y ~ x | firm` the residual degrees of
+  freedom were `n - p - (G - 1)`; R `fixest` and Stata `reghdfe` use
+  `n - p - G`, because the effects span the intercept. IID and HC1
+  standard errors were `sqrt((n - p - G)/(n - p - G + 1))` of fixest's
+  (5.6e-4 low on a 1,042-row panel with 150 firms). Clustered standard
+  errors were `sqrt((n - p - 1)/(n - p))` of fixest's when that dimension
+  was nested in the clusters, and with two absorbed dimensions neither
+  nested in the clusters the count was one too many. All of these now
+  agree with fixest to 1e-9 across 21 configurations, with and without
+  weights (`tests/reference_parity/test_fast_feols_weights_fixest_parity.py`).
+  Coefficients are unchanged. Two-way models clustered on a key that
+  nests one of the effects were exact before and are unchanged; `sp.feols`
+  and `sp.hdfe_ols` were exact throughout. `ssc='statspai'` is unchanged.
+  See `MIGRATION.md`.
+
 ### `sp.regress`: weights and dropped rows under CR2, CR3 and two-way clustering
 
 Found while generating a Stata reference for the configurations the

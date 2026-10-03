@@ -18,7 +18,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `etwfe` | 128 | 3 / 128 | 0 / 128 | 3 / 128 | -- | -- | 0 / 128 |
 | `etwfe_glm` | 1920 | 2 / 1920 | 0 / 1920 | -- | -- | -- | 0 / 1920 |
 | `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
-| `fast.feols` | 12 | 6 / 12 | 2 / 12 | -- | -- | -- | 2 / 12 |
+| `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
 | `gardner_did` | 32 | 8 / 32 | 2 / 32 | 1 / 32 | -- | -- | 2 / 32 |
 | `iv` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
 | `ivreg` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
@@ -60,8 +60,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `event_study` | estimate | 0 | 0 | 0 | 0 | 511 |
 | `event_study` | se | 0 | 0 | 0 | 0 | 511 |
 | `event_study` | vcov | 0 | 0 | 0 | 0 | 511 |
-| `fast.feols` | estimate | 0 | 0 | 0 | 0 | 6 |
-| `fast.feols` | se | 0 | 0 | 0 | 0 | 10 |
+| `fast.feols` | estimate | 0 | 0 | 0 | 0 | 0 |
+| `fast.feols` | se | 0 | 0 | 0 | 0 | 6 |
 | `fast.feols` | coverage | 0 | 0 | 1 | 0 | 11 |
 | `gardner_did` | estimate | 0 | 0 | 0 | 0 | 24 |
 | `gardner_did` | se | 0 | 0 | 0 | 0 | 30 |
@@ -197,6 +197,7 @@ Dimensions: `vcov` in {iid, hc1, cr1}; `ssc` in {fixest, statspai}; `weights` in
 | T2 | estimate, se | vcov=iid; ssc=fixest; weights=none | `tests/r_parity/03_hdfe.py` | `sp.fast.feols(vcov='iid')` |
 | T2 | estimate, se | vcov=cr1; ssc=fixest; weights=none | `tests/r_parity/15_hdfe_cluster.py` | `sp.fast.feols(vcov='cr1')` |
 | B | coverage | vcov=cr1; ssc=fixest; weights=none | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.fast.feols(vcov='cr1')` |
+| T2 | estimate, se | vcov=cr1/hc1/iid; ssc=fixest; weights=none/set | `tests/reference_parity/test_fast_feols_weights_fixest_parity.py` | `sp.fast.feols(formula, data, weights=..., vcov=...)` |
 
 `vcov` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator
 

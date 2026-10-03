@@ -931,6 +931,19 @@ _add(
                 "95% CI coverage of the within estimator on a two-way FE panel DGP",
                 "sp.fast.feols(vcov='cr1')",
             ),
+            _Row(
+                "T2",
+                _RP + "test_fast_feols_weights_fixest_parity.py",
+                {
+                    "vcov": _vals("iid", "hc1", "cr1"),
+                    "ssc": _vals("fixest"),
+                    "weights": _vals("none", "set"),
+                },
+                _EST_SE,
+                "one and two absorbed dimensions, with and without weights, and "
+                "nine clustered layouts (nested / not nested) vs fixest::feols",
+                "sp.fast.feols(formula, data, weights=..., vcov=...)",
+            ),
         ),
         invariant={
             "vcov": _VCE_INVARIANT,

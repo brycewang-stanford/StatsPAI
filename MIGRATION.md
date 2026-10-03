@@ -66,6 +66,28 @@ Python calls to `sp.read_data` are unaffected.
 
 ---
 
+<a id="oct2026-fast-feols-one-fe-dof"></a>
+
+## Unreleased: ⚠️ `sp.fast.feols` standard errors with one absorbed dimension
+
+`sp.fast.feols('y ~ x | firm', ...)` at the default `ssc='fixest'` now
+uses `n - p - G` residual degrees of freedom, as R `fixest` and Stata
+`reghdfe` do; it used `n - p - (G - 1)`. Standard errors rise by a factor
+`sqrt((n - p - G + 1)/(n - p - G))`, which is 1.0006 on a 1,042-row panel
+with 150 firms and larger on short panels. Coefficients do not change.
+
+| Model | Variance | Before | Now |
+| --- | --- | --- | --- |
+| one absorbed dimension | `iid`, `hc1` | one degree of freedom too few | matches fixest |
+| one absorbed dimension, nested in the clusters | `cr1` | intercept not counted | matches fixest |
+| two absorbed dimensions, neither nested in the clusters | `cr1` | one degree of freedom too many | matches fixest |
+| two absorbed dimensions, one nested in the clusters | `cr1` | exact | unchanged |
+| any | `ssc='statspai'` | pre-1.31 convention | unchanged |
+
+`sp.feols` and `sp.hdfe_ols` are not affected.
+
+---
+
 <a id="oct2026-regress-weights-cluster"></a>
 
 ## Unreleased: ⚠️ `sp.regress` weights and missing rows under CR2, CR3 and two-way clustering

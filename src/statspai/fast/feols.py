@@ -9,9 +9,10 @@ What this is
 ------------
 - ``y ~ x1 + x2 | fe1 + fe2`` minimal formula DSL (same as ``fepois``).
 - Closed-form WLS solve on FE-residualised regressors / outcome.
-- Full DOF accounting: ``fe_dof = sum(G_k - 1)`` (matches ``fepois``,
-  matches ``fixest::ssc(fixef.K='full')`` to a uniform 1-DOF off-by-true-
-  rank for K≥2 — same convention as the rest of fast/*).
+- DOF accounting follows ``ssc``: the default reproduces R ``fixest``
+  (pinned in ``tests/reference_parity/
+  test_fast_feols_weights_fixest_parity.py``); ``ssc='statspai'`` keeps
+  the pre-1.31 ``fe_dof = sum(G_k - 1)``.
 - vcov: ``iid`` (homoscedastic), ``hc1`` (heteroscedasticity-robust),
   ``cr1`` (one-way cluster-robust, FE-rank-aware via ``extra_df``).
 - Optional observation weights → WLS.
@@ -258,9 +259,10 @@ def feols(
 
         - ``"fixest"`` (default since 1.31.0) mirrors R ``fixest`` /
           Stata ``reghdfe`` defaults, the setting the parity harness
-          pins: the IID/HC1 residual rank is ``ΣG_k - 1`` for multiple FE
-          dimensions, and one-way clustered CR1 excludes FE dimensions
-          nested in the cluster variable.
+          pins: the absorbed effects cost ``ΣG_k - (K - 1)`` degrees of
+          freedom for ``K`` dimensions (``G`` for one), and one-way
+          clustered CR1 excludes FE dimensions nested in the cluster
+          variable, keeping the intercept they span.
         - ``"statspai"`` is the pre-1.31 default, kept to reproduce old
           numbers: ``fe_dof = Σ(G_k - 1)`` (one degree of freedom too few
           for two-way FE) and every absorbed FE charged in CR1, which
@@ -593,11 +595,18 @@ def _statspai_fe_dof(fe_card: List[int]) -> int:
 
 
 def _fixest_fe_dof(fe_card: List[int]) -> int:
+    """Parameters the absorbed effects use up, as fixest counts them.
+
+    The effects span the intercept, so one dimension of ``G`` levels costs
+    ``G`` and each further dimension one less than its levels: the rank of
+    the dummy design is ``sum(G_k) - (K - 1)``. Until 1.36.0 the
+    one-dimension case returned ``G - 1``, one too few, which made the
+    IID / HC1 standard errors ``sqrt((n - p - G) / (n - p - G + 1))`` of
+    fixest's. Two or more dimensions were exact.
+    """
     if not fe_card:
         return 0
-    if len(fe_card) == 1:
-        return int(fe_card[0]) - 1
-    return int(sum(int(g) for g in fe_card) - 1)
+    return int(sum(int(g) for g in fe_card) - (len(fe_card) - 1))
 
 
 def _fixest_cluster_fe_dof(
@@ -617,7 +626,11 @@ def _fixest_cluster_fe_dof(
         if _is_nested_in_cluster(fe_values, cluster_values):
             continue
         effective_cards.append(int(card))
-    return int(sum(effective_cards))
+    if not effective_cards:
+        # Every absorbed dimension is nested in the clusters: fixest (and
+        # reghdfe) drop them from K but keep the intercept they span.
+        return 1
+    return int(sum(effective_cards) - (len(effective_cards) - 1))
 
 
 def _is_nested_in_cluster(

@@ -1603,18 +1603,16 @@
       },
       "cells": 12,
       "overall": {
-        "covered": 2,
-        "estimate_only": 4,
-        "not_covered": 6
+        "covered": 6,
+        "estimate_only": 6
       },
       "by_output": {
         "estimate": {
-          "reference": 6,
-          "not_covered": 6
+          "reference": 12
         },
         "se": {
-          "reference": 2,
-          "not_covered": 10
+          "reference": 6,
+          "not_covered": 6
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -1683,6 +1681,30 @@
             ]
           },
           "compares": "95% CI coverage of the within estimator on a two-way FE panel DGP"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_fast_feols_weights_fixest_parity.py",
+          "entry_point": "sp.fast.feols(formula, data, weights=..., vcov=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vcov": [
+              "cr1",
+              "hc1",
+              "iid"
+            ],
+            "ssc": [
+              "fixest"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "one and two absorbed dimensions, with and without weights, and nine clustered layouts (nested / not nested) vs fixest::feols"
         }
       ]
     },
@@ -4971,16 +4993,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 612,
+      "reference": 618,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 42650
+      "not_covered": 42644
     },
     "se": {
-      "reference": 250,
+      "reference": 254,
       "stochastic_screen": 3,
       "disclosure": 13,
-      "not_covered": 42996
+      "not_covered": 42992
     },
     "coverage": {
       "coverage_simulation": 11,

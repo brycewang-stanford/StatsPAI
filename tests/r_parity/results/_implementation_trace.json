@@ -113,7 +113,7 @@
    "result_sha256": "979b24f58c32a6211b43fd28ef054809a75996073fe5c17c1bac3ddfcc6956d1"
   },
   "03_hdfe": {
-   "seconds": 0.72,
+   "seconds": 0.82,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -130,7 +130,7 @@
     "src/statspai/fast/dsl.py": "dded960062dac582813af9a5a227536ab76caee2b242d150e624ad14eaaf880c",
     "src/statspai/fast/etable.py": "25547b101c2a51997caa3bc93e07aa1c2af082af0aa7e798cc896d6e4fe09276",
     "src/statspai/fast/event_study.py": "8dd47dcb7bddb0e3582826866bf5b38c2b2c198788f0b5a74c0426330e7e9818",
-    "src/statspai/fast/feols.py": "eb2be259d550afa3f8c358b30b46fe1cc198cbafb97ba11889387c69a7d3171a",
+    "src/statspai/fast/feols.py": "96932d73d0213a53ea0cfb1dd2b4badb77eaab5a6c8b1bad640844c21ce3d368",
     "src/statspai/fast/fepois.py": "74be8ec908788f3ede5d88232ee230a393504031df4e7ba3af0ba97b7079a780",
     "src/statspai/fast/inference.py": "e45d75e88037242c6c1bc32651ddf00e5d9ebc8515f08d62f2935353eaee0df3",
     "src/statspai/fast/jax_backend.py": "1bf48e8d47456b7d4f2608fc838a2fc4c88a6178d8c0cb2079368e134ba14add",
@@ -594,7 +594,7 @@
    "result_sha256": "ee2708a9ac465c6cf4706839aa09574c2cf3b7907fc5e0517227b8583d1798bc"
   },
   "15_hdfe_cluster": {
-   "seconds": 0.71,
+   "seconds": 0.79,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -611,7 +611,7 @@
     "src/statspai/fast/dsl.py": "dded960062dac582813af9a5a227536ab76caee2b242d150e624ad14eaaf880c",
     "src/statspai/fast/etable.py": "25547b101c2a51997caa3bc93e07aa1c2af082af0aa7e798cc896d6e4fe09276",
     "src/statspai/fast/event_study.py": "8dd47dcb7bddb0e3582826866bf5b38c2b2c198788f0b5a74c0426330e7e9818",
-    "src/statspai/fast/feols.py": "eb2be259d550afa3f8c358b30b46fe1cc198cbafb97ba11889387c69a7d3171a",
+    "src/statspai/fast/feols.py": "96932d73d0213a53ea0cfb1dd2b4badb77eaab5a6c8b1bad640844c21ce3d368",
     "src/statspai/fast/fepois.py": "74be8ec908788f3ede5d88232ee230a393504031df4e7ba3af0ba97b7079a780",
     "src/statspai/fast/inference.py": "e45d75e88037242c6c1bc32651ddf00e5d9ebc8515f08d62f2935353eaee0df3",
     "src/statspai/fast/jax_backend.py": "1bf48e8d47456b7d4f2608fc838a2fc4c88a6178d8c0cb2079368e134ba14add",
@@ -1682,7 +1682,7 @@
    "result_sha256": "c54451e6a650f326129d583494150519f2adcd0deb98873aadfeaba3b442790a"
   },
   "47_ppmlhdfe_3fe": {
-   "seconds": 1.1,
+   "seconds": 1.28,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1703,7 +1703,7 @@
     "src/statspai/fast/dsl.py": "dded960062dac582813af9a5a227536ab76caee2b242d150e624ad14eaaf880c",
     "src/statspai/fast/etable.py": "25547b101c2a51997caa3bc93e07aa1c2af082af0aa7e798cc896d6e4fe09276",
     "src/statspai/fast/event_study.py": "8dd47dcb7bddb0e3582826866bf5b38c2b2c198788f0b5a74c0426330e7e9818",
-    "src/statspai/fast/feols.py": "eb2be259d550afa3f8c358b30b46fe1cc198cbafb97ba11889387c69a7d3171a",
+    "src/statspai/fast/feols.py": "96932d73d0213a53ea0cfb1dd2b4badb77eaab5a6c8b1bad640844c21ce3d368",
     "src/statspai/fast/fepois.py": "74be8ec908788f3ede5d88232ee230a393504031df4e7ba3af0ba97b7079a780",
     "src/statspai/fast/inference.py": "e45d75e88037242c6c1bc32651ddf00e5d9ebc8515f08d62f2935353eaee0df3",
     "src/statspai/fast/jax_backend.py": "1bf48e8d47456b7d4f2608fc838a2fc4c88a6178d8c0cb2079368e134ba14add",
@@ -1895,7 +1895,7 @@
    "result_sha256": "0621698a7eb8fc5a8f5f0761ee35a9a5d15b08f7112455a692c8feb1ce67cde6"
   },
   "53_cr2": {
-   "seconds": 2.52,
+   "seconds": 1.22,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1929,7 +1929,7 @@
     "src/statspai/fast/dsl.py": "dded960062dac582813af9a5a227536ab76caee2b242d150e624ad14eaaf880c",
     "src/statspai/fast/etable.py": "25547b101c2a51997caa3bc93e07aa1c2af082af0aa7e798cc896d6e4fe09276",
     "src/statspai/fast/event_study.py": "8dd47dcb7bddb0e3582826866bf5b38c2b2c198788f0b5a74c0426330e7e9818",
-    "src/statspai/fast/feols.py": "eb2be259d550afa3f8c358b30b46fe1cc198cbafb97ba11889387c69a7d3171a",
+    "src/statspai/fast/feols.py": "96932d73d0213a53ea0cfb1dd2b4badb77eaab5a6c8b1bad640844c21ce3d368",
     "src/statspai/fast/fepois.py": "74be8ec908788f3ede5d88232ee230a393504031df4e7ba3af0ba97b7079a780",
     "src/statspai/fast/inference.py": "e45d75e88037242c6c1bc32651ddf00e5d9ebc8515f08d62f2935353eaee0df3",
     "src/statspai/fast/jax_backend.py": "1bf48e8d47456b7d4f2608fc838a2fc4c88a6178d8c0cb2079368e134ba14add",
