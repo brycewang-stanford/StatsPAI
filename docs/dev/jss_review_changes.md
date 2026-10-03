@@ -31,6 +31,28 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after the effective-cluster diagnostic reached the fixed-effects entry points
+
+- **Commits.** `f030cf55`.
+- **Reason.** `sp.panel`, `sp.hdfe_ols` and `sp.feols` now record
+  `n_clusters_effective` and warn when many clusters are few in effect,
+  through a helper shared with `sp.regress`. The edits are in
+  `src/statspai/panel/panel_reg.py`, `src/statspai/panel/feols.py`,
+  `src/statspai/fixest/wrapper.py`, `src/statspai/regression/ols.py` and
+  `src/statspai/core/_agent_summary.py`, on the estimation path of Track A
+  modules 01, 14, 35, 51, 53, 54, 55, 56, 67 and 69 and of original-data
+  modules 01, 04, 04b and 09. Original-data module 08 was re-traced in
+  the same commit: its record was stale against `src/statspai/__init__.py`
+  on the main it was rebased onto.
+- **Effect on the paper.** None. A field is added and a warning may be
+  raised; nothing is computed differently. The Python result files of
+  modules 14, 35, 67 and 69 are byte-identical on the parent tree and on
+  the changed tree. Only `exercised_sources` digests and `seconds`
+  changed in the traces.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded after `sp.label_values` and `sp.decode` were exported
 
 - **Commits.** `dbe20e11`.
