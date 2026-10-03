@@ -2108,6 +2108,25 @@ _add(
                 "never-treated controls",
                 "sp.etwfe(df, family='poisson', fe='unit', scale='link', ...)",
             ),
+            _Row(
+                "T2",
+                _RP + "test_etwfe_linear_jwdid_parity.py",
+                {
+                    "family": _vals("gaussian"),
+                    "cgroup": _vals("notyet", "nevertreated"),
+                    "fe": _vals("unit"),
+                    "hettype": _vals("timecohort"),
+                    "scale": _vals("link"),
+                    "response_se": _vals("profile"),
+                    "controls": _vals("set"),
+                    "xvar": _vals("none"),
+                    "weights": _vals("none"),
+                },
+                _EST_SE,
+                "additive time-varying control with unit effects vs Stata "
+                "jwdid, exovar(): simple ATT to 1e-10, SE to 1e-9",
+                "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
+            ),
         ),
         note="Unit fixed effects, the pooled hettype designs, the link scale, "
         "never-treated controls, covariates and weights have no reference row "

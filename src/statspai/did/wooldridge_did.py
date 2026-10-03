@@ -1259,7 +1259,13 @@ def _dispatch_etwfe_impl(
     first_treat : str
         Column with first-treatment period; NaN or 0 for never-treated.
     controls : list of str, optional
-        Time-varying covariates.
+        Time-varying covariates, entering additively (Stata ``jwdid``'s
+        ``exovar()``; R ``etwfe`` interacts demeaned controls with the
+        treatment cells instead, a different model). With ``fe='unit'``
+        the fit reproduces ``jwdid, exovar()``. The default design uses
+        cohort rather than unit effects, which gives the same cell
+        coefficients without controls but not with a time-varying one,
+        and has no external reference in that case.
     cluster : str, optional
         Cluster variable for SE (defaults to ``group``).
     alpha : float, default 0.05

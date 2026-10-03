@@ -98,3 +98,35 @@ def test_linear_hettype_rejects_unsupported_options(panel):
         _fit(panel.assign(w=1.0), hettype="event", weights="w")
     with pytest.raises(MethodIncompatibility, match="separated"):
         _fit(panel, hettype="event", separated="drop")
+
+
+# ── additive controls: jwdid's exovar() ─────────────────────────────────── #
+
+#: Stata 18, jwdid v2.201, on the same CSV read in double precision:
+#:   jwdid y, ivar(id) tvar(year) gvar(g) exovar(xc) [never]
+#:   estat simple
+#: ``r(table)[1,1]`` and ``[2,1]`` printed with %20.14f (2026-10-03).
+EXOVAR = {
+    "notyet": (0.77139332551808, 0.08201030598200),
+    "nevertreated": (0.88315970478384, 0.12099366797395),
+}
+
+
+@pytest.mark.parametrize("cgroup", sorted(EXOVAR))
+def test_controls_with_unit_effects_match_jwdid_exovar(panel, cgroup):
+    b, se = EXOVAR[cgroup]
+    r = _fit(panel, fe="unit", controls=["xc"], cgroup=cgroup)
+    assert r.estimate == pytest.approx(b, rel=1e-10)
+    assert r.se == pytest.approx(se, rel=1e-9)
+
+
+def test_default_design_with_a_time_varying_control_is_a_different_model(panel):
+    """Cohort effects (the default) and unit effects part ways once a
+    time-varying control enters: without one the cell coefficients agree,
+    with one they are different regressions. On this panel the simple ATT
+    moves by about 1%; the default has no external reference with
+    controls, ``fe='unit'`` is the one pinned above."""
+    unit = _fit(panel, fe="unit", controls=["xc"])
+    cohort = _fit(panel, controls=["xc"])
+    gap = abs(cohort.estimate / unit.estimate - 1)
+    assert 1e-3 < gap < 5e-2

@@ -251,6 +251,10 @@ evidence map listed as having none.
   `fe='unit'` fit was reported as having no evidence, partly because it
   recorded the control group as `never` where the map says
   `nevertreated`, so it could match nothing.
+  `sp.etwfe(controls=, fe='unit')` is now pinned against Stata
+  `jwdid, exovar()` (1e-10), and the docstring says what the default
+  cohort-effects design does with a time-varying control: it is a
+  different regression from the unit-effects one and has no reference.
 - **`sp.panel` names its default small-sample convention.** With no
   `ssc=` the result now carries `model_info['ssc'] = 'linearmodels'` and a
   one-line description (`N/(N-k)` on the covariance, no `G/(G-1)` cluster

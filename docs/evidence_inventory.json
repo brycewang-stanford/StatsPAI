@@ -1463,19 +1463,19 @@
       "invariant": {},
       "cells": 2880,
       "overall": {
-        "covered": 24,
+        "covered": 26,
         "estimate_only": 13,
-        "not_covered": 2843
+        "not_covered": 2841
       },
       "by_output": {
         "estimate": {
-          "reference": 37,
-          "not_covered": 2843
+          "reference": 39,
+          "not_covered": 2841
         },
         "se": {
-          "reference": 24,
+          "reference": 26,
           "disclosure": 2,
-          "not_covered": 2854
+          "not_covered": 2852
         }
       },
       "rows": [
@@ -2081,6 +2081,46 @@
             ]
           },
           "compares": "Poisson ETWFE on the link scale vs Stata jwdid, method(ppmlhdfe): estimates to 1e-9, SEs to 1e-7; moderator, never-treated controls"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
+          "entry_point": "sp.etwfe(df, y, group, time, first_treat, fe='unit' | hettype=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "gaussian"
+            ],
+            "cgroup": [
+              "nevertreated",
+              "notyet"
+            ],
+            "fe": [
+              "unit"
+            ],
+            "hettype": [
+              "timecohort"
+            ],
+            "scale": [
+              "link"
+            ],
+            "response_se": [
+              "profile"
+            ],
+            "controls": [
+              "set"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "additive time-varying control with unit effects vs Stata jwdid, exovar(): simple ATT to 1e-10, SE to 1e-9"
         }
       ]
     },
@@ -5653,16 +5693,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 657,
+      "reference": 659,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 43565
+      "not_covered": 43563
     },
     "se": {
-      "reference": 278,
+      "reference": 280,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 43924
+      "not_covered": 43922
     },
     "coverage": {
       "coverage_simulation": 11,
