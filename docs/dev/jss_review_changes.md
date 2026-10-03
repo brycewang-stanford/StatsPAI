@@ -31,6 +31,23 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded for the `sp.rdrobust` refusal paths
+
+Commit `4b3a65d4`. `sp.rdrobust(masspoints='off')` now raises
+`NumericalInstability` where it used to crash on a complex number or
+return a NaN interval, warns when it falls back to the legacy selector,
+and warns when clusters coincide with the support points of the running
+variable. The edits are in `rd/rdrobust.py` and `rd/_cct_bandwidth.py`,
+which Track A modules 06, 88, 89 and the original-data module 05 execute,
+so their source hashes in the traces changed.
+
+Effect on the paper: none. The four modules were run on the source
+before and after the change and their result files are byte-identical;
+only the recorded source hashes move.
+
+- `tests/r_parity/results/_implementation_trace.json`
+- `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded after `sp.regress` gained the weight diagnostic
 
 - **Commits.** `712d3bf2`.
