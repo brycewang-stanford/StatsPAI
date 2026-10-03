@@ -95,9 +95,10 @@ The 18 chapter do-files of Chen Qiang's *Econometrics and Stata
 Applications* (2nd edition) were run in Stata 18 with a log, and every
 logged command was replayed through one `sp.stata` session
 (`scripts/stata_log_replay.py`). At the start 607 printed numbers were
-reproduced and about 230 commands were refused. Now 2,911 numbers are
-reproduced, 17 differ for documented reasons and three `synth2` commands are
-declined. The findings are in
+reproduced and about 230 commands were refused. Now 2,958 numbers are
+reproduced and no command is refused. 324 numbers differ for documented
+reasons, 320 of them downstream of the non-convex nested search of `synth`
+and `synth2` in chapter 18, where the placebo p-values agree all the same. The findings are in
 `docs/dev/2026-10-03-chen-qiang-2e-review.md`, the reader's guide in
 `docs/guides/chen_qiang_2e.md`. The textbook's programs and data are not
 redistributed. Everything below is pinned against real Stata 18 output on
@@ -178,7 +179,31 @@ four committed synthetic datasets
   period-by-period p-values and a placebo in time. The best subset is found
   by branch and bound: the 24-donor Hong Kong example with a placebo run per
   donor takes about a second and reproduces every digit the Stata command
-  `rcm` prints.
+  `rcm` prints. `covariates=` adds every unit's covariates to the candidate
+  predictors (Hsiao and Zhou 2019; Stata `rcm y x`), checked against Stata
+  along the forward and the best-subset path. One deliberate difference:
+  with as many candidates as pre-treatment periods less one, Stata's `rcm`
+  selects the model that interpolates the data (R-squared 1, a BIC that is
+  the logarithm of rounding error); StatsPAI stops at one residual degree
+  of freedom. The command's lasso option is not implemented, because its
+  path and cross-validation folds are Stata's own and could not be checked.
+- **`sp.synth(method='classic')` returns the reports of Stata's `synth2`.**
+  With `placebo=True` the result has `model_info['placebo_table']` (pre-
+  and post-treatment MSPE and their ratio per unit),
+  `model_info['placebo_effects']` (two-, right- and left-sided placebo
+  p-values per period) and `model_info['placebo_weights']`. New keywords:
+  `placebo_cutoff=` leaves badly fitted pretend units out of those
+  p-values, `placebo_time=` refits at a pretend treatment date, `loo=True`
+  drops each weighted donor in turn and reports the range of the synthetic
+  path, `post_periods=` restricts the periods the effect is measured on.
+  `model_info['pre_r2']` is the pre-treatment R-squared. `sp.from_stata` /
+  `sp.stata` translate `synth2` to this call. Checked against `synth2`
+  2.1.0 on the regression-based predictor weights
+  (`tests/reference_parity/test_synth2_stata_parity.py`): pre-treatment
+  MSPE to 1e-8 and every p-value exactly; paths and post-treatment MSPE
+  after rounding our weights to three decimals as `synth` stores them.
+  `synth2`'s R-squared divides by the variation of the synthetic path, ours
+  by that of the treated unit's outcome.
 - **`sp.estat`**: `'imtest'` (White's test with Cameron and Trivedi's
   skewness and kurtosis parts), `'classification'` after `sp.logit` /
   `sp.probit`, the Durbin score form in `'endogenous'`, and the options

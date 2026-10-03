@@ -272,7 +272,7 @@
    "result_sha256": "11558f8cc546da726e0e52d4e2fcbc7f4ff5b2c91ca72447a62b8b8a9a2683f5"
   },
   "07_scm": {
-   "seconds": 8.18,
+   "seconds": 3.0,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -295,9 +295,10 @@
     "src/statspai/core/results.py": "0f217ec51108e4fc0986fbb26e7d8a13a7dc720f7ff0b54e7142e17fc0bd8a01",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
+    "src/statspai/synth/_classic_report.py": "cd612c7470ae03d0ee49df1d72006a58392e0d0ef7c7d83fbb7b262d6aa8bbaf",
     "src/statspai/synth/_core.py": "11f5940be9d4ed2c81ab8ef48f16c65445a3b55b79bbc9b3982af8d7c7ff8def",
     "src/statspai/synth/datasets.py": "d4ba853a30ae823dc072ac2302ed006fd7db613b9c8fe708317bf740352f23b2",
-    "src/statspai/synth/scm.py": "a2789db4913fde6c10ef863de8f07568f051ffc80af1122768add236b0974f95"
+    "src/statspai/synth/scm.py": "8ba371d9fcd80c0231bf8d611a75f07861acc822a146cc09c08ed8d33fb70357"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -1857,7 +1858,7 @@
    "result_sha256": "4a10dedbcb6a421390e698e381ade8ad28838f3dc616ae729cda430f8533a459"
   },
   "52_scm_unique": {
-   "seconds": 2.14,
+   "seconds": 0.66,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1880,8 +1881,9 @@
     "src/statspai/core/results.py": "0f217ec51108e4fc0986fbb26e7d8a13a7dc720f7ff0b54e7142e17fc0bd8a01",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
+    "src/statspai/synth/_classic_report.py": "cd612c7470ae03d0ee49df1d72006a58392e0d0ef7c7d83fbb7b262d6aa8bbaf",
     "src/statspai/synth/_core.py": "11f5940be9d4ed2c81ab8ef48f16c65445a3b55b79bbc9b3982af8d7c7ff8def",
-    "src/statspai/synth/scm.py": "a2789db4913fde6c10ef863de8f07568f051ffc80af1122768add236b0974f95"
+    "src/statspai/synth/scm.py": "8ba371d9fcd80c0231bf8d611a75f07861acc822a146cc09c08ed8d33fb70357"
    },
    "dependency_versions": {
     "numpy": "2.2.6",

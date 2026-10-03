@@ -409,7 +409,20 @@ def _dispatch_synth_impl(
         Run placebo inference. For ``method='classic'`` pass ``n_jobs=``
         (e.g. ``-1``) to fit the in-space placebos in parallel worker
         processes; results are bit-identical to the serial loop. See
-        :class:`SyntheticControl`.
+        :class:`SyntheticControl`. The classic fit then also returns
+        ``model_info['placebo_table']`` (pre- and post-treatment MSPE and
+        their ratio, per unit) and ``model_info['placebo_effects']`` (two-,
+        right- and left-sided placebo p-values per post-treatment period,
+        the treated unit counted among the units compared). Further
+        keywords of ``method='classic'``: ``placebo_cutoff=c`` leaves out
+        of those p-values the pretend units whose pre-treatment MSPE
+        exceeds ``c`` times the treated unit's; ``placebo_time=t`` refits
+        as if the treatment had started at ``t``
+        (``model_info['placebo_time']``); ``loo=True`` drops, one at a
+        time, each donor with a weight of at least 0.0005 and reports the
+        range of the synthetic path (``model_info['loo']``);
+        ``post_periods=[...]`` restricts the periods the effect is
+        measured on. These are the reports of Stata's ``synth2``.
     alpha : float, default 0.05
         Significance level.
     inference : str, optional
@@ -603,29 +616,65 @@ def _dispatch_synth_impl(
         n_random_starts = kwargs.pop("n_random_starts", 4)
         n_jobs = kwargs.pop("n_jobs", 1)
         perfect_fit = kwargs.pop("perfect_fit", "legacy")
+        placebo_cutoff = kwargs.pop("placebo_cutoff", None)
+        placebo_time = kwargs.pop("placebo_time", None)
+        post_periods = kwargs.pop("post_periods", None)
+        loo = bool(kwargs.pop("loo", False))
         # Anything left over used to be dropped here, so a misspelled option
         # (``v_methd=``) silently fell back to the default.
         from ..core._vcov_spec import reject_unknown_kwargs
 
         reject_unknown_kwargs(kwargs, function=f"synth(method={method!r})")
-        model = SyntheticControl(
-            data=data,
-            outcome=outcome,
-            unit=unit,
-            time=time,
-            treated_unit=treated_unit,
-            treatment_time=treatment_time,
-            covariates=covariates,
-            special_predictors=special_predictors,
-            v_method=v_method,
-            standardize_predictors=standardize_predictors,
-            n_random_starts=n_random_starts,
-            penalization=penalization,
-            alpha=alpha,
-            n_jobs=n_jobs,
-            perfect_fit=perfect_fit,
-        )
-        return model.fit(placebo=placebo)
+        if post_periods is not None:
+            wanted = list(post_periods)
+            known = set(data[time].unique().tolist())
+            bad = [t for t in wanted if t not in known or t < treatment_time]
+            if bad or not wanted:
+                raise MethodIncompatibility(
+                    "synth(post_periods=): every entry must be a period of "
+                    "the data at or after treatment_time.",
+                    diagnostics={"post_periods": bad},
+                )
+            data = data[(data[time] < treatment_time) | data[time].isin(wanted)]
+
+        def build(*, treatment_time: Any = treatment_time, drop_unit: Any = None):
+            frame = data if drop_unit is None else data[data[unit] != drop_unit]
+            return SyntheticControl(
+                data=frame,
+                outcome=outcome,
+                unit=unit,
+                time=time,
+                treated_unit=treated_unit,
+                treatment_time=treatment_time,
+                covariates=covariates,
+                special_predictors=special_predictors,
+                v_method=v_method,
+                standardize_predictors=standardize_predictors,
+                n_random_starts=n_random_starts,
+                penalization=penalization,
+                alpha=alpha,
+                n_jobs=n_jobs,
+                perfect_fit=perfect_fit,
+            )
+
+        result = build().fit(placebo=placebo)
+        from . import _classic_report as report
+
+        info = result.model_info
+        report.add_fit_statistics(info)
+        if placebo and "placebo_gaps" in info:
+            report.add_placebo_tables(info, placebo_cutoff)
+        elif placebo_cutoff is not None:
+            report.add_placebo_tables(info, placebo_cutoff)  # raises: no placebos
+
+        def refit(**changes: Any) -> CausalResult:
+            return build(**changes).fit(placebo=False)
+
+        if placebo_time is not None:
+            report.placebo_time_table(info, placebo_time, refit)
+        if loo:
+            report.loo_table(info, refit)
+        return result
 
     if method in ("demeaned", "detrended"):
         from .demeaned import demeaned_synth
@@ -878,6 +927,7 @@ def _dispatch_synth_impl(
             time=time,
             treated_unit=treated_unit,
             treatment_time=treatment_time,
+            covariates=covariates,
             placebo=placebo,
             alpha=alpha,
             **kwargs,
@@ -1913,6 +1963,7 @@ class SyntheticControl:
             model_info["placebo_ratios"] = placebo_result["ratios"]
             model_info["placebo_gaps"] = placebo_result["gaps"]
             model_info["placebo_units"] = placebo_result["units"]
+            model_info["placebo_weights"] = placebo_result["weights"]
             model_info["placebo_failures"] = placebo_result["failures"]
             model_info["placebo_n_jobs"] = placebo_result["n_jobs"]
             model_info["placebo_parallel_fallback"] = placebo_result[
@@ -1954,6 +2005,7 @@ class SyntheticControl:
         post_mspes: List[float] = []
         ratios: List[float] = []
         gap_trajectories: List[np.ndarray] = []
+        weight_rows: List[np.ndarray] = []
         units: List[Any] = []
         failed: List[Dict[str, str]] = []
 
@@ -2004,13 +2056,15 @@ class SyntheticControl:
             task = functools.partial(_placebo_one, solve=self._solve_weights, **common)
             outcomes = [task(i) for i in range(n_placebos)]
 
-        for placebo_unit, out in zip(self.donor_units, outcomes):
+        for i, (placebo_unit, out) in enumerate(zip(self.donor_units, outcomes)):
             if out["ok"]:
                 atts.append(out["att"])
                 pre_mspes.append(out["pre_mspe"])
                 post_mspes.append(out["post_mspe"])
                 ratios.append(out["ratio"])
                 gap_trajectories.append(out["gap"])
+                # weights over [treated] + donors, NaN in the unit's own place
+                weight_rows.append(np.insert(out["w"], i + 1, np.nan))
                 units.append(placebo_unit)
             else:
                 # A dropped placebo shrinks the permutation distribution
@@ -2046,6 +2100,11 @@ class SyntheticControl:
             "ratios": ratios,
             "gaps": gaps,
             "units": units,
+            "weights": pd.DataFrame(
+                np.array(weight_rows).reshape(len(units), n_placebos + 1),
+                index=units,
+                columns=[self.treated_unit] + list(self.donor_units),
+            ),
             "failures": failed,
             "n_jobs": n_workers,
             "parallel_fallback": parallel_fallback,
@@ -2113,6 +2172,7 @@ def _placebo_one(
         "post_mspe": post_mspe_p,
         "ratio": ratio_p,
         "gap": gap_p,
+        "w": np.asarray(w, dtype=np.float64),
     }
 
 

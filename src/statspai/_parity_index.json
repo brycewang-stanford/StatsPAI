@@ -18276,6 +18276,7 @@
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_scm_recovery.py",
+        "tests/reference_parity/test_synth2_stata_parity.py",
         "tests/reference_parity/test_synth_parity.py",
         "tests/reference_parity/test_synth_regression_v_stata.py",
         "tests/reference_parity/test_texas_synth_parity.py",

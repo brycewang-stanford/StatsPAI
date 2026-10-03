@@ -945,6 +945,29 @@ TIER3_ROUND_TRIPS = [
             "placebo_cutoff": 2.0,
         },
     ),
+    (
+        "rcm gdp invest, trunit(9) trperiod(150) method(forward) i(region) t(time)",
+        "synth",
+        {"method": "rcm", "covariates": ["invest"], "selection": "forward"},
+    ),
+    # synth with placebo, pretend-date and leave-one-out reports
+    (
+        "synth2 cigsale beer cigsale(1980), trunit(3) trperiod(1989) "
+        "xperiod(1980(1)1988) placebo(unit cut(2) period(1985)) loo "
+        "postperiod(1989(1)1995) i(state) t(year)",
+        "synth",
+        {
+            "method": "classic",
+            "treated_unit": 3,
+            "treatment_time": 1989,
+            "v_method": "regression",
+            "placebo": True,
+            "placebo_cutoff": 2.0,
+            "placebo_time": 1985,
+            "loo": True,
+            "post_periods": [1989, 1990, 1991, 1992, 1993, 1994, 1995],
+        },
+    ),
 ]
 
 

@@ -46,9 +46,9 @@ State before and after, on the 18 logs.
 
 | | Before | After |
 | --- | --- | --- |
-| Numbers compared and reproduced | 607 | 2,911 |
-| Numbers different | 20 | 17, all documented below |
-| Commands `sp.stata` refused | 230 | 3 (`synth2`) |
+| Numbers compared and reproduced | 607 | 2,958 |
+| Numbers different | 20 | 324, all documented below (320 from the nested search of chapter 18) |
+| Commands `sp.stata` refused | 230 | 0 |
 | Numbers with no counterpart | 122 | 0 |
 | Numbers on simulated data (not comparable) | 0 | 33 |
 
@@ -134,7 +134,7 @@ digit.
 
 ## Documented differences
 
-Three places where the numbers differ and why. The opt-in test lists them and
+Four places where the numbers differ and why. The opt-in test lists them and
 fails on anything else.
 
 1. `estat ovtest, rhs` when one regressor is the square of another (chapter
@@ -150,9 +150,20 @@ fails on anything else.
    propensity score is 0.270529 in Stata and 0.270524 here. The matched set,
    the ATET and its standard error agree.
 3. `synth, nested` (chapter 18). The predictor weights are a non-convex
-   search. StatsPAI's solution has pre-treatment MSPE 3.086 where Stata's has
+   search. StatsPAI's solution has pre-treatment MSPE 3.084 where Stata's has
    3.227, so the donor weights differ (Utah 0.336 against 0.345). This is the
    non-uniqueness already recorded for the Basque data.
+4. `synth2, nested` (chapter 18, three commands, 307 numbers). The same
+   search is repeated for each of the 38 pretend-treated states and each
+   dropped donor, so every pre- and post-treatment MSPE and every effect
+   differs a little. In the three main fits StatsPAI's pre-treatment RMSE is
+   the lower one (1.756 against 1.796, 2.048 against 2.231, 0.9070 against
+   0.9073), and in 24 of the 39 rows of the placebo table. The quantities
+   the test is read by agree: the placebo p-values 0.0256 and 0.0526 and all
+   36 period-by-period p-values. `synth2` also divides its R-squared by the
+   variation of the synthetic path, where `pre_r2` uses the treated unit's
+   outcome. Without `nested` the command is deterministic and is reproduced
+   (`tests/reference_parity/test_synth2_stata_parity.py`).
 
 One more thing shows in chapter 15. `bysort treat: sum` sorts the data, and
 Stata's sort is not stable, so the order of the treated rows after it is not
@@ -210,10 +221,36 @@ Chapter 17 is where practice has moved most since the book went to press.
   period by period, both adopted in `sp.synth(method='rcm')`.
 - `xtoverid` next to the classical Hausman test in the panel chapter.
 
+## Decisions on the items left open at first
+
+Taken on 2026-10-03, after the first pass was pushed.
+
+1. `synth2` is translated. `sp.synth(method='classic')` gained the reports
+   the command prints (`placebo_table`, `placebo_effects`, `placebo_cutoff=`,
+   `placebo_time=`, `loo=`, `post_periods=`), named as in `method='rcm'`, so
+   the translation is one call and Python users get the same tables. No new
+   `sp.*` function. Evidence is `test_synth2_stata_parity.py` on the
+   regression-based predictor weights, where `synth2` is deterministic.
+2. The slow nested search was fixed on main by another line of work
+   (`54ad1443`, minimum-norm weights when the inner minimiser is not
+   unique). A parallel V search written here became pointless and was
+   dropped. The three nested `synth2` commands of chapter 18 now replay in
+   minutes.
+3. `rcm` with covariates is implemented and checked against Stata along
+   both selection paths. `rcm, method(lasso)` is declined: the lasso path is
+   the one Stata's `lasso` computes on its own penalty grid and its folds
+   come from Stata's random numbers, so no number could be checked.
+   `selection='forward'` covers the case the lasso is for.
+4. Stata's `rcm` selects a saturated model when the candidates number the
+   pre-treatment periods less one (R-squared 1, BIC -589 from rounding
+   error). Not copied; the test records the reference's behaviour.
+5. Registry count: unchanged by these decisions. The JSS manuscript
+   is not touched. Its counts and wording are updated when it is next
+   re-anchored, as the anchoring rule says.
+
 ## Open items
 
 | Item | Why it matters | Size |
 | --- | --- | --- |
-| `synth2` is not translated | Four of the five commands of chapter 18. It needs period-by-period placebo p-values and a leave-one-out on donors with non-zero weight, on the fit's own predictor specification | medium |
-| The nested predictor-weight search takes about 150 seconds on the smoking data and reports `converged=False` | Stata's `synth, nested` takes seconds. A placebo run over 38 states is hours | medium, touches a frozen parity module |
-| `rcm` with `method(lasso)` and with covariates | the command's recommended setting for many control units | medium |
+| `sp.synth(v_method='regression')` refuses a specification with as many predictors as units | Stata's `synth` fits it. Found while building the `synth2` fixture; the fixture uses eight predictors | small |
+| `synth2, placebo(unit(numlist))` and `preperiod()` | restrict the pretend units and the fitting periods; reported as untranslated | small |

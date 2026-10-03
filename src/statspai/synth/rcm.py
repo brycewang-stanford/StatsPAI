@@ -89,7 +89,7 @@ def _candidates(
     """For each model size, the residual sum of squares and the members of
     the subset the selection method proposes."""
     T0, p = X.shape
-    largest = min(p, T0 - 3)  # AICc needs T0 - K - 3 >= 1 ... and a fit
+    largest = min(p, T0 - 2)  # one residual degree of freedom at least
     if largest < 1:
         raise DataInsufficient(
             f"sp.synth(method='rcm'): {T0} pre-treatment periods are too few to fit a model.",
@@ -100,7 +100,7 @@ def _candidates(
     if p > T0 - 2:
         raise MethodIncompatibility(
             f"sp.synth(method='rcm'): selection={selection!r} starts from the model with all "
-            f"{p} control units, which {T0} pre-treatment periods cannot fit.",
+            f"{p} candidate predictors, which {T0} pre-treatment periods cannot fit.",
             recovery_hint="Use selection='forward', or restrict donors=.",
         )
     if selection == "backward":
@@ -173,10 +173,19 @@ def _select(
 
 
 # ---------------------------------------------------------------- one unit
+def _predictors(
+    wide: pd.DataFrame, extra: Optional[pd.DataFrame], donors: List[Any]
+) -> pd.DataFrame:
+    """Candidate predictors: the donors' outcomes, then every unit's
+    covariates (labelled ``'<covariate>·<unit>'``)."""
+    return wide[donors] if extra is None else pd.concat([wide[donors], extra], axis=1)
+
+
 def _fit_unit(
     wide: pd.DataFrame,
     treated: Any,
     donors: List[Any],
+    extra: Optional[pd.DataFrame],
     pre: np.ndarray,
     post: np.ndarray,
     selection: str,
@@ -184,7 +193,9 @@ def _fit_unit(
     max_nodes: int,
 ) -> Dict[str, Any]:
     y = wide[treated].to_numpy(dtype=float)
-    X = wide[donors].to_numpy(dtype=float)
+    candidates = _predictors(wide, extra, donors)
+    labels = list(candidates.columns)
+    X = candidates.to_numpy(dtype=float)
     cols, table = _select(y[pre], X[pre], selection, criterion, max_nodes)
     Z = np.column_stack([np.ones(len(y))] + [X[:, c] for c in cols])
     Zp, yp = Z[pre], y[pre]
@@ -197,7 +208,7 @@ def _fit_unit(
     predicted = Z @ beta
     effect = y - predicted
     return {
-        "members": [donors[c] for c in cols],
+        "members": [labels[c] for c in cols],
         "table": table,
         "beta": beta,
         "se": np.sqrt(sigma2 * np.diag(bread)),
@@ -223,6 +234,7 @@ def rcm(
     treated_unit: Any,
     treatment_time: Any,
     *,
+    covariates: Optional[Sequence[str]] = None,
     donors: Optional[Sequence[Any]] = None,
     pre_periods: Optional[Sequence[Any]] = None,
     post_periods: Optional[Sequence[Any]] = None,
@@ -247,6 +259,12 @@ def rcm(
         The unit that receives the treatment.
     treatment_time : scalar
         First treated period. Earlier periods are the fitting sample.
+    covariates : sequence of str, optional
+        Time-varying covariates. Each covariate of each unit, the treated
+        one included, joins the control units' outcomes as a candidate
+        predictor (Hsiao and Zhou 2019), under the name
+        ``'<covariate>·<unit>'``. A covariate the treatment itself moves is
+        a bad predictor: the counterfactual would inherit the effect.
     donors : sequence, optional
         Control units that may enter the model. Default: every other unit.
     pre_periods, post_periods : sequence, optional
@@ -284,8 +302,8 @@ def rcm(
         ``estimate`` is the average effect over the post-treatment periods.
         ``detail`` lists, for every period, the actual outcome, the
         prediction and their difference (with placebo p-values when
-        requested). ``model_info`` has ``selected`` (the control units of
-        the model), ``coefficients`` (the pre-treatment regression),
+        requested). ``model_info`` has ``selected`` (the control units,
+        and covariates, of the model), ``coefficients`` (the pre-treatment regression),
         ``selection_table`` (criteria by model size), ``pre_r2``,
         ``pre_rmse`` and the placebo tables. With ``placebo=True``,
         ``pvalue`` is the share of units (the treated one included) whose
@@ -302,7 +320,11 @@ def rcm(
 
     The numbers reproduce the Stata command ``rcm`` (``method(best)`` /
     ``forward`` / ``backward`` with ``criterion(aicc | aic | bic | mbic)``).
-    Its lasso option is not implemented.
+    Its lasso option is not implemented: the lasso path there is the one
+    Stata's ``lasso`` computes on its own penalty grid, and its
+    cross-validation folds come from Stata's random numbers, so the numbers
+    could not be checked. ``selection='forward'`` covers the case the lasso
+    is for, more candidate predictors than pre-treatment periods.
 
     Examples
     --------
@@ -325,7 +347,7 @@ def rcm(
 
     References
     ----------
-    hsiao2012panel; yan2022rcm
+    hsiao2012panel; hsiao2019panel; yan2022rcm
     """
     selection, criterion = selection.lower(), criterion.lower()
     if selection not in _METHODS or criterion not in _CRITERIA:
@@ -334,11 +356,12 @@ def rcm(
             f"of {_CRITERIA}; got {selection!r}, {criterion!r}.",
             recovery_hint="Use selection='best', criterion='aicc'.",
         )
-    for name in (outcome, unit, time):
+    covariates = list(covariates or [])
+    for name in [outcome, unit, time] + covariates:
         if name not in data.columns:
             raise MethodIncompatibility(
                 f"sp.synth(method='rcm'): {name!r} is not a column of the data.",
-                recovery_hint="Check outcome=, unit= and time=.",
+                recovery_hint="Check outcome=, unit=, time= and covariates=.",
             )
     wide = data.pivot(index=time, columns=unit, values=outcome).sort_index()
     if treated_unit not in wide.columns:
@@ -374,6 +397,23 @@ def rcm(
             "used.",
             recovery_hint="Drop those units from donors=, or fill the gaps.",
         )
+    extra: Optional[pd.DataFrame] = None
+    if covariates:
+        blocks = []
+        for name in covariates:
+            block = data.pivot(index=time, columns=unit, values=name).sort_index()
+            block = block[[treated_unit] + pool]
+            block.columns = [f"{name}·{u}" for u in block.columns]
+            blocks.append(block)
+        extra = pd.concat(blocks, axis=1)
+        gaps = extra.loc[pre | post]
+        if gaps.isna().any().any():
+            raise DataInsufficient(
+                "sp.synth(method='rcm'): covariate(s) "
+                f"{gaps.columns[gaps.isna().any()].tolist()} have missing values in "
+                "the periods used.",
+                recovery_hint="Fill the gaps, or drop the covariate.",
+            )
     if pre.sum() < 4 or post.sum() < 1 or not pool:
         raise DataInsufficient(
             "sp.synth(method='rcm') needs at least four pre-treatment periods, one "
@@ -382,7 +422,7 @@ def rcm(
         )
 
     fit = _fit_unit(
-        wide, treated_unit, pool, pre, post, selection, criterion, max_nodes
+        wide, treated_unit, pool, extra, pre, post, selection, criterion, max_nodes
     )
     keep = pre | post
     y = wide[treated_unit].to_numpy(dtype=float)
@@ -413,6 +453,7 @@ def rcm(
         "selected": list(fit["members"]),
         "n_selected": len(fit["members"]),
         "n_donors": len(pool),
+        "n_candidates": len(pool) + len(covariates) * (len(pool) + 1),
         "coefficients": coefficients,
         "selection_table": fit["table"],
         "pre_r2": fit["r2"],
@@ -434,7 +475,7 @@ def rcm(
             # one, as in Abadie, Diamond and Hainmueller's placebo runs
             others = [u for u in pool if u != fake] + [treated_unit]
             run = _fit_unit(
-                wide, fake, others, pre, post, selection, criterion, max_nodes
+                wide, fake, others, extra, pre, post, selection, criterion, max_nodes
             )
             rows.append(
                 {
@@ -478,6 +519,7 @@ def rcm(
             detail[label] = column
         model_info.update(
             placebo_units=table,
+            placebo_table=table,
             placebo_pvalue=pvalue,
             placebo_pvalue_cutoff=float(np.mean(ratios_kept >= own)),
             placebo_excluded=[u for u in effects if u not in kept],
@@ -492,7 +534,7 @@ def rcm(
                 recovery_hint="Choose a later placebo_time.",
             )
         run = _fit_unit(
-            wide, treated_unit, pool, fake_pre, fake_post, selection, criterion,
+            wide, treated_unit, pool, extra, fake_pre, fake_post, selection, criterion,
             max_nodes,
         )  # fmt: skip
         model_info["placebo_time"] = pd.DataFrame(

@@ -1,7 +1,9 @@
-"""Translations of comparative-case-study commands: ``rcm``.
+"""Translations of comparative-case-study commands: ``rcm`` and ``synth2``.
 
 ``rcm`` (Yan and Chen's regression control method command) maps to
-``sp.synth(method='rcm')``. Its panel declaration comes from ``xtset``.
+``sp.synth(method='rcm')``; ``synth2`` (their wrapper of ``synth`` with
+placebo and leave-one-out reports) to ``sp.synth(method='classic')`` with
+the same reports. The panel declaration comes from ``xtset``.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from ._stata import (
     _coerce_scalar,
     _emit,
     _emit_error,
+    _h_synth,
     _numlist,
     _panel_options,
 )
@@ -22,18 +25,10 @@ __all__ = ["HANDLERS"]
 
 
 def _h_rcm(cmd: StataCommand) -> Dict[str, Any]:
-    """``rcm y, trunit() trperiod() [counit() postperiod() method()
-    criterion() placebo()]`` -> ``sp.synth(method='rcm')``."""
+    """``rcm y [covariates], trunit() trperiod() [counit() postperiod()
+    method() criterion() placebo()]`` -> ``sp.synth(method='rcm')``."""
     if not cmd.varlist:
         return _emit_error("rcm requires an outcome variable", command="rcm")
-    if len(cmd.varlist) > 1:
-        return _emit_error(
-            "rcm with covariates (the Hsiao-Zhou extension) is not translated; "
-            "sp.synth(method='rcm') predicts from the control units' outcomes "
-            "only.",
-            command="rcm",
-            suggestions=[],
-        )
     opts = cmd.options
     trunit, trperiod = opts.get("trunit"), opts.get("trperiod")
     if not (trunit and trperiod):
@@ -51,6 +46,9 @@ def _h_rcm(cmd: StataCommand) -> Dict[str, Any]:
         "treatment_time": _coerce_scalar(trperiod),
         "method": "rcm",
     }
+    if len(cmd.varlist) > 1:
+        # every unit's covariates join the candidate predictors
+        args["covariates"] = list(cmd.varlist[1:])
     for stata_name, key in (
         ("counit", "donors"),
         ("ctrlunit", "donors"),
@@ -134,4 +132,90 @@ def _h_rcm(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
-HANDLERS = {"rcm": _h_rcm}
+def _h_synth2(cmd: StataCommand) -> Dict[str, Any]:
+    """``synth2 y predictors, trunit() trperiod() [nested placebo() loo
+    postperiod()]`` -> ``sp.synth(method='classic', ...)``.
+
+    The fit is that of ``synth``; ``placebo(unit cut(c))``,
+    ``placebo(period(t))``, ``loo`` and ``postperiod()`` become
+    ``placebo=True, placebo_cutoff=c``, ``placebo_time=t``, ``loo=True`` and
+    ``post_periods=[...]``.
+    """
+    out = _h_synth(cmd)
+    if not out.get("ok"):
+        if "error" in out:
+            out["error"] = str(out["error"]).replace("synth ", "synth2 ", 1)
+        return out
+    opts = cmd.options
+    args: Dict[str, Any] = dict(out["arguments"])
+    notes: List[str] = list(out.get("notes") or [])
+    lost: List[str] = list(out.get("untranslated_options") or [])
+
+    placebo = opts.get("placebo")
+    if placebo is not None:
+        sub = _parse_options(placebo)
+        known = {"unit", "cut", "cutoff", "period", "show"}
+        if set(sub) - known:
+            lost.append("placebo")
+        if "unit" in sub:
+            if sub["unit"]:
+                lost.append("placebo")
+                notes.append(
+                    "placebo(unit(numlist)) restricts the pretend-treated "
+                    "units; sp.synth uses every control unit."
+                )
+            args["placebo"] = True
+        cut = sub.get("cut", sub.get("cutoff"))
+        if cut is not None:
+            try:
+                args["placebo_cutoff"] = float(cut)  # type: ignore[arg-type]
+            except ValueError:
+                lost.append("placebo")
+        if sub.get("period") is not None:
+            periods = _numlist(sub["period"] or "")
+            if periods is None or len(periods) != 1:
+                lost.append("placebo")
+                notes.append(
+                    "placebo(period()) with several dates: pass one "
+                    "placebo_time per call."
+                )
+            else:
+                args["placebo_time"] = periods[0]
+    if "loo" in opts:
+        args["loo"] = True
+    raw = opts.get("postperiod")
+    if raw is not None:
+        values = _numlist(raw)
+        if values is None:
+            lost.append("postperiod")
+        else:
+            args["post_periods"] = values
+    for name in ("preperiod", "ctrlunit"):
+        if opts.get(name) is not None:
+            lost.append(name)
+    if args.get("v_method") == "nested":
+        notes.append(
+            "The nested search is a non-convex problem: its solutions, here "
+            "and in every placebo and leave-one-out run, need not be Stata's."
+        )
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    result = _emit(
+        "synth",
+        args,
+        f"sp.synth(data=df, {kw})",
+        notes,
+        semantics=[
+            "The unit table is result.model_info['placebo_table'], the "
+            "period-by-period p-values model_info['placebo_effects'], the "
+            "pretend treatment date model_info['placebo_time'] and the "
+            "leave-one-out range model_info['loo'].",
+            "synth2's R-squared divides by the variation of the synthetic "
+            "path; model_info['pre_r2'] divides by the variation of the "
+            "treated unit's outcome.",
+        ],
+    )
+    result["untranslated_options"] = sorted(set(lost))
+    return result
+
+
+HANDLERS = {"rcm": _h_rcm, "synth2": _h_synth2}

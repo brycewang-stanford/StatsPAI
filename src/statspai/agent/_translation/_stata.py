@@ -594,15 +594,6 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
         "refits the model on the permuted treatment.",
         ["ri_test"],
     ),
-    "synth2": (
-        "`synth2` is `synth` followed by placebo and leave-one-out runs. "
-        "Fit with sp.synth(..., placebo=True) (the in-space placebo p-value "
-        "is result.pvalue), then sp.synth_loo(...) for the leave-one-out "
-        "range and sp.synth_time_placebo(...) for a pretend treatment date. "
-        "With `nested` each placebo run repeats the predictor-weight search, "
-        "which takes minutes per unit.",
-        ["synth", "synth_loo", "synth_time_placebo"],
-    ),
     "esttab": (
         "`esttab` tabulates stored estimates; pass the fitted results to "
         "sp.etable([r1, r2, ...]) (or sp.esttab).",
