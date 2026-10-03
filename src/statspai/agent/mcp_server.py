@@ -66,10 +66,11 @@ directories, network URLs need ``STATSPAI_MCP_ALLOW_REMOTE=1``,
 ``STATSPAI_MCP_MAX_QUEUED_CALLS`` / ``STATSPAI_MCP_MAX_ORPHANED_CALLS`` /
 ``STATSPAI_MCP_MAX_QUEUE_SECONDS`` / ``STATSPAI_MCP_MAX_REQUEST_BYTES``
 bound what the stdio loop admits (``server_busy`` / ``-32600`` beyond
-them). ``STATSPAI_MCP_ISOLATION=process`` runs calls that read no
-server-side handle in a child process that is killed on timeout or
-cancel; a result handle they ask for (``as_handle``) is handed over to
-this server (:mod:`statspai.agent._process_worker`).
+them). ``STATSPAI_MCP_ISOLATION=process`` runs every call that needs no
+data handle in a child process that is killed on timeout or cancel;
+result handles travel both ways, so a fit that asks for one
+(``as_handle``) and a follow-up that reads one (``result_id``) are both
+isolated (:mod:`statspai.agent._process_worker`).
 
 Protocol features
 -----------------
@@ -1562,11 +1563,15 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
         if _process_worker.isolation_mode() == "process" and _process_worker.eligible(
             name, arguments
         ):
-            return _run_isolated_call(name, arguments, params)
+            isolated = _run_isolated_call(name, arguments, params)
+            if isolated is not None:
+                return isolated
         try:
+            # An isolated worker first takes the results its call reads.
+            _process_worker.import_inbound()
             return _run_tools_call(name, arguments, params)
         finally:
-            # An isolated worker leaves its cached results for the parent.
+            # ... and leaves the ones it produced for the parent.
             _process_worker.export_handles()
     except _ToolCallError as err:
         return _tool_error_result(err.kind, err.message, **err.fields)
@@ -1574,8 +1579,12 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
 
 def _run_isolated_call(
     name: str, arguments: Dict[str, Any], params: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Run a self-contained call in a child process that can be killed."""
+) -> Optional[Dict[str, Any]]:
+    """Run a call in a child process that can be killed.
+
+    Returns ``None`` when the call reads a result that cannot be handed
+    to a worker; the caller then runs it on the thread runner.
+    """
     from . import _process_worker
     from ._runner import current_cancel_event, tool_timeout
 
@@ -1595,6 +1604,12 @@ def _run_isolated_call(
 
     handoff = tempfile.mkdtemp(prefix="statspai-mcp-handoff-")
     handoff_key = secrets.token_hex(32)
+    reads = arguments.get("result_id")
+    if isinstance(reads, str) and reads:
+        if not _process_worker.export_inbound(handoff, handoff_key, [reads]):
+            # Not in the cache, or not picklable: answer from this process.
+            shutil.rmtree(handoff, ignore_errors=True)
+            return None
     try:
         status, payload = _process_worker.run_isolated(
             name,
@@ -1610,6 +1625,9 @@ def _run_isolated_call(
         failed: Dict[str, str] = {}
         if status == "result":
             adopted, failed = _process_worker.import_handles(handoff, handoff_key)
+            if isinstance(reads, str) and reads:
+                # the handle the call read is still held here
+                adopted = list(adopted) + [reads]
     finally:
         shutil.rmtree(handoff, ignore_errors=True)
     if status == "result":

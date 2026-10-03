@@ -14,14 +14,15 @@ estimator die with it.
 
 What is isolated
 ----------------
-Only calls that are self-contained. A call is **not** isolated, and runs
-on the thread runner as before, when it
+Every call except those that need this server's own state. A call is
+**not** isolated, and runs on the thread runner as before, when it
 
-* reads a handle held by this server (``result_id``, ``data_id``), or
+* reads a data handle (``data_id``): frames are not shipped to a worker,
 * is a tool whose result is a data handle or a multi-step composite
   (``load_data``, ``transform_data``, ``describe_data``, ``detect_design``,
-  ``preflight``, the ``pipeline_*`` composites, the ``*_from_result`` /
-  ``*_result`` follow-ups).
+  ``preflight``, the ``pipeline_*`` composites), or
+* talks back to the client while it runs (``interpret_result``, which may
+  ask the client for a completion).
 
 Result handles
 --------------
@@ -40,6 +41,13 @@ A result that cannot be pickled, or that arrives after the call was
 cancelled, is not adopted: its handle is removed from the response and
 named under ``isolation.dropped_handles``. Data handles are never handed
 over.
+
+The same channel runs the other way for a call that *reads* a result
+(``result_id``): the parent signs and writes the cached entry under
+``in/``, the worker adopts it before running the tool, and the parent
+keeps its own copy. If the entry is missing or cannot be pickled the call
+stays on the thread runner, where the usual error or the usual answer is
+produced.
 
 Cost
 ----
@@ -70,14 +78,21 @@ HANDOFF_ENV = "STATSPAI_MCP_HANDOFF_DIR"
 HANDOFF_KEY_ENV = "STATSPAI_MCP_HANDOFF_KEY"
 
 #: Arguments that bind a call to this server process.
-_SESSION_ARGUMENTS = ("result_id", "data_id")
+_SESSION_ARGUMENTS = ("data_id",)
 
-#: Tools whose result is, or always carries, a process-local handle.
+#: Tools that stay in the server: data handles, composites, and the one
+#: that sends a request back to the client while it runs.
 _SESSION_TOOLS = frozenset(
-    {"load_data", "transform_data", "describe_data", "detect_design", "preflight"}
+    {
+        "load_data",
+        "transform_data",
+        "describe_data",
+        "detect_design",
+        "preflight",
+        "interpret_result",
+    }
 )
 _SESSION_PREFIXES = ("pipeline_",)
-_SESSION_SUFFIXES = ("_from_result", "_result")
 
 _HANDLE_KEYS = ("result_id", "result_uri", "data_id", "data_uri")
 
@@ -92,7 +107,7 @@ def eligible(name: str, arguments: Dict[str, Any]) -> bool:
     """Can this call run in a child process without losing anything?"""
     if name in _SESSION_TOOLS:
         return False
-    if name.startswith(_SESSION_PREFIXES) or name.endswith(_SESSION_SUFFIXES):
+    if name.startswith(_SESSION_PREFIXES):
         return False
     return not any(arguments.get(k) not in (None, "") for k in _SESSION_ARGUMENTS)
 
@@ -120,6 +135,86 @@ def _child_env(
     return env
 
 
+def _write_signed(path: str, key: bytes, obj: Any) -> None:
+    import pickle  # nosec B403
+
+    blob = pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(path + ".tmp", "wb") as fh:
+        fh.write(_sign(key, blob) + blob)
+    os.replace(path + ".tmp", path)
+
+
+def _read_signed(path: str, key: bytes) -> Any:
+    """Unpickle a file written by :func:`_write_signed`; ``ValueError`` if
+    the signature does not verify."""
+    import hmac
+    import pickle  # nosec B403
+
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    tag, blob = raw[:32], raw[32:]
+    if not hmac.compare_digest(tag, _sign(key, blob)):
+        raise ValueError("signature mismatch")
+    return pickle.loads(blob)  # nosec B301
+
+
+def export_inbound(handoff_dir: str, handoff_key: str, rids: List[str]) -> bool:
+    """Parent side: leave the results a call reads for the worker.
+
+    Returns ``False`` (writing nothing more) as soon as one of them is not
+    in the cache or cannot be pickled; the caller then keeps the call on
+    the thread runner.
+    """
+    import pickle  # nosec B403
+
+    from ._result_cache import RESULT_CACHE
+
+    target = os.path.join(handoff_dir, "in")
+    os.makedirs(target, mode=0o700, exist_ok=True)
+    key = bytes.fromhex(handoff_key)
+    for rid in rids:
+        entry = RESULT_CACHE.get_entry(rid)
+        if entry is None:
+            return False
+        try:
+            _write_signed(os.path.join(target, f"{rid}.pkl"), key, entry)
+        except (pickle.PicklingError, TypeError, AttributeError, OSError):
+            return False
+    return True
+
+
+def import_inbound() -> List[str]:
+    """Worker side: adopt the results the parent left under ``in/``.
+
+    A no-op outside a worker. Returns the adopted ids, which
+    :func:`export_handles` then leaves out of what it sends back.
+    """
+    target = os.environ.get(HANDOFF_ENV)
+    key_hex = os.environ.get(HANDOFF_KEY_ENV)
+    if not target or not key_hex:
+        return []
+    source = os.path.join(target, "in")
+    if not os.path.isdir(source):
+        return []
+    from ._result_cache import RESULT_CACHE
+
+    key = bytes.fromhex(key_hex)
+    adopted: List[str] = []
+    for fname in sorted(os.listdir(source)):
+        if not fname.endswith(".pkl"):
+            continue
+        rid = fname[: -len(".pkl")]
+        entry = _read_signed(os.path.join(source, fname), key)
+        if RESULT_CACHE.adopt(rid, entry):
+            adopted.append(rid)
+    _INBOUND.update(adopted)
+    return adopted
+
+
+#: Ids this worker received from its parent (never sent back).
+_INBOUND: set = set()
+
+
 def export_handles() -> None:
     """Child side: pickle the cached results for the parent to adopt.
 
@@ -139,6 +234,8 @@ def export_handles() -> None:
 
     failed: Dict[str, str] = {}
     for rid, entry in RESULT_CACHE.snapshot().items():
+        if rid in _INBOUND:
+            continue  # the parent already holds it
         path = os.path.join(target, f"{rid}.pkl")
         try:
             blob = pickle.dumps(entry, protocol=pickle.HIGHEST_PROTOCOL)
@@ -342,6 +439,8 @@ def annotate(
     ]
     for key in dropped:
         payload.pop(key, None)
+    # follow-up calls that would need a handle the response no longer has
+    dead_arguments = tuple(k for k in ("result_id", "data_id") if k in dropped)
     calls = payload.get("next_calls")
     if dropped and isinstance(calls, list):
         payload["next_calls"] = [
@@ -350,7 +449,7 @@ def annotate(
             if not (
                 isinstance(c, dict)
                 and isinstance(c.get("arguments"), dict)
-                and any(k in c["arguments"] for k in _SESSION_ARGUMENTS)
+                and any(k in c["arguments"] for k in dead_arguments)
             )
         ]
     note: Dict[str, Any] = {"mode": "process"}

@@ -397,8 +397,13 @@ evidence map listed as having none.
   same id, so the `result_id` in the response works in follow-up calls
   (`isolation.adopted_handles`). The file is signed with a one-time key
   and unpickled only if the signature verifies. A result that cannot be
-  pickled is dropped from the response with the reason. Calls that read a handle
-  (`result_id`, `data_id`) and the data tools still run in the server.
+  pickled is dropped from the response with the reason. The channel runs
+  the other way too: a call that reads a result (`audit_result`,
+  `honest_did_from_result`, `sensitivity_from_result`, `estat`, ...) is
+  isolated, with the cached entry handed to the worker. What still runs
+  in the server: calls that read a data handle (`data_id`), the data
+  tools, the `pipeline_*` composites, and `interpret_result`, which may
+  ask the client for a completion while it runs.
 - **`sp.fepois` and `sp.feglm` cards declared the result as a list.** The
   annotation is `Union[EconometricResults, List[EconometricResults]]`
   (the list is the multiple-estimation syntax); a plain formula returns

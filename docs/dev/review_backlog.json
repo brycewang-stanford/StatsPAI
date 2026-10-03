@@ -76,15 +76,15 @@
     {
       "id": "M3",
       "title": "进程级 worker：`STATSPAI_MCP_ISOLATION=process`，超时或取消时杀掉子进程",
-      "status": "partial",
+      "status": "done",
       "where": [
         "src/statspai/agent/_process_worker.py"
       ],
       "tests": [
         "tests/test_mcp_isolation.py"
       ],
-      "note": "覆盖不读取服务器句柄的调用（无 `result_id` / `data_id` 输入）。2026-10-03 起带 `as_handle` 的拟合也进子进程：子进程把缓存的结果 pickle 到父进程建的私有目录（0700，用完即删），父进程按同一个 id 收下，响应里的 `result_id` 在后续调用里可用（`isolation.adopted_handles`）；不能 pickle 的结果从响应里去掉并写明原因。pickle 只在本服务器自己启动的两个进程之间传，不反序列化任何来自客户端的内容。仍走线程 runner 的：读取句柄的调用（`*_from_result`、`audit_result` 等）、数据工具（`load_data` 等）和 `pipeline_*`。每次隔离调用要付一次解释器冷启动。",
-      "next": "把读取句柄的调用也纳入：父进程把被引用的结果反向交给子进程"
+      "note": "`STATSPAI_MCP_ISOLATION=process` 下，除了需要数据句柄或服务器自身状态的调用，其余都进可杀的子进程。结果句柄双向传递：带 `as_handle` 的拟合由子进程 pickle 到父进程建的私有目录（0700，用完即删，一次性密钥做 HMAC 签名，验签后才反序列化），父进程按同一个 id 收下；读取 `result_id` 的调用（`audit_result`、`honest_did_from_result`、`sensitivity_from_result`、`estat` 等）则由父进程把缓存条目交给子进程。结果不在缓存里或不能 pickle 时，调用留在线程 runner，由它给出通常的答案或错误。仍在服务器内运行的：读取 `data_id` 的调用、数据工具（`load_data` 等）、`pipeline_*`，以及运行中会向客户端请求补全的 `interpret_result`。每次隔离调用要付一次解释器冷启动。",
+      "next": ""
     },
     {
       "id": "M3",
