@@ -31,6 +31,27 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after the few-cluster hint was reworded
+
+- **Commits.** `e44aa48e`.
+- **Reason.** The recovery hint attached to the few-cluster warning was
+  replaced by one shared sentence
+  (`statspai.core._agent_summary.FEW_CLUSTERS_HINT`). The edits are in
+  `src/statspai/core/_agent_summary.py`, `src/statspai/regression/ols.py`
+  and `src/statspai/panel/panel_reg.py`, on the estimation path of Track A
+  modules 01, 14, 35, 51, 53, 54, 55, 56 and 69 and of original-data
+  modules 01, 04, 04b and 09. Only the text of a warning changed.
+- **Effect on the paper.** None on any number: only `exercised_sources`
+  digests and `seconds` changed in the traces. One thing to weigh at the
+  next re-anchor: the new size study (`tests/reliability/`, not a frozen
+  artifact) shows the wild cluster bootstrap over-rejecting with one
+  dominant cluster and under-rejecting with two treated clusters. If the
+  manuscript recommends it for few clusters without that qualification,
+  the sentence should be qualified.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded for 17 and 38 after a docstring edit in the ETWFE module
 
 - **Commits.** `794e1a9f`.
