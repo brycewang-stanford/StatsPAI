@@ -31,6 +31,23 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 35 and 69 after `sp.panel` named its default small-sample convention
+
+- **Commits.** `eda627e1`.
+- **Reason.** `sp.panel` without `ssc=` now writes
+  `model_info['ssc'] = 'linearmodels'` and a description of that scaling,
+  and the few-cluster warning mentions `ssc='stata'`. The edit is in
+  `src/statspai/panel/panel_reg.py`, which is on the estimation path of
+  modules 35 and 69, so their source digests moved.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` changed; the classification of both modules is the same
+  (35 third-party `linearmodels`, 69 native). No estimate or standard
+  error moves: the default scaling is untouched, and
+  `tests/reference_parity/test_panel_ssc_stata_parity.py` still holds
+  the default to `linearmodels` at 1e-14.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — minimum-norm rule for non-unique synthetic-control weights; `52_scm_unique` recovers its truth to 2e-14
 
 - **Commits.** `54ad1443`. The traces, parity index and fixture lock are

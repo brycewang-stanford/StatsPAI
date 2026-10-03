@@ -273,8 +273,8 @@
       "tests": [
         "tests/agent_eval/test_red_line_scenarios.py"
       ],
-      "note": "检验的是输出里有没有无歧义的信号，不是某个模型会不会照做。",
-      "next": ""
+      "note": "不做，已定。原因不是钱：`tests/agent_bench/BUDGET_RUNBOOK.md` 要求在第一次真实调用之前把提示集哈希、假设和模型版本预注册到 OSF，这一步只能由你本人完成；真实 API 路径按设计在预注册之前保持 `NotImplementedError`。本机也没有配置任何模型 API key。绕过预注册先跑一个 smoke 会让之后的正式结果失去预注册的意义。mock 结果只能验证 harness。",
+      "next": "你做完 OSF 预注册并给出模型快照后，按 runbook 第 3 步接入 API 路径"
     },
     {
       "id": "S2",
@@ -282,8 +282,8 @@
       "status": "not_done",
       "where": [],
       "tests": [],
-      "note": "需要付费模型调用、预注册和你的授权；`tests/agent_bench` 的 900-trial 设计已经写明这三个前提。mock 结果只能验证 harness。",
-      "next": "先批一个小规模 smoke 的预算和模型快照"
+      "note": "不做，已定。原因不是钱：`tests/agent_bench/BUDGET_RUNBOOK.md` 要求在第一次真实调用之前把提示集哈希、假设和模型版本预注册到 OSF，这一步只能由你本人完成；真实 API 路径按设计在预注册之前保持 `NotImplementedError`。本机也没有配置任何模型 API key。绕过预注册先跑一个 smoke 会让之后的正式结果失去预注册的意义。mock 结果只能验证 harness。",
+      "next": "你做完 OSF 预注册并给出模型快照后，按 runbook 第 3 步接入 API 路径"
     },
     {
       "id": "S3",
@@ -344,9 +344,10 @@
         "src/statspai/validation_scope.py"
       ],
       "tests": [
-        "tests/reference_parity/test_joint_wald_stata_parity.py"
+        "tests/reference_parity/test_joint_wald_stata_parity.py",
+        "tests/test_panel_vce_contract.py"
       ],
-      "note": "本机 Stata 18 MP 双精度实跑 33 个 `test` / `testparm`。`sp.test` 在 `regress`（五种方差）、`ivreg`（三种方差，对应 `ivregress, small`）、面板 FE、logit、poisson 上的统计量、两个自由度和 p 值都对到 1e-10 以内。证据清单里 joint test 有参考的格子从 3 个变成 16 个。DiD 家族的联合预趋势检验、RD、DML 仍然没有 joint test 参考。",
+      "note": "本机 Stata 18 MP 双精度实跑 33 个 `test` / `testparm`。`sp.test` 在 `regress`（五种方差）、`ivreg`（三种方差，对应 `ivregress, small`）、面板 FE、logit、poisson 上的统计量、两个自由度和 p 值都对到 1e-10 以内。证据清单里 joint test 有参考的格子从 3 个变成 16 个。DiD 家族的联合预趋势检验、RD、DML 仍然没有 joint test 参考。 `sp.panel(cluster=)` 默认约定下的联合检验 p 值是 0.0017，Stata 是 0.0040。决定不改默认值：这是有文档的约定差异（linearmodels 的缩放），`ssc='stata'` / `ssc='fixest'` 都能精确复现对方，35 号 Track A 模块和两篇论文的冻结表都建立在默认值上。改成让默认约定在结果里可见：`model_info['ssc'] = 'linearmodels'` 加一句说明，少簇警告里指向 `ssc='stata'`。数字没有变。",
       "next": ""
     },
     {
@@ -383,7 +384,7 @@
       "status": "not_done",
       "where": [],
       "tests": [],
-      "note": "需要自托管 runner（354 个 R 包，含仅 GitHub 发布的）和 Stata 许可。一个没法在 CI 上实测的 workflow job 我没有加：写了不跑等于没有，写了跑挂会挡住别人。",
+      "note": "需要自托管 runner（354 个 R 包，含仅 GitHub 发布的）和 Stata 许可。一个没法在 CI 上实测的 workflow job 我没有加：写了不跑等于没有，写了跑挂会挡住别人。 2026-10-03 核对：`r-parity.yml` 的 job 在 10 月 2 日至 3 日的六次 push 上都对着当时的 CRAN 跑通，定时触发用的是同一个 job，所以每周一那次不需要另外验证。Stata 侧不上 CI 是定论：许可证不能放进托管 runner，本地 `verify_reproduce_stata.py` 是唯一的重推导途径。",
       "next": "有 runner 之后加一个只在手动触发时运行的 job"
     },
     {

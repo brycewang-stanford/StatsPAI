@@ -27,11 +27,11 @@
 | A4 | `replay_completeness` 标记 | `src/statspai/agent/_replay.py` | `tests/test_mcp_replay_completeness.py` |  |
 | A4 | 可导出的复现 bundle：`statspai://result/<id>/bundle`，含数据哈希、转换步骤、调用、期望数值和可独立运行的脚本 | `src/statspai/agent/_replay.py`<br>`src/statspai/agent/_resources.py` | `tests/test_mcp_replay_bundle.py` | 内联数据或远程数据没有脚本（只记录了哈希），bundle 会说明原因。 |
 | S1 | packaged skill 的 smoke fit 进入 pytest；代码块里的每个 `sp.*(...)` 调用按真实签名绑定；带 `**kwargs` 的调用按 schema、路由问题或转发目标核对 | `src/statspai/agent/_skill/validate_api_claims.py` | `tests/test_skill_package.py` |  |
-| S2 | 确定性的红线场景：弱 IV、少簇、检查未运行、未验证的 SE、森林不算同字节对齐、缺设计输入、句柄失效、风险列表被裁、Stata 选项未翻译 | — | `tests/agent_eval/test_red_line_scenarios.py` | 检验的是输出里有没有无歧义的信号，不是某个模型会不会照做。 |
+| S2 | 确定性的红线场景：弱 IV、少簇、检查未运行、未验证的 SE、森林不算同字节对齐、缺设计输入、句柄失效、风险列表被裁、Stata 选项未翻译 | — | `tests/agent_eval/test_red_line_scenarios.py` | 不做，已定。原因不是钱：`tests/agent_bench/BUDGET_RUNBOOK.md` 要求在第一次真实调用之前把提示集哈希、假设和模型版本预注册到 OSF，这一步只能由你本人完成；真实 API 路径按设计在预注册之前保持 `NotImplementedError`。本机也没有配置任何模型 API key。绕过预注册先跑一个 smoke 会让之后的正式结果失去预注册的意义。mock 结果只能验证 harness。 |
 | S3 | 短路径 playbook：一次估计、一次检查或一张表的五步流程，以及三个应当停下的地方 | `src/statspai/agent/_skill/references/quick-path.md` | `tests/test_skill_package.py` | 五个代码块在测试里端到端执行。 |
 | R1 | 入口 × 配置 × 输出的 evidence 清单，生成式，带漂移闸门 | `scripts/build_evidence_inventory.py`<br>`docs/evidence_inventory.md` | `tests/test_evidence_inventory.py` |  |
 | R1 | 登记已有但未入册的证据：`sun_abraham`、`did_imputation`、`gardner_did`、`event_study`、`etwfe`（含默认调用的逐位相等挂接）、非线性 `etwfe` | `src/statspai/validation_scope.py` | `tests/test_validation_scope.py`<br>`tests/reference_parity/test_validation_entry_points.py` |  |
-| R1 | joint test 的参考证据：`regress`、IV、面板 FE、logit、poisson | `tests/reference_parity/_fixtures/_generate_joint_test_stata.do`<br>`src/statspai/validation_scope.py` | `tests/reference_parity/test_joint_wald_stata_parity.py` | 本机 Stata 18 MP 双精度实跑 33 个 `test` / `testparm`。`sp.test` 在 `regress`（五种方差）、`ivreg`（三种方差，对应 `ivregress, small`）、面板 FE、logit、poisson 上的统计量、两个自由度和 p 值都对到 1e-10 以内。证据清单里 joint test 有参考的格子从 3 个变成 16 个。DiD 家族的联合预趋势检验、RD、DML 仍然没有 joint test 参考。 |
+| R1 | joint test 的参考证据：`regress`、IV、面板 FE、logit、poisson | `tests/reference_parity/_fixtures/_generate_joint_test_stata.do`<br>`src/statspai/validation_scope.py` | `tests/reference_parity/test_joint_wald_stata_parity.py`<br>`tests/test_panel_vce_contract.py` | 本机 Stata 18 MP 双精度实跑 33 个 `test` / `testparm`。`sp.test` 在 `regress`（五种方差）、`ivreg`（三种方差，对应 `ivregress, small`）、面板 FE、logit、poisson 上的统计量、两个自由度和 p 值都对到 1e-10 以内。证据清单里 joint test 有参考的格子从 3 个变成 16 个。DiD 家族的联合预趋势检验、RD、DML 仍然没有 joint test 参考。 `sp.panel(cluster=)` 默认约定下的联合检验 p 值是 0.0017，Stata 是 0.0040。决定不改默认值：这是有文档的约定差异（linearmodels 的缩放），`ssc='stata'` / `ssc='fixest'` 都能精确复现对方，35 号 Track A 模块和两篇论文的冻结表都建立在默认值上。改成让默认约定在结果里可见：`model_info['ssc'] = 'linearmodels'` 加一句说明，少簇警告里指向 `ssc='stata'`。数字没有变。 |
 | R2 | R parity CI 的范围写准确；每周一的上游漂移探针 | `.github/workflows/r-parity.yml`<br>`tests/r_parity/R_ENVIRONMENT.md` | `tests/test_r_parity_ci_scope.py` | 每周定时任务还没在 CI 上实际跑过。 |
 | R2 | 机器可读的 run manifest：每个模块每一侧的状态、参考版本、平台、输入输出哈希、是否由 CI 重推导、缺 Stata 侧的理由、上次重推导的提交与日期 | `scripts/build_reproduction_manifest.py`<br>`docs/reproduction_manifest.json` | `tests/test_reproduction_manifest.py` |  |
 | R3 | option fixture 双精度重生成、被测试直接读取、哈希入清单；跨六条证据轨道的统一清单 | `scripts/evidence_track_manifest.py`<br>`tests/stata_parity/option_parity/README.md` | `tests/reference_parity/test_option_fixture_bindings.py`<br>`tests/test_evidence_tracks.py` |  |
@@ -52,9 +52,9 @@
 | ID | 事项 | 理由 | 下一步 |
 | --- | --- | --- | --- |
 | A3 | 把各估计器的默认种子统一成一个值 | 故意不做。259 个带种子的函数里默认值有 `None` 125、`42` 73、`0` 56 等；改默认值会改变已发表的带种子数字。审查本身也说不应机械统一。 | 若要改，逐个估计器走 ⚠️ correctness / MIGRATION 流程 |
-| S2 | 真实模型的行为评测（成功率、严重错误率、token、延迟） | 需要付费模型调用、预注册和你的授权；`tests/agent_bench` 的 900-trial 设计已经写明这三个前提。mock 结果只能验证 harness。 | 先批一个小规模 smoke 的预算和模型快照 |
+| S2 | 真实模型的行为评测（成功率、严重错误率、token、延迟） | 不做，已定。原因不是钱：`tests/agent_bench/BUDGET_RUNBOOK.md` 要求在第一次真实调用之前把提示集哈希、假设和模型版本预注册到 OSF，这一步只能由你本人完成；真实 API 路径按设计在预注册之前保持 `NotImplementedError`。本机也没有配置任何模型 API key。绕过预注册先跑一个 smoke 会让之后的正式结果失去预注册的意义。mock 结果只能验证 harness。 | 你做完 OSF 预注册并给出模型快照后，按 runbook 第 3 步接入 API 路径 |
 | R1 | 清单里空着的格子补参考（`etwfe` 的协变量 / `xvar` / 加权 / `agg_weights='unit'`，`event_study` 的其它窗口，`rdrobust` / `dml` / `psm` 的大部分网格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差，是逐格的 parity 工作。交错面板上的 TWFE 事件研究不该补。 | 按使用频率挑格子；每补一格重跑 `build_evidence_inventory.py` |
-| R2 | 在 CI 里按 `renv.lock` 复现；重依赖 R 模块与 Stata 的定期自动重推导 | 需要自托管 runner（354 个 R 包，含仅 GitHub 发布的）和 Stata 许可。一个没法在 CI 上实测的 workflow job 我没有加：写了不跑等于没有，写了跑挂会挡住别人。 | 有 runner 之后加一个只在手动触发时运行的 job |
+| R2 | 在 CI 里按 `renv.lock` 复现；重依赖 R 模块与 Stata 的定期自动重推导 | 需要自托管 runner（354 个 R 包，含仅 GitHub 发布的）和 Stata 许可。一个没法在 CI 上实测的 workflow job 我没有加：写了不跑等于没有，写了跑挂会挡住别人。 2026-10-03 核对：`r-parity.yml` 的 job 在 10 月 2 日至 3 日的六次 push 上都对着当时的 CRAN 跑通，定时触发用的是同一个 job，所以每周一那次不需要另外验证。Stata 侧不上 CI 是定论：许可证不能放进托管 runner，本地 `verify_reproduce_stata.py` 是唯一的重推导途径。 | 有 runner 之后加一个只在手动触发时运行的 job |
 | R5 | 新的仿真：少簇、不平衡面板、RD mass points、极端权重、学习器变化 | 需要预先定义设计和计算预算；审查也写明不应作为隐含任务执行。 | — |
 
 ## 已核实无需改动
