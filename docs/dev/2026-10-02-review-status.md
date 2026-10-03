@@ -45,7 +45,7 @@
 | ID | 事项 | 已有的 | 还缺什么 | 下一步 |
 | --- | --- | --- | --- | --- |
 | M3 | 进程级 worker：`STATSPAI_MCP_ISOLATION=process`，超时或取消时杀掉子进程 | `src/statspai/agent/_process_worker.py`<br>`tests/test_mcp_isolation.py` | 只覆盖不依赖服务器状态的调用（无 `result_id` / `data_id` / `as_handle`）。带句柄的调用仍走线程 runner，因为拟合结果没有序列化协议。每次隔离调用要付一次解释器冷启动。 | 给拟合结果定义可序列化的最小形态后，再把 `as_handle` 调用纳入 |
-| A1 | 30 个之外的入口：家族卡片陈述按成员限定范围 | `src/statspai/_family_cards.py`<br>`tests/test_agent_card_audit.py` | 通读了全部 30 张家族卡片（271 个成员）的 `assumptions`，把 52 24 220 条（分布在  个家族里）本来就点名了适用对象的陈述（“Cox: …”、“Frailty models: …”、“Romano-Wolf …”）限定到对应成员，其它成员不再继承，共  个成员的卡片因此变短。例如 `kaplan_meier` 不再列 Cox 的比例风险，`bonferroni` 不再列 Romano-Wolf 的 bootstrap，`icc` 不再列随机前沿的假设。没做的：`failure_modes` 没有读；真实调用核对（必填参数、枚举值、返回类型）仍只覆盖 30 个；两个专门方法（`assimilative_causal`、`evidence_without_injustice`）限定后没有任何假设，我不熟悉到能替它们写的程度，留空了。 | 读家族卡片的 `failure_modes`；给审查脚本每次加 10 个函数的调用 |
+| A1 | 30 个之外的入口：家族卡片陈述按成员限定范围 | `src/statspai/_family_cards.py`<br>`tests/test_agent_card_audit.py`<br>`tests/test_family_cards.py` | 通读了全部 30 张家族卡片（271 个成员）的 `assumptions` 和 `failure_modes`。52 条假设（分布在 24 个家族里）本来就点名了适用对象（“Cox: …”、“Frailty models: …”、“Romano-Wolf …”），现在限定到对应成员，220 个成员的卡片因此变短。41 条家族失败模式里有 28 条同样只关乎个别成员，142 张卡片原先带着不属于自己的那条（`kaplan_meier` 被告知比例风险检验拒绝时怎么办，`lincom` 被告知 Hausman 统计量为负时怎么办）。限定后有 55 个方法没有任何失败模式，为它们各写了属于自己的（`MEMBER_FAILURE_MODES`，31 条）。没做的：真实调用核对（必填参数、枚举值、返回类型）仍只覆盖 30 个；两个专门方法（`assimilative_causal`、`evidence_without_injustice`）限定后没有任何假设，我不熟悉到能替它们写的程度，留空了；新写的 31 条失败模式是统计常识层面的陈述，没有逐条对着实现验证触发条件，所以 `exception` 一律写的是“无，仅提示”。 | 给审查脚本每次加 10 个函数的调用；请领域作者过一遍新写的 31 条失败模式 |
 
 ## 未做，以及为什么
 

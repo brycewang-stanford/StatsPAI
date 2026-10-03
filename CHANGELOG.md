@@ -669,15 +669,27 @@ changes its numbers.
   a per-variant override table (`statspai._family_cards.VARIANT_OVERRIDES`)
   after reading the thirty audited cards.
 - **Family cards copied member-specific assumptions to every member.**
-  All 30 family cards were read. 52 24 220 statements that name the members they
-  are about ("Cox: ...", "Frailty models: ...", "Romano-Wolf ...") are now
-  scoped to those members (`STATEMENT_SCOPE`), shortening  cards:
+  All 30 family cards were read. 52 statements in 24 families that
+  name the members they are about ("Cox: ...", "Frailty models: ...",
+  "Romano-Wolf ...") are now scoped to those members (`STATEMENT_SCOPE`),
+  shortening 220 cards:
   `sp.kaplan_meier` no longer lists the Cox model's proportional hazards,
   `sp.bonferroni` no longer lists Romano-Wolf's bootstrap, `sp.icc` no
   longer lists stochastic-frontier assumptions. `sp.interflex`, `sp.negd`
   and `sp.icc` get assumptions of their own; utilities that have none
-  (`sp.W`, `sp.scdata`, exporters) now state none. Only `assumptions`
-  were read, not `failure_modes`.
+  (`sp.W`, `sp.scdata`, exporters) now state none.
+- **Family cards copied member-specific failure modes to every member.**
+  The same reading for `failure_modes`: 28 of the 41 family failure modes
+  are about named members (`FAILURE_SCOPE`), and 142 cards carried one
+  that was not theirs. `sp.kaplan_meier` was told what to do when a
+  proportional-hazards test rejects, `sp.lincom` when a Hausman statistic
+  is negative, `sp.mice` when one subgroup of many is significant. The 55
+  methods this left with no failure mode get ones written for them
+  (`MEMBER_FAILURE_MODES`, 31 entries): competing events treated as
+  censoring for Kaplan-Meier, crossing curves for the log-rank test,
+  an imputation model that omits the outcome for `sp.mice`, a direct path
+  around the mediator for `sp.frontdoor`. The two bundled network
+  datasets and `sp.validation_scope` state none.
 - **`sp.match(method='llr')` raised `ZeroDivisionError` at the default
   bandwidth.** In a bootstrap replicate whose local linear weights sum to
   zero for some treated unit, the matched-outcome bookkeeping divided by

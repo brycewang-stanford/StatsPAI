@@ -755,12 +755,6 @@
         "exception": "(none -- identification)",
         "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
         "symptom": "No credible exclusion restriction for Heckman selection"
-      },
-      {
-        "alternative": "sp.evalue_rr",
-        "exception": "(none -- informational)",
-        "remedy": "The result is fragile to weak hidden bias; say so and look for design-based evidence (placebos, sp.evalue_rr)",
-        "symptom": "Rosenbaum Gamma at which significance is lost is close to 1"
       }
     ],
     "inherits_from": null,
@@ -5369,12 +5363,6 @@
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass a GRF-family forest.",
         "symptom": "MethodIncompatibility: unsupported object"
-      },
-      {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
       },
       {
         "alternative": "sp.calibrate_cate",
@@ -14075,16 +14063,10 @@
     "example": "res = sp.transport_weights_fn(\n source, target, features=[\"x\"], treatment=\"a\", outcome=\"y\")",
     "failure_modes": [
       {
-        "alternative": "sp.target_trial_emulate",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "Align time zero with eligibility and treatment assignment (sp.immortal_time_check flags the misalignment)",
-        "symptom": "Immortal-time bias: follow-up starts before treatment is assigned"
-      },
-      {
-        "alternative": "sp.gformula_mc",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Truncate the weights or restrict the strategy to regimes that are observed",
-        "symptom": "Positivity violations at later time points"
+        "alternative": "sp.overlap_weights",
+        "exception": "(none -- informational)",
+        "remedy": "Restrict the target to the region of overlap and report the effective sample size",
+        "symptom": "Effect modifiers in the target population have little overlap with the source sample: the transport weights are extreme"
       }
     ],
     "inherits_from": null,
@@ -14610,12 +14592,6 @@
     },
     "example": "res = sp.gformula_ice_fn(\n df, id_col=\"id\", time_col=\"id\",\n treatment_cols=[\"A0\", \"A1\"],\n confounder_cols=[[\"L0\"], [\"L1\"]],\n outcome_col=\"Y\", treatment_strategy=[1, 1])",
     "failure_modes": [
-      {
-        "alternative": "sp.target_trial_emulate",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "Align time zero with eligibility and treatment assignment (sp.immortal_time_check flags the misalignment)",
-        "symptom": "Immortal-time bias: follow-up starts before treatment is assigned"
-      },
       {
         "alternative": "sp.gformula_mc",
         "exception": "statspai.exceptions.AssumptionWarning",
@@ -17433,12 +17409,6 @@
         "exception": "statspai.exceptions.AssumptionViolation",
         "remedy": "Align time zero with eligibility and treatment assignment (sp.immortal_time_check flags the misalignment)",
         "symptom": "Immortal-time bias: follow-up starts before treatment is assigned"
-      },
-      {
-        "alternative": "sp.gformula_mc",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Truncate the weights or restrict the strategy to regimes that are observed",
-        "symptom": "Positivity violations at later time points"
       }
     ],
     "inherits_from": null,
@@ -29400,12 +29370,6 @@
     "example": "sp.causal_kalman(ests, ses, prior_mean=0.0, prior_var=1.0)",
     "failure_modes": [
       {
-        "alternative": "sp.johansen",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
-        "symptom": "Unit root detected in a series used in levels"
-      },
-      {
         "alternative": "sp.arima",
         "exception": "statspai.exceptions.ConvergenceWarning",
         "remedy": "Rescale the series (percent returns), reduce the order, or supply starting values",
@@ -31244,10 +31208,10 @@
     "example": "sp.network_graph(edges=[(0,1),(1,2),(2,0)])",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
+        "alternative": "sp.network_summary",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Deduplicate the edge list and decide how self-loops are treated before building the graph",
+        "symptom": "Duplicate rows or self-loops in the edge list change every degree-based statistic"
       }
     ],
     "inherits_from": null,
@@ -31371,10 +31335,9 @@
     "example": "sp.network_summary(sp.karate_club())",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Report the component sizes and compute path-based statistics per component",
+        "symptom": "Whole-graph averages are dominated by the largest component; isolates and small components disappear in them"
       }
     ],
     "inherits_from": null,
@@ -31609,8 +31572,8 @@
       {
         "alternative": "sp.network_components",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Fix the seed, compare several runs and report Q together with the number of communities",
+        "symptom": "Modularity optimisation returns different partitions across runs and can merge small communities (resolution limit)"
       }
     ],
     "inherits_from": null,
@@ -41817,12 +41780,6 @@
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Fit with sp.callaway_santanna first; other estimators do not store the (g,t) influence-function grid.",
         "symptom": "result carries no influence functions"
-      },
-      {
-        "alternative": "sp.romano_wolf",
-        "exception": "(none -- informational)",
-        "remedy": "Test the interaction and adjust with sp.romano_wolf; a lone subgroup finding at nominal size is expected by chance",
-        "symptom": "Many subgroups, one 'significant' at 5%"
       }
     ],
     "inherits_from": null,
@@ -41836,7 +41793,7 @@
     "provenance": {
       "alternatives": "curated+family",
       "example": "curated",
-      "failure_modes": "curated+family",
+      "failure_modes": "curated",
       "pre_conditions": "curated+family",
       "reference": "curated",
       "returns": "curated",
@@ -45617,16 +45574,9 @@
     "example": "res = sp.interflex(df, y=\"Y\", d=\"D\", x=\"X\",\n estimator=\"binning\") # doctest: +SKIP",
     "failure_modes": [
       {
-        "alternative": "sp.target_trial_emulate",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "Align time zero with eligibility and treatment assignment (sp.immortal_time_check flags the misalignment)",
-        "symptom": "Immortal-time bias: follow-up starts before treatment is assigned"
-      },
-      {
-        "alternative": "sp.gformula_mc",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Truncate the weights or restrict the strategy to regimes that are observed",
-        "symptom": "Positivity violations at later time points"
+        "exception": "(none -- informational)",
+        "remedy": "Use the binning or kernel estimator and show the moderator histogram under the plot",
+        "symptom": "The moderator has sparse support in part of its range: marginal effects there are extrapolation"
       }
     ],
     "inherits_from": null,
@@ -48508,12 +48458,6 @@
     "example": "fig, ax = sp.rdplot(df, y='y', x='x', c=0, title='RD plot')",
     "failure_modes": [
       {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
-      {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
@@ -48766,12 +48710,6 @@
     },
     "example": "fig, ax = sp.rdplotdensity(df, x=\"x\", c=0)",
     "failure_modes": [
-      {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
       {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
@@ -50350,12 +50288,6 @@
     "example": "tab = sp.rdwinselect(df, x=\"x\", c=0.0, covs=[\"z1\"],\n nwindows=5)",
     "failure_modes": [
       {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
-      {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
@@ -50532,12 +50464,6 @@
     },
     "example": "sens = sp.rdsensitivity(\n df, y=\"y\", x=\"x\", wlist=[0.25, 0.5, 0.75],\n n_perms=200, seed=42,\n)",
     "failure_modes": [
-      {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
       {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
@@ -50718,12 +50644,6 @@
     },
     "example": "tab = sp.rdrbounds(df, y=\"y\", x=\"x\", c=0.0, wl=-0.3,\n wr=0.3, gamma_list=[1.0, 1.5, 2.0],\n n_perms=500, seed=42)",
     "failure_modes": [
-      {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
       {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
@@ -51285,12 +51205,6 @@
     },
     "example": "out = sp.rdhte_lincom(result, linfct=[1.0, 1.0]) # CATE at z = 1",
     "failure_modes": [
-      {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
       {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
@@ -58155,12 +58069,6 @@
     "example": "xw, keep = sp.demean(x, fe)",
     "failure_modes": [
       {
-        "alternative": "sp.iv",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "At least one moment condition is invalid; drop the suspect instruments rather than the test",
-        "symptom": "Hansen J-test rejects over-identifying restrictions"
-      },
-      {
         "alternative": "sp.vif",
         "exception": "NumericalInstability",
         "remedy": "Drop collinear regressors or check dummy-variable coding.",
@@ -58312,12 +58220,6 @@
     },
     "example": "out = sp.absorb_ols(y, X, fe, cluster=firm)",
     "failure_modes": [
-      {
-        "alternative": "sp.iv",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "At least one moment condition is invalid; drop the suspect instruments rather than the test",
-        "symptom": "Hansen J-test rejects over-identifying restrictions"
-      },
       {
         "alternative": "sp.vif",
         "exception": "NumericalInstability",
@@ -60145,12 +60047,6 @@
     "example": "res = sp.ancova(df, outcome='post', group='treated',\n covariates=['baseline', 'age']) # doctest: +SKIP",
     "failure_modes": [
       {
-        "alternative": "sp.iv",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "At least one moment condition is invalid; drop the suspect instruments rather than the test",
-        "symptom": "Hansen J-test rejects over-identifying restrictions"
-      },
-      {
         "alternative": "sp.vif",
         "exception": "NumericalInstability",
         "remedy": "Drop collinear regressors or check dummy-variable coding.",
@@ -60312,16 +60208,10 @@
     "example": "res = sp.geolift( # doctest: +SKIP\n df, outcome='sales', geo='dma', time='week',\n treated_geos=['NYC', 'LA'], treatment_time=40,\n)",
     "failure_modes": [
       {
-        "alternative": "sp.target_trial_emulate",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "Align time zero with eligibility and treatment assignment (sp.immortal_time_check flags the misalignment)",
-        "symptom": "Immortal-time bias: follow-up starts before treatment is assigned"
-      },
-      {
-        "alternative": "sp.gformula_mc",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Truncate the weights or restrict the strategy to regimes that are observed",
-        "symptom": "Positivity violations at later time points"
+        "alternative": "sp.synth",
+        "exception": "(none -- informational)",
+        "remedy": "Inspect the pre-period RMSPE and placebo tests; lengthen the pre-period or change the donor pool",
+        "symptom": "Poor pre-period fit of the synthetic control: the lift estimate carries the fit error"
       }
     ],
     "inherits_from": null,
@@ -60622,18 +60512,6 @@
     "example": "res = sp.xtlsdvc(df, y='n', x=['w', 'k'], id='id', # doctest: +SKIP\n time='year', initial='bb', bootstrap=200)",
     "failure_modes": [
       {
-        "alternative": "sp.xtlsdvc",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Instrument proliferation weakens the test; collapse the instrument matrix or limit the lag depth",
-        "symptom": "Hansen J-test p-value near 1 with many instruments"
-      },
-      {
-        "alternative": "sp.xtlsdvc",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "Use deeper lags as instruments or a bias-corrected LSDV estimator (sp.xtlsdvc)",
-        "symptom": "AR(2) test rejects"
-      },
-      {
         "alternative": "sp.panel",
         "exception": "AssumptionWarning",
         "remedy": "Switch to fixed effects (method='fe') or correlated random effects (method='mundlak').",
@@ -60817,12 +60695,6 @@
     },
     "example": "table = sp.sqreg(df, y='log_wage', x=['education', 'experience'])",
     "failure_modes": [
-      {
-        "alternative": "sp.iv",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "At least one moment condition is invalid; drop the suspect instruments rather than the test",
-        "symptom": "Hansen J-test rejects over-identifying restrictions"
-      },
       {
         "alternative": "sp.vif",
         "exception": "NumericalInstability",
@@ -62116,16 +61988,9 @@
     "example": "me = sp.margins(result, data=df)",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
         "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "remedy": "Evaluate at observed values or within the observed range and report average marginal effects",
+        "symptom": "Margins evaluated at covariate combinations the data do not contain"
       }
     ],
     "inherits_from": null,
@@ -62251,16 +62116,9 @@
     "example": "m = sp.margins_at(result, data=df, at={\"experience\": [1, 5, 10, 15, 20]})",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
         "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "remedy": "Evaluate at observed values or within the observed range and report average marginal effects",
+        "symptom": "Margins evaluated at covariate combinations the data do not contain"
       }
     ],
     "inherits_from": null,
@@ -62361,16 +62219,9 @@
     "example": "c = sp.contrast(result, data=df, variable=\"group\",\n method=\"r\", reference=0)",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
         "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "remedy": "Evaluate at observed values or within the observed range and report average marginal effects",
+        "symptom": "Margins evaluated at covariate combinations the data do not contain"
       }
     ],
     "inherits_from": null,
@@ -62489,16 +62340,9 @@
     "example": "pw = sp.pwcompare(result, data=df, variable=\"group\",\n adjust=\"bonferroni\")",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
         "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "remedy": "Evaluate at observed values or within the observed range and report average marginal effects",
+        "symptom": "Margins evaluated at covariate combinations the data do not contain"
       }
     ],
     "inherits_from": null,
@@ -62608,16 +62452,10 @@
     "example": "out = sp.test(result, \"x1 = x2\") # beta1 = beta2?",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
+        "alternative": "sp.wild_cluster_bootstrap",
         "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "remedy": "Use a wild cluster bootstrap for the restriction",
+        "symptom": "Few clusters or a nearly singular restriction covariance: the chi-square / F reference distribution is unreliable"
       }
     ],
     "inherits_from": null,
@@ -62709,16 +62547,10 @@
     "example": "out = sp.lincom(result, \"x1 + x2\") # beta1 + beta2",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
+        "alternative": "sp.wild_cluster_bootstrap",
         "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "remedy": "Use a wild cluster bootstrap for the restriction",
+        "symptom": "Few clusters or a nearly singular restriction covariance: the chi-square / F reference distribution is unreliable"
       }
     ],
     "inherits_from": null,
@@ -63106,12 +62938,6 @@
     "example": "ht = sp.het_test(df, y=\"y\", x=[\"x1\", \"x2\"])",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
-        "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
         "alternative": "sp.regress",
         "exception": "statspai.exceptions.AssumptionWarning",
         "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
@@ -63215,12 +63041,6 @@
     },
     "example": "rt = sp.reset_test(df, y=\"y\", x=[\"x1\", \"x2\"])",
     "failure_modes": [
-      {
-        "alternative": "sp.hausman_test",
-        "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
       {
         "alternative": "sp.regress",
         "exception": "statspai.exceptions.AssumptionWarning",
@@ -63331,16 +63151,10 @@
     "example": "v = sp.vif(df, x=[\"x1\", \"x2\"])",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
-        "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
         "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "exception": "(none -- informational)",
+        "remedy": "Collinearity among controls does not bias that coefficient; read the VIF of the regressor of interest",
+        "symptom": "A high VIF on a control read as a problem for the coefficient of interest"
       }
     ],
     "inherits_from": null,
@@ -63607,12 +63421,6 @@
         "exception": "(none -- informational)",
         "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
         "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
       }
     ],
     "inherits_from": null,
@@ -63745,12 +63553,6 @@
         "exception": "(none -- informational)",
         "remedy": "Report it as is: an unbounded set means the data do not pin the effect down; an empty set rejects the over-identifying restrictions",
         "symptom": "Unbounded or empty Anderson-Rubin confidence set"
-      },
-      {
-        "alternative": "sp.anderson_rubin_ci",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Do not report 2SLS t-ratios; use sp.anderson_rubin_ci or sp.tF_adjustment for the reported interval",
-        "symptom": "Effective F below the Montiel Olea-Pflueger threshold"
       },
       {
         "alternative": "sp.anderson_rubin_ci",
@@ -63949,12 +63751,6 @@
     "example": "res = sp.effective_f_test(df, endog='educ', instruments=['z1', 'z2'])",
     "failure_modes": [
       {
-        "alternative": "sp.conditional_lr_ci",
-        "exception": "(none -- informational)",
-        "remedy": "Report it as is: an unbounded set means the data do not pin the effect down; an empty set rejects the over-identifying restrictions",
-        "symptom": "Unbounded or empty Anderson-Rubin confidence set"
-      },
-      {
         "alternative": "sp.anderson_rubin_ci",
         "exception": "statspai.exceptions.AssumptionWarning",
         "remedy": "Do not report 2SLS t-ratios; use sp.anderson_rubin_ci or sp.tF_adjustment for the reported interval",
@@ -64147,12 +63943,6 @@
     },
     "example": "sp.tF_critical_value(200.0)",
     "failure_modes": [
-      {
-        "alternative": "sp.conditional_lr_ci",
-        "exception": "(none -- informational)",
-        "remedy": "Report it as is: an unbounded set means the data do not pin the effect down; an empty set rejects the over-identifying restrictions",
-        "symptom": "Unbounded or empty Anderson-Rubin confidence set"
-      },
       {
         "alternative": "sp.anderson_rubin_ci",
         "exception": "statspai.exceptions.AssumptionWarning",
@@ -64668,16 +64458,10 @@
     "example": "ev = sp.evalue_from_result(res, measure=\"SMD\")",
     "failure_modes": [
       {
-        "alternative": "sp.attrition_bounds",
-        "exception": "(none -- identification)",
-        "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
-        "symptom": "No credible exclusion restriction for Heckman selection"
-      },
-      {
-        "alternative": "sp.evalue_rr",
+        "alternative": "sp.sensemakr",
         "exception": "(none -- informational)",
-        "remedy": "The result is fragile to weak hidden bias; say so and look for design-based evidence (placebos, sp.evalue_rr)",
-        "symptom": "Rosenbaum Gamma at which significance is lost is close to 1"
+        "remedy": "Benchmark against the strongest observed covariate",
+        "symptom": "Sensitivity value reported without a benchmark: a large E-value is not robustness unless it exceeds what measured confounders achieve"
       }
     ],
     "inherits_from": null,
@@ -64910,16 +64694,10 @@
     "example": "round(sp.bias_factor(2.0, 2.0), 4)",
     "failure_modes": [
       {
-        "alternative": "sp.attrition_bounds",
-        "exception": "(none -- identification)",
-        "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
-        "symptom": "No credible exclusion restriction for Heckman selection"
-      },
-      {
-        "alternative": "sp.evalue_rr",
+        "alternative": "sp.sensemakr",
         "exception": "(none -- informational)",
-        "remedy": "The result is fragile to weak hidden bias; say so and look for design-based evidence (placebos, sp.evalue_rr)",
-        "symptom": "Rosenbaum Gamma at which significance is lost is close to 1"
+        "remedy": "Benchmark against the strongest observed covariate",
+        "symptom": "Sensitivity value reported without a benchmark: a large E-value is not robustness unless it exceeds what measured confounders achieve"
       }
     ],
     "inherits_from": null,
@@ -65149,10 +64927,9 @@
     "example": "result = sp.ri_test(df, y='outcome', treat='treatment',\n n_perms=2000, seed=42)",
     "failure_modes": [
       {
-        "alternative": "sp.romano_wolf",
         "exception": "(none -- informational)",
-        "remedy": "Test the interaction and adjust with sp.romano_wolf; a lone subgroup finding at nominal size is expected by chance",
-        "symptom": "Many subgroups, one 'significant' at 5%"
+        "remedy": "Permute within strata and at the level at which treatment was assigned",
+        "symptom": "Permutations do not follow the actual assignment mechanism (blocks, clusters): the randomization p-value is not valid"
       }
     ],
     "inherits_from": null,
@@ -65602,12 +65379,6 @@
     "example": "result = sp.pate(\n data_experiment=df_rct, data_target=df_pop,\n y=\"outcome\", treatment=\"treated\", covariates=[\"age\", \"edu\"],\n method=\"aipw\", n_boot=30, seed=0,\n)",
     "failure_modes": [
       {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
-      {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
         "remedy": "No detectable heterogeneity: report the average effect, not the CATE ranking.",
@@ -65794,10 +65565,9 @@
     "example": "result = sp.fisher_exact(\n data=df, y=\"outcome\", treatment=\"treated\",\n statistic=\"ate\", n_perm=2000, seed=42)",
     "failure_modes": [
       {
-        "alternative": "sp.romano_wolf",
         "exception": "(none -- informational)",
-        "remedy": "Test the interaction and adjust with sp.romano_wolf; a lone subgroup finding at nominal size is expected by chance",
-        "symptom": "Many subgroups, one 'significant' at 5%"
+        "remedy": "Permute within strata and at the level at which treatment was assigned",
+        "symptom": "Permutations do not follow the actual assignment mechanism (blocks, clusters): the randomization p-value is not valid"
       }
     ],
     "inherits_from": null,
@@ -69696,12 +69466,6 @@
     "example": "w = sp.policy_weight_ate()",
     "failure_modes": [
       {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
-      {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
         "remedy": "No detectable heterogeneity: report the average effect, not the CATE ranking.",
@@ -69808,12 +69572,6 @@
     },
     "example": "w = sp.policy_weight_subsidy(0.2, 0.6)",
     "failure_modes": [
-      {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
       {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
@@ -70017,12 +69775,6 @@
     "example": "w = sp.policy_weight_marginal(0.5, bandwidth=0.1)",
     "failure_modes": [
       {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
-      {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
         "remedy": "No detectable heterogeneity: report the average effect, not the CATE ranking.",
@@ -70141,12 +69893,6 @@
     },
     "example": "w = sp.policy_weight_observed_prte(propensity, shift=0.1)",
     "failure_modes": [
-      {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
       {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
@@ -71394,12 +71140,6 @@
     "example": "res = sp.policy_tree(df, \"y\", \"d\", [\"x1\", \"x2\", \"x3\"], depth=2)",
     "failure_modes": [
       {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
-      {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
         "remedy": "No detectable heterogeneity: report the average effect, not the CATE ranking.",
@@ -71758,12 +71498,6 @@
     },
     "example": "result = sp.conformal_cate(df, y=\"outcome\", treat=\"treatment\",\n covariates=[\"x1\", \"x2\"], random_state=0)",
     "failure_modes": [
-      {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
       {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
@@ -74212,12 +73946,6 @@
         "exception": "statspai.exceptions.MethodIncompatibility",
         "remedy": "Collapse strata or use the 'certainty' / centered adjustment; variance is otherwise undefined",
         "symptom": "Single PSU in a stratum"
-      },
-      {
-        "alternative": "sp.rake",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Trim the weights or drop a raking margin; report the design effect",
-        "symptom": "Extreme raked weights"
       }
     ],
     "inherits_from": null,
@@ -74347,12 +74075,6 @@
         "exception": "statspai.exceptions.MethodIncompatibility",
         "remedy": "Collapse strata or use the 'certainty' / centered adjustment; variance is otherwise undefined",
         "symptom": "Single PSU in a stratum"
-      },
-      {
-        "alternative": "sp.rake",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Trim the weights or drop a raking margin; report the design effect",
-        "symptom": "Extreme raked weights"
       }
     ],
     "inherits_from": null,
@@ -74481,12 +74203,6 @@
         "exception": "statspai.exceptions.MethodIncompatibility",
         "remedy": "Collapse strata or use the 'certainty' / centered adjustment; variance is otherwise undefined",
         "symptom": "Single PSU in a stratum"
-      },
-      {
-        "alternative": "sp.rake",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Trim the weights or drop a raking margin; report the design effect",
-        "symptom": "Extreme raked weights"
       }
     ],
     "inherits_from": null,
@@ -74734,10 +74450,16 @@
     "example": "res = sp.power_rct(n=500, effect_size=0.3)",
     "failure_modes": [
       {
+        "alternative": "sp.mde",
+        "exception": "(none -- informational)",
+        "remedy": "Compute power for the smallest effect of interest and report the minimum detectable effect",
+        "symptom": "Effect size taken from a small pilot or from a published significant estimate: realised power is well below the nominal value"
+      },
+      {
         "alternative": "sp.power_cluster_rct",
-        "exception": "(none -- planning)",
-        "remedy": "Take the ICC from a pilot or the literature and report power over a range (0.01-0.20); the design effect 1 + (m-1)*ICC dominates",
-        "symptom": "ICC unknown for a cluster-randomised design"
+        "exception": "(none -- informational)",
+        "remedy": "Apply the design effect 1 + (m - 1) * ICC",
+        "symptom": "Units are randomised in clusters but power is computed as if they were independent"
       }
     ],
     "inherits_from": null,
@@ -75420,10 +75142,10 @@
     "example": "res = sp.power_ols(n=500, effect_size=0.2)",
     "failure_modes": [
       {
-        "alternative": "sp.power_cluster_rct",
-        "exception": "(none -- planning)",
-        "remedy": "Take the ICC from a pilot or the literature and report power over a range (0.01-0.20); the design effect 1 + (m-1)*ICC dominates",
-        "symptom": "ICC unknown for a cluster-randomised design"
+        "alternative": "sp.mde",
+        "exception": "(none -- informational)",
+        "remedy": "Compute power for the smallest effect of interest and report the minimum detectable effect",
+        "symptom": "Effect size taken from a small pilot or from a published significant estimate: realised power is well below the nominal value"
       }
     ],
     "inherits_from": null,
@@ -75645,10 +75367,16 @@
     "example": "res = sp.power_two_proportions(n=400, p1=0.5, p2=0.65)",
     "failure_modes": [
       {
+        "alternative": "sp.mde",
+        "exception": "(none -- informational)",
+        "remedy": "Compute power for the smallest effect of interest and report the minimum detectable effect",
+        "symptom": "Effect size taken from a small pilot or from a published significant estimate: realised power is well below the nominal value"
+      },
+      {
         "alternative": "sp.power_cluster_rct",
-        "exception": "(none -- planning)",
-        "remedy": "Take the ICC from a pilot or the literature and report power over a range (0.01-0.20); the design effect 1 + (m-1)*ICC dominates",
-        "symptom": "ICC unknown for a cluster-randomised design"
+        "exception": "(none -- informational)",
+        "remedy": "Apply the design effect 1 + (m - 1) * ICC",
+        "symptom": "Units are randomised in clusters but power is computed as if they were independent"
       }
     ],
     "inherits_from": null,
@@ -75772,10 +75500,10 @@
     "example": "res = sp.power_logrank(n=300, hazard_ratio=0.6, prob_event=0.7)",
     "failure_modes": [
       {
-        "alternative": "sp.power_cluster_rct",
-        "exception": "(none -- planning)",
-        "remedy": "Take the ICC from a pilot or the literature and report power over a range (0.01-0.20); the design effect 1 + (m-1)*ICC dominates",
-        "symptom": "ICC unknown for a cluster-randomised design"
+        "alternative": "sp.mde",
+        "exception": "(none -- informational)",
+        "remedy": "Compute power for the smallest effect of interest and report the minimum detectable effect",
+        "symptom": "Effect size taken from a small pilot or from a published significant estimate: realised power is well below the nominal value"
       }
     ],
     "inherits_from": null,
@@ -75902,10 +75630,10 @@
     "example": "res = sp.power_case_control(n_cases=200, odds_ratio=2.0,\n exposure_prevalence=0.3)",
     "failure_modes": [
       {
-        "alternative": "sp.power_cluster_rct",
-        "exception": "(none -- planning)",
-        "remedy": "Take the ICC from a pilot or the literature and report power over a range (0.01-0.20); the design effect 1 + (m-1)*ICC dominates",
-        "symptom": "ICC unknown for a cluster-randomised design"
+        "alternative": "sp.mde",
+        "exception": "(none -- informational)",
+        "remedy": "Compute power for the smallest effect of interest and report the minimum detectable effect",
+        "symptom": "Effect size taken from a small pilot or from a published significant estimate: realised power is well below the nominal value"
       }
     ],
     "inherits_from": null,
@@ -76368,12 +76096,6 @@
     "example": "res = sp.stepwise(\n df, y=\"log_wage\",\n x=[\"female\", \"education\", \"experience\", \"tenure\", \"union\"],\n method=\"both\", criterion=\"bic\", verbose=False)",
     "failure_modes": [
       {
-        "alternative": "sp.iv",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "At least one moment condition is invalid; drop the suspect instruments rather than the test",
-        "symptom": "Hansen J-test rejects over-identifying restrictions"
-      },
-      {
         "alternative": "sp.vif",
         "exception": "NumericalInstability",
         "remedy": "Drop collinear regressors or check dummy-variable coding.",
@@ -76541,12 +76263,6 @@
     },
     "example": "res = sp.lasso_select(\n df, y=\"log_wage\",\n x=[\"female\", \"education\", \"experience\", \"tenure\", \"union\"],\n method=\"bic\", verbose=False)",
     "failure_modes": [
-      {
-        "alternative": "sp.iv",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "At least one moment condition is invalid; drop the suspect instruments rather than the test",
-        "symptom": "Hansen J-test rejects over-identifying restrictions"
-      },
       {
         "alternative": "sp.vif",
         "exception": "NumericalInstability",
@@ -76717,10 +76433,10 @@
     "example": "results = sp.romano_wolf(\n data=df,\n y=[\"log_wage\", \"tenure\", \"experience\"],\n x=\"union\",\n controls=[\"education\"],\n n_boot=200,\n seed=42,\n)",
     "failure_modes": [
       {
-        "alternative": "sp.romano_wolf",
+        "alternative": "sp.holm",
         "exception": "(none -- informational)",
-        "remedy": "Bonferroni / Holm are very conservative for large families; report FDR (sp.benjamini_hochberg) or Romano-Wolf",
-        "symptom": "All adjusted p-values become 1 with many hypotheses"
+        "remedy": "Raise the number of replications until the adjusted p-values are stable across seeds",
+        "symptom": "Too few bootstrap replications: adjusted p-values move in steps of 1 / (B + 1)"
       }
     ],
     "inherits_from": null,
@@ -77140,10 +76856,10 @@
     "example": "sp.benjamini_hochberg([0.001, 0.01, 0.03, 0.2]).round(3).tolist()",
     "failure_modes": [
       {
-        "alternative": "sp.romano_wolf",
+        "alternative": "sp.holm",
         "exception": "(none -- informational)",
-        "remedy": "Bonferroni / Holm are very conservative for large families; report FDR (sp.benjamini_hochberg) or Romano-Wolf",
-        "symptom": "All adjusted p-values become 1 with many hypotheses"
+        "remedy": "Use Holm or Romano-Wolf when every rejection has to stand",
+        "symptom": "FDR control read as family-wise control: at q = 0.05 some of the rejections are expected to be false, and the guarantee assumes independent or positively dependent p-values"
       }
     ],
     "inherits_from": null,
@@ -77223,14 +76939,7 @@
       "tolerance": ""
     },
     "example": "scope = sp.validation_scope(fit)",
-    "failure_modes": [
-      {
-        "alternative": "sp.romano_wolf",
-        "exception": "(none -- informational)",
-        "remedy": "Test the interaction and adjust with sp.romano_wolf; a lone subgroup finding at nominal size is expected by chance",
-        "symptom": "Many subgroups, one 'significant' at 5%"
-      }
-    ],
+    "failure_modes": [],
     "inherits_from": null,
     "limitations": [],
     "name": "validation_scope",
@@ -77241,7 +76950,6 @@
     "provenance": {
       "alternatives": "family",
       "example": "docstring",
-      "failure_modes": "family",
       "pre_conditions": "family",
       "returns": "docstring"
     },
@@ -78180,12 +77888,6 @@
     "example": "out = sp.ivqreg(df, y='wage', endog='education',\n instruments=['qob1', 'qob2'],\n tau=[0.25, 0.5, 0.75])",
     "failure_modes": [
       {
-        "alternative": "sp.iv",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "At least one moment condition is invalid; drop the suspect instruments rather than the test",
-        "symptom": "Hansen J-test rejects over-identifying restrictions"
-      },
-      {
         "alternative": "sp.vif",
         "exception": "NumericalInstability",
         "remedy": "Drop collinear regressors or check dummy-variable coding.",
@@ -78548,12 +78250,6 @@
     },
     "example": "result = sp.zinb(data=df, y='visits', x=['age'],\n inflate=['chronic'])",
     "failure_modes": [
-      {
-        "alternative": "sp.nbreg",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Switch to negative binomial (sp.nbreg / sp.zinb) or keep Poisson with robust SEs; the mean is still consistently estimated",
-        "symptom": "Over-dispersion: Poisson deviance / Pearson chi-square far above degrees of freedom"
-      },
       {
         "alternative": "sp.ppmlhdfe",
         "exception": "statspai.exceptions.ConvergenceWarning",
@@ -79077,18 +78773,6 @@
     },
     "example": "result = sp.jive(df, y='y', x_endog=['x'],\n z=[f'z{i}' for i in range(5)])",
     "failure_modes": [
-      {
-        "alternative": "sp.conditional_lr_ci",
-        "exception": "(none -- informational)",
-        "remedy": "Report it as is: an unbounded set means the data do not pin the effect down; an empty set rejects the over-identifying restrictions",
-        "symptom": "Unbounded or empty Anderson-Rubin confidence set"
-      },
-      {
-        "alternative": "sp.anderson_rubin_ci",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Do not report 2SLS t-ratios; use sp.anderson_rubin_ci or sp.tF_adjustment for the reported interval",
-        "symptom": "Effective F below the Montiel Olea-Pflueger threshold"
-      },
       {
         "alternative": "sp.anderson_rubin_ci",
         "exception": "AssumptionWarning",
@@ -81134,16 +80818,15 @@
     "example": "km = sp.kaplan_meier(data=df, duration=\"time\", event=\"status\")",
     "failure_modes": [
       {
-        "alternative": "sp.aft",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Stratify on it, add a time interaction, or report an AFT model",
-        "symptom": "Proportional-hazards test rejects for a covariate"
+        "exception": "(none -- informational)",
+        "remedy": "Report the number at risk under the curve and stop the plotted range where it is small",
+        "symptom": "Few subjects at risk in the right tail: the last steps of the curve rest on a handful of observations"
       },
       {
-        "alternative": "sp.kaplan_meier",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Reduce the model or report Kaplan-Meier / log-rank comparisons instead of a multivariable fit",
-        "symptom": "Fewer than ~10 events per covariate"
+        "alternative": "sp.cuminc",
+        "exception": "(none -- informational)",
+        "remedy": "Estimate the cumulative incidence function with the Aalen-Johansen estimator",
+        "symptom": "Competing events treated as censoring: 1 - KM overstates the cumulative incidence of the event of interest"
       }
     ],
     "inherits_from": null,
@@ -81258,12 +80941,6 @@
     },
     "example": "res = sp.survreg(\"time ~ age + treatment\", data=df,\n event=\"status\", dist=\"weibull\")",
     "failure_modes": [
-      {
-        "alternative": "sp.aft",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Stratify on it, add a time interaction, or report an AFT model",
-        "symptom": "Proportional-hazards test rejects for a covariate"
-      },
       {
         "alternative": "sp.kaplan_meier",
         "exception": "(none -- diagnostic)",
@@ -81411,16 +81088,10 @@
     "example": "res = sp.logrank_test(data=df, duration=\"time\", event=\"status\",\n group=\"treatment\")",
     "failure_modes": [
       {
-        "alternative": "sp.aft",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Stratify on it, add a time interaction, or report an AFT model",
-        "symptom": "Proportional-hazards test rejects for a covariate"
-      },
-      {
         "alternative": "sp.kaplan_meier",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Reduce the model or report Kaplan-Meier / log-rank comparisons instead of a multivariable fit",
-        "symptom": "Fewer than ~10 events per covariate"
+        "exception": "(none -- informational)",
+        "remedy": "Show the curves and do not read a non-rejection as equal survival; compare at fixed horizons",
+        "symptom": "Survival curves cross: the log-rank test has little power against non-proportional alternatives"
       }
     ],
     "inherits_from": null,
@@ -81534,16 +81205,9 @@
     "example": "ci = sp.cuminc(df, duration=\"time\", event=\"status\", group=\"arm\")",
     "failure_modes": [
       {
-        "alternative": "sp.aft",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Stratify on it, add a time interaction, or report an AFT model",
-        "symptom": "Proportional-hazards test rejects for a covariate"
-      },
-      {
-        "alternative": "sp.kaplan_meier",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Reduce the model or report Kaplan-Meier / log-rank comparisons instead of a multivariable fit",
-        "symptom": "Fewer than ~10 events per covariate"
+        "exception": "(none -- informational)",
+        "remedy": "Report the number at risk under the curve and stop the plotted range where it is small",
+        "symptom": "Few subjects at risk in the right tail: the last steps of the curve rest on a handful of observations"
       }
     ],
     "inherits_from": null,
@@ -81686,12 +81350,6 @@
     },
     "example": "res = sp.finegray(\n df, duration=\"time\", event=\"status\", x=[\"x\"], cause=1\n)",
     "failure_modes": [
-      {
-        "alternative": "sp.aft",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Stratify on it, add a time interaction, or report an AFT model",
-        "symptom": "Proportional-hazards test rejects for a covariate"
-      },
       {
         "alternative": "sp.kaplan_meier",
         "exception": "(none -- diagnostic)",
@@ -81858,12 +81516,6 @@
     },
     "example": "result = sp.lpoly(df, y='log_wage', x='experience')",
     "failure_modes": [
-      {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
       {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
@@ -82062,12 +81714,6 @@
     "example": "result = sp.kdensity(df, x='income')",
     "failure_modes": [
       {
-        "alternative": "sp.iv",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "At least one moment condition is invalid; drop the suspect instruments rather than the test",
-        "symptom": "Hansen J-test rejects over-identifying restrictions"
-      },
-      {
         "alternative": "sp.vif",
         "exception": "NumericalInstability",
         "remedy": "Drop collinear regressors or check dummy-variable coding.",
@@ -82222,12 +81868,6 @@
     },
     "example": "fit = sp.lprobust_at_point(x, y, 0.0, h=0.8)",
     "failure_modes": [
-      {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
       {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
@@ -83362,12 +83002,6 @@
         "exception": "statspai.exceptions.AssumptionWarning",
         "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
         "symptom": "Unit root detected in a series used in levels"
-      },
-      {
-        "alternative": "sp.arima",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Rescale the series (percent returns), reduce the order, or supply starting values",
-        "symptom": "GARCH / state-space likelihood fails to converge"
       }
     ],
     "inherits_from": null,
@@ -83478,12 +83112,6 @@
         "exception": "statspai.exceptions.AssumptionWarning",
         "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
         "symptom": "Unit root detected in a series used in levels"
-      },
-      {
-        "alternative": "sp.arima",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Rescale the series (percent returns), reduce the order, or supply starting values",
-        "symptom": "GARCH / state-space likelihood fails to converge"
       }
     ],
     "inherits_from": null,
@@ -83608,16 +83236,10 @@
     "example": "result = sp.structural_break(df, y='gdp_growth', x=['inflation'])",
     "failure_modes": [
       {
-        "alternative": "sp.johansen",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
-        "symptom": "Unit root detected in a series used in levels"
-      },
-      {
-        "alternative": "sp.arima",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Rescale the series (percent returns), reduce the order, or supply starting values",
-        "symptom": "GARCH / state-space likelihood fails to converge"
+        "alternative": "sp.its",
+        "exception": "(none -- informational)",
+        "remedy": "Model the dynamics first, trim the sample ends and report the break date with its interval",
+        "symptom": "Serially correlated residuals or a break near the sample edge: stability tests over-reject and the break date is imprecise"
       }
     ],
     "inherits_from": null,
@@ -83778,16 +83400,10 @@
     "example": "res = sp.cusum_test(df, y=\"y\", x=[\"x\"])",
     "failure_modes": [
       {
-        "alternative": "sp.johansen",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
-        "symptom": "Unit root detected in a series used in levels"
-      },
-      {
-        "alternative": "sp.arima",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Rescale the series (percent returns), reduce the order, or supply starting values",
-        "symptom": "GARCH / state-space likelihood fails to converge"
+        "alternative": "sp.its",
+        "exception": "(none -- informational)",
+        "remedy": "Model the dynamics first, trim the sample ends and report the break date with its interval",
+        "symptom": "Serially correlated residuals or a break near the sample edge: stability tests over-reject and the break date is imprecise"
       }
     ],
     "inherits_from": null,
@@ -84226,15 +83842,9 @@
     "failure_modes": [
       {
         "alternative": "sp.attrition_bounds",
-        "exception": "(none -- identification)",
-        "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
-        "symptom": "No credible exclusion restriction for Heckman selection"
-      },
-      {
-        "alternative": "sp.evalue_rr",
         "exception": "(none -- informational)",
-        "remedy": "The result is fragile to weak hidden bias; say so and look for design-based evidence (placebos, sp.evalue_rr)",
-        "symptom": "Rosenbaum Gamma at which significance is lost is close to 1"
+        "remedy": "Compare baseline covariates of attriters by arm and report bounds",
+        "symptom": "Equal attrition rates read as no attrition bias: the same rate does not mean the same units leave"
       }
     ],
     "inherits_from": null,
@@ -84355,16 +83965,10 @@
     "example": "res = sp.attrition_bounds(df, y=\"y\", treatment=\"treated\",\n observed=\"observed\", method=\"lee\")",
     "failure_modes": [
       {
-        "alternative": "sp.attrition_bounds",
-        "exception": "(none -- identification)",
-        "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
-        "symptom": "No credible exclusion restriction for Heckman selection"
-      },
-      {
-        "alternative": "sp.evalue_rr",
+        "alternative": "sp.lee_bounds",
         "exception": "(none -- informational)",
-        "remedy": "The result is fragile to weak hidden bias; say so and look for design-based evidence (placebos, sp.evalue_rr)",
-        "symptom": "Rosenbaum Gamma at which significance is lost is close to 1"
+        "remedy": "Tighten them with baseline covariates and state the monotonicity assumption in use",
+        "symptom": "Bounds are too wide to sign the effect when attrition differs sharply between arms"
       }
     ],
     "inherits_from": null,
@@ -84654,10 +84258,9 @@
     "example": "result = sp.mice(df, m=3, method='pmm', seed=0)",
     "failure_modes": [
       {
-        "alternative": "sp.romano_wolf",
         "exception": "(none -- informational)",
-        "remedy": "Test the interaction and adjust with sp.romano_wolf; a lone subgroup finding at nominal size is expected by chance",
-        "symptom": "Many subgroups, one 'significant' at 5%"
+        "remedy": "Include the outcome, every analysis covariate and the interactions in the imputation model",
+        "symptom": "Imputation model omits the outcome or other analysis variables: pooled associations are biased toward zero"
       }
     ],
     "inherits_from": null,
@@ -84785,10 +84388,9 @@
     "example": "combined = sp.mi_estimate(mice_res, sp.regress, formula=\"y ~ x1 + x2\")",
     "failure_modes": [
       {
-        "alternative": "sp.romano_wolf",
         "exception": "(none -- informational)",
-        "remedy": "Test the interaction and adjust with sp.romano_wolf; a lone subgroup finding at nominal size is expected by chance",
-        "symptom": "Many subgroups, one 'significant' at 5%"
+        "remedy": "Include the outcome, every analysis covariate and the interactions in the imputation model",
+        "symptom": "Imputation model omits the outcome or other analysis variables: pooled associations are biased toward zero"
       }
     ],
     "inherits_from": null,
@@ -84874,10 +84476,9 @@
     "example": "res = sp.mi_test(pooled, [\"x1\", \"x2\"])",
     "failure_modes": [
       {
-        "alternative": "sp.romano_wolf",
         "exception": "(none -- informational)",
-        "remedy": "Test the interaction and adjust with sp.romano_wolf; a lone subgroup finding at nominal size is expected by chance",
-        "symptom": "Many subgroups, one 'significant' at 5%"
+        "remedy": "Include the outcome, every analysis covariate and the interactions in the imputation model",
+        "symptom": "Imputation model omits the outcome or other analysis variables: pooled associations are biased toward zero"
       }
     ],
     "inherits_from": null,
@@ -86974,16 +86575,10 @@
     "example": "lin = sp.yatchew_linearity_test(x, 2 * x + rng.normal(0, .1, 400))",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
+        "alternative": "sp.reset_test",
         "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "remedy": "Report it next to a RESET test and a plot of binned residuals",
+        "symptom": "Small sample: the test is asymptotic and has low power against smooth departures from the polynomial"
       }
     ],
     "inherits_from": null,
@@ -87096,18 +86691,6 @@
     },
     "example": "result = sp.interactive_fe(df, y='gdp', x=['investment', 'trade'],\n id='country', time='year', n_factors=2)",
     "failure_modes": [
-      {
-        "alternative": "sp.xtlsdvc",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Instrument proliferation weakens the test; collapse the instrument matrix or limit the lag depth",
-        "symptom": "Hansen J-test p-value near 1 with many instruments"
-      },
-      {
-        "alternative": "sp.xtlsdvc",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "Use deeper lags as instruments or a bias-corrected LSDV estimator (sp.xtlsdvc)",
-        "symptom": "AR(2) test rejects"
-      },
       {
         "alternative": "sp.panel",
         "exception": "AssumptionWarning",
@@ -87471,16 +87054,10 @@
     "example": "res = sp.engle_granger(df, variables=[\"y\", \"x\"])",
     "failure_modes": [
       {
-        "alternative": "sp.johansen",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
-        "symptom": "Unit root detected in a series used in levels"
-      },
-      {
-        "alternative": "sp.arima",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Rescale the series (percent returns), reduce the order, or supply starting values",
-        "symptom": "GARCH / state-space likelihood fails to converge"
+        "alternative": "sp.unitroot",
+        "exception": "(none -- informational)",
+        "remedy": "Test the order of integration of each series first and report the result across lag and trend choices",
+        "symptom": "Series are not all integrated of order one, or the deterministic terms or lag length are wrong: the cointegration conclusion changes with the specification"
       }
     ],
     "inherits_from": null,
@@ -87614,16 +87191,10 @@
     "example": "result = sp.johansen(\n df, variables=['gdp', 'consumption', 'investment'], lags=2)",
     "failure_modes": [
       {
-        "alternative": "sp.johansen",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
-        "symptom": "Unit root detected in a series used in levels"
-      },
-      {
-        "alternative": "sp.arima",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Rescale the series (percent returns), reduce the order, or supply starting values",
-        "symptom": "GARCH / state-space likelihood fails to converge"
+        "alternative": "sp.unitroot",
+        "exception": "(none -- informational)",
+        "remedy": "Test the order of integration of each series first and report the result across lag and trend choices",
+        "symptom": "Series are not all integrated of order one, or the deterministic terms or lag length are wrong: the cointegration conclusion changes with the specification"
       }
     ],
     "inherits_from": null,
@@ -88231,12 +87802,6 @@
         "exception": "(none -- identification)",
         "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
         "symptom": "No credible exclusion restriction for Heckman selection"
-      },
-      {
-        "alternative": "sp.evalue_rr",
-        "exception": "(none -- informational)",
-        "remedy": "The result is fragile to weak hidden bias; say so and look for design-based evidence (placebos, sp.evalue_rr)",
-        "symptom": "Rosenbaum Gamma at which significance is lost is close to 1"
       }
     ],
     "inherits_from": null,
@@ -88937,12 +88502,6 @@
     },
     "example": "result = sp.sureg(\n equations={\n 'demand': ('quantity', ['price', 'income']),\n 'supply': ('qsupply', ['price', 'cost']),\n },\n data=df,\n)",
     "failure_modes": [
-      {
-        "alternative": "sp.iv",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "At least one moment condition is invalid; drop the suspect instruments rather than the test",
-        "symptom": "Hansen J-test rejects over-identifying restrictions"
-      },
       {
         "alternative": "sp.vif",
         "exception": "NumericalInstability",
@@ -90456,12 +90015,6 @@
     "example": "res = sp.menbreg(df, y=\"y\", x_fixed=[\"x\"], group=\"gid\")",
     "failure_modes": [
       {
-        "alternative": "sp.nbreg",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Switch to negative binomial (sp.nbreg / sp.zinb) or keep Poisson with robust SEs; the mean is still consistently estimated",
-        "symptom": "Over-dispersion: Poisson deviance / Pearson chi-square far above degrees of freedom"
-      },
-      {
         "alternative": "sp.ppmlhdfe",
         "exception": "statspai.exceptions.ConvergenceWarning",
         "remedy": "ppmlhdfe drops those observations (Correia-Guimaraes-Zylkin); inspect the dropped-observations note before comparing samples",
@@ -91027,16 +90580,10 @@
     "example": "res = sp.lrtest(restricted, full) # test the random slope on x",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
+        "alternative": "sp.test",
         "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "remedy": "Fit both models on the same rows and use a Wald test when the variance is robust",
+        "symptom": "Models are not nested, are fitted on different samples, or use a robust / cluster variance: the likelihood-ratio statistic has no chi-square reference"
       }
     ],
     "inherits_from": null,
@@ -92094,16 +91641,10 @@
     "example": "res = sp.lcsf(df, y=\"log_y\", x=[\"log_k\", \"log_l\"])",
     "failure_modes": [
       {
-        "alternative": "sp.aft",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Stratify on it, add a time interaction, or report an AFT model",
-        "symptom": "Proportional-hazards test rejects for a covariate"
-      },
-      {
-        "alternative": "sp.kaplan_meier",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Reduce the model or report Kaplan-Meier / log-rank comparisons instead of a multivariable fit",
-        "symptom": "Fewer than ~10 events per covariate"
+        "alternative": "sp.frontier",
+        "exception": "(none -- informational)",
+        "remedy": "Compare against the single-class frontier by information criteria and report the posterior probabilities",
+        "symptom": "Latent classes are not separated: posterior class probabilities stay near one half"
       }
     ],
     "inherits_from": null,
@@ -96292,12 +95833,6 @@
         "exception": "statspai.exceptions.MethodIncompatibility",
         "remedy": "Use a k-nearest-neighbour or distance-band weights matrix so every unit has neighbours",
         "symptom": "Islands in the weights matrix"
-      },
-      {
-        "alternative": "sp.lm_tests",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Run sp.lm_tests to choose between a spatial lag (sp.sar) and a spatial error (sp.sem) model",
-        "symptom": "Residual Moran's I significant after OLS"
       }
     ],
     "inherits_from": null,
@@ -96418,12 +95953,6 @@
         "exception": "statspai.exceptions.MethodIncompatibility",
         "remedy": "Use a k-nearest-neighbour or distance-band weights matrix so every unit has neighbours",
         "symptom": "Islands in the weights matrix"
-      },
-      {
-        "alternative": "sp.lm_tests",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Run sp.lm_tests to choose between a spatial lag (sp.sar) and a spatial error (sp.sem) model",
-        "symptom": "Residual Moran's I significant after OLS"
       }
     ],
     "inherits_from": null,
@@ -96637,12 +96166,6 @@
         "exception": "statspai.exceptions.MethodIncompatibility",
         "remedy": "Use a k-nearest-neighbour or distance-band weights matrix so every unit has neighbours",
         "symptom": "Islands in the weights matrix"
-      },
-      {
-        "alternative": "sp.lm_tests",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Run sp.lm_tests to choose between a spatial lag (sp.sar) and a spatial error (sp.sem) model",
-        "symptom": "Residual Moran's I significant after OLS"
       }
     ],
     "inherits_from": null,
@@ -96767,12 +96290,6 @@
         "exception": "statspai.exceptions.MethodIncompatibility",
         "remedy": "Use a k-nearest-neighbour or distance-band weights matrix so every unit has neighbours",
         "symptom": "Islands in the weights matrix"
-      },
-      {
-        "alternative": "sp.lm_tests",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Run sp.lm_tests to choose between a spatial lag (sp.sar) and a spatial error (sp.sem) model",
-        "symptom": "Residual Moran's I significant after OLS"
       }
     ],
     "inherits_from": null,
@@ -96887,12 +96404,6 @@
         "exception": "statspai.exceptions.MethodIncompatibility",
         "remedy": "Use a k-nearest-neighbour or distance-band weights matrix so every unit has neighbours",
         "symptom": "Islands in the weights matrix"
-      },
-      {
-        "alternative": "sp.lm_tests",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Run sp.lm_tests to choose between a spatial lag (sp.sar) and a spatial error (sp.sem) model",
-        "symptom": "Residual Moran's I significant after OLS"
       }
     ],
     "inherits_from": null,
@@ -97003,12 +96514,6 @@
         "exception": "statspai.exceptions.MethodIncompatibility",
         "remedy": "Use a k-nearest-neighbour or distance-band weights matrix so every unit has neighbours",
         "symptom": "Islands in the weights matrix"
-      },
-      {
-        "alternative": "sp.lm_tests",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Run sp.lm_tests to choose between a spatial lag (sp.sar) and a spatial error (sp.sem) model",
-        "symptom": "Residual Moran's I significant after OLS"
       }
     ],
     "inherits_from": null,
@@ -97224,12 +96729,6 @@
     },
     "example": "imp = sp.impacts(res, n_sim=200, seed=0)",
     "failure_modes": [
-      {
-        "alternative": "sp.sar_gmm",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Check W row-standardisation and try a different weights specification or the GMM estimator",
-        "symptom": "Spatial autoregressive parameter at the boundary of its admissible range"
-      },
       {
         "alternative": "sp.sar_gmm",
         "exception": "NumericalInstability",
@@ -97942,12 +97441,6 @@
     "failure_modes": [
       {
         "alternative": "sp.sar_gmm",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Check W row-standardisation and try a different weights specification or the GMM estimator",
-        "symptom": "Spatial autoregressive parameter at the boundary of its admissible range"
-      },
-      {
-        "alternative": "sp.sar_gmm",
         "exception": "NumericalInstability",
         "remedy": "Check W normalization and isolated units; bound rho away from boundary.",
         "symptom": "Log-likelihood fails to maximize / eigenvalue extreme"
@@ -98114,12 +97607,6 @@
     },
     "example": "res = sp.mgwr(coords, y, x.reshape(-1, 1), bw_min=20)",
     "failure_modes": [
-      {
-        "alternative": "sp.sar_gmm",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Check W row-standardisation and try a different weights specification or the GMM estimator",
-        "symptom": "Spatial autoregressive parameter at the boundary of its admissible range"
-      },
       {
         "alternative": "sp.sar_gmm",
         "exception": "NumericalInstability",
@@ -98354,12 +97841,6 @@
     },
     "example": "bw = sp.gwr_bandwidth(coords, y, x.reshape(-1, 1), criterion=\"AICc\")",
     "failure_modes": [
-      {
-        "alternative": "sp.sar_gmm",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Check W row-standardisation and try a different weights specification or the GMM estimator",
-        "symptom": "Spatial autoregressive parameter at the boundary of its admissible range"
-      },
       {
         "alternative": "sp.sar_gmm",
         "exception": "NumericalInstability",
@@ -98661,12 +98142,6 @@
     },
     "example": "res = sp.slx(W, data=df, formula=\"y ~ x\")",
     "failure_modes": [
-      {
-        "alternative": "sp.sar_gmm",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Check W row-standardisation and try a different weights specification or the GMM estimator",
-        "symptom": "Spatial autoregressive parameter at the boundary of its admissible range"
-      },
       {
         "alternative": "sp.sar_gmm",
         "exception": "NumericalInstability",
@@ -100108,12 +99583,6 @@
     "example": "res = sp.rdpower(tau=0.15, n_left=500, n_right=500)",
     "failure_modes": [
       {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
-      {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
@@ -100299,12 +99768,6 @@
     },
     "example": "res = sp.rdsampsi(tau=0.15, target_power=0.80)",
     "failure_modes": [
-      {
-        "alternative": "sp.rdrandinf",
-        "exception": "statspai.exceptions.DataInsufficient",
-        "remedy": "Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction",
-        "symptom": "Selected bandwidth leaves fewer than ~20 effective observations on a side"
-      },
       {
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
@@ -101186,12 +100649,6 @@
     },
     "example": "r = sp.rifreg(\n 'log_wage ~ education + experience',\n data=df, statistic='quantile', tau=0.5,\n)",
     "failure_modes": [
-      {
-        "alternative": "sp.gelbach",
-        "exception": "(none -- informational)",
-        "remedy": "Report both references or the pooled / Shapley-invariant decomposition; the index-number problem is real, not a bug",
-        "symptom": "Explained share changes sign when the reference group is switched"
-      },
       {
         "alternative": "sp.dfl_decompose",
         "exception": "AssumptionWarning",
@@ -102856,12 +102313,6 @@
     "example": "res = sp.source_decompose(df, sources=[\"labor\", \"capital\"])",
     "failure_modes": [
       {
-        "alternative": "sp.gelbach",
-        "exception": "(none -- informational)",
-        "remedy": "Report both references or the pooled / Shapley-invariant decomposition; the index-number problem is real, not a bug",
-        "symptom": "Explained share changes sign when the reference group is switched"
-      },
-      {
         "alternative": "sp.dfl_decompose",
         "exception": "AssumptionWarning",
         "remedy": "Inspect propensity-score support; restrict the analysis sample or use bounds.",
@@ -102991,12 +102442,6 @@
     },
     "example": "res = sp.subgroup_decompose(df, y=\"wage\", by=\"female\", index=\"theil_t\")",
     "failure_modes": [
-      {
-        "alternative": "sp.gelbach",
-        "exception": "(none -- informational)",
-        "remedy": "Report both references or the pooled / Shapley-invariant decomposition; the index-number problem is real, not a bug",
-        "symptom": "Explained share changes sign when the reference group is switched"
-      },
       {
         "alternative": "sp.dfl_decompose",
         "exception": "AssumptionWarning",
@@ -103605,12 +103050,6 @@
     "example": "g = sp.inequality_index(income, index=\"gini\")",
     "failure_modes": [
       {
-        "alternative": "sp.gelbach",
-        "exception": "(none -- informational)",
-        "remedy": "Report both references or the pooled / Shapley-invariant decomposition; the index-number problem is real, not a bug",
-        "symptom": "Explained share changes sign when the reference group is switched"
-      },
-      {
         "alternative": "sp.dfl_decompose",
         "exception": "AssumptionWarning",
         "remedy": "Inspect propensity-score support; restrict the analysis sample or use bounds.",
@@ -103732,12 +103171,6 @@
     },
     "example": "res = sp.shapley_inequality(\n df, y=\"wage\", x=[\"education\", \"experience\"], index=\"theil_t\")",
     "failure_modes": [
-      {
-        "alternative": "sp.gelbach",
-        "exception": "(none -- informational)",
-        "remedy": "Report both references or the pooled / Shapley-invariant decomposition; the index-number problem is real, not a bug",
-        "symptom": "Explained share changes sign when the reference group is switched"
-      },
       {
         "alternative": "sp.dfl_decompose",
         "exception": "AssumptionWarning",
@@ -104643,12 +104076,6 @@
     "example": "res = sp.rake(df, margins=margins)",
     "failure_modes": [
       {
-        "alternative": "sp.svymean",
-        "exception": "statspai.exceptions.MethodIncompatibility",
-        "remedy": "Collapse strata or use the 'certainty' / centered adjustment; variance is otherwise undefined",
-        "symptom": "Single PSU in a stratum"
-      },
-      {
         "alternative": "sp.rake",
         "exception": "(none -- diagnostic)",
         "remedy": "Trim the weights or drop a raking margin; report the design effect",
@@ -104767,12 +104194,6 @@
     },
     "example": "res = sp.aft(\"dur + event ~ x\", data=df, family=\"weibull\")",
     "failure_modes": [
-      {
-        "alternative": "sp.aft",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Stratify on it, add a time interaction, or report an AFT model",
-        "symptom": "Proportional-hazards test rejects for a covariate"
-      },
       {
         "alternative": "sp.kaplan_meier",
         "exception": "(none -- diagnostic)",
@@ -105534,12 +104955,6 @@
         "exception": "statspai.exceptions.AssumptionWarning",
         "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
         "symptom": "Unit root detected in a series used in levels"
-      },
-      {
-        "alternative": "sp.arima",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Rescale the series (percent returns), reduce the order, or supply starting values",
-        "symptom": "GARCH / state-space likelihood fails to converge"
       }
     ],
     "inherits_from": null,
@@ -105675,12 +105090,6 @@
     },
     "example": "res = sp.garch(eps, p=1, q=1)",
     "failure_modes": [
-      {
-        "alternative": "sp.johansen",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
-        "symptom": "Unit root detected in a series used in levels"
-      },
       {
         "alternative": "sp.arima",
         "exception": "statspai.exceptions.ConvergenceWarning",
@@ -105981,10 +105390,10 @@
     "example": "res = sp.frontdoor(df, y='y', d='d', m='m', n_boot=100, seed=0)",
     "failure_modes": [
       {
-        "alternative": "sp.mediate_sensitivity",
-        "exception": "(none -- sensitivity)",
-        "remedy": "Report the sp.mediate_sensitivity curve and the rho at which the effect crosses zero",
-        "symptom": "Indirect effect sensitive to small mediator-outcome confounding (rho)"
+        "alternative": "sp.mediation",
+        "exception": "(none -- informational)",
+        "remedy": "Argue full mediation and mediator exogeneity from the design, or switch to back-door adjustment or an instrument",
+        "symptom": "A direct path from treatment to outcome bypasses the mediator, or the mediator-outcome relation is confounded: the front-door formula no longer returns the total effect"
       }
     ],
     "inherits_from": null,
@@ -106109,12 +105518,6 @@
     },
     "example": "result = sp.xlearner(df, y='y', d='d', X=['x1', 'x2'])",
     "failure_modes": [
-      {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
       {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
@@ -106262,12 +105665,6 @@
     },
     "example": "res = sp.conformal_ite(df, y='y', d='d', X=['x1', 'x2'])",
     "failure_modes": [
-      {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
       {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
@@ -106703,12 +106100,6 @@
       },
       {
         "alternative": "sp.anderson_rubin_ci",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Do not report 2SLS t-ratios; use sp.anderson_rubin_ci or sp.tF_adjustment for the reported interval",
-        "symptom": "Effective F below the Montiel Olea-Pflueger threshold"
-      },
-      {
-        "alternative": "sp.anderson_rubin_ci",
         "exception": "AssumptionWarning",
         "remedy": "Use weak-IV-robust inference (Anderson-Rubin) or LIML.",
         "symptom": "First-stage F < 10 (Stock-Yogo 5% bias)"
@@ -106898,12 +106289,6 @@
         "exception": "(none -- informational)",
         "remedy": "Report it as is: an unbounded set means the data do not pin the effect down; an empty set rejects the over-identifying restrictions",
         "symptom": "Unbounded or empty Anderson-Rubin confidence set"
-      },
-      {
-        "alternative": "sp.anderson_rubin_ci",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Do not report 2SLS t-ratios; use sp.anderson_rubin_ci or sp.tF_adjustment for the reported interval",
-        "symptom": "Effective F below the Montiel Olea-Pflueger threshold"
       },
       {
         "alternative": "sp.anderson_rubin_ci",
@@ -107101,12 +106486,6 @@
     },
     "example": "round(sp.tF_adjustment(100.0), 2) # 1.96 only from F = 106.09 on",
     "failure_modes": [
-      {
-        "alternative": "sp.conditional_lr_ci",
-        "exception": "(none -- informational)",
-        "remedy": "Report it as is: an unbounded set means the data do not pin the effect down; an empty set rejects the over-identifying restrictions",
-        "symptom": "Unbounded or empty Anderson-Rubin confidence set"
-      },
       {
         "alternative": "sp.anderson_rubin_ci",
         "exception": "statspai.exceptions.AssumptionWarning",
@@ -107849,16 +107228,10 @@
     "example": "res = sp.evalue_rr(2.0, rr_lower=1.5, rr_upper=2.7)",
     "failure_modes": [
       {
-        "alternative": "sp.attrition_bounds",
-        "exception": "(none -- identification)",
-        "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
-        "symptom": "No credible exclusion restriction for Heckman selection"
-      },
-      {
-        "alternative": "sp.evalue_rr",
+        "alternative": "sp.sensemakr",
         "exception": "(none -- informational)",
-        "remedy": "The result is fragile to weak hidden bias; say so and look for design-based evidence (placebos, sp.evalue_rr)",
-        "symptom": "Rosenbaum Gamma at which significance is lost is close to 1"
+        "remedy": "Benchmark against the strongest observed covariate",
+        "symptom": "Sensitivity value reported without a benchmark: a large E-value is not robustness unless it exceeds what measured confounders achieve"
       }
     ],
     "inherits_from": null,
@@ -108185,12 +107558,6 @@
         "exception": "statspai.exceptions.AssumptionViolation",
         "remedy": "Align time zero with eligibility and treatment assignment (sp.immortal_time_check flags the misalignment)",
         "symptom": "Immortal-time bias: follow-up starts before treatment is assigned"
-      },
-      {
-        "alternative": "sp.gformula_mc",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Truncate the weights or restrict the strategy to regimes that are observed",
-        "symptom": "Positivity violations at later time points"
       }
     ],
     "inherits_from": null,
@@ -108304,16 +107671,10 @@
     "example": "res = sp.transport_generalize(\n rct, target, features=[\"x\"], treatment=\"treat\", outcome=\"y\")",
     "failure_modes": [
       {
-        "alternative": "sp.target_trial_emulate",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "Align time zero with eligibility and treatment assignment (sp.immortal_time_check flags the misalignment)",
-        "symptom": "Immortal-time bias: follow-up starts before treatment is assigned"
-      },
-      {
-        "alternative": "sp.gformula_mc",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Truncate the weights or restrict the strategy to regimes that are observed",
-        "symptom": "Positivity violations at later time points"
+        "alternative": "sp.overlap_weights",
+        "exception": "(none -- informational)",
+        "remedy": "Restrict the target to the region of overlap and report the effective sample size",
+        "symptom": "Effect modifiers in the target population have little overlap with the source sample: the transport weights are extreme"
       }
     ],
     "inherits_from": null,
@@ -108430,12 +107791,6 @@
     },
     "example": "res2 = sp.gformula_mc(\n df,\n treatment_cols=['A0', 'A1', 'A2'],\n confounder_cols=[['L0'], ['L1'], ['L2']],\n outcome_col='Y',\n strategy=dynamic,\n n_simulations=2000, bootstrap=0, seed=0,\n)",
     "failure_modes": [
-      {
-        "alternative": "sp.target_trial_emulate",
-        "exception": "statspai.exceptions.AssumptionViolation",
-        "remedy": "Align time zero with eligibility and treatment assignment (sp.immortal_time_check flags the misalignment)",
-        "symptom": "Immortal-time bias: follow-up starts before treatment is assigned"
-      },
       {
         "alternative": "sp.gformula_mc",
         "exception": "statspai.exceptions.AssumptionWarning",
@@ -108820,16 +108175,9 @@
     "example": "res = sp.diagnostic_test(tp=90, fn=10, fp=5, tn=95)",
     "failure_modes": [
       {
-        "alternative": "sp.hausman_test",
         "exception": "(none -- informational)",
-        "remedy": "Use the regression-based (auxiliary) Hausman test or a robust version; a negative statistic is evidence for the null",
-        "symptom": "Hausman statistic negative / covariance difference not positive definite"
-      },
-      {
-        "alternative": "sp.regress",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Refit with robust SEs (vce='hc1' / cluster) and consider polynomial or interaction terms",
-        "symptom": "Heteroskedasticity or RESET rejects"
+        "remedy": "State the sampling design and compute predictive values at the target prevalence",
+        "symptom": "Sensitivity and specificity estimated in a case-control or referred sample do not carry over to the target population (spectrum bias)"
       }
     ],
     "inherits_from": null,
@@ -108965,12 +108313,6 @@
     },
     "example": "sp.auc(y, s)",
     "failure_modes": [
-      {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
       {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
@@ -111107,16 +110449,10 @@
     "example": "res = sp.survival_sensitivity(0.4, 0.15)",
     "failure_modes": [
       {
-        "alternative": "sp.aft",
-        "exception": "statspai.exceptions.AssumptionWarning",
-        "remedy": "Stratify on it, add a time interaction, or report an AFT model",
-        "symptom": "Proportional-hazards test rejects for a covariate"
-      },
-      {
-        "alternative": "sp.kaplan_meier",
-        "exception": "(none -- diagnostic)",
-        "remedy": "Reduce the model or report Kaplan-Meier / log-rank comparisons instead of a multivariable fit",
-        "symptom": "Fewer than ~10 events per covariate"
+        "alternative": "sp.evalue_rr",
+        "exception": "(none -- informational)",
+        "remedy": "Report the smallest departure at which the conclusion changes, not the point estimate alone",
+        "symptom": "The bounds include the null for small departures from no unmeasured confounding"
       }
     ],
     "inherits_from": null,
@@ -111232,16 +110568,10 @@
     "example": "res = sp.calibrate_confounding_strength(\n 0.3, 0.1, observed_r2_outcome=0.1, observed_r2_treatment=0.1,\n dof=500)",
     "failure_modes": [
       {
-        "alternative": "sp.attrition_bounds",
-        "exception": "(none -- identification)",
-        "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
-        "symptom": "No credible exclusion restriction for Heckman selection"
-      },
-      {
-        "alternative": "sp.evalue_rr",
+        "alternative": "sp.sensemakr",
         "exception": "(none -- informational)",
-        "remedy": "The result is fragile to weak hidden bias; say so and look for design-based evidence (placebos, sp.evalue_rr)",
-        "symptom": "Rosenbaum Gamma at which significance is lost is close to 1"
+        "remedy": "Benchmark against the strongest observed covariate",
+        "symptom": "Sensitivity value reported without a benchmark: a large E-value is not robustness unless it exceeds what measured confounders achieve"
       }
     ],
     "inherits_from": null,
@@ -113948,10 +113278,10 @@
     "example": "round(sp.transitivity(g), 4)",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
+        "alternative": "sp.network_summary",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Compare with a random graph that preserves density or the degree sequence",
+        "symptom": "Statistic read as a social process without a benchmark: a random graph of the same density already has nonzero clustering"
       }
     ],
     "inherits_from": null,
@@ -114035,10 +113365,10 @@
     "example": "sp.clustering(g).tolist()",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
+        "alternative": "sp.network_summary",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Compare with a random graph that preserves density or the degree sequence",
+        "symptom": "Statistic read as a social process without a benchmark: a random graph of the same density already has nonzero clustering"
       }
     ],
     "inherits_from": null,
@@ -114124,10 +113454,10 @@
     "example": "round(sp.reciprocity(g), 3)",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
+        "alternative": "sp.network_summary",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Compare with a random graph that preserves density or the degree sequence",
+        "symptom": "Statistic read as a social process without a benchmark: a random graph of the same density already has nonzero clustering"
       }
     ],
     "inherits_from": null,
@@ -114213,10 +113543,10 @@
     "example": "val = sp.assortativity(sp.karate_club())",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
+        "alternative": "sp.network_summary",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Compare with a random graph that preserves density or the degree sequence",
+        "symptom": "Statistic read as a social process without a benchmark: a random graph of the same density already has nonzero clustering"
       }
     ],
     "inherits_from": null,
@@ -114303,10 +113633,9 @@
     "example": "sp.network_components(g).n_components",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Report the component sizes and compute path-based statistics per component",
+        "symptom": "Whole-graph averages are dominated by the largest component; isolates and small components disappear in them"
       }
     ],
     "inherits_from": null,
@@ -114405,10 +113734,10 @@
     "example": "float(sp.degree_centrality(g, normalized=False).loc[1])",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
+        "alternative": "sp.network_summary",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Compare ranks or normalised scores within one network; raw values scale with the number of nodes and edges",
+        "symptom": "Centrality scores compared across networks of different size or density"
       }
     ],
     "inherits_from": null,
@@ -114600,10 +113929,10 @@
     "example": "float(sp.betweenness_centrality(g, normalized=False).loc[1])",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
+        "alternative": "sp.network_summary",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Compare ranks or normalised scores within one network; raw values scale with the number of nodes and edges",
+        "symptom": "Centrality scores compared across networks of different size or density"
       }
     ],
     "inherits_from": null,
@@ -114910,10 +114239,10 @@
     "example": "round(float(sp.pagerank(g).sum()), 6)",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
+        "alternative": "sp.network_summary",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Compare ranks or normalised scores within one network; raw values scale with the number of nodes and edges",
+        "symptom": "Centrality scores compared across networks of different size or density"
       }
     ],
     "inherits_from": null,
@@ -115118,10 +114447,10 @@
     "example": "sorted(sp.hits(g).columns)",
     "failure_modes": [
       {
-        "alternative": "sp.network_components",
+        "alternative": "sp.network_summary",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Compare ranks or normalised scores within one network; raw values scale with the number of nodes and edges",
+        "symptom": "Centrality scores compared across networks of different size or density"
       }
     ],
     "inherits_from": null,
@@ -115221,8 +114550,8 @@
       {
         "alternative": "sp.network_components",
         "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
+        "remedy": "Fix the seed, compare several runs and report Q together with the number of communities",
+        "symptom": "Modularity optimisation returns different partitions across runs and can merge small communities (resolution limit)"
       }
     ],
     "inherits_from": null,
@@ -115317,14 +114646,7 @@
       "tolerance": "Adjacency matrix identical."
     },
     "example": "g = sp.karate_club()",
-    "failure_modes": [
-      {
-        "alternative": "sp.network_components",
-        "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
-      }
-    ],
+    "failure_modes": [],
     "inherits_from": null,
     "limitations": [],
     "name": "karate_club",
@@ -115336,7 +114658,6 @@
       "alternatives": "family",
       "assumptions": "family",
       "example": "docstring",
-      "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "docstring",
       "returns": "docstring"
@@ -115406,14 +114727,7 @@
       "tolerance": "The 20 marriage ties are identical edge for edge; the Pucci isolate is omitted (15 nodes against 16), which is documented."
     },
     "example": "g = sp.florentine_families()",
-    "failure_modes": [
-      {
-        "alternative": "sp.network_components",
-        "exception": "(none -- informational)",
-        "remedy": "Compute per component (sp.network_components) or use harmonic closeness / Katz centrality",
-        "symptom": "Disconnected graph: closeness / eigenvector centrality undefined or zero for some nodes"
-      }
-    ],
+    "failure_modes": [],
     "inherits_from": null,
     "limitations": [],
     "name": "florentine_families",
@@ -115425,7 +114739,6 @@
       "alternatives": "family",
       "assumptions": "family",
       "example": "docstring",
-      "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "docstring",
       "returns": "docstring"
@@ -115622,12 +114935,6 @@
     },
     "example": "lower, upper, point = sp.weighted_conformal_prediction(\n X_train, y_train, X_calib, y_calib, X_test, alpha=0.1)",
     "failure_modes": [
-      {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
       {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
@@ -115917,12 +115224,6 @@
     },
     "example": "res = sp.conformal_ite_interval(\n df, y=\"y\", treat=\"t\", covariates=[\"x1\", \"x2\"],\n alpha=0.1, random_state=0)",
     "failure_modes": [
-      {
-        "alternative": "sp.average_treatment_effect",
-        "exception": "(none -- informational)",
-        "remedy": "The learner has no detectable heterogeneity beyond the ATE; report the ATE and do not target on the CATE",
-        "symptom": "Calibration slope near zero"
-      },
       {
         "alternative": "sp.calibrate_cate",
         "exception": "statspai.AssumptionWarning",
@@ -119465,12 +118766,6 @@
         "exception": "statspai.exceptions.AssumptionWarning",
         "remedy": "Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling",
         "symptom": "Unit root detected in a series used in levels"
-      },
-      {
-        "alternative": "sp.arima",
-        "exception": "statspai.exceptions.ConvergenceWarning",
-        "remedy": "Rescale the series (percent returns), reduce the order, or supply starting values",
-        "symptom": "GARCH / state-space likelihood fails to converge"
       }
     ],
     "inherits_from": null,
@@ -120191,12 +119486,6 @@
     "example": "res = sp.rosenbaum_bounds(treated, control)",
     "failure_modes": [
       {
-        "alternative": "sp.attrition_bounds",
-        "exception": "(none -- identification)",
-        "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
-        "symptom": "No credible exclusion restriction for Heckman selection"
-      },
-      {
         "alternative": "sp.evalue_rr",
         "exception": "(none -- informational)",
         "remedy": "The result is fragile to weak hidden bias; say so and look for design-based evidence (placebos, sp.evalue_rr)",
@@ -120364,12 +119653,6 @@
     },
     "example": "res.gamma_critical >= 1.0",
     "failure_modes": [
-      {
-        "alternative": "sp.attrition_bounds",
-        "exception": "(none -- identification)",
-        "remedy": "Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality",
-        "symptom": "No credible exclusion restriction for Heckman selection"
-      },
       {
         "alternative": "sp.evalue_rr",
         "exception": "(none -- informational)",

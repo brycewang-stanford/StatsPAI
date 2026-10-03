@@ -28,7 +28,7 @@ loudly here instead of silently dropping a card.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 Card = Dict[str, Any]
 
@@ -1466,8 +1466,8 @@ VARIANT_OVERRIDES: Dict[str, Dict[str, Dict[str, List[str]]]] = {
 #: member of the family it is dropped. A statement not listed applies to
 #: the whole family.
 #:
-#: Written from one reading of all 30 family cards on 2026-10-03; only
-#: ``assumptions`` were read, not ``failure_modes``.
+#: Written from one reading of all 30 family cards on 2026-10-03.
+#: ``FAILURE_SCOPE`` below does the same for ``failure_modes``.
 STATEMENT_SCOPE: Dict[str, Dict[str, Tuple[str, ...]]] = {
     "binary_ordered_multinomial": {
         _ORDERED: ("ologit", "oprobit", "meologit"),
@@ -1629,6 +1629,457 @@ STATEMENT_SCOPE: Dict[str, Dict[str, Tuple[str, ...]]] = {
 }
 
 
+#: The same for ``failure_modes``, matched on the symptom. Read on
+#: 2026-10-03 after the assumptions.
+_DECOMP_TWO_GROUP = (
+    "bauer_sinning",
+    "fairlie",
+    "machado_mata",
+    "melly_decompose",
+    "cfm_decompose",
+    "kitagawa_decompose",
+    "gelbach",
+    "das_gupta",
+    "gap_closing",
+    "four_way_decomposition",
+    "yu_elwert_decompose",
+)
+
+FAILURE_SCOPE: Dict[str, Dict[str, Tuple[str, ...]]] = {
+    "count_models": {
+        "Over-dispersion: Poisson deviance": (
+            "poisson",
+            "ppmlhdfe",
+            "mepoisson",
+            "zip_model",
+            "hurdle",
+        ),
+    },
+    "survival": {
+        "Proportional-hazards test rejects": ("cox", "cox_frailty"),
+        "Fewer than ~10 events per covariate": (
+            "cox",
+            "cox_frailty",
+            "aft",
+            "survreg",
+            "finegray",
+        ),
+    },
+    "weak_iv_inference": {
+        "Unbounded or empty Anderson-Rubin confidence set": (
+            "anderson_rubin_ci",
+            "anderson_rubin_test",
+            "conditional_lr_ci",
+            "weakrobust",
+        ),
+        "Effective F below the Montiel Olea-Pflueger threshold": (
+            "effective_f_test",
+            "weakrobust",
+            "tF_adjustment",
+            "tF_critical_value",
+        ),
+    },
+    "rd_tools": {
+        "Selected bandwidth leaves fewer than": (
+            "rdbwselect",
+            "lpbwselect_ce_rot",
+            "lpbwselect_imse_dpi",
+            "lpbwselect_imse_rot",
+            "lpbwselect_mse_dpi",
+            "lpbwselect_mse_rot",
+            "rd2d_bw",
+            "rdbwhte",
+        ),
+    },
+    "multiple_testing": {
+        "All adjusted p-values become 1": ("bonferroni", "holm", "adjust_pvalues"),
+    },
+    "spatial_esda": {
+        "Residual Moran's I significant after OLS": ("moran_residuals", "lm_tests"),
+    },
+    "spatial_models": {
+        "Spatial autoregressive parameter at the boundary": (
+            "sac",
+            "sar_gmm",
+            "sarar_gmm",
+            "sem_gmm",
+            "spatial_panel",
+        ),
+    },
+    "network_descriptives": {
+        "Disconnected graph: closeness / eigenvector": (
+            "centrality",
+            "closeness_centrality",
+            "eigenvector_centrality",
+            "katz_centrality",
+            "bonacich_power",
+        ),
+    },
+    "power": {
+        "ICC unknown for a cluster-randomised design": ("power_cluster_rct", "mde"),
+    },
+    "decomposition_family": {
+        "Explained share changes sign when the reference group": _DECOMP_TWO_GROUP,
+    },
+    "mediation": {
+        "Indirect effect sensitive to small mediator-outcome": (
+            "mediation",
+            "mediate_sensitivity",
+            "mediation_decompose",
+        ),
+    },
+    "selection_and_bounds": {
+        "No credible exclusion restriction for Heckman": ("heckman", "etregress"),
+        "Rosenbaum Gamma at which significance is lost": (
+            "rosenbaum_bounds",
+            "rosenbaum_gamma",
+        ),
+    },
+    "survey": {
+        "Single PSU in a stratum": ("svymean", "svytotal", "svyglm"),
+        "Extreme raked weights": ("rake",),
+    },
+    "time_series": {
+        "Unit root detected in a series used in levels": (
+            "arima",
+            "bvar",
+            "irf",
+            "granger_causality",
+            "its",
+        ),
+        "GARCH / state-space likelihood fails to converge": (
+            "garch",
+            "causal_kalman",
+            "arima",
+        ),
+    },
+    "dynamic_panel": {
+        "Hansen J-test p-value near 1 with many instruments": ("xtdpdsys",),
+        "AR(2) test rejects": ("xtdpdsys",),
+    },
+    "post_estimation": {
+        "Hausman statistic negative": ("hausman_test",),
+        "Heteroskedasticity or RESET rejects": ("het_test", "reset_test"),
+    },
+    "regression_extensions": {
+        "Hansen J-test rejects over-identifying restrictions": ("gmm", "three_sls"),
+    },
+    "ml_causal_helpers": {
+        "Calibration slope near zero": (
+            "calibrate_cate",
+            "linear_calibration",
+            "blp",
+            "best_linear_projection",
+        ),
+    },
+    "longitudinal_causal": {
+        "Immortal-time bias": (
+            "target_trial_emulate",
+            "target_trial_report",
+            "immortal_time_check",
+        ),
+        "Positivity violations at later time points": (
+            "gformula_ice_fn",
+            "gformula_mc",
+            "target_trial_emulate",
+        ),
+    },
+    "missing_data_and_randomization": {
+        "Many subgroups, one 'significant' at 5%": ("subgroup_analysis",),
+    },
+}
+
+
+#: Failure modes that belong to named members only. ``FAILURE_SCOPE`` left
+#: these functions with nothing, because every family statement was about a
+#: sibling; each entry here was written for the functions it lists.
+MEMBER_FAILURE_MODES: List[Tuple[Tuple[str, ...], Dict[str, str]]] = [
+    (
+        ("kaplan_meier", "cuminc"),
+        {
+            "symptom": "Few subjects at risk in the right tail: the last steps of the curve rest on a handful of observations",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Report the number at risk under the curve and stop the plotted range where it is small",
+        },
+    ),
+    (
+        ("kaplan_meier",),
+        {
+            "symptom": "Competing events treated as censoring: 1 - KM overstates the cumulative incidence of the event of interest",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Estimate the cumulative incidence function with the Aalen-Johansen estimator",
+            "alternative": "sp.cuminc",
+        },
+    ),
+    (
+        ("logrank_test",),
+        {
+            "symptom": "Survival curves cross: the log-rank test has little power against non-proportional alternatives",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Show the curves and do not read a non-rejection as equal survival; compare at fixed horizons",
+            "alternative": "sp.kaplan_meier",
+        },
+    ),
+    (
+        ("survival_sensitivity",),
+        {
+            "symptom": "The bounds include the null for small departures from no unmeasured confounding",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Report the smallest departure at which the conclusion changes, not the point estimate alone",
+            "alternative": "sp.evalue_rr",
+        },
+    ),
+    (
+        ("lcsf",),
+        {
+            "symptom": "Latent classes are not separated: posterior class probabilities stay near one half",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Compare against the single-class frontier by information criteria and report the posterior probabilities",
+            "alternative": "sp.frontier",
+        },
+    ),
+    (
+        ("benjamini_hochberg",),
+        {
+            "symptom": "FDR control read as family-wise control: at q = 0.05 some of the rejections are expected to be false, and the guarantee assumes independent or positively dependent p-values",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Use Holm or Romano-Wolf when every rejection has to stand",
+            "alternative": "sp.holm",
+        },
+    ),
+    (
+        ("romano_wolf",),
+        {
+            "symptom": "Too few bootstrap replications: adjusted p-values move in steps of 1 / (B + 1)",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Raise the number of replications until the adjusted p-values are stable across seeds",
+            "alternative": "sp.holm",
+        },
+    ),
+    (
+        ("degree_centrality", "betweenness_centrality", "pagerank", "hits"),
+        {
+            "symptom": "Centrality scores compared across networks of different size or density",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Compare ranks or normalised scores within one network; raw values scale with the number of nodes and edges",
+            "alternative": "sp.network_summary",
+        },
+    ),
+    (
+        ("assortativity", "reciprocity", "transitivity", "clustering"),
+        {
+            "symptom": "Statistic read as a social process without a benchmark: a random graph of the same density already has nonzero clustering",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Compare with a random graph that preserves density or the degree sequence",
+            "alternative": "sp.network_summary",
+        },
+    ),
+    (
+        ("community_detection", "network_modularity"),
+        {
+            "symptom": "Modularity optimisation returns different partitions across runs and can merge small communities (resolution limit)",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Fix the seed, compare several runs and report Q together with the number of communities",
+            "alternative": "sp.network_components",
+        },
+    ),
+    (
+        ("network_components", "network_summary"),
+        {
+            "symptom": "Whole-graph averages are dominated by the largest component; isolates and small components disappear in them",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Report the component sizes and compute path-based statistics per component",
+        },
+    ),
+    (
+        ("network_graph",),
+        {
+            "symptom": "Duplicate rows or self-loops in the edge list change every degree-based statistic",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Deduplicate the edge list and decide how self-loops are treated before building the graph",
+            "alternative": "sp.network_summary",
+        },
+    ),
+    (
+        (
+            "power_ols",
+            "power_rct",
+            "power_two_proportions",
+            "power_case_control",
+            "power_logrank",
+        ),
+        {
+            "symptom": "Effect size taken from a small pilot or from a published significant estimate: realised power is well below the nominal value",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Compute power for the smallest effect of interest and report the minimum detectable effect",
+            "alternative": "sp.mde",
+        },
+    ),
+    (
+        ("power_rct", "power_two_proportions"),
+        {
+            "symptom": "Units are randomised in clusters but power is computed as if they were independent",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Apply the design effect 1 + (m - 1) * ICC",
+            "alternative": "sp.power_cluster_rct",
+        },
+    ),
+    (
+        ("frontdoor",),
+        {
+            "symptom": "A direct path from treatment to outcome bypasses the mediator, or the mediator-outcome relation is confounded: the front-door formula no longer returns the total effect",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Argue full mediation and mediator exogeneity from the design, or switch to back-door adjustment or an instrument",
+            "alternative": "sp.mediation",
+        },
+    ),
+    (
+        ("attrition_bounds",),
+        {
+            "symptom": "Bounds are too wide to sign the effect when attrition differs sharply between arms",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Tighten them with baseline covariates and state the monotonicity assumption in use",
+            "alternative": "sp.lee_bounds",
+        },
+    ),
+    (
+        ("attrition_test",),
+        {
+            "symptom": "Equal attrition rates read as no attrition bias: the same rate does not mean the same units leave",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Compare baseline covariates of attriters by arm and report bounds",
+            "alternative": "sp.attrition_bounds",
+        },
+    ),
+    (
+        (
+            "bias_factor",
+            "evalue_rr",
+            "evalue_from_result",
+            "calibrate_confounding_strength",
+        ),
+        {
+            "symptom": "Sensitivity value reported without a benchmark: a large E-value is not robustness unless it exceeds what measured confounders achieve",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Benchmark against the strongest observed covariate",
+            "alternative": "sp.sensemakr",
+        },
+    ),
+    (
+        ("engle_granger", "johansen"),
+        {
+            "symptom": "Series are not all integrated of order one, or the deterministic terms or lag length are wrong: the cointegration conclusion changes with the specification",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Test the order of integration of each series first and report the result across lag and trend choices",
+            "alternative": "sp.unitroot",
+        },
+    ),
+    (
+        ("cusum_test", "structural_break"),
+        {
+            "symptom": "Serially correlated residuals or a break near the sample edge: stability tests over-reject and the break date is imprecise",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Model the dynamics first, trim the sample ends and report the break date with its interval",
+            "alternative": "sp.its",
+        },
+    ),
+    (
+        ("test", "lincom"),
+        {
+            "symptom": "Few clusters or a nearly singular restriction covariance: the chi-square / F reference distribution is unreliable",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Use a wild cluster bootstrap for the restriction",
+            "alternative": "sp.wild_cluster_bootstrap",
+        },
+    ),
+    (
+        ("lrtest",),
+        {
+            "symptom": "Models are not nested, are fitted on different samples, or use a robust / cluster variance: the likelihood-ratio statistic has no chi-square reference",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Fit both models on the same rows and use a Wald test when the variance is robust",
+            "alternative": "sp.test",
+        },
+    ),
+    (
+        ("contrast", "margins", "margins_at", "pwcompare"),
+        {
+            "symptom": "Margins evaluated at covariate combinations the data do not contain",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Evaluate at observed values or within the observed range and report average marginal effects",
+        },
+    ),
+    (
+        ("vif",),
+        {
+            "symptom": "A high VIF on a control read as a problem for the coefficient of interest",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Collinearity among controls does not bias that coefficient; read the VIF of the regressor of interest",
+            "alternative": "sp.regress",
+        },
+    ),
+    (
+        ("yatchew_linearity_test",),
+        {
+            "symptom": "Small sample: the test is asymptotic and has low power against smooth departures from the polynomial",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Report it next to a RESET test and a plot of binned residuals",
+            "alternative": "sp.reset_test",
+        },
+    ),
+    (
+        ("diagnostic_test",),
+        {
+            "symptom": "Sensitivity and specificity estimated in a case-control or referred sample do not carry over to the target population (spectrum bias)",
+            "exception": "(none \u2014 informational)",
+            "remedy": "State the sampling design and compute predictive values at the target prevalence",
+        },
+    ),
+    (
+        ("transport_generalize", "transport_weights_fn"),
+        {
+            "symptom": "Effect modifiers in the target population have little overlap with the source sample: the transport weights are extreme",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Restrict the target to the region of overlap and report the effective sample size",
+            "alternative": "sp.overlap_weights",
+        },
+    ),
+    (
+        ("geolift",),
+        {
+            "symptom": "Poor pre-period fit of the synthetic control: the lift estimate carries the fit error",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Inspect the pre-period RMSPE and placebo tests; lengthen the pre-period or change the donor pool",
+            "alternative": "sp.synth",
+        },
+    ),
+    (
+        ("interflex",),
+        {
+            "symptom": "The moderator has sparse support in part of its range: marginal effects there are extrapolation",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Use the binning or kernel estimator and show the moderator histogram under the plot",
+        },
+    ),
+    (
+        ("mice", "mi_estimate", "mi_test"),
+        {
+            "symptom": "Imputation model omits the outcome or other analysis variables: pooled associations are biased toward zero",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Include the outcome, every analysis covariate and the interactions in the imputation model",
+        },
+    ),
+    (
+        ("ri_test", "fisher_exact"),
+        {
+            "symptom": "Permutations do not follow the actual assignment mechanism (blocks, clusters): the randomization p-value is not valid",
+            "exception": "(none \u2014 informational)",
+            "remedy": "Permute within strata and at the level at which treatment was assigned",
+        },
+    ),
+]
+
+
 def _family_of() -> Dict[str, str]:
     out: Dict[str, str] = {}
     for family, spec in FAMILY_CARDS.items():
@@ -1640,14 +2091,17 @@ def _family_of() -> Dict[str, str]:
 _FAMILY_OF = _family_of()
 
 
-def _out_of_scope_prefixes(name: str) -> Tuple[str, ...]:
+def _out_of_scope_prefixes(
+    name: str, table: Optional[Dict[str, Dict[str, Tuple[str, ...]]]] = None
+) -> Tuple[str, ...]:
     """Prefixes of family statements that are about other members."""
     family = _FAMILY_OF.get(name)
     if family is None:
         return ()
+    scope = STATEMENT_SCOPE if table is None else table
     return tuple(
         prefix
-        for prefix, members in STATEMENT_SCOPE.get(family, {}).items()
+        for prefix, members in scope.get(family, {}).items()
         if name not in members
     )
 
@@ -1659,6 +2113,19 @@ def apply_variant_overrides(
     scoped = _out_of_scope_prefixes(name)
     if scoped:
         assumptions = [a for a in assumptions if not str(a).startswith(scoped)]
+    scoped_f = _out_of_scope_prefixes(name, FAILURE_SCOPE)
+    if scoped_f:
+        failure_modes = [
+            fm
+            for fm in failure_modes
+            if not str(fm.get("symptom", "")).startswith(scoped_f)
+        ]
+    own = [dict(fm) for members, fm in MEMBER_FAILURE_MODES if name in members]
+    if own:
+        seen = {str(fm.get("symptom", "")) for fm in failure_modes}
+        failure_modes = list(failure_modes) + [
+            fm for fm in own if fm["symptom"] not in seen
+        ]
     override = VARIANT_OVERRIDES.get(name)
     if not override:
         return assumptions, failure_modes
@@ -1679,7 +2146,9 @@ def apply_variant_overrides(
 
 
 __all__ = [
+    "FAILURE_SCOPE",
     "FAMILY_CARDS",
+    "MEMBER_FAILURE_MODES",
     "STATEMENT_SCOPE",
     "VARIANT_OVERRIDES",
     "apply_variant_overrides",

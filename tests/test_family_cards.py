@@ -9,7 +9,11 @@ import pytest
 import statspai as sp
 from statspai import exceptions as sp_exceptions
 from statspai import registry
-from statspai._family_cards import FAMILY_CARDS, expand_family_cards
+from statspai._family_cards import (
+    FAMILY_CARDS,
+    apply_variant_overrides,
+    expand_family_cards,
+)
 
 registry._ensure_full_registry()
 _REG = registry._REGISTRY
@@ -38,7 +42,10 @@ def test_card_pointers_resolve(family):
         exc = fm["exception"]
         if not exc.startswith("(none"):
             leaf = exc.split(".")[-1]
-            assert hasattr(sp_exceptions, leaf) or hasattr(builtins, leaf), (family, exc)
+            assert hasattr(sp_exceptions, leaf) or hasattr(builtins, leaf), (
+                family,
+                exc,
+            )
     parent = card.get("inherits_from")
     if parent:
         assert parent in _REG and _REG[parent].assumptions, (family, parent)
@@ -62,12 +69,19 @@ def test_cards_reach_the_registry():
     for name, card in cards.items():
         spec = _REG[name]
         merged = spec.agent_card()
-        for a in card.get("assumptions", []):
+        # A family statement reaches the members it is about, and only
+        # those: ``apply_variant_overrides`` holds the scoping.
+        kept, _ = apply_variant_overrides(name, list(card.get("assumptions", [])), [])
+        dropped = set(card.get("assumptions", [])) - set(kept)
+        for a in kept:
             assert a in merged["assumptions"], (name, a[:40])
+        for a in dropped:
+            assert a not in merged["assumptions"], (name, a[:40])
         if card.get("inherits_from"):
             assert spec.inherits_from  # family parent or a declared one
         described = sp.describe_function(name)
-        assert described["assumptions"], name
+        if kept:
+            assert described["assumptions"], name
 
 
 def test_hand_written_specs_keep_their_own_first():

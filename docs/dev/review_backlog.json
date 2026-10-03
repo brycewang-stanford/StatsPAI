@@ -154,10 +154,11 @@
         "src/statspai/_family_cards.py"
       ],
       "tests": [
-        "tests/test_agent_card_audit.py"
+        "tests/test_agent_card_audit.py",
+        "tests/test_family_cards.py"
       ],
-      "note": "通读了全部 30 张家族卡片（271 个成员）的 `assumptions`，把 52 24 220 条（分布在  个家族里）本来就点名了适用对象的陈述（“Cox: …”、“Frailty models: …”、“Romano-Wolf …”）限定到对应成员，其它成员不再继承，共  个成员的卡片因此变短。例如 `kaplan_meier` 不再列 Cox 的比例风险，`bonferroni` 不再列 Romano-Wolf 的 bootstrap，`icc` 不再列随机前沿的假设。没做的：`failure_modes` 没有读；真实调用核对（必填参数、枚举值、返回类型）仍只覆盖 30 个；两个专门方法（`assimilative_causal`、`evidence_without_injustice`）限定后没有任何假设，我不熟悉到能替它们写的程度，留空了。",
-      "next": "读家族卡片的 `failure_modes`；给审查脚本每次加 10 个函数的调用"
+      "note": "通读了全部 30 张家族卡片（271 个成员）的 `assumptions` 和 `failure_modes`。52 条假设（分布在 24 个家族里）本来就点名了适用对象（“Cox: …”、“Frailty models: …”、“Romano-Wolf …”），现在限定到对应成员，220 个成员的卡片因此变短。41 条家族失败模式里有 28 条同样只关乎个别成员，142 张卡片原先带着不属于自己的那条（`kaplan_meier` 被告知比例风险检验拒绝时怎么办，`lincom` 被告知 Hausman 统计量为负时怎么办）。限定后有 55 个方法没有任何失败模式，为它们各写了属于自己的（`MEMBER_FAILURE_MODES`，31 条）。没做的：真实调用核对（必填参数、枚举值、返回类型）仍只覆盖 30 个；两个专门方法（`assimilative_causal`、`evidence_without_injustice`）限定后没有任何假设，我不熟悉到能替它们写的程度，留空了；新写的 31 条失败模式是统计常识层面的陈述，没有逐条对着实现验证触发条件，所以 `exception` 一律写的是“无，仅提示”。",
+      "next": "给审查脚本每次加 10 个函数的调用；请领域作者过一遍新写的 31 条失败模式"
     },
     {
       "id": "A2",

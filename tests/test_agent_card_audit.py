@@ -247,3 +247,73 @@ def test_utilities_carry_no_borrowed_assumption():
     """A weights constructor or an exporter has nothing to assume; say nothing."""
     for name in ("W", "scdata", "influence_functions", "validation_scope"):
         assert sp.describe_function(name)["assumptions"] == [], name
+
+
+# ---------------------------------------------------------------------------
+# The same for failure modes
+# ---------------------------------------------------------------------------
+
+
+def _symptoms(name):
+    return " | ".join(f["symptom"] for f in sp.describe_function(name)["failure_modes"])
+
+
+def test_failure_scope_names_real_symptoms_and_real_members():
+    from statspai._family_cards import FAILURE_SCOPE, FAMILY_CARDS
+
+    n_scoped = 0
+    for family, table in FAILURE_SCOPE.items():
+        symptoms = [f["symptom"] for f in FAMILY_CARDS[family]["failure_modes"]]
+        members = set(FAMILY_CARDS[family]["members"])
+        for prefix, scoped in table.items():
+            hits = [s for s in symptoms if s.startswith(prefix)]
+            assert len(hits) == 1, (family, prefix, len(hits))
+            assert set(scoped) <= members, (family, prefix, set(scoped) - members)
+            assert 0 < len(scoped) < len(members), (family, prefix)
+            n_scoped += 1
+    assert n_scoped == 28
+
+
+@pytest.mark.parametrize(
+    "name,absent,present",
+    [
+        ("kaplan_meier", "Proportional-hazards test", "Competing events"),
+        ("logrank_test", "events per covariate", "curves cross"),
+        ("cox", "curves cross", "Proportional-hazards test"),
+        ("romano_wolf", "All adjusted p-values become 1", "bootstrap replications"),
+        ("bonferroni", "bootstrap replications", "All adjusted p-values become 1"),
+        ("johansen", "GARCH", "integrated of order one"),
+        ("garch", "integrated of order one", "GARCH"),
+        ("lincom", "Hausman statistic negative", "Few clusters"),
+        ("hausman_test", "RESET rejects", "Hausman statistic negative"),
+        ("mice", "Many subgroups", "Imputation model omits"),
+        ("frontdoor", "mediator-outcome confounding (rho)", "direct path"),
+        ("evalue_rr", "Heckman", "without a benchmark"),
+        ("power_rct", "ICC unknown", "randomised in clusters"),
+    ],
+)
+def test_member_card_keeps_its_own_failure_mode_and_loses_its_sibling_s(
+    name, absent, present
+):
+    text = _symptoms(name)
+    assert absent not in text, f"sp.{name} still lists a sibling's failure mode"
+    assert present in text, f"sp.{name} lost the failure mode that is about it"
+
+
+def test_member_failure_modes_name_real_functions_and_real_alternatives():
+    from statspai._family_cards import MEMBER_FAILURE_MODES, family_members
+
+    known = set(sp.list_functions())
+    in_a_family = {m for members in family_members().values() for m in members}
+    for members, mode in MEMBER_FAILURE_MODES:
+        assert set(members) <= known & in_a_family, set(members) - known
+        assert mode["symptom"] and mode["remedy"] and mode["exception"]
+        alt = mode.get("alternative", "")
+        if alt:
+            assert alt.startswith("sp.") and alt[3:] in known, alt
+            assert alt[3:] not in members, f"{alt} recommended to itself"
+
+
+def test_datasets_carry_no_borrowed_failure_mode():
+    for name in ("karate_club", "florentine_families", "validation_scope"):
+        assert sp.describe_function(name)["failure_modes"] == [], name
