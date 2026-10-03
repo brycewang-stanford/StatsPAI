@@ -145,8 +145,9 @@ def _write_signed(path: str, key: bytes, obj: Any) -> None:
 
 
 def _read_signed(path: str, key: bytes) -> Any:
-    """Unpickle a file written by :func:`_write_signed`; ``ValueError`` if
-    the signature does not verify."""
+    """Unpickle a file written by :func:`_write_signed`; raises
+    ``MethodIncompatibility`` (a ``ValueError``) if the signature does not
+    verify."""
     import hmac
     import pickle  # nosec B403
 
@@ -154,7 +155,15 @@ def _read_signed(path: str, key: bytes) -> Any:
         raw = fh.read()
     tag, blob = raw[:32], raw[32:]
     if not hmac.compare_digest(tag, _sign(key, blob)):
-        raise ValueError("signature mismatch")
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            "signature mismatch: a hand-off file was not written by this "
+            "server's worker and was not read.",
+            recovery_hint="Retry the call; if it persists, run without "
+            "STATSPAI_MCP_ISOLATION=process and report it.",
+            diagnostics={"file": os.path.basename(path)},
+        )
     return pickle.loads(blob)  # nosec B301
 
 
