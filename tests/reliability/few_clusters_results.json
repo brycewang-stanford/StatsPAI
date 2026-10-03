@@ -1,0 +1,426 @@
+{
+ "study": "few_clusters",
+ "alpha": 0.05,
+ "B": 2000,
+ "n_boot": 999,
+ "prefix": 60,
+ "statspai_version": "1.36.0",
+ "cells": [
+  {
+   "G": 6,
+   "treated": "half",
+   "sizes": "balanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.081,
+    "mc_se": 0.006100778638829638,
+    "prefix_rejections": 4
+   },
+   "cr2": {
+    "rejection_rate": 0.1185,
+    "mc_se": 0.007226954752867904,
+    "prefix_rejections": 6
+   },
+   "cr3": {
+    "rejection_rate": 0.0695,
+    "mc_se": 0.005686376262612245,
+    "prefix_rejections": 4
+   },
+   "wild": {
+    "rejection_rate": 0.0735,
+    "mc_se": 0.005835141386461857,
+    "prefix_rejections": 4
+   }
+  },
+  {
+   "G": 6,
+   "treated": "half",
+   "sizes": "unbalanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.146,
+    "mc_se": 0.007895695029571494,
+    "prefix_rejections": 6
+   },
+   "cr2": {
+    "rejection_rate": 0.1695,
+    "mc_se": 0.008389569416841366,
+    "prefix_rejections": 6
+   },
+   "cr3": {
+    "rejection_rate": 0.078,
+    "mc_se": 0.005996498978570746,
+    "prefix_rejections": 4
+   },
+   "wild": {
+    "rejection_rate": 0.0765,
+    "mc_se": 0.005943389184631947,
+    "prefix_rejections": 3
+   }
+  },
+  {
+   "G": 6,
+   "treated": "two",
+   "sizes": "balanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.118,
+    "mc_se": 0.007213736895673421,
+    "prefix_rejections": 14
+   },
+   "cr2": {
+    "rejection_rate": 0.1475,
+    "mc_se": 0.007929178709046731,
+    "prefix_rejections": 14
+   },
+   "cr3": {
+    "rejection_rate": 0.1015,
+    "mc_se": 0.006752693906878943,
+    "prefix_rejections": 10
+   },
+   "wild": {
+    "rejection_rate": 0.0625,
+    "mc_se": 0.005412658773652742,
+    "prefix_rejections": 6
+   }
+  },
+  {
+   "G": 6,
+   "treated": "two",
+   "sizes": "unbalanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.1835,
+    "mc_se": 0.00865528018032923,
+    "prefix_rejections": 9
+   },
+   "cr2": {
+    "rejection_rate": 0.193,
+    "mc_se": 0.008824709626950906,
+    "prefix_rejections": 8
+   },
+   "cr3": {
+    "rejection_rate": 0.0845,
+    "mc_se": 0.006219314672855845,
+    "prefix_rejections": 5
+   },
+   "wild": {
+    "rejection_rate": 0.036,
+    "mc_se": 0.004165573189850348,
+    "prefix_rejections": 2
+   }
+  },
+  {
+   "G": 10,
+   "treated": "half",
+   "sizes": "balanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.0675,
+    "mc_se": 0.005609979946488223,
+    "prefix_rejections": 5
+   },
+   "cr2": {
+    "rejection_rate": 0.085,
+    "mc_se": 0.0062359842847781455,
+    "prefix_rejections": 6
+   },
+   "cr3": {
+    "rejection_rate": 0.0625,
+    "mc_se": 0.005412658773652742,
+    "prefix_rejections": 5
+   },
+   "wild": {
+    "rejection_rate": 0.0605,
+    "mc_se": 0.005331029450303197,
+    "prefix_rejections": 4
+   }
+  },
+  {
+   "G": 10,
+   "treated": "half",
+   "sizes": "unbalanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.1745,
+    "mc_se": 0.008486747021091178,
+    "prefix_rejections": 8
+   },
+   "cr2": {
+    "rejection_rate": 0.1525,
+    "mc_se": 0.008038773227302782,
+    "prefix_rejections": 9
+   },
+   "cr3": {
+    "rejection_rate": 0.056,
+    "mc_se": 0.005141206084179081,
+    "prefix_rejections": 3
+   },
+   "wild": {
+    "rejection_rate": 0.0765,
+    "mc_se": 0.005943389184631947,
+    "prefix_rejections": 4
+   }
+  },
+  {
+   "G": 10,
+   "treated": "two",
+   "sizes": "balanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.161,
+    "mc_se": 0.008218241904446474,
+    "prefix_rejections": 12
+   },
+   "cr2": {
+    "rejection_rate": 0.163,
+    "mc_se": 0.008259267522002178,
+    "prefix_rejections": 12
+   },
+   "cr3": {
+    "rejection_rate": 0.118,
+    "mc_se": 0.007213736895673421,
+    "prefix_rejections": 8
+   },
+   "wild": {
+    "rejection_rate": 0.008,
+    "mc_se": 0.0019919839356781974,
+    "prefix_rejections": 1
+   }
+  },
+  {
+   "G": 10,
+   "treated": "two",
+   "sizes": "unbalanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.2745,
+    "mc_se": 0.009978721110442961,
+    "prefix_rejections": 16
+   },
+   "cr2": {
+    "rejection_rate": 0.2225,
+    "mc_se": 0.009300369616310956,
+    "prefix_rejections": 12
+   },
+   "cr3": {
+    "rejection_rate": 0.117,
+    "mc_se": 0.007187176079657434,
+    "prefix_rejections": 7
+   },
+   "wild": {
+    "rejection_rate": 0.044,
+    "mc_se": 0.0045860658521220555,
+    "prefix_rejections": 5
+   }
+  },
+  {
+   "G": 20,
+   "treated": "half",
+   "sizes": "balanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.0565,
+    "mc_se": 0.005162739098579358,
+    "prefix_rejections": 3
+   },
+   "cr2": {
+    "rejection_rate": 0.068,
+    "mc_se": 0.005629209535982827,
+    "prefix_rejections": 3
+   },
+   "cr3": {
+    "rejection_rate": 0.0515,
+    "mc_se": 0.004942051699446294,
+    "prefix_rejections": 3
+   },
+   "wild": {
+    "rejection_rate": 0.0515,
+    "mc_se": 0.004942051699446294,
+    "prefix_rejections": 3
+   }
+  },
+  {
+   "G": 20,
+   "treated": "half",
+   "sizes": "unbalanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.2495,
+    "mc_se": 0.009675994780899791,
+    "prefix_rejections": 13
+   },
+   "cr2": {
+    "rejection_rate": 0.1645,
+    "mc_se": 0.008289745170992895,
+    "prefix_rejections": 9
+   },
+   "cr3": {
+    "rejection_rate": 0.0615,
+    "mc_se": 0.005372045699731156,
+    "prefix_rejections": 4
+   },
+   "wild": {
+    "rejection_rate": 0.1175,
+    "mc_se": 0.007200477414727443,
+    "prefix_rejections": 8
+   }
+  },
+  {
+   "G": 20,
+   "treated": "two",
+   "sizes": "balanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.2455,
+    "mc_se": 0.009623662244696662,
+    "prefix_rejections": 16
+   },
+   "cr2": {
+    "rejection_rate": 0.213,
+    "mc_se": 0.009155080556718221,
+    "prefix_rejections": 14
+   },
+   "cr3": {
+    "rejection_rate": 0.1405,
+    "mc_se": 0.007770448828735699,
+    "prefix_rejections": 9
+   },
+   "wild": {
+    "rejection_rate": 0.0005,
+    "mc_se": 0.0004998749843710925,
+    "prefix_rejections": 0
+   }
+  },
+  {
+   "G": 20,
+   "treated": "two",
+   "sizes": "unbalanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.3295,
+    "mc_se": 0.010510227162150207,
+    "prefix_rejections": 18
+   },
+   "cr2": {
+    "rejection_rate": 0.232,
+    "mc_se": 0.009438643970401681,
+    "prefix_rejections": 12
+   },
+   "cr3": {
+    "rejection_rate": 0.1135,
+    "mc_se": 0.007092874946028584,
+    "prefix_rejections": 5
+   },
+   "wild": {
+    "rejection_rate": 0.038,
+    "mc_se": 0.004275277768753745,
+    "prefix_rejections": 1
+   }
+  },
+  {
+   "G": 40,
+   "treated": "half",
+   "sizes": "balanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.0485,
+    "mc_se": 0.004803527349771208,
+    "prefix_rejections": 4
+   },
+   "cr2": {
+    "rejection_rate": 0.0505,
+    "mc_se": 0.00489641450451246,
+    "prefix_rejections": 4
+   },
+   "cr3": {
+    "rejection_rate": 0.0485,
+    "mc_se": 0.004803527349771208,
+    "prefix_rejections": 4
+   },
+   "wild": {
+    "rejection_rate": 0.0475,
+    "mc_se": 0.004756245893559331,
+    "prefix_rejections": 4
+   }
+  },
+  {
+   "G": 40,
+   "treated": "half",
+   "sizes": "unbalanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.3595,
+    "mc_se": 0.010729859039148651,
+    "prefix_rejections": 21
+   },
+   "cr2": {
+    "rejection_rate": 0.178,
+    "mc_se": 0.008553244998244818,
+    "prefix_rejections": 13
+   },
+   "cr3": {
+    "rejection_rate": 0.05,
+    "mc_se": 0.004873397172404482,
+    "prefix_rejections": 2
+   },
+   "wild": {
+    "rejection_rate": 0.126,
+    "mc_se": 0.007420377348895405,
+    "prefix_rejections": 10
+   }
+  },
+  {
+   "G": 40,
+   "treated": "two",
+   "sizes": "balanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.3135,
+    "mc_se": 0.010373469766669204,
+    "prefix_rejections": 15
+   },
+   "cr2": {
+    "rejection_rate": 0.245,
+    "mc_se": 0.00961704216482386,
+    "prefix_rejections": 11
+   },
+   "cr3": {
+    "rejection_rate": 0.1805,
+    "mc_se": 0.008599992732555068,
+    "prefix_rejections": 10
+   },
+   "wild": {
+    "rejection_rate": 0.0,
+    "mc_se": 0.0,
+    "prefix_rejections": 0
+   }
+  },
+  {
+   "G": 40,
+   "treated": "two",
+   "sizes": "unbalanced",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.35,
+    "mc_se": 0.01066536450385077,
+    "prefix_rejections": 23
+   },
+   "cr2": {
+    "rejection_rate": 0.243,
+    "mc_se": 0.009590385810800314,
+    "prefix_rejections": 15
+   },
+   "cr3": {
+    "rejection_rate": 0.135,
+    "mc_se": 0.007641171376170017,
+    "prefix_rejections": 12
+   },
+   "wild": {
+    "rejection_rate": 0.028,
+    "mc_se": 0.0036889022757454555,
+    "prefix_rejections": 1
+   }
+  }
+ ]
+}

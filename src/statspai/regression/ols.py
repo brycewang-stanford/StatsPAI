@@ -1103,7 +1103,7 @@ class OLSRegression(BaseModel):
         # mirroring sp.panel — cluster-robust SEs are unreliable with few
         # clusters (Cameron-Gelbach-Miller 2008).
         if cluster_var is not None:
-            from ..core._agent_summary import _FEW_CLUSTERS_MIN
+            from ..core._agent_summary import _FEW_CLUSTERS_MIN, FEW_CLUSTERS_HINT
 
             n_clusters_obs = int(pd.Series(cluster_var).nunique())
             if n_clusters_obs < _FEW_CLUSTERS_MIN:
@@ -1113,11 +1113,7 @@ class OLSRegression(BaseModel):
                         f"for cluster='{cluster}' — cluster-robust SEs are "
                         "downward-biased and t-tests over-reject with few "
                         "clusters.",
-                        recovery_hint=(
-                            "Report sp.wild_cluster_bootstrap (or "
-                            "sp.wild_cluster_ci_inv for CIs), correct with few "
-                            "clusters."
-                        ),
+                        recovery_hint=FEW_CLUSTERS_HINT,
                         diagnostics={
                             "n_clusters": n_clusters_obs,
                             "threshold": _FEW_CLUSTERS_MIN,

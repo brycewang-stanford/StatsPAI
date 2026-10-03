@@ -1447,7 +1447,7 @@ def _maybe_warn_few_clusters(
 ) -> None:
     """Emit a typed, actionable warning when cluster-robust SEs rest on too
     few clusters (Cameron-Gelbach-Miller 2008; MacKinnon-Webb 2017)."""
-    from ..core._agent_summary import _FEW_CLUSTERS_MIN
+    from ..core._agent_summary import _FEW_CLUSTERS_MIN, FEW_CLUSTERS_HINT
 
     if n_clusters >= _FEW_CLUSTERS_MIN:
         return
@@ -1457,9 +1457,7 @@ def _maybe_warn_few_clusters(
             f"cluster='{cluster}' — cluster-robust standard errors are "
             "downward-biased and t-tests over-reject with few clusters.",
             recovery_hint=(
-                "Report sp.wild_cluster_bootstrap (or sp.wild_cluster_ci_inv "
-                "for CIs), which keeps correct size when the number of "
-                "clusters is small."
+                FEW_CLUSTERS_HINT
                 + (
                     " The default small-sample convention applies no "
                     "G/(G-1) factor and refers tests to N - K degrees of "

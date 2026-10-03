@@ -261,6 +261,18 @@ evidence map listed as having none.
   estimate and standard error to 1e-10. The MatchIt comparisons made
   through `sp.match(method='nearest')`, which is the same fit as
   `sp.psm`, are entered in the `psm` map.
+- **The few-cluster warning no longer says the wild bootstrap "keeps
+  correct size".** A size study (`tests/reliability/`, 16 designs, 2,000
+  replications each) shows where that holds and where it does not. With
+  clusters of similar size and half of them treated, the wild cluster
+  bootstrap rejects a true null 5% to 7% of the time from 6 clusters up.
+  With two treated clusters it almost never rejects (0.0% at 40
+  clusters), and with one cluster holding half the sample it over-rejects
+  (13%) while CR3 stays at 5% to 8%. The hint in `sp.regress`, `sp.panel`
+  and the agent summary now says this. The study also records that the
+  warning, keyed on fewer than 30 clusters, does not fire in either hard
+  case at 40 clusters, and that `vce='cr2'` with its normal reference
+  over-rejects at small G.
 - **Isolated MCP calls can return a result handle.** With
   `STATSPAI_MCP_ISOLATION=process`, a call that asked for a handle
   (`as_handle=true`) used to run on the thread runner, because a handle

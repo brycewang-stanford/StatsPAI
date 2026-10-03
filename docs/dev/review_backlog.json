@@ -438,24 +438,34 @@
     {
       "id": "R5",
       "title": "把已有的覆盖率、压力设计、size / power 结果接进 evidence 视图，失败的重复计入分母，附 Monte Carlo SE",
-      "status": "done",
+      "status": "partial",
       "where": [
-        "scripts/build_evidence_inventory.py"
+        "tests/reliability/few_clusters.py",
+        "tests/reliability/few_clusters_results.json",
+        "tests/reliability/README.md",
+        "src/statspai/core/_agent_summary.py"
       ],
       "tests": [
-        "tests/test_evidence_inventory.py"
+        "tests/test_reliability_few_clusters.py"
       ],
-      "note": "4 个设计的覆盖率离 0.95 超过 2 个 MC SE（`rdrobust` 0.934、`sdid` 0.928、DML IRM 0.968、DML PLR 0.883），表里照实标出。",
-      "next": ""
+      "note": "做了少簇这一项（`tests/reliability/few_clusters.py`，设计在第一次运行前写进脚本：G = 6/10/20/40 × 处理簇占一半或只有两个 × 簇大小均衡或一个大簇占一半样本，每格 2,000 次，四种推断方法的真零假设拒绝率）。结论：均衡且一半处理时各方法到 40 簇都正常；一个大簇占一半样本时 CR1 的拒绝率随 G 上升到 36%，wild bootstrap 到 13%，CR3 稳在 5–8%；只有两个处理簇时 wild bootstrap 几乎从不拒绝。据此把少簇警告里“wild bootstrap 保持正确水平”的说法改成有证据的表述。同时记下两个没有解决的问题：警告只按簇数（< 30）触发，上面两种难情形在 40 簇时不会触发；`vce='cr2'` 用正态参考，小 G 下过度拒绝（没有 Satterthwaite 自由度修正）。没做的：不平衡面板、RD mass points、极端权重、学习器变化。",
+      "next": "按有效簇数或处理簇数触发警告；CR2 加 Satterthwaite 自由度；其余四类仿真各自先写设计再跑"
     },
     {
       "id": "R5",
       "title": "新的仿真：少簇、不平衡面板、RD mass points、极端权重、学习器变化",
-      "status": "not_done",
-      "where": [],
-      "tests": [],
-      "note": "需要预先定义设计和计算预算；审查也写明不应作为隐含任务执行。",
-      "next": ""
+      "status": "partial",
+      "where": [
+        "tests/reliability/few_clusters.py",
+        "tests/reliability/few_clusters_results.json",
+        "tests/reliability/README.md",
+        "src/statspai/core/_agent_summary.py"
+      ],
+      "tests": [
+        "tests/test_reliability_few_clusters.py"
+      ],
+      "note": "做了少簇这一项（`tests/reliability/few_clusters.py`，设计在第一次运行前写进脚本：G = 6/10/20/40 × 处理簇占一半或只有两个 × 簇大小均衡或一个大簇占一半样本，每格 2,000 次，四种推断方法的真零假设拒绝率）。结论：均衡且一半处理时各方法到 40 簇都正常；一个大簇占一半样本时 CR1 的拒绝率随 G 上升到 36%，wild bootstrap 到 13%，CR3 稳在 5–8%；只有两个处理簇时 wild bootstrap 几乎从不拒绝。据此把少簇警告里“wild bootstrap 保持正确水平”的说法改成有证据的表述。同时记下两个没有解决的问题：警告只按簇数（< 30）触发，上面两种难情形在 40 簇时不会触发；`vce='cr2'` 用正态参考，小 G 下过度拒绝（没有 Satterthwaite 自由度修正）。没做的：不平衡面板、RD mass points、极端权重、学习器变化。",
+      "next": "按有效簇数或处理簇数触发警告；CR2 加 Satterthwaite 自由度；其余四类仿真各自先写设计再跑"
     },
     {
       "id": "G1",

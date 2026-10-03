@@ -107,6 +107,22 @@ _COX_PH_ALPHA = 0.05
 #: remedy. 30 is the conservative end of the common 30-50 rule of thumb.
 _FEW_CLUSTERS_MIN = 30
 
+#: What to do about it, in the words the size study supports
+#: (``tests/reliability/few_clusters.py``, 2,000 replications per cell):
+#: with clusters of similar size and half of them treated the wild cluster
+#: bootstrap rejects a true null 5% to 7% of the time from 6 clusters up;
+#: with two treated clusters it almost never rejects (0.0% to 6%); with
+#: one cluster holding half the sample it over-rejects (up to 13%) while
+#: CR3 stays at 5% to 8%.
+FEW_CLUSTERS_HINT = (
+    "Report sp.wild_cluster_bootstrap (or sp.wild_cluster_ci_inv for CIs): "
+    "near nominal size with few clusters of similar size when the regressor "
+    "varies across many of them. It is not a remedy when only one or two "
+    "clusters are treated (it then almost never rejects) or when one cluster "
+    "holds much of the sample (vce='cr3' held its size there); see "
+    "tests/reliability/few_clusters_results.json."
+)
+
 #: Few *treated* clusters. The cluster-robust variance estimates the treated
 #: side's contribution from as many draws as there are treated clusters, so
 #: the over-rejection is governed by that count and not by the total (Conley
@@ -768,10 +784,7 @@ def econometric_violations(result: Any) -> List[Dict[str, Any]]:
                     "cluster-robust SEs are downward-biased and t-tests "
                     "over-reject (Cameron-Gelbach-Miller 2008)."
                 ),
-                "recovery_hint": (
-                    "Report sp.wild_cluster_bootstrap (or sp.wild_cluster_ci_inv "
-                    "for confidence intervals), correct with few clusters."
-                ),
+                "recovery_hint": FEW_CLUSTERS_HINT,
                 "alternatives": [
                     "sp.wild_cluster_bootstrap",
                     "sp.wild_cluster_ci_inv",
