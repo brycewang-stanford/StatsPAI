@@ -229,10 +229,12 @@ def test_period_date_conversion_matches_pandas(dated_dta):
 def test_period_date_out_of_range_warns_and_keeps_counts():
     from statspai.utils.io import _convert_stata_period_dates
 
-    df = pd.DataFrame({"y": [1500.0, 2020.0]})  # year 1500 is before 1677
+    # Year 0 is not a date in any datetime64 resolution. (Year 1500 is out
+    # of range for pandas 2's nanoseconds but converts under pandas 3.)
+    df = pd.DataFrame({"y": [0.0, 2020.0]})
     with pytest.warns(UserWarning, match="could not be converted"):
         _convert_stata_period_dates(df, {"y": "%ty"})
-    assert df["y"].tolist() == [1500.0, 2020.0]
+    assert df["y"].tolist() == [0.0, 2020.0]
 
 
 def test_dta_dates_with_pyreadstat_match_fallback(dated_dta):

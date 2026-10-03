@@ -12,6 +12,30 @@ All notable changes to StatsPAI will be documented in this file.
   `pyfixest` was not installed. It now raises `MissingDependencyError` (still
   an `ImportError`) naming the `fixest` extra, as `sp.feols` does.
 
+### What the full test matrix found after five days without running
+
+The count gates in front of the test job had been red since 2026-09-28, so
+nothing below was tested on CI in that time. A manual full run across
+three operating systems and Python 3.9 to 3.13 turned these up.
+
+#### Fixed
+
+- **`sp.causal` keeps its signature after the deprecated `statspai.causal`
+  shim is imported.** Importing the shim (`from statspai.causal import
+  CausalForest`) rebinds `sp.causal` to a callable module, and
+  `inspect.signature(sp.causal)` then read `(*args, **kwargs)`. Anything
+  that introspects the signature saw a different function depending on
+  import order. The call itself always worked.
+- **On Python 3.13 the four regression forests document their shared
+  options again.** `sp.regression_forest`, `sp.multi_regression_forest`,
+  `sp.probability_forest` and `sp.quantile_forest` splice a common block of
+  parameter documentation into their docstrings at import, by matching a
+  placeholder line with its indentation. Python 3.13 strips docstring
+  indentation at compile time, so the match failed there: `help()` showed
+  `y` and nothing else, and `sp.function_schema` fell back to generic
+  parameter descriptions. The docstrings are now identical on every
+  supported Python.
+
 ### Stata dates through `sp.read_data`
 
 #### ⚠️ Correctness

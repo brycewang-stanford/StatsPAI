@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import sys
 import types as _types
-from typing import Any
 import warnings
+from typing import Any
 
 warnings.warn(
     "statspai.causal is deprecated and will be removed in a future "
@@ -39,17 +39,17 @@ warnings.warn(
 # ``from .causal_forest import ...`` etc.).
 from ..forest import (  # noqa: F401,E402
     CausalForest,
-    causal_forest,
-    calibration_test,
-    test_calibration,
-    rate,
-    honest_variance,
-    average_treatment_effect,
-    forest_diagnostics,
-    multi_arm_forest,
-    MultiArmForestResult,
-    iv_forest,
     IVForestResult,
+    MultiArmForestResult,
+    average_treatment_effect,
+    calibration_test,
+    causal_forest,
+    forest_diagnostics,
+    honest_variance,
+    iv_forest,
+    multi_arm_forest,
+    rate,
+    test_calibration,
 )
 
 # Alias the deprecated submodule paths to the real forest modules
@@ -87,6 +87,19 @@ class _CausalShimModule(_types.ModuleType):
         from ..workflow import causal as _workflow_causal
 
         return _workflow_causal(*args, **kwargs)
+
+    @property
+    def __signature__(self) -> Any:
+        # ``__call__`` takes (*args, **kwargs), so without this
+        # ``inspect.signature(sp.causal)`` loses every parameter name the
+        # moment anything imports this shim, and tools that read the
+        # signature (the skill API validator, schema builders, IDEs) see a
+        # different function depending on import order.
+        import inspect
+
+        from ..workflow import causal as _workflow_causal
+
+        return inspect.signature(_workflow_causal)
 
 
 # Promote the live module object to the callable shim class.  Setting

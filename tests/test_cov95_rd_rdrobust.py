@@ -123,6 +123,7 @@ def test_every_bwselect_spelling_reports_full_precision_bandwidth():
     itself all do it. That is the ``sp.rdbwselect`` rounding defect one
     layer down.
     """
+    pytest.importorskip("rdrobust")  # bwselect="cct" delegates to it
     rng = np.random.default_rng(4)
     n = 3000
     x = rng.uniform(-1.0, 1.0, n)

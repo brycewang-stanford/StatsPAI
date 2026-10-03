@@ -125,6 +125,9 @@ def test_relative_magnitude_is_native_and_equals_the_r_backend(cs_result):
             honestdid_method="Conditional",
         )
     assert native.attrs["interval"] == "arp_conditional"
+    if not _has_r_honestdid():
+        # the native half above has run; the comparison needs the R package
+        pytest.skip("R with the HonestDiD package is required for the comparison")
     r = sp.honest_did(
         cs_result,
         e=0,

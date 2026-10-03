@@ -311,6 +311,7 @@ def test_synthdid_estimate_alias_of_sdid() -> None:
 #  06_rd — sp.rdd  ==  sp.rdrobust
 # --------------------------------------------------------------------------- #
 def test_rdd_alias_of_rdrobust() -> None:
+    pytest.importorskip("rdrobust")  # bwselect="cct" delegates to it
     df = pd.read_csv(DATA / "06_rd.csv")
     canonical = sp.rdrobust(df, y="y", x="x", c=0.0, bwselect="cct")
     alias = sp.rdd(df, y="y", running="x", cutoff=0.0, bwselect="cct")

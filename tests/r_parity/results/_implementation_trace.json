@@ -495,7 +495,7 @@
    "result_sha256": "27f4c31ee17df71e14c04cf02e97b603839fb5914e8b2a72595ff74e3b446277"
   },
   "13_causal_forest": {
-   "seconds": 53.39,
+   "seconds": 6.42,
    "error": null,
    "boundary_calls": [
     {
@@ -539,7 +539,7 @@
     "src/statspai/forest/iv_forest.py": "1b33faa25db1db58aaabd6ea668c02bf476a85ac71d2ca9d56250fde43e06f20",
     "src/statspai/forest/lm_forest.py": "4e2e66fe0d5c6cf925d47d420fd73aac82c9497151573411cdd243ebeaff9f79",
     "src/statspai/forest/multi_arm_forest.py": "337b0119636298c78728a56acf679464e6ce58299fe68f0f0ca2b9e65fa724c3",
-    "src/statspai/forest/regression_forests.py": "5db64b7ef7e47f52bb66cc065dca311983e3cc6f6c3b544fba7dc4a1604a2e43",
+    "src/statspai/forest/regression_forests.py": "a22673e6ab3d050d958f8ca06bc14973ec520f69b9f280d6c43a4991250530e9",
     "src/statspai/forest/survival_forest.py": "8f19acd3aeee7f9569f03e4eccd9f308238f3a0e629036653174c5794e6a2e70",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
@@ -841,7 +841,7 @@
    "result_sha256": "e4ff16ddc8134e6f46d4fbeee47917ac38b7914e42ad08559e5e9b68c92d9353"
   },
   "24_coxph": {
-   "seconds": 1.53,
+   "seconds": 1.45,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -875,7 +875,7 @@
     "src/statspai/forest/iv_forest.py": "1b33faa25db1db58aaabd6ea668c02bf476a85ac71d2ca9d56250fde43e06f20",
     "src/statspai/forest/lm_forest.py": "4e2e66fe0d5c6cf925d47d420fd73aac82c9497151573411cdd243ebeaff9f79",
     "src/statspai/forest/multi_arm_forest.py": "337b0119636298c78728a56acf679464e6ce58299fe68f0f0ca2b9e65fa724c3",
-    "src/statspai/forest/regression_forests.py": "5db64b7ef7e47f52bb66cc065dca311983e3cc6f6c3b544fba7dc4a1604a2e43",
+    "src/statspai/forest/regression_forests.py": "a22673e6ab3d050d958f8ca06bc14973ec520f69b9f280d6c43a4991250530e9",
     "src/statspai/forest/survival_forest.py": "8f19acd3aeee7f9569f03e4eccd9f308238f3a0e629036653174c5794e6a2e70",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",

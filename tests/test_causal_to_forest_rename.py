@@ -39,15 +39,15 @@ def test_forest_subpackage_exists():
 def test_forest_public_surface():
     from statspai.forest import (
         CausalForest,
-        causal_forest,
-        calibration_test,
-        test_calibration,
-        rate,
-        honest_variance,
-        multi_arm_forest,
-        MultiArmForestResult,
-        iv_forest,
         IVForestResult,
+        MultiArmForestResult,
+        calibration_test,
+        causal_forest,
+        honest_variance,
+        iv_forest,
+        multi_arm_forest,
+        rate,
+        test_calibration,
     )
 
     assert callable(CausalForest)
@@ -60,15 +60,12 @@ def test_forest_submodule_paths():
     from statspai.forest.causal_forest import CausalForest
     from statspai.forest.forest_inference import (
         calibration_test,
-        test_calibration,
-        rate,
         honest_variance,
+        rate,
+        test_calibration,
     )
-    from statspai.forest.iv_forest import iv_forest, IVForestResult
-    from statspai.forest.multi_arm_forest import (
-        multi_arm_forest,
-        MultiArmForestResult,
-    )
+    from statspai.forest.iv_forest import IVForestResult, iv_forest
+    from statspai.forest.multi_arm_forest import MultiArmForestResult, multi_arm_forest
 
     assert callable(CausalForest)
     assert callable(iv_forest)
@@ -120,15 +117,15 @@ def test_causal_top_level_back_compat_imports():
         warnings.simplefilter("ignore", DeprecationWarning)
         from statspai.causal import (
             CausalForest,
-            causal_forest,
-            calibration_test,
-            test_calibration,
-            rate,
-            honest_variance,
-            multi_arm_forest,
-            MultiArmForestResult,
-            iv_forest,
             IVForestResult,
+            MultiArmForestResult,
+            calibration_test,
+            causal_forest,
+            honest_variance,
+            iv_forest,
+            multi_arm_forest,
+            rate,
+            test_calibration,
         )
     assert callable(CausalForest)
     assert callable(causal_forest)
@@ -141,14 +138,14 @@ def test_causal_submodule_back_compat_imports():
         from statspai.causal.causal_forest import CausalForest
         from statspai.causal.forest_inference import (
             calibration_test,
-            test_calibration,
-            rate,
             honest_variance,
+            rate,
+            test_calibration,
         )
-        from statspai.causal.iv_forest import iv_forest, IVForestResult
+        from statspai.causal.iv_forest import IVForestResult, iv_forest
         from statspai.causal.multi_arm_forest import (
-            multi_arm_forest,
             MultiArmForestResult,
+            multi_arm_forest,
         )
     assert callable(CausalForest)
     assert callable(iv_forest)
@@ -165,3 +162,23 @@ def test_causal_and_forest_export_same_objects():
     assert old.iv_forest is new.iv_forest
     assert old.multi_arm_forest is new.multi_arm_forest
     assert old.calibration_test is new.calibration_test
+
+
+def test_shim_keeps_the_signature_of_sp_causal():
+    """Importing the deprecated shim rebinds ``sp.causal`` to a callable
+    module. Its signature must stay that of the workflow function: the skill
+    API validator read ``(*args, **kwargs)`` after this file had run and
+    reported every documented keyword of ``sp.causal`` as unknown, but only
+    in a full-suite session."""
+    import inspect
+    import warnings
+
+    import statspai as sp
+    from statspai.workflow import causal as workflow_causal
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        import statspai.causal  # noqa: F401
+
+    assert inspect.signature(sp.causal) == inspect.signature(workflow_causal)
+    assert "treatment" in inspect.signature(sp.causal).parameters

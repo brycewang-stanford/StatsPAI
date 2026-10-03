@@ -245,7 +245,8 @@ def test_collinear_covariate_levels_are_omitted(panel):
     fit still converges to the same aggregates the full-rank design gives
     once that level is merged away."""
     d = panel.copy()
-    lev = d["xcat"].astype(int).to_numpy()
+    # a copy: under pandas 3 (copy-on-write) to_numpy() is a read-only view
+    lev = d["xcat"].astype(int).to_numpy().copy()
     lev[(d["g"] == 2006).to_numpy() & (lev == 1)] = 2  # no level 1 in 2006
     d["xcat"] = pd.Categorical(lev)
     with warnings.catch_warnings():
