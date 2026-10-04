@@ -31,6 +31,37 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — module 22 (`sp.sensemakr`) standard error from a QR factor; traces re-recorded for the causal-ML textbook pass
+
+Commit `b24b2777`. `sp.sensemakr` computed the treatment standard error
+from `pinv(Z'Z)`, which costs eight digits on unscaled regressors. It now
+uses the QR factor of `Z`. The same commit fixes classifier nuisances in
+`sp.dml` PLR / PLIV, the IRM branch of `sp.dml_sensitivity`, and adds
+`sp.lm_lin`; these touch `dml/_base.py`, `dml/plr.py`, `dml/irm.py`,
+`dml/pliv.py`, `dml/double_ml.py`, `forest/forest_tools.py`,
+`diagnostics/sensemakr.py` and `statspai/__init__.py`, which Track A
+modules 03, 08, 13, 15, 22, 24, 25, 26, 27, 53, 65, 66, 71 and
+original-data module 08 execute.
+
+Effect on the paper: module 22 only, and only in the agreement columns.
+The StatsPAI standard error of the treatment coefficient moves from
+587.0203418 to 587.0203721 (R: 587.0203721), so its relative difference
+from R falls from 5.2e-08 to 2.1e-15; `t_treat`, `rv_q` and `rv_qa` move
+in the eighth digit toward R for the same reason. The point estimate, the
+PASS verdict and the registered tolerance (1e-6) are unchanged. Modules
+08, 13, 24 and 71 were rerun and their result files are byte-identical
+(regressor nuisances and the forest paths are untouched); for the others
+only the recorded source hashes move.
+
+- `tests/r_parity/results/22_sensemakr_py.json`
+- `tests/r_parity/results/parity_table.md`
+- `tests/r_parity/results/parity_table.tex`
+- `tests/r_parity/results/parity_table_3way.md`
+- `tests/r_parity/results/parity_table_3way.tex`
+- `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+- `tests/r_parity/results/_implementation_trace.json`
+- `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded after two warning texts changed
 
 Commit `98538177`. The unbalanced-panel warning and docstring of
