@@ -31,6 +31,21 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — call traces re-recorded after the few-treated diagnostic reached the fixed-effects entry points
+
+Commit `5ad164e1`. `sp.panel`, `sp.hdfe_ols`, `sp.feols` and `sp.regress`
+now record a 0/1 regressor that is ever 1 in only a few clusters and
+warn. The edits are in `core/_agent_summary.py`, `regression/ols.py`,
+`panel/panel_reg.py`, `panel/feols.py` and `fixest/wrapper.py`, which
+Track A modules 01, 14, 35, 51, 53, 54, 55, 56, 67 and 69 execute, so
+their source hashes in the trace changed.
+
+Effect on the paper: none. The ten modules were run on the source
+before and after the change and their result files are byte-identical;
+only the recorded source hashes move.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-05 — call traces re-recorded for the third round of the Clarke textbook pass
 
 Commit `ff889a42`. `matching/match.py` and `matching/_ai2016.py` (module 11)
