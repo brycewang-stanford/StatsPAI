@@ -124,3 +124,30 @@ def test_other_dml_fits_are_refused(data):
             ml_g=LinearRegression(), ml_m=LogisticRegression(), n_folds=2,
         )  # fmt: skip
         sp.best_linear_projection(irm, A=data[["x2"]].iloc[:100])
+
+
+def test_effect_curve_and_its_standard_error_match_doubleml(data, fits):
+    """The projected effect on a grid, a'b with se sqrt(a'Va).
+
+    ``DoubleMLBLP.confint(basis)`` reports the same curve with a pointwise
+    interval; its half-width divided by the normal quantile is the standard
+    error (after the n/(n-1) convention factor, see the module docstring).
+    """
+    from scipy.stats import norm
+
+    ours, ref = fits
+    A = pd.DataFrame({"x2": data["x2"], "x2sq": data["x2"] ** 2})
+    table = sp.best_linear_projection(ours, A=A, vce="HC0")
+    grid = np.linspace(-1.5, 1.5, 7)
+    basis = np.column_stack([np.ones(7), grid, grid**2])
+    curve = basis @ table["coef"].to_numpy()
+    V = table.attrs["vcov"].to_numpy()
+    se = np.sqrt(np.einsum("ij,jk,ik->i", basis, V, basis))
+
+    blp = ref.cate(A.assign(const=1.0)[["const", "x2", "x2sq"]])
+    ci = blp.confint(pd.DataFrame(basis, columns=["const", "x2", "x2sq"]), level=0.95)
+    np.testing.assert_allclose(curve, ci["effect"], rtol=1e-10)
+    half = (ci.iloc[:, 2] - ci.iloc[:, 0]).to_numpy() / 2
+    np.testing.assert_allclose(
+        se * np.sqrt((N - 1) / N), half / norm.ppf(0.975), rtol=1e-8
+    )

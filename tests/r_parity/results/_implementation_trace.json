@@ -501,7 +501,7 @@
    "result_sha256": "27f4c31ee17df71e14c04cf02e97b603839fb5914e8b2a72595ff74e3b446277"
   },
   "13_causal_forest": {
-   "seconds": 23.98,
+   "seconds": 13.78,
    "error": null,
    "boundary_calls": [
     {
@@ -536,12 +536,12 @@
     "src/statspai/forest/_grf_ext.py": "d4f2c754458397e9b48de7170735a177db827d02e42a14d8536c833c0e25119e",
     "src/statspai/forest/_grf_family.py": "770f54795073352a4f8440f705e171f834a819f414b0dfd23baae3313c834ab7",
     "src/statspai/forest/_grf_fit.py": "6b752fe3beac2ffb5d50bb73781939a8e3638dd91025e4e7713c0110e9a0a2f4",
-    "src/statspai/forest/_grf_inference.py": "722c6f59549c75c2107c75d6efaa676445010758871dce561570173693043534",
+    "src/statspai/forest/_grf_inference.py": "e226285fbee1ba104462e484f70d921c0ed5bd66f2d4c87182cebf5937e4b95e",
     "src/statspai/forest/_panel_forest.py": "f4d61a40f0554e3015586118d34a8548c4a18d132d908e83fac31da2f5c376b3",
     "src/statspai/forest/causal_forest.py": "85fb965f2c0304405bc934a8166faaebd9ce74e197fd0347175c363b67a1b7d2",
     "src/statspai/forest/forest_heterogeneity.py": "e09b19a1e3dea839f846bf02ccc7ee492209a103de13eada6cab6ebf820a7cff",
     "src/statspai/forest/forest_inference.py": "747b44b850af71c98aebde16ac7b2bbda1ac6b711fe29f92767ac01ce3d1a3b9",
-    "src/statspai/forest/forest_tools.py": "4993305a57e413af213f11afded1507780b4cfaa90e379e0f11c6f410ce727e7",
+    "src/statspai/forest/forest_tools.py": "77410dcee48b25587512e3cf1a2d18c21bcef25a0d5c26aadcd5008e1a1cd1cf",
     "src/statspai/forest/iv_forest.py": "1b33faa25db1db58aaabd6ea668c02bf476a85ac71d2ca9d56250fde43e06f20",
     "src/statspai/forest/lm_forest.py": "4e2e66fe0d5c6cf925d47d420fd73aac82c9497151573411cdd243ebeaff9f79",
     "src/statspai/forest/multi_arm_forest.py": "337b0119636298c78728a56acf679464e6ce58299fe68f0f0ca2b9e65fa724c3",
@@ -847,7 +847,7 @@
    "result_sha256": "e4ff16ddc8134e6f46d4fbeee47917ac38b7914e42ad08559e5e9b68c92d9353"
   },
   "24_coxph": {
-   "seconds": 2.54,
+   "seconds": 3.73,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -873,11 +873,11 @@
     "src/statspai/forest/_grf_engine.py": "f52b9cc5e9ba12342321c80cce8d31765d47852e4b35760e93f4ba494b10b1b8",
     "src/statspai/forest/_grf_ext.py": "d4f2c754458397e9b48de7170735a177db827d02e42a14d8536c833c0e25119e",
     "src/statspai/forest/_grf_family.py": "770f54795073352a4f8440f705e171f834a819f414b0dfd23baae3313c834ab7",
-    "src/statspai/forest/_grf_inference.py": "722c6f59549c75c2107c75d6efaa676445010758871dce561570173693043534",
+    "src/statspai/forest/_grf_inference.py": "e226285fbee1ba104462e484f70d921c0ed5bd66f2d4c87182cebf5937e4b95e",
     "src/statspai/forest/causal_forest.py": "85fb965f2c0304405bc934a8166faaebd9ce74e197fd0347175c363b67a1b7d2",
     "src/statspai/forest/forest_heterogeneity.py": "e09b19a1e3dea839f846bf02ccc7ee492209a103de13eada6cab6ebf820a7cff",
     "src/statspai/forest/forest_inference.py": "747b44b850af71c98aebde16ac7b2bbda1ac6b711fe29f92767ac01ce3d1a3b9",
-    "src/statspai/forest/forest_tools.py": "4993305a57e413af213f11afded1507780b4cfaa90e379e0f11c6f410ce727e7",
+    "src/statspai/forest/forest_tools.py": "77410dcee48b25587512e3cf1a2d18c21bcef25a0d5c26aadcd5008e1a1cd1cf",
     "src/statspai/forest/iv_forest.py": "1b33faa25db1db58aaabd6ea668c02bf476a85ac71d2ca9d56250fde43e06f20",
     "src/statspai/forest/lm_forest.py": "4e2e66fe0d5c6cf925d47d420fd73aac82c9497151573411cdd243ebeaff9f79",
     "src/statspai/forest/multi_arm_forest.py": "337b0119636298c78728a56acf679464e6ce58299fe68f0f0ca2b9e65fa724c3",

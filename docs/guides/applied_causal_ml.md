@@ -139,6 +139,25 @@ sp.best_linear_projection(irm, A=df[["x1"]])
 The table is the best linear predictor of the conditional effect given
 `A`. With group indicators in `A` it gives group average effects.
 
+The R notebook on conditional effects plots the effect as a curve in one
+covariate. Project on a basis in that covariate and use the covariance
+of the coefficients:
+
+```python
+import numpy as np
+
+A = df[["x1"]].assign(x1_sq=df["x1"] ** 2)
+table = sp.best_linear_projection(irm, A=A)
+grid = np.linspace(-2, 2, 41)
+basis = np.column_stack([np.ones(41), grid, grid ** 2])
+curve = basis @ table["coef"].to_numpy()
+V = table.attrs["vcov"].to_numpy()
+se = np.sqrt(np.einsum("ij,jk,ik->i", basis, V, basis))
+```
+
+The curve and its standard error equal `DoubleML`'s
+`cate(basis).confint(grid_basis)`.
+
 To judge a CATE estimate on held-out data, `sp.cate_eval` gives AUTOC,
 Qini and the TOC curve with a band that covers the whole curve:
 

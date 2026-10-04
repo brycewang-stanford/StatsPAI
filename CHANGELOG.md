@@ -176,7 +176,9 @@ redistributed. Reader guide: `docs/guides/applied_causal_ml.md`.
 - **`sp.best_linear_projection` accepts `sp.dml(model='irm')` results.** It
   projects the cross-fitted doubly-robust scores on covariates or group
   indicators, which is `DoubleML`'s `cate()` / `gate()`. Coefficients match
-  to 1e-10; the joint covariance is in `.attrs['vcov']`.
+  to 1e-10; the joint covariance is in `.attrs['vcov']`, for causal
+  forests as well, so the projected effect at any covariate value has a
+  standard error.
 - **Joint inference for `sp.rlasso_effects`.** The return value is still a
   `dict`, now with `.vcov()` (equal to hdm's to 1e-14) and
   `.conf_int(joint=True)`, a sup-t band as in

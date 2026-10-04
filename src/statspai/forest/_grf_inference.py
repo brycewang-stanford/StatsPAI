@@ -555,4 +555,5 @@ def best_linear_projection(
         columns={"ci_low": "ci_lower", "ci_high": "ci_upper"}
     )
     out.attrs["method"] = f"AIPW scores on OOB CATE, {vcov_type} robust SE"
+    out.attrs["vcov"] = pd.DataFrame(V, index=names, columns=names)
     return out

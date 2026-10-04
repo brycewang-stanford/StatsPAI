@@ -252,7 +252,10 @@ def best_linear_projection(
     -------
     pd.DataFrame
         Rows ``Intercept`` and one per column of ``A`` with ``coef``,
-        ``se``, ``t``, ``p``, ``ci_lower``, ``ci_upper``.
+        ``se``, ``t``, ``p``, ``ci_lower``, ``ci_upper``. For causal
+        forests and DML fits ``.attrs['vcov']`` holds the covariance of
+        the coefficients, from which the standard error of the projected
+        effect at any covariate value, ``sqrt(a' V a)``, follows.
 
     Examples
     --------
