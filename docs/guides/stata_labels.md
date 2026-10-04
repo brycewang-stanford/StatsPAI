@@ -31,6 +31,18 @@ Labelled variables stay numeric, as Stata stores them, so a regression on
 | Labels of `.a` to `.z` | `df.attrs['_missing_labels']` | `label define x .a "Refused"` |
 | Dataset label | `df.attrs['_data_label']` | `label data` |
 | Display formats that say something | `df.attrs['_formats']` | `format` |
+| Name of each variable's label set | `df.attrs['_value_label_names']` | `label values` |
+| Notes | `df.attrs['_notes']` | `notes` |
+| Other characteristics | `df.attrs['_characteristics']` | `char`, `xtset`, `tsset` |
+
+Notes and characteristics are keyed by variable, with those of the dataset
+itself under `'_dta'`:
+
+```python
+df.attrs["_notes"]
+# {'_dta': ['Wave 3, released 2021'], 'wage': ['top-coded at 40']}
+df.attrs["_characteristics"]["_dta"]["_TSpanel"]   # 'id', from xtset
+```
 
 The result is the same with or without the optional `pyreadstat`.
 
@@ -118,9 +130,36 @@ sp.write_data(df, "out.parquet")   # Parquet keeps them too
 sp.write_data(df, "out.csv")       # warns: CSV cannot store labels
 ```
 
-Two limits. Missing values are written as `.`, so a `region__miss` column
-goes out as the string column it is. And Stata's label *names* are not
-kept: a label set shared by several variables is written once per variable.
+A .dta file that is read and written back keeps what Stata stored in it:
+
+- **Label sets keep their names.** Twenty yes/no items that shared the set
+  `yesno` in Stata share one set `yesno` in the file again. If you change
+  the labels of one of them, that variable gets a set named after itself
+  and the others keep `yesno`.
+- **Extended missing values go back as they came.** A `region__miss`
+  column is not written as a variable; the rows it marks are written as
+  `.a`, `.b` and so on in `region`. Pass `extended_missing="nan"` to write
+  the column as text and every missing value as `.`.
+- **Notes and characteristics** are written for the columns still in the
+  frame, so `xtset` and `tsset` declarations survive.
+- **Display formats** are written when Stata would accept them for the
+  column, and left out with a warning otherwise.
+
+The file is written beside the target and moved into place when it is
+complete, so a failed write leaves an existing file untouched.
+
+Four things are not kept: a label set that is defined but attached to no
+variable, a label name attached to a variable without being defined, the
+sort order (pandas may have reordered the rows since), and default
+formats such as a left-aligned `%-9s`.
+
+## Files from Stata 18 with alias variables
+
+Stata 18 saves a dataset that has alias variables (`fralias add`) in format
+120 or 121, which neither pandas nor pyreadstat opens. An alias is a view
+of a variable in another frame, and the file stores none of its values.
+`sp.read_data` reads everything else, warns, and lists the aliases it left
+out in `df.attrs['_alias_variables']`.
 
 ## Labels and pandas operations
 
@@ -144,4 +183,6 @@ sp.label_vars(short, df, rename={"wage": "w"})
 `label values`, `label data` and `label drop` change the labels of the
 session's data; `decode` and `encode` work as in Stata; `rename` takes the
 labels along; `tabulate` prints labels unless `nolabel` is given. The
-frame you passed in is never modified.
+session knows the label sets a .dta file came with, so
+`label define yesno 2 "Maybe", add` changes every variable that uses
+`yesno`. The frame you passed in is never modified.

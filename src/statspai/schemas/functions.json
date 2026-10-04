@@ -28466,6 +28466,15 @@
           "description": "Dataset label (Stata's ``label data``). Default: the one in ``data.attrs['_data_label']``, if any.",
           "type": "string"
         },
+        "extended_missing": {
+          "default": "column",
+          "description": "For .dta only. ``'column'`` undoes ``read_data(extended_missing='column')``: a column ``<var>__miss`` holding ``'.a'`` ... ``'.z'`` beside a numeric ``<var>`` is not written as a variable; the rows it marks are written as that missing value in ``<var>``. ``'nan'`` writes such a column as the string variable it is and every missing value as ``.``.",
+          "enum": [
+            "column",
+            "nan"
+          ],
+          "type": "string"
+        },
         "labels": {
           "description": "``{column: label}``. Added to (and overriding) the labels already in ``data.attrs['_labels']``.",
           "type": "object"

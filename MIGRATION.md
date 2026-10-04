@@ -5,6 +5,29 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.37.0 → next: `sp.write_data` folds `<var>__miss` columns back into `<var>` in a .dta file
+
+**What changed.** A frame read with `sp.read_data(path,
+extended_missing='column')` has, beside each variable that held `.a` ...
+`.z`, a column `<var>__miss` with those codes. `sp.write_data` to .dta used
+to write that column as a string variable and every missing value as `.`.
+It now writes the codes back into `<var>` as Stata's extended missing
+values and does not write the `__miss` column. Value-label sets also keep
+the names they had in Stata (`df.attrs['_value_label_names']`) instead of
+being named after each variable.
+
+**Who is affected.** Code that reads a .dta written by `sp.write_data` and
+expects a `<var>__miss` string variable in it, or expects every label set
+to be named after its variable.
+
+**What to do.** Pass `extended_missing='nan'` to `sp.write_data` for the
+old file layout. To have sets named after their variables again, remove
+`df.attrs['_value_label_names']` before writing.
+
+**Unaffected.** A `__miss` column that holds anything other than `.a` ...
+`.z` codes, or whose base column is missing or not numeric, is an ordinary
+column and is written as before. Formats other than .dta are unchanged.
+
 <a id="oct2026-python310"></a>
 
 ## 1.36.0 → 1.37.0: Python 3.10 or later is required

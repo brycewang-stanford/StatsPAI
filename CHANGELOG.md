@@ -4,6 +4,54 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### A .dta file read and written back is the same file
+
+`sp.read_data` followed by `sp.write_data` used to lose four things Stata
+stores in a .dta file. All four now survive, and Stata 18 confirms it: the
+files written here pass `dtaverify` in formats 117, 118 and 119, and
+`cf _all using <original>, all` matches every variable.
+
+#### Added
+
+- **Value-label sets keep their names.** `sp.read_data` records the name
+  of each variable's set in `df.attrs['_value_label_names']`, and
+  `sp.write_data` writes one set under that name for all the variables
+  that share it. Before, pandas named each set after its variable, so a
+  set shared by twenty items became twenty sets. A variable whose labels
+  were changed gets a set of its own.
+- **Extended missing values are written back.** A `<var>__miss` column
+  from `read_data(extended_missing='column')` is folded into `<var>` as
+  `.a` ... `.z` on write; `write_data(extended_missing='nan')` keeps the
+  old behaviour. A code on a row where `<var>` holds a value is refused.
+- **Notes and characteristics** are read into `df.attrs['_notes']` and
+  `df.attrs['_characteristics']` (keyed by variable, the dataset's own
+  under `'_dta'`) and written back for the columns still in the frame.
+  `xtset` / `tsset` declarations are characteristics, so they survive.
+- **Display formats are written**, not only the unit of a date: a
+  `%12.2fc` column comes back as `%12.2fc`. A format Stata would refuse
+  for the column is left out with a warning.
+- **Format 120 / 121 files are read** (Stata 18, alias variables), which
+  neither pandas nor pyreadstat opens. The alias variables hold no data
+  in the file; they are left out with a warning and listed in
+  `df.attrs['_alias_variables']`.
+- **`sp.stata` knows the label sets a file came with**:
+  `label define yesno 2 "Maybe", add` after loading a .dta now changes
+  every variable attached to `yesno`.
+
+#### Changed
+
+- **`sp.write_data` to .dta is atomic.** The file is written beside the
+  target and moved into place when complete; a write that fails leaves an
+  existing file as it was.
+
+#### Fixed
+
+- **`sp.read_data(extended_missing='column')` failed on a file with a
+  date variable that had a missing value**, on both readers: pandas
+  stopped with `TypeError: ufunc 'isnan' not supported` and pyreadstat
+  with `ValueError: Given date string "a" not likely a datetime`. The
+  dates are now converted after the codes are taken out.
+
 ### `sp.rdrobust` with a few support points
 
 #### Fixed

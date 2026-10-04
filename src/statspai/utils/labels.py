@@ -84,7 +84,15 @@ def label_var(df: pd.DataFrame, var: str, label: str) -> None:
 
 
 #: ``attrs`` entries that map column name -> metadata for that column.
-_PER_COLUMN_ATTRS = ("_labels", "_value_labels", "_missing_labels", "_formats")
+_PER_COLUMN_ATTRS = (
+    "_labels",
+    "_value_labels",
+    "_missing_labels",
+    "_formats",
+    "_value_label_names",
+    "_notes",
+    "_characteristics",
+)
 
 
 @accepts_aliases(data="df")
@@ -395,6 +403,15 @@ def label_values(
             df.attrs[key] = store
         else:
             df.attrs.pop(key, None)
+    if not regular and not missing and df.attrs.get("_value_label_names"):
+        # the set a file attached to these variables goes with its labels
+        kept = {
+            k: v for k, v in df.attrs["_value_label_names"].items() if k not in names
+        }
+        if kept:
+            df.attrs["_value_label_names"] = kept
+        else:
+            df.attrs.pop("_value_label_names", None)
 
 
 def _code_text(code: Any) -> str:

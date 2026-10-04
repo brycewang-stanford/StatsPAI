@@ -2290,7 +2290,15 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
 
 
 #: ``attrs`` keys that map column name -> metadata for that column.
-_PER_COLUMN_LABEL_ATTRS = ("_labels", "_value_labels", "_missing_labels", "_formats")
+_PER_COLUMN_LABEL_ATTRS = (
+    "_labels",
+    "_value_labels",
+    "_missing_labels",
+    "_formats",
+    "_value_label_names",
+    "_notes",
+    "_characteristics",
+)
 
 
 def _carry_label_attrs(
@@ -2319,7 +2327,8 @@ def _carry_label_attrs(
             if col in overwritten:
                 continue
             new_name = renamed.get(col, col)
-            if str(new_name) in present:
+            # notes and characteristics of the dataset itself sit under '_dta'
+            if str(new_name) in present or col == "_dta":
                 kept[new_name] = meta
         if kept:
             out[key] = kept

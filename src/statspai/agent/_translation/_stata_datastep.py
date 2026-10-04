@@ -165,6 +165,28 @@ class DataSteps:
         #: each variable was given by `label values`
         self._label_sets: Dict[str, Dict[Any, str]] = {}
         self._set_of: Dict[str, str] = {}
+        self._adopt_label_sets()
+
+    def _adopt_label_sets(self) -> None:
+        """Take over the value-label sets the frame came with.
+
+        A frame read from a .dta file names each variable's set in
+        ``attrs['_value_label_names']``; a variable labelled without a
+        name has a set named after itself, as `encode` would create.
+        """
+        attrs = self.data.attrs
+        regular = attrs.get("_value_labels") or {}
+        gaps = attrs.get("_missing_labels") or {}
+        names = attrs.get("_value_label_names") or {}
+        for var in list(regular) + [v for v in gaps if v not in regular]:
+            if var not in self.data.columns:
+                continue
+            table = {**(regular.get(var) or {}), **(gaps.get(var) or {})}
+            name = names.get(var) or str(var)
+            if name in self._label_sets and self._label_sets[name] != table:
+                name = str(var)
+            self._label_sets.setdefault(name, table)
+            self._set_of[var] = name
 
     def _own(self) -> None:
         if not self._owned:
@@ -380,6 +402,7 @@ class DataSteps:
             gaps = {k: v for k, v in mapping.items() if isinstance(k, str)}
             self._set_attr("_value_labels", var, regular)
             self._set_attr("_missing_labels", var, gaps)
+            self._set_attr("_value_label_names", var, name if mapping else None)
 
     def apply_label(self, line: str) -> bool:
         """Run a ``label`` command that changes labels; ``False`` otherwise.
@@ -607,7 +630,15 @@ class DataSteps:
         attrs = dict(self.data.attrs)
         self.data = self.data.rename(columns={old: new})
         # the labels go with the variable
-        for key in ("_labels", "_value_labels", "_missing_labels", "_formats"):
+        for key in (
+            "_labels",
+            "_value_labels",
+            "_missing_labels",
+            "_formats",
+            "_value_label_names",
+            "_notes",
+            "_characteristics",
+        ):
             store = attrs.get(key)
             if isinstance(store, dict) and old in store:
                 store = dict(store)
