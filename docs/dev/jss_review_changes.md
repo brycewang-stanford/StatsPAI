@@ -113,6 +113,24 @@ only the recorded source hashes move.
 - `tests/r_parity/results/_implementation_trace.json`
 - `tests/orig_parity/results/_implementation_trace.json`
 
+### 2026-10-04 — call traces re-recorded for the `sp.rddensity` binomial windows and `sp.rdmc` inference
+
+Commits `3c99d27f` and `b33b002c`. `sp.rddensity` gained options for the
+windows of its binomial tests (`bino_w=` and four more), and
+`sp.rdmc(cutoff_var=)` now reports robust bias-corrected intervals. The
+edits are in `diagnostics/rddensity.py` and `rd/rdmulti.py`, which
+Track A modules 09 and 89 execute, so their source hashes in the trace
+changed. The default binomial table, the density test and `sp.rdms`
+are untouched.
+
+Effect on the paper: none. Modules 09 and 89 were re-run and their
+result files are byte-identical; only the recorded source hashes move.
+`sp.rdmc`, `sp.rdrandinf` and `sp.rdwinselect`, whose numbers did
+change (see CHANGELOG, "Correctness: local randomization and multi-cutoff
+RD"), have no Track A module and no row in the manuscript's tables.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded after two warning texts changed
 
 Commit `98538177`. The unbalanced-panel warning and docstring of
