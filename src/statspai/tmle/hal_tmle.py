@@ -346,6 +346,7 @@ class HALRegressor(_BaseHAL):
             max_anchors_per_col=max_anchors,
         )
         from sklearn.linear_model import Lasso, LassoCV
+
         from ..compat.sklearn import lasso_cv_alphas_kwargs
 
         if self.lambda_ is None:
@@ -594,7 +595,7 @@ def hal_tmle(
 
     References
     ----------
-    [@benkeser2016highly] [@vanderlaan2023efficient] [@li2025regularized]
+    [@benkeser2016highly], [@vanderlaan2023efficient], [@li2025regularized]
     """
     if variant == "projection":
         # The projection-variant block in v1.11.x and earlier shrunk the

@@ -20650,7 +20650,7 @@
           "type": "integer"
         },
         "second_stage": {
-          "description": "The regressors of Stage 2, replacing the treatment dummy. A numeric column enters as it is; ``'i.x'`` or ``'ib0.x'`` enters one indicator per level of ``x`` other than the base, as in Stata. There is no intercept. The coefficients are in ``.detail``; ``.estimate`` is the coefficient when there is one regressor and NaN when there are several, since no single number summarises them.",
+          "description": "The regressors of Stage 2, replacing the treatment dummy. A numeric column enters as it is; ``'i.x'`` or ``'ib0.x'`` enters one indicator per level of ``x`` other than the base, as in Stata. There is no intercept. The coefficients are in ``.detail``; ``.estimate`` is the coefficient when there is one regressor and NaN when there are several, since no single number summarises them. ``treat``, ``fe`` and ``second_stage`` select the general form of the estimator. It has the analytic variance only, and ``event_study`` does not apply: an event study is ``second_stage=['ib<k>.<relative time>']``.",
           "items": {
             "type": "string"
           },

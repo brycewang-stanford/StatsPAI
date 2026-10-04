@@ -428,9 +428,10 @@ def gardner_did(
         NaN when there are several, since no single number summarises
         them.
 
-    ``treat``, ``fe`` and ``second_stage`` select the general form of the
-    estimator. It has the analytic variance only, and ``event_study`` does
-    not apply: an event study is ``second_stage=['ib<k>.<relative time>']``.
+        ``treat``, ``fe`` and ``second_stage`` select the general form of
+        the estimator. It has the analytic variance only, and
+        ``event_study`` does not apply: an event study is
+        ``second_stage=['ib<k>.<relative time>']``.
 
     Returns
     -------

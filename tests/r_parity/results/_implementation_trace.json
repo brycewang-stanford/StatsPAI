@@ -2731,7 +2731,7 @@
    "result_sha256": "4d43a569f700cf0743b468ccf5935f925008ddd4cdf0f939424924d627917509"
   },
   "73_did2s": {
-   "seconds": 1.67,
+   "seconds": 1.05,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2751,7 +2751,7 @@
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/results.py": "0f217ec51108e4fc0986fbb26e7d8a13a7dc720f7ff0b54e7142e17fc0bd8a01",
     "src/statspai/datasets/_canonical.py": "8bf214579220ed4281e7c2f8ae6aef71ed6ee9b2f7604bc8ea92e9b88dbe894a",
-    "src/statspai/did/gardner_2s.py": "5eecfa7cef97c17a3f40762ce67f7f5574450b0ebf20fed5f2ecf8bddef17cce",
+    "src/statspai/did/gardner_2s.py": "80fe6578cc92ec896adcb50576165c8ac0837a8ce6de2e629eaea252ed1f5c2d",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },

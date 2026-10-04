@@ -628,7 +628,7 @@ def rdrandinf(
     "Inference in Regression Discontinuity Designs under Local
     Randomization." *The Stata Journal*, 16(2), 331-367. [@cattaneo2016inference]
 
-    [@cattaneo2015randomization], [@cattaneo2024extensions]
+    [@cattaneo2015randomization], [@cattaneo2024extensions],
     [@rosenbaum2007interference]
 
     Examples
