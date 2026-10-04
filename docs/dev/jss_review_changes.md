@@ -31,6 +31,18 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call trace re-recorded after `sp.rdms` gained the cumulative-cutoff form
+
+Commit `5d0478af`. `sp.rdms` without `x2` estimates one score with
+cumulative cutoffs. The code is in `rd/rdmulti.py`, which Track A module
+89 executes.
+
+Effect on the paper: none. Module 89 calls the two-score form with scalar
+cutoffs, which is unchanged; it was re-run and its result file is
+byte-identical. Only the recorded source hash moves.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded for the second round of the Clarke textbook pass
 
 Commit `a4a892ff`. `matching/match.py` and `matching/_ai2016.py` (module
