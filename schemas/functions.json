@@ -2931,12 +2931,6 @@
         },
         "forest": {
           "description": "``sp.causal_forest`` (GRF engine), ``sp.iv_forest``, ``sp.multi_arm_forest`` (one projection per contrast, stacked), ``sp.causal_survival_forest``.",
-          "enum": [
-            "sp.causal_forest",
-            "sp.iv_forest",
-            "sp.multi_arm_forest",
-            "sp.causal_survival_forest"
-          ],
           "type": "string"
         },
         "vce": {
@@ -5133,6 +5127,72 @@
     }
   },
   {
+    "description": "Average treatment effect of a randomized experiment by regression on treatment, centred covariates and their interactions with treatment (Lin 2013; R estimatr::lm_lin). Consistent whatever the outcome model and asymptotically no less precise than the difference in means. HC2 by default, CR2 with Bell-McCaffrey df under cluster=. superpopulation=True adds the variance from estimating the covariate means. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "lm_lin",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Clusters assigned to treatment as a whole",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Pre-treatment covariates; string and categorical columns enter as indicators",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "superpopulation": {
+          "default": false,
+          "description": "Add the variance from estimating the covariate means (population rather than sample average effect)",
+          "type": "boolean"
+        },
+        "treat": {
+          "description": "Two-valued treatment; the estimate contrasts the larger value with the smaller one",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Variance estimator; default hc2, or cr2 with cluster=",
+          "enum": [
+            "classical",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3",
+            "cr2",
+            "stata"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Balance / mean-comparison table -- Mean (SD) per group, difference, and t-test/ranksum/chi2 p-value. Renders to text/LaTeX/HTML/Markdown/Excel/Word.",
     "name": "mean_comparison",
     "parameters": {
@@ -5239,6 +5299,15 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "kd": {
+          "default": 1.0,
+          "description": "How many times as strong as the benchmark the confounder is in explaining the treatment; a list gives one row per multiple",
+          "type": "number"
+        },
+        "ky": {
+          "description": "The same multiple for the outcome; defaults to kd",
+          "type": "number"
         },
         "treat": {
           "description": "Treatment column of interest",
@@ -5388,6 +5457,13 @@
     "name": "dag",
     "parameters": {
       "properties": {
+        "latent": {
+          "description": "Names of unobserved nodes: never offered as adjustment variables, and projected out for identification",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "spec": {
           "description": "Edge spec: \"Z -> X; Z -> Y; X -> Y\"",
           "type": "string"
@@ -6552,7 +6628,7 @@
     "parameters": {
       "properties": {
         "dag": {
-          "description": "``statspai.dag.DAG`` instance, possibly with latent nodes ``_L_*`` (representing bidirected edges).",
+          "description": "``statspai.dag.DAG`` instance, possibly with latent nodes ``_L_*`` (representing bidirected edges) or named latents declared with ``sp.dag(..., latent=[...])``; the latter are projected out",
           "type": "string"
         },
         "outcome": {
@@ -25436,11 +25512,11 @@
           "type": "array"
         },
         "cf_d": {
-          "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound and adjusted-estimate range.",
+          "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound, the adjusted-estimate range, the standard errors of its two ends and an interval for the range.",
           "type": "number"
         },
         "cf_y": {
-          "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound and adjusted-estimate range.",
+          "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound, the adjusted-estimate range, the standard errors of its two ends and an interval for the range.",
           "type": "number"
         },
         "k_d": {

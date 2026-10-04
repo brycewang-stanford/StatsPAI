@@ -27,12 +27,18 @@ What is pinned, and what is not
 -------------------------------
 * ``bias_bound`` and the adjusted ``theta`` bounds: exact (1e-12).
 * ``RV`` (robustness value at ``q=1``): exact to 1e-6.
-* ``RVa``: **not** exact, and deliberately not claimed to be. StatsPAI
-  solves for the confounding strength at which ``|theta| - z*se`` is
-  exhausted using the *unadjusted* standard error; ``DoubleML`` lets the
-  standard error itself move with the confounding scenario. The observed
-  gap is ~1.4e-3 on this fixture and is asserted with that band rather
-  than hidden inside a loose global tolerance.
+* The standard errors of the two bounds: exact (1e-10), but **crosswise**.
+  ``doubleml`` 0.11.3 scales the score by ``psi / E[psi_a]`` with
+  ``E[psi_a] < 0``, i.e. by minus the influence function, and then forms
+  ``psi_lower = scaled_psi - c * psi_max_bias``. That is the influence
+  function of the *upper* bound, so its ``se['lower']`` is the standard
+  error of the upper bound and vice versa. StatsPAI attaches each standard
+  error to its own bound; the finite-difference check in
+  ``tests/reference_parity/test_dml_sensitivity_bound_scores.py`` is the
+  independent evidence for the sign.
+* ``RVa`` and the interval for the range: differ only through that swap.
+  Feeding the swapped standard errors back in reproduces ``doubleml``'s
+  interval to 1e-10, which is asserted below.
 
 Skipped automatically when ``doubleml`` is not installed -- it is an
 optional pin, not a runtime dependency of StatsPAI.
@@ -156,29 +162,51 @@ def test_robustness_value_matches_doubleml(sp_fit, dml_fit):
     )
 
 
-def test_rva_convention_gap_is_bounded_and_documented(sp_fit, dml_fit):
-    """RVa differs by construction; the gap is pinned, not papered over.
+def test_bound_standard_errors_match_doubleml_crosswise(sp_fit, dml_fit):
+    """Each bound's standard error equals doubleml's for the *other* bound.
 
-    StatsPAI exhausts ``|theta| - z*se`` using the standard error of the
-    *unadjusted* fit. DoubleML lets the standard error move with the
-    confounding scenario, so its RVa is slightly smaller. This test
-    fixes the size of that difference so a future change to either
-    convention shows up as a failure rather than as drift.
+    See the module docstring: doubleml's score scaling flips the sign of
+    the influence function, so its two standard errors are exchanged.
+    """
+    sens = sp.dml_sensitivity(sp_fit, q=1.0, cf_y=CF_Y, cf_d=CF_D)
+    se = dml_fit.sensitivity_params["se"]
+    assert float(sens.se_low) == pytest.approx(float(se["upper"][0]), rel=1e-10)
+    assert float(sens.se_high) == pytest.approx(float(se["lower"][0]), rel=1e-10)
+    assert float(sens.se_low) != pytest.approx(float(se["lower"][0]), rel=1e-6)
+
+
+def test_interval_gap_is_exactly_the_exchanged_standard_errors(sp_fit, dml_fit):
+    """doubleml's interval is ours with the two standard errors exchanged."""
+    from scipy.stats import norm
+
+    sens = sp.dml_sensitivity(sp_fit, q=1.0, cf_y=CF_Y, cf_d=CF_D)
+    z = norm.ppf(0.95)
+    ci = dml_fit.sensitivity_params["ci"]
+    assert sens.adjusted_estimate_low - z * sens.se_high == pytest.approx(
+        float(ci["lower"][0]), rel=1e-10
+    )
+    assert sens.adjusted_estimate_high + z * sens.se_low == pytest.approx(
+        float(ci["upper"][0]), rel=1e-10
+    )
+    assert sens.ci_low == pytest.approx(
+        sens.adjusted_estimate_low - z * sens.se_low, rel=1e-12
+    )
+
+
+def test_rva_gap_is_bounded_by_the_exchanged_standard_errors(sp_fit, dml_fit):
+    """RVa is where the interval, not the bound, reaches zero.
+
+    It inherits the exchanged standard errors, so it is close to but not
+    equal to doubleml's; the two standard errors differ by a few percent
+    here and RVa by less than that.
     """
     sens = sp.dml_sensitivity(sp_fit, q=1.0, cf_y=CF_Y, cf_d=CF_D)
     reference = float(dml_fit.sensitivity_params["rva"][0])
     rel_gap = abs(float(sens.rv_qa) - reference) / reference
     assert rel_gap < 5e-3, (
-        f"RVa gap {rel_gap:.3g} exceeds the documented convention band; "
-        f"sp={sens.rv_qa:.10f} vs doubleml={reference:.10f}"
+        f"RVa gap {rel_gap:.3g}; sp={sens.rv_qa:.10f} vs doubleml={reference:.10f}"
     )
-    # No directional claim: the sign of the gap depends on how the
-    # confounding-adjusted standard error moves relative to the original,
-    # which is not monotone in (cf_y, cf_d). Only the magnitude is pinned.
-    assert float(sens.rv_qa) <= float(sens.rv_q), (
-        "RVa is the strength needed to lose significance, which cannot "
-        "exceed the strength needed to zero out the estimate"
-    )
+    assert float(sens.rv_qa) <= float(sens.rv_q)
 
 
 def test_scaling_factor_uses_the_structural_residual(sp_fit):

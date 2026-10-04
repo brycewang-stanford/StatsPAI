@@ -5,6 +5,49 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-causalml-textbook-fixes"></a>
+
+## 1.38.0 → next: ⚠️ `sp.dml` PLR / PLIV with a classifier nuisance
+
+**What changed.** With `model='plr'` or `model='pliv'`, a nuisance learner
+that is a scikit-learn classifier now contributes `predict_proba[:, 1]`.
+It used to contribute `predict`, the hard 0/1 label, so the residual of a
+binary treatment was `D - 1{p > 0.5}` and not `D - E[D | X]`. A classifier
+whose target is not a 0/1 variable is refused. `sp.dml_model_averaging`
+follows the same rule.
+
+**Who is affected.** Calls that pass a classifier object (for example
+`ml_m=RandomForestClassifier()` or `LogisticRegression()`) to PLR or PLIV.
+Estimates and standard errors change, and the old ones were wrong: on the
+401(k) data the PLR estimate was 6,044 against 8,754 from `DoubleML`.
+
+**What to do.** Rerun. No argument changes.
+
+**Unaffected.** Regressors, the string aliases (`'rf'`, `'lasso'`, ...),
+which resolve to regressors under PLR and PLIV, and the `irm` / `iivm`
+models, which already used probabilities.
+
+## 1.38.0 → next: ⚠️ `sp.dml_sensitivity` on IRM fits, and `rv_qa`
+
+**What changed.** (1) For `model='irm'` the bias bound is computed from
+`sigma^2 = E[(Y - g(D, X))^2]` and the Riesz representer of the estimand,
+as in Chernozhukov, Cinelli, Newey, Sharma and Syrgkanis (2022). It used
+the PLR formula on the IRM score. (2) `rv_qa` is the strength at which the
+`1 - alpha` interval for the bound reaches the null, with the bound's own
+standard error. It used `|theta| - z * se` with the unadjusted `se`.
+(3) New fields `se_low`, `se_high`, `ci_low`, `ci_high`.
+
+**Who is affected.** Anyone who reported `bias_bound`, the adjusted range
+or a robustness value from an IRM fit: the old numbers were not the bound
+of the paper. For PLR fits `bias_bound`, the adjusted range and `rv_q` are
+unchanged, and `rv_qa` moves in the third decimal.
+
+**What to do.** Rerun. Sample-weighted IRM fits are refused, because the
+score elements are not stored for them; refit without `sample_weight`.
+
+**Unaffected.** `sp.sensemakr`, `sp.evalue` and the other sensitivity
+tools.
+
 ## 1.37.0 → 1.38.0: `sp.write_data` folds `<var>__miss` columns back into `<var>` in a .dta file
 
 **What changed.** A frame read with `sp.read_data(path,

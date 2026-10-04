@@ -27,7 +27,12 @@ from __future__ import annotations
 
 from ._core import RLassoFit, rlasso
 from ._logit import RLassoLogitFit, rlassologit
-from .effect import RLassoEffectResult, rlasso_effect, rlasso_effects
+from .effect import (
+    RLassoEffectResult,
+    RLassoEffectsResult,
+    rlasso_effect,
+    rlasso_effects,
+)
 from .iv import RLassoIVResult, rlasso_iv
 from .learner import RlassoClassifier, RlassologitClassifier, RlassoRegressor
 from .logit_effect import (
@@ -42,6 +47,7 @@ __all__ = [
     "rlasso_effect",
     "rlasso_effects",
     "RLassoEffectResult",
+    "RLassoEffectsResult",
     "rlasso_iv",
     "RLassoIVResult",
     "rlassologit",

@@ -481,6 +481,61 @@ class _DoubleMLBase:
         G = int(codes.max()) + 1
         return theta, float(np.sqrt(gamma / (J**2 * G)))
 
+    def _sensitivity_rep(self, theta: float, se: float) -> Dict[str, Any]:
+        """Elements of the omitted-variable-bias bound for one repetition.
+
+        Returns the point estimate, its influence function ``psi`` (scaled
+        so that ``Var(theta) = mean(psi^2)/n`` without clustering),
+        ``sigma^2``, ``nu^2`` and their centred score elements. With
+        ``cluster=`` it also carries what the cluster-robust variance of a
+        linear combination of those scores needs.
+        """
+        sens = self._last_rep_sens
+        score = self._last_rep_score
+        psi_a = np.asarray(score["psi_a"], dtype=float)
+        psi_b = np.asarray(score["psi_b"], dtype=float)
+        psi = psi_a * theta + psi_b
+        if "sigma2_el" in sens:
+            sigma2_el = np.asarray(sens["sigma2_el"], dtype=float)
+            nu2_el = np.asarray(sens["nu2_el"], dtype=float)
+            nu2 = float(np.mean(nu2_el))
+            psi_nu2 = nu2_el - nu2
+        else:
+            sigma2_el = (sens["a"] - theta * sens["b"]) ** 2
+            v2 = np.asarray(sens["treat_resid"], dtype=float) ** 2
+            nu2 = float(1.0 / np.mean(v2))
+            psi_nu2 = nu2 - v2 * nu2**2
+        sigma2 = float(np.mean(sigma2_el))
+        out: Dict[str, Any] = {
+            "theta": float(theta),
+            "se": float(se),
+            "sigma2": sigma2,
+            "nu2": nu2,
+            "psi_sigma2": sigma2_el - sigma2,
+            "psi_nu2": psi_nu2,
+        }
+        codes = self._cluster_codes
+        if codes is None:
+            out["psi"] = -psi / float(np.mean(psi_a))
+        else:
+            splits = score["splits"]
+            sizes = [len(np.unique(codes[test])) for _, test in splits]
+            J = sum(np.sum(psi_a[test]) / m for (_, test), m in zip(splits, sizes))
+            out["psi"] = -psi / (J / len(splits))
+            # sigma^2 and nu^2 are averages over observations while the
+            # cluster variance sums scores within clusters, so their score
+            # elements carry the same observations-per-cluster scaling.
+            per_cluster = np.mean([len(t) / m for (_, t), m in zip(splits, sizes)])
+            scale = float(1.0 / per_cluster)
+            out["psi_sigma2"] = out["psi_sigma2"] * scale
+            out["psi_nu2"] = out["psi_nu2"] * scale
+            out["cluster"] = {
+                "codes": codes,
+                "tests": [test for _, test in splits],
+                "sizes": sizes,
+            }
+        return out
+
     def _make_splits(
         self,
         X: np.ndarray,
@@ -583,6 +638,36 @@ class _DoubleMLBase:
         if np.any(counts == 0):
             raise DataInsufficient("fold_indices must assign at least one row per fold")
         return np.asarray(codes, dtype=int)
+
+    # ----- Nuisance prediction (used by subclasses) -------------------
+    @staticmethod
+    def _predict_nuisance(
+        fitted: Any, X: np.ndarray, target: np.ndarray, role: str
+    ) -> np.ndarray:
+        """Conditional-mean prediction of a fitted nuisance learner.
+
+        A regressor predicts with ``predict``. A classifier is only a
+        conditional-mean estimator for a 0/1 target, and then the mean
+        is ``predict_proba[:, 1]``; ``predict`` would return the hard
+        label, and a residual ``D - 1{p > 0.5}`` is not ``D - E[D|X]``.
+        ``doubleml`` applies the same rule to PLR.
+        """
+        from sklearn.base import is_classifier
+
+        if not is_classifier(fitted):
+            return np.asarray(fitted.predict(X), dtype=float).ravel()
+        values = np.unique(np.asarray(target))
+        if not (np.isin(values, (0, 1)).all() and hasattr(fitted, "predict_proba")):
+            raise MethodIncompatibility(
+                f"dml: the {role} learner {type(fitted).__name__} is a "
+                "classifier, but its target is not a 0/1 variable (or the "
+                "learner has no predict_proba). Pass a regressor."
+            )
+        proba = np.asarray(fitted.predict_proba(X), dtype=float)
+        classes = list(getattr(fitted, "classes_", (0, 1)))
+        if 1 not in classes:  # training fold held a single class, all zeros
+            return np.zeros(X.shape[0], dtype=float)
+        return proba[:, classes.index(1)]
 
     # ----- Sample-weight helpers (used by subclasses) -----------------
     @staticmethod
@@ -875,9 +960,12 @@ class _DoubleMLBase:
         ses: List[float] = []
         per_rep_diags: List[Dict[str, Any]] = []
         last_residuals: Dict[str, np.ndarray] = {}
+        sens_reps: List[Dict[str, Any]] = []
         for rep in range(self.n_rep):
             self._last_rep_diagnostics: Dict[str, Any] = {}
             self._last_rep_residuals: Dict[str, np.ndarray] = {}
+            self._last_rep_sens: Dict[str, np.ndarray] = {}
+            self._last_rep_ar: Dict[str, Any] = {}
             capture = collector and collector.start_rep(rep, self.random_state + rep)
             if capture is not None:
                 self._oof_rep_capture = capture
@@ -906,6 +994,8 @@ class _DoubleMLBase:
                 collector.finish_rep(capture, theta_r, se_r)
             thetas.append(theta_r)
             ses.append(se_r)
+            if self._last_rep_sens:
+                sens_reps.append(self._sensitivity_rep(theta_r, se_r))
             if self._last_rep_diagnostics:
                 per_rep_diags.append(self._last_rep_diagnostics)
             if self._last_rep_residuals:
@@ -974,6 +1064,13 @@ class _DoubleMLBase:
             model_info["_y_resid"] = last_residuals.get("y_resid")
             model_info["_d_resid"] = last_residuals.get("d_resid")
             model_info["_pscore"] = last_residuals.get("pscore")
+            if last_residuals.get("dr_scores") is not None:
+                model_info["_dr_scores"] = last_residuals["dr_scores"]
+        if sens_reps:
+            model_info["_sens"] = sens_reps
+        if self._last_rep_ar:
+            # Weak-instrument-robust set of the last repetition (PLIV).
+            model_info["anderson_rubin"] = self._last_rep_ar
         model_info["_X_design"] = X
         model_info["_T"] = D
         model_info["_Y"] = Y

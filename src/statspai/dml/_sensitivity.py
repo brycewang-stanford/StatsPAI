@@ -22,9 +22,28 @@ i.e. the *structural* outcome residual over the treatment residual. The
 numerator subtracts the treatment's own contribution; leaving it in
 overstates the bias bound and understates the robustness value.
 
-This matches ``DoubleML``'s ``sensitivity_analysis`` exactly — see
-``tests/external_parity/test_dml_sensitivity_parity.py``, which pins
-``bias_bound`` and ``RV`` to ``doubleml`` on a shared fold partition.
+For the IRM average effect the same bound holds with
+
+.. math::
+    \\sigma^2 = E[(Y - g(D, X))^2],\\quad
+    \\nu^2 = E[2\\,m(W, \\alpha) - \\alpha^2],\\quad
+    \\alpha = \\frac{D}{m(X)} - \\frac{1 - D}{1 - m(X)},
+
+the Riesz representer of the ATE (weighted by ``m(X)/P(D=1)`` for the
+effect on the treated). Up to 1.38.0 the PLR scaling was applied to IRM
+fits, which is not the bound of the paper.
+
+Both bounds are estimates. Their standard errors come from the influence
+functions ``psi -/+ c * psi_S`` with ``psi_S = (sigma^2 psi_nu2 + nu^2
+psi_sigma2) / (2 S)``, and the reported interval adds a one-sided normal
+quantile to each end, the usual interval for an identified set.
+
+The bounds match ``DoubleML``'s ``sensitivity_analysis`` exactly, and so
+do the two standard errors, crosswise: ``doubleml`` 0.11.3 reports the
+upper bound's standard error for the lower bound and vice versa (see
+``tests/external_parity/test_dml_sensitivity_parity.py`` and the
+finite-difference check in
+``tests/reference_parity/test_dml_sensitivity_bound_scores.py``).
 
 The **robustness value** ``RV_q`` is the value of confounding strength
 (assuming :math:`C_Y = C_D = \\text{RV}`) at which the bias just equals
@@ -36,8 +55,8 @@ The **robustness value** ``RV_q`` is the value of confounding strength
 
 When ``q = 1``, ``RV_1`` is the strength of an equivalent confounder that
 would shrink the estimate exactly to zero. ``RV_{q,\\alpha}`` adjusts for
-significance: it returns the strength required to push the lower CI
-across zero.
+significance: it is the strength at which the interval for the bound,
+not the bound itself, reaches that value.
 
 The reporting interface (robustness values, benchmark covariates,
 contour plot) parallels the R ``sensemakr`` package of Cinelli & Hazlett
@@ -61,8 +80,11 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
+from scipy import optimize as _optimize
+from scipy import stats as _stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 
 @dataclass
@@ -86,6 +108,14 @@ class DMLSensitivityResult(ResultProtocolMixin):
     adjusted_estimate_low : float
     adjusted_estimate_high : float
         Bias-adjusted estimate range under the (cf_y, cf_d) scenario.
+    se_low, se_high : float
+        Standard errors of the two ends of that range.
+    ci_low, ci_high : float
+        Interval that covers the range with probability ``1 - alpha``:
+        ``adjusted_estimate_low - z * se_low`` and
+        ``adjusted_estimate_high + z * se_high`` with the one-sided
+        quantile ``z = Phi^{-1}(1 - alpha)``. ``NaN`` for sample-weighted
+        fits, which do not store the score elements.
     benchmarks : pd.DataFrame
         For each benchmark covariate ``X_k``: ``cf_y_bench``,
         ``cf_d_bench``, and the implied bias / adjusted estimate when a
@@ -94,9 +124,10 @@ class DMLSensitivityResult(ResultProtocolMixin):
         not provided.
     s : float
         Scaling factor :math:`S = \\sqrt{\\sigma^2\\nu^2}` used in the bias
-        formula: the root-mean-square *structural* outcome residual
-        :math:`Y-\\ell(X)-\\theta(D-m(X))` over the root-mean-square
-        treatment residual :math:`D-m(X)`.
+        formula. For PLR it is the root-mean-square *structural* outcome
+        residual :math:`Y-\\ell(X)-\\theta(D-m(X))` over the
+        root-mean-square treatment residual :math:`D-m(X)`; for IRM see the
+        module notes.
     q : float
     alpha : float
     method : str
@@ -136,6 +167,10 @@ class DMLSensitivityResult(ResultProtocolMixin):
     alpha: float
     cf_y: Optional[float] = None
     cf_d: Optional[float] = None
+    se_low: float = float("nan")
+    se_high: float = float("nan")
+    ci_low: float = float("nan")
+    ci_high: float = float("nan")
     method: str = "DML-OVB (Chernozhukov-Cinelli-Newey 2022)"
 
     def summary(self) -> str:
@@ -159,6 +194,13 @@ class DMLSensitivityResult(ResultProtocolMixin):
                 f"[{self.adjusted_estimate_low:+.4f}, "
                 f"{self.adjusted_estimate_high:+.4f}]",
             ]
+            if np.isfinite(self.ci_low):
+                lines += [
+                    f"  Std. errors of the two bounds    : "
+                    f"{self.se_low:.4f}, {self.se_high:.4f}",
+                    f"  {1 - self.alpha:.0%} interval for the range    : "
+                    f"[{self.ci_low:+.4f}, {self.ci_high:+.4f}]",
+                ]
         if not self.benchmarks.empty:
             lines += [
                 "",
@@ -240,6 +282,77 @@ class DMLSensitivityResult(ResultProtocolMixin):
         return fig, ax
 
 
+class _ScoreBounds:
+    """Bias bounds and their sampling error from stored score elements.
+
+    For each cross-fitting repetition, with confounding strength ``c =
+    sqrt(cf_y * cf_d / (1 - cf_d))``, the bounds are ``theta -/+ c*S`` with
+    ``S = sqrt(sigma^2 nu^2)``, and their influence functions are ``psi
+    -/+ c*psi_S`` with ``psi_S = (sigma^2 psi_nu2 + nu^2 psi_sigma2) /
+    (2S)``. Repetitions are combined by the median, as ``doubleml`` does;
+    the interval adds a one-sided normal quantile to each end, the
+    convention for an interval that covers an identified set.
+    """
+
+    def __init__(self, reps: List[Dict[str, Any]], level: float) -> None:
+        self.reps = reps
+        self.level = level
+        self._s = [float(np.sqrt(r["sigma2"] * r["nu2"])) for r in reps]
+        self._psi_s = [
+            (r["sigma2"] * r["psi_nu2"] + r["nu2"] * r["psi_sigma2"]) / (2.0 * s)
+            for r, s in zip(reps, self._s)
+        ]
+        self.max_bias = float(np.median(self._s))
+
+    @staticmethod
+    def _se(psi: np.ndarray, cluster: Optional[Dict[str, Any]]) -> float:
+        if cluster is None:
+            return float(np.sqrt(np.mean(psi**2) / len(psi)))
+        codes, tests, sizes = cluster["codes"], cluster["tests"], cluster["sizes"]
+        gamma = 0.0
+        for test, m in zip(tests, sizes):
+            sums = np.bincount(codes[test], weights=psi[test])
+            gamma += float(np.sum(sums**2)) / m
+        gamma /= len(tests)
+        return float(np.sqrt(gamma / (int(codes.max()) + 1)))
+
+    def scenario(self, strength: float) -> Dict[str, float]:
+        lows, highs, se_lo, se_hi = [], [], [], []
+        for r, s, psi_s in zip(self.reps, self._s, self._psi_s):
+            lows.append(r["theta"] - strength * s)
+            highs.append(r["theta"] + strength * s)
+            se_lo.append(self._se(r["psi"] - strength * psi_s, r.get("cluster")))
+            se_hi.append(self._se(r["psi"] + strength * psi_s, r.get("cluster")))
+        lo, hi = np.asarray(lows), np.asarray(highs)
+        slo, shi = np.asarray(se_lo), np.asarray(se_hi)
+        z = float(_stats.norm.ppf(self.level))
+        theta_low, theta_high = float(np.median(lo)), float(np.median(hi))
+        return {
+            "theta_low": theta_low,
+            "theta_high": theta_high,
+            "se_low": float((np.median(lo + 1.96 * slo) - theta_low) / 1.96),
+            "se_high": float((np.median(hi + 1.96 * shi) - theta_high) / 1.96),
+            "ci_low": float(np.median(lo - z * slo)),
+            "ci_high": float(np.median(hi + z * shi)),
+        }
+
+    def robustness_value(self, null: float, what: str, upper_side: bool) -> float:
+        """Smallest ``cf_y = cf_d`` at which the bound, or its interval, hits ``null``."""
+        side = "high" if upper_side else "low"
+        key = f"theta_{side}" if what == "theta" else f"ci_{side}"
+        sign = -1.0 if upper_side else 1.0
+
+        def gap(cf: float) -> float:
+            return sign * (self.scenario(cf / np.sqrt(1.0 - cf))[key] - null)
+
+        if gap(0.0) <= 0:
+            return 0.0
+        hi = 1.0 - 1e-12
+        if gap(hi) > 0:
+            return 1.0  # pragma: no cover
+        return float(_optimize.brentq(gap, 0.0, hi, xtol=1e-14, rtol=1e-12))
+
+
 def _robustness_value(target: float, s: float) -> float:
     """Solve cf² / (1 - cf) = (target / s)² for cf ∈ [0, 1]."""
     if s <= 0 or not np.isfinite(s):
@@ -267,16 +380,18 @@ def dml_sensitivity(
     Parameters
     ----------
     result : CausalResult
-        From :func:`statspai.dml.dml` (PLR or IRM). Must carry the
-        post-fit residuals via ``model_info['_y_resid']``,
-        ``model_info['_d_resid']``, and the design matrix for benchmarks.
+        From :func:`statspai.dml.dml` with ``model='plr'`` or
+        ``model='irm'`` (ATE or ATTE score), including clustered and
+        repeated cross-fitting fits. IV models are refused: the bound is
+        for estimands identified by conditional exogeneity.
     q : float, default 1.0
         Bias threshold as a fraction of |θ̂|. ``q=1`` ⇒ confounder needed
         to shrink estimate to zero; ``q=0.5`` ⇒ half the estimate.
     cf_y, cf_d : float, optional
         Hypothesized partial-R² of an unobserved confounder with the
         residualised outcome and treatment. If both are given, the
-        report includes a bias bound and adjusted-estimate range.
+        report includes a bias bound, the adjusted-estimate range, the
+        standard errors of its two ends and an interval for the range.
     benchmark_covariates : list of str, optional
         Subset of the original covariates to benchmark against. For each
         ``X_k``, the benchmark sets ``cf_y_bench, cf_d_bench`` to the
@@ -314,79 +429,77 @@ def dml_sensitivity(
     0.05
     """
     info = result.model_info or {}
-    y_resid = info.get("_y_resid")
-    d_resid = info.get("_d_resid")
-    if y_resid is None or d_resid is None:
-        raise ValueError(
-            "dml_sensitivity requires post-fit residuals. Re-fit the DML "
-            "model with the current statspai.dml.* implementation, which "
-            "stores them under model_info['_y_resid'] / ['_d_resid']."
+    model_tag = str((info or {}).get("dml_model", "")).upper()
+    if model_tag in ("PLIV", "IIVM"):
+        raise MethodIncompatibility(
+            f"dml_sensitivity: not defined for model='{model_tag.lower()}'. The "
+            "omitted-variable-bias bound of Chernozhukov et al. (2022) covers "
+            "estimands identified by conditional exogeneity (PLR, IRM)."
         )
-    y_resid = np.asarray(y_resid, dtype=float).ravel()
-    d_resid = np.asarray(d_resid, dtype=float).ravel()
-
     theta = float(result.estimate)
     se = float(result.se)
+    alpha = getattr(result, "alpha", None)
+    alpha = 0.05 if alpha is None else float(alpha)
+    y_resid = info.get("_y_resid")
+    d_resid = info.get("_d_resid")
+    reps = info.get("_sens")
 
-    # Bias scaling factor S = sqrt(sigma^2 * nu^2).
-    #
-    # For the PLR coefficient the paper's sigma^2 is the second moment of
-    # the *structural* residual Y - l(X) - theta*(D - m(X)) -- the part of
-    # the outcome left unexplained once the treatment effect is taken out
-    # -- and nu^2 = 1 / E[(D - m(X))^2] is the Riesz-representer second
-    # moment, giving S = sd(Y - l - theta*(D - m)) / sd(D - m).
-    #
-    # Until v1.21 this used sd(Y - l(X)) directly, i.e. it left theta*(D-m)
-    # *inside* the numerator. That inflates S by sqrt(1 + theta^2/S^2) and
-    # therefore overstates the bias bound and understates the robustness
-    # value: on a linear-nuisance PLR fit the bias bound came out 27% too
-    # large and RV_1 0.454 instead of 0.533. With the structural residual
-    # the bound reproduces DoubleML's ``sensitivity_analysis`` to 1e-10
-    # (tests/external_parity/test_dml_sensitivity_parity.py).
-    model_tag = str((info or {}).get("dml_model", "")).upper()
-    if model_tag == "IRM":
-        # IRM already stores y_resid as the score residual psi - theta,
-        # which is centred by construction; subtracting theta*d_resid
-        # again would double-count. See irm.py.
-        eps = y_resid
+    if reps:
+        bounds = _ScoreBounds(reps, level=1.0 - alpha)
+        s = bounds.max_bias
     else:
+        # Fits that carry residuals but no score elements (sample-weighted
+        # PLR): the bound is available, its sampling error is not.
+        if model_tag == "IRM":
+            raise MethodIncompatibility(
+                "dml_sensitivity: the IRM bound needs the Riesz representer, "
+                "which sample-weighted fits do not store. Re-fit without "
+                "sample_weight."
+            )
+        if y_resid is None or d_resid is None:
+            raise ValueError(
+                "dml_sensitivity requires post-fit residuals. Re-fit the DML "
+                "model with the current statspai.dml.* implementation, which "
+                "stores them under model_info['_y_resid'] / ['_d_resid']."
+            )
+        y_resid = np.asarray(y_resid, dtype=float).ravel()
+        d_resid = np.asarray(d_resid, dtype=float).ravel()
+        # S = sqrt(sigma^2 * nu^2) with sigma^2 the second moment of the
+        # structural residual Y - l(X) - theta*(D - m(X)) and nu^2 =
+        # 1/E[(D - m(X))^2]. Until v1.21 the numerator kept theta*(D - m)
+        # in, which overstated the bound (27% on a linear-nuisance fit).
+        if float(np.var(d_resid)) <= 0:
+            raise ValueError("D residual variance is 0; sensitivity undefined.")
         eps = y_resid - theta * d_resid
-    sigma_eps = float(np.sqrt(np.mean(eps**2)))
-    # nu^2 is the *second moment* of the treatment residual, not its
-    # variance. On genuine cross-fitted DML residuals the two coincide
-    # (the residual is mean-zero by construction), but a degenerate,
-    # constant residual has to be rejected on identification grounds:
-    # theta = cov(y_r, d_r) / var(d_r) does not exist without treatment
-    # variation, so a sensitivity analysis of it is meaningless.
-    if float(np.var(d_resid)) <= 0:
-        raise ValueError("D residual variance is 0; sensitivity undefined.")
-    sigma_d = float(np.sqrt(np.mean(d_resid**2)))
-    if sigma_d <= 0:
-        raise ValueError(
-            "D residual second moment is 0; sensitivity undefined."
-        )  # pragma: no cover
-    s = sigma_eps / sigma_d
+        s = float(np.sqrt(np.mean(eps**2)) / np.sqrt(np.mean(d_resid**2)))
+        bounds = None
 
-    rv_q = _robustness_value(q * abs(theta), s)
+    null = (1.0 - q) * theta
+    upper_side = null > theta
+    if bounds is not None:
+        rv_q = bounds.robustness_value(null, "theta", upper_side)
+        rv_qa = bounds.robustness_value(null, "ci", upper_side)
+    else:
+        crit = float(_stats.norm.ppf(1 - alpha / 2))
+        rv_q = _robustness_value(q * abs(theta), s)
+        rv_qa = _robustness_value(max(abs(theta) - crit * se, 0.0), s)
 
-    # RV_qa: strength to push the (1-α)/2 CI lower bound across zero.
-    crit = 1.96  # default α=0.05 two-sided; we honour result.alpha below.
-    from scipy import stats as _stats
-
-    if hasattr(result, "alpha") and result.alpha is not None:
-        crit = float(_stats.norm.ppf(1 - result.alpha / 2))
-    target_for_rv_qa = max(abs(theta) - crit * se, 0.0)
-    rv_qa = _robustness_value(target_for_rv_qa, s)
-
-    # User-specified scenario (cf_y, cf_d) — bias bound + adjusted range.
+    # User-specified scenario (cf_y, cf_d): bias bound, adjusted range and,
+    # when the score elements are available, its sampling error.
+    se_low = se_high = ci_low = ci_high = float("nan")
+    adj_low = adj_high = bias_bound = float("nan")
     if cf_y is not None and cf_d is not None:
         cf_d = float(np.clip(cf_d, 0.0, 0.999))
         cf_y = float(np.clip(cf_y, 0.0, 0.999))
-        bias_bound = float(np.sqrt(cf_y * cf_d / (1 - cf_d)) * s)
-    else:
-        bias_bound = float("nan")
-    adj_low = theta - bias_bound if np.isfinite(bias_bound) else float("nan")
-    adj_high = theta + bias_bound if np.isfinite(bias_bound) else float("nan")
+        strength = float(np.sqrt(cf_y * cf_d / (1 - cf_d)))
+        bias_bound = strength * s
+        if bounds is not None:
+            sc = bounds.scenario(strength)
+            adj_low, adj_high = sc["theta_low"], sc["theta_high"]
+            se_low, se_high = sc["se_low"], sc["se_high"]
+            ci_low, ci_high = sc["ci_low"], sc["ci_high"]
+        else:
+            adj_low, adj_high = theta - bias_bound, theta + bias_bound
 
     # Benchmark covariates: compute the partial-R² each contributes to
     # the residualised regression. For PLR we need the X matrix, which
@@ -394,7 +507,15 @@ def dml_sensitivity(
     benchmarks = pd.DataFrame()
     X_design = info.get("_X_design")
     cov_names = info.get("_covariate_names")
-    if benchmark_covariates and X_design is not None and cov_names is not None:
+    if (
+        benchmark_covariates
+        and X_design is not None
+        and cov_names is not None
+        and y_resid is not None
+        and d_resid is not None
+    ):
+        y_resid = np.asarray(y_resid, dtype=float).ravel()
+        d_resid = np.asarray(d_resid, dtype=float).ravel()
         X = np.asarray(X_design, dtype=float)
         rows: List[Dict[str, Any]] = []
         for name in benchmark_covariates:
@@ -446,7 +567,11 @@ def dml_sensitivity(
         benchmarks=benchmarks,
         s=s,
         q=q,
-        alpha=getattr(result, "alpha", 0.05),
+        alpha=alpha,
         cf_y=cf_y,
         cf_d=cf_d,
+        se_low=se_low,
+        se_high=se_high,
+        ci_low=ci_low,
+        ci_high=ci_high,
     )

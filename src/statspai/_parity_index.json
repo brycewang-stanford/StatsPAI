@@ -1159,19 +1159,25 @@
       "tolerance": "exact (atol 1e-15; observed 0)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_grf_family_operator_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "best_linear_projection",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_grf_family_operator_parity.py"
+        "tests/external_parity/test_dml_irm_blp_parity.py"
       ],
       "tolerance": ""
     },
@@ -3561,6 +3567,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_dag_implications_dagitty_parity.py",
         "tests/reference_parity/test_misc_sens_R_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
@@ -4555,7 +4562,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_difference_in_means_estimatr.py"
+        "tests/reference_parity/test_difference_in_means_estimatr.py",
+        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
       ],
       "tolerance": ""
     },
@@ -4826,12 +4834,16 @@
         "tests/r_parity/71_dml_family.R",
         "tests/stata_parity/71_dml_family.do",
         "tests/external_parity/test_causalml_book.py",
+        "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py",
+        "tests/external_parity/test_dml_irm_blp_parity.py",
         "tests/external_parity/test_dml_python_parity.py",
         "tests/external_parity/test_dml_sensitivity_parity.py",
         "tests/reference_parity/test_cross_estimator_parity.py",
         "tests/reference_parity/test_dml_cluster_doubleml_parity.py",
         "tests/reference_parity/test_dml_multi_treatment_parity.py",
         "tests/reference_parity/test_dml_parity.py",
+        "tests/reference_parity/test_dml_pliv_anderson_rubin.py",
+        "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
         "tests/reference_parity/test_ml_causal_dml_parity.py",
         "tests/reference_parity/test_rlasso_parity.py"
       ],
@@ -4967,8 +4979,13 @@
       "tolerance": "within transform 1e-10 abs (observed 2.6e-14); estimate 1e-10 rel vs ddml and DoubleML (observed 4.1e-16); SE 1e-10 rel vs DoubleML (observed 1.4e-15) and vs ddml after the CR1 factor"
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py",
+        "tests/reference_parity/test_dml_sensitivity_bound_scores.py"
+      ],
       "also_verified_by": [
-        "external_parity"
+        "external_parity",
+        "reference_parity"
       ],
       "function": "dml_sensitivity",
       "notes": [
@@ -7876,6 +7893,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_dag_implications_dagitty_parity.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
@@ -9388,6 +9406,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_grf_family_statistical_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "lm_lin",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
       ],
       "tolerance": ""
     },
@@ -16067,6 +16102,9 @@
       "tolerance": "alpha / se atol 1e-6 (observed rel <= 3.3e-15), incl. hdm's GrowthData vignette"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rlasso_effects_joint_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -17004,6 +17042,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_sensemakr_factor_parity.py",
         "tests/reference_parity/test_sensemakr_parity.py"
       ],
       "also_verified_by": [
@@ -17013,8 +17052,8 @@
       "function": "sensemakr",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 4.958829735063882e-08,
-        "rel_vs_Stata": 4.958832606746692e-08,
+        "rel_vs_R": 5.827345488645191e-13,
+        "rel_vs_Stata": 6.570508982136867e-13,
         "statistic": [
           "beta_treat",
           "rv_q"
@@ -17027,8 +17066,8 @@
       "module_id": "22_sensemakr",
       "notes": [],
       "point_estimate_rel": {
-        "R": 4.958829735063882e-08,
-        "Stata": 4.958832606746692e-08
+        "R": 5.827345488645191e-13,
+        "Stata": 6.570508982136867e-13
       },
       "python_call": "sp.sensemakr",
       "reference": "sensemakr::sensemakr",
@@ -17037,8 +17076,8 @@
         "sensemakr": "0.1.6"
       },
       "se_rel": {
-        "R": 5.1553385131263325e-08,
-        "Stata": 5.15533369080287e-08
+        "R": 2.130343808203616e-15,
+        "Stata": 5.035358092117881e-14
       },
       "sides": [
         "py",

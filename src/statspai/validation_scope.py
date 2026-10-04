@@ -512,6 +512,7 @@ def _x_nnmatch(r: Any) -> Dict[str, Optional[str]]:
 _R = "tests/r_parity/"
 _RP = "tests/reference_parity/"
 _B = "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json"
+_DML_PY = "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py"
 _VCE = _RP + "test_vce_grammar_stata_parity.py"
 _ATTACH = _RP + "test_validation_entry_points.py"
 _JOINT = _RP + "test_joint_wald_stata_parity.py"
@@ -2833,6 +2834,38 @@ _add(
                 _EST_SE,
                 "theta and SE vs DoubleML on shared folds",
                 "sp.dml(model='iivm')",
+            ),
+            _Row(
+                "T2",
+                _DML_PY,
+                {
+                    "model": _vals("plr"),
+                    "score": _vals("partialling out"),
+                    "learners": _vals("other"),
+                    "n_folds": _vals("4"),
+                    "n_rep": _vals("1"),
+                    "ipw": _vals("n/a"),
+                },
+                _EST_SE,
+                "random-forest regressor for Y and classifier for a 0/1 D "
+                "(predict_proba), vs doubleml-for-py on shared folds",
+                "sp.dml(model='plr')",
+            ),
+            _Row(
+                "T2",
+                _DML_PY,
+                {
+                    "model": _vals("irm"),
+                    "score": _vals("ate", "atte"),
+                    "learners": _vals("linear"),
+                    "n_folds": _vals("4"),
+                    "n_rep": _vals("1"),
+                    "ipw": _vals("trim0.01"),
+                },
+                _EST_SE,
+                "theta, and the omitted-variable-bias bounds of "
+                "sp.dml_sensitivity, vs doubleml-for-py on shared folds",
+                "sp.dml(model='irm')",
             ),
             _Row(
                 "B",

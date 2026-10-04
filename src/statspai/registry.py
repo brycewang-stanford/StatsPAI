@@ -7093,6 +7093,99 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="lm_lin",
+            category="inference",
+            description=(
+                "Average treatment effect of a randomized experiment by "
+                "regression on treatment, centred covariates and their "
+                "interactions with treatment (Lin 2013; R estimatr::lm_lin). "
+                "Consistent whatever the outcome model and asymptotically no "
+                "less precise than the difference in means. HC2 by default, "
+                "CR2 with Bell-McCaffrey df under cluster=. "
+                "superpopulation=True adds the variance from estimating the "
+                "covariate means."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, None, "Outcome"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    True,
+                    None,
+                    "Two-valued treatment; the estimate contrasts the larger "
+                    "value with the smaller one",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    True,
+                    None,
+                    "Pre-treatment covariates; string and categorical "
+                    "columns enter as indicators",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Clusters assigned to treatment as a whole",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "Variance estimator; default hc2, or cr2 with cluster=",
+                    ["classical", "hc0", "hc1", "hc2", "hc3", "cr2", "stata"],
+                ),
+                ParamSpec(
+                    "superpopulation",
+                    "bool",
+                    False,
+                    False,
+                    "Add the variance from estimating the covariate means "
+                    "(population rather than sample average effect)",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="CausalResult",
+            example='sp.lm_lin(df, "y", "treat", ["age", "female"])',
+            tags=["inference", "experiment", "rct", "regression adjustment", "lin"],
+            reference="lin2013agnostic",
+            pre_conditions=[
+                "treat takes exactly two values",
+                "covariates are measured before treatment",
+                "more complete rows than coefficients (2 + 2 x covariates)",
+            ],
+            assumptions=[
+                "Treatment was randomized (by cluster when cluster= is given)",
+                "No interference between units",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="More coefficients than complete rows",
+                    exception="DataInsufficient",
+                    remedy="Use fewer covariates, or select them with the "
+                    "rigorous lasso.",
+                    alternative="sp.rlasso_effect",
+                ),
+                FailureMode(
+                    symptom="Treatment was not randomized",
+                    exception="",
+                    remedy="The coefficient is then a regression contrast, "
+                    "not an average treatment effect; use a method for "
+                    "observational data.",
+                    alternative="sp.dml",
+                ),
+            ],
+            alternatives=["difference_in_means", "regress", "dml"],
+            typical_n_min=30,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="mean_comparison",
             category="output",
             description=(
@@ -7193,6 +7286,22 @@ def _build_registry() -> None:
                     "Covariates to benchmark confounding strength against",
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "kd",
+                    "float",
+                    False,
+                    1.0,
+                    "How many times as strong as the benchmark the confounder "
+                    "is in explaining the treatment; a list gives one row "
+                    "per multiple",
+                ),
+                ParamSpec(
+                    "ky",
+                    "float",
+                    False,
+                    None,
+                    "The same multiple for the outcome; defaults to kd",
+                ),
             ],
             returns="Sensitivity analysis result",
             example='sp.sensemakr(df, y="wage", treat="education", controls=["experience"], benchmark=["experience"])',
@@ -7303,6 +7412,14 @@ def _build_registry() -> None:
                     "str",
                     True,
                     description='Edge spec: "Z -> X; Z -> Y; X -> Y"',
+                ),
+                ParamSpec(
+                    "latent",
+                    "list",
+                    False,
+                    None,
+                    "Names of unobserved nodes: never offered as adjustment "
+                    "variables, and projected out for identification",
                 ),
             ],
             returns=(

@@ -276,7 +276,23 @@ Beyond the four estimator classes that mirror DoubleML one-to-one,
   robustness values (`RV_q`, `RV_{q,α}`) for PLR / IRM estimates,
   following Chernozhukov, Cinelli, Newey, Sharma & Syrgkanis
   [@chernozhukov2022long], with a `sensemakr`-style interface
-  [@cinelli2020making] built on the DML residuals.
+  [@cinelli2020making] built on the DML residuals. The bounds equal
+  `DoubleML.sensitivity_analysis` for PLR and for IRM (ATE and ATTE
+  scores), with clusters too. Each bound carries a standard error
+  (`se_low`, `se_high`) and the range an interval (`ci_low`, `ci_high`).
+  `DoubleML` 0.11.3 reports the same two standard errors with the bounds
+  exchanged, so its interval and `RVa` differ from StatsPAI's in the third
+  decimal; `tests/reference_parity/test_dml_sensitivity_bound_scores.py`
+  checks the assignment by finite differences.
+- **A classifier as nuisance learner** — under PLR a classifier for a 0/1
+  treatment or outcome contributes `predict_proba`, as in DoubleML. PLIV
+  accepts one for a 0/1 treatment or instrument, which DoubleML does not.
+- **`model_info['anderson_rubin']`** on PLIV fits — a confidence set that
+  stays valid under a weak instrument, solved exactly from the
+  cross-fitted score.
+- **`sp.best_linear_projection(result, A=...)`** on IRM fits — the best
+  linear predictor of the conditional effect, DoubleML's `cate()` /
+  `gate()`.
 - **`sp.dml_diagnostics(result)`** — a four-panel report (propensity /
   residual overlap, orthogonal-score density, post-residualisation
   covariate balance, orthogonality test) with a publication-ready

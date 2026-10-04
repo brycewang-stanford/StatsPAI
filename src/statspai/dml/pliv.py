@@ -17,11 +17,62 @@ where psi_i = (y_tilde_i - theta * d_tilde_i) * z_tilde_i.
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
 from ._base import _DoubleMLBase
+
+
+def _anderson_rubin_set(
+    y_resid: np.ndarray, d_resid: np.ndarray, z_resid: np.ndarray, alpha: float
+) -> Dict[str, Any]:
+    """Weak-instrument-robust confidence set for the PLIV coefficient.
+
+    At a hypothesised ``theta`` the orthogonal score is ``m_i(theta) =
+    (y_i - theta*d_i) * z_i`` in residualised variables, and ``C(theta) =
+    n * mean(m)^2 / var(m)`` is chi-squared(1) whether or not the
+    instrument is strong (Anderson and Rubin 1949, applied to the
+    cross-fitted score). The set ``{theta: C(theta) <= q}`` is the solution
+    of a quadratic inequality, so it is found exactly: an interval when
+    the first stage is significant at level ``alpha``, and otherwise the
+    whole line or the complement of an interval.
+    """
+    from scipy import stats
+
+    n = len(y_resid)
+    q = float(stats.chi2.ppf(1.0 - alpha, 1))
+    u, w = y_resid * z_resid, d_resid * z_resid
+    a, b = float(np.mean(u)), float(np.mean(w))
+    # (n + q) * (a - theta*b)^2 - q * mean((u - theta*w)^2) <= 0
+    A = (n + q) * b * b - q * float(np.mean(w * w))
+    B = -2.0 * (n + q) * a * b + 2.0 * q * float(np.mean(u * w))
+    C = (n + q) * a * a - q * float(np.mean(u * u))
+    disc = B * B - 4.0 * A * C
+    out: Dict[str, Any] = {
+        "level": 1.0 - alpha,
+        "statistic_at_zero": float(n * a * a / np.var(u)),
+        "first_stage_statistic": float(n * b * b / np.var(w)),
+        "critical_value": q,
+    }
+    out["p_value_at_zero"] = float(stats.chi2.sf(out["statistic_at_zero"], 1))
+    if abs(A) < 1e-300:  # pragma: no cover - measure-zero boundary
+        out.update(kind="unbounded", intervals=[(-np.inf, np.inf)])
+        return out
+    if disc < 0:
+        if A > 0:
+            out.update(kind="empty", intervals=[])
+        else:
+            out.update(kind="unbounded", intervals=[(-np.inf, np.inf)])
+        return out
+    r1 = (-B - np.sqrt(disc)) / (2.0 * A)
+    r2 = (-B + np.sqrt(disc)) / (2.0 * A)
+    lo, hi = float(min(r1, r2)), float(max(r1, r2))
+    if A > 0:
+        out.update(kind="interval", intervals=[(lo, hi)])
+    else:
+        out.update(kind="disjoint", intervals=[(-np.inf, lo), (hi, np.inf)])
+    return out
 
 
 class DoubleMLPLIV(_DoubleMLBase):
@@ -110,7 +161,9 @@ class DoubleMLPLIV(_DoubleMLBase):
                 Y[train_idx],
                 w_train,
             )
-            y_resid[test_idx] = Y[test_idx] - ml_g.predict(X[test_idx])
+            y_resid[test_idx] = Y[test_idx] - self._predict_nuisance(
+                ml_g, X[test_idx], Y, "ml_g"
+            )
 
             ml_m = self._fit_weighted(
                 self.ml_m,
@@ -118,7 +171,9 @@ class DoubleMLPLIV(_DoubleMLBase):
                 D[train_idx],
                 w_train,
             )
-            d_resid[test_idx] = D[test_idx] - ml_m.predict(X[test_idx])
+            d_resid[test_idx] = D[test_idx] - self._predict_nuisance(
+                ml_m, X[test_idx], D, "ml_m"
+            )
 
             ml_r = self._fit_weighted(
                 self.ml_r,
@@ -126,7 +181,9 @@ class DoubleMLPLIV(_DoubleMLBase):
                 Z[train_idx],
                 w_train,
             )
-            z_resid[test_idx] = Z[test_idx] - ml_r.predict(X[test_idx])
+            z_resid[test_idx] = Z[test_idx] - self._predict_nuisance(
+                ml_r, X[test_idx], Z, "ml_r"
+            )
 
         if w_full is None:
             w: np.ndarray = np.ones(n, dtype=float)
@@ -209,6 +266,10 @@ class DoubleMLPLIV(_DoubleMLBase):
         first_stage_F = (
             float((n) * rho2 / (1.0 - rho2)) if rho2 < 1.0 - 1e-12 else float("inf")
         )
+        if w_full is None and self.cluster is None:
+            self._last_rep_ar = _anderson_rubin_set(
+                y_resid, d_resid, z_resid, self.alpha
+            )
         self._last_rep_diagnostics = {
             "first_stage_partial_corr": float(partial_corr),
             "first_stage_F_approx": first_stage_F,

@@ -1840,12 +1840,6 @@
         },
         "forest": {
           "description": "``sp.causal_forest`` (GRF engine), ``sp.iv_forest``, ``sp.multi_arm_forest`` (one projection per contrast, stacked), ``sp.causal_survival_forest``.",
-          "enum": [
-            "sp.causal_forest",
-            "sp.iv_forest",
-            "sp.multi_arm_forest",
-            "sp.causal_survival_forest"
-          ],
           "type": "string"
         },
         "vce": {
@@ -5919,6 +5913,13 @@
     "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The graph is acyclic and contains the relevant common causes; Adjustment-set validity depends on the supplied graph being substantively correct. Pre-conditions: Nodes and directed edges encode a substantive causal model; Treatment and outcome nodes are named consistently. Failure modes: No valid adjustment set or cycle detected -> Inspect graph structure, remove cycles, or use sensitivity analysis for unobserved common causes. Alternatives: sp.identify, sp.dag_recommend_estimator, sp.swig. Typical minimum N: 1.",
     "input_schema": {
       "properties": {
+        "latent": {
+          "description": "Names of unobserved nodes: never offered as adjustment variables, and projected out for identification",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "spec": {
           "description": "Edge spec: \"Z -> X; Z -> Y; X -> Y\"",
           "type": "string"
@@ -9305,11 +9306,11 @@
           "type": "array"
         },
         "cf_d": {
-          "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound and adjusted-estimate range.",
+          "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound, the adjusted-estimate range, the standard errors of its two ends and an interval for the range.",
           "type": "number"
         },
         "cf_y": {
-          "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound and adjusted-estimate range.",
+          "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound, the adjusted-estimate range, the standard errors of its two ends and an interval for the range.",
           "type": "number"
         },
         "k_d": {
@@ -16675,6 +16676,66 @@
       "type": "object"
     },
     "name": "lm_forest"
+  },
+  {
+    "description": "Average treatment effect of a randomized experiment by regression on treatment, centred covariates and their interactions with treatment (Lin 2013; R estimatr::lm_lin). Consistent whatever the outcome model and asymptotically no less precise than the difference in means. HC2 by default, CR2 with Bell-McCaffrey df under cluster=. superpopulation=True adds the variance from estimating the covariate means. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Treatment was randomized (by cluster when cluster= is given); No interference between units. Pre-conditions: treat takes exactly two values; covariates are measured before treatment; more complete rows than coefficients (2 + 2 x covariates). Failure modes: More coefficients than complete rows -> Use fewer covariates, or select them with the rigorous lasso; Treatment was not randomized -> The coefficient is then a regression contrast, not an average treatment effect; use a method for observational data. Alternatives: sp.difference_in_means, sp.regress, sp.dml. Typical minimum N: 30.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Clusters assigned to treatment as a whole",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Pre-treatment covariates; string and categorical columns enter as indicators",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "superpopulation": {
+          "default": false,
+          "description": "Add the variance from estimating the covariate means (population rather than sample average effect)",
+          "type": "boolean"
+        },
+        "treat": {
+          "description": "Two-valued treatment; the estimate contrasts the larger value with the smaller one",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Variance estimator; default hc2, or cr2 with cluster=",
+          "enum": [
+            "classical",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3",
+            "cr2",
+            "stata"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "covariates",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "lm_lin"
   },
   {
     "description": "Load a dataset into the server and get a data_id handle. Source: data_path (file or URL), data_records (JSON rows) or data_csv (CSV text). Returns the handle plus shape, dtypes, missing counts, the first rows and a numeric summary. Pass data_id to any later tool instead of re-sending the file; chain transform_data to filter / reshape / winsorise / impute and get a new handle whose lineage is recorded in every result's data_provenance.",
@@ -29034,6 +29095,15 @@
           ],
           "x-canonical": "covariates",
           "x-statspai-role": "columns"
+        },
+        "kd": {
+          "default": 1.0,
+          "description": "How many times as strong as the benchmark the confounder is in explaining the treatment; a list gives one row per multiple",
+          "type": "number"
+        },
+        "ky": {
+          "description": "The same multiple for the outcome; defaults to kd",
+          "type": "number"
         },
         "treat": {
           "description": "Treatment column of interest",

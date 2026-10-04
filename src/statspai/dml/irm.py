@@ -17,12 +17,35 @@ can produce a degenerate fold whose subgroup-fitted nuisance is junk.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
 from ._base import _DoubleMLBase
 from ._irm_score import score_binary_ate
+
+
+def _irm_sensitivity_elements(
+    Y: np.ndarray,
+    D: np.ndarray,
+    g0: np.ndarray,
+    g1: np.ndarray,
+    m: np.ndarray,
+    weights: np.ndarray,
+    weights_bar: np.ndarray,
+) -> Dict[str, np.ndarray]:
+    """Per-observation elements of sigma^2 and nu^2 for the IRM estimand.
+
+    ``sigma^2 = E[(Y - g(D, X))^2]`` and ``nu^2 = E[2 m(W, alpha) -
+    alpha^2]`` with ``alpha`` the Riesz representer (Chernozhukov,
+    Cinelli, Newey, Sharma and Syrgkanis 2022). For the ATE the
+    representer is ``D/m - (1-D)/(1-m)`` and ``nu^2`` reduces to
+    ``E[1/m + 1/(1-m)]`` at the truth.
+    """
+    sigma2_el = (Y - D * g1 - (1.0 - D) * g0) ** 2
+    m_alpha = weights * weights_bar * (1.0 / m + 1.0 / (1.0 - m))
+    rr = weights_bar * (D / m - (1.0 - D) / (1.0 - m))
+    return {"sigma2_el": sigma2_el, "nu2_el": 2.0 * m_alpha - rr**2}
 
 
 class DoubleMLIRM(_DoubleMLBase):
@@ -116,7 +139,24 @@ class DoubleMLIRM(_DoubleMLBase):
             "y_resid": score.psi,
             "d_resid": D - ps_raw,
             "pscore": ps_raw,
+            "dr_scores": np.asarray(score.psi_b, dtype=float),
         }
+        self._last_rep_score = {
+            "psi_a": -np.ones(len(Y), dtype=float),
+            "psi_b": np.asarray(score.psi_b, dtype=float),
+            "splits": None,
+            "weights": None,
+        }
+        ones = np.ones(len(Y), dtype=float)
+        self._last_rep_sens = _irm_sensitivity_elements(
+            Y,
+            D,
+            np.asarray(predictions.g0[rep], dtype=float),
+            np.asarray(predictions.g1[rep], dtype=float),
+            np.asarray(score.ps_used, dtype=float),
+            ones,
+            ones,
+        )
         return score.theta, score.se
 
     def _fit_one_rep(
@@ -386,6 +426,22 @@ class DoubleMLIRM(_DoubleMLBase):
                 "splits": splits,
                 "weights": None,
             }
+        # Omitted-variable-bias elements (sp.dml_sensitivity): the outcome
+        # residual Y - g(D, X) and the Riesz representer of the estimand,
+        # alpha = w_bar * (D/m - (1-D)/(1-m)), as doubleml's IRM builds them.
+        if sample_weight is None:
+            if self.score == "ATE" and not self.normalize_ipw:
+                m_sens = np.asarray(m_clip, dtype=float)
+            else:
+                m_sens = m_use
+            if self.score == "ATTE":
+                p_treat = float(np.mean(D))
+                w_sens, wbar_sens = D / p_treat, m_sens / p_treat
+            else:
+                w_sens = wbar_sens = np.ones(n, dtype=float)
+            self._last_rep_sens = _irm_sensitivity_elements(
+                Y, D, g0_full, g1_full, m_sens, w_sens, wbar_sens
+            )
 
         # Overlap diagnostics: how many propensities were clipped, and
         # the empirical distribution. Surface to the user via model_info.
@@ -418,4 +474,8 @@ class DoubleMLIRM(_DoubleMLBase):
             "d_resid": d_resid,
             "pscore": m_hat_full,
         }
+        if self.score == "ATE" and sample_weight is None:
+            # Doubly-robust pseudo-outcome: E[score | X] is the conditional
+            # effect, which is what sp.best_linear_projection regresses.
+            self._last_rep_residuals["dr_scores"] = np.asarray(psi_scores, dtype=float)
         return theta, se

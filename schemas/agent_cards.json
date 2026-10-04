@@ -6109,18 +6109,18 @@
     "cost_profile": "",
     "description": "Best linear projection of a forest's conditional effect on covariates (grf::best_linear_projection): OLS of the doubly-robust scores on (1, A) with HC0-HC3 (cluster-robust when the forest has clusters) standard errors -- valid inference on a low-dimensional summary of tau(x) (Semenova and Chernozhukov 2021). Works for causal, instrumental, multi-arm and causal-survival forests; matches grf to 1e-15 given the scores. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_grf_family_operator_parity.py"
+        "tests/external_parity/test_dml_irm_blp_parity.py"
       ],
       "tolerance": ""
     },
@@ -6207,12 +6207,6 @@
           },
           "forest": {
             "description": "``sp.causal_forest`` (GRF engine), ``sp.iv_forest``, ``sp.multi_arm_forest`` (one projection per contrast, stacked), ``sp.causal_survival_forest``.",
-            "enum": [
-              "sp.causal_forest",
-              "sp.iv_forest",
-              "sp.multi_arm_forest",
-              "sp.causal_survival_forest"
-            ],
             "type": "string"
           },
           "vce": {
@@ -6233,7 +6227,8 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_grf_family_operator_parity.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_dml_irm_blp_parity.py",
+      "tests/reference_parity/test_grf_family_operator_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -10391,7 +10386,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_difference_in_means_estimatr.py"
+        "tests/reference_parity/test_difference_in_means_estimatr.py",
+        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
       ],
       "tolerance": ""
     },
@@ -10508,6 +10504,161 @@
     "typical_n_min": 20,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_difference_in_means_estimatr.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "difference_in_means",
+      "regress",
+      "dml"
+    ],
+    "assumptions": [
+      "Treatment was randomized (by cluster when cluster= is given)",
+      "No interference between units"
+    ],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "Average treatment effect of a randomized experiment by regression on treatment, centred covariates and their interactions with treatment (Lin 2013; R estimatr::lm_lin). Consistent whatever the outcome model and asymptotically no less precise than the difference in means. HC2 by default, CR2 with Bell-McCaffrey df under cluster=. superpopulation=True adds the variance from estimating the covariate means. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.lm_lin(df, \"y\", \"treat\", [\"age\", \"female\"])",
+    "failure_modes": [
+      {
+        "alternative": "sp.rlasso_effect",
+        "exception": "DataInsufficient",
+        "remedy": "Use fewer covariates, or select them with the rigorous lasso.",
+        "symptom": "More coefficients than complete rows"
+      },
+      {
+        "alternative": "sp.dml",
+        "exception": "",
+        "remedy": "The coefficient is then a regression contrast, not an average treatment effect; use a method for observational data.",
+        "symptom": "Treatment was not randomized"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "lm_lin",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "treat takes exactly two values",
+      "covariates are measured before treatment",
+      "more complete rows than coefficients (2 + 2 x covariates)"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "lin2013agnostic",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Average treatment effect of a randomized experiment by regression on treatment, centred covariates and their interactions with treatment (Lin 2013; R estimatr::lm_lin). Consistent whatever the outcome model and asymptotically no less precise than the difference in means. HC2 by default, CR2 with Bell-McCaffrey df under cluster=. superpopulation=True adds the variance from estimating the covariate means. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "lm_lin",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Clusters assigned to treatment as a whole",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "covariates": {
+            "description": "Pre-treatment covariates; string and categorical columns enter as indicators",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "superpopulation": {
+            "default": false,
+            "description": "Add the variance from estimating the covariate means (population rather than sample average effect)",
+            "type": "boolean"
+          },
+          "treat": {
+            "description": "Two-valued treatment; the estimate contrasts the larger value with the smaller one",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "vce": {
+            "description": "Variance estimator; default hc2, or cr2 with cluster=",
+            "enum": [
+              "classical",
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3",
+              "cr2",
+              "stata"
+            ],
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 30,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lm_lin_estimatr_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -10865,6 +11016,15 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "kd": {
+            "default": 1.0,
+            "description": "How many times as strong as the benchmark the confounder is in explaining the treatment; a list gives one row per multiple",
+            "type": "number"
+          },
+          "ky": {
+            "description": "The same multiple for the outcome; defaults to kd",
+            "type": "number"
+          },
           "treat": {
             "description": "Treatment column of interest",
             "type": "string",
@@ -10891,6 +11051,7 @@
       "R parity module 22_sensemakr",
       "Stata parity module 22_sensemakr",
       "Cross-language parity (bit-exact) vs sensemakr::sensemakr [R version 4.5.2 (2025-10-31), sensemakr 0.1.6]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 22_sensemakr -- tests/r_parity/22_sensemakr.py",
+      "tests/reference_parity/test_sensemakr_factor_parity.py",
       "tests/reference_parity/test_sensemakr_parity.py"
     ],
     "validation_status": "certified"
@@ -11219,6 +11380,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_dag_implications_dagitty_parity.py",
         "tests/reference_parity/test_misc_sens_R_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
@@ -11257,6 +11419,7 @@
       "class": "DAG",
       "description": "DAG object with .adjustment_sets(), .frontdoor_sets(), .backdoor_paths(), .bad_controls(), .do(), .summary(), .d_separated(), .plot()",
       "fields": {
+        "latent": "Optional[Iterable[str]]",
         "spec": "str"
       }
     },
@@ -11265,6 +11428,13 @@
       "name": "dag",
       "parameters": {
         "properties": {
+          "latent": {
+            "description": "Names of unobserved nodes: never offered as adjustment variables, and projected out for identification",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "spec": {
             "description": "Edge spec: \"Z -> X; Z -> Y; X -> Y\"",
             "type": "string"
@@ -11279,7 +11449,7 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_misc_sens_R_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_dag_implications_dagitty_parity.py",
       "API/unit contract evidence: tests/test_dag_scm.py",
       "API/unit contract evidence: tests/test_dag_recommend_and_tte_report.py"
     ],
@@ -14330,6 +14500,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_dag_implications_dagitty_parity.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
@@ -14385,7 +14556,7 @@
       "parameters": {
         "properties": {
           "dag": {
-            "description": "``statspai.dag.DAG`` instance, possibly with latent nodes ``_L_*`` (representing bidirected edges).",
+            "description": "``statspai.dag.DAG`` instance, possibly with latent nodes ``_L_*`` (representing bidirected edges) or named latents declared with ``sp.dag(..., latent=[...])``; the latter are projected out",
             "type": "string"
           },
           "outcome": {
@@ -14422,7 +14593,7 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_dag_implications_dagitty_parity.py",
       "API/unit contract evidence: tests/test_dag_scm.py"
     ],
     "validation_status": "validated"
@@ -56987,13 +57158,17 @@
         "bias_bound": "float",
         "cf_d": "Optional[float]",
         "cf_y": "Optional[float]",
+        "ci_high": "float",
+        "ci_low": "float",
         "estimate": "float",
         "method": "str",
         "q": "float",
         "rv_q": "float",
         "rv_qa": "float",
         "s": "float",
-        "se": "float"
+        "se": "float",
+        "se_high": "float",
+        "se_low": "float"
       }
     },
     "signature": {
@@ -57009,11 +57184,11 @@
             "type": "array"
           },
           "cf_d": {
-            "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound and adjusted-estimate range.",
+            "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound, the adjusted-estimate range, the standard errors of its two ends and an interval for the range.",
             "type": "number"
           },
           "cf_y": {
-            "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound and adjusted-estimate range.",
+            "description": "Hypothesized partial-R2 of an unobserved confounder with the residualised outcome and treatment. If both are given, the report includes a bias bound, the adjusted-estimate range, the standard errors of its two ends and an interval for the range.",
             "type": "number"
           },
           "k_d": {
@@ -57045,7 +57220,9 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs doubleml (Python) DoubleML.sensitivity_analysis; tolerance bias_bound and adjusted theta bounds 1e-12 (observed 2.5e-15); RV 1e-6 (observed 9.2e-8); RVa is a documented convention gap (<5e-3, observed 1.4e-3) because StatsPAI exhausts |theta|-z*se with the unadjusted SE while doubleml lets the SE move with the confounding scenario -- tests/external_parity/test_dml_sensitivity_parity.py"
+      "Cross-language parity (bit-exact) vs doubleml (Python) DoubleML.sensitivity_analysis; tolerance bias_bound and adjusted theta bounds 1e-12 (observed 2.5e-15); RV 1e-6 (observed 9.2e-8); RVa is a documented convention gap (<5e-3, observed 1.4e-3) because StatsPAI exhausts |theta|-z*se with the unadjusted SE while doubleml lets the SE move with the confounding scenario -- tests/external_parity/test_dml_sensitivity_parity.py",
+      "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py",
+      "tests/reference_parity/test_dml_sensitivity_bound_scores.py"
     ],
     "validation_status": "certified"
   },
@@ -79954,6 +80131,8 @@
         "method": "str",
         "n_obs": "int",
         "pvalue": "float",
+        "resid_e": "Optional[np.ndarray]",
+        "resid_v": "Optional[np.ndarray]",
         "se": "float",
         "selection_index": "np.ndarray",
         "target": "str",
@@ -80087,8 +80266,8 @@
     },
     "reference": "",
     "returns": {
-      "class": "dict",
-      "description": "dict: Mapping column name -> RLassoEffectResult.",
+      "class": "RLassoEffectsResult",
+      "description": "RLassoEffectsResult: A dict mapping column name -> RLassoEffectResult, with .vcov() (joint covariance of the estimates) and .conf_int(joint=True) (simultaneous sup-t band, hdm's confint(..., joint = TRUE)).",
       "fields": {}
     },
     "signature": {
@@ -80145,7 +80324,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R hdm::rlassoEffects 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance alpha / se rtol 1e-9 on cps2012 (observed 2.8e-12); atol 1e-6 on the synthetic fixture -- tests/reference_parity/test_rlasso_parity.py"
+      "Cross-language parity (bit-exact) vs R hdm::rlassoEffects 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance alpha / se rtol 1e-9 on cps2012 (observed 2.8e-12); atol 1e-6 on the synthetic fixture -- tests/reference_parity/test_rlasso_parity.py",
+      "tests/reference_parity/test_rlasso_effects_joint_parity.py"
     ],
     "validation_status": "certified"
   },

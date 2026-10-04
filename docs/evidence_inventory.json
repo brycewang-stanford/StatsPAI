@@ -766,18 +766,18 @@
       "invariant": {},
       "cells": 9120,
       "overall": {
-        "covered": 4,
+        "covered": 7,
         "stochastic_only": 2,
-        "not_covered": 9114
+        "not_covered": 9111
       },
       "by_output": {
         "estimate": {
-          "reference": 4,
-          "not_covered": 9116
+          "reference": 7,
+          "not_covered": 9113
         },
         "se": {
-          "reference": 4,
-          "not_covered": 9116
+          "reference": 7,
+          "not_covered": 9113
         },
         "coverage": {
           "coverage_simulation": 2,
@@ -904,6 +904,67 @@
             ]
           },
           "compares": "theta and SE vs DoubleML on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py",
+          "entry_point": "sp.dml(model='plr')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "plr"
+            ],
+            "score": [
+              "partialling out"
+            ],
+            "learners": [
+              "other"
+            ],
+            "n_folds": [
+              "4"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "random-forest regressor for Y and classifier for a 0/1 D (predict_proba), vs doubleml-for-py on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py",
+          "entry_point": "sp.dml(model='irm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "irm"
+            ],
+            "score": [
+              "ate",
+              "atte"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "4"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "trim0.01"
+            ]
+          },
+          "compares": "theta, and the omitted-variable-bias bounds of sp.dml_sensitivity, vs doubleml-for-py on shared folds"
         },
         {
           "kind": "B",
@@ -6193,16 +6254,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 731,
+      "reference": 734,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45411
+      "not_covered": 45408
     },
     "se": {
-      "reference": 343,
+      "reference": 346,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45779
+      "not_covered": 45776
     },
     "coverage": {
       "coverage_simulation": 11,

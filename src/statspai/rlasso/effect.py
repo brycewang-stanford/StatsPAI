@@ -33,7 +33,7 @@ Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
 from __future__ import annotations
 
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -62,6 +62,11 @@ class RLassoEffectResult(ResultProtocolMixin):
     n_obs: int
     selection_index: np.ndarray
     target: str = "d"
+    #: Final-regression residual and treatment residual (hdm's
+    #: ``residuals$e`` / ``residuals$v``); the score of the estimate is
+    #: ``e * v / mean(v**2)``. Used for joint inference across targets.
+    resid_e: Optional[np.ndarray] = field(default=None, repr=False, compare=False)
+    resid_v: Optional[np.ndarray] = field(default=None, repr=False, compare=False)
 
     def conf_int(self, level: float = 0.95) -> tuple:
         zc = stats.norm.ppf(0.5 + level / 2.0)
@@ -203,6 +208,7 @@ def rlasso_effect(
         var = sigma2 * XtX_inv[1, 1]
         se = float(np.sqrt(var))
         sel = np.asarray(reg1.index | reg2.index, dtype=bool)
+        res_e, res_v = resid, dr
     elif method == "double selection":
         I1 = rlasso(X, dv, post=post, penalty=penalty, control=control).index
         I2 = rlasso(X, yv, post=post, penalty=penalty, control=control).index
@@ -231,6 +237,7 @@ def rlasso_effect(
         var = (1.0 / n) * (1.0 / mv2) * float(np.mean(v**2 * xi**2)) * (1.0 / mv2)
         se = float(np.sqrt(var))
         sel = idx_union
+        res_e, res_v = xi, v
     else:
         raise ValueError(
             f"method must be 'partialling out' or 'double selection', got {method!r}"
@@ -247,7 +254,94 @@ def rlasso_effect(
         n_obs=n,
         selection_index=sel,
         target=target,
+        resid_e=np.asarray(res_e, dtype=float),
+        resid_v=np.asarray(res_v, dtype=float),
     )
+
+
+class RLassoEffectsResult(Dict[str, RLassoEffectResult]):
+    """Effects of several targets, with their joint covariance.
+
+    A ``dict`` from column name to :class:`RLassoEffectResult`, as
+    :func:`rlasso_effects` has always returned, plus what joint inference
+    needs. The estimates are asymptotically jointly normal with covariance
+    ``Omega / n``, ``Omega[j, l] = E[e_j v_j e_l v_l] / (E[v_j^2] E[v_l^2])``,
+    which is what ``confint(<rlassoEffects>, joint = TRUE)`` simulates from
+    in hdm [@chernozhukov2016hdm].
+    """
+
+    def vcov(self) -> pd.DataFrame:
+        """Joint covariance ``Omega / n`` of the estimates."""
+        names = list(self)
+        e = np.column_stack([self[k].resid_e for k in names])
+        v = np.column_stack([self[k].resid_v for k in names])
+        n = e.shape[0]
+        ev = e * v / np.mean(v**2, axis=0)
+        return pd.DataFrame(ev.T @ ev / n / n, index=names, columns=names)
+
+    def conf_int(
+        self,
+        level: float = 0.95,
+        joint: bool = False,
+        n_draws: int = 100_000,
+        seed: Optional[int] = 0,
+    ) -> pd.DataFrame:
+        """Confidence intervals, pointwise or simultaneous.
+
+        Parameters
+        ----------
+        level : float, default 0.95
+        joint : bool, default False
+            ``False``: each interval is ``estimate -/+ z * se`` with the
+            standard error of the single-target fit. ``True``: a sup-t
+            band, ``estimate -/+ c * sqrt(diag(vcov))``, where ``c`` is the
+            ``level`` quantile of ``max_j |Z_j|`` for ``Z`` normal with the
+            correlation matrix of the estimates; all intervals then cover
+            at once with probability ``level``.
+        n_draws : int, default 100_000
+            Draws for the critical value (hdm uses 500).
+        seed : int or None, default 0
+
+        Returns
+        -------
+        pd.DataFrame
+            Columns ``estimate``, ``se``, ``lower``, ``upper``. The
+            critical value is in ``.attrs['critical_value']``.
+        """
+        names = list(self)
+        est = np.array([self[k].alpha for k in names])
+        if not joint:
+            se = np.array([self[k].se for k in names])
+            crit = float(stats.norm.ppf(0.5 + level / 2.0))
+        else:
+            cov = self.vcov().to_numpy()
+            se = np.sqrt(np.diag(cov))
+            corr = cov / np.outer(se, se)
+            rng = np.random.default_rng(seed)
+            # Eigen-root so that a singular correlation matrix (two targets
+            # with the same score) is handled.
+            w, q = np.linalg.eigh(corr)
+            root = q * np.sqrt(np.clip(w, 0.0, None))
+            z = rng.standard_normal((int(n_draws), len(names))) @ root.T
+            crit = float(np.quantile(np.max(np.abs(z), axis=1), level))
+        out = pd.DataFrame(
+            {
+                "estimate": est,
+                "se": se,
+                "lower": est - crit * se,
+                "upper": est + crit * se,
+            },
+            index=names,
+        )
+        out.attrs["critical_value"] = crit
+        out.attrs["joint"] = bool(joint)
+        return out
+
+    def summary(self) -> str:
+        tab = self.conf_int()
+        lines = ["Rigorous-Lasso treatment effects", "-" * 60]
+        lines.append(tab.round(4).to_string())
+        return "\n".join(lines)
 
 
 def rlasso_effects(
@@ -259,7 +353,7 @@ def rlasso_effects(
     data: Optional[pd.DataFrame] = None,
     penalty: Optional[Dict[str, Any]] = None,
     control: Optional[Dict[str, Any]] = None,
-) -> Dict[str, RLassoEffectResult]:
+) -> "RLassoEffectsResult":
     """Estimate the effect of each targeted column of ``X`` on ``y``.
 
     Faithful port of ``hdm::rlassoEffects``: for every target column
@@ -268,8 +362,11 @@ def rlasso_effects(
 
     Returns
     -------
-    dict
-        Mapping ``column name -> RLassoEffectResult``.
+    RLassoEffectsResult
+        A ``dict`` mapping ``column name -> RLassoEffectResult``, with
+        ``.vcov()`` (joint covariance of the estimates) and
+        ``.conf_int(joint=True)`` (simultaneous sup-t band, hdm's
+        ``confint(..., joint = TRUE)``).
 
     Examples
     --------
@@ -282,6 +379,13 @@ def rlasso_effects(
     >>> len(out)  # one result per targeted column
     2
     >>> all(r.se > 0 for r in out.values())
+    True
+
+    Intervals that cover both effects at once are wider than the
+    pointwise ones:
+
+    >>> band = out.conf_int(joint=True)
+    >>> bool(band.attrs["critical_value"] > 1.96)
     True
     """
     if isinstance(X, pd.DataFrame):
@@ -300,7 +404,7 @@ def rlasso_effects(
     if index is None:
         index = list(range(Xv.shape[1]))
 
-    out: Dict[str, RLassoEffectResult] = {}
+    out = RLassoEffectsResult()
     for j in index:
         d = pd.Series(Xv[:, j], name=cols[j])
         Xt = np.delete(Xv, j, axis=1)

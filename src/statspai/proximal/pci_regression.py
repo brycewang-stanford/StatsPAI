@@ -49,15 +49,15 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Dict, Any
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import ConvergenceWarning
 from .._input_validation import clean_frame
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import ConvergenceWarning
 
 # sklearn is imported lazily inside the functions that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
@@ -195,6 +195,18 @@ def proximal_regression(
     Zp = df[z_proxy].to_numpy(dtype=float)
     Wp = df[w_proxy].to_numpy(dtype=float)
     Xc = df[X_cols].to_numpy(dtype=float) if X_cols else np.zeros((n, 0))
+    if not np.isin(np.unique(D), (0.0, 1.0)).all():
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            "proximal_regression: the treatment must be 0/1; the estimator "
+            f"contrasts D=1 with D=0 and weights by P(D=1 | Z, X). {treat!r} "
+            f"has {len(np.unique(D))} distinct values.",
+            recovery_hint=(
+                "For a continuous treatment use sp.proximal, which estimates "
+                "the coefficient of the linear outcome bridge."
+            ),
+        )
 
     # --- Outcome bridge via 2SLS: Y on (D, W, X) using (D, Z, X) ---
     # First stage: W ~ D, Z, X

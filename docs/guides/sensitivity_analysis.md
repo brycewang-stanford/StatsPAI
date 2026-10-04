@@ -432,6 +432,10 @@ print(round(ev["evalue_estimate"], 2))   # 3.52
   `cf_y = cf_d = 0.05` existed, the estimate could move at most ±0.067
   — the adjusted range [0.72, 0.86] still excludes zero, so the
   conclusion survives that scenario.
+- The two ends of that range are estimates. `ds.se_low` and
+  `ds.se_high` are their standard errors, and `ds.ci_low`, `ds.ci_high`
+  bound the range with 95% confidence. Report the interval, not only
+  the range.
 - The **benchmark table** calibrates the scenario: it computes the
   `cf_y`/`cf_d` a confounder "as strong as `x1`" would have, given
   everything else in the model. If your hypothesised confounder is "a

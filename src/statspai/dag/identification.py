@@ -133,7 +133,9 @@ def identify(
     ----------
     dag : DAG
         ``statspai.dag.DAG`` instance, possibly with latent nodes
-        ``_L_*`` (representing bidirected edges).
+        ``_L_*`` (representing bidirected edges) or named latents declared
+        with ``sp.dag(..., latent=[...])``; the latter are projected out
+        with :meth:`DAG.latent_projection` first.
     treatment : str | Iterable[str]
         Set of variables X being intervened on.
     outcome : str | Iterable[str]
@@ -161,6 +163,11 @@ def identify(
     """
     X = frozenset({treatment} if isinstance(treatment, str) else set(treatment))
     Y = frozenset({outcome} if isinstance(outcome, str) else set(outcome))
+
+    # Declared latents may have parents and more than two children; the
+    # algorithm below is written for bidirected edges, so project first.
+    if getattr(dag, "_latent", None):
+        dag = dag.latent_projection()
 
     V = frozenset(dag._nodes)
     if not X.issubset(V) or not Y.issubset(V):

@@ -52,6 +52,93 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   the likelihood is flat in (`tests/test_zeroinflated_separation.py`).
   Estimates on data without separation do not change.
 
+### A causal-ML textbook's notebooks, run against their references
+
+The Python notebooks of Chernozhukov, Hansen, Kallus, Spindler and
+Syrgkanis, *Applied Causal Inference Powered by ML and AI*
+(arXiv:2403.02467), were rerun in StatsPAI next to R `hdm`, `sensemakr`,
+`dagitty`, `rdrobust` and Python `DoubleML`. Double lasso, the DML models,
+IRM, the ATT score for difference-in-differences, PLIV, proxy controls and
+`rdrobust` with covariates reproduced their references. What did not is
+below. Every fix is pinned on simulated data; the book's data are not
+redistributed. Reader guide: `docs/guides/applied_causal_ml.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.dml(model='plr')` and `model='pliv'` with a classifier nuisance
+  used the predicted label, not the predicted probability.** Passing
+  `ml_m=RandomForestClassifier()` for a 0/1 treatment residualised it as
+  `D - 1{p > 0.5}`. On the book's 401(k) example the estimate was 6,044
+  where `DoubleML` and the book give 8,754. A classifier now contributes
+  `predict_proba` for a 0/1 outcome, treatment or instrument, and is
+  refused for any other target. Regressors, `model='irm'` and
+  `model='iivm'` are unchanged. `sp.dml_model_averaging` had the same
+  defect and the same fix. See MIGRATION `oct2026-causalml-textbook-fixes`.
+- **`sp.dml_sensitivity` on an IRM fit used the PLR scaling.** The bound
+  for the average effect needs `sigma^2 = E[(Y - g(D, X))^2]` and the
+  Riesz representer `D/m - (1-D)/(1-m)`. The old bound on the 401(k)
+  example was [-1,276, 16,870]; it is now [2,940, 12,654], equal to
+  `DoubleML`'s to 1e-10, for the ATE and the ATTE scores.
+- **`sp.dml_sensitivity`'s `rv_qa` now accounts for the sampling error of
+  the bias bound.** It is the confounding strength at which the interval
+  for the bound reaches zero. It used to subtract `1.96 * se` of the
+  unadjusted estimate, which ignores that `S` is estimated. On the 401(k)
+  PLR fit `rv_qa` moves from 0.0486 to 0.0511.
+
+#### Added
+
+- **`sp.lm_lin`**: the average effect of a randomized experiment by
+  regression on treatment, centred covariates and their interactions (Lin
+  2013). Estimate, standard error, degrees of freedom and interval equal R
+  `estimatr::lm_lin` 2.0.0 to 1e-9 for HC0 to HC3, classical, CR2 (with
+  Bell-McCaffrey degrees of freedom) and Stata clustering.
+  `superpopulation=True` adds the variance from estimating the covariate
+  means, which the book's experiments chapter adds by hand: with random
+  covariates and heterogeneous effects the regression interval covered
+  the population effect 83% of the time in simulation and the corrected
+  one 94%.
+- **Standard errors and an interval for the sensitivity bounds.**
+  `sp.dml_sensitivity(...)` returns `se_low`, `se_high`, `ci_low` and
+  `ci_high` for PLR and IRM fits, with clusters and with repeated
+  cross-fitting. `DoubleML` 0.11.3 reports the same two standard errors
+  with the bounds exchanged; a finite-difference check of the influence
+  functions (`tests/reference_parity/test_dml_sensitivity_bound_scores.py`)
+  and the book's own code agree with the assignment used here.
+- **A weak-instrument-robust confidence set for PLIV.**
+  `sp.dml(model='pliv')` stores `model_info['anderson_rubin']`: the exact
+  solution of the Anderson-Rubin inequality on the cross-fitted score. It
+  is an interval when the first stage is significant and unbounded
+  otherwise. The book scans a grid, which truncates the set (its AJR
+  example prints an upper end of 1.99; the set extends to 3.67).
+- **`sp.best_linear_projection` accepts `sp.dml(model='irm')` results.** It
+  projects the cross-fitted doubly-robust scores on covariates or group
+  indicators, which is `DoubleML`'s `cate()` / `gate()`. Coefficients match
+  to 1e-10; the joint covariance is in `.attrs['vcov']`.
+- **Joint inference for `sp.rlasso_effects`.** The return value is still a
+  `dict`, now with `.vcov()` (equal to hdm's to 1e-14) and
+  `.conf_int(joint=True)`, a sup-t band as in
+  `confint(<rlassoEffects>, joint = TRUE)`.
+- **`sp.sensemakr`** takes string and categorical controls (they enter as
+  indicators and are benchmarked as a group), takes `kd=` / `ky=`
+  multiples, and reports the adjusted estimate, standard error, t and
+  interval for each benchmark, equal to R `sensemakr` 0.1.6 to 1e-9. It
+  used to stop with a NumPy casting error on the package's own Darfur
+  example. The treatment standard error is now computed from a QR factor
+  (1e-14 from R on Track A module 22, was 5e-8).
+- **`sp.dag`** accepts named unobserved nodes (`latent=[...]` or
+  `"F [latent]"`): they are never offered as adjustment variables and
+  `sp.identify` projects them out (`DAG.latent_projection()`).
+  `DAG.implied_independencies()` lists the testable implications of a
+  graph and `DAG.test_implications(data)` tests them; both equal
+  `dagitty`'s output.
+
+#### Fixed
+
+- `sp.proximal_regression` refuses a treatment that is not 0/1. It used to
+  truncate a continuous treatment to integers and return a number.
+- `sp.dml_sensitivity` refuses PLIV and IIVM fits with a reason instead of
+  asking for residuals that those models never store.
+
 ### Reliability
 
 - **`sp.rdrobust` at polynomial orders 0, 3 and 4 now has reference

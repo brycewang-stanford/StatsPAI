@@ -31,8 +31,8 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | | aligned | 53 |
 | | **subtotal** | **421** |
 | **No external software reference** | analytical-only (T1) | 338 |
-| | external-replication (published numbers) | 5 |
-| | **subtotal** | **343** |
+| | external-replication (published numbers) | 6 |
+| | **subtotal** | **344** |
 | No numerical evidence yet | unverified | 534 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 421 | 752 | 753 | 55.9% |
+| estimator callables | 421 | 753 | 754 | 55.8% |
 | infrastructure (parity N/A) | 0 | 9 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 325 | 0.0% |
-| **all registered** | 421 | 764 | 1298 | 32.4% |
+| **all registered** | 421 | 765 | 1299 | 32.4% |
 
 ### Coverage by estimator family
 
@@ -56,7 +56,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | regression | 35 | 40 | 40 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
-| inference | 18 | 27 | 27 |
+| inference | 18 | 28 | 28 |
 | diagnostics | 18 | 24 | 24 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
@@ -410,7 +410,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `sdm` | spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE) | R 4.5.2; spatialreg 1.4.3 | rel_est<=1e-06, rel_se<=1e-06 | 8.3e-08 / 5.1e-08 | [`65_spatial.py`](../tests/r_parity/65_spatial.py) (+2) |
 | `sem` | spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE) | R 4.5.2; spatialreg 1.4.3 | rel_est<=1e-06, rel_se<=1e-06 | 8.3e-08 / 5.1e-08 | [`65_spatial.py`](../tests/r_parity/65_spatial.py) (+2) |
 | `sem_gmm` | spatialreg::stsls(W2X=FALSE) / spatialreg::GMerrorsar | R 4.5.2; spatialreg 1.4.3 | rel_est<=1e-06, rel_se<=1e-06 | 4.6e-08 / 7.3e-16 | [`66_spatial_gmm.py`](../tests/r_parity/66_spatial_gmm.py) (+2) |
-| `sensemakr` | sensemakr::sensemakr | R 4.5.2; sensemakr 0.1.6 | rel_est<=1e-06, rel_se<=1e-06 | 5.0e-08 / 5.0e-08 | [`22_sensemakr.py`](../tests/r_parity/22_sensemakr.py) (+2) |
+| `sensemakr` | sensemakr::sensemakr | R 4.5.2; sensemakr 0.1.6 | rel_est<=1e-06, rel_se<=1e-06 | 5.8e-13 / 6.6e-13 | [`22_sensemakr.py`](../tests/r_parity/22_sensemakr.py) (+2) |
 | `sensitivity_specificity` | R epiR::epi.tests (method wilson / exact); Stata diagti | R 4.5.2; epiR 2.0.94; Stata 18 MP; diagt 2.032 (diagti 2.053) | 1e-12 rel on intervals, 1e-10 on ratios (observed 2e-15) | — / — | [`test_survival_epi_R_parity.py`](../tests/reference_parity/test_survival_epi_R_parity.py) (+2) |
 | `shift_share_political` | AER::ivreg + sandwich HC1; ShiftShareSE::ivreg_ss (EHW / AKM / AKM0); bartik.weight::bw; anova(lm) share balance | R 4.5.2; AER 1.2.16; sandwich 3.1.1; ShiftShareSE 1.1.0; bartik.weight 0.1.0 | estimate / SEs / Rotemberg / F 1e-9 rel (observed <= 5e-15); AKM p-value 1e-7 rel (ShiftShareSE uses 2*(1-pnorm), cancellation at p ~ 1e-9) | — / — | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) (+1) |
 | `shift_share_political_panel` | fixest::feols 0.14.0 (ssc adj=FALSE, cluster.adj=FALSE; unit / time / two-way clusters; unit, time, two-way FE; unbalanced panel); ShiftShareSE::ivreg_ss with FE dummies (AKM); bartik.weight::bw with FE dummies; AER + HC0 per period | R 4.5.2; fixest 0.14.0; ShiftShareSE 1.1.0; bartik.weight 0.1.0; AER 1.2.16; sandwich 3.1.1 | estimate / SEs / Rotemberg / first-stage F 1e-9 rel (observed <= 1.1e-14) | — / — | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) (+1) |
@@ -530,7 +530,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 5 functions
+## external-replication — 6 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -538,6 +538,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | --- | --- |
 | `aggte` | [`test_honest_did_paper_parity.py`](../tests/external_parity/test_honest_did_paper_parity.py) (+1) |
 | `ardl` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
+| `best_linear_projection` | [`test_dml_irm_blp_parity.py`](../tests/external_parity/test_dml_irm_blp_parity.py) |
 | `cdlz_bunching` | [`test_cdlz_bunching_table1.py`](../tests/external_parity/test_cdlz_bunching_table1.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 | `unitroot` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
@@ -573,7 +574,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `bcf_factor_exposure` | [`test_bcf_factor_exposure_parity.py`](../tests/reference_parity/test_bcf_factor_exposure_parity.py) |
 | `bcf_longitudinal` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
 | `bcf_ordinal` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
-| `best_linear_projection` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) |
 | `beyond_average_late` | [`test_beyond_average_late_parity.py`](../tests/reference_parity/test_beyond_average_late_parity.py) (+2) |
 | `bidirectional_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `bjs_pretrend_joint` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
@@ -627,7 +627,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `counterfactual_policy_optimization` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `cs_jackknife` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `cs_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
-| `dag` | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) (+2) |
+| `dag` | [`test_dag_implications_dagitty_parity.py`](../tests/reference_parity/test_dag_implications_dagitty_parity.py) (+3) |
 | `deepiv` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) (+1) |
 | `demographic_parity` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `design_robust_event_study` | [`test_oct2026_correctness_fixes.py`](../tests/reference_parity/test_oct2026_correctness_fixes.py) |
@@ -646,7 +646,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `did_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `did_summary` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `didregress` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) |
-| `difference_in_means` | [`test_difference_in_means_estimatr.py`](../tests/reference_parity/test_difference_in_means_estimatr.py) |
+| `difference_in_means` | [`test_difference_in_means_estimatr.py`](../tests/reference_parity/test_difference_in_means_estimatr.py) (+1) |
 | `discos_test` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `disparity_decompose` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `dist_iv` | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) (+1) |
@@ -691,7 +691,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `honest_did_from_result` | [`test_honest_did_moments_R_parity.py`](../tests/reference_parity/test_honest_did_moments_R_parity.py) |
 | `honest_variance` | [`test_forest_rate_honest_parity.py`](../tests/reference_parity/test_forest_rate_honest_parity.py) (+1) |
 | `icp` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
-| `identify` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
+| `identify` | [`test_dag_implications_dagitty_parity.py`](../tests/reference_parity/test_dag_implications_dagitty_parity.py) (+1) |
 | `identify_transport` | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
 | `immortal_time_check` | [`test_target_trial_parity.py`](../tests/reference_parity/test_target_trial_parity.py) |
 | `influence_functions` | [`test_aggte_r_did_parity.py`](../tests/reference_parity/test_aggte_r_did_parity.py) |
@@ -715,6 +715,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `llm_annotator_correct` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) (+1) |
 | `llm_dag_validate` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `lm_forest` | [`test_grf_family_statistical_parity.py`](../tests/reference_parity/test_grf_family_statistical_parity.py) |
+| `lm_lin` | [`test_lm_lin_estimatr_parity.py`](../tests/reference_parity/test_lm_lin_estimatr_parity.py) |
 | `long_term_from_short` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
 | `longitudinal_analyze` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `longitudinal_contrast` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |

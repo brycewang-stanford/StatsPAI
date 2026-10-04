@@ -94,10 +94,14 @@ class DoubleMLPLR(_DoubleMLBase):
         for train_idx, test_idx in splits:
             w_train = sample_weight[train_idx] if sample_weight is not None else None
             ml_g = self._fit_weighted(self.ml_g, X[train_idx], Y[train_idx], w_train)
-            y_resid[test_idx] = Y[test_idx] - ml_g.predict(X[test_idx])
+            y_resid[test_idx] = Y[test_idx] - self._predict_nuisance(
+                ml_g, X[test_idx], Y, "ml_g"
+            )
 
             ml_m = self._fit_weighted(self.ml_m, X[train_idx], D[train_idx], w_train)
-            d_resid[test_idx] = D[test_idx] - ml_m.predict(X[test_idx])
+            d_resid[test_idx] = D[test_idx] - self._predict_nuisance(
+                ml_m, X[test_idx], D, "ml_m"
+            )
 
         if self.score == "IV-type":
             # DoubleML IV-type PLR score (Chernozhukov et al. 2018, eq. 4.4;
@@ -180,6 +184,15 @@ class DoubleMLPLR(_DoubleMLBase):
             "splits": splits,
             "weights": sample_weight,
         }
+        # Omitted-variable-bias elements (sp.dml_sensitivity). The outcome
+        # residual is (a - theta*b)^2, left in two parts because the base
+        # class may replace theta by the cluster-weighted solution.
+        if sample_weight is None:
+            if self.score == "IV-type":
+                sens_a, sens_b = Y - g_hat, D
+            else:
+                sens_a, sens_b = y_resid, d_resid
+            self._last_rep_sens = {"a": sens_a, "b": sens_b, "treat_resid": d_resid}
 
         # Diagnostics: residual scales, partial correlation, and a crude
         # within-R² for each nuisance — analogous to the panel_dml

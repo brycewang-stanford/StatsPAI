@@ -50,7 +50,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `matching` | 11,390 | 17 | 25 |
 | `core` | 11,162 | 19 | 6 |
 | `panel` | 11,142 | 18 | 21 |
-| `inference` | 10,504 | 22 | 31 |
+| `inference` | 10,804 | 23 | 32 |
 | `decomposition` | 9,912 | 19 | 32 |
 | `diagnostics` | 9,328 | 16 | 27 |
 | `dml` | 9,023 | 24 | 16 |

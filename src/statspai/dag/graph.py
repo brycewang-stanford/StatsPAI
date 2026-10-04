@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import re
 from itertools import combinations
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -48,6 +48,12 @@ class DAG:
         - ``"X -> Y, Z -> X, Z -> Y"``  (comma-separated)
         - Bidirected (latent common cause): ``"X <-> Y"`` adds a latent
           node ``_L_X_Y`` with edges to both X and Y.
+        - A named node is declared unobserved with ``"F [latent]"`` (the
+          dagitty spelling) or through ``latent=``.
+    latent : iterable of str, optional
+        Names of unobserved nodes. They take part in every path, but are
+        never offered as adjustment variables, and identification treats
+        them as unmeasured.
 
     Examples
     --------
@@ -61,12 +67,15 @@ class DAG:
     ['M', 'U', 'X', 'Y', '_L_U_Y']
     """
 
-    def __init__(self, spec: str = ""):
+    def __init__(self, spec: str = "", latent: Optional[Iterable[str]] = None):
         self._edges: Dict[str, Set[str]] = {}  # parent -> set of children
         self._nodes: Set[str] = set()
+        self._latent: Set[str] = set()
 
         if spec:
             self._parse(spec)
+        if latent is not None:
+            self.set_latent(*([latent] if isinstance(latent, str) else latent))
 
     # ------------------------------------------------------------------ #
     #  Construction
@@ -88,14 +97,32 @@ class DAG:
         self.add_edge(latent, b)
         return self
 
+    def set_latent(self, *names: str) -> "DAG":
+        """Declare nodes as unobserved."""
+        missing = [n for n in names if n not in self._nodes]
+        if missing:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"dag: cannot declare {missing} latent; not in the graph.",
+                recovery_hint=f"Nodes are {sorted(self._nodes)}.",
+            )
+        self._latent.update(names)
+        return self
+
     @property
     def nodes(self) -> Set[str]:
         return set(self._nodes)
 
     @property
+    def latent_nodes(self) -> Set[str]:
+        """Unobserved nodes: declared ones and the ``_L_*`` of ``<->``."""
+        return {n for n in self._nodes if n.startswith("_L_") or n in self._latent}
+
+    @property
     def observed_nodes(self) -> Set[str]:
-        """Nodes that are not latent (latents start with ``_L_``)."""
-        return {n for n in self._nodes if not n.startswith("_L_")}
+        """Nodes that are not latent."""
+        return self._nodes - self.latent_nodes
 
     @property
     def edges(self) -> List[Tuple[str, str]]:
@@ -492,6 +519,7 @@ class DAG:
             for child in children:
                 if child not in intervention:
                     modified.add_edge(parent, child)
+        modified._latent = set(self._latent)
         return modified
 
     # ------------------------------------------------------------------ #
@@ -724,6 +752,204 @@ class DAG:
                     modified.add_edge(parent, child)
 
         return modified.d_separated(exposure, outcome, conditioned)
+
+    # ------------------------------------------------------------------ #
+    #  Latent projection and testable implications
+    # ------------------------------------------------------------------ #
+
+    def latent_projection(self) -> "DAG":
+        """
+        Project the unobserved nodes out of the graph.
+
+        The result has the observed nodes only. It keeps ``a -> b`` when
+        the graph has a directed path from ``a`` to ``b`` whose interior
+        is unobserved, and adds ``a <-> b`` when ``a`` and ``b`` descend
+        from a common unobserved node along paths whose interiors are
+        unobserved (Verma and Pearl's projection). Every causal query
+        about the observed variables has the same answer in the two
+        graphs, which is how :func:`statspai.identify` handles a named
+        latent with parents of its own.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> g = sp.dag('X -> F; F -> D; F -> M; D -> Y', latent=['F'])
+        >>> p = g.latent_projection()
+        >>> sorted(e for e in p.edges if not e[0].startswith('_L_'))
+        [('D', 'Y'), ('X', 'D'), ('X', 'M')]
+        >>> sorted(p.latent_nodes)
+        ['_L_D_M']
+        """
+        latent = self.latent_nodes
+        observed = self._nodes - latent
+
+        def observed_reach(start: str) -> Set[str]:
+            """Observed nodes reached from ``start`` through latents only."""
+            out: Set[str] = set()
+            seen: Set[str] = set()
+            stack = list(self.children(start))
+            while stack:
+                node = stack.pop()
+                if node in observed:
+                    out.add(node)
+                elif node not in seen:
+                    seen.add(node)
+                    stack.extend(self.children(node))
+            return out
+
+        projected = DAG()
+        for node in sorted(observed):
+            projected.add_node(node)
+        for node in sorted(observed):
+            for child in sorted(observed_reach(node)):
+                projected.add_edge(node, child)
+        pairs: Set[Tuple[str, str]] = set()
+        for node in latent:
+            reached = sorted(observed_reach(node))
+            pairs.update(combinations(reached, 2))
+        for a, b in sorted(pairs):
+            projected.add_bidirected(a, b)
+        return projected
+
+    def implied_independencies(
+        self, max_cond: Optional[int] = None
+    ) -> List[Tuple[str, str, Set[str]]]:
+        """
+        Conditional independencies among observed variables that the graph
+        implies.
+
+        For every pair of observed, non-adjacent nodes, lists each
+        *minimal* set of observed variables that d-separates them (no
+        proper subset does). These are the testable implications of the
+        graph: if one fails in the data, the graph is wrong. Same list as
+        ``dagitty::impliedConditionalIndependencies``.
+
+        Parameters
+        ----------
+        max_cond : int, optional
+            Largest conditioning set to consider. The search is
+            exponential in the number of observed nodes; set this on
+            graphs with more than about 15 of them.
+
+        Returns
+        -------
+        list of (x, y, set)
+            ``x`` is independent of ``y`` given the set; sorted.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> g = sp.dag('Z -> X -> Y')
+        >>> g.implied_independencies()
+        [('Y', 'Z', {'X'})]
+        """
+        observed = sorted(self.observed_nodes)
+        out: List[Tuple[str, str, Set[str]]] = []
+        for a, b in combinations(observed, 2):
+            if b in self.children(a) or a in self.children(b):
+                continue
+            others = [v for v in observed if v not in (a, b)]
+            limit = len(others) if max_cond is None else min(max_cond, len(others))
+            found: List[Set[str]] = []
+            for size in range(limit + 1):
+                for combo in combinations(others, size):
+                    z = set(combo)
+                    if any(prev <= z for prev in found):
+                        continue
+                    if self.d_separated(a, b, z):
+                        found.append(z)
+            out.extend((a, b, z) for z in found)
+        return out
+
+    def test_implications(
+        self,
+        data: "pd.DataFrame",
+        max_cond: Optional[int] = None,
+    ) -> "pd.DataFrame":
+        """
+        Test the implied conditional independencies on data.
+
+        Each implication ``x _||_ y | Z`` is tested through the partial
+        correlation of ``x`` and ``y`` given ``Z``: zero under the
+        independence if the relations are linear. The test is Fisher's z:
+        ``atanh(r) * sqrt(n - |Z| - 3)`` is standard normal under the
+        null, as in ``dagitty::localTests(type = "cis")``. A small p-value
+        is evidence against the graph; a large one is not evidence for it.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            One numeric column per observed node that appears in an
+            implication.
+        max_cond : int, optional
+            Passed to :meth:`implied_independencies`.
+
+        Returns
+        -------
+        pd.DataFrame
+            One row per implication: ``x``, ``y``, ``given``,
+            ``partial_corr``, ``p_value`` and ``p_holm`` (Holm-adjusted
+            over all the implications tested).
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd, statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> z = rng.normal(size=500)
+        >>> x = z + rng.normal(size=500)
+        >>> y = x + rng.normal(size=500)
+        >>> df = pd.DataFrame({'Z': z, 'X': x, 'Y': y})
+        >>> out = sp.dag('Z -> X -> Y').test_implications(df)
+        >>> bool(out['p_value'].iloc[0] > 0.05)  # Y _||_ Z | X holds
+        True
+        """
+        import numpy as np
+        import pandas as pd
+        from scipy import stats
+
+        rows = []
+        for a, b, z in self.implied_independencies(max_cond=max_cond):
+            cols = [a, b, *sorted(z)]
+            missing = [c for c in cols if c not in data.columns]
+            if missing:
+                from ..exceptions import ColumnNotFound
+
+                raise ColumnNotFound(
+                    f"test_implications: columns not in data: {missing}",
+                    recovery_hint=(
+                        "Supply one column per observed node, or declare the "
+                        "unmeasured ones with sp.dag(..., latent=[...])."
+                    ),
+                    diagnostics={"missing_columns": missing},
+                )
+            frame = data[cols].dropna().to_numpy(dtype=float)
+            n = frame.shape[0]
+            cond = np.column_stack([np.ones(n), frame[:, 2:]])
+            ra = frame[:, 0] - cond @ np.linalg.lstsq(cond, frame[:, 0], rcond=None)[0]
+            rb = frame[:, 1] - cond @ np.linalg.lstsq(cond, frame[:, 1], rcond=None)[0]
+            r = float(ra @ rb / np.sqrt((ra @ ra) * (rb @ rb)))
+            # Fisher z, as dagitty's localTests(type = "cis") uses
+            zstat = np.arctanh(r) * np.sqrt(max(n - len(z) - 3, 1))
+            rows.append(
+                {
+                    "x": a,
+                    "y": b,
+                    "given": ", ".join(sorted(z)),
+                    "partial_corr": r,
+                    "p_value": float(2 * stats.norm.sf(abs(zstat))),
+                }
+            )
+        out = pd.DataFrame(rows, columns=["x", "y", "given", "partial_corr", "p_value"])
+        if len(out):
+            p = out["p_value"].to_numpy()
+            order = np.argsort(p)
+            adj = np.maximum.accumulate(p[order] * (len(p) - np.arange(len(p))))
+            holm = np.empty_like(p)
+            holm[order] = np.minimum(adj, 1.0)
+            out["p_holm"] = holm
+        else:
+            out["p_holm"] = []
+        return out
 
     # ------------------------------------------------------------------ #
     #  Visualization
@@ -1153,6 +1379,13 @@ class DAG:
             if not part:
                 continue
 
+            # Declaration: F [latent]
+            declared = re.fullmatch(r"(\S+)\s*\[\s*latent\s*\]", part)
+            if declared:
+                self.add_node(declared.group(1))
+                self._latent.add(declared.group(1))
+                continue
+
             # Bidirected edge: X <-> Y
             if "<->" in part:
                 nodes = [n.strip() for n in part.split("<->")]
@@ -1235,7 +1468,7 @@ class DAG:
 # ====================================================================== #
 
 
-def dag(spec: str = "") -> DAG:
+def dag(spec: str = "", latent: Optional[Iterable[str]] = None) -> DAG:
     """
     Create a causal DAG from a string specification.
 
@@ -1247,6 +1480,10 @@ def dag(spec: str = "") -> DAG:
         - ``"X -> Y; Z -> X; Z -> Y"``
         - ``"X -> M -> Y; X -> Y"``
         - ``"X <-> Y; Z -> X; Z -> Y"``  (bidirected = latent common cause)
+        - ``"F -> X; F -> D; F [latent]"``  (a named unobserved node)
+    latent : iterable of str, optional
+        Names of unobserved nodes, as an alternative to ``[latent]`` in
+        the specification.
 
     Returns
     -------
@@ -1264,8 +1501,14 @@ def dag(spec: str = "") -> DAG:
     >>> g = sp.dag('X -> Y; X <-> Y')
     >>> g.adjustment_sets('X', 'Y')
     []
+
+    A named latent is never offered as an adjustment variable:
+
+    >>> g = sp.dag('D -> Y; X -> D; X -> Y; F -> X; F -> D', latent=['F'])
+    >>> g.adjustment_sets('D', 'Y')
+    [{'X'}]
     """
-    return DAG(spec)
+    return DAG(spec, latent=latent)
 
 
 # ====================================================================== #

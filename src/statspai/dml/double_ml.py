@@ -102,6 +102,12 @@ def dml(
 
         For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced
         to the classifier variant; same for ``ml_r`` under ``'iivm'``.
+        Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a
+        0/1 outcome, treatment or instrument; its ``predict_proba`` is
+        the conditional mean (as in DoubleML's PLR). A classifier for a
+        target that is not 0/1 is refused. Up to 1.38.0 these two models
+        called ``predict`` on a classifier and residualised on the hard
+        label.
         ``None`` falls back to the per-model gradient-boosting default.
     n_folds : int, default 5
     n_rep : int, default 1
@@ -173,6 +179,14 @@ def dml(
     Returns
     -------
     CausalResult
+        For ``model='pliv'`` (unweighted, no clusters),
+        ``model_info['anderson_rubin']`` holds a confidence set for the
+        coefficient that stays valid when the instrument is weak: the
+        values of ``theta`` at which the Anderson-Rubin statistic of the
+        cross-fitted score is below the chi-squared(1) critical value.
+        ``kind`` is ``'interval'``, or ``'unbounded'`` / ``'disjoint'``
+        when the first stage is not significant, and ``intervals`` lists
+        the pieces. With ``n_rep > 1`` it refers to the last repetition.
 
     Notes
     -----

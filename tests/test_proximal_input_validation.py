@@ -160,3 +160,29 @@ class TestProximalGracefulFallback:
         assert r.detail["propensity_fallback"] is True
         assert r.propensity_coefs == {}
         assert np.isfinite(r.ate)
+
+
+def test_proximal_regression_refuses_a_continuous_treatment():
+    """A non-0/1 treatment used to be truncated to integers and fitted.
+
+    The estimator contrasts D=1 with D=0, so there is nothing to report;
+    sp.proximal handles the continuous case (and recovers the effect).
+    """
+    import numpy as np
+    import pandas as pd
+    import pytest
+
+    import statspai as sp
+
+    rng = np.random.default_rng(0)
+    n = 2000
+    a = rng.normal(size=n)
+    q = 2 * a + rng.normal(size=n)
+    s = 2 * a + rng.normal(size=n)
+    d = q - a + rng.normal(size=n)
+    y = 2.0 * d + 3 * a + s + rng.normal(size=n)
+    df = pd.DataFrame({"y": y, "d": d, "q": q, "s": s})
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="0/1"):
+        sp.proximal_regression(df, y="y", treat="d", z_proxy="q", w_proxy="s")
+    fit = sp.proximal(df, y="y", treat="d", proxy_z=["q"], proxy_w=["s"])
+    assert abs(fit.estimate - 2.0) < 4 * fit.se

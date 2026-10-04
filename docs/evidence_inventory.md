@@ -14,7 +14,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `callaway_santanna` | 384 | 50 / 384 | 25 / 384 | 1 / 384 | -- | -- | 25 / 384 |
 | `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | 0 / 96 |
 | `did_imputation` | 240 | 18 / 240 | 7 / 240 | 1 / 240 | -- | -- | 6 / 240 |
-| `dml` | 9120 | 4 / 9120 | 4 / 9120 | -- | -- | -- | 4 / 9120 |
+| `dml` | 9120 | 7 / 9120 | 7 / 9120 | -- | -- | -- | 7 / 9120 |
 | `etwfe` | 128 | 7 / 128 | 0 / 128 | 3 / 128 | -- | -- | 0 / 128 |
 | `etwfe_glm` | 2880 | 39 / 2880 | 26 / 2880 | -- | -- | -- | 26 / 2880 |
 | `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
@@ -50,8 +50,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `did_imputation` | estimate | 0 | 0 | 0 | 3 | 219 |
 | `did_imputation` | se | 0 | 0 | 0 | 0 | 233 |
 | `did_imputation` | vcov | 0 | 0 | 0 | 0 | 239 |
-| `dml` | estimate | 0 | 0 | 0 | 0 | 9116 |
-| `dml` | se | 0 | 0 | 0 | 0 | 9116 |
+| `dml` | estimate | 0 | 0 | 0 | 0 | 9113 |
+| `dml` | se | 0 | 0 | 0 | 0 | 9113 |
 | `dml` | coverage | 0 | 0 | 2 | 0 | 9118 |
 | `etwfe` | estimate | 0 | 0 | 0 | 0 | 121 |
 | `etwfe` | se | 0 | 0 | 0 | 7 | 121 |
@@ -155,6 +155,8 @@ Dimensions: `model` in {plr, irm, pliv, iivm}; `score` in {partialling out, iv-t
 | T2 | estimate, se | model=irm; score=ate; learners=linear; n_folds=5; n_rep=1; ipw=trim1e-12 | `tests/r_parity/71_dml_family.py` | `sp.dml(model='irm')` |
 | T2 | estimate, se | model=pliv; score=partialling out; learners=linear; n_folds=5; n_rep=1; ipw=n/a | `tests/r_parity/71_dml_family.py` | `sp.dml(model='pliv')` |
 | T2 | estimate, se | model=iivm; score=late; learners=linear; n_folds=5; n_rep=1; ipw=trim1e-12 | `tests/r_parity/71_dml_family.py` | `sp.dml(model='iivm')` |
+| T2 | estimate, se | model=plr; score=partialling out; learners=other; n_folds=4; n_rep=1; ipw=n/a | `tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py` | `sp.dml(model='plr')` |
+| T2 | estimate, se | model=irm; score=ate/atte; learners=linear; n_folds=4; n_rep=1; ipw=trim0.01 | `tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py` | `sp.dml(model='irm')` |
 | B | coverage | model=plr; score=partialling out; learners=default; n_folds=5; n_rep=1; ipw=n/a | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.dml(model='plr', n_folds=5)` |
 | B | coverage | model=irm; score=ate; learners=default; n_folds=5; n_rep=1; ipw=trim0.01 | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.causal_question(design='dml')` |
 

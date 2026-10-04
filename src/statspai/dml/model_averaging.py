@@ -75,6 +75,7 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ._base import _DoubleMLBase
 
 __all__ = ["dml_model_averaging", "model_averaging_dml", "DMLAveragingResult"]
 
@@ -369,10 +370,10 @@ def _fit_candidate_plr(
     for tr, te in splits:
         wtr = sample_weight[tr] if sample_weight is not None else None
         g = _fit(ml_g, X[tr], Y[tr], wtr)
-        yhat[te] = g.predict(X[te])
+        yhat[te] = _DoubleMLBase._predict_nuisance(g, X[te], Y, "ml_g")
 
         m = _fit(ml_m, X[tr], D[tr], wtr)
-        dhat[te] = m.predict(X[te])
+        dhat[te] = _DoubleMLBase._predict_nuisance(m, X[te], D, "ml_m")
 
     y_resid = Y - yhat
     d_resid = D - dhat
