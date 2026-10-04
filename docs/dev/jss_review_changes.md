@@ -31,6 +31,38 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — original-data ledger refreshed; LaLonde PSM row regenerated
+
+Commits `c725ba3d` (the result and the roll-up table) and `dfe32e16` (the trace). Eight original-data modules had traces that no longer
+described the tree, after source changes that had re-recorded the R
+ledger only: `regression/ols.py` (the few-treated diagnostic, `5ad164e1`),
+`regression/iv.py`, `matching/match.py` (`39a8be49`), `synth/scm.py` and
+`inference/ipw.py`. Every module was rerun on the current tree. Seven
+reproduce their committed result within the 1e-9 reproducibility
+tolerance (the largest move is 1.3e-10, the Card IV coefficient) and
+keep the committed file. One does not: the tied-propensity-score fix of
+`39a8be49` moves `psm_att` in module 04.
+
+Effect on the paper: the original-data table's LaLonde row. `psm_att`
+goes from 1963.43 to 1967.94 and its standard error from 1186.31 to
+1192.17; the relative gap to R `MatchIt` (2006.86) goes from 0.022 to
+0.019 and to the published 1794 from 0.094 to 0.097. No other row moves.
+
+- `tests/orig_parity/results/04_lalonde_original_py.json`
+- `tests/orig_parity/results/parity_table_orig.md`
+- `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after `sp.iv` accepted `small=False` for GMM
+
+Commit `dfe32e16`. `regression/iv.py` gained the GMM branch of the
+large-sample rescaling and a longer docstring; Track A modules 02, 35
+and 59 execute that file, so their source hashes in the trace changed.
+
+Effect on the paper: none. The three modules were run on the source
+before and after the change and their result files are byte-identical.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-05 — outcome-only classic SCM fits the raw pre-treatment path; module 52 regenerated
 
 Commits `51f569ba` and `81314cbb`. `synth/scm.py`, on the estimation path
