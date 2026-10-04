@@ -7,9 +7,12 @@ on:
     branches: [ main ]
   release:
     types: [ published ]
-  # Nightly (02:37 Beijing): runs test-pandas3, which no longer runs on every
-  # push. The publish jobs are gated on release / dispatch, so a scheduled
-  # run can never upload anything.
+  # Nightly (02:37 Beijing): the full matrix and test-pandas3, neither of
+  # which runs on a push. A push runs the fast gate, about 2,000 of 26,600
+  # tests; before 2026-10-04 the rest ran only when someone dispatched a
+  # full run by hand, and a first run after five days found some twenty
+  # failures, two of them defects in the package. The publish jobs are gated
+  # on release / dispatch, so a scheduled run can never upload anything.
   schedule:
     - cron: '37 18 * * *'
   workflow_dispatch:
@@ -53,7 +56,8 @@ concurrency:
 jobs:
   # Decide the test matrix based on trigger:
   #   - pull_request / push: one fast current-contract gate on ubuntu-latest × 3.10
-  #   - release / publish dispatch / manual full dispatch: full 13-combo matrix
+  #   - schedule / release / publish dispatch / manual full dispatch: the
+  #     full matrix (Linux and macOS, Python 3.10 to 3.13)
   # Rationale: the old push-to-main path ran 13 full pytest shards on every
   # commit, which is too slow/noisy for the current repository size and cancels
   # useful follow-up checks during bursty publication work. Full historical
@@ -81,6 +85,7 @@ jobs:
           # hours. The list is in docs/dev/2026-10-04-windows-test-gaps.md;
           # put the legs back when it is empty.
           if [ "$EVENT_NAME" = "release" ] ||
+             [ "$EVENT_NAME" = "schedule" ] ||
              [ "$TEST_SCOPE" = "full" ] ||
              [ "$PUBLISH_TARGET" != "none" ]; then
             echo 'matrix={"include":[{"os":"ubuntu-latest","python-version":"3.10","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.11","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.12","test_scope":"full"},{"os":"ubuntu-latest","python-version":"3.13","test_scope":"full"},{"os":"macos-latest","python-version":"3.10","test_scope":"full"},{"os":"macos-latest","python-version":"3.11","test_scope":"full"},{"os":"macos-latest","python-version":"3.12","test_scope":"full"},{"os":"macos-latest","python-version":"3.13","test_scope":"full"}]}' >> "$GITHUB_OUTPUT"
