@@ -31,6 +31,18 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call trace re-recorded after `sp.rdms` gained several boundary points
+
+Commit `b4b23089`. `sp.rdms` accepts lists for `cutoff1=` / `cutoff2=`
+and an `xnorm=` column, returning one row per boundary point and a pooled
+row. The code is in `rd/rdmulti.py`, which Track A module 89 executes.
+
+Effect on the paper: none. Module 89 calls `sp.rdms` with scalar cutoffs,
+a path that is unchanged; it was re-run and its result file is
+byte-identical. Only the recorded source hash moves.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded for the Remix labs pass (time-varying covariates in Callaway-Sant'Anna, unidentified imputation leads)
 
 Commit `6c9fd021`. Two source files on the estimation path of Track A
