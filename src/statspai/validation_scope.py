@@ -205,6 +205,8 @@ def _x_panel(r: Any) -> Dict[str, Optional[str]]:
 def _x_iv(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
     model_type = (_lower(mi.get("model_type")) or "").replace("iv-", "")
+    # the GMM label carries its step count ("IV-GMM (2-step)")
+    model_type = model_type.split(" ")[0]
     estimator = model_type if model_type in {"2sls", "liml", "fuller", "gmm"} else None
     from .smart.audit import _overid_degree  # shared identification rule
 
@@ -813,6 +815,53 @@ _add(
                 "the same without small: N divisor, HC0 under vce(robust), no "
                 "finite-sample cluster factor, z p-values, vs Stata ivregress",
                 "sp.iv(formula, data, method=..., small=False)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_iv_gmm_stata_parity.py",
+                {
+                    "estimator": _vals("gmm"),
+                    "vce": _vals("hc1", "cr1"),
+                    "identification": _vals("over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "two-step GMM coefficients, SEs and Hansen J vs Stata ivregress gmm, "
+                "small under wmatrix(robust) and wmatrix(cluster), to 5e-9",
+                "sp.iv(formula, data, method='gmm')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_iv_gmm_stata_parity.py",
+                {
+                    "estimator": _vals("gmm"),
+                    "vce": _vals("hc0", "cr1"),
+                    "identification": _vals("over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("false"),
+                },
+                _EST_SE,
+                "the same without small (ivregress gmm's default): no "
+                "finite-sample factor, z p-values",
+                "sp.iv(formula, data, method='gmm', small=False)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_iv_gmm_stata_parity.py",
+                {
+                    "estimator": _vals("gmm"),
+                    "vce": _vals("classical"),
+                    "identification": _vals("over"),
+                    "absorb": _vals("none"),
+                    "small": _vals("true"),
+                },
+                _EST_SE,
+                "under the unadjusted weight matrix, both variances sp.iv offers: "
+                "the default sandwich is ivregress gmm, wmatrix(unadjusted) "
+                "vce(robust), and gmm_vcov='efficient' is wmatrix(unadjusted); "
+                "neither carries a finite-sample factor",
+                "sp.iv(formula, data, method='gmm')",
             ),
             _Row(
                 "T2",

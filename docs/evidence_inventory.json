@@ -2739,19 +2739,19 @@
       },
       "cells": 416,
       "overall": {
-        "covered": 22,
-        "estimate_only": 108,
-        "not_covered": 286
+        "covered": 27,
+        "estimate_only": 129,
+        "not_covered": 260
       },
       "by_output": {
         "estimate": {
-          "reference": 130,
-          "not_covered": 286
+          "reference": 156,
+          "not_covered": 260
         },
         "se": {
-          "reference": 22,
+          "reference": 27,
           "disclosure": 3,
-          "not_covered": 391
+          "not_covered": 386
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -2990,6 +2990,89 @@
             ]
           },
           "compares": "the same without small: N divisor, HC0 under vce(robust), no finite-sample cluster factor, z p-values, vs Stata ivregress"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_gmm_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method='gmm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "gmm"
+            ],
+            "vce": [
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "two-step GMM coefficients, SEs and Hansen J vs Stata ivregress gmm, small under wmatrix(robust) and wmatrix(cluster), to 5e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_gmm_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method='gmm', small=False)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "gmm"
+            ],
+            "vce": [
+              "cr1",
+              "hc0"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "false"
+            ]
+          },
+          "compares": "the same without small (ivregress gmm's default): no finite-sample factor, z p-values"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_gmm_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method='gmm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "gmm"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "under the unadjusted weight matrix, both variances sp.iv offers: the default sandwich is ivregress gmm, wmatrix(unadjusted) vce(robust), and gmm_vcov='efficient' is wmatrix(unadjusted); neither carries a finite-sample factor"
         },
         {
           "kind": "T2",
@@ -3207,19 +3290,19 @@
       },
       "cells": 416,
       "overall": {
-        "covered": 22,
-        "estimate_only": 108,
-        "not_covered": 286
+        "covered": 27,
+        "estimate_only": 129,
+        "not_covered": 260
       },
       "by_output": {
         "estimate": {
-          "reference": 130,
-          "not_covered": 286
+          "reference": 156,
+          "not_covered": 260
         },
         "se": {
-          "reference": 22,
+          "reference": 27,
           "disclosure": 3,
-          "not_covered": 391
+          "not_covered": 386
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -3458,6 +3541,89 @@
             ]
           },
           "compares": "the same without small: N divisor, HC0 under vce(robust), no finite-sample cluster factor, z p-values, vs Stata ivregress"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_gmm_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method='gmm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "gmm"
+            ],
+            "vce": [
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "two-step GMM coefficients, SEs and Hansen J vs Stata ivregress gmm, small under wmatrix(robust) and wmatrix(cluster), to 5e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_gmm_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method='gmm', small=False)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "gmm"
+            ],
+            "vce": [
+              "cr1",
+              "hc0"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "false"
+            ]
+          },
+          "compares": "the same without small (ivregress gmm's default): no finite-sample factor, z p-values"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_gmm_stata_parity.py",
+          "entry_point": "sp.iv(formula, data, method='gmm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "gmm"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "small": [
+              "true"
+            ]
+          },
+          "compares": "under the unadjusted weight matrix, both variances sp.iv offers: the default sandwich is ivregress gmm, wmatrix(unadjusted) vce(robust), and gmm_vcov='efficient' is wmatrix(unadjusted); neither carries a finite-sample factor"
         },
         {
           "kind": "T2",
@@ -6369,16 +6535,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 762,
+      "reference": 814,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45540
+      "not_covered": 45488
     },
     "se": {
-      "reference": 356,
+      "reference": 366,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45926
+      "not_covered": 45916
     },
     "coverage": {
       "coverage_simulation": 11,

@@ -56,8 +56,8 @@ def test_matches_ivregress(data, method, vce, small):
 def test_small_false_rejects_what_ivregress_does_not_define(data):
     with pytest.raises(sp.MethodIncompatibility, match="HC3"):
         sp.iv("y ~ w + (x ~ z)", data=data, robust="hc3", small=False)
-    with pytest.raises(sp.MethodIncompatibility, match="2SLS and LIML"):
-        sp.iv("y ~ w + (x ~ z)", data=data, method="gmm", small=False)
+    with pytest.raises(sp.MethodIncompatibility, match="2SLS, LIML and GMM"):
+        sp.iv("y ~ w + (x ~ z)", data=data, method="fuller", small=False)
     with pytest.raises(sp.MethodIncompatibility, match="absorb"):
         sp.iv("y ~ w + (x ~ z)", data=data, absorb="firm", small=False)
     with pytest.raises(sp.MethodIncompatibility, match="small"):

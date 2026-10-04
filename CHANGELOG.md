@@ -6,6 +6,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.stata` / `sp.from_stata` translated `ivregress gmm` to a
+  different estimator.** Stata's two-step GMM uses the heteroskedasticity
+  -robust weight matrix unless told otherwise; the translation called
+  `sp.ivreg(method='gmm')`, which uses the unadjusted one, and dropped
+  `wmatrix()`. On Card's schooling data the schooling coefficient came
+  out 0.1608 against Stata's 0.1588. The translation now follows
+  `wmatrix()` and `vce()` as Stata 18 resolves them (a `vce(cluster c)`
+  alone sets the weight matrix too), and nine option combinations
+  reproduce `ivregress gmm` to 5e-9 through `sp.stata`
+  (`tests/reference_parity/test_iv_gmm_stata_parity.py`). Combinations
+  with no counterpart (`wmatrix(hac ...)`, `igmm`, a cluster weight matrix
+  with a robust variance, `wmatrix(unadjusted) small`) are reported as
+  untranslated and `sp.stata` refuses them. Calls to `sp.iv` /
+  `sp.ivreg` themselves return the same numbers as before.
 - **`sp.ipw(estimand='ATT' | 'ATC', normalize=False)` was scaled by the
   share of the target group.** The Horvitz-Thompson sums were divided by
   `n` for every estimand, so the ATT came back multiplied by `P(T=1)` and
@@ -773,6 +787,17 @@ Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
 
 ### Reliability
 
+- **`sp.iv(method='gmm')` now has reference rows against Stata
+  `ivregress gmm`**, and accepts `small=False`. Coefficients, standard
+  errors and Hansen's J agree with Stata 18 to 5e-9 on Card's data under
+  the robust, cluster and unadjusted weight matrices, with and without
+  `small`. `small=False` (Stata's default for `ivregress gmm`) was
+  refused for GMM before; the difference is the finite-sample factor,
+  `N / (N - K)` or `G/(G-1) * (N-1)/(N-K)`, and nothing else. The
+  docstring of `sp.iv` lists which options give which `ivregress gmm`
+  variant. `sp.validation_scope` also failed to recognise a GMM fit (the
+  label carries its step count) and reported every one as not covered;
+  fixed.
 - **Weight diagnostics in `sp.fast.feols`, `sp.fast.fepois` and
   `sp.nbreg`.** A third weight study
   (`tests/reliability/extreme_weights_fast.py`, 18 designs, 2,000

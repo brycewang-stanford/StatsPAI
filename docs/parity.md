@@ -681,7 +681,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `forest_policy_tree` | [`test_fe_forest_policy_recovery.py`](../tests/reference_parity/test_fe_forest_policy_recovery.py) |
 | `forest_support` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
-| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+8) |
+| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+9) |
 | `front_door` | [`test_front_door_parity.py`](../tests/reference_parity/test_front_door_parity.py) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
@@ -843,7 +843,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `spec_curve` | [`test_spec_curve_fe_Stata_parity.py`](../tests/reference_parity/test_spec_curve_fe_Stata_parity.py) |
 | `spillover` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
 | `ssc` | [`test_ssc_presets_Stata_parity.py`](../tests/reference_parity/test_ssc_presets_Stata_parity.py) |
-| `stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+6) |
+| `stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+7) |
 | `stepwise` | [`test_stepwise_parity.py`](../tests/reference_parity/test_stepwise_parity.py) |
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `structural_mdp` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |

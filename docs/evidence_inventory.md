@@ -20,8 +20,8 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
 | `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
 | `gardner_did` | 64 | 24 / 64 | 6 / 64 | 1 / 64 | -- | -- | 6 / 64 |
-| `iv` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
-| `ivreg` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
+| `iv` | 416 | 156 / 416 | 27 / 416 | -- | 3 / 416 | 1 / 416 | 27 / 416 |
+| `ivreg` | 416 | 156 / 416 | 27 / 416 | -- | 3 / 416 | 1 / 416 | 27 / 416 |
 | `nnmatch` | 1920 | 9 / 1920 | 9 / 1920 | -- | -- | -- | 9 / 1920 |
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
 | `psm` | 3600 | 12 / 3600 | 1 / 3600 | -- | -- | -- | 1 / 3600 |
@@ -67,13 +67,13 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `gardner_did` | estimate | 0 | 0 | 0 | 0 | 40 |
 | `gardner_did` | se | 0 | 0 | 0 | 0 | 58 |
 | `gardner_did` | vcov | 0 | 0 | 0 | 0 | 63 |
-| `iv` | estimate | 0 | 0 | 0 | 0 | 286 |
-| `iv` | se | 0 | 0 | 0 | 3 | 391 |
+| `iv` | estimate | 0 | 0 | 0 | 0 | 260 |
+| `iv` | se | 0 | 0 | 0 | 3 | 386 |
 | `iv` | coverage | 0 | 0 | 1 | 0 | 415 |
 | `iv` | diagnostic | 0 | 0 | 0 | 0 | 415 |
 | `iv` | joint_test | 0 | 0 | 0 | 0 | 413 |
-| `ivreg` | estimate | 0 | 0 | 0 | 0 | 286 |
-| `ivreg` | se | 0 | 0 | 0 | 3 | 391 |
+| `ivreg` | estimate | 0 | 0 | 0 | 0 | 260 |
+| `ivreg` | se | 0 | 0 | 0 | 3 | 386 |
 | `ivreg` | coverage | 0 | 0 | 1 | 0 | 415 |
 | `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 415 |
 | `ivreg` | joint_test | 0 | 0 | 0 | 0 | 413 |
@@ -254,6 +254,9 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 | B | coverage | estimator=2sls; vce=hc1; identification=just; absorb=none; small=true | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.ivreg(robust='hc1')` |
 | T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc1; identification=just; absorb=none; small=true | `tests/reference_parity/test_iv_small_Stata_parity.py` | `sp.iv(formula, data, method=..., small=True)` |
 | T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc0; identification=just; absorb=none; small=false | `tests/reference_parity/test_iv_small_Stata_parity.py` | `sp.iv(formula, data, method=..., small=False)` |
+| T2 | estimate, se | estimator=gmm; vce=cr1/hc1; identification=over; absorb=none; small=true | `tests/reference_parity/test_iv_gmm_stata_parity.py` | `sp.iv(formula, data, method='gmm')` |
+| T2 | estimate, se | estimator=gmm; vce=cr1/hc0; identification=over; absorb=none; small=false | `tests/reference_parity/test_iv_gmm_stata_parity.py` | `sp.iv(formula, data, method='gmm', small=False)` |
+| T2 | estimate, se | estimator=gmm; vce=classical; identification=over; absorb=none; small=true | `tests/reference_parity/test_iv_gmm_stata_parity.py` | `sp.iv(formula, data, method='gmm')` |
 | T2 | estimate, se | estimator=2sls; vce=classical/cluster_multiway/cr1/hc1; identification=just; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...])` |
 | T2 | estimate, se | estimator=2sls; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...])` |
 | T2 | estimate | estimator=liml; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='liml')` |
@@ -277,6 +280,9 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 | B | coverage | estimator=2sls; vce=hc1; identification=just; absorb=none; small=true | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.ivreg(robust='hc1')` |
 | T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc1; identification=just; absorb=none; small=true | `tests/reference_parity/test_iv_small_Stata_parity.py` | `sp.iv(formula, data, method=..., small=True)` |
 | T2 | estimate, se | estimator=2sls/liml; vce=classical/cr1/hc0; identification=just; absorb=none; small=false | `tests/reference_parity/test_iv_small_Stata_parity.py` | `sp.iv(formula, data, method=..., small=False)` |
+| T2 | estimate, se | estimator=gmm; vce=cr1/hc1; identification=over; absorb=none; small=true | `tests/reference_parity/test_iv_gmm_stata_parity.py` | `sp.iv(formula, data, method='gmm')` |
+| T2 | estimate, se | estimator=gmm; vce=cr1/hc0; identification=over; absorb=none; small=false | `tests/reference_parity/test_iv_gmm_stata_parity.py` | `sp.iv(formula, data, method='gmm', small=False)` |
+| T2 | estimate, se | estimator=gmm; vce=classical; identification=over; absorb=none; small=true | `tests/reference_parity/test_iv_gmm_stata_parity.py` | `sp.iv(formula, data, method='gmm')` |
 | T2 | estimate, se | estimator=2sls; vce=classical/cluster_multiway/cr1/hc1; identification=just; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...])` |
 | T2 | estimate, se | estimator=2sls; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...])` |
 | T2 | estimate | estimator=liml; vce=cr1/hc1; identification=over; absorb=set; small=true | `tests/reference_parity/test_iv_hdfe_stata_parity.py` | `sp.iv(formula, data, absorb=[...], method='liml')` |

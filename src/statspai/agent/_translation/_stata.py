@@ -829,6 +829,9 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
         formula += " + ".join(exog) + " + "
     formula += f"({' + '.join(endog)} ~ {' + '.join(instruments)})"
 
+    if cmd.command == "ivregress" and method == "gmm":
+        return _ivregress_gmm(cmd, formula)
+
     cluster = _vce_cluster(cmd) or cmd.options.get("cluster")
     if cluster:
         cluster = cluster.split()[0]
@@ -891,6 +894,109 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
     tool = "iv" if args.get("small") is False else "ivreg"
     python = f"sp.{tool}({formula!r}, {', '.join(code_pairs)})"
     return _emit(tool, args, python, notes)
+
+
+def _gmm_matrix_type(value: Optional[str]) -> Optional[Tuple[str, Optional[str]]]:
+    """``wmatrix()`` / ``vce()`` of ``ivregress gmm`` as (type, cluster variable).
+
+    The types are ``robust``, ``cluster clustvar``, ``unadjusted`` and
+    ``hac ...`` ([R] ivregress); ``None`` is returned for anything else,
+    ``hac`` included, which has no counterpart in ``sp.iv``.
+    """
+    words = (value or "").split()
+    if not words:
+        return None
+    head = words[0].lower()
+    if head in ("r", "robust"):
+        return ("robust", None)
+    if head in ("un", "unadjusted"):
+        return ("unadjusted", None)
+    if head in ("cl", "cluster") and len(words) == 2:
+        return ("cluster", words[1])
+    return None
+
+
+def _ivregress_gmm(cmd: StataCommand, formula: str) -> Dict[str, Any]:
+    """``ivregress gmm`` -> ``sp.iv(method='gmm')``.
+
+    The weight matrix is ``wmatrix()``, else the type of ``vce()`` when
+    that is a cluster, else ``robust``; the variance is ``vce()``, else
+    the weight matrix's type (Stata 18, checked on the Card data). Each
+    pair below is pinned against ``ivregress gmm`` in
+    ``tests/reference_parity/test_iv_gmm_stata_parity.py``.
+    """
+    opts = cmd.options
+    lost: List[str] = []
+    notes = ["Mapped official `ivregress gmm` syntax to sp.iv(..., method='gmm')."]
+    vce: Optional[Tuple[str, Optional[str]]] = None
+    if opts.get("vce") is not None:
+        vce = _gmm_matrix_type(opts.get("vce"))
+        if vce is None:
+            lost.append("vce")
+    elif "robust" in opts:
+        vce = ("robust", None)
+    elif opts.get("cluster"):
+        vce = ("cluster", str(opts.get("cluster")).split()[0])
+    weight: Optional[Tuple[str, Optional[str]]]
+    if opts.get("wmatrix") is not None:
+        weight = _gmm_matrix_type(opts.get("wmatrix"))
+        if weight is None:
+            lost.append("wmatrix")
+    elif vce is not None and vce[0] == "cluster":
+        weight = vce
+    else:
+        weight = ("robust", None)
+    if vce is None and "vce" not in lost:
+        vce = weight
+    small = "small" in opts
+
+    args: Dict[str, Any] = {"formula": formula, "method": "gmm"}
+    if weight is not None and vce is not None:
+        pair = (weight[0], vce[0])
+        if pair == ("robust", "robust"):
+            args["robust"] = "hc1"
+        elif pair == ("robust", "unadjusted"):
+            args["robust"] = "hc1"
+            args["gmm_vcov"] = "efficient"
+        elif pair == ("cluster", "cluster") and weight[1] == vce[1]:
+            args["cluster"] = weight[1]
+        elif pair == ("unadjusted", "unadjusted"):
+            args["gmm_vcov"] = "efficient"
+        elif pair == ("unadjusted", "robust"):
+            pass  # sp.iv's default: the sandwich around the unadjusted matrix
+        else:
+            lost.append("vce" if opts.get("vce") is not None else "wmatrix")
+            notes.append(
+                f"wmatrix({weight[0]}) with vce({vce[0]}) has no counterpart in "
+                "sp.iv: the call below is not that estimator."
+            )
+        if weight[0] == "unadjusted" and small:
+            # sp.iv applies no finite-sample factor under the unadjusted
+            # weight matrix; Stata's `small` multiplies by N / (N - K).
+            lost.append("small")
+            notes.append(
+                "`small` with wmatrix(unadjusted) multiplies the variance by "
+                "N / (N - K); sp.iv has no counterpart, so the standard errors "
+                "below are the ones Stata reports without `small`."
+            )
+    if not small:
+        args["small"] = False
+        notes.append(
+            "small=False: large-sample standard errors, as Stata reports "
+            "without the `small` option."
+        )
+    code_pairs = ["data=df"] + [
+        f"{key}={args[key]!r}"
+        for key in ("method", "robust", "cluster", "gmm_vcov", "small")
+        if key in args
+    ]
+    out = _emit("iv", args, f"sp.iv({formula!r}, {', '.join(code_pairs)})", notes)
+    out["untranslated_options"] = lost
+    if "vce" not in lost and "wmatrix" not in lost:
+        # The variance Stata asked for is the one the call computes, also
+        # where that takes no robust= / cluster= argument (wmatrix(unadjusted)).
+        out["_vce_is_sp_default"] = True
+    return out
 
 
 def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:

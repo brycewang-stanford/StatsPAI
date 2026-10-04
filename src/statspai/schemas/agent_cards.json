@@ -372,7 +372,7 @@
       "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
       "tests/reference_parity/test_hdfe_iv_paths_agree.py",
       "tests/reference_parity/test_iv_card_aer_parity.py",
-      "tests/reference_parity/test_iv_hdfe_stata_parity.py"
+      "tests/reference_parity/test_iv_gmm_stata_parity.py"
     ],
     "validation_status": "certified"
   },

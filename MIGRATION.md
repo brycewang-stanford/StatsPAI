@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ Stata translation of `ivregress gmm`
+
+`sp.stata("ivregress gmm y x (d = z1 z2)", data=df)` and the code
+`sp.from_stata` prints for it change. Stata's `ivregress gmm` uses the
+robust weight matrix by default; the old translation used the unadjusted
+one, so its coefficients were not Stata's (0.1608 against 0.1588 for
+schooling on Card's data), and `wmatrix()` was dropped.
+
+| Stata | Before | Now |
+| --- | --- | --- |
+| `ivregress gmm ...` | `sp.ivreg(..., method='gmm')` | `sp.iv(..., method='gmm', robust='hc1', small=False)` |
+| `..., small` | `sp.ivreg(..., method='gmm')` | `sp.iv(..., method='gmm', robust='hc1')` |
+| `..., wmatrix(cluster c)` | `wmatrix` untranslated | `sp.iv(..., method='gmm', cluster='c', small=False)` |
+| `..., wmatrix(unadjusted)` | `wmatrix` untranslated | `sp.iv(..., method='gmm', gmm_vcov='efficient', small=False)` |
+
+What to do: rerun any `ivregress gmm` line you replayed through
+`sp.stata`. Direct calls to `sp.iv(method='gmm')` and
+`sp.ivreg(method='gmm')` are unchanged; `small=False` is newly accepted
+there.
+
 ## 1.38.0 → next: ⚠️ `sp.fisher_exact(statistic='ks' | 'rank_sum' | 't').ci` is an interval for the effect
 
 For these statistics `FisherResult.ci` used to be the 2.5% and 97.5%

@@ -2537,9 +2537,9 @@ def _ivregress_large_sample(result: EconometricResults, method: str) -> None:
     ``G/(G-1) * (N-1)/(N-K)`` cluster factor and t / F -- the convention
     ``sp.iv`` has always reported.
     """
-    if method not in ("2sls", "tsls", "iv", "liml"):
+    if method not in ("2sls", "tsls", "iv", "liml", "gmm"):
         raise MethodIncompatibility(
-            "small=False reproduces ivregress for 2SLS and LIML; "
+            "small=False reproduces ivregress for 2SLS, LIML and GMM; "
             f"got method={method!r}.",
             recovery_hint="Use small=True (the default) for other estimators.",
         )
@@ -2557,6 +2557,12 @@ def _ivregress_large_sample(result: EconometricResults, method: str) -> None:
     if n_cl is not None:
         g = int(n_cl)
         factor = (df_resid / (n - 1)) * ((g - 1) / g)
+    elif method == "gmm":
+        # The GMM variance carries n / (n - k) under any robust weight
+        # matrix and no factor under the unadjusted one (``_gmm_fit``), so
+        # ``ivregress gmm`` without ``small`` is the former with the factor
+        # removed and the latter as it stands.
+        factor = 1.0 if robust == "nonrobust" else df_resid / n
     elif robust in ("nonrobust", "hc1"):
         factor = df_resid / n
     elif robust == "hc0":
@@ -2573,7 +2579,9 @@ def _ivregress_large_sample(result: EconometricResults, method: str) -> None:
     di["inference"] = "z"
     di.pop("df_inference", None)
     mi["small"] = False
-    if robust == "hc1" and n_cl is None:
+    if n_cl is None and (
+        robust == "hc1" or (method == "gmm" and robust != "nonrobust")
+    ):
         mi["robust"] = "hc0"
     result._compute_statistics()
 
@@ -2649,8 +2657,21 @@ def iv(
         cluster variance carries ``G/(G-1) * (N-1)/(N-K)``, and inference
         is t / F. ``small=False`` gives ``ivregress``'s default
         large-sample statistics instead: ``N`` divisor, HC0, no cluster
-        factor, and z / chi2 (2SLS and LIML, one-way clustering, no
+        factor, and z / chi2 (2SLS, LIML and GMM, one-way clustering, no
         ``absorb``).
+
+        For ``method='gmm'`` the options map onto ``ivregress gmm`` as
+        follows, each checked on the Card data to 2e-10
+        (``tests/reference_parity/test_iv_gmm_stata_parity.py``):
+        ``robust='hc1', small=False`` is ``ivregress gmm`` at its default
+        ``wmatrix(robust)``; ``robust='hc1'`` is the same with ``small``;
+        ``cluster=`` with and without ``small=False`` is
+        ``wmatrix(cluster ...)``; ``gmm_vcov='efficient'`` alone is
+        ``wmatrix(unadjusted)``; and the default (``robust='nonrobust'``)
+        is ``wmatrix(unadjusted) vce(robust)``, a sandwich around the
+        homoskedastic weight matrix with no finite-sample factor.
+        ``wmatrix(unadjusted) small``, which multiplies by ``N / (N - K)``,
+        has no counterpart here.
     **kwargs
         Estimator-specific options forwarded to the underlying fitter.
         The one most users reach for is ``gmm_vcov``

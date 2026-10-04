@@ -6530,6 +6530,7 @@
         "tests/reference_parity/test_bitest_stata_parity.py",
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_etpoisson_stata_parity.py",
+        "tests/reference_parity/test_iv_gmm_stata_parity.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_ivpoisson_stata_parity.py",
         "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py",
@@ -8411,6 +8412,7 @@
         "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
         "tests/reference_parity/test_hdfe_iv_paths_agree.py",
         "tests/reference_parity/test_iv_card_aer_parity.py",
+        "tests/reference_parity/test_iv_gmm_stata_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_iv_small_Stata_parity.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
@@ -18025,6 +18027,7 @@
       "test": [
         "tests/reference_parity/test_bitest_stata_parity.py",
         "tests/reference_parity/test_didregress_stata.py",
+        "tests/reference_parity/test_iv_gmm_stata_parity.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
