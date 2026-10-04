@@ -31,6 +31,17 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call trace of module 73 re-recorded after a docstring edit
+
+Commit `75f9a73a`. A paragraph in the docstring of `sp.gardner_did`
+(`did/gardner_2s.py`) moved under the `second_stage` parameter so that the
+strict docs build parses it. Track A module 73 executes that file.
+
+Effect on the paper: none. No code changed; only the recorded source hash
+of module 73 moves.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call trace re-recorded after `sp.rdms` gained the cumulative-cutoff form
 
 Commit `a002611b`. `sp.rdms` without `x2` estimates one score with
