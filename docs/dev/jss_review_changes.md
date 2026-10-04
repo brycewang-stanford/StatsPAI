@@ -31,6 +31,40 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — outcome-only classic SCM fits the raw pre-treatment path; module 52 regenerated
+
+Commits `51f569ba` and `81314cbb`. `synth/scm.py`, on the estimation path
+of Track A modules 07 and 52, changes a default: without `covariates=` or
+`special_predictors=` the pre-treatment outcomes are no longer rescaled
+period by period before the donor weights are solved
+(`standardize_predictors=None`). `51f569ba` re-records the traces of both
+modules. `81314cbb` regenerates the Python result of module 52, whose
+fits are outcome-only, with the fixture lock, the parity tables and the
+index that depend on it.
+
+**Effect on the paper.** Module 07 uses special predictors and reproduces
+its committed file exactly. Module 52: the average post-treatment gap,
+the pre-treatment RMSE and the five donor weights are unchanged to 1e-14
+(the design has a unique exact fit, which both problems share), so its
+parity rows against R `Synth` and Stata `synth` are unchanged at
+4.1e-10. Its placebo standard error, which no reference reports and no
+parity row uses, moves from 2.159192 to 1.828665, because the placebo
+fits of the donor units are not exact and follow the new default. In
+`parity_table.md` that changes the StatsPAI SE cell of the
+`avg_post_gap` row; in the three-way table the Stata column's worst
+relative difference for module 52 reads 2e-15 instead of 9.2e-15. No
+tolerance, status or tier moves. If the manuscript quotes the README's
+Proposition 99 example, that number is now -19.51 (10.80) instead of
+-19.76 (11.23).
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/r_parity/results/52_scm_unique_py.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/results/parity_table_3way.tex`
+
 ### 2026-10-05 — call traces re-recorded after the weight diagnostic reached the fast and negative-binomial entry points
 
 Commit `d7b67583`. `sp.fast.feols`, `sp.fast.fepois` and `sp.nbreg` now
