@@ -31,6 +31,30 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded for the general form of `sp.gardner_did` and `sp.drdid(est_method='all')`
+
+Commit `87fd76ad`. Two source files on the estimation path of Track A
+modules changed. `did/gardner_2s.py` (module 73) gains `treat=`, `fe=`
+and `second_stage=`, which hand over to a new module before the existing
+code is reached; a call with `first_treat=` runs the lines it ran before.
+`did/wooldridge_did.py` (modules 17 and 38) gains
+`sp.drdid(est_method='all')`, a loop over the existing estimators that
+returns before the body when it is requested. The traces of modules 17,
+38 and 73 were re-recorded on the tree of that commit.
+
+**Effect on the paper.** None. The Python results of the three modules
+were re-run on the new tree and on the tree before the change. Module 17
+reproduces its committed file exactly. Modules 38 and 73 differ from
+theirs by 1.5e-11 and 7.3e-11 in relative terms on both trees, so the
+difference is the machine's and not the change's, and it is inside the
+1e-9 reproducibility tolerance. Only `exercised_sources` digests and
+`seconds` changed in the trace, and no module's implementation
+classification moved. No estimate, standard error or table cell is read
+from this file.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded after `sp.best_linear_projection` gained `.attrs['vcov']`
 
 Commit `6a2558e3`. The projection of forest scores now attaches the
