@@ -113,7 +113,9 @@ def estat(
     test : str
         Name of the diagnostic test.  One of ``'hettest'``, ``'white'``,
         ``'imtest'`` (White's test with the skewness and kurtosis parts),
-        ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``,
+        ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'durbinalt'`` (Durbin's
+        alternative test), ``'archlm'`` (Engle's LM test for ARCH effects),
+        ``'dwatson'``, ``'vif'``,
         ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``,
         ``'endogenous'``, ``'overid'``, ``'firststage'``,
         ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``.
@@ -131,8 +133,9 @@ def estat(
     print_results : bool, default True
         If True, print a formatted table to stdout.
     lags : int, optional
-        Number of lags: of the Breusch-Godfrey test (default 1), or the
-        highest lag order of ``'varlmar'`` (default 2).
+        Number of lags: of the Breusch-Godfrey test, of Durbin's
+        alternative test and of the ARCH LM test (default 1), or the highest lag order of
+        ``'varlmar'`` (default 2).
     powers : int, default 3
         Highest power added by the RESET test (``3`` adds the square and the
         cube, as R's ``lmtest::resettest``; Stata's ``estat ovtest`` is
@@ -140,14 +143,19 @@ def estat(
     alpha : float, default 0.05
         Significance level for interpretation strings.
     variables : {'rhs', 'fitted'}, list of str or ndarray, optional
-        ``'hettest'`` only: what the error variance may depend on. Default
+        ``'hettest'``: what the error variance may depend on. Default
         ``'rhs'``, every regressor (R's ``lmtest::bptest``). ``'fitted'``
         is the default of Stata's ``estat hettest``; a list names
-        regressors of the model.
+        regressors of the model. With ``'white'``, ``variables='fitted'``
+        is the special form of White's test: the squared residuals on the
+        fitted values and their squares, two restrictions whatever the
+        number of regressors.
     version : {'iid', 'normal', 'fstat'}, default 'iid'
-        ``'hettest'`` only. ``'iid'`` is Koenker's N R-squared, valid
-        without normal errors; ``'normal'`` is the original score statistic,
-        the default of Stata's ``estat hettest``.
+        ``'iid'`` is Koenker's N R-squared, valid without normal errors;
+        ``'normal'`` (``'hettest'`` only) is the original score statistic,
+        the default of Stata's ``estat hettest``; ``'fstat'`` is the F
+        statistic of the auxiliary regression, for ``'hettest'``,
+        ``'bgodfrey'``, ``'durbinalt'`` and ``'archlm'``.
     rhs : bool, default False
         ``'reset'`` only: add powers of the regressors instead of powers of
         the fitted values (Stata's ``estat ovtest, rhs``).
@@ -237,10 +245,32 @@ def estat(
         "hettest": lambda: _reg.hettest(
             result, variables=variables, version=version, alpha=alpha
         ),
-        "white": lambda: _reg.white(result, alpha=alpha),
+        "white": lambda: _reg.white(
+            result,
+            variables=variables if isinstance(variables, str) else None,
+            alpha=alpha,
+        ),
         "imtest": lambda: _reg.imtest(result, alpha=alpha),
         "reset": lambda: _reg.reset(result, powers=powers, rhs=rhs, alpha=alpha),
-        "bgodfrey": lambda: _reg.bgodfrey(result, lags=lags, fill=fill, alpha=alpha),
+        "bgodfrey": lambda: _reg.bgodfrey(
+            result,
+            lags=lags,
+            fill=fill,
+            version="fstat" if version == "fstat" else "iid",
+            alpha=alpha,
+        ),
+        "durbinalt": lambda: _reg.durbinalt(
+            result,
+            lags=lags,
+            version="fstat" if version == "fstat" else "iid",
+            alpha=alpha,
+        ),
+        "archlm": lambda: _reg.archlm(
+            result,
+            lags=lags,
+            version="fstat" if version == "fstat" else "iid",
+            alpha=alpha,
+        ),
         "dwatson": lambda: _estat_dwatson(result, alpha=alpha),
         "vif": lambda: _reg.vif(result, alpha=alpha),
         "ic": lambda: _reg.information_criteria(result),
@@ -565,26 +595,25 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 
     influential_idx = np.where(cooks_d > threshold)[0]
 
-    # DFBETAS: change in each beta when obs i removed
-    # beta_full already known; compute leave-one-out efficiently
-    # DFBETAS_ij = e_i / (1-h_ii) * (X'X)^{-1} x_i' / se(beta_j)_loo
-    # Simplified: DFBETAS_ij = (e_i * (X'X)^{-1} x_i_j) / (sqrt(MSE_i) * (1-h_ii))
-    # where MSE_i is the leave-one-out MSE
-    # For efficiency, use the approximation:
-    #   MSE_{(i)} = (n-k)*MSE - e_i^2/(1-h_ii)) / (n-k-1)
+    # Leave-one-out error variance:
+    #   s_(i)^2 = ((n-k) s^2 - e_i^2 / (1-h_i)) / (n-k-1)
     mse_loo = np.maximum(
         ((n - k) * mse - resid**2 / (1.0 - h)) / (n - k - 1),
         1e-16,
     )
+    # Internally and externally studentized residuals (Stata: rstandard,
+    # rstudent). The second is the t statistic of a dummy for observation i.
+    rstandard = resid / np.sqrt(mse * (1.0 - h))
+    rstudent = resid / np.sqrt(mse_loo * (1.0 - h))
 
-    # DFBETAS matrix: n x k
-    # DFBETAS[i, j] = e_i / ((1-h_ii) * sqrt(MSE_{(i)})) * (X'X)^{-1} X[i,:]_j
-    leverage_factor = resid / (1.0 - h)  # n-vector
-    dfbetas = np.zeros((n, k))
-    for j in range(k):
-        w_j = XtX_inv @ X.T  # k x n
-        # Each obs contribution
-        dfbetas[:, j] = leverage_factor * w_j[j, :] / np.sqrt(mse_loo)
+    # DFBETAS (Belsley, Kuh & Welsch): the change in coefficient j when
+    # observation i is dropped, in units of its leave-one-out standard error,
+    #   DFBETAS_ij = [(X'X)^{-1} x_i]_j e_i / ((1-h_i) s_(i) sqrt((X'X)^{-1}_jj)).
+    # correctness fix (2026-10): the sqrt((X'X)^{-1}_jj) divisor was missing,
+    # so the values were on the scale of the regressor, not of the standard
+    # error, and the 2/sqrt(n) rule was applied to the wrong quantity.
+    dfbeta = (X @ XtX_inv) * (resid / (1.0 - h))[:, None]
+    dfbetas = dfbeta / (np.sqrt(mse_loo)[:, None] * np.sqrt(np.diag(XtX_inv))[None, :])
 
     # Threshold: |DFBETAS| > 2/sqrt(n)
     dfbetas_thresh = 2.0 / np.sqrt(n)
@@ -614,6 +643,8 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
         "influential_obs": influential_idx.tolist(),
         "n_influential": n_influential,
         "leverage": h,
+        "rstandard": rstandard,
+        "rstudent": rstudent,
         "dfbetas": dfbetas,
         "dfbetas_threshold": dfbetas_thresh,
         "dfbetas_flagged_obs": dfbetas_flagged_idx.tolist(),
@@ -658,7 +689,7 @@ def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
             "interpretation": "Not applicable: model was not estimated via IV.",
         }
 
-    reject = dwh_pval < alpha if dwh_pval is not None else None
+    reject = bool(dwh_pval < alpha) if dwh_pval is not None else None
     if reject is True:
         interp = (
             f"REJECT H0 at {alpha:.0%}: regressors are endogenous. "
@@ -680,7 +711,7 @@ def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
         df_num = _iv_stat(result, "Robust regression F df (num)")
         df_den = _iv_stat(result, "Robust regression F df (denom)")
         df_pair = None if df_num is None or df_den is None else (df_num, df_den)
-        reject = robust_p < alpha if robust_p is not None else None
+        reject = bool(robust_p < alpha) if robust_p is not None else None
         if reject is True:
             interp = (
                 f"REJECT H0 at {alpha:.0%}: regressors are endogenous. "
@@ -814,7 +845,7 @@ def _estat_overid(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
             "interpretation": "Not applicable or model is exactly identified.",
         }
 
-    reject = sargan_pval < alpha if sargan_pval is not None else None
+    reject = bool(sargan_pval < alpha) if sargan_pval is not None else None
     if reject is True:
         interp = (
             f"REJECT H0 at {alpha:.0%}: instruments may not all be valid. "

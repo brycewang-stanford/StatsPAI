@@ -21,7 +21,7 @@ coefficient name as zero.
 from __future__ import annotations
 
 import re
-from typing import Any, List, Tuple
+from typing import Any, List, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -33,7 +33,7 @@ from ._covariance import inference_df, require_covariance
 
 def test(
     result: Any,
-    hypothesis: str,
+    hypothesis: Union[str, Sequence[str]],
 ) -> dict[str, Any]:
     """
     Wald test for linear restrictions on coefficients.
@@ -43,8 +43,11 @@ def test(
     result : EconometricResults or CausalResult
         Fitted model with ``.params`` and ``.std_errors``; restrictions that
         involve several coefficients also need its covariance matrix.
-    hypothesis : str
-        Hypothesis specification (Stata ``test`` syntax). Examples:
+    hypothesis : str or list of str
+        Hypothesis specification (Stata ``test`` syntax), or a list of
+        them to be tested jointly (``["x1 = 0", "x2 = 2*x3"]``). A
+        coefficient is named as the result names it, including names such
+        as ``I(exper ** 2)`` or ``np.log(sales)``. Examples:
         - ``"x1 = 0"`` — beta_x1 = 0
         - ``"x1 = x2"`` — beta_x1 = beta_x2
         - ``"x1 = x2 = 0"`` — joint: beta_x1 = beta_x2 and beta_x2 = 0
@@ -89,7 +92,7 @@ def test(
     """
     params = _params(result)
     R, r = _parse_hypothesis(hypothesis, params)
-    R, r = _independent_restrictions(R, r, hypothesis)
+    R, r = _independent_restrictions(R, r, str(hypothesis))
     V = require_covariance(result, R, f"test({hypothesis!r})")
 
     beta = params.to_numpy(dtype=float)
@@ -196,7 +199,7 @@ def lincom(
     True
     """
     params = _params(result)
-    c, constant = _parse_linear(expression, params)
+    c, constant = _parse_linear(*_shield_names(expression, params))
     if not np.any(c):
         raise MethodIncompatibility(
             f"lincom({expression!r}) contains no coefficients.",
@@ -266,9 +269,13 @@ def _resolve_name(name: str, params: pd.Series, expression: str) -> int:
         for alias in _INTERCEPT_NAMES:
             if alias in names:
                 return names.index(alias)
+    shown = params.attrs.get("display", names)
+    for token, real in zip(names, shown):
+        expression = expression.replace(token, real)
+        name = name.replace(token, real)
     raise MethodIncompatibility(
         f"Unknown coefficient {name!r} in {expression!r}.",
-        recovery_hint=f"Available terms: {names}.",
+        recovery_hint=f"Available terms: {shown}.",
     )
 
 
@@ -342,8 +349,36 @@ def _parse_equality_chain(
     return rows, values
 
 
+_SIMPLE_NAME = re.compile(r"[A-Za-z_][\w.]*$")
+
+
+def _shield_names(text: str, params: pd.Series) -> Tuple[str, pd.Series]:
+    """Replace coefficient names that hold operators or blanks by tokens.
+
+    ``I(exper ** 2)``, ``np.log(sales)`` and ``C(year)[T.1981]:educ`` are
+    names of coefficients, but read as arithmetic by a parser of linear
+    expressions. Each such name that occurs in ``text`` is swapped for a
+    plain token, longest name first, and the returned parameter vector is
+    indexed by the same tokens; ``attrs['display']`` keeps the real names
+    for error messages.
+    """
+    names = [str(n) for n in params.index]
+    tokens = list(names)
+    order = sorted(
+        (i for i, n in enumerate(names) if not _SIMPLE_NAME.match(n)),
+        key=lambda i: -len(names[i]),
+    )
+    for i in order:
+        if names[i] in text:
+            tokens[i] = f"spcoef{i}zz"
+            text = text.replace(names[i], tokens[i])
+    shielded = pd.Series(np.asarray(params, dtype=float), index=tokens)
+    shielded.attrs["display"] = names
+    return text, shielded
+
+
 def _parse_hypothesis(
-    hypothesis: str,
+    hypothesis: Any,
     params: pd.Series,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -356,9 +391,27 @@ def _parse_hypothesis(
         "x1 x2"           -> rows x1 = 0 and x2 = 0
         "(x1 = 0) (x2 = 1)" -> rows x1 = 0 and x2 = 1
     """
+    if isinstance(hypothesis, (list, tuple)):
+        # a list of restrictions, tested jointly: ["x1 = 0", "x2 = 2*x3"]
+        if not hypothesis or not all(isinstance(h, str) for h in hypothesis):
+            raise MethodIncompatibility(
+                "test() takes a hypothesis string or a list of them, e.g. "
+                "['x1 = 0', 'x2 = x3']."
+            )
+        stacked = [_parse_hypothesis(h, params) for h in hypothesis]
+        return (
+            np.vstack([rows for rows, _ in stacked]),
+            np.concatenate([values for _, values in stacked]),
+        )
+    if not isinstance(hypothesis, str):
+        raise MethodIncompatibility(
+            "test() takes a hypothesis string or a list of them, got "
+            f"{type(hypothesis).__name__}."
+        )
     text = hypothesis.strip()
     if not text:
         raise MethodIncompatibility("test() needs a hypothesis, e.g. 'x1 = 0'.")
+    text, params = _shield_names(text, params)
 
     if text.startswith("("):
         groups = re.findall(r"\(([^()]*)\)", text)

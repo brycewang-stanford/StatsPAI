@@ -193,6 +193,11 @@ def qreg(
     # Parse inputs
     if formula is not None:
         y_name, x_names = _parse_formula(formula)
+        if any(name not in data for name in [y_name] + x_names):
+            # transformed, categorical or interaction terms: built as columns
+            from ..core.utils import formula_to_columns
+
+            data, y_name, x_names = formula_to_columns(formula, data)
     elif y is not None and x is not None:
         y_name, x_names = y, x
     else:

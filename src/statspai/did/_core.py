@@ -1020,10 +1020,13 @@ def covariates_from_formula(
     from ..core.utils import _coerce_string_extension_dtypes
 
     try:
+        from ..core.utils import formula_eval_env
+
         design = patsy.dmatrix(
             rhs,
             # int16 / int8 columns wrap around inside I(x**2)
             _coerce_string_extension_dtypes(data),
+            eval_env=formula_eval_env(),
             return_type="dataframe",
             NA_action="drop",
         )

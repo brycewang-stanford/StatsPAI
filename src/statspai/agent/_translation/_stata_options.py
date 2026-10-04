@@ -231,6 +231,10 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "dfuller": (("regress", 3), ("trend", 2), ("drift", 2), ("lags", 1)),
     "estat": (("nomiss0", 4), ("lags", 1), ("cutoff", 3)),
     "prais": (("rhotype", 3), ("twostep", 3)),
+    # [R] heckman: select(), minimum abbreviation sel(); twostep, two.
+    "heckman": (("select", 3), ("twostep", 3)),
+    # [R] glm: family(), f(); link(), l(); scale(), sca().
+    "glm": (("family", 1), ("link", 1), ("scale", 3), ("exposure", 1)),
     "corrgram": (("lags", 1),),
     "varsoc": (("maxlag", 1),),
     "varlmar": (("mlag", 2),),

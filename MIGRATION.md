@@ -134,6 +134,33 @@ with `egen cell = group(a b)` and use `i.cell`.
 
 ---
 
+<a id="oct2026-wooldridge-textbook-fixes"></a>
+
+## 1.38.0 → next: ⚠️ DFBETAS, `predict` after `sp.glm`, and the Stata translation of `heckman`
+
+**What changed.**
+
+1. `sp.estat(result, 'leverage')['dfbetas']` is now DFBETAS as Belsley, Kuh
+   and Welsch define it and as Stata's `dfbeta` reports it. Column `j` used
+   to lack the division by `sqrt((X'X)^-1_jj)`. `dfbetas_flagged_obs`
+   changes with it.
+2. `result.predict(new_data)` after `sp.glm` returns the predicted mean. It
+   used to return the linear index `x'b`, while `result.predict()` returned
+   the mean.
+3. `sp.from_stata` and `sp.stata` translate `heckman y x, select(...)` to
+   `sp.heckman(..., method='ml')`, and to `method='twostep'` when the
+   command says `twostep`. Both used to run the two-step estimator.
+
+**Who is affected.** Code that reads `dfbetas` or the list of flagged
+observations; code that predicts on new data after `sp.glm` with a log,
+logit, probit or other non-identity link; do-files with `heckman` run
+through `sp.stata`.
+
+**What to do.** Rerun. For the old `sp.glm` behaviour ask for it by name:
+`result.predict(new_data, what='link')`. Nothing changes for a Gaussian
+identity fit, for in-sample predictions, for leverage and Cook's distance,
+or for direct calls to `sp.heckman`.
+
 <a id="oct2026-causalml-textbook-fixes"></a>
 
 ## 1.38.0 → next: ⚠️ `sp.dml` PLR / PLIV with a classifier nuisance

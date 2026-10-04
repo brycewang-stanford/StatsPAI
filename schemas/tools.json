@@ -10002,7 +10002,7 @@
           "type": "string"
         },
         "lags": {
-          "description": "Number of lags: of the Breusch-Godfrey test (default 1), or the highest lag order of ``'varlmar'`` (default 2).",
+          "description": "Number of lags: of the Breusch-Godfrey test, of Durbin's alternative test and of the ARCH LM test (default 1), or the highest lag order of ``'varlmar'`` (default 2).",
           "type": "integer"
         },
         "powers": {
@@ -10026,7 +10026,7 @@
         },
         "test": {
           "default": "all",
-          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``. After ``sp.didregress``: ``'ptrends'`` and ``'granger'``. After ``sp.callaway_santanna`` or ``sp.jwdid`` / ``sp.etwfe``: ``'simple'``, ``'group'``, ``'calendar'`` and ``'event'``, the aggregations of Stata's ``csdid`` / ``jwdid`` ``estat``. These return the aggregated result (``sp.aggte`` / ``sp.etwfe_emfx``), not a test dictionary.",
+          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'durbinalt'`` (Durbin's alternative test), ``'archlm'`` (Engle's LM test for ARCH effects), ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``. After ``sp.didregress``: ``'ptrends'`` and ``'granger'``. After ``sp.callaway_santanna`` or ``sp.jwdid`` / ``sp.etwfe``: ``'simple'``, ``'group'``, ``'calendar'`` and ``'event'``, the aggregations of Stata's ``csdid`` / ``jwdid`` ``estat``. These return the aggregated result (``sp.aggte`` / ``sp.etwfe_emfx``), not a test dictionary.",
           "enum": [
             "hettest",
             "white",
@@ -10034,6 +10034,8 @@
             "reset",
             "ovtest",
             "bgodfrey",
+            "durbinalt",
+            "archlm",
             "dwatson",
             "vif",
             "ic",
@@ -10053,7 +10055,7 @@
           "type": "number"
         },
         "variables": {
-          "description": "``'hettest'`` only: what the error variance may depend on. Default ``'rhs'``, every regressor (R's ``lmtest::bptest``). ``'fitted'`` is the default of Stata's ``estat hettest``; a list names regressors of the model.",
+          "description": "``'hettest'``: what the error variance may depend on. Default ``'rhs'``, every regressor (R's ``lmtest::bptest``). ``'fitted'`` is the default of Stata's ``estat hettest``; a list names regressors of the model. With ``'white'``, ``variables='fitted'`` is the special form of White's test: the squared residuals on the fitted values and their squares, two restrictions whatever the number of regressors.",
           "items": {
             "enum": [
               "rhs",
@@ -10065,7 +10067,7 @@
         },
         "version": {
           "default": "iid",
-          "description": "``'hettest'`` only. ``'iid'`` is Koenker's N R-squared, valid without normal errors; ``'normal'`` is the original score statistic, the default of Stata's ``estat hettest``.",
+          "description": "``'iid'`` is Koenker's N R-squared, valid without normal errors; ``'normal'`` (``'hettest'`` only) is the original score statistic, the default of Stata's ``estat hettest``; ``'fstat'`` is the F statistic of the auxiliary regression, for ``'hettest'``, ``'bgodfrey'``, ``'durbinalt'`` and ``'archlm'``.",
           "enum": [
             "iid",
             "normal",
@@ -13032,6 +13034,17 @@
             "vce"
           ],
           "x-canonical": "vce"
+        },
+        "scale": {
+          "description": "Factor on the model-based covariance matrix. By default the binomial and Poisson families use 1, the variance their likelihood implies. ``'x2'`` estimates it by the Pearson chi-squared over the residual degrees of freedom and ``'dev'`` by the deviance over them (Stata ``glm, scale(x2)`` / ``scale(dev)``). With ``family='poisson'``, ``scale='x2'`` is the quasi-Poisson",
+          "enum": [
+            "x2",
+            "dev"
+          ],
+          "type": [
+            "number",
+            "string"
+          ]
         },
         "tol": {
           "default": 1e-08,
@@ -17272,11 +17285,11 @@
           "type": "boolean"
         },
         "full": {
-          "description": "Two fitted mixed models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's.",
+          "description": "Two fitted models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's. Mixed models (``sp.mixed``, ``sp.meglm``) and the maximum-likelihood regressions (``sp.logit``, ``sp.probit``, ``sp.poisson``, ``sp.nbreg``, ``sp.tobit``, ``sp.glm``, ...) are accepted; for the second group the statistic is ``2 (logL_full - logL_restricted)``, chi-squared with as many degrees of freedom as the full model has extra coefficients, and both fits must use the same observations.",
           "type": "string"
         },
         "restricted": {
-          "description": "Two fitted mixed models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's.",
+          "description": "Two fitted models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's. Mixed models (``sp.mixed``, ``sp.meglm``) and the maximum-likelihood regressions (``sp.logit``, ``sp.probit``, ``sp.poisson``, ``sp.nbreg``, ``sp.tobit``, ``sp.glm``, ...) are accepted; for the second group the statistic is ``2 (logL_full - logL_restricted)``, chi-squared with as many degrees of freedom as the full model has extra coefficients, and both fits must use the same observations.",
           "type": "string"
         }
       },
@@ -33227,8 +33240,11 @@
     "input_schema": {
       "properties": {
         "hypothesis": {
-          "description": "Hypothesis specification (Stata ``test`` syntax). Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it.",
-          "type": "string"
+          "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "result": {
           "description": "Fitted model with ``.params`` and ``.std_errors``; restrictions that involve several coefficients also need its covariance matrix.",

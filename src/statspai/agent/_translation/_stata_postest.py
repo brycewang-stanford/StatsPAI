@@ -156,6 +156,46 @@ def _h_estat(cmd: StataCommand) -> Dict[str, Any]:
             ["The residuals are taken in the row order of the data (time order)."],
         )
 
+    if sub == "durbinalt":
+        extra = {}
+        raw = opts.get("lags")
+        if raw is not None:
+            try:
+                extra["lags"] = int(str(raw).strip())
+            except ValueError:
+                return _emit_error(
+                    f"estat durbinalt: lags({raw}) is a list; one lag order "
+                    "per call is translated",
+                    command="estat",
+                    suggestions=[],
+                )
+        if "small" in opts:
+            extra["version"] = "fstat"
+        return _call(
+            "durbinalt",
+            extra,
+            ["The residuals are taken in the row order of the data (time order)."],
+        )
+
+    if sub == "archlm":
+        extra = {}
+        raw = opts.get("lags")
+        if raw is not None:
+            try:
+                extra["lags"] = int(str(raw).strip())
+            except ValueError:
+                return _emit_error(
+                    f"estat archlm: lags({raw}) is a list; one lag order per "
+                    "call is translated",
+                    command="estat",
+                    suggestions=[],
+                )
+        return _call(
+            "archlm",
+            extra,
+            ["The residuals are taken in the row order of the data (time order)."],
+        )
+
     if sub == "classification":
         extra = {}
         raw = opts.get("cutoff")

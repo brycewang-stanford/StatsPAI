@@ -867,23 +867,73 @@ class EconometricResults:
             g["df_model"] = int(dm) if np.isfinite(dm) else float(dm)
         return pd.DataFrame([g])
 
-    def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
+    def predict(
+        self,
+        data: Optional[pd.DataFrame] = None,
+        what: str = "mean",
+        alpha: float = 0.05,
+    ) -> Union[np.ndarray, pd.DataFrame]:
         """
         Generate predictions from the fitted model.
 
         Parameters
         ----------
         data : pd.DataFrame, optional
-            New data for out-of-sample prediction. If None, returns
-            in-sample fitted values.
+            New data for out-of-sample prediction, holding the variables of
+            the formula (the design -- ``I(x**2)``, ``np.log(x)``, ``C(g)``,
+            interactions -- is rebuilt from them). If None, the estimation
+            sample is used.
+        what : {"mean", "link", "confidence", "prediction"}, default "mean"
+            - ``"mean"`` -- the predicted mean of the outcome. For a model
+              with a link function (``sp.glm``, ``sp.poisson``, ``sp.nbreg``)
+              this is on the scale of the outcome, in and out of sample.
+            - ``"link"`` -- the linear index ``x'b``.
+            - ``"confidence"`` -- the predicted mean with its standard error
+              and a ``1 - alpha`` confidence interval for ``E[y | x]``. With
+              a link function the interval is built for the linear index and
+              mapped to the scale of the outcome.
+            - ``"prediction"`` -- a ``1 - alpha`` prediction interval for a
+              new observation of a linear model, which adds the error
+              variance ``s^2`` to the variance of the estimated mean. It
+              assumes homoskedastic errors whatever covariance estimator the
+              fit used, and is not defined after a weighted fit.
+        alpha : float, default 0.05
+            One minus the coverage of the interval.
 
         Returns
         -------
-        np.ndarray
-            Predicted values.
+        np.ndarray or pd.DataFrame
+            The predictions (``"mean"``, ``"link"``), or a DataFrame with
+            columns ``yhat``, ``se``, ``lower``, ``upper``.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> df = pd.DataFrame({"x": rng.normal(size=200)})
+        >>> df["y"] = 1.0 + 0.5 * df["x"] + rng.normal(size=200)
+        >>> fit = sp.regress("y ~ x + I(x**2)", data=df)
+        >>> new = pd.DataFrame({"x": [0.0, 1.0]})
+        >>> fit.predict(new).shape
+        (2,)
+        >>> list(fit.predict(new, what="prediction").columns)
+        ['yhat', 'se', 'lower', 'upper']
         """
-        # In-sample: return fitted values if available
-        if data is None:
+        from scipy import stats as _stats
+
+        valid = ("mean", "link", "confidence", "prediction")
+        if what not in valid:
+            raise MethodIncompatibility(
+                f"`what` must be one of {valid}; got {what!r}.",
+                recovery_hint="Use what='mean', 'link', 'confidence' or "
+                "'prediction'.",
+                diagnostics={"what": repr(what)},
+            )
+        inverse = self._inverse_link()
+
+        # In-sample point predictions: the stored fitted values
+        if data is None and what == "mean":
             fv = self.data_info.get("fitted_values")
             if fv is not None:
                 return np.asarray(fv)
@@ -891,75 +941,267 @@ class EconometricResults:
                 "In-sample fitted values not stored. "
                 "Pass data= for out-of-sample prediction."
             )
+        if self.params is None or not isinstance(self.params, pd.Series):
+            raise NotImplementedError("Prediction not available for this model type.")
 
-        # Out-of-sample: X @ params (works for simple linear models only)
-        if self.params is not None and isinstance(self.params, pd.Series):
+        index: Any = None
+        if data is None:
+            X = self.data_info.get("X")
+            if X is None:
+                raise MethodIncompatibility(
+                    "The design matrix of the estimation sample is not stored "
+                    "on this result.",
+                    recovery_hint="Pass the estimation data as data=.",
+                )
+            X = np.asarray(X, dtype=float)
+            offset = self._prediction_offset(None, X.shape[0])
+        else:
             if not isinstance(data, pd.DataFrame):
                 raise MethodIncompatibility(
                     "Out-of-sample prediction requires a pandas DataFrame.",
                     recovery_hint=(
-                        "Pass a DataFrame containing the fitted model's "
-                        "coefficient columns."
+                        "Pass a DataFrame containing the variables of the "
+                        "fitted formula."
                     ),
                     diagnostics={"data_type": data.__class__.__name__},
                 )
-            var_names = list(self.params.index)
-            has_intercept = "Intercept" in var_names
+            X = self._prediction_design(data)
+            offset = self._prediction_offset(data, X.shape[0])
+            index = data.index
+        beta = np.asarray(self.params, dtype=float)
+        if X.shape[1] != beta.shape[0]:
+            raise MethodIncompatibility(
+                f"The prediction design has {X.shape[1]} columns but the model "
+                f"has {beta.shape[0]} coefficients.",
+                recovery_hint="Pass data with the variables of the fitted formula.",
+            )
+        eta = X @ beta + offset
+        if what == "link":
+            return np.asarray(eta)
+        if what == "mean":
+            return np.asarray(inverse(eta) if inverse is not None else eta)
 
-            # Identify derived terms (interactions, categoricals, transforms)
-            X_cols = [v for v in var_names if v != "Intercept"]
-            missing = [c for c in X_cols if c not in data.columns]
-            if missing:
-                # Check if these are formula-derived terms
-                import re
+        if not 0.0 < float(alpha) < 1.0:
+            raise MethodIncompatibility(
+                f"alpha must lie strictly between 0 and 1; got {alpha!r}.",
+                recovery_hint="Use alpha=0.05 for 95% intervals.",
+            )
+        cov = self.data_info.get("var_cov")
+        if cov is None:
+            cov = getattr(self, "_var_cov", None)
+        if cov is None:
+            raise MethodIncompatibility(
+                "This result carries no coefficient covariance matrix, so the "
+                "standard error of a prediction is not available.",
+                recovery_hint="Use what='mean' for point predictions.",
+            )
+        cov = np.asarray(cov, dtype=float)
+        var_mean = np.maximum(np.einsum("ij,jk,ik->i", X, cov, X), 0.0)
+        df_resid = self.data_info.get("df_resid", np.inf)
+        if inverse is not None or df_resid is None or not np.isfinite(df_resid):
+            crit = float(_stats.norm.ppf(1.0 - alpha / 2.0))
+        else:
+            crit = float(_stats.t.ppf(1.0 - alpha / 2.0, df_resid))
 
-                derived = [
-                    c for c in missing if ":" in c or "[" in c or re.search(r"[()]", c)
-                ]
-                if derived:
-                    raise MethodIncompatibility(
-                        f"Out-of-sample prediction is not supported for "
-                        f"models with formula transforms (found: "
-                        f"{derived[:3]}{'...' if len(derived) > 3 else ''}). "
-                        f"Re-fit using statsmodels directly, or use "
-                        f"in-sample prediction with result.predict() "
-                        f"(no arguments).",
-                        recovery_hint=(
-                            "Use the estimator-specific predict() method when "
-                            "available, or call result.predict() without data "
-                            "for stored in-sample fitted values."
-                        ),
-                        diagnostics={"derived_terms": derived},
-                    )
+        if what == "prediction":
+            if inverse is not None:
                 raise MethodIncompatibility(
-                    f"Prediction data missing column(s): {missing}",
-                    recovery_hint=(
-                        "Add the missing coefficient columns to the prediction "
-                        "DataFrame or use the estimator-specific predict()."
-                    ),
-                    diagnostics={"missing_columns": missing},
+                    "A prediction interval for a new observation is defined "
+                    "here for linear models only.",
+                    recovery_hint="Use what='confidence' for the interval of "
+                    "the conditional mean.",
                 )
-            try:
-                X = data[X_cols].to_numpy(dtype=float)
-            except (TypeError, ValueError) as exc:
+            weighted = any(
+                self.data_info.get(key) is not None
+                for key in ("analytic_weights", "weights")
+            )
+            resid = self.data_info.get("residuals")
+            if weighted or resid is None or not np.isfinite(df_resid):
                 raise MethodIncompatibility(
-                    "Prediction columns must be numeric.",
-                    recovery_hint=(
-                        "Coerce prediction data columns to numeric values "
-                        "before calling predict()."
+                    "A prediction interval needs the error variance of a new "
+                    "observation, which this fit does not define"
+                    + (
+                        " (after a weighted fit it depends on the weight of "
+                        "the new observation)."
+                        if weighted
+                        else "."
                     ),
-                    diagnostics={"columns": X_cols, "error": str(exc)},
-                ) from exc
-            if has_intercept:
-                ones = np.ones((X.shape[0], 1))
-                X = np.column_stack([ones, X])
-                ordered = ["Intercept"] + X_cols
-            else:
-                ordered = X_cols
-            beta = np.array([self.params[v] for v in ordered])
-            return np.asarray(X @ beta)
+                    recovery_hint="Use what='confidence' for the interval of "
+                    "the conditional mean.",
+                )
+            resid = np.asarray(resid, dtype=float)
+            sigma2 = float(resid @ resid) / float(df_resid)
+            se = np.sqrt(var_mean + sigma2)
+        else:
+            se = np.sqrt(var_mean)
 
-        raise NotImplementedError("Prediction not available for this model type.")
+        lower, upper = eta - crit * se, eta + crit * se
+        yhat = eta
+        if inverse is not None:
+            # delta-method standard error on the scale of the outcome; the
+            # interval is the mapped interval of the index, which stays
+            # inside the range of the outcome
+            step = 1e-6 * np.maximum(1.0, np.abs(eta))
+            slope = (inverse(eta + step) - inverse(eta - step)) / (2.0 * step)
+            yhat, se = inverse(eta), np.abs(slope) * se
+            lo, hi = inverse(lower), inverse(upper)
+            lower, upper = np.minimum(lo, hi), np.maximum(lo, hi)
+        return pd.DataFrame(
+            {"yhat": yhat, "se": se, "lower": lower, "upper": upper}, index=index
+        )
+
+    def _inverse_link(self) -> Any:
+        """Inverse link of the model, or None for a linear model."""
+        link_obj = self.data_info.get("link_obj")
+        if link_obj is not None and hasattr(link_obj, "inverse"):
+            name = str(getattr(link_obj, "name", "")).lower()
+            return None if name == "identity" else link_obj.inverse
+        name = str((self.model_info or {}).get("link") or "identity").lower()
+        if name in ("identity", "none", ""):
+            return None
+        from scipy import special as _special
+        from scipy import stats as _stats
+
+        known = {
+            "log": np.exp,
+            "logit": _special.expit,
+            "probit": _stats.norm.cdf,
+            "cloglog": lambda eta: 1.0 - np.exp(-np.exp(eta)),
+            "inverse": lambda eta: 1.0 / eta,
+        }
+        if name not in known:
+            raise MethodIncompatibility(
+                f"predict() does not know the inverse of the {name!r} link "
+                "of this model.",
+                recovery_hint="Use what='link' for the linear index.",
+            )
+        return known[name]
+
+    def _prediction_design(self, data: pd.DataFrame) -> np.ndarray:
+        """The model's design matrix evaluated on ``data``."""
+        from ..postestimation._design import _INTERCEPT_TOKENS, design_for
+
+        # coefficients named after a column: the column has to be there,
+        # and numeric
+        plain = [
+            str(name)
+            for name in self.params.index
+            if str(name) not in _INTERCEPT_TOKENS and str(name).isidentifier()
+        ]
+        missing = [name for name in plain if name not in data.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"Prediction data missing column(s): {missing}",
+                recovery_hint=("Add the missing columns to the prediction DataFrame."),
+                diagnostics={"missing_columns": missing},
+            )
+        text = [name for name in plain if not pd.api.types.is_numeric_dtype(data[name])]
+        if text:
+            raise MethodIncompatibility(
+                f"Prediction columns must be numeric: {text}.",
+                recovery_hint=(
+                    "Coerce prediction data columns to numeric values "
+                    "before calling predict()."
+                ),
+                diagnostics={"columns": text},
+            )
+        try:
+            return np.asarray(design_for(self, data).build(data), dtype=float)
+        except MethodIncompatibility as exc:
+            # New rows need not show every level of a factor (a forecast
+            # for one region). The dummies of the model name the levels it
+            # was fitted with: add one scratch row per missing level so the
+            # coding is rebuilt as at fit time, then keep the real rows.
+            padded = self._with_fitted_levels(data)
+            if padded is not None:
+                try:
+                    X = design_for(self, padded).build(padded)
+                    return np.asarray(X, dtype=float)[: len(data)]
+                except MethodIncompatibility as retry:
+                    # the coding still cannot be rebuilt (the reference
+                    # level is unknown): report that
+                    exc = retry
+            message = str(exc).split("\n")[0].replace("margins: ", "")
+            raise MethodIncompatibility(
+                f"predict(): {message}",
+                recovery_hint=(
+                    "Pass a DataFrame with every variable of the fitted "
+                    "formula; a factor needs the levels it had at fit time."
+                ),
+            ) from exc
+        except Exception as exc:  # patsy and pandas raise many types
+            raise MethodIncompatibility(
+                "predict(): could not build the design matrix on the new data "
+                f"({type(exc).__name__}: {exc}).",
+                recovery_hint=(
+                    "Pass a DataFrame with every variable of the fitted "
+                    "formula, numeric and without missing values."
+                ),
+            ) from exc
+
+    def _with_fitted_levels(self, data: pd.DataFrame) -> Optional[pd.DataFrame]:
+        """``data`` followed by one row per factor level the model has a
+        dummy for and ``data`` lacks; None when there is nothing to add."""
+        from ..postestimation._design import CAT_TERM_RE
+
+        if len(data) == 0:
+            return None
+        wanted: Dict[str, List[str]] = {}
+        for term in map(str, self.params.index):
+            for part in term.split(":"):
+                match = CAT_TERM_RE.match(part.strip())
+                if match and match.group(1) in data.columns:
+                    wanted.setdefault(match.group(1), []).append(match.group(2))
+        rows = []
+        for var, levels in wanted.items():
+            column = data[var]
+            present = {str(v) for v in column.dropna().unique()}
+            numeric = pd.api.types.is_numeric_dtype(column)
+            for level in dict.fromkeys(levels):
+                value: Any = level
+                if numeric:
+                    try:
+                        value = float(level)
+                    except ValueError:
+                        return None
+                    if any(float(p) == value for p in present):
+                        continue
+                elif level in present:
+                    continue
+                row = data.iloc[[0]].copy()
+                row[var] = value
+                rows.append(row)
+        if not rows:
+            return None
+        return pd.concat([data] + rows, ignore_index=True)
+
+    def _prediction_offset(self, data: Optional[pd.DataFrame], n: int) -> np.ndarray:
+        """Offset of the linear index (``offset=``, log of ``exposure=``)."""
+        from ..postestimation._design import model_setting
+
+        total = np.zeros(n)
+        for key, transform in (("offset", None), ("exposure", np.log)):
+            setting = model_setting(self, key)
+            if setting is None:
+                continue
+            if data is None or not isinstance(setting, str):
+                values = np.asarray(setting, dtype=float)
+                if isinstance(setting, str) or values.shape != (n,):
+                    raise MethodIncompatibility(
+                        f"predict(): the model has an {key}; pass data= with "
+                        "that column to predict.",
+                        recovery_hint=f"Include the {key} column in data=.",
+                    )
+            else:
+                if setting not in data.columns:
+                    raise MethodIncompatibility(
+                        f"predict(): the model's {key} column {setting!r} is "
+                        "not in the new data.",
+                        recovery_hint=f"Add {setting!r} to the DataFrame.",
+                    )
+                values = data[setting].to_numpy(dtype=float)
+            total = total + (transform(values) if transform is not None else values)
+        return total
 
     def residuals(self) -> Optional[np.ndarray]:
         """

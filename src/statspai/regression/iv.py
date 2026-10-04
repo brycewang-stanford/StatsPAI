@@ -2452,24 +2452,33 @@ def _materialise_formula_terms(
         compact = term.replace(" ", "")
         return compact in controls or bool(_PLAIN_NAME.match(compact))
 
-    if all(plain(t) for t in exog_terms + inst_terms + endog_terms):
+    dep_term = dep.strip()
+    if all(plain(t) for t in exog_terms + inst_terms + endog_terms + [dep_term]):
         return formula, data
-    if not all(plain(t) for t in endog_terms):
-        raise MethodIncompatibility(
-            "IV formula: endogenous regressors must be columns of the data, "
-            f"got {endog_part.strip()!r}.",
-            recovery_hint=(
-                "Create the transformed or interacted endogenous regressor as "
-                "a column first; each one needs its own instruments."
-            ),
-            diagnostics={"formula": formula},
-        )
 
     from patsy import NAAction, dmatrix
 
-    from ..core.utils import _coerce_string_extension_dtypes
+    from ..core.utils import (
+        _coerce_string_extension_dtypes,
+        evaluate_formula_expression,
+        formula_eval_env,
+    )
 
     frame = _coerce_string_extension_dtypes(data).copy()
+
+    def single(term: str) -> str:
+        """A transformed outcome or endogenous regressor, as one column."""
+        if plain(term) or term in frame.columns:
+            return term
+        safe = _safe_term_name(term)
+        frame[safe] = evaluate_formula_expression(term, frame)
+        return safe
+
+    # ``np.log(wage) ~ ...`` and ``(np.log(wage) ~ z)``: one variable each.
+    # A term that expands to several columns (an interaction, a factor)
+    # would need instruments of its own for every column, and is refused.
+    dep = single(dep_term)
+    endog_terms = [single(t) for t in endog_terms]
 
     def expand(terms: List[str]) -> List[str]:
         keep = [t for t in terms if t.replace(" ", "") in controls]
@@ -2480,6 +2489,7 @@ def _materialise_formula_terms(
             design = dmatrix(
                 "1 + " + " + ".join(build),
                 frame,
+                eval_env=formula_eval_env(),
                 return_type="dataframe",
                 NA_action=NAAction(on_NA="drop"),
             )

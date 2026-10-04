@@ -248,7 +248,12 @@ def test_estat_writes_statas_defaults_out(df):
         s.output["statistic"]
         == sp.estat(fit, "white", print_results=False)["statistic"]
     )
-    assert not sp.from_stata("estat archlm")["ok"]
+    s.run("estat archlm, lags(2)")
+    assert s.output == sp.estat(fit, "archlm", lags=2, print_results=False)
+    s.run("estat durbinalt, small")
+    assert s.output == sp.estat(fit, "durbinalt", version="fstat", print_results=False)
+    # the subcommands with no counterpart stay refused
+    assert not sp.from_stata("estat sbsingle")["ok"]
 
 
 def test_var_family_and_forecast():

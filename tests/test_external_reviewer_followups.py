@@ -65,16 +65,14 @@ class TestEconometricResultsPredict:
             result.predict(pd.DataFrame({"x": [1.0]}))
         assert excinfo.value.diagnostics["missing_columns"] == ["z"]
 
-    def test_predict_rejects_formula_derived_terms_out_of_sample(self):
+    def test_predict_builds_interaction_terms_out_of_sample(self):
+        # refused until 2026-10; the product is now rebuilt from the columns
         result = _linear_result(
             pd.Series({"Intercept": 1.0, "x": 2.0, "z": -1.0, "x:z": 0.5})
         )
 
-        with pytest.raises(
-            MethodIncompatibility, match="formula transforms"
-        ) as excinfo:
-            result.predict(pd.DataFrame({"x": [1.0], "z": [2.0]}))
-        assert excinfo.value.diagnostics["derived_terms"] == ["x:z"]
+        out = result.predict(pd.DataFrame({"x": [1.0], "z": [2.0]}))
+        np.testing.assert_allclose(out, [1.0 + 2.0 - 2.0 + 0.5 * 2.0])
 
     def test_predict_rejects_non_dataframe_out_of_sample_data(self):
         result = _linear_result(pd.Series({"Intercept": 1.0, "x": 2.0}))

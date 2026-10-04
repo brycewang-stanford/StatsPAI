@@ -24,6 +24,7 @@ Usage
 'CausalResult'
 """
 
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -400,7 +401,29 @@ class RecommendationResult(ResultProtocolMixin):
         func = getattr(sp, rec["function"])
         params = dict(rec.get("params", {}))
         params.update(kwargs)
-        return func(**params)
+        with warnings.catch_warnings():
+            # an absorbed regressor is reported below, as a failure
+            warnings.filterwarnings(
+                "ignore", message=r"sp\.panel\(method=.*omitted", category=UserWarning
+            )
+            result = func(**params)
+        omitted = (getattr(result, "model_info", None) or {}).get("omitted")
+        if omitted:
+            # sp.panel leaves out what the fixed effects absorb, as Stata
+            # does. A recommended specification that lost a regressor that
+            # way does not estimate what it was recommended for.
+            raise MethodIncompatibility(
+                f"Recommendation {rec['method']!r} is not identified on this "
+                f"data: the fixed effects absorb {omitted}.",
+                recovery_hint=(
+                    "A regressor that does not vary within units cannot be "
+                    "estimated with unit fixed effects; use a design that "
+                    "compares units (random effects, difference-in-differences "
+                    "with a time-varying treatment indicator)."
+                ),
+                diagnostics={"omitted": list(omitted), "which": which},
+            )
+        return result
 
     def run_all(self, **kwargs: Any) -> Dict[str, Any]:
         """Run all recommended estimators and return a comparison.

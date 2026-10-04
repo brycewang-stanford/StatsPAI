@@ -4,6 +4,86 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### What the examples of Wooldridge's *Introductory Econometrics* found
+
+Every example of the book that the companion scripts of Heiss compute was
+written with StatsPAI and compared with statsmodels, linearmodels, Stata 18
+or R on the book's datasets. Most of it agreed to 1e-12. The notes are in
+`docs/dev/2026-10-05-wooldridge-review.md`; the Stata and R numbers are in
+`tests/test_wooldridge_examples.py`.
+
+#### ⚠️ Correctness
+
+- **DFBETAS from `sp.estat(result, 'leverage')` were on the wrong scale.**
+  The division by the square root of the diagonal of `(X'X)^-1` was
+  missing, so each value was the change in the coefficient over the
+  leave-one-out residual standard deviation, not over the standard error of
+  the coefficient. The `2/sqrt(n)` rule was then applied to that quantity,
+  and `dfbetas_flagged_obs` listed the wrong observations. The values now
+  agree with Stata's `dfbeta` and with statsmodels to 1e-8. Leverage and
+  Cook's distance were right and are unchanged. See `MIGRATION.md`.
+- **`predict(new_data)` after `sp.glm` returned the linear index.** With
+  no argument the same method returned the fitted means, so the two calls
+  were on different scales for every link but the identity. Both are now
+  the mean of the outcome; `what='link'` gives the index. After
+  `sp.poisson` and `sp.nbreg` the call used to fail on the `_cons` column
+  and now works, with the `offset=` or `exposure=` of the new rows applied.
+  See `MIGRATION.md`.
+- **`sp.from_stata` translated `heckman` to the two-step estimator.**
+  Stata's `heckman` is maximum likelihood unless `twostep` is given, and
+  `twostep` itself was reported as an untranslated option. The translation
+  now writes `method='ml'` or `method='twostep'`. On the `mroz` data the
+  coefficient on education is 0.10835 by maximum likelihood and 0.10907 by
+  the two-step estimator; both now match Stata. `sp.heckman` itself is
+  unchanged. See `MIGRATION.md`.
+- **`sp.estat(result, 'endogenous')` and `'overid'` said "p-value not
+  available"** in their interpretation, next to the p-value they reported.
+  They now state the conclusion.
+
+#### Added
+
+- **Formulas.** `log`, `log2`, `log10`, `log1p`, `exp` and `sqrt` can be
+  written without the `np.` prefix in every formula (`log(wage) ~ educ`).
+  A transformed outcome is accepted by `sp.ivreg` and `sp.panel`, a
+  transformed endogenous regressor by `sp.ivreg`
+  (`hours ~ educ + (log(wage) ~ exper + I(exper**2))`), and `sp.qreg`
+  takes transformed, factor and interaction terms. A name the data do not
+  have is reported by name; it used to end in a `KeyError`.
+- **`result.predict(data, what=, alpha=)`** for the results of
+  `sp.regress`, `sp.ivreg`, `sp.glm`, `sp.poisson` and the other
+  formula-based fits. The design is rebuilt from the formula, so new data
+  need the raw variables only. `what='confidence'` returns the standard
+  error and interval of the conditional mean, `what='prediction'` the
+  interval for a new observation of a linear model, `what='link'` the
+  index. The results of `sp.logit` and `sp.probit` take a DataFrame.
+- **`sp.estat`**: `'archlm'` (Engle's LM test), `'durbinalt'` (Durbin's
+  alternative test), `'bgodfrey'` with `version='fstat'`, and `'white'`
+  with `variables='fitted'` (the form of the test on the fitted values and
+  their squares). `'leverage'` also returns `rstudent` and `rstandard`.
+- **`sp.glm(scale=)`**: `'x2'`, `'dev'` or a number, the factor on the
+  model-based covariance. `family='poisson', scale='x2'` is the
+  quasi-Poisson covariance and matches Stata `glm, scale(x2)`.
+- **`sp.test`** takes a list of restrictions and coefficient names that
+  hold operators or blanks (`I(exper ** 2)`, `np.log(sales)`); so does
+  `sp.lincom`.
+- **`sp.lrtest`** accepts the maximum-likelihood regressions (`sp.logit`,
+  `sp.probit`, `sp.poisson`, `sp.nbreg`, `sp.tobit`, `sp.glm`). It refuses
+  fits on different samples, different models, and a reversed order.
+- **Stata translations**: `estat archlm`, `estat durbinalt`, `truncreg`,
+  `glm` (`family()`, `link()`, `scale()`, `vce()`), and `vce(robust)` /
+  `vce(cluster)` on `heckman`.
+
+#### Fixed
+
+- `sp.panel(method='fd')` with the time variable among the regressors (a
+  linear trend) raised `KeyError`.
+- `sp.panel(method='fe')` and `'twoway'` raised when the effects absorbed a
+  regressor. The regressor is now omitted with a warning and listed in
+  `model_info['omitted']`, as Stata and R do.
+- `sp.panel(method='mundlak')` raised on a time-invariant regressor or on
+  period dummies. Unit means that add no rank are left out and listed in
+  `model_info['cre_means_omitted']`.
+
 ### ⚠️ Correctness
 
 - **`sp.stata` / `sp.from_stata` translated `ivregress gmm` to a

@@ -870,7 +870,14 @@ def _fit_binary(
     setattr(
         result,
         "predict",
-        functools.partial(_bound_result_predict, beta, X_mat, cdf_func),
+        functools.partial(
+            _bound_result_predict,
+            beta,
+            X_mat,
+            cdf_func,
+            _names=tuple(str(n) for n in var_names),
+            _formula=formula,
+        ),
     )
     setattr(
         result,
@@ -887,12 +894,51 @@ def _bound_result_predict(
     beta: np.ndarray,
     X_mat: np.ndarray,
     cdf_func: Any,
-    X_new: Optional[np.ndarray] = None,
+    X_new: Any = None,
     pred_type: str = "response",
     cutoff: float = 0.5,
+    *,
+    data: Optional[pd.DataFrame] = None,
+    _names: Tuple[str, ...] = (),
+    _formula: Optional[str] = None,
 ) -> np.ndarray:
-    """``result.predict`` for binary-response fits (picklable via partial)."""
-    X_pred = X_mat if X_new is None else _as_float_array(X_new)
+    """``result.predict`` for binary-response fits (picklable via partial).
+
+    ``X_new`` (or ``data=``) is a DataFrame holding the variables of the
+    model, from which the design -- transforms, factors and interactions
+    included -- is rebuilt, or an array that already is the design matrix.
+    ``pred_type`` is ``'response'`` (probabilities), ``'link'`` (the index)
+    or ``'class'`` (0/1 at ``cutoff``).
+    """
+    if data is not None:
+        X_new = data
+    if isinstance(X_new, pd.DataFrame):
+        from types import SimpleNamespace
+
+        from ..postestimation._design import design_for
+
+        shim = SimpleNamespace(
+            params=pd.Series(np.asarray(beta, dtype=float), index=list(_names)),
+            model_info={"formula": _formula},
+        )
+        try:
+            X_pred = np.asarray(design_for(shim, X_new).build(X_new), dtype=float)
+        except MethodIncompatibility as exc:
+            message = str(exc).split("\n")[0].replace("margins: ", "")
+            raise MethodIncompatibility(
+                f"predict(): {message}",
+                recovery_hint="Pass a DataFrame with every variable of the "
+                "fitted formula.",
+            ) from exc
+    else:
+        X_pred = X_mat if X_new is None else _as_float_array(X_new)
+    if X_pred.ndim != 2 or X_pred.shape[1] != np.asarray(beta).shape[0]:
+        raise MethodIncompatibility(
+            f"predict(): the design has shape {X_pred.shape} but the model has "
+            f"{np.asarray(beta).shape[0]} coefficients.",
+            recovery_hint="Pass a DataFrame with the variables of the model, "
+            "or the full design matrix including the constant.",
+        )
     return _predict(beta, X_pred, cdf_func, pred_type, cutoff)
 
 

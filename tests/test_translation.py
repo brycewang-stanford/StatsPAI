@@ -708,6 +708,17 @@ TIER2_ROUND_TRIPS = [
         "heckman",
         {"y": "wage", "x": ["education"], "select": "employed", "z": ["age", "kids"]},
     ),
+    (
+        "truncreg hours educ exper, ll(0)",
+        "truncreg",
+        {"y": "hours", "x": ["educ", "exper"], "ll": 0.0},
+    ),
+    # Generalized linear models
+    (
+        "glm narr86 pcnv avgsen, family(poisson) scale(x2)",
+        "glm",
+        {"formula": "narr86 ~ pcnv + avgsen", "family": "poisson", "scale": "x2"},
+    ),
     # RD ancillary
     ("rdplot y x, c(0)", "rdplot", {"y": "y", "x": "x", "c": 0.0}),
     (

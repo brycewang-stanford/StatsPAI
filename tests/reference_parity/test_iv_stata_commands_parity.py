@@ -151,11 +151,20 @@ def test_plain_formula_and_data_pass_through_untouched(card):
     assert out_formula == formula and out_data is card
 
 
-def test_transformed_endogenous_regressor_is_refused(card):
+def test_transformed_endogenous_regressor_is_one_variable(card):
+    # ``(I(educ**2) ~ nearc4)`` is one endogenous variable with one
+    # instrument: the same fit as with the square built as a column
+    # (Wooldridge's Example 16.5 instruments log(wage) this way).
     from statspai.exceptions import MethodIncompatibility
 
-    with pytest.raises(MethodIncompatibility, match="endogenous"):
-        sp.iv("lwage ~ exper + (I(educ**2) ~ nearc4)", card)
+    built = card.assign(educ2=card["educ"] ** 2)
+    ref = sp.iv("lwage ~ exper + (educ2 ~ nearc4)", built)
+    fit = sp.iv("lwage ~ exper + (I(educ**2) ~ nearc4)", card)
+    np.testing.assert_allclose(fit.params.values, ref.params.values, rtol=1e-12)
+    np.testing.assert_allclose(fit.std_errors.values, ref.std_errors.values, rtol=1e-12)
+    # a term of several columns would need instruments for each of them
+    with pytest.raises(MethodIncompatibility, match="single variable"):
+        sp.iv("lwage ~ exper + (C(black) * educ ~ nearc4)", card)
 
 
 def test_kappa_does_not_lose_digits_to_the_level_of_the_outcome():

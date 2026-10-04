@@ -1392,7 +1392,14 @@ class OLSRegression(BaseModel):
                     )[0]
                 else:
                     rhs = self.formula.split("~", 1)[1].strip()
-                    X_df = dmatrix(rhs, data, return_type="dataframe")
+                    from ..core.utils import formula_eval_env
+
+                    X_df = dmatrix(
+                        rhs,
+                        data,
+                        eval_env=formula_eval_env(),
+                        return_type="dataframe",
+                    )
             except (PatsyError, KeyError, ValueError) as exc:
                 raise MethodIncompatibility(
                     "Could not build prediction design matrix from new data.",

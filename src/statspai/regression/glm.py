@@ -874,12 +874,47 @@ class GLMEstimator(BaseEstimator):
         if information == "observed" and link.name != family.canonical_link:
             bread = self._observed_information_inverse(X, y, mu, weights, family, link)
 
+        # ``scale=``: the factor on the model-based covariance. Left alone,
+        # it is 1 for the binomial and Poisson families -- the variance the
+        # likelihood implies. ``'x2'`` (Pearson chi-squared / df) and
+        # ``'dev'`` (deviance / df) estimate it instead, which is the
+        # quasi-likelihood covariance (Stata ``glm, scale(x2)``, R's
+        # ``quasipoisson``): valid when the mean is right and the variance
+        # is proportional to the family's.
+        scale = kwargs.pop("scale", None)
+        vcov_scale = phi
+        if scale is not None:
+            if cluster is not None or robust != "nonrobust":
+                raise MethodIncompatibility(
+                    "glm: scale= rescales the model-based covariance; a "
+                    "robust or clustered covariance does not use it.",
+                    recovery_hint="Pass scale= or a robust covariance, not both.",
+                    diagnostics={"scale": scale, "robust": robust},
+                )
+            if isinstance(scale, str):
+                key = scale.lower()
+                if key in ("x2", "pearson"):
+                    vcov_scale = float(np.sum(weights * pearson_resid**2) / df_resid)
+                elif key in ("dev", "deviance"):
+                    vcov_scale = float(family.deviance(y, mu, weights) / df_resid)
+                else:
+                    raise MethodIncompatibility(
+                        f"glm: scale={scale!r} is not 'x2', 'dev' or a number.",
+                        recovery_hint="Use scale='x2' for the Pearson estimate.",
+                    )
+            else:
+                vcov_scale = float(scale)
+                if not np.isfinite(vcov_scale) or vcov_scale <= 0:
+                    raise MethodIncompatibility(
+                        f"glm: scale must be positive, got {scale!r}.",
+                    )
+
         if cluster is not None:
             var_cov = self._cluster_cov(
                 X, y, mu, V, g_prime, weights, bread, cluster, n, k
             )
         elif robust == "nonrobust":
-            var_cov = phi * bread
+            var_cov = vcov_scale * bread
         elif robust == "robust":
             # Stata ``glm, vce(robust)``: the HC0 sandwich times N/(N-1).
             var_cov = (n / (n - 1.0)) * self._robust_cov(
@@ -948,6 +983,8 @@ class GLMEstimator(BaseEstimator):
             "bic": bic,
             "pseudo_r2": pseudo_r2,
             "dispersion": phi,
+            "vcov_scale": vcov_scale,
+            "scale": scale,
             "converged": converged,
             "n_iter": iteration + 1,
         }
@@ -1448,6 +1485,8 @@ class GLMRegression(BaseModel):
             "link": self.link.name,
             "robust": se_label,
             "cluster": cluster,
+            "scale": results.get("scale"),
+            "vcov_scale": results.get("vcov_scale"),
             "converged": results["converged"],
             "n_iter": results["n_iter"],
         }
@@ -1596,7 +1635,14 @@ class GLMRegression(BaseModel):
                     )[0]
                 else:
                     rhs = self.formula.split("~", 1)[1].strip()
-                    X_new = dmatrix(rhs, data, return_type="dataframe")
+                    from ..core.utils import formula_eval_env
+
+                    X_new = dmatrix(
+                        rhs,
+                        data,
+                        eval_env=formula_eval_env(),
+                        return_type="dataframe",
+                    )
             except (PatsyError, KeyError, ValueError) as exc:
                 raise MethodIncompatibility(
                     "Could not build prediction design matrix from new data.",
@@ -1732,6 +1778,7 @@ def glm(
     tol: float = 1e-8,
     alpha: float = 0.05,
     information: str = "observed",
+    scale: Optional[Union[str, float]] = None,
 ) -> EconometricResults:
     """
     Fit a Generalized Linear Model.
@@ -1781,6 +1828,17 @@ def glm(
         cluster sandwiches); ``'expected'`` is the IRLS Fisher information
         that R's ``glm`` reports. They coincide for canonical links (logit
         binomial, log Poisson, identity Gaussian) and differ otherwise.
+    scale : {'x2', 'dev'} or float, optional
+        Factor on the model-based covariance matrix. By default the
+        binomial and Poisson families use 1, the variance their likelihood
+        implies. ``'x2'`` estimates it by the Pearson chi-squared over the
+        residual degrees of freedom and ``'dev'`` by the deviance over
+        them (Stata ``glm, scale(x2)`` / ``scale(dev)``). With
+        ``family='poisson'``, ``scale='x2'`` is the quasi-Poisson
+        covariance: standard errors are multiplied by the square root of
+        the estimated dispersion, the coefficients are unchanged. It
+        cannot be combined with a robust or clustered covariance, which
+        does not rely on the variance function at all.
 
     Returns
     -------
@@ -1865,4 +1923,5 @@ def glm(
         tol=tol,
         alpha=alpha,
         information=information,
+        scale=scale,
     )

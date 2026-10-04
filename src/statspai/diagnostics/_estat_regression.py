@@ -199,17 +199,40 @@ def hettest(
     return out
 
 
-def white(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
+def white(
+    result: Any,
+    *,
+    variables: Union[None, str] = None,
+    alpha: float = 0.05,
+) -> Dict[str, Any]:
     """White's general test: N R^2 from the regression of the squared
     residuals on the regressors, their squares and their cross-products.
-    Redundant terms (the square of a dummy) do not count as restrictions."""
-    X, _, e, _ = _arrays(result)
+    Redundant terms (the square of a dummy) do not count as restrictions.
+
+    ``variables='fitted'`` is the special case that regresses the squared
+    residuals on the fitted values and their squares: two restrictions
+    whatever the number of regressors, so it keeps its power in a model
+    with many of them.
+    """
+    X, y, e, _ = _arrays(result)
     n = X.shape[0]
-    const = _constant_column(X)
-    cols = [j for j in range(X.shape[1]) if j != const]
-    terms = [X[:, j] for j in cols]
-    terms += [X[:, j] ** 2 for j in cols]
-    terms += [X[:, a] * X[:, b] for a, b in combinations(cols, 2)]
+    if variables is not None and variables not in ("rhs", "fitted"):
+        raise MethodIncompatibility(
+            f"sp.estat white: variables={variables!r} is not 'rhs' or 'fitted'.",
+            recovery_hint="Use variables='fitted' for the special form of the "
+            "test, or leave it out for the general one.",
+        )
+    special = variables == "fitted"
+    if special:
+        fitted = (getattr(result, "data_info", None) or {}).get("fitted_values")
+        fitted = y - e if fitted is None else np.asarray(fitted, dtype=float)
+        terms = [fitted, fitted**2]
+    else:
+        const = _constant_column(X)
+        cols = [j for j in range(X.shape[1]) if j != const]
+        terms = [X[:, j] for j in cols]
+        terms += [X[:, j] ** 2 for j in cols]
+        terms += [X[:, a] * X[:, b] for a, b in combinations(cols, 2)]
     Z = _independent(np.column_stack(terms), np.ones((n, 1)))
     df = Z.shape[1]
     e2 = e**2
@@ -218,9 +241,15 @@ def white(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     stat = n * (1.0 - rss / tss) if tss > 0 else 0.0
     pval = float(sp_stats.chi2.sf(stat, df))
     return {
-        "test": "White's test for heteroskedasticity",
+        "test": "White's test for heteroskedasticity"
+        + (" (fitted values and their squares)" if special else ""),
         "H0": "Homoskedasticity",
-        "H1": "Unrestricted heteroskedasticity",
+        "H1": (
+            "Variance depends on the fitted values and their squares"
+            if special
+            else "Unrestricted heteroskedasticity"
+        ),
+        "variables": "fitted" if special else "rhs",
         "statistic": float(stat),
         "statistic_label": f"chi2({df})",
         "df": df,
@@ -341,9 +370,20 @@ def reset(
 
 # -------------------------------------------------------- serial correlation
 def bgodfrey(
-    result: Any, *, lags: int = 1, fill: str = "zero", alpha: float = 0.05
+    result: Any,
+    *,
+    lags: int = 1,
+    fill: str = "zero",
+    version: str = "iid",
+    alpha: float = 0.05,
 ) -> Dict[str, Any]:
     """Breusch-Godfrey LM test for serial correlation up to ``lags``.
+
+    ``version='fstat'`` reports the F test that the lagged residuals have
+    zero coefficients in the auxiliary regression instead of N R^2 (the F
+    form of R's ``lmtest::bgtest`` and of statsmodels; Stata prints this
+    statistic as ``estat durbinalt, small``, and its ``estat bgodfrey,
+    small`` is the chi-squared statistic divided by ``lags``).
 
     The residuals are regressed on the regressors and their own lags. The
     lagged residual does not exist for the first ``lags`` observations:
@@ -372,16 +412,32 @@ def bgodfrey(
     target = e[rows]
     _, rss = _fit(design, target)
     tss = float(((target - target.mean()) ** 2).sum())
-    stat = len(target) * (1.0 - rss / tss) if tss > 0 else 0.0
-    pval = float(sp_stats.chi2.sf(stat, lags))
+    version = str(version).lower()
+    if version not in ("iid", "fstat"):
+        raise MethodIncompatibility(
+            f"sp.estat bgodfrey: version={version!r} is not 'iid' or 'fstat'.",
+            recovery_hint="Use version='iid' (N R-squared, the default) or "
+            "version='fstat'.",
+        )
     word = "lag" if lags == 1 else "lags"
+    shape: Dict[str, Any]
+    if version == "fstat":
+        _, rss_restricted = _fit(X[rows], target)
+        df2 = len(target) - design.shape[1]
+        stat = ((rss_restricted - rss) / lags) / (rss / df2)
+        pval = float(sp_stats.f.sf(stat, lags, df2))
+        shape = {"statistic_label": f"F({lags}, {df2})", "df1": lags, "df2": df2}
+    else:
+        stat = len(target) * (1.0 - rss / tss) if tss > 0 else 0.0
+        pval = float(sp_stats.chi2.sf(stat, lags))
+        shape = {"statistic_label": f"chi2({lags})", "df": lags}
     return {
         "test": f"Breusch-Godfrey LM test ({lags} {word})",
         "H0": "No serial correlation",
         "H1": f"Serial correlation up to order {lags}",
         "statistic": float(stat),
-        "statistic_label": f"chi2({lags})",
-        "df": lags,
+        **shape,
+        "version": version,
         "pvalue": pval,
         "lags": lags,
         "fill": fill,
@@ -391,6 +447,114 @@ def bgodfrey(
             f"evidence of serial correlation up to {lags} {word}. Consider "
             "Newey-West standard errors.",
             f"no evidence of serial correlation up to {lags} {word}.",
+        ),
+    }
+
+
+def durbinalt(
+    result: Any, *, lags: int = 1, version: str = "iid", alpha: float = 0.05
+) -> Dict[str, Any]:
+    """Durbin's alternative test for serial correlation up to ``lags``.
+
+    The residuals are regressed on the regressors and their own lags, the
+    missing lags set to zero, and the lagged residuals are tested jointly:
+    ``version='fstat'`` is that F statistic, the default is ``lags`` times
+    it, referred to a chi-squared with ``lags`` degrees of freedom (Stata
+    ``estat durbinalt`` with and without ``small``). Unlike the
+    Durbin-Watson statistic it stays valid when the regressors are not
+    strictly exogenous, for example with a lagged dependent variable.
+    """
+    f_form = bgodfrey(result, lags=lags, fill="zero", version="fstat", alpha=alpha)
+    version = str(version).lower()
+    if version not in ("iid", "fstat"):
+        raise MethodIncompatibility(
+            f"sp.estat durbinalt: version={version!r} is not 'iid' or 'fstat'.",
+            recovery_hint="Use version='iid' (the default) or version='fstat'.",
+        )
+    out = dict(f_form)
+    out["test"] = f"Durbin's alternative test ({lags} {'lag' if lags == 1 else 'lags'})"
+    out["version"] = version
+    if version == "iid":
+        stat = lags * float(f_form["statistic"])
+        pval = float(sp_stats.chi2.sf(stat, lags))
+        for key in ("df1", "df2"):
+            out.pop(key, None)
+        word = "lag" if lags == 1 else "lags"
+        out.update(
+            statistic=stat,
+            statistic_label=f"chi2({lags})",
+            df=lags,
+            pvalue=pval,
+            interpretation=_decision(
+                pval,
+                alpha,
+                f"evidence of serial correlation up to {lags} {word}. Consider "
+                "Newey-West standard errors.",
+                f"no evidence of serial correlation up to {lags} {word}.",
+            ),
+        )
+    return out
+
+
+def archlm(
+    result: Any, *, lags: int = 1, version: str = "iid", alpha: float = 0.05
+) -> Dict[str, Any]:
+    """Engle's LM test for autoregressive conditional heteroskedasticity.
+
+    The squared residuals are regressed on a constant and ``lags`` of their
+    own; the statistic is ``(T - lags) R^2``, chi-squared with ``lags``
+    degrees of freedom under the null of no ARCH (Stata ``estat archlm``),
+    or with ``version='fstat'`` the F statistic of that regression. The
+    rows must be in time order.
+    """
+    _, _, e, _ = _arrays(result)
+    n = e.shape[0]
+    if lags < 1 or lags >= n - 2:
+        raise MethodIncompatibility(
+            f"sp.estat archlm: lags={lags} is outside 1 .. {n - 3}.",
+            recovery_hint="Use a small number of lags.",
+        )
+    version = str(version).lower()
+    if version not in ("iid", "fstat"):
+        raise MethodIncompatibility(
+            f"sp.estat archlm: version={version!r} is not 'iid' or 'fstat'.",
+            recovery_hint="Use version='iid' (the default) or version='fstat'.",
+        )
+    e2 = e**2
+    target = e2[lags:]
+    design = np.column_stack(
+        [np.ones(n - lags)] + [e2[lags - p : n - p] for p in range(1, lags + 1)]
+    )
+    _, rss = _fit(design, target)
+    tss = float(((target - target.mean()) ** 2).sum())
+    r2 = 1.0 - rss / tss if tss > 0 else 0.0
+    shape: Dict[str, Any]
+    if version == "fstat":
+        df2 = len(target) - lags - 1
+        stat = (r2 / lags) / ((1.0 - r2) / df2)
+        pval = float(sp_stats.f.sf(stat, lags, df2))
+        shape = {"statistic_label": f"F({lags}, {df2})", "df1": lags, "df2": df2}
+    else:
+        stat = len(target) * r2
+        pval = float(sp_stats.chi2.sf(stat, lags))
+        shape = {"statistic_label": f"chi2({lags})", "df": lags}
+    word = "lag" if lags == 1 else "lags"
+    return {
+        "test": f"LM test for ARCH effects ({lags} {word})",
+        "H0": "No ARCH effects",
+        "H1": f"ARCH({lags}) disturbance",
+        "statistic": float(stat),
+        **shape,
+        "version": version,
+        "pvalue": pval,
+        "lags": lags,
+        "interpretation": _decision(
+            pval,
+            alpha,
+            "the error variance depends on past squared errors. The usual "
+            "standard errors remain valid under the other assumptions, but "
+            "see sp.garch for the variance dynamics.",
+            f"no evidence of ARCH effects up to {lags} {word}.",
         ),
     }
 

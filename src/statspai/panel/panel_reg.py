@@ -626,7 +626,7 @@ def _expand_formula_terms(
 
     from patsy import NAAction, dmatrix
 
-    from ..core.utils import _coerce_string_extension_dtypes
+    from ..core.utils import _coerce_string_extension_dtypes, formula_eval_env
 
     frame = _coerce_string_extension_dtypes(data).copy()
     if not frame.index.is_unique:
@@ -636,6 +636,7 @@ def _expand_formula_terms(
         design = dmatrix(
             "1 + " + " + ".join(build),
             frame,
+            eval_env=formula_eval_env(),
             return_type="dataframe",
             NA_action=NAAction(on_NA="drop"),
         )
@@ -979,6 +980,16 @@ def _dispatch_panel_impl(
     dep, indep = formula.split("~", 1)
     dep_var = dep.strip()
     indep_vars, data = _expand_formula_terms(indep, data, formula)
+    if dep_var and dep_var not in data.columns:
+        # a transformed outcome, ``np.log(y) ~ ...``, built as a column
+        from ..core.utils import evaluate_formula_expression
+        from ..regression.iv import _safe_term_name
+
+        if not data.index.is_unique:
+            data = data.reset_index(drop=True)
+        built = _safe_term_name(dep_var)
+        data = data.assign(**{built: evaluate_formula_expression(dep_var, data)})
+        dep_var = built
 
     dep_var = _require_panel_column(data, dep_var, "dependent variable")
     indep_vars = [_require_panel_column(data, col, "regressor") for col in indep_vars]
@@ -999,6 +1010,44 @@ def _dispatch_panel_impl(
                 diagnostics={"n_units": n_units, "n_periods": n_periods},
                 alternative_functions=_PANEL_ALTERNATIVES,
             )
+
+    # --- Regressors the fixed effects absorb ---
+    if canonical in ("fe", "twoway"):
+        kept, omitted = _drop_absorbed_regressors(
+            data, dep_var, indep_vars, entity, time, canonical
+        )
+        if omitted and kept:
+            warnings.warn(
+                f"sp.panel(method={canonical!r}): {omitted} omitted because "
+                "the fixed effects absorb them (no variation left within "
+                f"{'units and periods' if canonical == 'twoway' else 'units'}"
+                ", or collinear with the other regressors).",
+                UserWarning,
+                stacklevel=4,
+            )
+            result = _dispatch_panel_impl(
+                data,
+                dep_var + " ~ " + " + ".join(kept),
+                entity=entity,
+                time=time,
+                method=method,
+                robust=robust,
+                cluster=cluster,
+                weights=weights,
+                alpha=alpha,
+                balance=False,
+                vce=vce,
+                conley_lat=conley_lat,
+                conley_lon=conley_lon,
+                conley_cutoff=conley_cutoff,
+                wild_reps=wild_reps,
+                wild_weight_type=wild_weight_type,
+                seed=seed,
+                ssc=ssc,
+            )
+            result.model_info["omitted"] = list(omitted)
+            result.model_info["formula"] = formula
+            return result
 
     # --- Native extended SE menu on the entity-within design ---
     # Bias-reduced (CR2 / CR3 / jackknife), spatial-HAC (Conley) and two-way
@@ -1204,6 +1253,92 @@ def _fit_re_mle(
 # ======================================================================
 
 
+def _indexed_columns(panel_data: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
+    """Columns of an (entity, time)-indexed frame; a regressor that is the
+    time or entity variable itself (a linear trend ``year``) is read from
+    the index, where ``set_index`` moved it."""
+    out = {}
+    for col in cols:
+        if col in panel_data.columns:
+            out[col] = panel_data[col].to_numpy()
+        else:
+            out[col] = panel_data.index.get_level_values(col).to_numpy()
+    return pd.DataFrame(out, index=panel_data.index)
+
+
+def _independent_columns(
+    X: np.ndarray, names: List[str], tol: float = 1e-9
+) -> List[str]:
+    """Names of the columns of ``X`` that add rank, read left to right."""
+    kept: List[str] = []
+    basis: List[np.ndarray] = []
+    for j, name in enumerate(names):
+        col = X[:, j].astype(float)
+        scale = float(np.linalg.norm(col))
+        resid = col.copy()
+        for q in basis:
+            resid -= q * float(q @ resid)
+        # a second pass keeps the projection accurate when columns are
+        # nearly collinear
+        for q in basis:
+            resid -= q * float(q @ resid)
+        norm = float(np.linalg.norm(resid))
+        if scale > 0 and norm > tol * scale:
+            basis.append(resid / norm)
+            kept.append(name)
+    return kept
+
+
+def _drop_absorbed_regressors(
+    data: pd.DataFrame,
+    dep_var: str,
+    indep_vars: List[str],
+    entity: str,
+    time: str,
+    method: str,
+) -> Tuple[List[str], List[str]]:
+    """Regressors the fixed effects leave something of, and those they do not.
+
+    A regressor that does not vary within a unit (``educ`` in a wage panel),
+    or that is a linear combination of the effects and the regressors before
+    it, is not identified by the within estimator. Stata and R's ``plm``
+    omit it and say so; this returns ``(kept, omitted)`` so the caller can
+    do the same.
+    """
+    cols = list(dict.fromkeys([dep_var] + indep_vars))
+    work = data[list(dict.fromkeys([entity, time] + cols))].dropna()
+    if len(work) == 0 or not indep_vars:
+        return list(indep_vars), []
+    X = work[indep_vars].to_numpy(dtype=float)
+    raw_scale = np.linalg.norm(X - X.mean(axis=0), axis=0)
+    ent = pd.factorize(work[entity])[0]
+    tim = pd.factorize(work[time])[0]
+
+    def sweep(M: np.ndarray, codes: np.ndarray) -> np.ndarray:
+        counts = np.bincount(codes).astype(float)
+        sums = np.zeros((counts.size, M.shape[1]))
+        np.add.at(sums, codes, M)
+        return M - (sums / counts[:, None])[codes]
+
+    W = sweep(X, ent)
+    if method == "twoway":
+        for _ in range(200):
+            previous = W
+            W = sweep(sweep(W, tim), ent)
+            if np.max(np.abs(W - previous)) <= 1e-12 * max(1.0, np.max(np.abs(X))):
+                break
+    # a column the effects reproduce up to rounding has nothing left
+    scale = np.where(raw_scale > 0, raw_scale, 1.0)
+    alive = np.linalg.norm(W, axis=0) > 1e-9 * scale
+    W = np.where(alive[None, :], W / scale[None, :], 0.0)
+    if alive.all() and np.linalg.matrix_rank(W) == W.shape[1]:
+        # the usual case: nothing is absorbed
+        return list(indep_vars), []
+    kept = _independent_columns(W, list(indep_vars))
+    omitted = [v for v in indep_vars if v not in kept]
+    return kept, omitted
+
+
 def _fit_linearmodels(
     data: pd.DataFrame,
     dep_var: str,
@@ -1231,8 +1366,8 @@ def _fit_linearmodels(
     from statsmodels.tools import add_constant
 
     panel_data = data.set_index([entity, time])
-    dep = panel_data[dep_var]
-    exog = panel_data[indep_vars]
+    dep = _indexed_columns(panel_data, [dep_var])[dep_var]
+    exog = _indexed_columns(panel_data, indep_vars)
     w = None if weights is None else _panel_weights(panel_data, weights)
 
     lm_model: Any
@@ -1951,6 +2086,22 @@ def _fit_cre(
             mean_col = f"_mean_{var}"
             df[mean_col] = df.groupby(entity)[var].transform("mean")
             mundlak_vars.append(mean_col)
+        # The mean of a regressor that is constant within units is the
+        # regressor itself, and the means of period dummies are constants
+        # in a balanced panel: such a mean adds a column but no rank, and
+        # the device needs only the means that do.
+        complete = df[[dep_var] + indep_vars + mundlak_vars].dropna()
+        design = np.column_stack(
+            [np.ones(len(complete)), complete[indep_vars + mundlak_vars].to_numpy()]
+        )
+        design = design / np.where(
+            np.linalg.norm(design, axis=0) > 0, np.linalg.norm(design, axis=0), 1.0
+        )
+        independent = _independent_columns(
+            design, ["const"] + indep_vars + mundlak_vars
+        )
+        cre_means_omitted = [m for m in mundlak_vars if m not in independent]
+        mundlak_vars = [m for m in mundlak_vars if m in independent]
         all_exog = indep_vars + mundlak_vars
     else:
         # Chamberlain: add entity means for each time period interaction
@@ -1972,8 +2123,8 @@ def _fit_cre(
         all_exog = indep_vars + chamberlain_vars
 
     panel_data = df.set_index([entity, time])
-    dep = panel_data[dep_var]
-    exog = add_constant(panel_data[all_exog])
+    dep = _indexed_columns(panel_data, [dep_var])[dep_var]
+    exog = add_constant(_indexed_columns(panel_data, all_exog))
 
     cov_kwargs = (
         {"cov_type": "unadjusted"}
@@ -2018,6 +2169,10 @@ def _fit_cre(
     # Test: are the Mundlak terms jointly significant?
     # (equivalent to Hausman test)
     if cre_method == "mundlak":
+        result.model_info["cre_means"] = [m[len("_mean_") :] for m in mundlak_vars]
+        result.model_info["cre_means_omitted"] = [
+            m[len("_mean_") :] for m in cre_means_omitted
+        ]
         mundlak_params = {
             k: v for k, v in lm_result.params.items() if k.startswith("_mean_")
         }

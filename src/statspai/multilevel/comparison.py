@@ -77,6 +77,98 @@ def _fixed_effect_names(result: Any) -> list:
     return list(fe)
 
 
+_LOGLIK_KEYS = {"ll", "llf", "loglik", "loglikelihood"}
+
+
+def _stored_loglik(result: Any) -> "float | None":
+    """Log-likelihood of a maximum-likelihood fit that keeps it in
+    ``model_info`` or ``diagnostics`` (``sp.logit``, ``sp.probit``,
+    ``sp.poisson``, ``sp.tobit``, ``sp.glm``, ...)."""
+    for store in ("model_info", "diagnostics"):
+        entries = getattr(result, store, None)
+        if not isinstance(entries, dict):
+            continue
+        for key, value in entries.items():
+            normal = "".join(ch for ch in str(key).lower() if ch.isalnum())
+            if normal in _LOGLIK_KEYS and value is not None:
+                return float(value)
+    return None
+
+
+def _n_obs(result: Any) -> "int | None":
+    for name in ("nobs", "n_obs"):
+        value = getattr(result, name, None)
+        if value is not None:
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _lrtest_regression(restricted: Any, full: Any) -> LRTestResult:
+    """LR test of two nested maximum-likelihood regression fits."""
+    from ..exceptions import MethodIncompatibility
+
+    ll_r, ll_f = _stored_loglik(restricted), _stored_loglik(full)
+    if ll_r is None or ll_f is None:
+        which = "restricted" if ll_r is None else "full"
+        raise MethodIncompatibility(
+            f"lrtest: the {which} model carries no log-likelihood.",
+            recovery_hint=(
+                "Pass two fits estimated by maximum likelihood (sp.logit, "
+                "sp.probit, sp.poisson, sp.tobit, sp.glm, sp.mixed, ...). "
+                "After sp.regress, use sp.test for an F test."
+            ),
+        )
+    kind_r = (getattr(restricted, "model_info", None) or {}).get("model_type")
+    kind_f = (getattr(full, "model_info", None) or {}).get("model_type")
+    if kind_r != kind_f:
+        raise MethodIncompatibility(
+            f"lrtest: the two fits are different models ({kind_r!r} and "
+            f"{kind_f!r}); their log-likelihoods are not comparable here.",
+            recovery_hint="Fit both models with the same estimator.",
+        )
+    n_r, n_f = _n_obs(restricted), _n_obs(full)
+    if n_r is not None and n_f is not None and n_r != n_f:
+        raise MethodIncompatibility(
+            f"lrtest: the models were fitted on different samples "
+            f"({n_r} and {n_f} observations), so the statistic is not a "
+            "likelihood ratio.",
+            recovery_hint=(
+                "Refit the restricted model on the rows the full model "
+                "uses, for example after dropping rows with missing values "
+                "in any variable of the full model."
+            ),
+        )
+    df = len(full.params) - len(restricted.params)
+    if df <= 0:
+        raise MethodIncompatibility(
+            "lrtest: the full model has no more parameters than the "
+            f"restricted one ({len(full.params)} and "
+            f"{len(restricted.params)}).",
+            recovery_hint="Pass the restricted model first, the full second.",
+        )
+    chi2 = 2.0 * (ll_f - ll_r)
+    if chi2 < -1e-6 * max(1.0, abs(ll_f)):
+        raise MethodIncompatibility(
+            "lrtest: the restricted model has the higher log-likelihood "
+            f"({ll_r:.6f} against {ll_f:.6f}); the models are not nested, "
+            "or one of them did not converge.",
+            recovery_hint="Check that every regressor of the restricted "
+            "model is in the full model.",
+        )
+    chi2 = max(chi2, 0.0)
+    return LRTestResult(
+        chi2=chi2,
+        df=float(df),
+        p_value=float(stats.chi2.sf(chi2, df)),
+        boundary_corrected=False,
+        restricted_logL=ll_r,
+        full_logL=ll_f,
+    )
+
+
 def lrtest(
     restricted: Any,
     full: Any,
@@ -88,9 +180,15 @@ def lrtest(
     Parameters
     ----------
     restricted, full
-        Two fitted mixed models.  ``full`` should strictly nest
-        ``restricted`` — i.e. the parameter space of the restricted
-        model is a subset of the full model's.
+        Two fitted models.  ``full`` should strictly nest ``restricted``
+        — i.e. the parameter space of the restricted model is a subset
+        of the full model's. Mixed models (``sp.mixed``, ``sp.meglm``)
+        and the maximum-likelihood regressions (``sp.logit``,
+        ``sp.probit``, ``sp.poisson``, ``sp.nbreg``, ``sp.tobit``,
+        ``sp.glm``, ...) are accepted; for the second group the statistic
+        is ``2 (logL_full - logL_restricted)``, chi-squared with as many
+        degrees of freedom as the full model has extra coefficients, and
+        both fits must use the same observations.
     boundary
         Whether to apply the χ̄² boundary correction.  When ``None``
         (default) we infer it from whether the restriction touches a
@@ -136,6 +234,9 @@ def lrtest(
     >>> bool(0.0 <= res.p_value <= 1.0)
     True
     """
+    if not (hasattr(restricted, "log_likelihood") and hasattr(full, "log_likelihood")):
+        return _lrtest_regression(restricted, full)
+
     # --- 1. Family / response consistency -----------------------------
     fam_r = getattr(restricted, "family", None)
     fam_f = getattr(full, "family", None)

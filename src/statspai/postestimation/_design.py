@@ -174,12 +174,14 @@ class _FormulaDesign:
     def __init__(self, formula: str, frame: pd.DataFrame, names: Sequence[str]):
         import patsy
 
-        from ..core.utils import _coerce_string_extension_dtypes
+        from ..core.utils import _coerce_string_extension_dtypes, formula_eval_env
 
         rhs = formula.split("~", 1)[1].strip()
         frame = _coerce_string_extension_dtypes(frame)
         try:
-            di = patsy.dmatrix(rhs, frame, NA_action="drop").design_info
+            di = patsy.dmatrix(
+                rhs, frame, eval_env=formula_eval_env(), NA_action="drop"
+            ).design_info
         except Exception as exc:  # patsy raises many types
             raise MethodIncompatibility(
                 f"margins: could not rebuild the design of {formula!r} on the "

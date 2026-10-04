@@ -2353,18 +2353,167 @@ def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
         )
     select_var = m.group(1)
     z_vars = [v for v in m.group(2).split() if v]
+    # Stata's heckman is maximum likelihood unless `twostep` is given;
+    # sp.heckman's own default is the two-step estimator, so the method is
+    # always written out.
+    method = "twostep" if "twostep" in cmd.options else "ml"
     # sp.heckman takes y / x / select / z explicitly — matching its signature.
     args: Dict[str, Any] = {
         "y": y,
         "x": list(xs),
         "select": select_var,
         "z": z_vars,
+        "method": method,
     }
-    python = (
-        f"sp.heckman(data=df, y={y!r}, x={list(xs)!r}, "
-        f"select={select_var!r}, z={z_vars!r})"
-    )
-    return _emit("heckman", args, python)
+    code_pairs = [
+        "data=df",
+        f"y={y!r}",
+        f"x={list(xs)!r}",
+        f"select={select_var!r}",
+        f"z={z_vars!r}",
+        f"method={method!r}",
+    ]
+    cluster = _vce_cluster(cmd)
+    if cluster:
+        args["cluster"] = cluster
+        code_pairs.append(f"cluster={cluster!r}")
+    elif _robust_kind(cmd) == "hc1":
+        args["vce"] = "robust"
+        code_pairs.append("vce='robust'")
+    return _emit("heckman", args, f"sp.heckman({', '.join(code_pairs)})")
+
+
+def _h_truncreg(cmd: StataCommand) -> Dict[str, Any]:
+    """``truncreg y x, ll(0) ul(100)`` -> ``sp.truncreg(y=, x=, ll=, ul=)``."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("truncreg requires an outcome variable", command="truncreg")
+    args: Dict[str, Any] = {"y": y, "x": list(xs)}
+    code_pairs = ["data=df", f"y={y!r}", f"x={list(xs)!r}"]
+    for limit in ("ll", "ul"):
+        raw = cmd.options.get(limit)
+        if raw is None:
+            continue
+        try:
+            args[limit] = float(raw)
+        except (TypeError, ValueError):
+            return _emit_error(
+                f"truncreg: {limit}({raw}) is not a number; a truncation "
+                "point that varies by observation is not translated",
+                command="truncreg",
+                suggestions=[],
+            )
+        code_pairs.append(f"{limit}={args[limit]}")
+    cluster = _vce_cluster(cmd)
+    if cluster:
+        args["cluster"] = cluster
+        code_pairs.append(f"cluster={cluster!r}")
+    elif _robust_kind(cmd) == "hc1":
+        args["robust"] = "robust"
+        code_pairs.append("robust='robust'")
+    return _emit("truncreg", args, f"sp.truncreg({', '.join(code_pairs)})")
+
+
+_GLM_FAMILIES = (
+    ("gaussian", 3, "gaussian"),
+    ("normal", 3, "gaussian"),
+    ("binomial", 1, "binomial"),
+    ("bernoulli", 2, "binomial"),
+    ("poisson", 1, "poisson"),
+    ("gamma", 3, "gamma"),
+    ("igaussian", 2, "inverse_gaussian"),
+    ("ivg", 3, "inverse_gaussian"),
+)
+_GLM_LINKS = (
+    ("identity", 1, "identity"),
+    ("logit", 4, "logit"),
+    ("log", 3, "log"),
+    ("probit", 1, "probit"),
+    ("cloglog", 1, "cloglog"),
+)
+
+
+def _glm_keyword(raw: str, table: Tuple[Tuple[str, int, str], ...]) -> Optional[str]:
+    word = raw.strip().lower()
+    for full, shortest, target in table:
+        if len(word) >= shortest and full.startswith(word):
+            return target
+    return None
+
+
+def _h_glm(cmd: StataCommand) -> Dict[str, Any]:
+    """``glm y x, family(poisson) link(log) scale(x2)`` -> ``sp.glm``."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("glm requires an outcome variable", command="glm")
+    formula = _build_formula(y, xs)
+    raw_family = cmd.options.get("family")
+    family = "gaussian"
+    if raw_family is not None:
+        parts = str(raw_family).split()
+        found = _glm_keyword(parts[0], _GLM_FAMILIES) if len(parts) == 1 else None
+        if found is None:
+            return _emit_error(
+                f"glm: family({raw_family}) is not translated (a binomial "
+                "denominator and the negative binomial with a fixed "
+                "parameter have no counterpart in sp.glm)",
+                command="glm",
+                suggestions=["nbreg"],
+            )
+        family = found
+    args: Dict[str, Any] = {"formula": formula, "family": family}
+    code_pairs = ["data=df", f"family={family!r}"]
+    raw_link = cmd.options.get("link")
+    if raw_link is not None:
+        link = _glm_keyword(str(raw_link), _GLM_LINKS)
+        if link is None:
+            return _emit_error(
+                f"glm: link({raw_link}) is not translated",
+                command="glm",
+                suggestions=[],
+            )
+        args["link"] = link
+        code_pairs.append(f"link={link!r}")
+    raw_scale = cmd.options.get("scale")
+    cluster = _vce_cluster(cmd)
+    robust = _robust_kind(cmd)
+    if raw_scale is not None:
+        word = str(raw_scale).strip().lower()
+        scale: Any
+        if word in ("x2", "dev"):
+            scale = word
+        else:
+            try:
+                scale = float(word)
+            except ValueError:
+                return _emit_error(
+                    f"glm: scale({raw_scale}) is not x2, dev or a number",
+                    command="glm",
+                    suggestions=[],
+                )
+        if cluster or robust != "nonrobust":
+            return _emit_error(
+                "glm: scale() with a robust or clustered covariance is not "
+                "translated (the sandwich does not use the scale)",
+                command="glm",
+                suggestions=[],
+            )
+        args["scale"] = scale
+        code_pairs.append(f"scale={scale!r}")
+    if cluster:
+        args["cluster"] = cluster
+        code_pairs.append(f"cluster={cluster!r}")
+    elif robust == "hc1":
+        # Stata's vce(robust) for glm carries N/(N-1): sp's robust='robust'
+        args["robust"] = "robust"
+        code_pairs.append("robust='robust'")
+    for opt in ("exposure", "offset"):
+        val = cmd.options.get(opt)
+        if val:
+            args[opt] = val.split()[0]
+            code_pairs.append(f"{opt}={args[opt]!r}")
+    python = f"sp.glm({formula!r}, " + ", ".join(code_pairs) + ")"
+    return _emit("glm", args, python)
 
 
 def _h_rdplot(cmd: StataCommand) -> Dict[str, Any]:
@@ -3626,6 +3775,8 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "etpoisson": _h_etpoisson,
     "streg": _h_streg,
     "heckman": _h_heckman,
+    "truncreg": _h_truncreg,
+    "glm": _h_glm,
     "rdplot": _h_rdplot,
     "rddensity": _h_rddensity,
     "teffects": _h_teffects,

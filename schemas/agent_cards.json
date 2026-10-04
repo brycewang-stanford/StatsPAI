@@ -62947,6 +62947,17 @@
             ],
             "x-canonical": "vce"
           },
+          "scale": {
+            "description": "Factor on the model-based covariance matrix. By default the binomial and Poisson families use 1, the variance their likelihood implies. ``'x2'`` estimates it by the Pearson chi-squared over the residual degrees of freedom and ``'dev'`` by the deviance over them (Stata ``glm, scale(x2)`` / ``scale(dev)``). With ``family='poisson'``, ``scale='x2'`` is the quasi-Poisson",
+            "enum": [
+              "x2",
+              "dev"
+            ],
+            "type": [
+              "number",
+              "string"
+            ]
+          },
           "tol": {
             "default": 1e-08,
             "description": "Convergence tolerance on the relative change in deviance.",
@@ -63922,8 +63933,11 @@
       "parameters": {
         "properties": {
           "hypothesis": {
-            "description": "Hypothesis specification (Stata ``test`` syntax). Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it.",
-            "type": "string"
+            "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "result": {
             "description": "Fitted model with ``.params`` and ``.std_errors``; restrictions that involve several coefficients also need its covariance matrix.",
@@ -92435,11 +92449,11 @@
             "type": "boolean"
           },
           "full": {
-            "description": "Two fitted mixed models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's.",
+            "description": "Two fitted models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's. Mixed models (``sp.mixed``, ``sp.meglm``) and the maximum-likelihood regressions (``sp.logit``, ``sp.probit``, ``sp.poisson``, ``sp.nbreg``, ``sp.tobit``, ``sp.glm``, ...) are accepted; for the second group the statistic is ``2 (logL_full - logL_restricted)``, chi-squared with as many degrees of freedom as the full model has extra coefficients, and both fits must use the same observations.",
             "type": "string"
           },
           "restricted": {
-            "description": "Two fitted mixed models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's.",
+            "description": "Two fitted models. ``full`` should strictly nest ``restricted`` -- i.e. the parameter space of the restricted model is a subset of the full model's. Mixed models (``sp.mixed``, ``sp.meglm``) and the maximum-likelihood regressions (``sp.logit``, ``sp.probit``, ``sp.poisson``, ``sp.nbreg``, ``sp.tobit``, ``sp.glm``, ...) are accepted; for the second group the statistic is ``2 (logL_full - logL_restricted)``, chi-squared with as many degrees of freedom as the full model has extra coefficients, and both fits must use the same observations.",
             "type": "string"
           }
         },

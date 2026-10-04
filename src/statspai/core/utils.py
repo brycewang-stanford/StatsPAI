@@ -11,6 +11,85 @@ from patsy import dmatrices
 
 _BARE_NAME_RE = re.compile(r"^[A-Za-z_]\w*$")
 
+# Functions a formula may call without the ``np.`` prefix, so that a formula
+# written for R or Stata (``log(wage) ~ educ + sqrt(exper)``) reads the same
+# here. A data column of the same name takes precedence, as in patsy.
+_FORMULA_FUNCTIONS: Dict[str, Any] = {
+    "np": np,
+    "log": np.log,
+    "log2": np.log2,
+    "log10": np.log10,
+    "log1p": np.log1p,
+    "exp": np.exp,
+    "sqrt": np.sqrt,
+}
+
+
+def formula_eval_env() -> Any:
+    """The namespace in which every StatsPAI formula is evaluated."""
+    from patsy import EvalEnvironment
+
+    return EvalEnvironment([_FORMULA_FUNCTIONS])
+
+
+def evaluate_formula_expression(expr: str, data: pd.DataFrame) -> pd.Series:
+    """One formula expression (``np.log(wage)``, ``I(a / b)``) as a column.
+
+    Rows on which it cannot be evaluated are missing in the result. An
+    expression that expands to several columns (``C(g)``, ``a * b``) is
+    refused: an outcome or an endogenous regressor is a single variable.
+    """
+    from patsy import NAAction, dmatrix
+
+    from ..exceptions import MethodIncompatibility
+
+    frame = _coerce_string_extension_dtypes(data)
+    try:
+        design = dmatrix(
+            "0 + " + expr,
+            frame,
+            eval_env=formula_eval_env(),
+            return_type="dataframe",
+            NA_action=NAAction(on_NA="drop"),
+        )
+    except Exception as exc:
+        raise MethodIncompatibility(
+            f"Could not evaluate {expr!r} on the data: {exc}",
+            recovery_hint=(
+                "Check the column names; log, exp, sqrt and np.<function> "
+                "are available, and arithmetic goes inside I(...)."
+            ),
+            diagnostics={"expression": expr},
+        ) from exc
+    if design.shape[1] != 1:
+        raise MethodIncompatibility(
+            f"{expr!r} expands to {design.shape[1]} columns "
+            f"({list(design.columns)}); a single variable is needed here.",
+            recovery_hint="Create the variable as a column first.",
+            diagnostics={"expression": expr},
+        )
+    return design.iloc[:, 0].astype(float).reindex(data.index)
+
+
+def formula_to_columns(
+    formula: str, data: pd.DataFrame
+) -> Tuple[pd.DataFrame, str, List[str]]:
+    """Evaluate ``y ~ terms`` and return ``(frame, y_name, x_names)``.
+
+    For estimators that work from column names: the transformed outcome and
+    every built regressor (``np.log(x)``, ``I(x**2)``, ``C(g)``, ``a:b``)
+    become columns of a copy of ``data``, restricted to the rows on which
+    the formula could be evaluated. The intercept is not among ``x_names``.
+    """
+    y_df, X_df = create_design_matrices(formula, data)
+    frame = data.loc[X_df.index].copy()
+    y_name = str(y_df.columns[0])
+    frame[y_name] = np.asarray(y_df.iloc[:, 0], dtype=float)
+    x_names = [str(c) for c in X_df.columns if c != "Intercept"]
+    for col in x_names:
+        frame[col] = np.asarray(X_df[col], dtype=float)
+    return frame, y_name, x_names
+
 
 def _split_additive_formula_terms(part: str) -> List[str]:
     """Split simple ``+`` formulas, preserving common intercept controls."""
@@ -291,11 +370,31 @@ def create_design_matrices(
     data = _coerce_string_extension_dtypes(data)
 
     try:
-        y, X = dmatrices(formula, data, return_type=return_type)
+        y, X = dmatrices(
+            formula, data, eval_env=formula_eval_env(), return_type=return_type
+        )
         return y, X
-    except Exception:
+    except Exception as patsy_error:
         # Fallback to manual parsing if patsy fails
         parsed = parse_formula(formula)
+        unknown = [
+            name
+            for name in [parsed["dependent"]] + list(parsed["exogenous"])
+            if name not in data.columns
+        ]
+        if unknown:
+            # the manual parser reads column names only; without them the
+            # patsy message is the one that says what is wrong
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"Could not evaluate the formula {formula!r}: {patsy_error}",
+                recovery_hint=(
+                    "Check the column names and the functions the formula "
+                    "calls; log, exp, sqrt and np.<function> are available."
+                ),
+                diagnostics={"formula": formula, "unknown_terms": unknown},
+            ) from patsy_error
 
         y = data[parsed["dependent"]].values
         if return_type == "dataframe":
