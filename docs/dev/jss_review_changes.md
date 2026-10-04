@@ -1564,3 +1564,36 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the pass over the de Chaisemartin-D'Haultfoeuille DiD textbook
+
+- **Commits.** `b7b4166f` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (Track A modules
+  01 03 05 13 14 15 17 24 25 26 27 38 51 53 54 55 56 65 66 78 81 86) and
+  `tests/orig_parity/results/_implementation_trace.json` (modules 01 04
+  04b 08 09). The sources that staled them are in the same commit:
+  `src/statspai/regression/ols.py` (`dfadjust=`; the CR2 / CR3 fits store
+  their full covariance), `src/statspai/did/did_multiplegt_dyn.py`
+  (non-binary treatments, analytic joint tests, `same_switchers`,
+  `controls=`), `src/statspai/did/did_multiplegt.py` (non-binary
+  treatments), `src/statspai/did/sun_abraham.py` (observation shares,
+  `window_rule=`), `src/statspai/did/wooldridge_did.py` (a docstring),
+  `src/statspai/synth/fect.py` (large panels, a convergence warning) and
+  `src/statspai/__init__.py` (one export).
+- **Reason.** A run of the four applications of de Chaisemartin and
+  D'Haultfoeuille's DiD textbook against Stata 18
+  (`docs/dev/2026-10-05-dcdh-did-textbook-review.md`). None of the edits
+  changes a number a Track A module computes:
+  `python tests/r_parity/verify_reproduce_py.py --no-report` on the 22
+  modules reported 22 reproduce, 0 drift (fixtures byte-identical, worst
+  relative difference 1.8e-12). The Track A fixtures of modules 05, 78 and
+  81 are balanced panels with a binary treatment, where the corrected
+  code paths coincide with the old ones.
+- **Effect on the paper.** None. Checked field by field against the
+  version before `b7b4166f`: in the 22 Track A modules and the 5
+  original-data modules only `exercised_sources` digests and `seconds`
+  differ. No estimate, standard error or table cell is read from these
+  files.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
