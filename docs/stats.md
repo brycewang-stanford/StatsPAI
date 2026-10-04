@@ -39,21 +39,21 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 50,754 | 68 | 96 |
+| `did` | 50,730 | 68 | 96 |
 | `synth` | 29,536 | 39 | 55 |
-| `agent` | 25,831 | 48 | 4 |
-| `regression` | 23,196 | 28 | 43 |
+| `agent` | 26,326 | 48 | 4 |
+| `regression` | 23,284 | 28 | 43 |
 | `rd` | 21,541 | 32 | 55 |
 | `smart` | 16,666 | 21 | 31 |
-| `forest` | 15,825 | 17 | 31 |
+| `forest` | 15,874 | 17 | 31 |
 | `output` | 13,980 | 22 | 42 |
-| `matching` | 11,390 | 17 | 25 |
+| `matching` | 11,508 | 17 | 25 |
 | `core` | 11,162 | 19 | 6 |
 | `panel` | 11,142 | 18 | 21 |
-| `inference` | 10,804 | 23 | 32 |
+| `inference` | 10,868 | 23 | 32 |
 | `decomposition` | 9,912 | 19 | 32 |
-| `diagnostics` | 9,328 | 16 | 27 |
-| `dml` | 9,023 | 24 | 16 |
+| `diagnostics` | 9,543 | 17 | 28 |
+| `dml` | 9,394 | 24 | 16 |
 | `iv` | 8,862 | 17 | 10 |
 | `timeseries` | 7,992 | 16 | 28 |
 | `spatial` | 7,855 | 30 | 38 |
@@ -70,7 +70,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `survival` | 4,166 | 6 | 15 |
 | `qte` | 4,152 | 9 | 13 |
 | `causal_discovery` | 4,110 | 11 | 20 |
-| `dag` | 3,776 | 9 | 23 |
+| `dag` | 4,026 | 9 | 23 |
 | `tmle` | 3,693 | 6 | 11 |
 | `structural` | 3,576 | 9 | 12 |
 | `network` | 3,514 | 9 | 33 |
@@ -81,16 +81,16 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `causal_llm` | 3,026 | 10 | 15 |
 | `crossval` | 2,809 | 7 | 2 |
 | `postestimation` | 2,656 | 6 | 12 |
+| `rlasso` | 2,620 | 7 | 10 |
 | `conformal_causal` | 2,597 | 9 | 21 |
 | `epi` | 2,523 | 6 | 20 |
-| `rlasso` | 2,510 | 7 | 10 |
 | `interference` | 2,460 | 10 | 20 |
 | `datasets` | 2,404 | 4 | 3 |
 | `mediation` | 2,188 | 5 | 6 |
 | `fixest` | 2,121 | 3 | 4 |
 | `question` | 2,102 | 3 | 6 |
 | `policy_learning` | 2,072 | 5 | 8 |
-| `proximal` | 2,040 | 8 | 13 |
+| `proximal` | 2,052 | 8 | 13 |
 | `nonparametric` | 1,923 | 4 | 11 |
 | `causal_text` | 1,768 | 4 | 4 |
 | `bcf` | 1,732 | 5 | 8 |
@@ -126,7 +126,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **508,649** | **885** | **1298** |
+| **Total** | **510,944** | **887** | **1300** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

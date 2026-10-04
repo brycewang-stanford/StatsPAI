@@ -781,6 +781,12 @@ def _fit_binary(
         "var_names": var_names,
         # Likelihood-based: z / chi2 inference, as Stata's logit/probit.
         "inference": "z",
+        # Unweighted per-observation log-likelihood (sp.vuong).
+        "llobs": np.where(
+            y_vec == 1,
+            np.log(np.maximum(p_hat, 1e-300)),
+            np.log(np.maximum(1.0 - p_hat, 1e-300)),
+        ),
     }
 
     diagnostics = {

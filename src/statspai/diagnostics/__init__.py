@@ -17,6 +17,7 @@ from .rosenbaum import RosenbaumResult, rosenbaum_bounds, rosenbaum_gamma
 from .sensemakr import sensemakr
 from .sensitivity import mccrary_test, oster_bounds
 from .tests import diagnose, het_test, reset_test, vif
+from .vuong import vuong
 from .weak_iv import (
     WeakRobustResult,
     anderson_rubin_test,
@@ -32,6 +33,7 @@ __all__ = [
     "het_test",
     "reset_test",
     "cmtest",
+    "vuong",
     "vif",
     "sensemakr",
     "rddensity",

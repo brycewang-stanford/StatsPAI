@@ -27,9 +27,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 368 |
+| **Compared against R/Stata** (T2) | bit-exact | 369 |
 | | aligned | 53 |
-| | **subtotal** | **421** |
+| | **subtotal** | **422** |
 | **No external software reference** | analytical-only (T1) | 338 |
 | | external-replication (published numbers) | 6 |
 | | **subtotal** | **344** |
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 421 | 753 | 754 | 55.8% |
+| estimator callables | 422 | 754 | 755 | 55.9% |
 | infrastructure (parity N/A) | 0 | 9 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 325 | 0.0% |
-| **all registered** | 421 | 765 | 1299 | 32.4% |
+| **all registered** | 422 | 766 | 1300 | 32.5% |
 
 ### Coverage by estimator family
 
@@ -57,7 +57,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
 | inference | 18 | 28 | 28 |
-| diagnostics | 18 | 24 | 24 |
+| diagnostics | 19 | 25 | 25 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
 | mendelian | 18 | 20 | 20 |
@@ -95,7 +95,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 368 functions
+## bit-exact — 369 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -459,6 +459,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `unified_sensitivity` | R EValue::evalues.OLS; sensemakr::sensemakr (rv_q, rv_qa) | EValue 4.1.4; sensemakr 0.1.6 | 1e-10 rel | — / — | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
 | `var` | vars::VAR | R 4.5.2; vars 1.6.1 | rel_est<=1e-06, rel_se<=1e-06 | 3.1e-15 / 6.6e-15 | [`33_var.py`](../tests/r_parity/33_var.py) (+2) |
 | `vif` | R car::vif | ivmodel 1.9.1; car 3.1.5; metafor 5.0.1 | 2.0e-16 on every variance inflation factor, once the returned values stopped being rounded to two decimals. | — / — | [`test_weakiv_meta_parity.py`](../tests/reference_parity/test_weakiv_meta_parity.py) |
+| `vuong` | R pscl 1.5.9 `vuong`, on glm, MASS::glm.nb, zeroinfl and hurdle fits; Stata 18 MP `zip` / `zinb`, forcevuong | pscl 1.5.9; Stata 18 MP | Raw, AIC-corrected and BIC-corrected statistics at 1e-6 on five model pairs (observed 6e-8 at worst, which is where R's optimisers stopped); the per-observation log-likelihoods under them at 1e-7 against R's own densities. pscl::vuong only prints, so the statistic is rebuilt in the R script and checked against the printed lines. Stata's forcevuong statistic for the two zero-inflated pairs agrees at 1e-6 (observed 2e-10 and 1e-9). | — / — | [`test_vuong_pscl_parity.py`](../tests/reference_parity/test_vuong_pscl_parity.py) |
 | `wild_cluster_boot` | R fwildclusterboot::boottest; Stata boottest (WCR, Rademacher, full enumeration) | R 4.5.2; fwildclusterboot 0.14.3; Stata 18; boottest 4.5.3 | p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14) | — / — | [`test_inference_sens_R_parity.py`](../tests/reference_parity/test_inference_sens_R_parity.py) (+3) |
 | `wild_cluster_bootstrap` | R fwildclusterboot::boottest; Stata boottest (WCR, Rademacher, full enumeration) | R 4.5.2; fwildclusterboot 0.14.3; Stata 18; boottest 4.5.3 | p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14) | — / — | [`test_inference_sens_R_parity.py`](../tests/reference_parity/test_inference_sens_R_parity.py) (+3) |
 | `wild_cluster_ci_inv` | R fwildclusterboot::boottest confidence interval (uniroot tol 1e-13) | R 4.5.2; fwildclusterboot 0.14.3 | CI endpoints 1e-9 rel (observed 4.8e-12) | — / — | [`test_inference_sens_R_parity.py`](../tests/reference_parity/test_inference_sens_R_parity.py) (+2) |

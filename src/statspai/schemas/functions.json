@@ -667,6 +667,27 @@
     }
   },
   {
+    "description": "Vuong test between two non-nested maximum likelihood fits on the same observations, with AIC and BIC corrections. Validation: certified parity evidence. Do NOT use when: One model is a restriction of the other: use sp.lrtest; The question is whether there is zero inflation: the statistic is not standard normal under that null.",
+    "name": "vuong",
+    "parameters": {
+      "properties": {
+        "model1": {
+          "description": "First fit (count, zero-modified, logit or probit)",
+          "type": "string"
+        },
+        "model2": {
+          "description": "Second fit, on the same rows and outcome",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model1",
+        "model2"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Conditional moment tests (normality, heteroskedasticity, skewness, kurtosis) of a probit or tobit fit. Validation: certified parity evidence.",
     "name": "cmtest",
     "parameters": {

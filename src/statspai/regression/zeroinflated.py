@@ -303,6 +303,11 @@ def zip_model(
     -------
     EconometricResults
         Coefficients for both equations, Vuong test, diagnostics.
+        ``diagnostics['vuong_stat']`` compares the fit with a Poisson
+        regression fitted on its own. Read it as a description of fit,
+        not as a test for zero inflation: the two models are nested on a
+        boundary and the statistic is not standard normal under the null
+        [@wilson2015misuse].
 
     Examples
     --------
@@ -437,8 +442,15 @@ def zip_model(
     mu_hat = np.exp(np.clip(X_count @ beta_hat, -20, 20))
     pi_hat = _logit(X_inflate @ gamma_hat)
 
-    ll_zip_obs = neg_loglik_obs(theta_hat)
-    ll_poisson_obs = _log_poisson_pmf(Y, mu_hat)
+    # The comparison model is the Poisson regression fitted on its own. Before
+    # 1.39 the Poisson density was evaluated at the ZIP count coefficients,
+    # which is not a maximum of the Poisson likelihood and overstated the
+    # statistic in favour of ZIP.
+    from .count import _poisson_irls
+
+    ll_zip_obs = np.real(obs_loglik(theta_hat))
+    mu_poisson = _poisson_irls(Y, X_count, tol=1e-12)[1]
+    ll_poisson_obs = _log_poisson_pmf(Y, mu_poisson)
     vuong = _vuong_test(ll_zip_obs, ll_poisson_obs)
 
     # --- Predicted values ---
@@ -469,6 +481,9 @@ def zip_model(
 
     data_info = {
         "n_obs": n,
+        "nobs": n,
+        "y": Y,
+        "llobs": ll_zip_obs,
         "dependent_var": dep_var,
         "df_resid": n - k_total,
         # Likelihood-based: z / chi2 inference, as Stata's zip / zinb.
@@ -757,8 +772,15 @@ def zinb(
 
     # Vuong test: ZINB vs plain NB
     mu_hat = np.exp(np.clip(X_count @ beta_hat, -20, 20))
-    ll_zinb_obs = neg_loglik_obs(theta_hat)
-    ll_nb_obs = _log_nb2_pmf(Y, mu_hat, alpha_hat)
+    # The comparison model is the NB2 regression fitted on its own (see
+    # zip_model).
+    from ._negbin import negbin_joint
+    from .count import _nb2_fit
+
+    ll_zinb_obs = np.real(obs_loglik(theta_hat))
+    b_nb, _, a_nb, _, _ = _nb2_fit(Y, X_count)
+    nb = negbin_joint(Y, X_count, None, b_nb, a_nb, nb2=True)
+    ll_nb_obs = _log_nb2_pmf(Y, nb.mu, float(nb.dispersion))
     vuong = _vuong_test(ll_zinb_obs, ll_nb_obs)
 
     # Predicted values
@@ -791,6 +813,9 @@ def zinb(
 
     data_info = {
         "n_obs": n,
+        "nobs": n,
+        "y": Y,
+        "llobs": ll_zinb_obs,
         "dependent_var": dep_var,
         "df_resid": n - k_total,
         # Likelihood-based: z / chi2 inference, as Stata's zip / zinb.
@@ -1120,6 +1145,9 @@ def hurdle(
 
     data_info = {
         "n_obs": n,
+        "nobs": n,
+        "y": Y,
+        "llobs": np.real(obs_loglik(theta_hat)),
         "dependent_var": dep_var,
         "df_resid": n - k_total,
         # Likelihood-based: z / chi2 inference.

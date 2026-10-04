@@ -33707,6 +33707,27 @@
     "name": "vif"
   },
   {
+    "description": "Vuong test between two non-nested maximum likelihood fits on the same observations, with AIC and BIC corrections. Validation: certified parity evidence. Do NOT use when: One model is a restriction of the other: use sp.lrtest; The question is whether there is zero inflation: the statistic is not standard normal under that null. Assumptions: The two models are non-nested and do not coincide at the truth; Both are fitted by maximum likelihood on the same observations. Pre-conditions: Both fits come from sp.poisson, sp.nbreg, sp.zip_model, sp.zinb, sp.hurdle, sp.logit or sp.probit, without weights. Failure modes: models use different observations or outcomes -> Fit both models on the same rows and the same dependent variable. Alternatives: sp.lrtest, sp.estat. Typical minimum N: 200.",
+    "input_schema": {
+      "properties": {
+        "model1": {
+          "description": "First fit (count, zero-modified, logit or probit)",
+          "type": "string"
+        },
+        "model2": {
+          "description": "Second fit, on the same rows and outcome",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model1",
+        "model2"
+      ],
+      "type": "object"
+    },
+    "name": "vuong"
+  },
+  {
     "description": "Stata-style unified weak-instrument-robust diagnostic panel. Validation: certified parity evidence. Assumptions: Instrument exogeneity and the exclusion restriction hold; these tools repair inference under weak identification, not invalidity; Anderson-Rubin / conditional LR sets are exact under homoskedasticity and asymptotically valid with robust weights; they can be unbounded when identification is very weak -- that is information, not an error; Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb). Pre-conditions: A fitted IV result (or y, d, z arrays) with the same variance estimator (homoskedastic / robust / clustered) used throughout; formula includes the (endog ~ instruments) parenthesised block; at least as many instruments as endogenous regressors (order condition). Failure modes: Unbounded or empty Anderson-Rubin confidence set -> Report it as is: an unbounded set means the data do not pin the effect down; an empty set rejects the over-identifying restrictions; Effective F below the Montiel Olea-Pflueger threshold -> Do not report 2SLS t-ratios; use sp.anderson_rubin_ci or sp.tF_adjustment for the reported interval; First-stage F < 1...",
     "input_schema": {
       "properties": {

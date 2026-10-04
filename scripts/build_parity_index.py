@@ -1166,6 +1166,36 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "`ivpoisson cfunction` has no counterpart."
         ),
     },
+    "vuong": {
+        "status": "bit-exact",
+        "reference": (
+            "R pscl 1.5.9 `vuong`, on glm, MASS::glm.nb, zeroinfl and hurdle "
+            "fits; Stata 18 MP `zip` / `zinb`, forcevuong"
+        ),
+        "reference_versions": {"pscl": "1.5.9", "Stata": "18 MP"},
+        "tolerance": (
+            "Raw, AIC-corrected and BIC-corrected statistics at 1e-6 on "
+            "five model pairs (observed 6e-8 at worst, which is where R's "
+            "optimisers stopped); the per-observation log-likelihoods "
+            "under them at 1e-7 against R's own densities. pscl::vuong "
+            "only prints, so the statistic is rebuilt in the R script and "
+            "checked against the printed lines. Stata's forcevuong "
+            "statistic for the two zero-inflated pairs agrees at 1e-6 "
+            "(observed 2e-10 and 1e-9)."
+        ),
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_vuong_pscl_parity.py"],
+        "note": (
+            "pscl counts parameters with length(coef()), which leaves a "
+            "negative binomial dispersion out. Its corrected statistics "
+            "differ from StatsPAI's when exactly one model of a pair is "
+            "negative binomial; the test reproduces pscl's print from its "
+            "count and asserts the two differ. The same comparison found "
+            "that the statistic sp.zip_model and sp.zinb reported on their "
+            "own used a comparison model that was not a maximum of its "
+            "likelihood (13.4 where the test is 8.69)."
+        ),
+    },
     "cmtest": {
         "status": "bit-exact",
         "reference": "R micsr 0.1-5 `cmtest` (Croissant 2025, Microeconometrics with R)",

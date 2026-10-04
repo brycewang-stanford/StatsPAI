@@ -111,6 +111,25 @@ depended on the order of the rows.
 The point estimates of `teffects ipw` were right before; its standard
 error and everything about `teffects aipw` were not Stata's. The direct
 calls `sp.ipw` and `sp.aipw` keep their defaults.
+## 1.38.0 → next: ⚠️ the Vuong statistic of `sp.zip_model` and `sp.zinb` is smaller
+
+**What changed.** `result.diagnostics['vuong_stat']` and `['vuong_p']`
+compare the zero-inflated fit with the plain Poisson (for `sp.zinb`, the
+plain negative binomial) regression. The comparison model used to be
+evaluated at the zero-inflated model's count coefficients. It is now
+fitted on its own by maximum likelihood, which is what the test is
+defined on and what R `pscl::vuong` computes. The old statistic was too
+large in favour of the zero-inflated model.
+
+**Who is affected.** Anyone who reported that statistic. Coefficients,
+standard errors, the log-likelihood, AIC and BIC do not change.
+
+**What to do.** Re-run and report the new value. `sp.vuong(fit_a, fit_b)`
+gives the same statistic for any two fitted count models, with AIC and
+BIC corrections. Do not read it as a test for zero inflation: a
+zero-inflated model and its plain counterpart are nested on a boundary,
+and the statistic is not standard normal under that null (Wilson 2015,
+doi:10.1016/j.econlet.2014.12.029).
 
 ## 1.37.0 → 1.38.0: `sp.write_data` folds `<var>__miss` columns back into `<var>` in a .dta file
 

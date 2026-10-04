@@ -488,9 +488,12 @@ def _poisson_loglik(
     y: np.ndarray, mu: np.ndarray, weights: Optional[np.ndarray] = None
 ) -> float:
     """Poisson log-likelihood; the weighted sum when ``weights`` is given."""
-    # l = sum(w * (y*log(mu) - mu - log(y!)))
-    terms = y * np.log(np.maximum(mu, 1e-300)) - mu - special.gammaln(y + 1)
-    return float(np.sum(_obs_weighted(terms, weights)))
+    return float(np.sum(_obs_weighted(_poisson_llobs(y, mu), weights)))
+
+
+def _poisson_llobs(y: np.ndarray, mu: np.ndarray) -> np.ndarray:
+    """Per-observation Poisson log-likelihood ``y log(mu) - mu - log(y!)``."""
+    return np.asarray(y * np.log(np.maximum(mu, 1e-300)) - mu - special.gammaln(y + 1))
 
 
 # ---------------------------------------------------------------------------
@@ -560,34 +563,42 @@ def _nb2_loglik(
     y: np.ndarray, mu: np.ndarray, alpha: float, weights: Optional[np.ndarray] = None
 ) -> float:
     """NB2 log-likelihood: Var(y) = mu + alpha * mu^2 (weighted sum with weights)."""
+    return float(np.sum(_obs_weighted(_nb2_llobs(y, mu, alpha), weights)))
+
+
+def _nb2_llobs(y: np.ndarray, mu: np.ndarray, alpha: float) -> np.ndarray:
+    """Per-observation NB2 log-likelihood."""
     r = 1.0 / max(alpha, 1e-300)
-    # Sum lgamma(y + r) - lgamma(r) - lgamma(y+1)
+    # lgamma(y + r) - lgamma(r) - lgamma(y+1)
     # plus r*log(r/(r+mu)) + y*log(mu/(r+mu)).
-    terms = (
+    return np.asarray(
         special.gammaln(y + r)
         - special.gammaln(r)
         - special.gammaln(y + 1)
         + r * np.log(r / (r + mu))
         + y * np.log(np.maximum(mu, 1e-300) / (r + mu))
     )
-    return float(np.sum(_obs_weighted(terms, weights)))
 
 
 def _nb1_loglik(
     y: np.ndarray, mu: np.ndarray, delta: float, weights: Optional[np.ndarray] = None
 ) -> float:
     """NB1 log-likelihood: Var(y) = mu + delta * mu  =>  Var = mu*(1+delta)."""
+    return float(np.sum(_obs_weighted(_nb1_llobs(y, mu, delta), weights)))
+
+
+def _nb1_llobs(y: np.ndarray, mu: np.ndarray, delta: float) -> np.ndarray:
+    """Per-observation NB1 log-likelihood."""
     # Parameterize as r = mu/delta  so Var = mu + delta*mu
     delta = max(delta, 1e-300)
     r = mu / delta
-    terms = (
+    return np.asarray(
         special.gammaln(y + r)
         - special.gammaln(r)
         - special.gammaln(y + 1)
         + r * np.log(r / (r + mu))
         + y * np.log(np.maximum(mu, 1e-300) / (r + mu))
     )
-    return float(np.sum(_obs_weighted(terms, weights)))
 
 
 def _nb2_fit(
@@ -1442,6 +1453,8 @@ def poisson(
         "var_names": var_names,
         # Likelihood-based: z / chi2 inference, as Stata's poisson.
         "inference": "z",
+        # Unweighted per-observation log-likelihood (sp.vuong).
+        "llobs": _poisson_llobs(y_arr, mu),
         "offset": offset,
         "exposure": exposure,
         "weights": weights,
@@ -1740,6 +1753,10 @@ def nbreg(
         "var_names": var_names,
         # Likelihood-based: z / chi2 inference, as Stata's nbreg.
         "inference": "z",
+        # Unweighted per-observation log-likelihood (sp.vuong).
+        "llobs": (_nb2_llobs if is_nb2 else _nb1_llobs)(y_arr, mu, disp_param),
+        # Coefficients plus the dispersion, which is not in ``params``.
+        "n_params": k + 1,
     }
 
     diagnostics = {

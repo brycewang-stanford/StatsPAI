@@ -1649,6 +1649,60 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="vuong",
+            category="diagnostics",
+            description=(
+                "Vuong test between two non-nested maximum likelihood fits "
+                "on the same observations, with AIC and BIC corrections."
+            ),
+            params=[
+                ParamSpec(
+                    "model1",
+                    "object",
+                    True,
+                    description="First fit (count, zero-modified, logit or probit)",
+                ),
+                ParamSpec(
+                    "model2",
+                    "object",
+                    True,
+                    description="Second fit, on the same rows and outcome",
+                ),
+            ],
+            returns="dict",
+            example="sp.vuong(sp.nbreg(data=df, y='y', x=xs), "
+            "sp.hurdle(data=df, y='y', x=xs))",
+            tags=["diagnostics", "model selection", "non-nested", "count"],
+            reference="Vuong (1989)",
+            assumptions=[
+                "The two models are non-nested and do not coincide at the truth.",
+                "Both are fitted by maximum likelihood on the same observations.",
+            ],
+            pre_conditions=[
+                "Both fits come from sp.poisson, sp.nbreg, sp.zip_model, "
+                "sp.zinb, sp.hurdle, sp.logit or sp.probit, without weights.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="models use different observations or outcomes",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Fit both models on the same rows and the same "
+                    "dependent variable.",
+                    alternative="",
+                ),
+            ],
+            not_recommended_when=[
+                "One model is a restriction of the other: use sp.lrtest.",
+                "The question is whether there is zero inflation: the "
+                "statistic is not standard normal under that null.",
+            ],
+            alternatives=["lrtest", "estat"],
+            typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="cmtest",
             category="diagnostics",
             description=(

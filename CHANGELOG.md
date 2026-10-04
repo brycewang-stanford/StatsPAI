@@ -4,9 +4,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+- **The Vuong statistic reported by `sp.zip_model` and `sp.zinb` was too
+  large.** `diagnostics['vuong_stat']` compared the zero-inflated fit with
+  a Poisson (negative binomial) density evaluated at the zero-inflated
+  model's own count coefficients. That is not the maximum of the
+  comparison model's likelihood, so the comparison model looked worse than
+  it is. It is now the regression fitted on its own, as in R
+  `pscl::vuong` and in Vuong (1989). On the test data the statistic goes
+  from 13.42 to 8.69 for the Poisson pair and from 9.16 to 3.70 for the
+  negative binomial pair, and both now agree with R and with Stata 18
+  (`forcevuong`) to 1e-6. Coefficients,
+  standard errors and log-likelihoods are unchanged. The docstrings also
+  say that this statistic is not a valid test for zero inflation (Wilson
+  2015). See `MIGRATION.md`.
+
 ### Added
 
-Four functions from a pass over Croissant (2025), *Microeconometrics with
+Five functions from a pass over Croissant (2025), *Microeconometrics with
 R*, and its companion package `micsr`. The book's chapters on binary,
 count and censored outcomes use estimators StatsPAI did not have. Notes
 are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
@@ -34,6 +50,16 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   statistics agree with R `micsr::cmtest` to 1e-9 for the tobit and 1e-6
   for the probit, and reject 5% of the time under the null in simulation
   (`tests/reference_parity/test_cmtest_micsr_parity.py`).
+- **`sp.vuong`** compares two non-nested maximum likelihood fits on the
+  same observations and returns the Vuong statistic with its AIC and BIC
+  corrections. It takes fits from `sp.poisson`, `sp.nbreg`,
+  `sp.zip_model`, `sp.zinb`, `sp.hurdle`, `sp.logit` and `sp.probit`,
+  which now carry their per-observation log-likelihood in
+  `data_info['llobs']`. Statistics agree with R `pscl::vuong` to 1e-6 on
+  five model pairs. `pscl` leaves a negative binomial dispersion out of
+  its parameter count and StatsPAI does not, so the corrected statistics
+  differ when exactly one model is negative binomial
+  (`tests/reference_parity/test_vuong_pscl_parity.py`).
 - `sp.from_stata` and `sp.stata` translate `ivprobit`, `ivtobit` and
   `ivpoisson gmm`. `ivtobit` without `ll()` is written as `ll=None`,
   because `sp.ivtobit` censors at zero by default and Stata does not.

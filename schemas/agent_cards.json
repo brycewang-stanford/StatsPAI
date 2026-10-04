@@ -1566,6 +1566,104 @@
   {
     "alias_of": null,
     "alternatives": [
+      "lrtest",
+      "estat"
+    ],
+    "assumptions": [
+      "The two models are non-nested and do not coincide at the truth.",
+      "Both are fitted by maximum likelihood on the same observations."
+    ],
+    "category": "diagnostics",
+    "cost_profile": "",
+    "description": "Vuong test between two non-nested maximum likelihood fits on the same observations, with AIC and BIC corrections. Validation: certified parity evidence. Do NOT use when: One model is a restriction of the other: use sp.lrtest; The question is whether there is zero inflation: the statistic is not standard normal under that null.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "R pscl 1.5.9 `vuong`, on glm, MASS::glm.nb, zeroinfl and hurdle fits; Stata 18 MP `zip` / `zinb`, forcevuong",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "pscl": "1.5.9"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_vuong_pscl_parity.py"
+      ],
+      "tolerance": "Raw, AIC-corrected and BIC-corrected statistics at 1e-6 on five model pairs (observed 6e-8 at worst, which is where R's optimisers stopped); the per-observation log-likelihoods under them at 1e-7 against R's own densities. pscl::vuong only prints, so the statistic is rebuilt in the R script and checked against the printed lines. Stata's forcevuong statistic for the two zero-inflated pairs agrees at 1e-6 (observed 2e-10 and 1e-9)."
+    },
+    "example": "sp.vuong(sp.nbreg(data=df, y='y', x=xs), sp.hurdle(data=df, y='y', x=xs))",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fit both models on the same rows and the same dependent variable.",
+        "symptom": "models use different observations or outcomes"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "vuong",
+    "not_recommended_when": [
+      "One model is a restriction of the other: use sp.lrtest.",
+      "The question is whether there is zero inflation: the statistic is not standard normal under that null."
+    ],
+    "pre_conditions": [
+      "Both fits come from sp.poisson, sp.nbreg, sp.zip_model, sp.zinb, sp.hurdle, sp.logit or sp.probit, without weights."
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Vuong (1989)",
+    "returns": {
+      "class": "dict",
+      "description": "dict",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Vuong test between two non-nested maximum likelihood fits on the same observations, with AIC and BIC corrections. Validation: certified parity evidence. Do NOT use when: One model is a restriction of the other: use sp.lrtest; The question is whether there is zero inflation: the statistic is not standard normal under that null.",
+      "name": "vuong",
+      "parameters": {
+        "properties": {
+          "model1": {
+            "description": "First fit (count, zero-modified, logit or probit)",
+            "type": "string"
+          },
+          "model2": {
+            "description": "Second fit, on the same rows and outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model1",
+          "model2"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs R pscl 1.5.9 `vuong`, on glm, MASS::glm.nb, zeroinfl and hurdle fits; Stata 18 MP `zip` / `zinb`, forcevuong [Stata 18 MP, pscl 1.5.9]; tolerance Raw, AIC-corrected and BIC-corrected statistics at 1e-6 on five model pairs (observed 6e-8 at worst, which is where R's optimisers stopped); the per-observation log-likelihoods under them at 1e-7 against R's own densities. pscl::vuong only prints, so the statistic is rebuilt in the R script and checked against the printed lines. Stata's forcevuong statistic for the two zero-inflated pairs agrees at 1e-6 (observed 2e-10 and 1e-9). -- tests/reference_parity/test_vuong_pscl_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "het_test",
       "reset_test",
       "estat"
@@ -1835,6 +1933,7 @@
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
+      "tests/reference_parity/test_vuong_pscl_parity.py",
       "API/unit contract evidence: tests/test_count_panel_nbreg.py"
     ],
     "validation_status": "certified"
@@ -78974,7 +79073,7 @@
     "reference": "",
     "returns": {
       "class": "EconometricResults",
-      "description": "EconometricResults: Coefficients for both equations, Vuong test, diagnostics.",
+      "description": "EconometricResults: Coefficients for both equations, Vuong test, diagnostics. diagnostics['vuong_stat'] compares the fit with a Poisson regression fitted on its own.",
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
@@ -79060,7 +79159,8 @@
       "Stata parity module 63_zip",
       "Cross-language parity (bit-exact) vs pscl::zeroinfl(dist=\"poisson\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=1e-06, rel_se<=0.0001; parity module 63_zip -- tests/r_parity/63_zip.py",
       "tests/reference_parity/test_count_quantile_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_vce_grammar_stata_parity.py",
+      "tests/reference_parity/test_vuong_pscl_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -79220,7 +79320,8 @@
       "Stata parity module 64_zinb",
       "Cross-language parity (aligned) vs pscl::zeroinfl(dist=\"negbin\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=1e-05, rel_se<=0.001; parity module 64_zinb -- tests/r_parity/64_zinb.py",
       "tests/reference_parity/test_count_quantile_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_vce_grammar_stata_parity.py",
+      "tests/reference_parity/test_vuong_pscl_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -79382,7 +79483,8 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs pscl::hurdle(dist='poisson', zero.dist='binomial') [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance count + zero coefficients 1e-6 abs (observed ~2e-8) -- tests/reference_parity/test_glm_ext_parity.py"
+      "Cross-language parity (bit-exact) vs pscl::hurdle(dist='poisson', zero.dist='binomial') [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance count + zero coefficients 1e-6 abs (observed ~2e-8) -- tests/reference_parity/test_glm_ext_parity.py",
+      "tests/reference_parity/test_vuong_pscl_parity.py"
     ],
     "validation_status": "certified"
   },

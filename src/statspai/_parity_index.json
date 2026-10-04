@@ -7811,6 +7811,9 @@
       "tolerance": "1e-12 rel / 1e-15 abs on both bounds"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_vuong_pscl_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -9526,7 +9529,8 @@
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -11878,7 +11882,8 @@
       "additional_tests": [
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -13101,7 +13106,8 @@
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -13919,7 +13925,8 @@
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -15743,7 +15750,8 @@
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_thornton_ri_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_in_modules": [
         "14_ols_cluster",
@@ -19701,6 +19709,31 @@
       "also_verified_by": [
         "reference_parity"
       ],
+      "function": "vuong",
+      "notes": [
+        "pscl counts parameters with length(coef()), which leaves a negative binomial dispersion out. Its corrected statistics differ from StatsPAI's when exactly one model of a pair is negative binomial; the test reproduces pscl's print from its count and asserts the two differ. The same comparison found that the statistic sp.zip_model and sp.zinb reported on their own used a comparison model that was not a maximum of its likelihood (13.4 where the test is 8.69)."
+      ],
+      "reference": "R pscl 1.5.9 `vuong`, on glm, MASS::glm.nb, zeroinfl and hurdle fits; Stata 18 MP `zip` / `zinb`, forcevuong",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "pscl": "1.5.9"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_vuong_pscl_parity.py"
+      ],
+      "tolerance": "Raw, AIC-corrected and BIC-corrected statistics at 1e-6 on five model pairs (observed 6e-8 at worst, which is where R's optimisers stopped); the per-observation log-likelihoods under them at 1e-7 against R's own densities. pscl::vuong only prints, so the statistic is rebuilt in the R script and checked against the printed lines. Stata's forcevuong statistic for the two zero-inflated pairs agrees at 1e-6 (observed 2e-10 and 1e-9)."
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "weakrobust",
       "notes": [
         "Three fixes: the orthonormalised instruments were not orthonormal for k >= 2 (CLR 4.1% high); K 'at h0' was read off the nearest grid point; the CLR critical value was simulated (now integrated exactly, clr_method='simulate' keeps the old path). The set endpoints also satisfy p_CLR(endpoint) = alpha to 1e-9 (reference-free identity)."
@@ -20285,7 +20318,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_count_quantile_parity.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -20342,7 +20376,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_count_quantile_parity.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"

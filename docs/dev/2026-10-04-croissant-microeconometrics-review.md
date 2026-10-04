@@ -85,6 +85,8 @@ In both cases StatsPAI was left as it is.
 | 3 | No IV estimator for an exponential mean (`ivpoisson gmm`, `micsr::expreg`) | added `sp.ivpoisson` |
 | 4 | No specification test for the normality and homoskedasticity that probit and tobit rest on (`micsr::cmtest`) | added `sp.cmtest` |
 | 5 | `sp.from_stata` did not know `ivprobit`, `ivtobit`, `ivpoisson` | added |
+| 6 | No general Vuong test (`micsr::ndvuong`, `pscl::vuong`); fitted models did not expose per-observation log-likelihoods | added `sp.vuong`; count, zero-modified, logit and probit fits carry `data_info['llobs']` |
+| 7 | The Vuong statistic that `sp.zip_model` and `sp.zinb` report on their own was computed against a comparison model that was not at its maximum likelihood | fixed, correctness |
 
 ### 1. Zero-inflated models under separation
 
@@ -186,6 +188,44 @@ index.
 Under a true null the tobit tests reject 5% of the time (200 replications
 in the test file).
 
+### 5. `sp.vuong` and the statistic inside the zero-inflated models
+
+`sp.vuong(model1, model2)` computes Vuong's (1989) statistic from the
+per-observation log-likelihoods of two fits, with the AIC and BIC
+corrections. Those log-likelihoods were not on the result objects before.
+They now are, for Poisson, negative binomial, the three zero-modified
+models, logit and probit, and each was checked against R's own density at
+R's own estimate (4e-14 for Poisson, 7e-8 at worst).
+
+Five model pairs agree with the statistic rebuilt from `pscl` fits to
+6e-8, and with what `pscl::vuong` prints. One difference is deliberate.
+`pscl::vuong` counts parameters with `length(coef())`, which does not
+include the dispersion of a negative binomial. When exactly one of the
+two models is negative binomial its corrections are off by one parameter.
+StatsPAI counts every estimated parameter. The test reproduces the `pscl`
+print from the `pscl` count, so the difference is pinned and explained.
+
+Writing the reference exposed finding 7. `sp.zip_model` reported a Vuong
+statistic of 13.42 on the test data where the test is 8.69, and `sp.zinb`
+9.16 where it is 3.70. The Poisson (negative binomial) likelihood in the
+comparison was evaluated at the count coefficients of the zero-inflated
+fit. Those are not the maximum likelihood estimates of the plain model,
+so the plain model's likelihood was understated. It is now fitted on its
+own.
+
+The docstrings also carry a warning that the book does not: the Vuong
+statistic is not a valid test for zero inflation, because the plain model
+sits on the boundary of the zero-inflated one (Wilson 2015). Stata 18
+refuses the `vuong` option of `zip` with "Vuong test is not appropriate
+for testing zero inflation" and computes it only under `forcevuong`. Under
+that option it returns 8.6853869 and 3.6998482 on the test data, which is
+what StatsPAI now returns (2e-10 and 1e-9 apart). The statistic is kept as
+a description of fit.
+
+The non-degenerate version of the test in `micsr::ndvuong` was not taken.
+It needs simulated critical values and has no second implementation to
+pin it to.
+
 ## Left open
 
 Methods of the book that StatsPAI still lacks, in the order I would take
@@ -193,7 +233,7 @@ them.
 
 | Item | Book | Reference to pin it to | Note |
 | --- | --- | --- | --- |
-| Vuong test, classical and the non-degenerate version | `micsr::ndvuong` | `nonnest2`, `pscl::vuong` | needs per-observation log-likelihoods on the result objects. Only ZIP against Poisson is computed today |
+| Non-degenerate Vuong test | `micsr::ndvuong` | `micsr` only | the classical test is done; `data_info['llobs']` is still missing on `sp.tobit`, `sp.ologit`, `sp.mlogit`, survival models |
 | Tobit by a two-step method and by symmetrically trimmed least squares | `micsr::tobit1(method=)` | `micsr` | SCLS is the robust alternative `sp.cmtest` points to when it rejects |
 | Endogenous switching and sample selection for counts | `micsr::escount` | Stata `etpoisson`, `heckpoisson` | |
 | Weibull with gamma heterogeneity | `micsr::weibreg(mixing=TRUE)` | Stata `streg, frailty(gamma)` | |
@@ -220,9 +260,11 @@ cd tests/reference_parity/_fixtures
 stata-mp -b do _generate_ivprobit_ivtobit_stata.do
 stata-mp -b do _generate_ivpoisson_stata.do
 Rscript _generate_cmtest_micsr.R          # needs micsr >= 0.1-5
+Rscript _generate_vuong_pscl.R            # needs pscl, MASS
 
 pytest tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py \
        tests/reference_parity/test_ivpoisson_stata_parity.py \
        tests/reference_parity/test_cmtest_micsr_parity.py \
+       tests/reference_parity/test_vuong_pscl_parity.py \
        tests/test_zeroinflated_separation.py -q
 ```

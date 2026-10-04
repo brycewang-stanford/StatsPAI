@@ -117,6 +117,7 @@ from .diagnostics import (
     sensemakr,
     tF_critical_value,
     vif,
+    vuong,
     weakrobust,
 )
 
@@ -1565,6 +1566,7 @@ __all__ = [
     "het_test",
     "reset_test",
     "cmtest",
+    "vuong",
     "vif",
     "sensemakr",
     "rddensity",
