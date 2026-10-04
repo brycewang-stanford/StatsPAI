@@ -23,6 +23,8 @@ from typing import Iterator, List, Optional, Tuple
 import numpy as np
 from scipy import stats as sp_stats
 
+from ..exceptions import DataInsufficient, MethodIncompatibility
+
 KERNELS = ("uniform", "triangular", "epanechnikov")
 _KERNEL_ALIASES = {
     "uniform": "uniform",
@@ -43,7 +45,7 @@ def canonical_kernel(kernel: str) -> str:
     try:
         return _KERNEL_ALIASES[str(kernel).lower()]
     except KeyError:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Unknown kernel {kernel!r}. Choose from 'uniform', 'triangular', "
             "'epanechnikov' (alias 'epan')."
         ) from None
@@ -95,14 +97,14 @@ def linear_functional(
         try:
             A = np.linalg.inv(XtWX)
         except np.linalg.LinAlgError:
-            raise ValueError(
+            raise DataInsufficient(
                 f"Polynomial of order {p} is not identified on the "
                 f"{'right' if side else 'left'} of the cutoff inside this "
                 "window (too few distinct score values with positive kernel "
                 "weight). Lower p or widen the window."
             ) from None
         if not np.all(np.isfinite(A)) or np.linalg.cond(XtWX) > 1e13:
-            raise ValueError(
+            raise DataInsufficient(
                 f"Polynomial of order {p} is not identified on the "
                 f"{'right' if side else 'left'} of the cutoff inside this "
                 "window (too few distinct score values with positive kernel "
@@ -240,9 +242,9 @@ def window_sequence(
     ``nwindows`` windows may come back.
     """
     if wobs is not None and wstep is not None:
-        raise ValueError("Pass at most one of wobs= and wstep=.")
+        raise MethodIncompatibility("Pass at most one of wobs= and wstep=.")
     if wasymmetric and (wmin is not None or wstep is not None):
-        raise ValueError(
+        raise MethodIncompatibility(
             "wasymmetric=True builds each side from observation counts and "
             "cannot be combined with wmin= or wstep=."
         )
@@ -255,13 +257,13 @@ def window_sequence(
 
     if wmin is not None:
         if wmin <= 0:
-            raise ValueError("wmin must be positive.")
+            raise MethodIncompatibility("wmin must be positive.")
         cur_l = cur_r = float(wmin)
     else:
         first_l = _kth_distance(left, obsmin)
         first_r = _kth_distance(right, obsmin)
         if first_l is None or first_r is None:
-            raise ValueError(
+            raise DataInsufficient(
                 f"Fewer than obsmin={obsmin} observations on one side of the "
                 f"cutoff ({left.shape[0]} left, {right.shape[0]} right)."
             )

@@ -30,6 +30,7 @@ from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, IdentificationFailure, MethodIncompatibility
 from . import _locrand_core as _lr
 from ._core import _complete_cases
 
@@ -89,13 +90,13 @@ def _window_bounds(
 ) -> Tuple[float, float]:
     """Validate the window endpoints, which are on the running-variable scale."""
     if wl is None or wr is None:
-        raise ValueError(
+        raise MethodIncompatibility(
             "Window bounds wl and wr must be specified. "
             "Use rdwinselect() to choose a data-driven window."
         )
     wl_value, wr_value = float(wl), float(wr)
     if not (wl_value <= c <= wr_value):
-        raise ValueError(
+        raise MethodIncompatibility(
             f"The window [wl, wr] = [{wl_value}, {wr_value}] does not contain "
             f"the cutoff c = {c}. wl and wr are the window's endpoints on the "
             "scale of the running variable, as in rdlocrand -- not offsets "
@@ -285,7 +286,9 @@ def _asymptotic_pvalue(
         stat = _ranksum_stat(y, d)
         return float(stat), float(2 * sp_stats.norm.cdf(-abs(stat)))
     else:
-        raise ValueError(f"Unknown statistic: {stat_name}")  # pragma: no cover
+        raise MethodIncompatibility(
+            f"Unknown statistic: {stat_name}"
+        )  # pragma: no cover
 
 
 def _tsls_wald(
@@ -300,7 +303,7 @@ def _tsls_wald(
     n = y.shape[0]
     first_stage = float(d_actual[z == 1].mean() - d_actual[z == 0].mean())
     if abs(first_stage) < 1e-12:
-        raise ValueError(
+        raise IdentificationFailure(
             "Fuzzy RD: treatment take-up does not change at the cutoff inside "
             "this window (first stage = 0), so the Wald ratio is undefined."
         )
@@ -414,7 +417,7 @@ def _randomization_test(
             grid_exceed += np.sum(draws >= obs_grid[None, :] - 1e-14, axis=0)
 
     if total == 0:
-        raise ValueError(
+        raise DataInsufficient(
             "No valid randomization draw: every Bernoulli draw left one arm "
             "empty. Check the bernoulli= probabilities."
         )
@@ -635,17 +638,17 @@ def rdrandinf(
     kernel = _lr.canonical_kernel(kernel)
     p = int(p)
     if p < 0:
-        raise ValueError("p must be a non-negative integer.")
+        raise MethodIncompatibility("p must be a non-negative integer.")
     fuzzy_stat = {"ar": "itt"}.get(str(fuzzy_stat).lower(), str(fuzzy_stat).lower())
     if fuzzy_stat not in ("itt", "tsls"):
-        raise ValueError("fuzzy_stat must be 'itt' (alias 'ar') or 'tsls'.")
+        raise MethodIncompatibility("fuzzy_stat must be 'itt' (alias 'ar') or 'tsls'.")
 
     # rdlocrand accepts 'ttest' and 'diffmeans' as names for the same
     # statistic, so an R script written with either must run unchanged.
     if statistic == "ttest":
         statistic = "diffmeans"
     if statistic != "all" and statistic not in _STAT_FUNCS:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Unknown statistic '{statistic}'. "
             f"Choose from: 'diffmeans' (alias 'ttest'), 'ksmirnov', "
             f"'ranksum', 'all'."
@@ -653,15 +656,15 @@ def rdrandinf(
     stat_names = list(_STAT_FUNCS.keys()) if statistic == "all" else [statistic]
     adjusted = p > 0 or kernel != "uniform"
     if adjusted and stat_names != ["diffmeans"]:
-        raise ValueError(
+        raise MethodIncompatibility(
             "statistic='ksmirnov' / 'ranksum' / 'all' compare the two "
             "outcome distributions as they are; they are not defined for "
             "p > 0 or a non-uniform kernel. Use statistic='diffmeans'."
         )
     if p > 0 and bernoulli is not None:
-        raise ValueError("bernoulli= needs p=0.")
+        raise MethodIncompatibility("bernoulli= needs p=0.")
     if adjusted and fuzzy is not None:
-        raise ValueError("fuzzy= needs p=0 and kernel='uniform'.")
+        raise MethodIncompatibility("fuzzy= needs p=0 and kernel='uniform'.")
 
     # --- subset to window ---
     bern_col = bernoulli if isinstance(bernoulli, str) else None
@@ -672,7 +675,7 @@ def rdrandinf(
     )
     n_obs = len(df_w)
     if n_obs < 4:
-        raise ValueError(
+        raise DataInsufficient(
             f"Only {n_obs} observations in window [{wl_value}, {wr_value}]. "
             "Widen the window or check your data."
         )
@@ -683,7 +686,7 @@ def rdrandinf(
     n_right = int(z.sum())
     n_left = n_obs - n_right
     if n_left < 2 or n_right < 2:
-        raise ValueError(
+        raise DataInsufficient(
             f"Need >= 2 observations on each side of the cutoff; "
             f"got {n_left} left and {n_right} right."
         )
@@ -699,7 +702,9 @@ def rdrandinf(
             else np.full(n_obs, float(bernoulli))  # type: ignore[arg-type]
         )
         if np.any((prob <= 0) | (prob >= 1)):
-            raise ValueError("bernoulli= probabilities must lie strictly in (0, 1).")
+            raise MethodIncompatibility(
+                "bernoulli= probabilities must lie strictly in (0, 1)."
+            )
 
     d_actual = df_w[fuzzy].values.astype(float) if fuzzy is not None else None
     shift = d_actual if d_actual is not None else z.astype(float)
@@ -726,9 +731,11 @@ def rdrandinf(
     else:
         grid = np.asarray(list(ci), dtype=float)  # type: ignore[arg-type]
         if grid.ndim != 1 or grid.size < 2:
-            raise ValueError("ci= must be a sequence of at least two effects.")
+            raise MethodIncompatibility(
+                "ci= must be a sequence of at least two effects."
+            )
         if d_actual is not None and fuzzy_stat == "tsls":
-            raise ValueError(
+            raise MethodIncompatibility(
                 "ci= inverts the randomization test; with fuzzy_stat='tsls' "
                 "the interval is the large-sample one."
             )
@@ -1033,7 +1040,7 @@ def rdwinselect(
     if statistic == "ttest":
         statistic = "diffmeans"
     if statistic not in _WINSELECT_STATS:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"Unknown statistic '{statistic}'. Choose from: 'diffmeans' "
             "(alias 'ttest'), 'ksmirnov', 'ranksum'."
         )
@@ -1048,7 +1055,7 @@ def rdwinselect(
     data, _n_missing = _drop_incomplete(data, up_front, where="rdwinselect")
     xv = data[x].values.astype(float)
     if (xv < c).sum() == 0 or (xv >= c).sum() == 0:
-        raise ValueError("Need observations on both sides of the cutoff.")
+        raise DataInsufficient("Need observations on both sides of the cutoff.")
     complete = np.ones(len(data), dtype=bool)
     if covs:
         complete = np.isfinite(data[covs].to_numpy(dtype=float)).all(axis=1)
@@ -1168,7 +1175,7 @@ def _balance_pvalue(
         return float("nan")
     adjusted = p > 0 or kernel != "uniform"
     if adjusted and statistic != "diffmeans":
-        raise ValueError(
+        raise MethodIncompatibility(
             "statistic='ksmirnov' / 'ranksum' need p=0 and kernel='uniform'."
         )
     try:
@@ -1565,12 +1572,12 @@ def rdrbounds(
     True
     """
     if wl is None or wr is None:
-        raise ValueError(
+        raise MethodIncompatibility(
             "Window bounds wl and wr must be specified. "
             "Use rdwinselect() to choose a data-driven window."
         )
     if statistic not in ("ranksum", "diffmeans"):
-        raise ValueError("statistic must be 'ranksum' or 'diffmeans'")
+        raise MethodIncompatibility("statistic must be 'ranksum' or 'diffmeans'")
     if gamma_list is None:
         gamma_list = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
     wl_value, wr_value = _window_bounds(c, wl, wr)
@@ -1581,11 +1588,11 @@ def rdrbounds(
     z = (df_w[x].to_numpy(dtype=float) >= c).astype(float)
     n = len(yv)
     if n < 4 or z.sum() < 2 or (n - z.sum()) < 2:
-        raise ValueError("Need >= 2 observations on each side of the cutoff.")
+        raise DataInsufficient("Need >= 2 observations on each side of the cutoff.")
 
     for gamma in gamma_list:
         if gamma < 1.0:
-            raise ValueError("gamma must be >= 1.")
+            raise MethodIncompatibility("gamma must be >= 1.")
     rng = np.random.default_rng(seed)
     U = rng.random((int(n_perms), n))
     rows = _rdrbounds_rows(yv, z, gamma_list, U, statistic)
