@@ -6,6 +6,12 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Reliability
 
+- **`sp.rdrobust` at polynomial orders 0, 3 and 4 now has reference
+  rows.** 54 cells (six bandwidth selectors, three kernels, three
+  orders) against R `rdrobust` 4.0.0, eight outputs each: agreement to
+  1e-13 at `p=0`, 1e-10 at `p=3` and 1.4e-8 at `p=4`. The existing grid
+  covered `p=1` and `p=2` only; `sp.validation_scope('rdrobust')` lists
+  the new cells. No code changed.
 - **A coverage study for staggered-adoption DiD on an unbalanced panel**
   (`tests/reliability/unbalanced_panel.py`, 8 designs, 1,000
   replications each). `sp.callaway_santanna`, `sp.did_imputation` and

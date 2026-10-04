@@ -4562,17 +4562,17 @@
       "invariant": {},
       "cells": 25920,
       "overall": {
-        "covered": 75,
-        "not_covered": 25845
+        "covered": 129,
+        "not_covered": 25791
       },
       "by_output": {
         "estimate": {
-          "reference": 75,
-          "not_covered": 25845
+          "reference": 129,
+          "not_covered": 25791
         },
         "se": {
-          "reference": 75,
-          "not_covered": 25845
+          "reference": 129,
+          "not_covered": 25791
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -5090,6 +5090,51 @@
             ]
           },
           "compares": "36-cell grid vs R rdrobust: both estimates, both SEs and h, b on each side, all within 1e-9"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rdrobust_parity.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "cerrd",
+              "cersum",
+              "certwo",
+              "mserd",
+              "msesum",
+              "msetwo"
+            ],
+            "kernel": [
+              "epanechnikov",
+              "triangular",
+              "uniform"
+            ],
+            "p": [
+              "0",
+              "3",
+              "4"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "54-cell grid at polynomial orders 0, 3 and 4 vs R rdrobust: the same eight outputs, within 1e-11 (p = 0), 1e-9 (p = 3) and 1e-7 (p = 4)"
         },
         {
           "kind": "T2",
@@ -6148,16 +6193,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 677,
+      "reference": 731,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45465
+      "not_covered": 45411
     },
     "se": {
-      "reference": 289,
+      "reference": 343,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45833
+      "not_covered": 45779
     },
     "coverage": {
       "coverage_simulation": 11,

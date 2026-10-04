@@ -306,6 +306,45 @@ def test_full_grid_agrees_with_r(rjson, senate):
     )
 
 
+#: Orders 0, 3 and 4. The agreement degrades with the order because the
+#: pilot regressions run to degree p + 3 and their Gram matrices lose
+#: about two digits per order: measured 2026-10-04, the worst of the
+#: 18 x 8 comparisons is 1.2e-13 at p = 0, 9.4e-11 at p = 3 and 1.4e-8 at
+#: p = 4. Each bound is ten times the measured worst case at most, and
+#: all sit inside the 1e-6 gate for same-bytes agreement.
+RTOL_BY_ORDER = {0: 1e-11, 3: 1e-9, 4: 1e-7}
+
+
+def test_other_polynomial_orders_agree_with_r(senate):
+    """p in {0, 3, 4}: 54 cells and eight outputs each against R rdrobust."""
+    path = _FIX / "rdrobust_porder_R.json"
+    if not path.exists():
+        pytest.skip("run _generate_rdrobust_porder_R.R to build the fixture")
+    ref_all = json.loads(path.read_text(encoding="utf-8"))
+    specs = _specs(ref_all)
+    assert len(specs) == 54
+    assert {ref_all[k]["p"] for k in specs} == set(RTOL_BY_ORDER)
+    failures = []
+    for key in specs:
+        ref = ref_all[key]
+        res = sp.rdrobust(
+            senate,
+            y="vote",
+            x="margin",
+            c=0,
+            p=ref["p"],
+            kernel=ref["kernel"],
+            bwselect=ref["bwselect"],
+        )
+        for name, value in _all_outputs(res).items():
+            if value != pytest.approx(ref[name], rel=RTOL_BY_ORDER[ref["p"]]):
+                failures.append(
+                    f"{key}: {name} {value:.12g} vs R {ref[name]:.12g} "
+                    f"(rel {abs(value / ref[name] - 1):.1e})"
+                )
+    assert not failures, f"{len(failures)} mismatches:\n  " + "\n  ".join(failures[:12])
+
+
 # ── D. API compatibility with R ────────────────────────────────────── #
 
 

@@ -2424,6 +2424,26 @@ _add(
             ),
             _Row(
                 "T2",
+                _RP + "test_rdrobust_parity.py",
+                {
+                    "design": _vals("sharp"),
+                    "bwselect": _vals(
+                        "mserd", "msetwo", "msesum", "cerrd", "certwo", "cersum"
+                    ),
+                    "kernel": _vals("triangular", "epanechnikov", "uniform"),
+                    "p": _vals("0", "3", "4"),
+                    "vce": _vals("nn"),
+                    "covariates": _vals("none"),
+                    "code_path": _vals("native"),
+                    "weights": _vals("none"),
+                },
+                _EST_SE,
+                "54-cell grid at polynomial orders 0, 3 and 4 vs R rdrobust: the same "
+                "eight outputs, within 1e-11 (p = 0), 1e-9 (p = 3) and 1e-7 (p = 4)",
+                "sp.rdrobust(df, y, x, c)",
+            ),
+            _Row(
+                "T2",
                 _RP + "test_rd_vce_parity.py",
                 {
                     "design": _vals("sharp"),
