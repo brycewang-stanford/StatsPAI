@@ -87,6 +87,8 @@ In both cases StatsPAI was left as it is.
 | 5 | `sp.from_stata` did not know `ivprobit`, `ivtobit`, `ivpoisson` | added |
 | 6 | No general Vuong test (`micsr::ndvuong`, `pscl::vuong`); fitted models did not expose per-observation log-likelihoods | added `sp.vuong`; count, zero-modified, logit and probit fits carry `data_info['llobs']` |
 | 7 | The Vuong statistic that `sp.zip_model` and `sp.zinb` report on their own was computed against a comparison model that was not at its maximum likelihood | fixed, correctness |
+| 8 | `sp.survreg` accepted `robust=` and `cluster=` and ignored both; it stopped about 1e-5 short of the optimum; it added `1e-15` to every duration | fixed, correctness |
+| 9 | No unobserved heterogeneity in duration models (`micsr::weibreg(mixing = TRUE)`, Stata `streg, frailty(gamma)`) | added `sp.survreg(frailty='gamma')` |
 
 ### 1. Zero-inflated models under separation
 
@@ -226,6 +228,47 @@ The non-degenerate version of the test in `micsr::ndvuong` was not taken.
 It needs simulated critical values and has no second implementation to
 pin it to.
 
+### 6. Duration models: `sp.survreg`
+
+The duration chapter of the book fits a Weibull with and without gamma
+heterogeneity and shows that ignoring the heterogeneity makes the hazard
+look as if it fell faster over time. StatsPAI had the Weibull and no
+heterogeneity. Building the Stata reference for the addition showed that
+the existing function had three problems.
+
+- `robust=` and `cluster=` were accepted, written into `model_info`, and
+  not used. The standard errors were the observed-information ones in
+  every case (finding 8).
+- The optimiser was L-BFGS at its default tolerance and the Hessian a
+  finite difference with step 1e-5. Estimates were about 1e-5 from the
+  optimum, which is why the R comparison was graded "aligned" at 5e-5.
+- `1e-15` was added to every duration before taking logs, so a duration
+  of zero entered the likelihood as `log t = -34.5`.
+
+The likelihood is now written once per distribution as the log density
+and log survivor function of the standardised log duration, in a form
+that is safe under a complex step. Scores are exact and the optimum is
+reached by Newton steps, as in `sp.tobit`. Gamma frailty is one
+transformation of those two functions, so it is available for all four
+distributions.
+
+Sixteen blocks against Stata 18 `streg ..., time`.
+
+| Block | Coefficients | Standard errors |
+| --- | --- | --- |
+| Weibull, exponential, log-normal, log-logistic; `vce(oim)`, `vce(robust)`, `vce(cluster)` | 3e-10 or better | 1e-10 or better |
+| Weibull with gamma frailty, `vce(oim)` and `vce(robust)` | 2e-15 | 3e-10 |
+| Frailty variance and LR test of `theta = 0` | 1e-14 | |
+
+On the fixture's data (true scale 0.7, frailty variance 0.6) the plain
+Weibull estimates a scale of 0.905 and the frailty model recovers both
+parameters within sampling error, which is the book's point.
+
+For the log-normal and log-logistic models the frailty variance goes to
+zero on these data. Stata stops near `theta = 3e-8` and prints a standard
+error of 600 for its logarithm. `sp.survreg` returns the model without
+frailty, warns, and reports the same LR statistic (0) and p-value (1).
+
 ## Left open
 
 Methods of the book that StatsPAI still lacks, in the order I would take
@@ -236,7 +279,7 @@ them.
 | Non-degenerate Vuong test | `micsr::ndvuong` | `micsr` only | the classical test is done; `data_info['llobs']` is still missing on `sp.tobit`, `sp.ologit`, `sp.mlogit`, survival models |
 | Tobit by a two-step method and by symmetrically trimmed least squares | `micsr::tobit1(method=)` | `micsr` | SCLS is the robust alternative `sp.cmtest` points to when it rejects |
 | Endogenous switching and sample selection for counts | `micsr::escount` | Stata `etpoisson`, `heckpoisson` | |
-| Weibull with gamma heterogeneity | `micsr::weibreg(mixing=TRUE)` | Stata `streg, frailty(gamma)` | |
+| Shared frailty (`streg, shared()`) and `streg` in `sp.from_stata` | | Stata | the translation needs the `stset` state |
 | Poisson with log-normal mixing | `micsr::poisreg(mixing="lognorm")` | `micsr` | Gauss-Hermite quadrature |
 | Rivers-Vuong two-step probit (2SCML) with its own standard errors | `micsr::ivldv(method="twosteps")` | `micsr` | the coefficients are already the control-function fit inside `sp.ivprobit` |
 | Nested logit | `mlogit` | `mlogit`, Stata `nlogit` | |
@@ -259,6 +302,7 @@ Not taken, with the reason.
 cd tests/reference_parity/_fixtures
 stata-mp -b do _generate_ivprobit_ivtobit_stata.do
 stata-mp -b do _generate_ivpoisson_stata.do
+stata-mp -b do _generate_streg_stata.do
 Rscript _generate_cmtest_micsr.R          # needs micsr >= 0.1-5
 Rscript _generate_vuong_pscl.R            # needs pscl, MASS
 
@@ -266,5 +310,6 @@ pytest tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py \
        tests/reference_parity/test_ivpoisson_stata_parity.py \
        tests/reference_parity/test_cmtest_micsr_parity.py \
        tests/reference_parity/test_vuong_pscl_parity.py \
+       tests/reference_parity/test_survreg_streg_stata_parity.py \
        tests/test_zeroinflated_separation.py -q
 ```

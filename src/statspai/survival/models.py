@@ -1328,6 +1328,28 @@ def _loglogistic_loglik(
     return float(-ll.sum())
 
 
+def _softplus(z: np.ndarray) -> np.ndarray:
+    """``log(1 + exp(z))`` without overflow; complex-step safe."""
+    pos = np.real(z) > 0
+    return np.asarray(np.where(pos, z, 0.0) + np.log1p(np.exp(np.where(pos, -z, z))))
+
+
+def _aft_log_density_survivor(z: np.ndarray, family: str) -> Tuple[Any, Any]:
+    """Log density and log survivor function of the standardised log time.
+
+    ``z = (log t - x'b) / sigma``. The density is that of ``z``; the caller
+    subtracts ``log(sigma) + log(t)`` to get the density of ``t``.
+    """
+    from scipy import special
+
+    if family == "weibull":  # standard extreme value
+        return z - np.exp(z), -np.exp(z)
+    if family == "lognormal":
+        return -0.5 * np.log(2.0 * np.pi) - 0.5 * z * z, special.log_ndtr(-z)
+    sp_z = _softplus(z)  # log-logistic
+    return z - 2.0 * sp_z, -sp_z
+
+
 @accepts_aliases(vce="robust")
 def survreg(
     formula: Optional[str] = None,
@@ -1339,6 +1361,7 @@ def survreg(
     robust: str = "nonrobust",
     cluster: Optional[str] = None,
     alpha: float = 0.05,
+    frailty: Optional[str] = None,
 ) -> EconometricResults:
     """
     Parametric survival model (AFT parameterization).
@@ -1358,14 +1381,31 @@ def survreg(
         Distribution: ``'weibull'``, ``'exponential'``, ``'lognormal'``,
         ``'loglogistic'``.
     robust : str, default ``'nonrobust'``
+        ``'nonrobust'`` (observed information), ``'robust'`` (sandwich,
+        Stata's ``vce(robust)``) or ``'cluster'``. ``vce=`` is an alias.
     cluster : str, optional
+        Cluster column; implies the cluster sandwich.
     alpha : float, default 0.05
+    frailty : {None, 'gamma'}, optional
+        Unobserved heterogeneity. ``'gamma'`` multiplies each
+        observation's hazard by a gamma variable with mean one and
+        variance ``theta``, as Stata's ``streg, frailty(gamma)``. The
+        survivor function becomes ``[1 - theta log S(t)]^(-1/theta)``.
+        ``log(theta)`` is reported with the other parameters, and
+        ``model_info`` carries ``theta`` and the likelihood-ratio test of
+        ``theta = 0``, whose p-value is halved because the null is on the
+        boundary. Ignoring heterogeneity biases a Weibull fit towards
+        negative duration dependence.
 
     Returns
     -------
     EconometricResults
         Fitted parametric survival model.  Parameters include covariates
-        and ``log(sigma)`` (scale).
+        and ``log(sigma)`` (scale). ``diagnostics['Log-likelihood']`` is
+        the likelihood of the durations, as R ``survival::survreg``
+        reports it; ``model_info['ll_log_time']`` is the likelihood of the
+        log durations, which is what Stata's ``streg`` prints (the two
+        differ by the sum of ``log(t)`` over the events).
 
     Examples
     --------
@@ -1386,6 +1426,15 @@ def survreg(
     True
     """
     # ---- Parse inputs -------------------------------------------------
+    from ..core._vcov import ml_vcov
+    from ..core._vcov_spec import parse_se_request
+    from ..exceptions import ConvergenceWarning, MethodIncompatibility
+    from ..regression._optim_helpers import (
+        inverse_information,
+        ml_newton_polish,
+        se_from_vcov,
+    )
+
     if formula is not None:
         dur_name, x_names = _parse_formula(formula)
         if duration is None:
@@ -1394,14 +1443,33 @@ def survreg(
             x = x_names
     if duration is None or event is None or x is None:
         raise ValueError("Provide (formula + event) or (duration, event, x).")
+    se_req = parse_se_request(
+        robust,
+        cluster,
+        function="survreg",
+        supported=("nonrobust", "robust", "cluster"),
+    )
+    se_kind, cluster = se_req.kind, se_req.cluster
+    frailty_kind = None if frailty is None else str(frailty).lower()
+    if frailty_kind not in (None, "gamma"):
+        raise MethodIncompatibility(
+            f"survreg: frailty={frailty!r} is not available; use 'gamma' or None."
+        )
 
-    cols_needed = [duration, event] + x
-    if cluster is not None:
+    cols_needed = [duration, event] + list(x)
+    if isinstance(cluster, str):
         cols_needed.append(cluster)
     data = data.dropna(subset=cols_needed).copy()
 
     T = data[duration].values.astype(float)
     E = data[event].values.astype(float)
+    if np.any(T <= 0):
+        raise MethodIncompatibility(
+            f"survreg: {int(np.sum(T <= 0))} durations are zero or negative; "
+            "the model is for the log of a positive duration. Drop those "
+            "rows or shift the time origin.",
+            diagnostics={"n_nonpositive": int(np.sum(T <= 0))},
+        )
     # Design matrix with intercept
     X = np.column_stack([np.ones(len(T)), data[x].values.astype(float)])
     n, p = X.shape  # p includes intercept
@@ -1409,78 +1477,112 @@ def survreg(
 
     # ---- Select distribution -----------------------------------------
     dist_lower = dist.lower()
-    if dist_lower in ("weibull", "exponential"):
-        loglik_fn = _weibull_loglik
-    elif dist_lower == "lognormal":
-        loglik_fn = _lognormal_loglik
-    elif dist_lower == "loglogistic":
-        loglik_fn = _loglogistic_loglik
-    else:
+    if dist_lower not in ("weibull", "exponential", "lognormal", "loglogistic"):
         raise ValueError(
             f"dist must be weibull/exponential/lognormal/loglogistic, got {dist!r}"
         )
+    family = "weibull" if dist_lower == "exponential" else dist_lower
+    has_scale = dist_lower != "exponential"
+    log_t = np.log(T)
+    events = E > 0
 
-    def neg_ll_wrapper(params: np.ndarray) -> float:
-        return loglik_fn(params, X, T, E)
+    def obs_loglik(theta: np.ndarray, with_frailty: bool) -> np.ndarray:
+        """Per-observation log-likelihood of t; complex-step safe."""
+        theta = np.asarray(theta)
+        ln_s = theta[p] if has_scale else 0.0
+        z = (log_t - X @ theta[:p]) / np.exp(ln_s)
+        log_f, log_S = _aft_log_density_survivor(z, family)
+        log_f = log_f - ln_s - log_t
+        if with_frailty:
+            th = np.exp(theta[-1])
+            g = np.log(1.0 - th * log_S)
+            # f_theta = h * [1 - theta log S]^(-1/theta - 1), h the hazard.
+            log_f = (log_f - log_S) - (1.0 / th + 1.0) * g
+            log_S = -g / th
+        return np.asarray(np.where(events, log_f, log_S))
 
-    # Initial params: beta=0, log_sigma=0
-    init = np.zeros(p + 1)
-    if dist_lower == "exponential":
-        # Fix sigma=1 => log_sigma=0, only optimize beta
-        def neg_ll_exp(beta: np.ndarray) -> float:
-            return loglik_fn(np.append(beta, 0.0), X, T, E)
+    def fit(with_frailty: bool, start: np.ndarray) -> Tuple[Any, ...]:
+        def fn(t: np.ndarray) -> np.ndarray:
+            return obs_loglik(t, with_frailty)
 
-        res = optimize.minimize(neg_ll_exp, np.zeros(p), method="L-BFGS-B")
-        full_params = np.append(res.x, 0.0)
-    else:
-        res = optimize.minimize(neg_ll_wrapper, init, method="L-BFGS-B")
-        full_params = res.x
+        def neg(t: np.ndarray) -> float:
+            with np.errstate(all="ignore"):
+                v = float(np.sum(np.real(fn(t))))
+            return -v if np.isfinite(v) else 1e300
 
-    beta_hat = full_params[:p]
-    log_sigma_hat = full_params[p]
+        res = optimize.minimize(neg, start, method="BFGS", options={"gtol": 1e-7})
+        est, scores, H, _ = ml_newton_polish(fn, np.asarray(res.x, dtype=float))
+        return est, scores, H, float(np.sum(np.real(fn(est))))
 
-    # ---- Standard errors (observed information) -----------------------
-    # Numerical Hessian
-    eps = 1e-5
-    k = len(full_params)
-    H = np.zeros((k, k))
-    for i in range(k):
-        for j in range(i, k):
-            e_i = np.zeros(k)
-            e_j = np.zeros(k)
-            e_i[i] = eps
-            e_j[j] = eps
-            fpp = neg_ll_wrapper(full_params + e_i + e_j)
-            fpm = neg_ll_wrapper(full_params + e_i - e_j)
-            fmp = neg_ll_wrapper(full_params - e_i + e_j)
-            fmm = neg_ll_wrapper(full_params - e_i - e_j)
-            H[i, j] = (fpp - fpm - fmp + fmm) / (4 * eps * eps)
-            H[j, i] = H[i, j]
+    k_base = p + (1 if has_scale else 0)
+    start = np.zeros(k_base)
+    start[0] = float(np.mean(log_t))
+    est0, scores0, H0, ll0 = fit(False, start)
 
-    try:
-        var_mat = np.linalg.inv(H)
-    except np.linalg.LinAlgError:
-        var_mat = np.linalg.pinv(H)
+    frailty_info: Dict[str, Any] = {}
+    est, scores, H, loglik_val = est0, scores0, H0, ll0
+    at_boundary = False
+    if frailty_kind == "gamma":
+        est1, scores1, H1, ll1 = fit(True, np.append(est0, np.log(0.5)))
+        theta_hat = float(np.exp(est1[-1]))
+        # The plain model is the limit theta -> 0. When the fit runs to that
+        # boundary the likelihood is flat in log(theta) and nothing about
+        # theta is identified beyond "zero".
+        at_boundary = theta_hat < 1e-5 or ll1 <= ll0 + 1e-8
+        if at_boundary:
+            import warnings
 
-    # Extract only beta part for the result
-    var_beta = var_mat[:p, :p]
-    se_beta = np.sqrt(np.diag(var_beta))
+            warnings.warn(
+                "survreg: the frailty variance is estimated at its boundary "
+                "(theta = 0); the fit is the model without frailty and "
+                "log(theta) has no standard error.",
+                ConvergenceWarning,
+                stacklevel=2,
+            )
+            theta_hat, lr = 0.0, 0.0
+        else:
+            est, scores, H, loglik_val = est1, scores1, H1, ll1
+            lr = 2.0 * (ll1 - ll0)
+        frailty_info = {
+            "frailty": "gamma",
+            "theta": theta_hat,
+            "theta_at_boundary": bool(at_boundary),
+            "lr_theta_chi2": float(lr),
+            # H0 is on the boundary: chibar2(01), half the chi2(1) tail.
+            "lr_theta_pvalue": (1.0 if lr <= 0 else float(0.5 * stats.chi2.sf(lr, 1))),
+            "ll_no_frailty": float(ll0),
+        }
 
-    se_log_sigma = np.sqrt(var_mat[p, p]) if var_mat[p, p] > 0 else np.nan
+    # ---- Standard errors ---------------------------------------------
+    clusters = data[cluster].to_numpy() if se_kind == "cluster" else None
+    var_mat = ml_vcov(
+        inverse_information(H),
+        scores if se_kind != "nonrobust" else None,
+        kind=se_kind,
+        clusters=clusters,
+    )
+    se_all = se_from_vcov(var_mat)
+    grad_norm = float(np.max(np.abs(scores.sum(axis=0))))
 
-    loglik_val = -neg_ll_wrapper(full_params)
-
-    # ---- Build result -------------------------------------------------
-    # Include log(sigma) as a reported parameter
-    all_param_names = param_names + ["log(sigma)"]
-    all_params = np.append(beta_hat, log_sigma_hat)
-    all_se = np.append(se_beta, se_log_sigma)
-
-    if dist_lower == "exponential":
-        # sigma is fixed at 1, don't report it
-        all_param_names = param_names
-        all_params = beta_hat
-        all_se = se_beta
+    beta_hat = est[:p]
+    log_sigma_hat = float(est[p]) if has_scale else 0.0
+    all_param_names = list(param_names)
+    all_params = list(beta_hat)
+    all_se = list(se_all[:p])
+    if has_scale:
+        all_param_names.append("log(sigma)")
+        all_params.append(log_sigma_hat)
+        all_se.append(se_all[p])
+    if frailty_kind == "gamma":
+        all_param_names.append("log(theta)")
+        if at_boundary:
+            all_params.append(-np.inf)
+            all_se.append(np.nan)
+        else:
+            all_params.append(float(est[-1]))
+            all_se.append(se_all[-1])
+            # Delta method for theta itself.
+            frailty_info["theta_se"] = float(se_all[-1] * frailty_info["theta"])
 
     params_s = pd.Series(all_params, index=all_param_names, name="coef")
     se_s = pd.Series(all_se, index=all_param_names, name="se")
@@ -1489,16 +1591,28 @@ def survreg(
         "model_type": f"Parametric Survival ({dist})",
         "method": "AFT — Maximum Likelihood",
         "distribution": dist,
-        "robust": robust if cluster is None else f"cluster({cluster})",
+        "robust": se_kind if se_kind != "cluster" else f"cluster({cluster})",
+        "vce": se_kind,
+        "cluster": cluster if se_kind == "cluster" else None,
+        "ll": loglik_val,
+        "ll_log_time": float(loglik_val + np.sum(log_t[events])),
+        "gradient_norm": grad_norm,
+        "converged": bool(grad_norm < 1e-5 * max(1.0, n**0.5)),
+        **frailty_info,
     }
+    if se_kind == "cluster" and clusters is not None:
+        model_info["n_clusters"] = int(pd.unique(clusters).size)
 
-    n_params = len(all_params)
+    n_params = int(np.sum(np.isfinite(all_params)))
     data_info_dict = {
         "nobs": n,
         "n_events": int(E.sum()),
         "dependent_var": duration,
         "event_var": event,
         "df_resid": np.inf,
+        "var_cov": var_mat,
+        "llobs": np.real(obs_loglik(est, len(est) > k_base)),
+        "n_params": n_params,
     }
 
     diagnostics = {
@@ -1509,6 +1623,10 @@ def survreg(
     }
     if dist_lower == "weibull":
         diagnostics["shape (1/sigma)"] = 1.0 / np.exp(log_sigma_hat)
+    if frailty_info:
+        diagnostics["theta (frailty variance)"] = frailty_info["theta"]
+        diagnostics["LR test of theta = 0 (chibar2)"] = frailty_info["lr_theta_chi2"]
+        diagnostics["Prob >= chibar2"] = frailty_info["lr_theta_pvalue"]
 
     model_info["alpha"] = alpha
     return EconometricResults(

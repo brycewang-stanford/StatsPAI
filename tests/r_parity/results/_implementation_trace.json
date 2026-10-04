@@ -847,7 +847,7 @@
    "result_sha256": "e4ff16ddc8134e6f46d4fbeee47917ac38b7914e42ad08559e5e9b68c92d9353"
   },
   "24_coxph": {
-   "seconds": 5.85,
+   "seconds": 2.54,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -891,7 +891,7 @@
     "src/statspai/survival/causal_forest.py": "1dc9b80820a340a9f0eae1ff867d54474f6679348acc4d79a64a5d8016f8e9a5",
     "src/statspai/survival/competing_risks.py": "545e8fab0da136066a0e8575e37d75a2329ad60e0c1f9a61b41f829e6d6bc278",
     "src/statspai/survival/frailty.py": "1032fad2702e4be1115b5047726fed0cd45323d9d2de8d6656cb2ec3de71523e",
-    "src/statspai/survival/models.py": "26b56134a179bd1685c54c709dbb598d66ede2fff96f65a3eae7c0b4773967bd",
+    "src/statspai/survival/models.py": "2628af0d6b7b803bc6c1c2abae937f8a92910546df14f5e8a074ea60f9f17bfa",
     "src/statspai/utils/_attrs.py": "1f02a82073a223f190963759f9a71b1fea32d03e8ce7442cc17a4647aceae958"
    },
    "dependency_versions": {

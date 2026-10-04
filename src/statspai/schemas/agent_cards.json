@@ -1657,7 +1657,8 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R pscl 1.5.9 `vuong`, on glm, MASS::glm.nb, zeroinfl and hurdle fits; Stata 18 MP `zip` / `zinb`, forcevuong [Stata 18 MP, pscl 1.5.9]; tolerance Raw, AIC-corrected and BIC-corrected statistics at 1e-6 on five model pairs (observed 6e-8 at worst, which is where R's optimisers stopped); the per-observation log-likelihoods under them at 1e-7 against R's own densities. pscl::vuong only prints, so the statistic is rebuilt in the R script and checked against the printed lines. Stata's forcevuong statistic for the two zero-inflated pairs agrees at 1e-6 (observed 2e-10 and 1e-9). -- tests/reference_parity/test_vuong_pscl_parity.py"
+      "Cross-language parity (bit-exact) vs R pscl 1.5.9 `vuong`, on glm, MASS::glm.nb, zeroinfl and hurdle fits; Stata 18 MP `zip` / `zinb`, forcevuong [Stata 18 MP, pscl 1.5.9]; tolerance Raw, AIC-corrected and BIC-corrected statistics at 1e-6 on five model pairs (observed 6e-8 at worst, which is where R's optimisers stopped); the per-observation log-likelihoods under them at 1e-7 against R's own densities. pscl::vuong only prints, so the statistic is rebuilt in the R script and checked against the printed lines. Stata's forcevuong statistic for the two zero-inflated pairs agrees at 1e-6 (observed 2e-10 and 1e-9). -- tests/reference_parity/test_vuong_pscl_parity.py",
+      "tests/reference_parity/test_survreg_streg_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -82004,22 +82005,25 @@
       "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "survival::survreg (Weibull AFT)",
+      "reference": "Stata 18 MP `streg ..., time` (four distributions, vce(oim), vce(robust), vce(cluster), frailty(gamma)); survival::survreg (Weibull AFT)",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
         "survival": "3.8.3"
       },
       "sides": [
         "py",
+        "Stata",
         "R"
       ],
       "source": "reference_parity_frozen",
-      "status": "aligned",
+      "status": "bit-exact",
       "tests": [
+        "tests/reference_parity/test_survreg_streg_stata_parity.py",
         "tests/reference_parity/test_aft_parity.py",
         "tests/reference_parity/_fixtures/aft_R.json"
       ],
-      "tolerance": "coefficients & log-scale 5e-5 abs (observed ~1e-5)"
+      "tolerance": "Stata: every block at 1e-6; observed 3e-10 or better on coefficients, standard errors and the frailty variance, 5e-12 on the log-likelihood, with ml's stopping rule tightened in the do-file. R: coefficients and log-scale 5e-5 abs against a frozen fixture."
     },
     "example": "res = sp.survreg(\"time ~ age + treatment\", data=df,\n event=\"status\", dist=\"weibull\")",
     "failure_modes": [
@@ -82053,7 +82057,7 @@
     "reference": "",
     "returns": {
       "class": "EconometricResults",
-      "description": "EconometricResults: Fitted parametric survival model. Parameters include covariates and log(sigma) (scale).",
+      "description": "EconometricResults: Fitted parametric survival model. Parameters include covariates and log(sigma) (scale). diagnostics['Log-likelihood'] is the likelihood of the durations, as R survival::survreg reports it;",
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
@@ -82075,7 +82079,7 @@
             "type": "number"
           },
           "cluster": {
-            "description": "Cluster identifier column for clustered standard errors.",
+            "description": "Cluster column; implies the cluster sandwich.",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -82104,9 +82108,13 @@
             "type": "string",
             "x-statspai-role": "formula"
           },
+          "frailty": {
+            "description": "Unobserved heterogeneity. ``'gamma'`` multiplies each observation's hazard by a gamma variable with mean one and variance ``theta``, as Stata's ``streg, frailty(gamma)``. The survivor function becomes ``[1 - theta log S(t)]^(-1/theta)``. ``log(theta)`` is reported with the other parameters, and ``model_info`` carries ``theta`` and the likelihood-ratio test of ``theta = 0``, whose p-value is halved because the null is on the boundary. Ignoring heterogeneity biases a Weibull fit towards negative duration dependence.",
+            "type": "string"
+          },
           "robust": {
             "default": "nonrobust",
-            "description": "Robust standard-error or covariance estimator option.",
+            "description": "``'nonrobust'`` (observed information), ``'robust'`` (sandwich, Stata's ``vce(robust)``) or ``'cluster'``. ``vce=`` is an alias.",
             "type": "string",
             "x-aliases": [
               "vce"
@@ -82128,7 +82136,7 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Cross-language parity (aligned) vs survival::survreg (Weibull AFT) [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance coefficients & log-scale 5e-5 abs (observed ~1e-5) -- tests/reference_parity/test_aft_parity.py",
+      "Cross-language parity (bit-exact) vs Stata 18 MP `streg ..., time` (four distributions, vce(oim), vce(robust), vce(cluster), frailty(gamma)); survival::survreg (Weibull AFT) [R version 4.5.2 (2025-10-31), Stata 18 MP, survival 3.8.3]; tolerance Stata: every block at 1e-6; observed 3e-10 or better on coefficients, standard errors and the frailty variance, 5e-12 on the log-likelihood, with ml's stopping rule tightened in the do-file. R: coefficients and log-scale 5e-5 abs against a frozen fixture. -- tests/reference_parity/test_survreg_streg_stata_parity.py",
       "tests/reference_parity/test_survreg_aft_parity.py"
     ],
     "validation_status": "certified"

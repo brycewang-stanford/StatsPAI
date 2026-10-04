@@ -6,6 +6,18 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.survreg` ignored `robust=` and `cluster=`.** Both were accepted
+  and written into `model_info`, and the standard errors were the
+  observed-information ones whatever was asked. They are now the sandwich
+  and the cluster sandwich, with Stata's factors, and agree with Stata 18
+  `streg ..., time vce(robust)` and `vce(cluster)` to 1e-6 for the
+  Weibull, exponential, log-normal and log-logistic models
+  (`tests/reference_parity/test_survreg_streg_stata_parity.py`). On the
+  test data the robust standard error of the Weibull scale is 28% larger
+  than the one that used to be returned under `robust='robust'`. Fits
+  without these options change in the sixth digit only: the optimiser now
+  finishes with Newton steps (coefficients were about 1e-5 from the
+  optimum) and agrees with Stata to 1e-9. See `MIGRATION.md`.
 - **The Vuong statistic reported by `sp.zip_model` and `sp.zinb` was too
   large.** `diagnostics['vuong_stat']` compared the zero-inflated fit with
   a Poisson (negative binomial) density evaluated at the zero-inflated
@@ -50,6 +62,16 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   statistics agree with R `micsr::cmtest` to 1e-9 for the tobit and 1e-6
   for the probit, and reject 5% of the time under the null in simulation
   (`tests/reference_parity/test_cmtest_micsr_parity.py`).
+- **`sp.survreg(frailty='gamma')`** adds gamma-distributed unobserved
+  heterogeneity to the four parametric duration models, as Stata's
+  `streg, frailty(gamma)`. It reports `log(theta)`, the frailty variance
+  and the likelihood-ratio test of `theta = 0` with its boundary p-value.
+  Coefficients, standard errors, `theta` and the test agree with Stata 18
+  to 1e-6. When the variance goes to its boundary the fit is the model
+  without frailty and a warning says so. `sp.survreg` results also carry
+  `data_info['llobs']`, so `sp.vuong` can compare two duration
+  distributions, and `model_info['ll_log_time']`, the log-likelihood in
+  Stata's convention.
 - **`sp.vuong`** compares two non-nested maximum likelihood fits on the
   same observations and returns the Vuong statistic with its AIC and BIC
   corrections. It takes fits from `sp.poisson`, `sp.nbreg`,
@@ -64,6 +86,11 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   `ivpoisson gmm`. `ivtobit` without `ll()` is written as `ll=None`,
   because `sp.ivtobit` censors at zero by default and Stata does not.
   `ivpoisson cfunction` is refused.
+
+### Changed
+
+- `sp.survreg` raises `MethodIncompatibility` when a duration is zero or
+  negative. It used to add `1e-15` to every duration and fit.
 
 ### Fixed
 

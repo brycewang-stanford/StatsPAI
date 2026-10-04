@@ -18308,24 +18308,27 @@
       ],
       "function": "survreg",
       "notes": [
-        "Frozen-R fixture: Weibull AFT log-time coefficients + log-scale match survival::survreg to iterative-MLE convergence tolerance (graded aligned, not bit-exact). Regenerate via _generate_aft_R.R."
+        "The Stata comparison was added with a correctness fix: robust= and cluster= were accepted, recorded in model_info and ignored, so every fit returned observed-information standard errors. The fit now iterates to the optimum by Newton steps on exact scores (it stopped about 1e-5 short before). Stata's ln_p is minus log(sigma), and its log-likelihood is that of log(t) (model_info['ll_log_time']); both are mapped in the test, not tolerated. When the frailty variance goes to its boundary Stata stops near theta = 3e-8 and sp.survreg returns the model without frailty with a warning; the LR statistic (0) and p-value (1) agree."
       ],
-      "reference": "survival::survreg (Weibull AFT)",
+      "reference": "Stata 18 MP `streg ..., time` (four distributions, vce(oim), vce(robust), vce(cluster), frailty(gamma)); survival::survreg (Weibull AFT)",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
         "survival": "3.8.3"
       },
       "sides": [
         "py",
+        "Stata",
         "R"
       ],
       "source": "reference_parity_frozen",
-      "status": "aligned",
+      "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_survreg_streg_stata_parity.py",
         "tests/reference_parity/test_aft_parity.py",
         "tests/reference_parity/_fixtures/aft_R.json"
       ],
-      "tolerance": "coefficients & log-scale 5e-5 abs (observed ~1e-5)"
+      "tolerance": "Stata: every block at 1e-6; observed 3e-10 or better on coefficients, standard errors and the frailty variance, 5e-12 on the log-likelihood, with ml's stopping rule tightened in the do-file. R: coefficients and log-scale 5e-5 abs against a frozen fixture."
     },
     {
       "additional_tests": [
@@ -19725,6 +19728,9 @@
       "tolerance": "2.0e-16 on every variance inflation factor, once the returned values stopped being rounded to two decimals."
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_survreg_streg_stata_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

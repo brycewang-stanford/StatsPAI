@@ -1566,22 +1566,42 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         ),
     },
     "survreg": {
-        "status": "aligned",
-        "reference": "survival::survreg (Weibull AFT)",
+        "status": "bit-exact",
+        "reference": (
+            "Stata 18 MP `streg ..., time` (four distributions, vce(oim), "
+            "vce(robust), vce(cluster), frailty(gamma)); survival::survreg "
+            "(Weibull AFT)"
+        ),
         "reference_versions": {
+            "Stata": "18 MP",
             "R": "R version 4.5.2 (2025-10-31)",
             "survival": "3.8.3",
         },
-        "tolerance": "coefficients & log-scale 5e-5 abs (observed ~1e-5)",
-        "sides": ["py", "R"],
+        "tolerance": (
+            "Stata: every block at 1e-6; observed 3e-10 or better on "
+            "coefficients, standard errors and the frailty variance, 5e-12 "
+            "on the log-likelihood, with ml's stopping rule tightened in "
+            "the do-file. R: coefficients and log-scale 5e-5 abs against a "
+            "frozen fixture."
+        ),
+        "sides": ["py", "Stata", "R"],
         "test": [
+            "tests/reference_parity/test_survreg_streg_stata_parity.py",
             "tests/reference_parity/test_aft_parity.py",
             "tests/reference_parity/_fixtures/aft_R.json",
         ],
         "note": (
-            "Frozen-R fixture: Weibull AFT log-time coefficients + log-scale "
-            "match survival::survreg to iterative-MLE convergence tolerance "
-            "(graded aligned, not bit-exact). Regenerate via _generate_aft_R.R."
+            "The Stata comparison was added with a correctness fix: "
+            "robust= and cluster= were accepted, recorded in model_info and "
+            "ignored, so every fit returned observed-information standard "
+            "errors. The fit now iterates to the optimum by Newton steps "
+            "on exact scores (it stopped about 1e-5 short before). Stata's "
+            "ln_p is minus log(sigma), and its log-likelihood is that of "
+            "log(t) (model_info['ll_log_time']); both are mapped in the "
+            "test, not tolerated. When the frailty variance goes to its "
+            "boundary Stata stops near theta = 3e-8 and sp.survreg returns "
+            "the model without frailty with a warning; the LR statistic "
+            "(0) and p-value (1) agree."
         ),
     },
     "aft": {

@@ -27,8 +27,8 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 369 |
-| | aligned | 53 |
+| **Compared against R/Stata** (T2) | bit-exact | 370 |
+| | aligned | 52 |
 | | **subtotal** | **422** |
 | **No external software reference** | analytical-only (T1) | 338 |
 | | external-replication (published numbers) | 6 |
@@ -95,7 +95,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 369 functions
+## bit-exact — 370 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -435,6 +435,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `sun_abraham` | fixest::sunab | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=0.03 | 4.0e-11 / 3.9e-11 | [`05_sunab.py`](../tests/r_parity/05_sunab.py) (+2) |
 | `sureg` | systemfit::systemfit(method="SUR", noDfCor) | R 4.5.2; systemfit 1.1.30 | rel_est<=1e-06, rel_se<=1e-06 | 1.5e-14 / 1.5e-15 | [`60_sureg.py`](../tests/r_parity/60_sureg.py) (+2) |
 | `survivor_average_causal_effect` | Stata leebounds 1.5 (Zhang-Rubin SACE bounds = Lee bounds under monotonicity) | Stata 18; leebounds 1.5 (2013-07-17, Tauchmann) | 1e-10 rel (upper bound; both bounds equal sp.lee_bounds) | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
+| `survreg` | Stata 18 MP `streg ..., time` (four distributions, vce(oim), vce(robust), vce(cluster), frailty(gamma)); survival::survreg (Weibull AFT) | Stata 18 MP; R 4.5.2; survival 3.8.3 | Stata: every block at 1e-6; observed 3e-10 or better on coefficients, standard errors and the frailty variance, 5e-12 on the log-likelihood, with ml's stopping rule tightened in the do-file. R: coefficients and log-scale 5e-5 abs against a frozen fixture. | — / — | [`test_survreg_streg_stata_parity.py`](../tests/reference_parity/test_survreg_streg_stata_parity.py) (+2) |
 | `svydesign` | survey::svydesign + svymean/svytotal/svyglm/degf (strata, nested PSUs, fpc, survey.lonely.psu); Stata svyset + svy: mean/total/regress/logit/poisson + estat effects | R 4.5.2; survey 4.5; Stata 18 MP | estimates, SEs, DEFF, CI bounds 1e-10 rel, p-values 1e-9 rel (observed <= 4e-14; p 6e-13) | — / — | [`test_survey_design_R_parity.py`](../tests/reference_parity/test_survey_design_R_parity.py) (+2) |
 | `svyglm` | survey::svyglm (design-based GLM + linearization SE) | R 4.5.2 | coefficients + SE 1e-10 abs (observed ~2e-15 / 6e-15) | — / — | [`test_survey_parity.py`](../tests/reference_parity/test_survey_parity.py) (+1) |
 | `svymean` | survey::svymean (Horvitz-Thompson/Hajek + Taylor SE) | R 4.5.2 | estimate + SE 1e-10 abs (observed ~5e-15 / 8e-17) | — / — | [`test_survey_parity.py`](../tests/reference_parity/test_survey_parity.py) (+1) |
@@ -471,7 +472,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `yu_elwert_decompose` | R cdgd::cdgd0_manual on independently fitted within-cell lm / within-group glm nuisances | DasGuptR 2.2.0; ddecompose 1.0.0; cdgd 1.0.1 | method='efficient': disparity, baseline, prevalence, effect, selection and their EIF standard errors at 1e-9. method='plugin' has no reference implementation and is covered by its exact additivity identity. | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=0.0001 | 1.2e-07 / 2.8e-08 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 
-## aligned — 53 functions
+## aligned — 52 functions
 
 Agreement within a documented, pre-registered looser tolerance.
 
@@ -524,7 +525,6 @@ Agreement within a documented, pre-registered looser tolerance.
 | `scpi` | R scpi::scpi (effect = 'unit-time', u.missp, u.sigma = HC1, u.order = e.order = 1, rho = type-2, e.method = all) | scpi 4.0.1; CVXR 1.9.2; ECOSolveR 0.6.1; Qtools 1.6.0; quantreg 6.1 | On R's weights: rho, Q.star, u.mean, Omega, Sigma, e.mean at 1e-9; out-of-sample e.var and gaussian / ls / qreg bounds at 1e-9 against R with rrq(method = 'br') (exact LP) and 5e-4 abs against the default Frisch-Newton rrq. In-sample simulation fed R's draws: per-draw median <= 1e-6 and max <= 2e-4 vs ECOS at 1e-12, quantile bounds at 1e-5; vs default ECOS (1e-8) bounds within 2e-3 abs. Average-effect CI = scdataMulti(effect = 'unit') within 5e-4. J > T0 (California, 38 donors) covered. | — / — | [`test_did_synth_scpi_parity.py`](../tests/reference_parity/test_did_synth_scpi_parity.py) |
 | `shapley_inequality` | Stata shapley2 1.5 (Chavez Juarez) over regress + ineqdeco (Jenkins) | Stata 18.0 MP; shapley2 1.5 10jun15 (SSC) | value function v(S) 1e-11 rel (observed 1.4e-13); Shapley values 1e-6 rel (observed 2.7e-7, shapley2 routes v(S) through float variables); totals 1e-12 | — / — | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) (+1) |
 | `spatial_panel` | splm::spml(model = 'within') 1.6.5; Stata xsmle 1.4.5 fe type(ind) vce(oim) | R 4.5.2; splm 1.6.5; plm 2.6.7; Stata 18; xsmle version 1.4.5 5jun2017 | vs splm: estimates and SEs 1e-7 rel (observed 7.2e-8 / 1.3e-8, the splm optimize floor); vs xsmle (tightened ml tolerances): estimates and beta SEs 1e-9 (observed 2.5e-13 / 8.5e-11), spatial-parameter SE 1e-8 (observed 3.0e-9) | — / — | [`test_spatial_survey_R_parity.py`](../tests/reference_parity/test_spatial_survey_R_parity.py) (+2) |
-| `survreg` | survival::survreg (Weibull AFT) | R 4.5.2; survival 3.8.3 | coefficients & log-scale 5e-5 abs (observed ~1e-5) | — / — | [`test_aft_parity.py`](../tests/reference_parity/test_aft_parity.py) (+1) |
 | `test` | Stata 18 test (after regress / ivregress / logit / poisson) | Stata 18 | 1e-6 rel (observed <= 2.3e-15 on linear fits, <= 8e-10 on ML fits, far-tail p <= 4.7e-8) | — / — | [`test_postestimation_stata_parity.py`](../tests/reference_parity/test_postestimation_stata_parity.py) (+1) |
 | `weakrobust` | R ivmodel::CLR 1.9.1; Stata weakiv 2.4.07 (md small) | R 4.5.2; ivmodel 1.9.1; Stata 18 MP; weakiv 2.4.07 | CLR statistic and p-value vs ivmodel rel 1e-9 (observed 1.2e-11); CLR set vs ivmodel 5e-5 (observed 1.2e-5, ivmodel's uniroot default tolerance); CLR / K / AR vs Stata weakiv 1e-6 (observed 1.1e-7 / 1.1e-7 / 2.1e-8, not bisected further) | — / — | [`test_rd_iv_R_parity.py`](../tests/reference_parity/test_rd_iv_R_parity.py) (+2) |
 | `xtfrontier` | frontier::sfa | R 4.5.2; frontier 1.1.8 | rel_est<=0.001, rel_se<=0.05 | 2.8e-06 / 1.8e-06 | [`29_panel_sfa.py`](../tests/r_parity/29_panel_sfa.py) (+2) |

@@ -31332,7 +31332,7 @@
           "type": "number"
         },
         "cluster": {
-          "description": "Cluster identifier column for clustered standard errors.",
+          "description": "Cluster column; implies the cluster sandwich.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -31356,9 +31356,13 @@
           "type": "string",
           "x-statspai-role": "formula"
         },
+        "frailty": {
+          "description": "Unobserved heterogeneity. ``'gamma'`` multiplies each observation's hazard by a gamma variable with mean one and variance ``theta``, as Stata's ``streg, frailty(gamma)``. The survivor function becomes ``[1 - theta log S(t)]^(-1/theta)``. ``log(theta)`` is reported with the other parameters, and ``model_info`` carries ``theta`` and the likelihood-ratio test of ``theta = 0``, whose p-value is halved because the null is on the boundary. Ignoring heterogeneity biases a Weibull fit towards negative duration dependence.",
+          "type": "string"
+        },
         "robust": {
           "default": "nonrobust",
-          "description": "Robust standard-error or covariance estimator option.",
+          "description": "``'nonrobust'`` (observed information), ``'robust'`` (sandwich, Stata's ``vce(robust)``) or ``'cluster'``. ``vce=`` is an alias.",
           "type": "string",
           "x-aliases": [
             "vce"

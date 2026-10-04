@@ -111,6 +111,24 @@ depended on the order of the rows.
 The point estimates of `teffects ipw` were right before; its standard
 error and everything about `teffects aipw` were not Stata's. The direct
 calls `sp.ipw` and `sp.aipw` keep their defaults.
+## 1.38.0 → next: ⚠️ `sp.survreg` now honours `robust=` and `cluster=`; zero durations are refused
+
+**What changed.** `sp.survreg(..., robust='robust')` and
+`sp.survreg(..., cluster='id')` used to return the same standard errors as
+the plain call. They now return the sandwich and the cluster sandwich
+(Stata's `streg, vce(robust)` / `vce(cluster id)`). Separately, a duration
+that is zero or negative raises `MethodIncompatibility`; before, `1e-15`
+was added to every duration.
+
+**Who is affected.** Anyone who reported standard errors from
+`sp.survreg` with `robust=` or `cluster=`: those numbers were
+observed-information standard errors. Point estimates are unchanged
+beyond the sixth digit.
+
+**What to do.** Re-run. To get the old standard errors on purpose, drop
+the option. Rows with a duration of zero have to be dropped or the time
+origin shifted before the call.
+
 ## 1.38.0 → next: ⚠️ the Vuong statistic of `sp.zip_model` and `sp.zinb` is smaller
 
 **What changed.** `result.diagnostics['vuong_stat']` and `['vuong_p']`
