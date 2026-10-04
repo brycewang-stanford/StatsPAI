@@ -31,6 +31,30 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded for the Remix labs pass (time-varying covariates in Callaway-Sant'Anna, unidentified imputation leads)
+
+Commit `6c9fd021`. Two source files on the estimation path of Track A
+modules changed. `did/callaway_santanna.py` (modules 04 and 79) reads a
+covariate that varies within unit in the earlier period of each ATT(g,t)
+cell instead of in the unit's first row, and gains the improved doubly
+robust estimator `estimator='drimp'`. `did/_bjs_pretrends.py` (module 84)
+refuses lead coefficients that the design does not identify instead of
+inverting a singular matrix. The traces of modules 04, 79 and 84 were
+re-recorded on the tree of that commit.
+
+**Effect on the paper.** None. The Python results of modules 04, 79 and 84
+were re-run on the new tree, together with 16 and 17, whose estimators
+share files with the change. Each reproduces its committed file; the
+largest relative difference is 1.4e-15 (module 79). None of these modules
+uses a time-varying covariate, and module 84 requests leads that are
+identified, so the changed branches are not reached. Only
+`exercised_sources` digests and `seconds` changed in the trace, and no
+module's implementation classification moved. No estimate, standard error
+or table cell is read from this file.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded for the Croissant textbook pass (zero-modified counts, per-observation log-likelihoods, new exports)
 
 Commits `e799808c`, `725a734a` and `d9bfd690`. Source files on the
