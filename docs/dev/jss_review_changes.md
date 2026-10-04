@@ -31,6 +31,33 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded for the Croissant textbook pass (zero-modified counts, per-observation log-likelihoods, new exports)
+
+Commits `e799808c`, `725a734a` and `d9bfd690`. Source files on the
+estimation path of Track A modules changed: `regression/zeroinflated.py`
+(modules 63 and 64; the logistic terms of the likelihood are evaluated in
+an overflow-safe form, and the Vuong statistic in `diagnostics` compares
+against a model fitted on its own), `regression/count.py` and
+`regression/logit_probit.py` (modules 37, 42, 47, 48, 57 and 58; fits
+store their per-observation log-likelihood), `regression/tobit.py` (module
+41; the result keeps its design for `sp.cmtest`), and
+`src/statspai/__init__.py` (new exports `sp.ivprobit`, `sp.ivtobit`,
+`sp.ivpoisson`, `sp.cmtest`, `sp.vuong`), which is on the path of modules
+03, 13, 15, 24, 25, 26, 27, 53, 65 and 66 and of original-data module 08.
+The traces of all of these were re-recorded on the tree of `d9bfd690`.
+
+**Effect on the paper.** None. The Python results of modules 37, 41, 42,
+47, 48, 57, 58, 63 and 64 were re-run on the new tree with
+`tests/r_parity/verify_reproduce_py.py`. Every one reproduces its
+committed file, the largest relative difference being 8.9e-16. No result
+file was regenerated and no parity row changes. The Vuong statistic that
+changed value (see `CHANGELOG.md`) is not an output of modules 63 or 64.
+No module's implementation classification moved.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded for the Clarke textbook pass (matching scores, `sp.twfe_decomposition`, `sp.wild_cluster_boot`)
 
 Commit `39a8be49`. Three source files on the estimation path of Track A
