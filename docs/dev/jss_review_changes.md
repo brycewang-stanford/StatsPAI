@@ -1450,3 +1450,31 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the cluster-Lasso pass (Gaillac and L'Hour)
+
+- **Commits.** `f1fa33c4` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (Track A modules
+  01 02 04 05 06 07 08 09 11 12 14 16 17 18 19 20 22 52 53 55 73 88) and
+  `tests/orig_parity/results/_implementation_trace.json` (all 12
+  modules). The sources that staled them are in the same commit:
+  `src/statspai/datasets/_canonical.py` and
+  `src/statspai/datasets/__init__.py` (the `nsw_dw` docstring and two
+  `attrs` flags), `src/statspai/synth/_core.py` and
+  `src/statspai/synth/scm.py` (a permutation interval added to
+  `model_info`).
+- **Reason.** A pass over the companion code of Gaillac and L'Hour's
+  *Machine Learning for Econometrics*
+  (`docs/dev/2026-10-05-gaillac-lhour-ml4econometrics-review.md`). None
+  of the edits changes a number a Track A module computes:
+  `python tests/r_parity/verify_reproduce_py.py --no-report` on 07, 11,
+  12, 18, 19, 22 and 52 reported 7 reproduce, 0 drift.
+- **Effect on the paper.** None. Checked field by field against the
+  version before `f1fa33c4`: in the 22 Track A modules and the 12
+  original-data modules only `exercised_sources` digests and `seconds`
+  differ; no `packages`, boundary-call package set, `rscript_launches` or
+  `error` changed. No estimate, standard error or table cell is read
+  from these files.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
