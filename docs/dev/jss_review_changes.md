@@ -31,6 +31,29 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — call traces re-recorded after the Wooldridge textbook pass
+
+Commit `85cdb0c6`. The pass edits `core/results.py` (`predict`),
+`core/utils.py` (the namespace formulas are evaluated in),
+`regression/ols.py`, `regression/iv.py`, `regression/glm.py`,
+`regression/logit_probit.py`, `regression/quantile.py`,
+`panel/panel_reg.py`, `did/_core.py` and the `estat` modules. Those files
+are on the estimation path of 72 Track A modules and of original-data
+modules, so both ledgers were re-recorded on the committed tree.
+
+**Effect on the paper.** None. Only `exercised_sources` digests and
+`seconds` change; compared field by field with the previous ledgers, no
+module's implementation classification moves, so the native / port /
+third-party census and the provenance marks of the original-data ledger
+are unchanged. No estimate, standard error or table cell is read from
+these files. The estimates of the modules themselves are untouched: the
+changes are to prediction, diagnostics and formula parsing, and the
+Track A result files are byte-identical.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-05 — original-data ledger refreshed; LaLonde PSM row regenerated
 
 Commits `c725ba3d` (the result and the roll-up table) and `dfe32e16` (the trace). Eight original-data modules had traces that no longer
