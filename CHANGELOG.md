@@ -500,6 +500,44 @@ Added on the way:
   repeated cross-sections), every row equal to Stata's to 1e-13. The
   result itself is the improved doubly robust fit. `sp.stata` runs
   `drdid ..., all`, the form the labs use most.
+- **`sp.g_computation(by_arm=True)`**, regression adjustment with an
+  outcome regression in each treatment arm, and with `ps_covariates=` its
+  inverse-probability-weighted, doubly robust form. `se_method='analytic'`
+  is the sandwich of the stacked estimating equations. These are Stata's
+  `teffects ra` and `teffects ipwra`: the effect, the untreated
+  potential-outcome mean and both standard errors agree to 1e-14, for the
+  ATE and the ATT. `sp.stata` runs both commands, which it refused. The
+  default call is unchanged.
+- **`sp.stata` reads more of a do-file.** `` `r(mean)' `` and
+  `local m = r(mean)` are expanded from the results the session holds,
+  in the text Stata writes into a macro (`.41178860375` for a mean of
+  0.41178860374999998, so a line that uses the macro computes with
+  Stata's number). `keep` and `drop` take varlist ranges and wildcards.
+  `reshape wide` and `reshape long` give Stata's columns and rows.
+  `collapse` has `firstnm` and `lastnm`. `reghdfe` takes `ib<k>.x`, for
+  which `sp.hdfe_ols` gained the same spelling among its regressors.
+  With these the Lalonde and Medicaid labs of the Remix run from the
+  first line to the last. Macros that read the data, and loops, are
+  still refused.
+
+Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
+
+- ⚠️ **`csdid` was translated with StatsPAI's propensity-score trimming,
+  not `csdid`'s.** `csdid` 1.81 defaults to `pscoretrim(1)`, no trimming;
+  `sp.callaway_santanna` defaults to 0.995, as R `did`. The translated
+  call now carries `pscore_trim=1.0`. On a design with four controls
+  above 0.995 the first post-treatment cell is 1.4400 (0.7104) without
+  trimming and 1.3164 (0.3862) with it; both are reproduced. The guide
+  said the two defaults were the same. `sp.callaway_santanna` itself is
+  unchanged.
+- ⚠️ **`reghdfe y i.x, absorb()` was translated to a call that could not
+  run.** The factor was written as `C(x)`, which `sp.hdfe_ols` does not
+  read, and the translation was reported as faithful. It is now `i.x`.
+  A factor inside an interaction among the regressors is refused.
+  `noconstant` is recognised as changing only what `reghdfe` prints.
+- ⚠️ **`collapse (first)` and `(last)` skipped missing values**, which is
+  what Stata's `firstnm` and `lastnm` do. They now take the first and
+  last row of the group whatever it holds.
 
 ### Reliability
 

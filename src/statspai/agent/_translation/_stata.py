@@ -338,6 +338,40 @@ def _cluster_vars(cmd: StataCommand) -> List[str]:
     return cl.split() if cl else []
 
 
+_PATSY_FACTOR = re.compile(r"^C\(([A-Za-z_]\w*)\)$")
+_PATSY_FACTOR_BASE = re.compile(r"^C\(([A-Za-z_]\w*), Treatment\((\d+(?:\.\d+)?)\)\)$")
+
+
+def _hdfe_terms(terms: List[str], command: str) -> Tuple[Optional[str], List[str]]:
+    """Regressors in the grammar of ``sp.hdfe_ols``.
+
+    The shared normalisation writes ``i.g`` as patsy's ``C(g)``, which the
+    formula parser of ``sp.hdfe_ols`` does not read: its categorical marker
+    is ``i.g`` (smallest level omitted, as in Stata) or ``ib<k>.g``. A
+    factor inside an interaction is refused rather than emitted as a call
+    that cannot run.
+    """
+    out: List[str] = []
+    for term in terms:
+        m = _PATSY_FACTOR.match(term)
+        mb = _PATSY_FACTOR_BASE.match(term)
+        if m:
+            out.append(f"i.{m.group(1)}")
+        elif mb:
+            out.append(f"ib{mb.group(2)}.{mb.group(1)}")
+        elif "C(" in term:
+            return (
+                f"{command}: the factor-variable term {term!r} (a factor "
+                "inside an interaction) is not translated "
+                "to sp.hdfe_ols. Create the indicator columns and list them, "
+                "or absorb the factor.",
+                terms,
+            )
+        else:
+            out.append(term)
+    return None, out
+
+
 def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     """``reghdfe y x, absorb(id year#q) cluster(id)`` -> ``sp.hdfe_ols``.
 
@@ -353,6 +387,9 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     if err is not None:
         return _emit_error(err, command="reghdfe", suggestions=[])
     clusters = _cluster_vars(cmd)
+    err, xs = _hdfe_terms(list(xs), "reghdfe")
+    if err is not None:
+        return _emit_error(err, command="reghdfe", suggestions=[])
     main = _build_formula(y, xs)
     formula = main + (" | " + " + ".join(fe_list) if fe_list else "")
     args: Dict[str, Any] = {"formula": formula}
@@ -904,6 +941,9 @@ def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
             command="ivreghdfe",
             suggestions=[],
         )
+    err, exog = _hdfe_terms(list(exog), "ivreghdfe")
+    if err is not None:
+        return _emit_error(err, command="ivreghdfe", suggestions=[])
     formula = (
         f"{_build_formula(y, exog)} | {' + '.join(fe_list)} | "
         f"{' + '.join(endog)} ~ {' + '.join(instruments)}"
@@ -987,6 +1027,9 @@ def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
     if "notyet" in opts:
         args["control_group"] = "notyettreated"
         args["notyet_cutoff"] = "asinr" if "asinr" in opts else "cohort"
+    # csdid's own default is pscoretrim(1): no control is dropped for a high
+    # propensity score. sp.callaway_santanna's is 0.995, R did's.
+    args["pscore_trim"] = 1.0
     if opts.get("pscoretrim") is not None:
         try:
             args["pscore_trim"] = float(opts.get("pscoretrim") or "")
@@ -1000,8 +1043,10 @@ def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
     out["untranslated_options"] = lost
     out["semantics"] = [
         "csdid defaults written out: base_period='varying' (short gaps) "
-        "unless long2; notyet_cutoff='cohort' unless asinr. csdid's "
-        "method(ipw) is estimator='ipw_abadie'."
+        "unless long2; notyet_cutoff='cohort' unless asinr; "
+        "pscore_trim=1.0 (csdid drops no control for a high propensity "
+        "score unless pscoretrim() says so). csdid's method(ipw) is "
+        "estimator='ipw_abadie'."
     ]
     return out
 
@@ -2195,14 +2240,54 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
     lost: List[str] = []
 
     if method in {"ra", "ipwra"}:
-        return _emit_error(
-            f"teffects {method} fits a separate outcome regression in each "
-            "treatment arm and averages its predictions"
-            + (" with inverse-probability weights" if method == "ipwra" else "")
-            + "; it is not translated line by line. sp.aipw is the doubly "
-            "robust estimator on the same two models.",
-            command="teffects",
-            suggestions=[],
+        # a linear outcome regression in each arm; ipwra weights it with a
+        # logit propensity score. Any other model is refused.
+        if out_opts and [o.lower() for o in out_opts] != ["linear"]:
+            return _emit_error(
+                f"teffects {method}: the outcome model "
+                f"{' '.join(out_opts)!r} is not translated; the linear one is.",
+                command="teffects",
+                suggestions=[],
+            )
+        if treat_opts and [o.lower() for o in treat_opts] != ["logit"]:
+            return _emit_error(
+                f"teffects {method}: the treatment model "
+                f"{' '.join(treat_opts)!r} is not translated; logit is.",
+                command="teffects",
+                suggestions=[],
+            )
+        if not out_xs or any("(" in v or ":" in v for v in out_xs + treat_xs):
+            return _emit_error(
+                f"teffects {method} needs outcome covariates written as "
+                "columns: `teffects ra (y x1 x2) (treat)`.",
+                command="teffects",
+                suggestions=[],
+            )
+        if (method == "ra") == bool(treat_xs):
+            return _emit_error(
+                "teffects ra takes no treatment-model covariates and "
+                "teffects ipwra needs them.",
+                command="teffects",
+            )
+        ra_args: Dict[str, Any] = {
+            "y": y,
+            "treat": treat,
+            "covariates": out_xs,
+            "estimand": estimand,
+            "by_arm": True,
+        }
+        if method == "ipwra":
+            ra_args["ps_covariates"] = treat_xs
+        ra_args["se_method"] = "analytic"
+        kw = ", ".join(f"{k}={v!r}" for k, v in ra_args.items())
+        return _emit(
+            "g_computation",
+            ra_args,
+            f"sp.g_computation(data=df, {kw})",
+            semantics=[
+                "The untreated potential-outcome mean Stata prints as POmean "
+                "is result.model_info['pomean0']."
+            ],
         )
     if out_opts:
         return _emit_error(

@@ -103,6 +103,7 @@ def is_data_step(command: str) -> bool:
             "encode",
             "decode",
             "collapse",
+            "reshape",
             "ipolate",
             "egen",
         )
@@ -130,9 +131,18 @@ _COLLAPSE = {
     "count": "count",
     "max": "max",
     "min": "min",
-    "first": "first",
-    "last": "last",
+    # pandas' first / last skip missing values, which is Stata's firstnm /
+    # lastnm; Stata's first / last take the row whatever it holds
+    "firstnm": "first",
+    "lastnm": "last",
+    "first": "_row_first",
+    "last": "_row_last",
 }
+
+
+def _row_end(how: str) -> Any:
+    position = 0 if how == "_row_first" else -1
+    return lambda s: s.iloc[position] if len(s) else np.nan
 
 
 def row_mask(
@@ -218,6 +228,13 @@ class DataSteps:
             return True
         if cmd.command == "collapse":
             self._collapse(cmd.varlist, dict(cmd.options), cmd.if_cond, cmd.in_range)
+            return True
+        if cmd.command == "reshape":
+            from ._stata_reshape import run_reshape
+
+            if cmd.if_cond or cmd.in_range:
+                raise StataExprError("`reshape` takes no if / in qualifier")
+            run_reshape(self, list(cmd.varlist), dict(cmd.options))
             return True
         if cmd.command == "ipolate":
             self._ipolate(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
@@ -628,12 +645,10 @@ class DataSteps:
                 return
             self.reset(0)
             return
+        varlist = self._expand_varlist(varlist)
         unknown = [v for v in varlist if v not in self.data.columns]
         if unknown:
-            raise StataExprError(
-                f"variable(s) {unknown} are not in the data (wildcards and "
-                "ranges are not expanded here)"
-            )
+            raise StataExprError(f"variable(s) {unknown} are not in the data")
         self._own()
         if keep:
             order = [c for c in self.data.columns if c in set(varlist)]
@@ -641,6 +656,32 @@ class DataSteps:
         else:
             self.data = self.data.drop(columns=varlist)
         self._float &= set(self.data.columns)
+
+    def _expand_varlist(self, varlist: List[str]) -> List[str]:
+        """Stata varlist ranges (``a-b``: every column from ``a`` to ``b`` in
+        dataset order) and wildcards (``x*``, ``x?``) written out."""
+        import fnmatch
+
+        cols = [str(c) for c in self.data.columns]
+        out: List[str] = []
+        for tok in varlist:
+            first, dash, last = tok.partition("-")
+            if dash and first in cols and last in cols:
+                i, j = cols.index(first), cols.index(last)
+                if i > j:
+                    raise StataExprError(
+                        f"varlist range {tok!r}: {first!r} comes after "
+                        f"{last!r} in the data"
+                    )
+                out.extend(cols[i : j + 1])
+            elif any(ch in tok for ch in "*?~"):
+                hits = fnmatch.filter(cols, tok.replace("~", "*"))
+                if not hits:
+                    raise StataExprError(f"varlist {tok!r} matches no variable")
+                out.extend(hits)
+            else:
+                out.append(tok)
+        return list(dict.fromkeys(out))
 
     def _sort(self, varlist: List[str], qualifier: Optional[str]) -> None:
         if qualifier:
@@ -797,6 +838,8 @@ class DataSteps:
             for new, source, how in targets:
                 if how == "sum":
                     cols[new] = grouped[source].sum(min_count=0)
+                elif how.startswith("_row_"):
+                    cols[new] = grouped[source].agg(_row_end(how))
                 else:
                     cols[new] = getattr(grouped[source], how)()
             out = pd.DataFrame(cols).reset_index()
@@ -807,7 +850,17 @@ class DataSteps:
                         (
                             frame[source].sum()
                             if how == "sum"
-                            else getattr(frame[source], how)()
+                            else (
+                                _row_end(how)(frame[source])
+                                if how.startswith("_row_")
+                                else (
+                                    _row_end(
+                                        "_row_first" if how == "first" else "_row_last"
+                                    )(frame[source].dropna())
+                                    if how in ("first", "last")
+                                    else getattr(frame[source], how)()
+                                )
+                            )
                         )
                     ]
                     for new, source, how in targets

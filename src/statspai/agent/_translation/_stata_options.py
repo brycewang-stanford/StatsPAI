@@ -357,7 +357,9 @@ _DISPLAY_BY_COMMAND = {
     "vecrank": {"max", "ic", "notrace"},
     "tabstat": {"columns", "format", "longstub", "labelwidth", "varwidth"},
     # reghdfe's way of saying "no fixed effects": what the call does without absorb()
-    "reghdfe": {"noabsorb"},
+    # noconstant: the constant is absorbed with the fixed effects, so the
+    # option only removes the _cons row Stata prints
+    "reghdfe": {"noabsorb", "noconstant"},
 }
 
 

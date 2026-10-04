@@ -40,6 +40,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
 
 
 def g_computation(
@@ -53,6 +54,10 @@ def g_computation(
     n_boot: int = 500,
     alpha: float = 0.05,
     seed: Optional[int] = None,
+    *,
+    by_arm: bool = False,
+    ps_covariates: Optional[List[str]] = None,
+    se_method: str = "bootstrap",
 ) -> CausalResult:
     """
     G-computation (parametric g-formula) estimator.
@@ -128,6 +133,28 @@ def g_computation(
     >>> bool('curve' in curve.model_info)
     True
 
+    by_arm : bool, default False
+        Fit a linear outcome regression in each treatment arm instead of
+        one regression with the treatment as a regressor, and average the
+        difference of the two predictions. This is regression adjustment
+        as Stata's ``teffects ra`` defines it; it lets every coefficient
+        differ between the arms. Binary treatment, ``estimand`` ``'ATE'``
+        or ``'ATT'``, no ``ml_Q``.
+    ps_covariates : list of str, optional
+        With ``by_arm=True``: fit the two regressions by weighted least
+        squares, with inverse-probability weights from a logit of the
+        treatment on these covariates. This is Stata's ``teffects ipwra``,
+        inverse-probability-weighted regression adjustment, which is
+        doubly robust: consistent when either the outcome regressions or
+        the logit is right.
+    se_method : {'bootstrap', 'analytic'}, default 'bootstrap'
+        ``'analytic'`` (with ``by_arm=True``) is the sandwich variance of
+        the stacked estimating equations, so the sampling error of the
+        regression and logit coefficients is carried into the effect; it
+        is the standard error ``teffects ra`` / ``teffects ipwra`` report,
+        and the confidence interval is the normal one. ``'bootstrap'``
+        resamples rows ``n_boot`` times.
+
     Notes
     -----
     Consistent when :math:`Q(d, X) = E[Y|D=d, X]` is correctly specified
@@ -139,6 +166,32 @@ def g_computation(
     if estimand not in ("ATE", "ATT", "dose_response"):
         raise ValueError(
             f"estimand must be 'ATE', 'ATT', or 'dose_response'; " f"got '{estimand}'"
+        )
+
+    if se_method not in ("bootstrap", "analytic"):
+        raise MethodIncompatibility(
+            f"g_computation: se_method must be 'bootstrap' or 'analytic'; "
+            f"got {se_method!r}."
+        )
+    if by_arm:
+        return _by_arm(
+            data,
+            y,
+            treat,
+            list(covariates),
+            estimand=estimand,
+            ml_Q=ml_Q,
+            ps_covariates=ps_covariates,
+            se_method=se_method,
+            n_boot=n_boot,
+            alpha=alpha,
+            seed=seed,
+        )
+    if ps_covariates is not None or se_method == "analytic":
+        raise MethodIncompatibility(
+            "g_computation: ps_covariates= and se_method='analytic' belong to "
+            "the regression fitted in each treatment arm.",
+            recovery_hint="Add by_arm=True.",
         )
 
     df = data[[y, treat] + list(covariates)].dropna().reset_index(drop=True)
@@ -349,6 +402,110 @@ def g_computation(
     except Exception:  # pragma: no cover
         pass
     return _result
+
+
+def _by_arm(
+    data: pd.DataFrame,
+    y: str,
+    treat: str,
+    covariates: List[str],
+    *,
+    estimand: str,
+    ml_Q: Optional[Any],
+    ps_covariates: Optional[List[str]],
+    se_method: str,
+    n_boot: int,
+    alpha: float,
+    seed: Optional[int],
+) -> CausalResult:
+    """``g_computation(by_arm=True)``: an outcome regression per arm."""
+    from ._regression_adjustment import regression_adjustment
+
+    if estimand not in ("ATE", "ATT") or ml_Q is not None:
+        raise MethodIncompatibility(
+            "g_computation(by_arm=True) is the linear regression adjustment "
+            "for a binary treatment: estimand 'ATE' or 'ATT', no ml_Q.",
+            recovery_hint="Drop by_arm=True for a dose-response curve or a "
+            "machine-learning outcome model.",
+        )
+    ps = list(ps_covariates) if ps_covariates is not None else None
+    columns = list(dict.fromkeys([y, treat, *covariates, *(ps or [])]))
+    df = data[columns].dropna().reset_index(drop=True)
+    Y = df[y].to_numpy(dtype=float)
+    D = df[treat].to_numpy(dtype=float)
+    if not set(np.unique(D)).issubset({0.0, 1.0}):
+        raise ValueError(
+            f"estimand='{estimand}' requires binary treatment (0/1) in " f"'{treat}'."
+        )
+    n = len(Y)
+    ones = np.ones((n, 1))
+    X = np.column_stack([ones, df[covariates].to_numpy(dtype=float)])
+    Z = None if ps is None else np.column_stack([ones, df[ps].to_numpy(dtype=float)])
+
+    tau, se, extra = regression_adjustment(Y, D, X, estimand=estimand, Z=Z)
+    z_crit = float(stats.norm.ppf(1 - alpha / 2))
+    info = {
+        "estimator": (
+            "Inverse-probability-weighted regression adjustment"
+            if ps is not None
+            else "Regression adjustment (outcome regression per arm)"
+        ),
+        "estimand": estimand,
+        "by_arm": True,
+        "ps_covariates": ps,
+        "se_method": se_method,
+        "pomean0": extra["pomean0"],
+        "pomean0_se": extra["pomean0_se"],
+        "ml_Q": "OLS",
+    }
+    if se_method == "bootstrap":
+        rng = np.random.default_rng(seed)
+        draws = np.full(n_boot, np.nan)
+        for b in range(n_boot):
+            idx = rng.integers(0, n, size=n)
+            try:
+                draws[b] = regression_adjustment(
+                    Y[idx],
+                    D[idx],
+                    X[idx],
+                    estimand=estimand,
+                    Z=None if Z is None else Z[idx],
+                )[0]
+            except (MethodIncompatibility, np.linalg.LinAlgError, ValueError):
+                continue  # a resample without support; counted below
+        ok = int(np.isfinite(draws).sum())
+        if ok < 2:
+            raise RuntimeError(
+                "g_computation(by_arm=True): the bootstrap failed on "
+                f"{n_boot - ok} of {n_boot} resamples; use se_method='analytic'."
+            )
+        se = float(np.nanstd(draws, ddof=1))
+        ci = (
+            float(np.nanpercentile(draws, 100 * alpha / 2)),
+            float(np.nanpercentile(draws, 100 * (1 - alpha / 2))),
+        )
+        info.update(n_boot=n_boot, n_boot_success=ok, n_boot_failed=n_boot - ok)
+        info["pomean0_se"] = float("nan")
+    else:
+        ci = (tau - z_crit * se, tau + z_crit * se)
+    pvalue = float(2 * stats.norm.sf(abs(tau / se))) if se > 0 else float("nan")
+    return CausalResult(
+        method=(
+            "Regression adjustment (IPW-weighted)"
+            if ps is not None
+            else "Regression adjustment"
+        ),
+        estimand=estimand,
+        estimate=tau,
+        se=se,
+        pvalue=pvalue,
+        ci=ci,
+        alpha=alpha,
+        n_obs=n,
+        detail=None,
+        model_info=info,
+        _citation_key="g_computation",
+    )
 
 
 # Citation

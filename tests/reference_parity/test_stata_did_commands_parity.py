@@ -540,3 +540,97 @@ def test_did2s_general_form_contains_the_original_one(df):
         )
     assert general.estimate == pytest.approx(classic.estimate, rel=1e-10)
     assert general.se == pytest.approx(classic.se, rel=1e-8)
+
+
+# ----------------------------------------------------------------------
+# csdid's default propensity trimming
+# ----------------------------------------------------------------------
+
+_TRIM_SETUP = (
+    "gen xsep = x1 + 2*(g > 0)\n"
+    "replace xsep = 9 if g == 0 & inlist(id, 1, 5, 9, 13)\n"
+)
+
+
+@pytest.mark.parametrize(
+    "option, tag",
+    [("", "csdid_trim_default"), ("pscoretrim(0.995)", "csdid_trim_995")],
+)
+def test_csdid_default_does_not_trim_the_propensity_score(df, option, tag):
+    """``csdid`` 1.81 defaults to ``pscoretrim(1)``; StatsPAI and R ``did``
+    default to 0.995. Four controls here have a score above 0.995, so the
+    two defaults give different cells, and the translated line has to carry
+    csdid's."""
+    assert _REF["csdid_trim_default"]["b"] != _REF["csdid_trim_995"]["b"]
+    res = _run(
+        _TRIM_SETUP
+        + f"csdid y xsep, ivar(id) time(year) gvar(g) method(dripw) {option}",
+        df,
+    )
+    _check_cells(res, tag, RTOL_PS)
+
+
+# ----------------------------------------------------------------------
+# reghdfe with factor variables
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "line, tag, base",
+    [
+        ("reghdfe y ib2003.g xt, absorb(year) vce(cluster id)", "reghdfe_ib", 2003),
+        (
+            "reghdfe y i.g xt, absorb(year) vce(cluster id) noconstant",
+            "reghdfe_i",
+            0,
+        ),
+    ],
+)
+def test_reghdfe_factor_variable(df, line, tag, base):
+    res = _run(line, df)
+    ref = _ref(tag)
+    checked = 0
+    for name, (b, se) in ref.items():
+        if name in ("_cons",) or name.startswith(f"{base}b."):
+            continue
+        key = "xt" if name == "xt" else f"g::{name.split('.')[0]}"
+        _close(res.params[key], b, RTOL_REG)
+        _close(res.std_errors[key], se, RTOL_REG)
+        checked += 1
+    assert checked == 4
+
+
+# ----------------------------------------------------------------------
+# teffects ra / ipwra
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "line, tag",
+    [
+        ("teffects ra (y x1 xt) (x2) if year == 2005", "teffects_ra_ate"),
+        ("teffects ra (y x1 xt) (x2) if year == 2005, atet", "teffects_ra_atet"),
+        (
+            "teffects ipwra (y x1 xt) (x2 x1 xt) if year == 2005",
+            "teffects_ipwra_ate",
+        ),
+        (
+            "teffects ipwra (y x1 xt) (x2 x1 xt) if year == 2005, atet",
+            "teffects_ipwra_atet",
+        ),
+        ("teffects ipwra (y x1 xt) (x2 x1) if year == 2005", "teffects_ipwra_ps1_ate"),
+        (
+            "teffects ipwra (y x1 xt) (x2 x1, logit) if year == 2005, atet",
+            "teffects_ipwra_ps1_atet",
+        ),
+    ],
+)
+def test_teffects_ra_and_ipwra(df, line, tag):
+    """The effect, the untreated potential-outcome mean and both standard
+    errors: the sandwich of the stacked estimating equations."""
+    res = _run(line, df)
+    block = _REF[tag]
+    _close(res.estimate, block["b"][0], RTOL_REG)
+    _close(res.se, block["se"][0], RTOL_REG)
+    _close(res.model_info["pomean0"], block["b"][1], RTOL_REG)
+    _close(res.model_info["pomean0_se"], block["se"][1], RTOL_REG)

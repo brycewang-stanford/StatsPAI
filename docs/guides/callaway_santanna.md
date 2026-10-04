@@ -160,7 +160,7 @@ your numbers silently. This table is the mapping.
 | (csdid default) | `notyet_cutoff='cohort'` | |
 | (R `did`) | `notyet_cutoff='period'` | StatsPAI's default |
 | `notyet` | `control_group='notyettreated'` | |
-| `pscoretrim(#)` | `pscore_trim=#` | both default 0.995 |
+| `pscoretrim(#)` | `pscore_trim=#` | ⚠️ the defaults differ: `csdid` 1.0 (no trimming), StatsPAI 0.995 as R `did`. Pass `pscore_trim=1.0` to reproduce `csdid` when a control's propensity score exceeds 0.995 |
 | `saverif(f)` | `sp.influence_functions(res, path=f)` | |
 | `estat simple` / `event` / `calendar` | `sp.estat(res, 'simple' \| 'event' \| 'calendar')` | same numbers as `sp.aggte` |
 | `estat group` | `sp.estat(res, 'group')` | `sp.aggte(res, type='group', share_variance=False)`: csdid holds the cohort shares fixed in `GAverage` |

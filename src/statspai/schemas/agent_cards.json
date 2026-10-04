@@ -12353,7 +12353,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. Validation: certified parity evidence.",
+    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. by_arm=True is regression adjustment with a regression per arm (teffects ra); with ps_covariates= it is teffects ipwra, which is. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "derived from status and sides",
@@ -12418,10 +12418,15 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. Validation: certified parity evidence.",
+      "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. by_arm=True is regression adjustment with a regression per arm (teffects ra); with ps_covariates= it is teffects ipwra, which is. Validation: certified parity evidence.",
       "name": "g_computation",
       "parameters": {
         "properties": {
+          "by_arm": {
+            "default": false,
+            "description": "Fit a linear outcome regression in each treatment arm (regression adjustment, Stata teffects ra) instead of one regression with the treatment as a regressor",
+            "type": "boolean"
+          },
           "covariates": {
             "description": "Baseline covariates",
             "items": {
@@ -12449,6 +12454,22 @@
             "default": 500,
             "description": "Bootstrap replications for SE",
             "type": "integer"
+          },
+          "ps_covariates": {
+            "description": "With by_arm=True: weight the two regressions by inverse probability from a logit on these covariates (Stata teffects ipwra; doubly robust)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "se_method": {
+            "default": "bootstrap",
+            "description": "'analytic' (with by_arm=True) is the sandwich of the stacked estimating equations, the SE teffects reports",
+            "enum": [
+              "bootstrap",
+              "analytic"
+            ],
+            "type": "string"
           },
           "treat": {
             "description": "Treatment variable",

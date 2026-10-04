@@ -103,6 +103,33 @@ _SCALAR = re.compile(
 _DISPLAY = re.compile(r"\s*di(?:s(?:p(?:l(?:a(?:y)?)?)?)?)?\s+(.+)\Z", re.S | re.I)
 
 
+#: `` `r(name)' `` / `` `e(name)' ``: a stored result used as a macro
+_RESULT_MACRO = re.compile(r"`([re]\([A-Za-z_]\w*\))'")
+#: ``local name = exp`` (not ``local name exp``, which stores the text)
+_MACRO_EXPRESSION = re.compile(
+    r"^(gl(?:o(?:b(?:al?)?)?)?|loc(?:al?)?)\s+([A-Za-z_]\w*)\s*=(.*)$", re.I
+)
+
+
+def _macro_number(value: float) -> str:
+    """A number as Stata writes it into a macro, format ``%18.0g``: as many
+    significant digits as fit in 17 characters beside the sign, at most 17.
+    The mean 0.41178860374999998 becomes ``.41178860375`` and 1/3 becomes
+    ``.3333333333333333``, so a line that reads the macro back computes
+    with the number Stata computes with, not with the stored double."""
+    if value != value:
+        return "."
+    magnitude = abs(float(value))
+    text = "0"
+    for digits in range(17, 0, -1):
+        text = format(magnitude, f".{digits}g")
+        if text.startswith("0."):
+            text = text[1:]
+        if len(text) <= 17:
+            break
+    return ("-" if value < 0 else "") + text
+
+
 def _qualified(line: str, data: pd.DataFrame, stored: Dict[str, Any]) -> pd.DataFrame:
     """``data`` restricted by the ``if`` / ``in`` qualifier of ``line``."""
     from . import _stata_options as _opts
@@ -569,7 +596,8 @@ class StataSession:
                 diagnostics={"command": line},
             )
         try:
-            if self._macros.define(line):
+            line = self._results_in_macros(line)
+            if self._define_from_expression(line) or self._macros.define(line):
                 return False
             line = self._macros.expand(line)
         except ScriptError as exc:
@@ -866,6 +894,56 @@ class StataSession:
                         ) from exc
             else:
                 self._store_r(str(out["tool"]), arguments, run_data)
+        return True
+
+    def _results_in_macros(self, line: str) -> str:
+        """Write out `` `r(mean)' `` / `` `e(N)' ``: a stored result used as
+        a macro. The value is the one the session holds from the command
+        that left it; a result that is not there is left for the macro
+        table to refuse."""
+
+        def repl(m: "re.Match[str]") -> str:
+            try:
+                out = evaluate(m.group(1), pd.DataFrame({"_": [0.0]}), self.stored)
+                return _macro_number(float(out[0]))
+            except (StataExprError, TypeError, ValueError):
+                return m.group(0)
+
+        return _RESULT_MACRO.sub(repl, line)
+
+    def _define_from_expression(self, line: str) -> bool:
+        """``local name = exp`` / ``global name = exp`` with a numeric
+        expression the session can evaluate (``r(mean)``, ``_b[x] * 2``,
+        ``2010 + 5``). The macro holds the number as text, as in Stata.
+        Anything else is left to the macro table, which records the value as
+        unknown so that a later use is refused."""
+        m = _MACRO_EXPRESSION.match(line.strip())
+        if m is None:
+            return False
+        expr = m.group(3).strip()
+        if not expr or expr.startswith(('"', '`"')):
+            return False  # a string: the macro table stores the text
+        from ._stata_script import ScriptError
+
+        # Only what the session holds decides the value: stored results,
+        # coefficients, scalars and arithmetic. An expression that reads the
+        # data (`x[1]`, `_N`) is left to the macro table to refuse.
+        if re.search(r"\b_[Nn]\b", expr):
+            return False
+        try:
+            expr = self._macros.expand(expr)
+            out = evaluate(expr, pd.DataFrame({"_": [0.0]}), self.stored)
+        except (ScriptError, StataExprError):
+            return False
+        if out.dtype == object:
+            return False
+        number = float(out[0])
+        table = (
+            self._macros.globals
+            if m.group(1).lower().startswith("g")
+            else self._macros.locals
+        )
+        table[m.group(2)] = _macro_number(number)
         return True
 
     def _scalars_in_restriction(self, line: str) -> str:

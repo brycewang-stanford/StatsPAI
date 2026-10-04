@@ -121,6 +121,39 @@ qui drdid y x1 x2, time(year) treatment(d04) all
 emit `fh' drdid_rc_all
 restore
 
+* --- csdid's default propensity trimming is none -----------------------------
+* four never-treated units are given a covariate value deep in the treated
+* range, so their propensity score is above 0.995
+preserve
+gen xsep = x1 + 2*(g > 0)
+replace xsep = 9 if g == 0 & inlist(id, 1, 5, 9, 13)
+qui csdid y xsep, ivar(id) time(year) gvar(g) method(dripw)
+emit `fh' csdid_trim_default
+qui csdid y xsep, ivar(id) time(year) gvar(g) method(dripw) pscoretrim(0.995)
+emit `fh' csdid_trim_995
+restore
+
+* --- reghdfe with factor variables ------------------------------------------
+qui reghdfe y ib2003.g xt, absorb(year) vce(cluster id)
+emit `fh' reghdfe_ib
+qui reghdfe y i.g xt, absorb(year) vce(cluster id) noconstant
+emit `fh' reghdfe_i
+
+* --- teffects ra / ipwra on the 2005 cross-section, x2 as the treatment ------
+* (This block comes before did2s: with unit(), did2s 0.5 demeans the outcome
+* in memory and leaves it demeaned.)
+preserve
+keep if year == 2005
+foreach e in ate atet {
+    qui teffects ra (y x1 xt) (x2), `e'
+    emit `fh' teffects_ra_`e'
+    qui teffects ipwra (y x1 xt) (x2 x1 xt), `e'
+    emit `fh' teffects_ipwra_`e'
+    qui teffects ipwra (y x1 xt) (x2 x1), `e'
+    emit `fh' teffects_ipwra_ps1_`e'
+}
+restore
+
 * --- did2s ------------------------------------------------------------------
 gen d = g > 0 & year >= g
 gen relshift = cond(g > 0, year - g + 10, 0)

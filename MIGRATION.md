@@ -308,6 +308,20 @@ raises `MethodIncompatibility` instead of returning numbers.
 The numbers such calls returned were not estimates of anything.
 *What to do.* Request the number of leads the message names.
 
+**`sp.stata` / `sp.from_stata`: `csdid`, `collapse (first)`.**
+*What changed.* A translated `csdid` line carries `pscore_trim=1.0`,
+`csdid`'s default, where it used to leave StatsPAI's 0.995 in force. In
+`collapse`, `(first)` and `(last)` take the first and last row of each
+group even when it is missing; they used to skip missing values, which
+is `(firstnm)` and `(lastnm)`.
+*Who is affected.* A `csdid` line with covariates run through `sp.stata`
+on data where a control unit's propensity score exceeds 0.995. A
+`collapse (first)` or `(last)` on a variable with missing values at the
+edge of a group.
+*What to do.* Nothing to reproduce Stata. For the earlier results, add
+`pscoretrim(0.995)` to the `csdid` line, or write `(firstnm)` /
+`(lastnm)`. Direct calls to `sp.callaway_santanna` are unaffected.
+
 ---
 
 ## 1.37.0 → 1.38.0: `sp.write_data` folds `<var>__miss` columns back into `<var>` in a .dta file

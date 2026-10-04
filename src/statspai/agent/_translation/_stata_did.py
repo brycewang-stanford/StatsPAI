@@ -1,10 +1,10 @@
 """Translations of the user-written difference-in-differences commands.
 
-``drdid`` (Rios-Avila, Sant'Anna and Naqvi's port of ``DRDID``) maps to
-``sp.drdid``; ``did2s`` (Butts) to the general form of ``sp.gardner_did``; ``jwdid`` (Rios-Avila's extended TWFE) to ``sp.jwdid``;
-``csdid_estat`` and the ``estat simple | group | calendar | event`` that
-both ``csdid`` and ``jwdid`` define map to ``sp.estat``, which aggregates
-with the conventions of the command the result came from.
+``drdid`` maps to ``sp.drdid``; ``did2s`` to the general form of
+``sp.gardner_did``; ``jwdid`` to ``sp.jwdid``; ``csdid_estat`` and the
+``estat simple | group | calendar | event`` that both ``csdid`` and ``jwdid``
+define map to ``sp.estat``, which aggregates with the conventions of the
+command the result came from.
 """
 
 from __future__ import annotations
@@ -287,6 +287,8 @@ def _h_did2s(cmd: StataCommand) -> Dict[str, Any]:
                 command="did2s",
                 suggestions=[],
             )
+    # Stata reads `ib0. x` as `ib0.x`
+    second = re.sub(r"\b(i(?:b\d+)?\.)\s+(?=[A-Za-z_])", r"\1", second)
     err, second_tokens = _expand_abbreviations(second.split(), cmd.columns)
     if err:
         return _emit_error(f"did2s second_stage(): {err}", command="did2s")

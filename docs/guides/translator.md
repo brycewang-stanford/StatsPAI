@@ -115,7 +115,10 @@ The caller's DataFrame is never modified. What is run:
 | --- | --- |
 | `if exp`, `in f/l` | on estimation and descriptive commands; `tin(01jan1980, 31dec1989)` after `tsset` |
 | `generate`, `replace` | `x[_n-1]`, `_n`, `_N`; stores single precision unless `double`, as Stata |
-| `keep` / `drop` (`if`, `in` or a variable list), `sort`, `preserve` / `restore` | |
+| `keep` / `drop` (`if`, `in` or a variable list), `sort`, `preserve` / `restore` | the list may use ranges (`drop y00-did`) and wildcards (`drop temp_*`) |
+| `collapse (stat) ..., by()` | `first` / `last` take the row whatever it holds; `firstnm` / `lastnm` skip missing values |
+| `reshape wide stubs, i() j()`, `reshape long stubs, i() j()` | numeric `j`; column order and rows as Stata's |
+| `` `r(mean)' ``, `local m = r(mean)`, `local k = 2010 + 5` | the macro holds the number in Stata's 16-digit text |
 | `mvdecode v, mv(#)`, `encode s, gen(v)` | |
 | `predict v [, xb \| residuals]` | after `regress` / `ivreg` on plain columns |
 | `scalar s = exp`, `display exp` | may use `_b[x]`, `_se[x]`, `e(N)`, `e(r2)`, `e(r2_a)`, and `r()` after `summarize`, `test`, `ttest` |
@@ -135,8 +138,8 @@ The functions available are `ln` `log` `log10` `exp` `sqrt` `abs` `floor`
 `ceil` `int` `round` `mod` `min` `max` `sign` `cond` `missing` `mi`
 `inlist` `inrange` `normal` `normalden` `invnormal` `chi2` `chi2tail`
 `ttail` `invttail` `F` `Ftail`. Anything else is refused with the reason:
-`e(sample)`, string functions, extended missing values (`.a`), `egen`,
-`merge`, `reshape`, `collapse`. `use` is
+`e(sample)`, string functions, extended missing values (`.a`), `merge`,
+`expand`, `matrix`. `use` is
 refused as well, since it replaces the data; pass the DataFrame in. Settings
 and output-only lines (`set more off`, `log using`, `label`, `describe`) are
 skipped, and graph or export commands are skipped with a warning.
@@ -199,7 +202,7 @@ always-current list):
 | `csdid_estat` / `estat` `simple`, `group`, `calendar`, `event` after `csdid` or `jwdid` | `sp.estat(result, ...)`, which calls `sp.aggte` or `sp.etwfe_emfx` with the command's conventions |
 | `rdrobust`, `rdplot`, `rddensity` | `sp.rdrobust` / `sp.rdplot` / `sp.rddensity` |
 | `synth` | `sp.synth` |
-| `teffects` | `sp.ipw` / `sp.match` / `sp.aipw` |
+| `teffects` | `sp.ipw` / `sp.match` / `sp.aipw`; `ra` and `ipwra` are `sp.g_computation(by_arm=True, se_method='analytic')` |
 | `psmatch2`, `ppmlhdfe`, `heckman`, `boottest` | `sp.psmatch2` / `sp.ppmlhdfe` / `sp.heckman` / `sp.wild_cluster_bootstrap` |
 
 Flagship R mappings:
@@ -232,13 +235,19 @@ These are part of the queryable contract — `sp.translation_coverage()["limitat
 - **`xtreg, fe` has no `_cons`.** Stata prints the average fixed effect;
   `sp.feols` absorbs it.
 - **Macros and loops.** `sp.from_stata` translates one command and refuses a
-  macro; `sp.stata` expands the macros defined by text in the same snippet.
-  Loops and macros computed by Stata are not run.
+  macro; `sp.stata` expands the macros defined by text in the same snippet
+  and the ones that hold a stored result. Loops are not run.
 - **User-written DiD commands.** `eventstudyinteract`, `csdid2`,
   `honestdid` and `allsynth` are not translated. Call `sp.sun_abraham`,
   `sp.callaway_santanna`, `sp.honest_did` and `sp.augsynth` directly.
   In `did2s`, a first stage with a continuous-by-factor interaction
-  (`c.x#i.year`) is refused. `did_imputation, allhorizons` needs the list of
+  (`c.x#i.year`) is refused.
+- **`reghdfe` factor variables.** `i.x` and `ib<k>.x` are translated; a
+  factor inside an interaction (`i.x#c.z` among the regressors) is refused.
+- **Macros.** `` `r(mean)' `` and `local m = r(mean)` are expanded from
+  the results the session holds, in the 16-digit text Stata writes into a
+  macro. A macro that reads the data (`local n = _N`, `local v = x[1]`) or
+  comes from an extended function is refused. `did_imputation, allhorizons` needs the list of
   horizons, which is in the data, so it is reported in
   `untranslated_options`.
 - **`psmatch2` without `logit`.** Stata then fits a probit propensity score;

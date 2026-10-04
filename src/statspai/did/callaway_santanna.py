@@ -60,8 +60,11 @@ class CallawayNotImplemented(MethodIncompatibility, NotImplementedError):
 
 
 #: Propensity-score trimming cutoff for *control* units, matching
-#: ``DRDID``'s ``trim.level`` — the value R ``did`` and Stata ``csdid``
-#: both inherit without overriding it.
+#: ``DRDID``'s ``trim.level``, which R ``did`` inherits without overriding
+#: it. Stata ``csdid`` (1.81) does override it: its default is
+#: ``pscoretrim(1)``, no trimming, so a script ported from ``csdid`` needs
+#: ``pscore_trim=1.0`` to give the same cells when a control unit's
+#: propensity score exceeds 0.995.
 _DEFAULT_PSCORE_TRIM = 0.995
 
 #: ATT(g,t) estimators, mapped to the names the reference packages use.

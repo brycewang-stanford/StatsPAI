@@ -7734,7 +7734,9 @@ def _build_registry() -> None:
             description=(
                 "Parametric g-formula (standardization) estimator. "
                 "ATE/ATT for binary D, or dose-response curve for continuous D. "
-                "Consistent under correctly-specified outcome model; not doubly robust."
+                "Consistent under correctly-specified outcome model; not doubly robust. "
+                "by_arm=True is regression adjustment with a regression per arm "
+                "(teffects ra); with ps_covariates= it is teffects ipwra, which is."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -7758,6 +7760,33 @@ def _build_registry() -> None:
                     description="Dose grid (required for dose_response)",
                 ),
                 ParamSpec("n_boot", "int", False, 500, "Bootstrap replications for SE"),
+                ParamSpec(
+                    "by_arm",
+                    "bool",
+                    False,
+                    False,
+                    "Fit a linear outcome regression in each treatment arm "
+                    "(regression adjustment, Stata teffects ra) instead of one "
+                    "regression with the treatment as a regressor",
+                ),
+                ParamSpec(
+                    "ps_covariates",
+                    "list",
+                    False,
+                    None,
+                    "With by_arm=True: weight the two regressions by inverse "
+                    "probability from a logit on these covariates (Stata "
+                    "teffects ipwra; doubly robust)",
+                ),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    "bootstrap",
+                    "'analytic' (with by_arm=True) is the sandwich of the stacked "
+                    "estimating equations, the SE teffects reports",
+                    ["bootstrap", "analytic"],
+                ),
             ],
             returns="CausalResult",
             example='sp.g_computation(df, y="wage", treat="trained", covariates=["age","edu"])',

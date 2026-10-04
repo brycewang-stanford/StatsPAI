@@ -91,25 +91,71 @@ them, and in each case StatsPAI's answer differs from Stata's on purpose.
 - `csdid ..., long2` with `gvar = 1945` on decennial data, where 1945 is
   not a period, stops `csdid_estat event` with a conformability error.
 
-## Open
+## Replaying whole do-files
 
-- `teffects ra` and `teffects ipwra` have no StatsPAI counterpart with
-  Stata's standard errors. Another line of work is rewriting the
-  `teffects` translation; this was left to it.
-- `egen`, `reshape`, `expand`, `matrix`, loops: most lab do-files stop at
-  one of these before the first estimation line. `egen` is the most
-  frequent (215 uses). The `bysort` prefix is being added elsewhere.
-- `did_imputation, allhorizons` is reported as not translated; the list of
-  horizons is in the data and `sp.did_imputation(horizon=)` wants it
-  written out.
-- `csdid2` is not translated: its standard errors differ from `csdid`'s
-  (a divergence recorded in an earlier review).
-- `csdid`'s `pscoretrim()` default. The syntax line of csdid 1.81 reads
-  `pscoretrim(real 1.0)`, and the guide says both sides default to 0.995.
-  No lab or fixture has a control unit with a propensity score above
-  0.995, so the two could not be told apart. Needs a design built for it.
-- `allsynth` (bias-corrected synthetic control) and `makespline` are not
-  translated; `sp.augsynth` covers the ridge-augmented estimator.
+After the commands were in place each real-data lab was fed to `sp.stata`
+whole, dropping a line whenever it was refused, to see what stops a file
+before its estimates. What turned up was general do-file grammar, and
+four more things that were wrong.
+
+- `csdid` was translated with StatsPAI's propensity trimming (0.995).
+  `csdid` 1.81 defaults to `pscoretrim(1)`. No lab has a control above
+  0.995, so a design was built for it: four never-treated units with a
+  covariate value deep in the treated range. First post-treatment cell
+  1.4400 (0.7104) untrimmed, 1.3164 (0.3862) trimmed; StatsPAI gives both
+  to 1e-8. The translation now writes `pscore_trim=1.0`.
+- `reghdfe y i.x, absorb()` was translated to `sp.hdfe_ols('y ~ C(x) |
+  ...')`, which does not parse. The TVA lab's first regression. Now
+  `i.x`; `ib1940.x` needed `sp.hdfe_ols` to accept a base level, added.
+- `collapse (first)` skipped missing values (that is `firstnm`).
+- Stata's `did2s ..., unit()` (version 0.5) demeans the outcome variable
+  in memory and leaves it demeaned. Not a StatsPAI matter, but it cost an
+  hour: reference values for `teffects` taken after a `did2s` line in the
+  same do-file were on the altered outcome. The fixture do-file runs the
+  `teffects` block first and says why. The Medicaid lab calls `did2s`
+  with `unit()` twice on the same outcome; the second call is harmless
+  only because the unit effect is in the model.
+
+Grammar added: `` `r(mean)' `` and `local m = r(mean)` (in Stata's
+`%18.0g` text, checked on eight values), varlist ranges and wildcards in
+`keep` / `drop`, `collapse (firstnm)`, `reshape wide` / `long`, `ib0. x`
+with a space. `teffects ra` and `teffects ipwra` run through
+`sp.g_computation(by_arm=True)` and agree with Stata to 1e-14.
+
+Where each lab stands now:
+
+| lab | runs to the end | what still stops it |
+| --- | --- | --- |
+| Lalonde | yes | |
+| Medicaid | yes | |
+| China WTO | no | `makespline` |
+| TVA | no | `honestdid`, `matrix` |
+| Baker estimators | no | `forvalues` loops, `eventstudyinteract`, `matrix`, `did_imputation, allhorizons` |
+| Castle equivalence | all but one line | `reg gdiff post` on the two rows left by a `collapse`: no residual degrees of freedom. Stata prints the coefficient without a standard error; `sp.regress` refuses |
+| Castle event study | no | `matrix b = r(table)` and the macros read from it |
+| Triple difference | no | a simulation: `set obs`, `expand`, `rnormal` |
+
+## Left out on purpose
+
+- Loops (`forvalues`, `foreach`). `CLAUDE.md` rules them out for
+  `sp.stata` and another line re-affirmed it with a test this week.
+  Unrolling a loop over a literal range is mechanical, but the decision
+  is not this pass's to reverse.
+- `honestdid`. Its `pre()` and `post()` are positions in `e(b)`, omitted
+  base columns included, and the TVA lab shows how easily they point at
+  the wrong coefficient. A translation would inherit that. Call
+  `sp.honest_did(result, ...)` on the fitted event study.
+- `eventstudyinteract`. It takes the user's relative-time dummies as
+  given; `sp.sun_abraham` builds them. The Baker lab's dummies are wrong
+  for the control cohort, so translating the line faithfully would mean
+  reproducing a wrong number.
+- `csdid2`: its standard errors differ from `csdid`'s (recorded in an
+  earlier review).
+- `allsynth`, `makespline`, `matrix`, `expand`, `file`: output handling,
+  simulation scaffolding, or commands seen in one lab.
+- `did_imputation, allhorizons`: the horizons are in the data;
+  `sp.did_imputation(horizon=)` wants the list.
+- Stata's sixth `drdid, all` row on a panel, `sipwra`.
 
 ## Files
 
@@ -117,4 +163,5 @@ them, and in each case StatsPAI's answer differs from Stata's on purpose.
   `_fixtures/_generate_did_commands_{data.py,Stata.do,R.R}` and their
   outputs.
 - `tests/test_stata_translation_did.py`,
-  `tests/test_bjs_pretrend_identification.py`.
+  `tests/test_bjs_pretrend_identification.py`,
+  `tests/test_stata_remix_grammar.py`.

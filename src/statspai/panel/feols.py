@@ -311,6 +311,9 @@ class _Atom:
 
     name: str
     categorical: bool
+    #: the level left out of a categorical atom written ``ib<k>.f``; ``None``
+    #: leaves out the smallest level, as ``i.f`` does
+    base: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -340,7 +343,12 @@ class _Term:
             sep = "##" if self.with_intercept else "#"
             return f"i.{self.group}{sep}c.{self.x}"
         return ":".join(
-            (f"i.{a.name}" if a.categorical else a.name) for a in self.atoms
+            (
+                (f"i.{a.name}" if a.base is None else f"ib{a.base:g}.{a.name}")
+                if a.categorical
+                else a.name
+            )
+            for a in self.atoms
         )
 
     @property
@@ -421,6 +429,14 @@ def _parse_atom(tok: str, side: str) -> _Term:
     m = re.match(rf"^i\.({_NAME})$", t) or re.match(rf"^i\(\s*({_NAME})\s*\)$", t)
     if m:
         return _Term(kind="inter", atoms=(_Atom(m.group(1), True),))
+    m = re.match(rf"^ib(\d+(?:\.\d+)?)\.({_NAME})$", t)
+    if m:
+        if side != "left":
+            raise ValueError(
+                f"feols: {t!r} names a base level, which only a regressor has; "
+                f"an absorbed factor is written i.{m.group(2)} or {m.group(2)}."
+            )
+        return _Term(kind="inter", atoms=(_Atom(m.group(2), True, float(m.group(1))),))
     m = re.match(rf"^c\.({_NAME})$", t)
     if m:
         return _Term(kind="inter", atoms=(_Atom(m.group(1), False),))
@@ -559,10 +575,27 @@ def _parse_formula(formula: str) -> tuple[str, List[_Term], List[_Term]]:
 # ======================================================================
 
 
-def _dummies(values: pd.Series, drop_first: bool) -> tuple[np.ndarray, List[str]]:
-    """Level indicators for ``values``, Stata-style (levels sorted, base first)."""
+def _dummies(
+    values: pd.Series, drop_first: bool, base: Optional[float] = None
+) -> tuple[np.ndarray, List[str]]:
+    """Level indicators for ``values``, Stata-style (levels sorted, base first).
+
+    ``base`` names the level to leave out instead of the smallest one
+    (``ib<k>.f``); it has to be a level of the factor.
+    """
     levels = sorted(pd.unique(values.dropna()), key=lambda v: (str(type(v)), v))
-    if drop_first:
+    if drop_first and base is not None:
+        try:
+            hit = [lv for lv in levels if float(lv) == float(base)]
+        except (TypeError, ValueError):
+            hit = []
+        if not hit:
+            raise ValueError(
+                f"feols: base level {base:g} of ib{base:g}.{values.name} is not "
+                f"a level of '{values.name}'."
+            )
+        levels = [lv for lv in levels if lv != hit[0]]
+    elif drop_first:
         levels = levels[1:]
     cols = [(values == lv).to_numpy(dtype=np.float64) for lv in levels]
     names = [str(lv) for lv in levels]
@@ -613,7 +646,7 @@ def _materialize_rhs(
         labels = [""]
         for atom in t.atoms:
             if atom.categorical:
-                dm, lv = _dummies(df[atom.name], drop_first=True)
+                dm, lv = _dummies(df[atom.name], drop_first=True, base=atom.base)
                 new_labels = [f"{atom.name}::{v}" for v in lv]
             else:
                 dm = df[atom.name].to_numpy(dtype=np.float64).reshape(-1, 1)

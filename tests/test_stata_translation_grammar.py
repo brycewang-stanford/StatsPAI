@@ -414,6 +414,7 @@ def test_csdid_follows_the_documented_mapping():
         "x": ["x1", "x2"],
         "estimator": "dr",
         "base_period": "varying",
+        "pscore_trim": 1.0,
     }
     out = sp.from_stata("csdid y, ivar(id) time(t) gvar(g) method(ipw) notyet long2")
     # csdid's method(ipw) is Abadie's IPW, not the stabilised 'ipw'
@@ -751,8 +752,8 @@ def test_what_cannot_be_carried_over_is_reported(line, lost):
 @pytest.mark.parametrize(
     "line, needle",
     [
-        ("teffects ra (y x) (treat)", "separate outcome regression"),
-        ("teffects ipwra (y x) (treat x)", "separate outcome regression"),
+        ("teffects ra (y x, poisson) (treat)", "outcome model"),
+        ("teffects ipwra (y x) (treat x, probit)", "treatment model"),
         ("teffects aipw (y x1) (treat x2)", "different covariates"),
         ("teffects psmatch (y) (treat x, hetprobit(x)), atet", "logit or probit"),
         ("teffects aipw (y x) (treat x, probit)", "treatment model"),
