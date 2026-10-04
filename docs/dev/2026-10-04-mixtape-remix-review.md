@@ -135,6 +135,63 @@ Where each lab stands now:
 | Castle event study | no | `matrix b = r(table)` and the macros read from it |
 | Triple difference | no | a simulation: `set obs`, `expand`, `rnormal` |
 
+## The worked project (`pisa/claude`)
+
+The Pisa and Berlin stops include a complete analysis written during the
+course: national suicide-prevention strategies in 16 European countries,
+1994 to 2010, with the R code and every output table committed. That is a
+set of reference values on real data, so StatsPAI was run on the same
+panel.
+
+| estimator | R | agreement |
+| --- | --- | --- |
+| TWFE and Bacon decomposition | `fixest`, `bacondecomp` | exact; the three component weights and averages to 1e-12 |
+| Callaway-Sant'Anna, outcome regression on unemployment (time-varying), universal base | `did` | simple, group and 17 event-time ATTs to 5e-7; also `dr`, unconditional and not-yet-treated variants |
+| BJS imputation with a covariate | `didimputation` | 2e-9 estimate, 2e-11 SE |
+| Sun-Abraham | `fixest::sunab` | `aggregation='fixest_att'` exact (3.0340, 1.3802); event-time estimates to 4e-9 |
+| Synthetic DiD by timing group | `synthdid` | the three ATTs to the printed digit; placebo SEs differ by resampling |
+| Ridge-augmented SCM, four treated units | `augsynth` | ATT to 3e-5, weights to 1e-5 |
+| Outcome-only SCM, four treated units | `augsynth(progfunc = "None")` | weights to 1e-5 with `standardize_predictors=False`; the default differs by convention, see below |
+
+The Callaway-Sant'Anna rows are a second, independent confirmation of the
+time-varying covariate fix above: unemployment changes every year, and
+before the fix these numbers did not match.
+
+**Outcome-only classic SCM: a convention, not a bug.**
+`sp.synth(method='classic')` with no predictors treats each pre-treatment
+period as a predictor, rescales it by its range across units and uses an
+equal V. `augsynth`'s SCM fits the raw pre-treatment path. For Ireland the
+default has a pre-treatment sum of squares of 51.55 against 45.14 for the
+least-squares weights, and one donor weight differs by 0.13.
+
+The first reading was that the default was wrong, since the docstring
+called it the simplex least-squares estimator, and the rescaling was
+removed. Fourteen tests failed, among them
+`tests/reference_parity/test_synth_rest_R_parity.py`, whose fixture was
+built to reproduce exactly this convention against R `Synth` (with
+`custom.v` chosen to make the two problems identical), the pinned Texas
+numbers of the replication guide, and the README's. The rescaling is a
+decision with evidence behind it, so the change was withdrawn. What was
+wrong was the sentence in the docstring; it now states what is computed
+and that `standardize_predictors=False` (or `v_method='nested'`) gives the
+least-squares weights, which match `augsynth` to between 3e-8 and 1e-5.
+
+Whether the default should be the raw least-squares fit is a fair
+question: it is what `augsynth` and `synthdid`'s `sc` return and what a
+nested V converges to. Changing it moves the README, the Texas guide and
+the sensitivity tools' reference numbers, so it is a decision for a
+release with a migration note, not for a textbook pass.
+
+Two defaults worth knowing when porting such a project, both documented
+and neither changed: `sp.sun_abraham`'s overall estimate is the
+equal-weighted average over event times unless
+`aggregation='fixest_att'`, and its event-time SEs carry the cohort-share
+term that `fixest` omits (`share_variance=False` reproduces `fixest`).
+
+The remaining labs of the tour (triple differences, China's WTO entry)
+are ordinary regressions on simulated or small data and exercise nothing
+beyond `reg` / `feols`.
+
 ## Left out on purpose
 
 - Loops (`forvalues`, `foreach`). `CLAUDE.md` rules them out for
@@ -164,4 +221,5 @@ Where each lab stands now:
   outputs.
 - `tests/test_stata_translation_did.py`,
   `tests/test_bjs_pretrend_identification.py`,
-  `tests/test_stata_remix_grammar.py`.
+  `tests/test_stata_remix_grammar.py`,
+  `tests/test_scm_outcome_only_least_squares.py`.

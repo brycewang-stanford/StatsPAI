@@ -569,6 +569,20 @@ Added on the way:
   first line to the last. Macros that read the data, and loops, are
   still refused.
 
+- **The Remix workshop's worked project as a reference.** The tour
+  includes a complete staggered-adoption analysis with its R outputs
+  committed (16 countries, 1994 to 2010). StatsPAI reproduces them: Bacon
+  decomposition, BJS with a covariate, Callaway-Sant'Anna with a
+  time-varying covariate in four configurations (a second confirmation
+  of the fix above), Sun-Abraham under `aggregation='fixest_att'`,
+  synthetic DiD and ridge-augmented SCM. One row differs by convention:
+  `sp.synth(method='classic')` without predictors rescales each
+  pre-treatment period before solving, as the R `Synth` parity fixture
+  pins, while `augsynth(progfunc = "None")` fits the raw path.
+  `standardize_predictors=False` gives `augsynth`'s weights to 1e-5. The
+  docstring said the default was the least-squares fit; it now says what
+  is computed and how to get the other.
+
 Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
 
 - ⚠️ **`csdid` was translated with StatsPAI's propensity-score trimming,

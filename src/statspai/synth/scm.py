@@ -1280,8 +1280,15 @@ class SyntheticControl:
         ``'auto'`` → nested V-W when covariates / special predictors are
         supplied, equal V otherwise. ``'nested'`` forces the outer V
         optimisation even when only Y lags are used (note: the outer
-        problem is then under-identified, per Kaul et al. 2022). Equal
-        V reduces to the outcome-only simplex LS estimator.
+        problem is then under-identified, per Kaul et al. 2022). With
+        equal V and no predictors each pre-treatment period is a predictor
+        and, under the default ``standardize_predictors=True``, is rescaled
+        by its range across units, so the periods are weighted by the
+        inverse of their squared ranges. That is the convention the R
+        ``Synth`` parity fixture reproduces. The weights that minimise the
+        plain pre-treatment squared error, which
+        ``augsynth(progfunc = "None")`` returns, are
+        ``standardize_predictors=False`` (or ``v_method='nested'``).
         ``'regression'`` is the default of Stata ``synth`` (without its
         ``nested`` option): V comes from regressing the pre-treatment
         outcomes on the predictors, with no search, so the fit is
@@ -1289,7 +1296,10 @@ class SyntheticControl:
         (its pre-treatment RMSPE to 3e-9 on the Proposition 99 data).
         It needs ``covariates`` or ``special_predictors``.
     standardize_predictors : bool, default True
-        Rescale predictors to unit range before the V optimization.
+        Rescale predictors to unit range before the V optimization. Without
+        ``covariates`` / ``special_predictors`` the predictors are the
+        pre-treatment outcomes and each period is rescaled; pass ``False``
+        for the simplex least-squares fit to the raw pre-treatment path.
     n_random_starts : int, default 4
         Additional random Dirichlet starts for the outer V optimiser.
     penalization : float, default 0.0
