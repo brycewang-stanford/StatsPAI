@@ -510,6 +510,10 @@ def mlogit(
         "n_obs": n,
         "n_params": n_params,
         "df_resid": n - n_params,
+        "nobs": n,
+        "y": Y_idx,
+        # Unweighted per-observation log-likelihood (sp.vuong).
+        "llobs": np.log(np.maximum(P_hat[np.arange(n), Y_idx], 1e-300)),
         # Likelihood-based: z / chi2 inference, as Stata's mlogit / ologit.
         "inference": "z",
     }
@@ -786,6 +790,10 @@ def _ordered_model(
         "n_obs": n,
         "n_params": n_params,
         "df_resid": n - n_params,
+        "nobs": n,
+        "y": Y_idx,
+        # Unweighted per-observation log-likelihood (sp.vuong).
+        "llobs": np.log(np.maximum(P_hat[np.arange(n), Y_idx], 1e-300)),
         # Likelihood-based: z / chi2 inference, as Stata's mlogit / ologit.
         "inference": "z",
     }

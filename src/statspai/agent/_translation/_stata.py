@@ -2064,6 +2064,92 @@ def _h_etpoisson(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
+_STREG_DISTS = {
+    "weibull": "weibull",
+    "w": "weibull",
+    "exponential": "exponential",
+    "e": "exponential",
+    "exp": "exponential",
+    "lognormal": "lognormal",
+    "lnormal": "lognormal",
+    "ln": "lognormal",
+    "loglogistic": "loglogistic",
+    "llogistic": "loglogistic",
+    "ll": "loglogistic",
+}
+
+
+def _h_streg(cmd: StataCommand) -> Dict[str, Any]:
+    """``streg x, dist(weibull) time`` (after ``stset``) → ``sp.survreg``.
+
+    ``sp.survreg`` is in the accelerated failure-time metric. That is the
+    only metric of the log-normal and log-logistic models; for the Weibull
+    and the exponential it is Stata's ``time`` option, and without it Stata
+    reports the proportional-hazards form, which is refused here rather
+    than returned under another name.
+    """
+    xs = list(cmd.varlist)
+    raw = (cmd.options.get("distribution") or "").strip().lower()
+    dist = _STREG_DISTS.get(raw)
+    if dist is None:
+        return _emit_error(
+            f"streg distribution({raw or '<none>'}) has no sp.survreg "
+            "counterpart; weibull, exponential, lognormal and loglogistic do.",
+            command="streg",
+        )
+    aft = "time" in cmd.options or "tratio" in cmd.options
+    if dist in ("weibull", "exponential") and not aft:
+        return _emit_error(
+            f"streg, dist({dist}) without `time` is the proportional-hazards "
+            "metric. sp.survreg estimates the accelerated failure-time form: "
+            "add the `time` option (a PH coefficient is minus the AFT "
+            "coefficient divided by sigma).",
+            command="streg",
+        )
+    if "shared" in cmd.options:
+        return _emit_error(
+            "streg, shared() (frailty shared within groups) has no "
+            "sp.survreg counterpart; frailty(gamma) alone does.",
+            command="streg",
+        )
+    duration = cmd.options.get("stset_time") or "<stset time>"
+    event = cmd.options.get("stset_failure") or "<stset failure>"
+    args: Dict[str, Any] = {
+        "duration": duration,
+        "event": event,
+        "x": xs,
+        "dist": dist,
+    }
+    notes: List[str] = []
+    if "frailty" in cmd.options:
+        fr = (cmd.options.get("frailty") or "").strip().lower()
+        if fr not in ("gamma", "g"):
+            return _emit_error(
+                f"streg, frailty({fr}) has no sp.survreg counterpart; "
+                "frailty(gamma) does.",
+                command="streg",
+            )
+        args["frailty"] = "gamma"
+    cluster = _vce_cluster(cmd)
+    if cluster:
+        args["cluster"] = cluster
+    elif _robust_kind(cmd) == "hc1":
+        args["robust"] = "robust"
+    if duration.startswith("<"):
+        notes.append(
+            "streg reads the duration and the event indicator from `stset`. "
+            "Run it through sp.stata after `stset timevar, failure(eventvar)`, "
+            "or replace the <stset ...> placeholders."
+        )
+    notes.append(
+        "sp.survreg lists _cons first and reports log(sigma): Stata's ln_p "
+        "for the Weibull is minus log(sigma), and its log likelihood is "
+        "model_info['ll_log_time']."
+    )
+    code = ", ".join(["data=df"] + [f"{k}={v!r}" for k, v in args.items()])
+    return _emit("survreg", args, f"sp.survreg({code})", notes)
+
+
 def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
     """``heckman y x, select(employed = age kids)`` →
     ``sp.heckman(y=..., x=[...], select=..., z=[...])``."""
@@ -3365,6 +3451,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "ivtobit": _h_ivprobit,
     "ivpoisson": _h_ivpoisson,
     "etpoisson": _h_etpoisson,
+    "streg": _h_streg,
     "heckman": _h_heckman,
     "rdplot": _h_rdplot,
     "rddensity": _h_rddensity,

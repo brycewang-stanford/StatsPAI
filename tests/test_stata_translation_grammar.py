@@ -231,6 +231,7 @@ _COMMANDS = {
     "ivtobit y x2 (d = z)": "ll(0)",
     "ivpoisson gmm c x2 (d = z)": "",
     "etpoisson c x2": "treat(b = x1 x2)",
+    "streg x1 x2": "distribution(lognormal)",
     "ppmlhdfe c x1 x2": "absorb(id)",
     "oprobit o x1 x2": "",
     "mlogit o x1 x2": "",

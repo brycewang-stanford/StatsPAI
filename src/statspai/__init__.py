@@ -973,12 +973,13 @@ from .regression.iv_limited import ivprobit, ivtobit
 from .regression.iv_quantile import ivqreg
 from .regression.logit_probit import cloglog, logit, probit
 from .regression.mixed_logit import mixlogit
+from .regression.multinomial import clogit, mlogit, ologit, oprobit
 
 # === NEW MODULES (v0.6) ===
 # GLM & Discrete Choice — ``glm``/``logit``/``probit``/``cloglog``/
 # ``poisson``/``nbreg``/``xtnbreg``/``ppmlhdfe`` are already imported above in the
 # core regression block; we only add what's new here.
-from .regression.multinomial import clogit, mlogit, ologit, oprobit
+from .regression.nested_logit import nlogit
 from .regression.quantile import qreg, sqreg
 
 # Sample Selection Models
@@ -1531,6 +1532,7 @@ __all__ = [
     "ivtobit",
     "ivpoisson",
     "etpoisson",
+    "nlogit",
     "logit",
     "probit",
     "cloglog",

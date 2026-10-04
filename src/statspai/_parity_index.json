@@ -6521,7 +6521,8 @@
         "tests/reference_parity/test_ivpoisson_stata_parity.py",
         "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py",
         "tests/reference_parity/test_sdid_optimized_covariates.py",
-        "tests/reference_parity/test_stata_did_commands_parity.py"
+        "tests/reference_parity/test_stata_did_commands_parity.py",
+        "tests/reference_parity/test_survreg_streg_stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -11025,7 +11026,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -12244,6 +12246,31 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "nlogit",
+      "notes": [
+        "Added with the estimator. mlogit's standard errors differ from Stata's by up to 4% at the same estimates; StatsPAI's come from the exact Hessian and equal Stata's, and the test asserts both. Two-level trees only."
+      ],
+      "reference": "Stata 18 MP official `nlogit` (RUM-consistent); R mlogit `mlogit(nests = ...)`",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "mlogit": "2.0.0"
+      },
+      "sides": [
+        "py",
+        "Stata",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_nlogit_parity.py"
+      ],
+      "tolerance": "Stata, every block at 1e-6: coefficients 1e-10, standard errors 4e-8 under vce(oim) and 8e-8 under vce(robust) and vce(cluster), log-likelihood 1e-11, LR test of IIA 1e-12. R: coefficients at 1e-6 and log-likelihoods at 1e-8 with separate dissimilarity parameters, a common one, and no constants."
+    },
+    {
       "function": "nonlinear_icp",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -12444,7 +12471,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_postestimation_stata_parity.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -12516,7 +12544,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_oprobit_dummies_Stata_parity.py",
-        "tests/reference_parity/test_vce_grammar_stata_parity.py"
+        "tests/reference_parity/test_vce_grammar_stata_parity.py",
+        "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -17943,6 +17972,7 @@
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
+        "tests/reference_parity/test_survreg_streg_stata_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
       "tolerance": ""

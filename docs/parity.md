@@ -27,9 +27,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 371 |
+| **Compared against R/Stata** (T2) | bit-exact | 372 |
 | | aligned | 52 |
-| | **subtotal** | **423** |
+| | **subtotal** | **424** |
 | **No external software reference** | analytical-only (T1) | 339 |
 | | external-replication (published numbers) | 6 |
 | | **subtotal** | **345** |
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 423 | 756 | 758 | 55.8% |
+| estimator callables | 424 | 757 | 759 | 55.9% |
 | infrastructure (parity N/A) | 0 | 9 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 326 | 0.0% |
-| **all registered** | 423 | 768 | 1304 | 32.4% |
+| **all registered** | 424 | 769 | 1305 | 32.5% |
 
 ### Coverage by estimator family
 
@@ -53,7 +53,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
 | causal | 149 | 327 | 328 |
-| regression | 36 | 41 | 41 |
+| regression | 37 | 42 | 42 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
 | inference | 18 | 29 | 29 |
@@ -95,7 +95,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 371 functions
+## bit-exact — 372 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -330,6 +330,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `network_components` | R igraph::components | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Counts and sizes exact on a disconnected graph; weak and strong counts on the directed graph. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `network_modularity` | R igraph::modularity | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Exact for a fixed split and for igraph's own fast-greedy partition. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `network_summary` | R igraph edge_density / diameter / mean_distance / transitivity | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Density, diameter, mean path length, transitivity and assortativity exact; average clustering matches igraph::transitivity(type = 'average', isolates = 'zero'), the convention used here. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `nlogit` | Stata 18 MP official `nlogit` (RUM-consistent); R mlogit `mlogit(nests = ...)` | Stata 18 MP; mlogit 2.0.0 | Stata, every block at 1e-6: coefficients 1e-10, standard errors 4e-8 under vce(oim) and 8e-8 under vce(robust) and vce(cluster), log-likelihood 1e-11, LR test of IIA 1e-12. R: coefficients at 1e-6 and log-likelihoods at 1e-8 with separate dissimilarity parameters, a common one, and no constants. | — / — | [`test_nlogit_parity.py`](../tests/reference_parity/test_nlogit_parity.py) |
 | `number_needed_to_treat` | base-R closed form (NNT = 1/risk difference) | R 4.5.2 | estimate 1e-12 abs (observed 0); CI not pinned | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `oaxaca` | oaxaca::oaxaca | R 4.5.2; oaxaca 0.1.5 | rel_est<=1e-06, rel_se<=0.05 | 6.3e-16 / 1.3e-16 | [`30_oaxaca.py`](../tests/r_parity/30_oaxaca.py) (+3) |
 | `odds_ratio` | base-R closed form (Woolf logit; = epiR::epi.2by2) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed 0) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
@@ -678,7 +679,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `forest_policy_tree` | [`test_fe_forest_policy_recovery.py`](../tests/reference_parity/test_fe_forest_policy_recovery.py) |
 | `forest_support` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
-| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+7) |
+| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+8) |
 | `front_door` | [`test_front_door_parity.py`](../tests/reference_parity/test_front_door_parity.py) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
@@ -841,7 +842,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `spec_curve` | [`test_spec_curve_fe_Stata_parity.py`](../tests/reference_parity/test_spec_curve_fe_Stata_parity.py) |
 | `spillover` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
 | `ssc` | [`test_ssc_presets_Stata_parity.py`](../tests/reference_parity/test_ssc_presets_Stata_parity.py) |
-| `stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+5) |
+| `stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+6) |
 | `stepwise` | [`test_stepwise_parity.py`](../tests/reference_parity/test_stepwise_parity.py) |
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `structural_mdp` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |

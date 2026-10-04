@@ -1166,6 +1166,30 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "`ivpoisson cfunction` has no counterpart."
         ),
     },
+    "nlogit": {
+        "status": "bit-exact",
+        "reference": (
+            "Stata 18 MP official `nlogit` (RUM-consistent); R mlogit "
+            "`mlogit(nests = ...)`"
+        ),
+        "reference_versions": {"Stata": "18 MP", "mlogit": "2.0.0"},
+        "tolerance": (
+            "Stata, every block at 1e-6: coefficients 1e-10, standard "
+            "errors 4e-8 under vce(oim) and 8e-8 under vce(robust) and "
+            "vce(cluster), log-likelihood 1e-11, LR test of IIA 1e-12. R: "
+            "coefficients at 1e-6 and log-likelihoods at 1e-8 with "
+            "separate dissimilarity parameters, a common one, and no "
+            "constants."
+        ),
+        "sides": ["py", "Stata", "R"],
+        "test": ["tests/reference_parity/test_nlogit_parity.py"],
+        "note": (
+            "Added with the estimator. mlogit's standard errors differ "
+            "from Stata's by up to 4% at the same estimates; StatsPAI's "
+            "come from the exact Hessian and equal Stata's, and the test "
+            "asserts both. Two-level trees only."
+        ),
+    },
     "etpoisson": {
         "status": "bit-exact",
         "reference": "Stata 18 MP official `etpoisson` and `margins`",

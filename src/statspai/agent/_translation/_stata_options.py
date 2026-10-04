@@ -245,6 +245,10 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "rdmc": (("cvar", 1),),
     "rdms": (("cvar", 1),),
     "rdmcplot": (("cvar", 1),),
+    # [ST] streg: distribution(), frailty(), time and tratio.
+    "streg": (("distribution", 1), ("frailty", 2), ("tratio", 2)),
+    # [CAUSAL] etpoisson: treat(), intpoints().
+    "etpoisson": (("treat", 2), ("intpoints", 4)),
 }
 
 

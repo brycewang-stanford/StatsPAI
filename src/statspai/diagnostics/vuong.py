@@ -34,7 +34,8 @@ def _pieces(result: Any, label: str) -> Tuple[np.ndarray, int, Optional[np.ndarr
         raise MethodIncompatibility(
             f"vuong: {label} does not carry per-observation log-likelihoods. "
             "Fits from sp.poisson, sp.nbreg, sp.zip_model, sp.zinb, "
-            "sp.hurdle, sp.logit, sp.probit and sp.survreg do.",
+            "sp.hurdle, sp.logit, sp.probit, sp.ologit, sp.oprobit, sp.mlogit, "
+            "sp.tobit and sp.survreg do.",
             diagnostics={"model_type": info.get("model_type")},
         )
     if info.get("weights") is not None or data.get("weights") is not None:
@@ -60,8 +61,11 @@ def vuong(model1: Any, model2: Any) -> Dict[str, Any]:
         Fits on the same observations from :func:`statspai.poisson`,
         :func:`statspai.nbreg`, :func:`statspai.zip_model`,
         :func:`statspai.zinb`, :func:`statspai.hurdle`,
-        :func:`statspai.logit`, :func:`statspai.probit` or
-        :func:`statspai.survreg`, without weights.
+        :func:`statspai.logit`, :func:`statspai.probit`,
+        :func:`statspai.ologit`, :func:`statspai.oprobit`,
+        :func:`statspai.mlogit`, :func:`statspai.tobit`,
+        :func:`statspai.survreg` or :func:`statspai.etpoisson`, without
+        weights.
 
     Returns
     -------

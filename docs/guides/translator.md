@@ -192,6 +192,8 @@ always-current list):
 | `ttest` | `sp.ttest` |
 | `ivreg2` / `ivregress` / `ivreg` | `sp.ivreg` (`robust` without `small` is `robust='hc0'`; the legacy `ivreg` is small-sample) |
 | `probit`, `logit`, `poisson`, `nbreg`, `tobit` | `sp.probit` ... ; `vce(robust)` is `robust='robust'`, Stata's `N/(N-1)` |
+| `etpoisson` | `sp.etpoisson` |
+| `stset t, failure(d)` then `streg, dist() time` | `sp.survreg` (accelerated failure-time metric only; `frailty(gamma)` carried, `shared()` refused) |
 | `ivprobit`, `ivtobit`, `ivpoisson gmm` | `sp.ivprobit` / `sp.ivtobit` / `sp.ivpoisson` (`twostep` is `method='twostep'`; `ivtobit` without `ll()` is written as `ll=None`; `ivpoisson cfunction` is refused) |
 | `newey y x, lag(m)` | `sp.regress(robust='hac', hac_lags=m, hac_small=True)` |
 | `dfuller` | `sp.unitroot(test='adf')` |

@@ -53,7 +53,8 @@ _DESCRIPTIVE_TOOLS = frozenset(
 _SKIPPED = re.compile(
     r"\s*(?:set\s+(?:more|linesize|matsize|scheme|graphics|type\s+double)|"
     r"log\s|cap(?:ture)?\s+log\s|label\s|format\s|describe\b|desc\b|"
-    r"list\b|browse\b|notes?\b|codebook\b|labelbook\b|version\s|clear\s+(?:all|matrix|mata)\s*$|"
+    r"list\b|browse\b|notes?\b|codebook\b|labelbook\b|version\s|"
+    r"clear\s+(?:all|matrix|mata)\s*$|"
     r"macro\s+drop|eststo\s+clear|graph\s+(?:export|save)|"
     r"return\s+list\b|ereturn\s+list\b|sysdir\b|help\s|xtdes(?:cribe)?\b|"
     r"irf\s+(?:create|set|drop|describe)\b|"
@@ -259,6 +260,27 @@ def _with_panel(
     return from_stata(f"{line}{sep}i({unit})", columns=columns)
 
 
+def _with_survival(
+    line: str,
+    out: Dict[str, Any],
+    survival: Optional[Tuple[str, str]],
+    columns: Any,
+) -> Dict[str, Any]:
+    """Fill the ``<stset>`` placeholders of ``streg`` from an earlier ``stset``."""
+    from ._stata import from_stata
+    from ._stata_lexer import _split_options
+
+    if survival is None or not out.get("ok"):
+        return out
+    if "<stset" not in str(out.get("python_code") or ""):
+        return out
+    sep = " " if _split_options(line)[1] else ", "
+    time, event = survival
+    return from_stata(
+        f"{line}{sep}stset_time({time}) stset_failure({event})", columns=columns
+    )
+
+
 def stata(
     commands: str,
     data: Optional[pd.DataFrame] = None,
@@ -387,6 +409,7 @@ class StataSession:
         self._steps = None if data is None else DataSteps(data)
         self._macros = MacroTable()
         self.panel: Tuple[Optional[str], Optional[str]] = (None, None)
+        self.survival: Optional[Tuple[str, str]] = None
         self.last = result
         self.last_data = data
         self.output: Any = result
@@ -433,6 +456,7 @@ class StataSession:
             self._steps._float = set()
         self.simulated = False
         self.panel = (None, None)
+        self.survival = None
         self.stored.pop("time_var", None)
         self.stored.pop("panel_var", None)
 
@@ -576,7 +600,12 @@ class StataSession:
 
         from ._stata import from_stata
         from ._stata_programs import program_line, run_simulate
-        from ._stata_script import ScriptError, control_flow, panel_declaration
+        from ._stata_script import (
+            ScriptError,
+            control_flow,
+            panel_declaration,
+            survival_declaration,
+        )
 
         handled_program = program_line(self, line)
         if handled_program is not None:
@@ -607,6 +636,16 @@ class StataSession:
                 "`local name ...` above the command, or write it out.",
                 diagnostics={"command": line},
             ) from exc
+        try:
+            st = survival_declaration(line)
+        except ScriptError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                diagnostics={"command": line},
+            ) from exc
+        if st is not None:
+            self.survival = st
+            return False
         declared = panel_declaration(line)
         if declared is not None:
             self.panel = declared
@@ -709,12 +748,21 @@ class StataSession:
                 ) from exc
         line = self._scalars_in_restriction(line)
         line = self._boundary_points(line)
-        key = (line, tuple(columns or ()), self.panel)
+        key = (line, tuple(columns or ()), self.panel, self.survival)
         out = self._translations.get(key)
         if out is None:
             out = _with_panel(
                 line, from_stata(line, columns=columns), self.panel, columns
             )
+            out = _with_survival(line, out, self.survival, columns)
+            if out.get("ok") and "<stset" in str(out.get("python_code") or ""):
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: the data are not "
+                    "declared as survival data.",
+                    recovery_hint="Put `stset timevar, failure(eventvar)` "
+                    "above the command.",
+                    diagnostics={"command": line},
+                )
             if len(self._translations) < 512:
                 self._translations[key] = out
         out = dict(out)

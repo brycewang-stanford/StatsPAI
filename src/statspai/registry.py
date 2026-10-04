@@ -1745,6 +1745,96 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="nlogit",
+            category="regression",
+            description=(
+                "Nested logit (random-utility consistent) on long-format "
+                "choice data, as Stata's nlogit and R's mlogit(nests=)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, description="Long format"),
+                ParamSpec("y", "str", True, description="1 for the chosen alternative"),
+                ParamSpec(
+                    "x",
+                    "list",
+                    False,
+                    None,
+                    "Alternative-varying regressors with generic coefficients",
+                ),
+                ParamSpec("chid", "str", True, description="Choice-situation id"),
+                ParamSpec("alt", "str", True, description="Alternative id"),
+                ParamSpec(
+                    "nests",
+                    "dict",
+                    True,
+                    description="{nest name: [alternatives]}; every "
+                    "alternative in exactly one nest",
+                ),
+                ParamSpec(
+                    "constants",
+                    "bool",
+                    False,
+                    True,
+                    "Alternative-specific constants (first alternative is the base)",
+                ),
+                ParamSpec(
+                    "common_lambda",
+                    "bool",
+                    False,
+                    False,
+                    "One dissimilarity parameter for all nests",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+                ),
+                ParamSpec(
+                    "cluster", "str", False, None, "Cluster column (vce(cluster c))"
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.nlogit(df, y="chosen", x=["cost", "time"], chid="trip", '
+                'alt="mode", nests={"ground": ["bus", "car"], "air": ["air"]})'
+            ),
+            tags=["discrete choice", "nested logit", "iia", "multinomial"],
+            reference="Heiss (2002)",
+            assumptions=[
+                "Unobserved utilities are generalised extreme value with "
+                "the given nesting structure.",
+                "Independence of irrelevant alternatives holds within a "
+                "nest, not across nests.",
+            ],
+            pre_conditions=[
+                "Long format with every alternative present in every "
+                "choice situation and exactly one chosen.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="dissimilarity parameter outside (0, 1]",
+                    exception="statspai.AssumptionWarning",
+                    remedy="Reconsider the nesting structure; the fit is "
+                    "not consistent with random utility.",
+                    alternative="sp.mixlogit",
+                ),
+            ],
+            alternatives=["clogit", "mixlogit", "mlogit"],
+            typical_n_min=500,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="vuong",
             category="diagnostics",
             description=(

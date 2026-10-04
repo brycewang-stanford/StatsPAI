@@ -177,3 +177,25 @@ def test_stata_forcevuong_agrees(fits):
         )
     # Without `forcevuong` Stata refuses, for the reason the docstring gives.
     assert stata["rc_vuong_without_force"] == 498
+
+
+def test_ordered_and_multinomial_fits_carry_their_loglik():
+    rng = np.random.default_rng(11)
+    n = 1200
+    x = rng.normal(size=n)
+    ystar = 0.8 * x + rng.logistic(size=n)
+    df = pd.DataFrame({"y": np.digitize(ystar, [-1.0, 0.0, 1.2]), "x": x})
+    fits = {
+        "ologit": sp.ologit(data=df, y="y", x=["x"]),
+        "oprobit": sp.oprobit(data=df, y="y", x=["x"]),
+        "mlogit": sp.mlogit(data=df, y="y", x=["x"]),
+    }
+    for res in fits.values():
+        assert res.data_info["llobs"].sum() == pytest.approx(
+            res.model_info["log_likelihood"], abs=1e-8
+        )
+    out = sp.vuong(fits["ologit"], fits["oprobit"])
+    assert out["k1"] == out["k2"] == 4
+    # The data are ordered logit; the multinomial model spends two more
+    # parameters, and the BIC-corrected statistic favours the ordered one.
+    assert sp.vuong(fits["ologit"], fits["mlogit"])["bic"]["statistic"] > 0

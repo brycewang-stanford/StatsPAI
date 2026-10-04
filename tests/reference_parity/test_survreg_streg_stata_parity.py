@@ -182,3 +182,33 @@ def test_per_observation_loglik_feeds_vuong(data):
     out = sp.vuong(_fit("loglogistic", data), _fit("weibull", data))
     assert out["k1"] == out["k2"] == 4
     assert out["loglik1"] > out["loglik2"]
+
+
+def test_stata_script_reproduces_the_blocks(data, stata):
+    """``stset`` then ``streg`` through ``sp.stata``, abbreviations included."""
+    cases = {
+        "weibull_frailty_robust": "streg x1 x2, d(weibull) time fr(gamma) vce(r)",
+        "lognormal_cluster": "streg x1 x2, dist(lognormal) vce(cluster clust)",
+        "exponential": "streg x1 x2, distribution(exponential) time nolog",
+    }
+    for block, line in cases.items():
+        res = sp.stata(f"stset time, failure(event)\n{line}", data=data)
+        est, err = _in_stata_order(res, block.split("_")[0], "frailty" in block)
+        np.testing.assert_allclose(est, stata[block]["b"], rtol=1e-6)
+        np.testing.assert_allclose(err, stata[block]["se"], rtol=1e-6)
+
+
+def test_streg_translation_refuses_what_it_cannot_carry(data):
+    bad = sp.exceptions.MethodIncompatibility
+    # The proportional-hazards metric is a different parametrisation.
+    out = sp.from_stata("streg x1 x2, dist(weibull)")
+    assert not out["ok"] and "proportional-hazards" in out["error"]
+    assert not sp.from_stata("streg x1, dist(gompertz)")["ok"]
+    assert not sp.from_stata("streg x1, dist(weibull) time shared(clust)")["ok"]
+    assert not sp.from_stata("streg x1, dist(weibull) time frailty(invgaussian)")["ok"]
+    with pytest.raises(bad, match="not declared as survival data"):
+        sp.stata("streg x1, dist(weibull) time", data=data)
+    with pytest.raises(bad, match="failure"):
+        sp.stata("stset time\nstreg x1, dist(weibull) time", data=data)
+    with pytest.raises(bad, match="failure"):
+        sp.stata("stset time, failure(event) id(clust)", data=data)

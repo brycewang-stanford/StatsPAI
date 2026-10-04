@@ -19992,6 +19992,75 @@
     "name": "network_exposure"
   },
   {
+    "description": "Nested logit (random-utility consistent) on long-format choice data, as Stata's nlogit and R's mlogit(nests=). Validation: certified parity evidence. Assumptions: Unobserved utilities are generalised extreme value with the given nesting structure; Independence of irrelevant alternatives holds within a nest, not across nests. Pre-conditions: Long format with every alternative present in every choice situation and exactly one chosen. Failure modes: dissimilarity parameter outside (0, 1] -> Reconsider the nesting structure; the fit is not consistent with random utility. Alternatives: sp.clogit, sp.mixlogit, sp.mlogit. Typical minimum N: 500.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "alt": {
+          "description": "Alternative id",
+          "type": "string"
+        },
+        "chid": {
+          "description": "Choice-situation id",
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "common_lambda": {
+          "default": false,
+          "description": "One dissimilarity parameter for all nests",
+          "type": "boolean"
+        },
+        "constants": {
+          "default": true,
+          "description": "Alternative-specific constants (first alternative is the base)",
+          "type": "boolean"
+        },
+        "nests": {
+          "description": "{nest name: [alternatives]}; every alternative in exactly one nest",
+          "type": "object"
+        },
+        "vce": {
+          "description": "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Alternative-varying regressors with generic coefficients",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "1 for the chosen alternative",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "alt",
+        "chid",
+        "nests",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "nlogit"
+  },
+  {
     "description": "Bunching at Notches estimator (Kleven & Waseem 2013). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The counterfactual density would be smooth through the threshold absent the policy; Excess mass at the threshold reflects the behavioural elasticity of interest; No other discontinuity coincides with the threshold. Pre-conditions: A behavioural choice variable (earnings, hours, ...) with a known kink or notch in the budget/choice set; A visible empirical density of the running variable around the threshold. Failure modes: Round-number heaping or a coincident policy contaminates the bunching mass -> Exclude heaping points, widen the excluded region, and test the counterfactual polynomial order. Alternatives: sp.rdrobust, sp.rkd. Typical minimum N: 500.",
     "input_schema": {
       "properties": {

@@ -1733,6 +1733,163 @@
   {
     "alias_of": null,
     "alternatives": [
+      "clogit",
+      "mixlogit",
+      "mlogit"
+    ],
+    "assumptions": [
+      "Unobserved utilities are generalised extreme value with the given nesting structure.",
+      "Independence of irrelevant alternatives holds within a nest, not across nests."
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Nested logit (random-utility consistent) on long-format choice data, as Stata's nlogit and R's mlogit(nests=). Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 MP official `nlogit` (RUM-consistent); R mlogit `mlogit(nests = ...)`",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "mlogit": "2.0.0"
+      },
+      "sides": [
+        "py",
+        "Stata",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_nlogit_parity.py"
+      ],
+      "tolerance": "Stata, every block at 1e-6: coefficients 1e-10, standard errors 4e-8 under vce(oim) and 8e-8 under vce(robust) and vce(cluster), log-likelihood 1e-11, LR test of IIA 1e-12. R: coefficients at 1e-6 and log-likelihoods at 1e-8 with separate dissimilarity parameters, a common one, and no constants."
+    },
+    "example": "sp.nlogit(df, y=\"chosen\", x=[\"cost\", \"time\"], chid=\"trip\", alt=\"mode\", nests={\"ground\": [\"bus\", \"car\"], \"air\": [\"air\"]})",
+    "failure_modes": [
+      {
+        "alternative": "sp.mixlogit",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "Reconsider the nesting structure; the fit is not consistent with random utility.",
+        "symptom": "dissimilarity parameter outside (0, 1]"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "nlogit",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "Long format with every alternative present in every choice situation and exactly one chosen."
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Heiss (2002)",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Nested logit (random-utility consistent) on long-format choice data, as Stata's nlogit and R's mlogit(nests=). Validation: certified parity evidence.",
+      "name": "nlogit",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals",
+            "type": "number"
+          },
+          "alt": {
+            "description": "Alternative id",
+            "type": "string"
+          },
+          "chid": {
+            "description": "Choice-situation id",
+            "type": "string"
+          },
+          "cluster": {
+            "description": "Cluster column (vce(cluster c))",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "common_lambda": {
+            "default": false,
+            "description": "One dissimilarity parameter for all nests",
+            "type": "boolean"
+          },
+          "constants": {
+            "default": true,
+            "description": "Alternative-specific constants (first alternative is the base)",
+            "type": "boolean"
+          },
+          "data": {
+            "description": "Long format",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "nests": {
+            "description": "{nest name: [alternatives]}; every alternative in exactly one nest",
+            "type": "object"
+          },
+          "vce": {
+            "description": "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+            "type": "string",
+            "x-aliases": [
+              "robust"
+            ]
+          },
+          "x": {
+            "description": "Alternative-varying regressors with generic coefficients",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "y": {
+            "description": "1 for the chosen alternative",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "chid",
+          "alt",
+          "nests"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 500,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP official `nlogit` (RUM-consistent); R mlogit `mlogit(nests = ...)` [Stata 18 MP, mlogit 2.0.0]; tolerance Stata, every block at 1e-6: coefficients 1e-10, standard errors 4e-8 under vce(oim) and 8e-8 under vce(robust) and vce(cluster), log-likelihood 1e-11, LR test of IIA 1e-12. R: coefficients at 1e-6 and log-likelihoods at 1e-8 with separate dissimilarity parameters, a common one, and no constants. -- tests/reference_parity/test_nlogit_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "lrtest",
       "estat"
     ],
@@ -78446,7 +78603,8 @@
       "R parity module 44_mlogit",
       "Stata parity module 44_mlogit",
       "Cross-language parity (bit-exact) vs nnet::multinom [R version 4.5.2 (2025-10-31), nnet 7.3.20]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 44_mlogit -- tests/r_parity/44_mlogit.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_vce_grammar_stata_parity.py",
+      "tests/reference_parity/test_vuong_pscl_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -78607,7 +78765,8 @@
       "Stata parity module 45_ologit",
       "Cross-language parity (bit-exact) vs MASS::polr(method=\"logistic\") [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-05; parity module 45_ologit -- tests/r_parity/45_ologit.py",
       "tests/reference_parity/test_postestimation_stata_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_vce_grammar_stata_parity.py",
+      "tests/reference_parity/test_vuong_pscl_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -78768,7 +78927,8 @@
       "Stata parity module 49_oprobit",
       "Cross-language parity (bit-exact) vs MASS::polr(method=\"probit\") [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 49_oprobit -- tests/r_parity/49_oprobit.py",
       "tests/reference_parity/test_oprobit_dummies_Stata_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_vce_grammar_stata_parity.py",
+      "tests/reference_parity/test_vuong_pscl_parity.py"
     ],
     "validation_status": "certified"
   },

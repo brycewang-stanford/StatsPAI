@@ -92,6 +92,8 @@ In both cases StatsPAI was left as it is.
 | 10 | No count model with an endogenous binary treatment (`micsr::escount`, Stata `etpoisson`) | added `sp.etpoisson` |
 | 11 | No estimator for the tobit that survives non-normal or heteroskedastic errors (`micsr::tobit1(method = "trimmed")`) | added `sp.tobit(method='scls')` |
 | 12 | One pseudo R-squared for binary models (`micsr::rsq`) | `model_info['r2']` carries seven |
+| 13 | No nested logit (`mlogit(nests = )`, Stata `nlogit`) | added `sp.nlogit` |
+| 14 | `sp.stata` could not run `stset` / `streg` | added, accelerated failure-time metric only |
 
 ### 1. Zero-inflated models under separation
 
@@ -318,28 +320,73 @@ agree with `DescTools::PseudoR2` to 1e-13 and five with `micsr::rsq` to
 value 2.3 times the DescTools one; DescTools is the one reproduced, and
 the test records the disagreement.
 
+### 10. `sp.nlogit`
+
+The discrete-choice chapter ends with the nested logit. `sp.nlogit` takes
+long-format data and a mapping from nests to alternatives, and estimates
+the random-utility form, in which the coefficients keep their meaning
+across nests and a dissimilarity parameter of 1 is the conditional logit.
+
+| Reference | Coefficients | Standard errors | Likelihood |
+| --- | --- | --- | --- |
+| Stata 18 `nlogit`, `vce(oim)` / `vce(robust)` / `vce(cluster)` | 1e-10 | 4e-8 to 8e-8 | 1e-11; LR test of IIA 1e-12 |
+| R `mlogit`, separate and common dissimilarity, no constants | 4e-9 to 2e-7 | not equal, see below | 1e-11 |
+
+`mlogit`'s standard errors differ from Stata's by up to 4% at the same
+estimates. StatsPAI's come from the exact Hessian (complex-step scores)
+and equal Stata's. Two references against one; the test asserts both the
+agreement and the disagreement.
+
+Only two-level trees are supported, and regressors must vary across
+alternatives (case-level variables have to be interacted with alternative
+dummies by hand).
+
+### 11. Poisson with log-normal heterogeneity: already there
+
+`micsr::poisreg(mixing = "lognorm")` is a Poisson regression with a normal
+random intercept for every observation. That is `sp.mepoisson` with the
+observation as the group. On `trips`, `sp.mepoisson(..., group=<row id>,
+nAGQ=15)` gives a log-likelihood of -1379.0159 and a standard deviation of
+0.6833, unchanged at 31 quadrature points. `micsr` reports -1379.0613 and
+0.6832; its likelihood is the lower one, which is its quadrature. Nothing
+was added.
+
 ## Left open
 
-Methods of the book that StatsPAI still lacks, in the order I would take
-them.
+Nothing from the book that has a second implementation to be checked
+against. What remains, and why it was not done.
 
-| Item | Book | Reference to pin it to | Note |
-| --- | --- | --- | --- |
-| Non-degenerate Vuong test | `micsr::ndvuong` | `micsr` only | the classical test is done; `data_info['llobs']` is still missing on `sp.tobit`, `sp.ologit`, `sp.mlogit`, survival models |
-| Shared frailty (`streg, shared()`) and `streg` in `sp.from_stata` | | Stata | the translation needs the `stset` state |
-| Poisson with log-normal mixing | `micsr::poisreg(mixing="lognorm")` | `micsr` | Gauss-Hermite quadrature |
-| Rivers-Vuong two-step probit (2SCML) with its own standard errors | `micsr::ivldv(method="twosteps")` | `micsr` | the coefficients are already the control-function fit inside `sp.ivprobit` |
-| Nested logit | `mlogit` | `mlogit`, Stata `nlogit` | |
-| `sp.cmtest` for weighted fits and for `sp.ivtobit` | | | |
+| Item | Why not |
+| --- | --- |
+| Non-degenerate Vuong test (`micsr::ndvuong`) | simulated critical values, one implementation, nothing to pin it to |
+| Rivers-Vuong two-step probit with its own standard errors (`micsr::ivldv(method = "twosteps")`) | the coefficients are the control-function fit already inside `sp.ivprobit`; the only reference for the standard errors is `micsr`, whose standard errors were wrong or unusable in four other places |
+| Tobit by the two-step method (`micsr::tobit1(method = "twostep")`) | same assumptions as maximum likelihood, less efficient, same reference problem |
+| `sp.cmtest` for weighted fits and for `sp.ivtobit` | no reference implementation; the unweighted tests are pinned |
+| Shared frailty (`streg, shared()`) | needs a group-level integral; not in the book |
+| `sp.nlogit` with three levels or case-level regressors | not in the book |
+| `streg` in the proportional-hazards metric | `sp.survreg` is AFT only; the translation refuses it |
 
 Not taken, with the reason.
 
 - **Propensity-score stratification** (`micsr::pscore`). The algorithm
-  picks strata by repeated t-tests. Matching and
-  weighting estimators with known properties are already in `sp.match`,
-  `sp.ipw`, `sp.aipw`.
-- **The generalised production function** (`micsr::zellner_revankar`). It appears in the book as an example of
-  maximum likelihood, not as a tool.
+  picks strata by repeated t-tests. Matching and weighting estimators with
+  known properties are already in `sp.match`, `sp.ipw`, `sp.aipw`.
+- **The generalised production function** (`micsr::zellner_revankar`). It
+  appears in the book as an example of maximum likelihood, not as a tool.
+
+## What `micsr` got wrong along the way
+
+Six places where `micsr` 0.1-5 disagreed with a third implementation, all
+resolved against it. They matter for anyone who uses it as a reference.
+
+| Function | What | Arbiter |
+| --- | --- | --- |
+| `ordreg` | standard errors of an ordered logit | `MASS::polr` |
+| `bivprobit` | standard error of rho (0.163 against 0.062) | curvature of the likelihood |
+| `poisreg` | stops 3e-4 from the optimum | `glm` |
+| `ivldv(method = "minchisq")` | stops with an error | |
+| `tobit1(method = "trimmed")` | standard errors of 20 to 228 for coefficients of order one | Powell's formula, simulation |
+| `rsq(type = "mckel_zavo")` | 2.3 times the value for a probit | `DescTools::PseudoR2` |
 
 ## How to reproduce
 
@@ -350,6 +397,8 @@ stata-mp -b do _generate_ivprobit_ivtobit_stata.do
 stata-mp -b do _generate_ivpoisson_stata.do
 stata-mp -b do _generate_streg_stata.do
 stata-mp -b do _generate_etpoisson_stata.do
+Rscript _generate_nlogit_mlogit.R         # needs mlogit; writes nlogit_data.csv
+stata-mp -b do _generate_nlogit_stata.do
 Rscript _generate_cmtest_micsr.R          # needs micsr >= 0.1-5
 Rscript _generate_vuong_pscl.R            # needs pscl, MASS
 Rscript _generate_binary_fit_and_scls.R   # needs DescTools, micsr
@@ -358,6 +407,9 @@ pytest tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py \
        tests/reference_parity/test_ivpoisson_stata_parity.py \
        tests/reference_parity/test_cmtest_micsr_parity.py \
        tests/reference_parity/test_vuong_pscl_parity.py \
+       tests/reference_parity/test_etpoisson_stata_parity.py \
+       tests/reference_parity/test_binary_r2_and_scls_parity.py \
+       tests/reference_parity/test_nlogit_parity.py \
        tests/reference_parity/test_survreg_streg_stata_parity.py \
        tests/test_zeroinflated_separation.py -q
 ```

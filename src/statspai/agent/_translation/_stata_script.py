@@ -23,6 +23,7 @@ __all__ = [
     "ScriptError",
     "control_flow",
     "panel_declaration",
+    "survival_declaration",
 ]
 
 
@@ -247,6 +248,33 @@ def _unquote(text: str) -> Optional[str]:
     if len(text) >= 2 and text.startswith('"') and text.endswith('"'):
         return text[1:-1]
     return None
+
+
+def survival_declaration(command: str) -> Optional[Tuple[str, str]]:
+    """``stset time, failure(event)`` -> ``(time, event)``.
+
+    Only the form that needs no data step is read: one time variable and a
+    failure indicator, optionally written ``failure(event == 1)``. Anything
+    else (``id()``, ``enter()``, ``origin()``, ``scale()``, a failure code
+    other than 1, no ``failure()`` at all) raises ``ScriptError`` so that
+    the declaration is not half-applied.
+    """
+    text = command.strip()
+    if not re.match(r"^stset\b", text, re.I):
+        return None
+    m = re.match(
+        r"^stset\s+([A-Za-z_]\w*)\s*,\s*f(?:a(?:i(?:l(?:u(?:r(?:e)?)?)?)?)?)?"
+        r"\(\s*([A-Za-z_]\w*)\s*(?:==\s*1\s*)?\)\s*$",
+        text,
+        re.I,
+    )
+    if not m:
+        raise ScriptError(
+            "only `stset timevar, failure(eventvar)` is understood; build the "
+            "duration and the 0/1 event indicator in the data and declare "
+            "them in that form"
+        )
+    return m.group(1), m.group(2)
 
 
 def panel_declaration(command: str) -> Optional[Tuple[Optional[str], Optional[str]]]:

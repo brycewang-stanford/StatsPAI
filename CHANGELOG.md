@@ -34,7 +34,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
-Six functions from a pass over Croissant (2025), *Microeconometrics with
+Seven functions from a pass over Croissant (2025), *Microeconometrics with
 R*, and its companion package `micsr`. The book's chapters on binary,
 count and censored outcomes use estimators StatsPAI did not have. Notes
 are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
@@ -62,6 +62,14 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   statistics agree with R `micsr::cmtest` to 1e-9 for the tobit and 1e-6
   for the probit, and reject 5% of the time under the null in simulation
   (`tests/reference_parity/test_cmtest_micsr_parity.py`).
+- **`sp.nlogit`** fits the nested logit in its random-utility form on
+  long-format choice data, with one dissimilarity parameter per nest or a
+  common one, alternative-specific constants, and the likelihood-ratio
+  test of IIA against the conditional logit. Coefficients, standard
+  errors (oim, robust, cluster) and the test agree with Stata 18 `nlogit`
+  to 1e-6, and coefficients and likelihoods with R `mlogit`. `mlogit`'s
+  standard errors differ from Stata's by up to 4% on the same estimates;
+  StatsPAI's are Stata's (`tests/reference_parity/test_nlogit_parity.py`).
 - **`sp.etpoisson`** fits a Poisson regression with an endogenous binary
   treatment by maximum likelihood, as Stata's `etpoisson`. The outcome
   error is integrated out by Gauss-Hermite quadrature (`intpoints=24`).
@@ -105,6 +113,14 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   its parameter count and StatsPAI does not, so the corrected statistics
   differ when exactly one model is negative binomial
   (`tests/reference_parity/test_vuong_pscl_parity.py`).
+- `sp.stata` reads `stset timevar, failure(eventvar)` and runs
+  `streg ..., distribution() time [frailty(gamma)] [vce()]` through
+  `sp.survreg`. `streg` for the Weibull or exponential without `time` is
+  the proportional-hazards metric and is refused, as are `shared()`,
+  other frailty distributions, and `stset` with `id()`, `enter()` or
+  `origin()`.
+- `sp.ologit`, `sp.oprobit`, `sp.mlogit`, `sp.tobit` and `sp.nlogit` fits
+  carry their per-observation log-likelihood, so `sp.vuong` takes them.
 - `sp.from_stata` and `sp.stata` translate `ivprobit`, `ivtobit` and
   `ivpoisson gmm`. `ivtobit` without `ll()` is written as `ll=None`,
   because `sp.ivtobit` censors at zero by default and Stata does not.

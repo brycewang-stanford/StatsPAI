@@ -672,6 +672,17 @@ TIER2_ROUND_TRIPS = [
             "intpoints": 32,
         },
     ),
+    (
+        "streg age female, distribution(weibull) time frailty(gamma)",
+        "survreg",
+        {
+            "duration": "<stset time>",
+            "event": "<stset failure>",
+            "x": ["age", "female"],
+            "dist": "weibull",
+            "frailty": "gamma",
+        },
+    ),
     # Selection
     (
         "heckman wage education, select(employed = age kids)",

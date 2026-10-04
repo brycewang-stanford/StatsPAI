@@ -748,6 +748,81 @@
     }
   },
   {
+    "description": "Nested logit (random-utility consistent) on long-format choice data, as Stata's nlogit and R's mlogit(nests=). Validation: certified parity evidence.",
+    "name": "nlogit",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "alt": {
+          "description": "Alternative id",
+          "type": "string"
+        },
+        "chid": {
+          "description": "Choice-situation id",
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "common_lambda": {
+          "default": false,
+          "description": "One dissimilarity parameter for all nests",
+          "type": "boolean"
+        },
+        "constants": {
+          "default": true,
+          "description": "Alternative-specific constants (first alternative is the base)",
+          "type": "boolean"
+        },
+        "data": {
+          "description": "Long format",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "nests": {
+          "description": "{nest name: [alternatives]}; every alternative in exactly one nest",
+          "type": "object"
+        },
+        "vce": {
+          "description": "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Alternative-varying regressors with generic coefficients",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "1 for the chosen alternative",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "chid",
+        "alt",
+        "nests"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Vuong test between two non-nested maximum likelihood fits on the same observations, with AIC and BIC corrections. Validation: certified parity evidence. Do NOT use when: One model is a restriction of the other: use sp.lrtest; The question is whether there is zero inflation: the statistic is not standard normal under that null.",
     "name": "vuong",
     "parameters": {
