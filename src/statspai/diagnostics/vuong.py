@@ -29,6 +29,8 @@ def _pieces(result: Any, label: str) -> Tuple[np.ndarray, int, Optional[np.ndarr
     info = getattr(result, "model_info", None) or {}
     ll = data.get("llobs")
     if ll is None:
+        ll = getattr(result, "_llobs", None)
+    if ll is None:
         raise MethodIncompatibility(
             f"vuong: {label} does not carry per-observation log-likelihoods. "
             "Fits from sp.poisson, sp.nbreg, sp.zip_model, sp.zinb, "
@@ -42,6 +44,9 @@ def _pieces(result: Any, label: str) -> Tuple[np.ndarray, int, Optional[np.ndarr
         )
     k = int(data.get("n_params") or len(result.params))
     y = data.get("y")
+    design = getattr(result, "_cm_design", None)
+    if y is None and design is not None:
+        y = design.get("y")
     return np.asarray(ll, dtype=float), k, None if y is None else np.asarray(y)
 
 

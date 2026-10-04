@@ -661,6 +661,17 @@ TIER2_ROUND_TRIPS = [
             "errors": "multiplicative",
         },
     ),
+    (
+        "etpoisson visits age, treat(insured = age offer) intpoints(32)",
+        "etpoisson",
+        {
+            "y": "visits",
+            "x": ["age"],
+            "treat": "insured",
+            "z": ["age", "offer"],
+            "intpoints": 32,
+        },
+    ),
     # Selection
     (
         "heckman wage education, select(employed = age kids)",

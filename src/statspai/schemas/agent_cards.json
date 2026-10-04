@@ -983,6 +983,15 @@
             "description": "Lower censoring limit (set -inf for none)",
             "type": "number"
           },
+          "method": {
+            "default": "mle",
+            "description": "'mle' (normal likelihood) or 'scls' (Powell's symmetrically censored least squares: consistent under heteroskedastic or non-normal symmetric errors, lower limit only)",
+            "enum": [
+              "mle",
+              "scls"
+            ],
+            "type": "string"
+          },
           "ul": {
             "description": "Upper censoring limit (default: none)",
             "type": "number"
@@ -1029,6 +1038,7 @@
       "R parity module 41_tobit",
       "Stata parity module 41_tobit",
       "Cross-language parity (bit-exact) vs censReg::censReg [R version 4.5.2 (2025-10-31), censReg 0.5.38]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 41_tobit -- tests/r_parity/41_tobit.py",
+      "tests/reference_parity/test_binary_r2_and_scls_parity.py",
       "tests/reference_parity/test_cmtest_micsr_parity.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_ldv_design_stata_parity.py",
@@ -1566,6 +1576,163 @@
   {
     "alias_of": null,
     "alternatives": [
+      "ivpoisson",
+      "etregress",
+      "poisson"
+    ],
+    "assumptions": [
+      "Outcome error and treatment error are jointly normal.",
+      "Conditional on the outcome error, the count is Poisson with an exponential mean.",
+      "At least one variable moves the treatment and is excluded from the outcome (otherwise identification is by functional form)."
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Poisson regression with an endogenous binary treatment by maximum likelihood, as Stata's etpoisson; reports the ATE on the count scale. Validation: certified parity evidence. Do NOT use when: The endogenous regressor is continuous: use sp.ivpoisson.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 MP official `etpoisson` and `margins`",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_etpoisson_stata_parity.py"
+      ],
+      "tolerance": "Every block at 1e-6; observed 3e-15 on coefficients, 8e-11 on standard errors, with 24 and 64 Gauss-Hermite points, under vce(oim), vce(robust) and vce(cluster). Log-likelihood to 1e-8, the Wald test of independent equations at 1e-6. The ATE on the count scale and the two potential-outcome means agree with `margins r.d` and `margins d` to 1e-9, the delta-method standard error of the ATE to 1e-6."
+    },
+    "example": "sp.etpoisson(df, y=\"visits\", x=[\"age\"], treat=\"insured\", z=[\"age\", \"employer_offer\"])",
+    "failure_modes": [
+      {
+        "alternative": "sp.poisson",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop the redundant regressor.",
+        "symptom": "regressors of one equation are collinear"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "etpoisson",
+    "not_recommended_when": [
+      "The endogenous regressor is continuous: use sp.ivpoisson."
+    ],
+    "pre_conditions": [
+      "Outcome is a non-negative integer.",
+      "Treatment is binary 0/1 with both values present."
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Terza (1998)",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Poisson regression with an endogenous binary treatment by maximum likelihood, as Stata's etpoisson; reports the ATE on the count scale. Validation: certified parity evidence. Do NOT use when: The endogenous regressor is continuous: use sp.ivpoisson.",
+      "name": "etpoisson",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster column (vce(cluster c))",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "intpoints": {
+            "default": 24,
+            "description": "Gauss-Hermite points for the integral over the outcome error",
+            "type": "integer"
+          },
+          "treat": {
+            "description": "Binary endogenous treatment",
+            "type": "string",
+            "x-aliases": [
+              "treatment"
+            ],
+            "x-statspai-role": "column"
+          },
+          "vce": {
+            "description": "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+            "type": "string",
+            "x-aliases": [
+              "robust"
+            ]
+          },
+          "x": {
+            "description": "Exogenous regressors of the outcome",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "y": {
+            "description": "Count outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "z": {
+            "description": "Regressors of the treatment equation (include an exclusion restriction)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "z"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 500,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP official `etpoisson` and `margins` [Stata 18 MP]; tolerance Every block at 1e-6; observed 3e-15 on coefficients, 8e-11 on standard errors, with 24 and 64 Gauss-Hermite points, under vce(oim), vce(robust) and vce(cluster). Log-likelihood to 1e-8, the Wald test of independent equations at 1e-6. The ATE on the count scale and the two potential-outcome means agree with `margins r.d` and `margins d` to 1e-9, the delta-method standard error of the ATE to 1e-6. -- tests/reference_parity/test_etpoisson_stata_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "lrtest",
       "estat"
     ],
@@ -1658,6 +1825,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R pscl 1.5.9 `vuong`, on glm, MASS::glm.nb, zeroinfl and hurdle fits; Stata 18 MP `zip` / `zinb`, forcevuong [Stata 18 MP, pscl 1.5.9]; tolerance Raw, AIC-corrected and BIC-corrected statistics at 1e-6 on five model pairs (observed 6e-8 at worst, which is where R's optimisers stopped); the per-observation log-likelihoods under them at 1e-7 against R's own densities. pscl::vuong only prints, so the statistic is rebuilt in the R script and checked against the printed lines. Stata's forcevuong statistic for the two zero-inflated pairs agrees at 1e-6 (observed 2e-10 and 1e-9). -- tests/reference_parity/test_vuong_pscl_parity.py",
+      "tests/reference_parity/test_binary_r2_and_scls_parity.py",
       "tests/reference_parity/test_survreg_streg_stata_parity.py"
     ],
     "validation_status": "certified"
@@ -62071,10 +62239,10 @@
       "R parity module 57_logit",
       "Stata parity module 57_logit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"logit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 57_logit -- tests/r_parity/57_logit.py",
+      "tests/reference_parity/test_binary_r2_and_scls_parity.py",
       "tests/reference_parity/test_cmtest_micsr_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
-      "tests/reference_parity/test_joint_wald_stata_parity.py",
-      "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py"
+      "tests/reference_parity/test_joint_wald_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -62254,10 +62422,10 @@
       "R parity module 48_probit",
       "Stata parity module 48_probit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"probit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=0.01; parity module 48_probit -- tests/r_parity/48_probit.py",
+      "tests/reference_parity/test_binary_r2_and_scls_parity.py",
       "tests/reference_parity/test_cmtest_micsr_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
-      "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py"
+      "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -62806,8 +62974,8 @@
       "Cross-language parity (bit-exact) vs stats::glm(family=poisson()) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 58_poisson -- tests/r_parity/58_poisson.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
-      "tests/reference_parity/test_ivpoisson_stata_parity.py",
-      "tests/reference_parity/test_joint_wald_stata_parity.py"
+      "tests/reference_parity/test_etpoisson_stata_parity.py",
+      "tests/reference_parity/test_ivpoisson_stata_parity.py"
     ],
     "validation_status": "certified"
   },

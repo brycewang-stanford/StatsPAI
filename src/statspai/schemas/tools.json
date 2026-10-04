@@ -10089,6 +10089,72 @@
     "name": "etable"
   },
   {
+    "description": "Poisson regression with an endogenous binary treatment by maximum likelihood, as Stata's etpoisson; reports the ATE on the count scale. Validation: certified parity evidence. Do NOT use when: The endogenous regressor is continuous: use sp.ivpoisson. Assumptions: Outcome error and treatment error are jointly normal; Conditional on the outcome error, the count is Poisson with an exponential mean; At least one variable moves the treatment and is excluded from the outcome (otherwise identification is by functional form). Pre-conditions: Outcome is a non-negative integer; Treatment is binary 0/1 with both values present. Failure modes: regressors of one equation are collinear -> Drop the redundant regressor. Alternatives: sp.ivpoisson, sp.etregress, sp.poisson. Typical minimum N: 500.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "intpoints": {
+          "default": 24,
+          "description": "Gauss-Hermite points for the integral over the outcome error",
+          "type": "integer"
+        },
+        "treat": {
+          "description": "Binary endogenous treatment",
+          "type": "string",
+          "x-aliases": [
+            "treatment"
+          ],
+          "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Exogenous regressors of the outcome",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Count outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "z": {
+          "description": "Regressors of the treatment equation (include an exclusion restriction)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "treat",
+        "y",
+        "z"
+      ],
+      "type": "object"
+    },
+    "name": "etpoisson"
+  },
+  {
     "description": "Endogenous treatment effects model. Validation: certified parity evidence. Assumptions: Heckman / endogenous-treatment models: joint normality of the selection and outcome errors, and an exclusion restriction -- a variable that shifts selection but not the outcome; without it the model is identified only by functional form. Pre-conditions: A selection or attrition indicator observed for every unit, including those with missing outcomes. Failure modes: No credible exclusion restriction for Heckman selection -> Report bounds (sp.attrition_bounds) or a sensitivity analysis instead of a point estimate that rests on normality. Alternatives: sp.sp.attrition_bounds, sp.sp.rosenbaum_bounds, sp.sp.evalue_rr.",
     "input_schema": {
       "properties": {
@@ -33166,6 +33232,15 @@
           "default": 0.0,
           "description": "Lower censoring limit (set -inf for none)",
           "type": "number"
+        },
+        "method": {
+          "default": "mle",
+          "description": "'mle' (normal likelihood) or 'scls' (Powell's symmetrically censored least squares: consistent under heteroskedastic or non-normal symmetric errors, lower limit only)",
+          "enum": [
+            "mle",
+            "scls"
+          ],
+          "type": "string"
         },
         "ul": {
           "description": "Upper censoring limit (default: none)",

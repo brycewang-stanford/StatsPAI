@@ -223,6 +223,44 @@ def _warn_if_separated(y: np.ndarray, p_hat: np.ndarray) -> None:
         )
 
 
+def _binary_r2(
+    y: np.ndarray,
+    p: np.ndarray,
+    xb: np.ndarray,
+    ll: float,
+    ll_null: float,
+    link: str,
+) -> Dict[str, float]:
+    """Goodness-of-fit measures of a binary response model (unweighted).
+
+    No single one is "the" R-squared of a probit or logit; they answer
+    different questions and are reported together under their usual names.
+    ``mckelvey_zavoina`` is the share of the variance of the latent
+    variable explained by the index, with the error variance of the link
+    (1 for probit, pi^2 / 3 for logit); it is not defined for cloglog.
+    """
+    n = float(len(y))
+    ybar = float(np.mean(y))
+    tss = float(np.sum((y - ybar) ** 2))
+    lr = 2.0 * (ll - ll_null)
+    cox_snell = 1.0 - np.exp(-lr / n)
+    out = {
+        "mcfadden": 1.0 - ll / ll_null if ll_null != 0 else np.nan,
+        "cox_snell": cox_snell,
+        "nagelkerke": cox_snell / (1.0 - np.exp(2.0 * ll_null / n)),
+        "efron": 1.0 - float(np.sum((y - p) ** 2)) / tss,
+        "tjur": float(np.mean(p[y == 1]) - np.mean(p[y == 0])),
+        "estrella": (
+            1.0 - (ll / ll_null) ** (-2.0 / n * ll_null) if ll_null != 0 else np.nan
+        ),
+    }
+    err_var = {"probit": 1.0, "logit": np.pi**2 / 3.0}.get(link)
+    if err_var is not None:
+        v = float(np.var(xb))
+        out["mckelvey_zavoina"] = v / (v + err_var)
+    return {k: float(val) for k, val in out.items()}
+
+
 def _newton_raphson(
     y: np.ndarray,
     X: np.ndarray,
@@ -743,6 +781,11 @@ def _fit_binary(
     model_info = {
         "model_type": link_label[link],
         "method": "Maximum Likelihood (Newton-Raphson)",
+        "r2": (
+            _binary_r2(y_vec, p_hat, X_mat @ beta, ll, ll_null, link)
+            if weights is None
+            else None
+        ),
         "family": "binomial",
         "link": link,
         "ll": ll,

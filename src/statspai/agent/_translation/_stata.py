@@ -2022,6 +2022,48 @@ def _h_ivpoisson(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
+def _h_etpoisson(cmd: StataCommand) -> Dict[str, Any]:
+    """``etpoisson y x, treat(d = z)`` → ``sp.etpoisson``."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error(
+            "etpoisson requires an outcome variable", command="etpoisson"
+        )
+    treat = cmd.options.get("treat")
+    import re
+
+    m = re.match(r"^\s*(\S+)\s*=\s*(.+)$", treat or "")
+    if not m:
+        return _emit_error(
+            "etpoisson needs `treat(treatvar = covariates)`", command="etpoisson"
+        )
+    args: Dict[str, Any] = {
+        "y": y,
+        "x": list(xs),
+        "treat": m.group(1),
+        "z": [v for v in m.group(2).split() if v],
+    }
+    notes: List[str] = []
+    lost: List[str] = []
+    if "intpoints" in cmd.options:
+        raw = cmd.options.get("intpoints")
+        try:
+            args["intpoints"] = int(raw)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            lost.append("intpoints")
+            notes.append(f"intpoints({raw}) is not a number; the default (24) is used.")
+    cluster = _vce_cluster(cmd)
+    if cluster:
+        args["cluster"] = cluster
+    elif _robust_kind(cmd) == "hc1":
+        args["vce"] = "robust"
+    code = ", ".join(["data=df"] + [f"{k}={v!r}" for k, v in args.items()])
+    out = _emit("etpoisson", args, f"sp.etpoisson({code})", notes)
+    if lost:
+        out["untranslated_options"] = lost
+    return out
+
+
 def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
     """``heckman y x, select(employed = age kids)`` →
     ``sp.heckman(y=..., x=[...], select=..., z=[...])``."""
@@ -2196,7 +2238,10 @@ def _equations(tokens: List[str]) -> Optional[List[Tuple[List[str], List[str]]]]
 
 
 def _vce_nn(vce: Optional[str]) -> Tuple[Optional[str], Optional[int]]:
-    """``vce(robust, nn(3))`` -> ``('robust', 3)``; ``vce(iid)`` -> ``('iid', None)``."""
+    """``vce(robust, nn(3))`` -> ``('robust', 3)``.
+
+    ``vce(iid)`` -> ``('iid', None)``.
+    """
     if not vce:
         return None, None
     kind = vce.replace(",", " ").split()[0].lower()
@@ -3319,6 +3364,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "ivprobit": _h_ivprobit,
     "ivtobit": _h_ivprobit,
     "ivpoisson": _h_ivpoisson,
+    "etpoisson": _h_etpoisson,
     "heckman": _h_heckman,
     "rdplot": _h_rdplot,
     "rddensity": _h_rddensity,

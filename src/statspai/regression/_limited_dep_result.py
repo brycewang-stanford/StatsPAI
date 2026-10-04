@@ -43,6 +43,8 @@ class LimitedDepResult(CausalResult):
     # Design and estimate kept by the estimator for post-estimation tests
     # (sp.cmtest); None when the fit cannot be rebuilt from them.
     _cm_design: Optional[Dict[str, Any]] = None
+    # Unweighted per-observation log-likelihood, when the fit has one.
+    _llobs: Optional[Any] = None
 
     # ------------------------------------------------------------------
     # Internal helpers

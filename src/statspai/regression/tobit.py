@@ -42,6 +42,7 @@ def tobit(
     vce: Optional[str] = None,
     cluster: Optional[str] = None,
     weights: Optional[str] = None,
+    method: str = "mle",
 ) -> CausalResult:
     """
     Tobit (Type I) censored regression via MLE.
@@ -55,6 +56,15 @@ def tobit(
         Censored outcome variable.
     x : list of str
         Regressors.
+    method : {'mle', 'scls'}, default 'mle'
+        ``'scls'`` is Powell's symmetrically censored least squares. It
+        needs only a symmetric error around ``x'b`` and stays consistent
+        under heteroskedasticity and non-normality, where the maximum
+        likelihood estimator does not. It uses only observations with
+        ``x'b`` above the limit, so it is less precise when the model is
+        right, reports no ``sigma``, and is defined for a lower limit
+        only. Its standard errors are Powell's sandwich (cluster-robust
+        with ``cluster=``). Use it when :func:`cmtest` rejects.
     ll : float, default 0
         Lower censoring limit. Observations with Y ≤ ll are censored.
         Set to ``-np.inf`` for no lower censoring.
@@ -140,6 +150,13 @@ def tobit(
     Y = df[y].values.astype(float)
     X = np.column_stack([np.ones(len(df))] + [df[v].values.astype(float) for v in x])
     n, k = X.shape
+    method_key = str(method).lower()
+    if method_key not in ("mle", "ml", "scls"):
+        raise MethodIncompatibility(
+            f"tobit: method={method!r} is not available; use 'mle' or 'scls'."
+        )
+    if method_key == "scls":
+        return _tobit_scls(df, Y, X, y, list(x), ll, ul, cluster, weights, alpha)
     wt = np.ones(n)
     if weights is not None:
         wt = df[weights].to_numpy(dtype=float)
@@ -324,8 +341,144 @@ def tobit(
             "ll": ll if np.isfinite(ll) else None,
             "ul": ul if np.isfinite(ul) else None,
         }
+        # Unweighted per-observation log-likelihood (sp.vuong).
+        fit._llobs = np.real(obs_loglik(theta_hat))
     return fit
 
+
+def _tobit_scls(
+    df: pd.DataFrame,
+    Y: np.ndarray,
+    X: np.ndarray,
+    y: str,
+    x: List[str],
+    ll: float,
+    ul: Optional[float],
+    cluster: Optional[str],
+    weights: Optional[str],
+    alpha: float,
+) -> CausalResult:
+    """Powell's (1986) symmetrically censored least squares.
+
+    With the limit at zero, an observation with ``x'b > 0`` has its error
+    censored from below at ``-x'b``. Censoring it from above at ``x'b`` as
+    well, i.e. replacing ``y`` by ``min(y, 2 x'b)``, restores the symmetry
+    of the error around ``x'b``, and least squares on those observations is
+    consistent. The estimator is the fixed point of that regression.
+    """
+    if ul is not None and np.isfinite(ul):
+        raise MethodIncompatibility(
+            "tobit: method='scls' is defined for a lower limit only; set ul=None."
+        )
+    if ll is None or not np.isfinite(ll):
+        raise MethodIncompatibility("tobit: method='scls' needs a finite ll.")
+    if weights is not None:
+        raise MethodIncompatibility("tobit: method='scls' does not take weights.")
+    n, k = X.shape
+    Ys = Y - ll  # limit at zero; the shift goes back into the constant
+    mid = Ys > 0
+    if int(mid.sum()) < k + 1:
+        raise DataInsufficient("Not enough uncensored observations.")
+    b = np.linalg.lstsq(X[mid], Ys[mid], rcond=None)[0]
+    converged = False
+    for n_iter in range(1, 5001):
+        xb = X @ b
+        keep = xb > 0
+        if int(keep.sum()) < k + 1:
+            raise DataInsufficient(
+                "tobit: symmetrically censored least squares ran out of "
+                f"observations with a positive index ({int(keep.sum())} left "
+                f"for {k} coefficients); the data are too heavily censored."
+            )
+        Xk = X[keep]
+        b_new = np.linalg.solve(Xk.T @ Xk, Xk.T @ np.minimum(Ys[keep], 2.0 * xb[keep]))
+        done = np.max(np.abs(b_new - b)) < 1e-12 * (1.0 + np.max(np.abs(b)))
+        b = b_new
+        if done:
+            converged = True
+            break
+    if not converged:
+        from ..exceptions import ConvergenceFailure
+
+        raise ConvergenceFailure(
+            "tobit: the symmetrically censored least squares iteration did "
+            "not settle in 5000 steps."
+        )
+    xb = X @ b
+    u = Ys - xb
+    keep = xb > 0
+    inner = keep & (np.abs(u) < xb)
+    C = X[inner].T @ X[inner]
+    psi = X * (keep * (np.minimum(Ys, 2.0 * xb) - xb))[:, None]
+    if cluster is not None:
+        codes = pd.factorize(df[cluster].to_numpy())[0]
+        sums = np.zeros((codes.max() + 1, k))
+        np.add.at(sums, codes, psi)
+        g = sums.shape[0]
+        D = sums.T @ sums * (g / (g - 1.0))
+    else:
+        D = psi.T @ psi
+    C_inv = np.linalg.inv(C)
+    V = C_inv @ D @ C_inv
+    se = np.sqrt(np.diag(V))
+    beta = b.copy()
+    beta[0] += ll
+    var_names = ["const"] + x
+    z_stats = beta / se
+    pvals = 2 * stats.norm.sf(np.abs(z_stats))
+    z_crit = stats.norm.ppf(1 - alpha / 2)
+    detail = pd.DataFrame(
+        {
+            "variable": var_names,
+            "coefficient": beta,
+            "se": se,
+            "z": z_stats,
+            "pvalue": pvals,
+        }
+    )
+    fit = LimitedDepResult(
+        method="Tobit (symmetrically censored least squares)",
+        estimand=f"beta_{x[0]}",
+        estimate=float(beta[1]),
+        se=float(se[1]),
+        pvalue=float(pvals[1]),
+        ci=(float(beta[1] - z_crit * se[1]), float(beta[1] + z_crit * se[1])),
+        alpha=alpha,
+        n_obs=n,
+        detail=detail,
+        model_info={
+            "method": "Tobit SCLS",
+            "n_censored": int((~mid).sum()),
+            "n_uncensored": int(mid.sum()),
+            "n_used": int(keep.sum()),
+            "n_symmetric": int(inner.sum()),
+            "censor_pct": round(float((~mid).mean()) * 100, 1),
+            "lower_limit": ll,
+            "upper_limit": None,
+            "converged": True,
+            "n_iter": n_iter,
+            "vce": "cluster" if cluster is not None else "robust",
+            "cluster": cluster,
+            "n_clusters": (int(df[cluster].nunique()) if cluster is not None else None),
+            "var_cov": V,
+        },
+        _citation_key="tobit_scls",
+    )
+    return fit
+
+
+CausalResult._CITATIONS["tobit_scls"] = (
+    "@article{powell1986symmetrically,\n"
+    "  title={Symmetrically Trimmed Least Squares Estimation for Tobit Models},\n"
+    "  author={Powell, James L.},\n"
+    "  journal={Econometrica},\n"
+    "  volume={54},\n"
+    "  number={6},\n"
+    "  pages={1435--1460},\n"
+    "  year={1986},\n"
+    "  doi={10.2307/1914308}\n"
+    "}"
+)
 
 # Citation
 CausalResult._CITATIONS["tobit"] = (

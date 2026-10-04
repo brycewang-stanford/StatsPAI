@@ -34,7 +34,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
-Five functions from a pass over Croissant (2025), *Microeconometrics with
+Six functions from a pass over Croissant (2025), *Microeconometrics with
 R*, and its companion package `micsr`. The book's chapters on binary,
 count and censored outcomes use estimators StatsPAI did not have. Notes
 are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
@@ -62,6 +62,29 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   statistics agree with R `micsr::cmtest` to 1e-9 for the tobit and 1e-6
   for the probit, and reject 5% of the time under the null in simulation
   (`tests/reference_parity/test_cmtest_micsr_parity.py`).
+- **`sp.etpoisson`** fits a Poisson regression with an endogenous binary
+  treatment by maximum likelihood, as Stata's `etpoisson`. The outcome
+  error is integrated out by Gauss-Hermite quadrature (`intpoints=24`).
+  It reports the correlation of the two errors, the Wald test of
+  independent equations and the average treatment effect on the count
+  scale with a delta-method standard error. Coefficients and standard
+  errors agree with Stata 18 to 1e-6 (observed 1e-10) and the ATE with
+  `margins r.treat` to 1e-9
+  (`tests/reference_parity/test_etpoisson_stata_parity.py`).
+  `sp.from_stata` translates the command.
+- **`sp.tobit(method='scls')`** is Powell's symmetrically censored least
+  squares. It needs a symmetric error and nothing else, so it stays
+  consistent under heteroskedasticity and non-normality, which is what to
+  turn to when `sp.cmtest` rejects. In a simulation with heteroskedastic
+  errors its slope averages 1.01 for a true value of 1 and its 95%
+  interval covers 97% of the time, where maximum likelihood averages 1.33.
+  Coefficients agree with `micsr::tobit1(method = "trimmed")` to 1e-8
+  (`tests/reference_parity/test_binary_r2_and_scls_parity.py`).
+- **`sp.probit` and `sp.logit` report a family of goodness-of-fit
+  measures** in `model_info['r2']`: McFadden, Cox-Snell, Nagelkerke,
+  Efron, Tjur, Estrella and McKelvey-Zavoina. They agree with R
+  `DescTools::PseudoR2` and `micsr::rsq` to 1e-6. `model_info['pseudo_r2']`
+  is unchanged.
 - **`sp.survreg(frailty='gamma')`** adds gamma-distributed unobserved
   heterogeneity to the four parametric duration models, as Stata's
   `streg, frailty(gamma)`. It reports `log(theta)`, the frailty variance

@@ -89,6 +89,9 @@ In both cases StatsPAI was left as it is.
 | 7 | The Vuong statistic that `sp.zip_model` and `sp.zinb` report on their own was computed against a comparison model that was not at its maximum likelihood | fixed, correctness |
 | 8 | `sp.survreg` accepted `robust=` and `cluster=` and ignored both; it stopped about 1e-5 short of the optimum; it added `1e-15` to every duration | fixed, correctness |
 | 9 | No unobserved heterogeneity in duration models (`micsr::weibreg(mixing = TRUE)`, Stata `streg, frailty(gamma)`) | added `sp.survreg(frailty='gamma')` |
+| 10 | No count model with an endogenous binary treatment (`micsr::escount`, Stata `etpoisson`) | added `sp.etpoisson` |
+| 11 | No estimator for the tobit that survives non-normal or heteroskedastic errors (`micsr::tobit1(method = "trimmed")`) | added `sp.tobit(method='scls')` |
+| 12 | One pseudo R-squared for binary models (`micsr::rsq`) | `model_info['r2']` carries seven |
 
 ### 1. Zero-inflated models under separation
 
@@ -269,6 +272,52 @@ zero on these data. Stata stops near `theta = 3e-8` and prints a standard
 error of 600 for its logarithm. `sp.survreg` returns the model without
 frailty, warns, and reports the same LR statistic (0) and p-value (1).
 
+### 7. `sp.etpoisson`
+
+The book's last count model has a binary regressor that is correlated
+with the outcome error (`micsr::escount`, after Terza 1998). Stata's
+`etpoisson` is the same model and was taken as the reference. The outcome
+error is normal, enters the exponential mean, and is integrated out by
+Gauss-Hermite quadrature; its correlation with the error of a probit
+treatment equation is the endogeneity.
+
+Four blocks against Stata 18 agree to 3e-15 on coefficients and 8e-11 on
+standard errors, with 24 and with 64 quadrature points and under the
+three covariance options. Both sides use plain Gauss-Hermite with the
+same nodes, so there is nothing left to differ. The average treatment
+effect on the count scale and its delta-method standard error equal
+`margins r.d` to 1e-9 and 1e-6.
+
+### 8. Tobit by symmetrically censored least squares
+
+`sp.cmtest` tells the user when the tobit's assumptions fail, and until
+now there was nothing to offer next. Powell's (1986) estimator needs only
+a symmetric error. It is `sp.tobit(method='scls')`.
+
+The coefficients equal those of `micsr::tobit1(method = "trimmed")` to
+5e-12 on the fixture and to 4e-11 on the book's charitable-giving example.
+The standard errors could not be taken from `micsr`: on that example it
+prints 20, 142 and 228 for coefficients of order one. They are Powell's
+sandwich here, and were checked by simulation. With heteroskedastic,
+fat-tailed errors and a true slope of 1, the estimator averages 1.01 and
+its 95% interval covers 97% of 300 replications; maximum likelihood
+averages 1.33 and never covers.
+
+The two-step estimator that `micsr::tobit1(method = "twostep")` also
+offers was not added. It is the probit-then-least-squares estimator on
+the uncensored observations. It is consistent under the same assumptions
+as maximum likelihood, less efficient, and has no reference whose
+standard errors can be trusted.
+
+### 9. Goodness of fit for binary models
+
+`model_info['r2']` of `sp.probit` and `sp.logit` holds McFadden,
+Cox-Snell, Nagelkerke, Efron, Tjur, Estrella and McKelvey-Zavoina. Six
+agree with `DescTools::PseudoR2` to 1e-13 and five with `micsr::rsq` to
+8e-9. For the probit on the fixture, `micsr` returns a McKelvey-Zavoina
+value 2.3 times the DescTools one; DescTools is the one reproduced, and
+the test records the disagreement.
+
 ## Left open
 
 Methods of the book that StatsPAI still lacks, in the order I would take
@@ -277,13 +326,10 @@ them.
 | Item | Book | Reference to pin it to | Note |
 | --- | --- | --- | --- |
 | Non-degenerate Vuong test | `micsr::ndvuong` | `micsr` only | the classical test is done; `data_info['llobs']` is still missing on `sp.tobit`, `sp.ologit`, `sp.mlogit`, survival models |
-| Tobit by a two-step method and by symmetrically trimmed least squares | `micsr::tobit1(method=)` | `micsr` | SCLS is the robust alternative `sp.cmtest` points to when it rejects |
-| Endogenous switching and sample selection for counts | `micsr::escount` | Stata `etpoisson`, `heckpoisson` | |
 | Shared frailty (`streg, shared()`) and `streg` in `sp.from_stata` | | Stata | the translation needs the `stset` state |
 | Poisson with log-normal mixing | `micsr::poisreg(mixing="lognorm")` | `micsr` | Gauss-Hermite quadrature |
 | Rivers-Vuong two-step probit (2SCML) with its own standard errors | `micsr::ivldv(method="twosteps")` | `micsr` | the coefficients are already the control-function fit inside `sp.ivprobit` |
 | Nested logit | `mlogit` | `mlogit`, Stata `nlogit` | |
-| Pseudo R-squared family for binary models (McKelvey-Zavoina, Tjur, Estrella) | `micsr::rsq` | `micsr`, `DescTools` | only McFadden is reported today |
 | `sp.cmtest` for weighted fits and for `sp.ivtobit` | | | |
 
 Not taken, with the reason.
@@ -303,8 +349,10 @@ cd tests/reference_parity/_fixtures
 stata-mp -b do _generate_ivprobit_ivtobit_stata.do
 stata-mp -b do _generate_ivpoisson_stata.do
 stata-mp -b do _generate_streg_stata.do
+stata-mp -b do _generate_etpoisson_stata.do
 Rscript _generate_cmtest_micsr.R          # needs micsr >= 0.1-5
 Rscript _generate_vuong_pscl.R            # needs pscl, MASS
+Rscript _generate_binary_fit_and_scls.R   # needs DescTools, micsr
 
 pytest tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py \
        tests/reference_parity/test_ivpoisson_stata_parity.py \

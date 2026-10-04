@@ -27,9 +27,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 370 |
+| **Compared against R/Stata** (T2) | bit-exact | 371 |
 | | aligned | 52 |
-| | **subtotal** | **422** |
+| | **subtotal** | **423** |
 | **No external software reference** | analytical-only (T1) | 339 |
 | | external-replication (published numbers) | 6 |
 | | **subtotal** | **345** |
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 422 | 755 | 757 | 55.7% |
+| estimator callables | 423 | 756 | 758 | 55.8% |
 | infrastructure (parity N/A) | 0 | 9 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 326 | 0.0% |
-| **all registered** | 422 | 767 | 1303 | 32.4% |
+| **all registered** | 423 | 768 | 1304 | 32.4% |
 
 ### Coverage by estimator family
 
@@ -53,7 +53,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
 | causal | 149 | 327 | 328 |
-| regression | 35 | 40 | 40 |
+| regression | 36 | 41 | 41 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
 | inference | 18 | 29 | 29 |
@@ -95,7 +95,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 370 functions
+## bit-exact — 371 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -182,6 +182,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `eigenvector_centrality` | R sna::evcent (unit L2 norm, as here) | sna 2.8; igraph 2.3.3 | 5e-11 undirected, 8e-11 directed -- power-iteration tolerance on both sides. igraph::eigen_centrality max-scales instead (and 2.x ignores scale = FALSE), so it agrees only up to one scalar; the earlier note claiming the igraph convention was wrong. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) (+1) |
 | `engle_granger` | egranger 1.0.6 (Stata SSC); urca::ur.df on lm residuals; aTSA::coint.test | R 4.5.2; urca 1.3.4; aTSA 3.1.2.1; Stata 18; egranger 1.0.6 | Z(t) and step-1 coefficients 1e-10 rel (observed 2.1e-13); MacKinnon (2010) critical values 1e-12 vs egranger | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
 | `ergm` | R ergm::ergm(estimate = 'MPLE') | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Coefficients 2e-16 to 7e-13 for edges + triangle + nodematch + nodecov + absdiff (undirected) and edges + mutual (directed); standard errors 2e-8 (directed) and <= 3.2e-7 (undirected), inside the 1e-6 budget. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `etpoisson` | Stata 18 MP official `etpoisson` and `margins` | Stata 18 MP | Every block at 1e-6; observed 3e-15 on coefficients, 8e-11 on standard errors, with 24 and 64 Gauss-Hermite points, under vce(oim), vce(robust) and vce(cluster). Log-likelihood to 1e-8, the Wald test of independent equations at 1e-6. The ATE on the count scale and the two potential-outcome means agree with `margins r.d` and `margins d` to 1e-9, the delta-method standard error of the ATE to 1e-6. | — / — | [`test_etpoisson_stata_parity.py`](../tests/reference_parity/test_etpoisson_stata_parity.py) |
 | `etregress` | Stata 18 MP official `etregress` (Maddala 1983 model) | Stata 18 MP | Two-step: 5e-9 on every coefficient and every standard error, including the Heckman correction for the estimated first stage. ML: the likelihood, score and observed information are pinned at 9e-11 -- our Hessian reproduces Stata's reported standard errors when evaluated at Stata's own parameter vector, which is independent of either optimiser. At our own optimum the parameters sit within 2e-5 of Stata's; that gap is the two optimisers' stopping points, not a formula difference, and StatsPAI's stops at the HIGHER log-likelihood with a gradient ~300x smaller (asserted, so a regression that makes our optimum worse fails even though the 1e-4 parity assertions would still pass). vce(robust) carries Stata's N/(N-1) meat factor and vce(cluster) its g/(g-1). | — / — | [`test_etregress_stata_parity.py`](../tests/reference_parity/test_etregress_stata_parity.py) |
 | `etwfe` | etwfe::etwfe + emfx | R 4.5.2; etwfe 0.6.2 | rel_est<=1e-06, rel_se<=0.001 | 1.8e-13 / 3.9e-14 | [`17_etwfe.py`](../tests/r_parity/17_etwfe.py) (+2) |
 | `etwfe_emfx` | etwfe::etwfe + emfx | R 4.5.2; etwfe 0.6.2 | rel_est<=1e-06, rel_se<=0.001 | 1.8e-13 / 3.9e-14 | [`17_etwfe.py`](../tests/r_parity/17_etwfe.py) (+2) |
@@ -677,7 +678,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `forest_policy_tree` | [`test_fe_forest_policy_recovery.py`](../tests/reference_parity/test_fe_forest_policy_recovery.py) |
 | `forest_support` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
-| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+6) |
+| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+7) |
 | `front_door` | [`test_front_door_parity.py`](../tests/reference_parity/test_front_door_parity.py) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |

@@ -351,6 +351,15 @@
           "description": "Lower censoring limit (set -inf for none)",
           "type": "number"
         },
+        "method": {
+          "default": "mle",
+          "description": "'mle' (normal likelihood) or 'scls' (Powell's symmetrically censored least squares: consistent under heteroskedastic or non-normal symmetric errors, lower limit only)",
+          "enum": [
+            "mle",
+            "scls"
+          ],
+          "type": "string"
+        },
         "ul": {
           "description": "Upper censoring limit (default: none)",
           "type": "number"
@@ -662,6 +671,78 @@
         "y",
         "endog",
         "instruments"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Poisson regression with an endogenous binary treatment by maximum likelihood, as Stata's etpoisson; reports the ATE on the count scale. Validation: certified parity evidence. Do NOT use when: The endogenous regressor is continuous: use sp.ivpoisson.",
+    "name": "etpoisson",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "intpoints": {
+          "default": 24,
+          "description": "Gauss-Hermite points for the integral over the outcome error",
+          "type": "integer"
+        },
+        "treat": {
+          "description": "Binary endogenous treatment",
+          "type": "string",
+          "x-aliases": [
+            "treatment"
+          ],
+          "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Exogenous regressors of the outcome",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Count outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "z": {
+          "description": "Regressors of the treatment equation (include an exclusion restriction)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "z"
       ],
       "type": "object"
     }

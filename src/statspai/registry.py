@@ -1334,6 +1334,17 @@ def _build_registry() -> None:
                     None,
                     "Sampling weights [pw=]: weighted likelihood, robust SEs",
                 ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "mle",
+                    "'mle' (normal likelihood) or 'scls' (Powell's "
+                    "symmetrically censored least squares: consistent "
+                    "under heteroskedastic or non-normal symmetric errors, "
+                    "lower limit only)",
+                    ["mle", "scls"],
+                ),
             ],
             returns="EconometricResults",
             example='sp.tobit(df, y="hours", x=["wage", "kids"], ll=0)',
@@ -1644,6 +1655,91 @@ def _build_registry() -> None:
             ],
             alternatives=["poisson", "ppmlhdfe", "ivreg"],
             typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="etpoisson",
+            category="regression",
+            description=(
+                "Poisson regression with an endogenous binary treatment by "
+                "maximum likelihood, as Stata's etpoisson; reports the ATE "
+                "on the count scale."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Count outcome"),
+                ParamSpec(
+                    "x", "list", False, None, "Exogenous regressors of the outcome"
+                ),
+                ParamSpec(
+                    "treat", "str", True, description="Binary endogenous treatment"
+                ),
+                ParamSpec(
+                    "z",
+                    "list",
+                    True,
+                    description="Regressors of the treatment equation "
+                    "(include an exclusion restriction)",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "None/'oim', 'robust' or 'cluster'; robust= is an alias",
+                ),
+                ParamSpec(
+                    "cluster", "str", False, None, "Cluster column (vce(cluster c))"
+                ),
+                ParamSpec(
+                    "intpoints",
+                    "int",
+                    False,
+                    24,
+                    "Gauss-Hermite points for the integral over the outcome error",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.etpoisson(df, y="visits", x=["age"], treat="insured", '
+                'z=["age", "employer_offer"])'
+            ),
+            tags=["count", "poisson", "endogenous treatment", "selection"],
+            reference="Terza (1998)",
+            assumptions=[
+                "Outcome error and treatment error are jointly normal.",
+                "Conditional on the outcome error, the count is Poisson with "
+                "an exponential mean.",
+                "At least one variable moves the treatment and is excluded "
+                "from the outcome (otherwise identification is by "
+                "functional form).",
+            ],
+            pre_conditions=[
+                "Outcome is a non-negative integer.",
+                "Treatment is binary 0/1 with both values present.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="regressors of one equation are collinear",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Drop the redundant regressor.",
+                    alternative="sp.poisson",
+                ),
+            ],
+            not_recommended_when=[
+                "The endogenous regressor is continuous: use sp.ivpoisson.",
+            ],
+            alternatives=["ivpoisson", "etregress", "poisson"],
+            typical_n_min=500,
         )
     )
 

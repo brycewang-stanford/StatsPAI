@@ -960,6 +960,7 @@ from .registry import (
 # Advanced IV
 from .regression.advanced_iv import jive, lasso_iv, liml
 from .regression.count import nbreg, poisson, ppmlhdfe, xtnbreg
+from .regression.et_count import etpoisson
 
 # Fractional Response & Beta Regression
 from .regression.fracreg import betareg, fracreg
@@ -1529,6 +1530,7 @@ __all__ = [
     "ivprobit",
     "ivtobit",
     "ivpoisson",
+    "etpoisson",
     "logit",
     "probit",
     "cloglog",

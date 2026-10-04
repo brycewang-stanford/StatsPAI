@@ -1166,6 +1166,29 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "`ivpoisson cfunction` has no counterpart."
         ),
     },
+    "etpoisson": {
+        "status": "bit-exact",
+        "reference": "Stata 18 MP official `etpoisson` and `margins`",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": (
+            "Every block at 1e-6; observed 3e-15 on coefficients, 8e-11 on "
+            "standard errors, with 24 and 64 Gauss-Hermite points, under "
+            "vce(oim), vce(robust) and vce(cluster). Log-likelihood to "
+            "1e-8, the Wald test of independent equations at 1e-6. The ATE "
+            "on the count scale and the two potential-outcome means agree "
+            "with `margins r.d` and `margins d` to 1e-9, the delta-method "
+            "standard error of the ATE to 1e-6."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_etpoisson_stata_parity.py"],
+        "note": (
+            "Added with the estimator. Both sides use plain (non-adaptive) "
+            "Gauss-Hermite quadrature with the same number of points, "
+            "which is why the agreement is at machine precision; the "
+            "estimates themselves move in the fifth digit between 24 and "
+            "64 points."
+        ),
+    },
     "vuong": {
         "status": "bit-exact",
         "reference": (
