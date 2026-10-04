@@ -437,8 +437,25 @@ Added on the way:
   translation says out loud. `drdid` with no estimator named is `drimp`.
   `csdid ..., ipw` is not `method(ipw)`, because `csdid` accepts and
   ignores an estimator written as a bare option, so the line runs the
-  default as Stata does. `drdid, all` and `did_imputation, minn(#)` other
-  than `minn(0)` are refused or reported instead of approximated.
+  default as Stata does. `did_imputation, minn(#)` other than `minn(0)`
+  is reported instead of approximated.
+- **`sp.gardner_did(treat=, fe=, second_stage=)`**, the general form of
+  the two-stage estimator that R `did2s` and Stata `did2s` implement. The
+  untreated rows are the ones a treatment dummy marks, the first stage is
+  any list of fixed effects (`'region#year'` for a cell, as in
+  `sp.did_imputation(fe=)`) with covariates, and the second stage any
+  list of columns or `'ib0.x'` factors. `sp.gardner_did` could fit unit
+  and period effects only, so region-by-year effects, as in the Remix's
+  Medicaid lab, were out of reach. Eight forms agree with Stata `did2s`
+  to 1e-8 (1e-6 where Stata demeans within `unit()` in single
+  precision), and `sp.stata` now runs `did2s` lines. Calls with
+  `first_treat=` are unchanged.
+- **`sp.drdid(est_method='all')`**, the table Stata's `drdid, all`
+  prints: the doubly robust, outcome-regression and weighting estimators
+  on one sample, one row each in `.detail` (five on a panel, seven on
+  repeated cross-sections), every row equal to Stata's to 1e-13. The
+  result itself is the improved doubly robust fit. `sp.stata` runs
+  `drdid ..., all`, the form the labs use most.
 
 ### Reliability
 

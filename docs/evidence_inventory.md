@@ -19,7 +19,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `etwfe_glm` | 2880 | 39 / 2880 | 26 / 2880 | -- | -- | -- | 26 / 2880 |
 | `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
 | `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
-| `gardner_did` | 32 | 8 / 32 | 2 / 32 | 1 / 32 | -- | -- | 2 / 32 |
+| `gardner_did` | 64 | 24 / 64 | 6 / 64 | 1 / 64 | -- | -- | 6 / 64 |
 | `iv` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
 | `ivreg` | 416 | 130 / 416 | 22 / 416 | -- | 3 / 416 | 1 / 416 | 22 / 416 |
 | `nnmatch` | 1920 | 9 / 1920 | 9 / 1920 | -- | -- | -- | 9 / 1920 |
@@ -64,9 +64,9 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `fast.feols` | estimate | 0 | 0 | 0 | 0 | 0 |
 | `fast.feols` | se | 0 | 0 | 0 | 0 | 6 |
 | `fast.feols` | coverage | 0 | 0 | 1 | 0 | 11 |
-| `gardner_did` | estimate | 0 | 0 | 0 | 0 | 24 |
-| `gardner_did` | se | 0 | 0 | 0 | 0 | 30 |
-| `gardner_did` | vcov | 0 | 0 | 0 | 0 | 31 |
+| `gardner_did` | estimate | 0 | 0 | 0 | 0 | 40 |
+| `gardner_did` | se | 0 | 0 | 0 | 0 | 58 |
+| `gardner_did` | vcov | 0 | 0 | 0 | 0 | 63 |
 | `iv` | estimate | 0 | 0 | 0 | 0 | 286 |
 | `iv` | se | 0 | 0 | 0 | 3 | 391 |
 | `iv` | coverage | 0 | 0 | 1 | 0 | 415 |
@@ -230,12 +230,13 @@ Dimensions: `vcov` in {iid, hc1, cr1}; `ssc` in {fixest, statspai}; `weights` in
 
 ### `gardner_did`
 
-Dimensions: `vce` in {analytic, stage2, bootstrap, none}; `weights` in {none, set}; `covariates` in {none, set}; `event_study` in {off, on}.
+Dimensions: `vce` in {analytic, stage2, bootstrap, none}; `weights` in {none, set}; `covariates` in {none, set}; `event_study` in {off, on}; `form` in {first_treat, general}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
-| T2 | estimate, se | vce=analytic; weights=none; covariates=none; event_study=off | `tests/r_parity/73_did2s.py` | `sp.gardner_did()` |
-| T2 | estimate, se, vcov | vce=analytic; weights=none; covariates=none; event_study=on | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.gardner_did(event_study=True)` |
+| T2 | estimate, se | vce=analytic; weights=none/set; covariates=none/set; event_study=off; form=general | `tests/reference_parity/test_stata_did_commands_parity.py` | `sp.gardner_did(treat=, fe=)` |
+| T2 | estimate, se | vce=analytic; weights=none; covariates=none; form=first_treat; event_study=off | `tests/r_parity/73_did2s.py` | `sp.gardner_did()` |
+| T2 | estimate, se, vcov | vce=analytic; weights=none; covariates=none; form=first_treat; event_study=on | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.gardner_did(event_study=True)` |
 
 `vce` is ignored for estimate: the covariance is computed after the two stages
 

@@ -903,6 +903,11 @@ TIER3_ROUND_TRIPS = [
         },
     ),
     (
+        "did2s y, first_stage(i.id i.year) second_stage(i.d) treatment(d) cluster(id)",
+        "gardner_did",
+        {"y": "y", "treat": "d", "fe": ["id", "year"], "cluster": "id"},
+    ),
+    (
         "jwdid y, ivar(id) tvar(year) gvar(g) never",
         "jwdid",
         {"y": "y", "ivar": "id", "tvar": "year", "gvar": "g", "never": True},

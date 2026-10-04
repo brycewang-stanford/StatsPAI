@@ -41,6 +41,19 @@ first point of divergence, as §5.1 of `CLAUDE.md` asks.
 - `csdid ..., method(drimp)`: `sp.callaway_santanna(estimator='drimp')`.
 - `drdid`, `jwdid`, `csdid_estat` and the `estat` aggregations in the
   translator; `sp.estat(result, 'event' | ...)` behind them.
+- `did2s`. Stata's command takes a treatment dummy, any first stage (the
+  Medicaid lab uses region-by-year effects) and any second stage;
+  `sp.gardner_did` took the first-treatment period and fitted unit and
+  period effects. It now has the general form (`treat=`, `fe=`,
+  `second_stage=`). Every `did2s` line of the labs replays: Baker's event
+  study (41 coefficients, 8e-12 on the estimate, 4e-9 on the SE; `pre_24`
+  is all zero and is reported as omitted on both sides) and the three
+  Medicaid specifications (SEs within 6e-8; the estimates differ in the
+  seventh digit because Stata demeans within `unit()` in single
+  precision).
+- `drdid ..., all`, the most common form in the labs (12 lines):
+  `sp.drdid(est_method='all')`. Stata's panel table has a sixth row,
+  `sipwra`, which StatsPAI does not compute.
 
 ## Agreement found, nothing to change
 
@@ -80,17 +93,6 @@ them, and in each case StatsPAI's answer differs from Stata's on purpose.
 
 ## Open
 
-- `drdid ..., all` is the most common form in the labs (12 lines) and is
-  refused, because it prints five estimators and one `sp.drdid` call
-  returns one. Each estimator on its own is translated and checked. An
-  all-estimators mode of `sp.drdid` would close it; it was not added here
-  because it widens a core signature while `wooldridge_did.py` is being
-  reworked on another line.
-- `did2s` is not translated. `sp.gardner_did` takes the first-treatment
-  period and fits unit and time effects in the first stage; Stata's
-  command takes a treatment dummy, any first stage (the Medicaid lab uses
-  region-by-year effects) and any second stage. Translating it needs
-  `sp.gardner_did` to accept those, which is new surface.
 - `teffects ra` and `teffects ipwra` have no StatsPAI counterpart with
   Stata's standard errors. Another line of work is rewriting the
   `teffects` translation; this was left to it.

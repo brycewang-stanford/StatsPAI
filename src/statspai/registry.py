@@ -11026,20 +11026,63 @@ def _build_registry() -> None:
                 "outcome on treatment dummies (ATT or event study). Standard "
                 "errors are the Butts-Gardner two-stage corrected clustered "
                 "variance (R/Stata did2s), reproduced to ~1e-8 on castle-doctrine; "
-                "weights= gives did2s(weights=) / [aw=]."
+                "weights= gives did2s(weights=) / [aw=]. treat= / fe= / "
+                "second_stage= give did2s's general form: any treatment dummy, "
+                "first-stage fixed effects and second-stage regressors."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True, description="Outcome column"),
-                ParamSpec("group", "str", True, description="Unit/panel-id column"),
-                ParamSpec("time", "str", True, description="Time column"),
+                ParamSpec(
+                    "group",
+                    "str",
+                    False,
+                    None,
+                    "Unit/panel-id column (needed unless treat= and fe= are given)",
+                ),
+                ParamSpec(
+                    "time",
+                    "str",
+                    False,
+                    None,
+                    "Time column (needed unless treat= and fe= are given)",
+                ),
                 ParamSpec(
                     "first_treat",
                     "str",
-                    True,
-                    description="First-treatment-period column; 0/NaN/inf = never treated",
+                    False,
+                    None,
+                    "First-treatment-period column; 0/NaN/inf = never treated. "
+                    "Either this or treat= is required",
                 ),
                 ParamSpec("controls", "list", False, None, "Additional covariates"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    False,
+                    None,
+                    "0/1 column marking the treated observations, in place of "
+                    "first_treat (the treatment argument of R / Stata did2s); "
+                    "Stage 1 is fitted where it is 0",
+                ),
+                ParamSpec(
+                    "fe",
+                    "list",
+                    False,
+                    None,
+                    "Stage-1 fixed effects replacing [group, time]; an entry is "
+                    "a column or 'a#b' for the cell, e.g. ['county', 'region#year']",
+                ),
+                ParamSpec(
+                    "second_stage",
+                    "list",
+                    False,
+                    None,
+                    "Stage-2 regressors replacing the treatment dummy: columns, "
+                    "or 'i.x' / 'ib0.x' for one indicator per level but the "
+                    "base. Coefficients are in .detail; .estimate is NaN when "
+                    "there are several",
+                ),
                 ParamSpec(
                     "event_study",
                     "bool",
@@ -14588,8 +14631,11 @@ def _build_registry() -> None:
                     "reg -> reg_did_panel|rc; twfe -> twfe_did_panel|rc. "
                     "'twfe' is for comparison, not recommendation: with "
                     "covariates it is the specification Sant'Anna-Zhao and "
-                    "Caetano-Callaway warn about.",
-                    ["dr", "ipw", "reg", "twfe"],
+                    "Caetano-Callaway warn about. 'all' fits the doubly "
+                    "robust, regression and weighting estimators on one "
+                    "sample and lists them in .detail (Stata drdid, all); "
+                    "the result itself is the improved doubly robust fit.",
+                    ["dr", "ipw", "reg", "twfe", "all"],
                 ),
                 ParamSpec(
                     "normalized",

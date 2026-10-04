@@ -2325,6 +2325,66 @@ def _etwfe_never_only(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+#: Stata ``drdid, all`` on a panel and on repeated cross-sections: the row
+#: label and the ``sp.drdid`` arguments that give it. ``sipwra``, which
+#: Stata adds on a panel, has no counterpart here and is left out.
+_DRDID_ALL_PANEL: Tuple[Tuple[str, Dict[str, Any]], ...] = (
+    ("dripw", {"est_method": "dr", "method": "trad"}),
+    ("drimp", {"est_method": "dr", "method": "imp"}),
+    ("reg", {"est_method": "reg"}),
+    ("ipw", {"est_method": "ipw", "normalized": False}),
+    ("stdipw", {"est_method": "ipw", "normalized": True}),
+)
+_DRDID_ALL_RC: Tuple[Tuple[str, Dict[str, Any]], ...] = (
+    ("dripw", {"est_method": "dr", "method": "trad"}),
+    (
+        "dripw_rc1",
+        {"est_method": "dr", "method": "trad", "locally_efficient": False},
+    ),
+    ("drimp", {"est_method": "dr", "method": "imp"}),
+    (
+        "drimp_rc1",
+        {"est_method": "dr", "method": "imp", "locally_efficient": False},
+    ),
+    ("reg", {"est_method": "reg"}),
+    ("ipw", {"est_method": "ipw", "normalized": False}),
+    ("stdipw", {"est_method": "ipw", "normalized": True}),
+)
+
+
+def _drdid_all(data: pd.DataFrame, **common: Any) -> CausalResult:
+    """``sp.drdid(est_method='all')``: every estimator on one sample."""
+    specs = _DRDID_ALL_PANEL if common.get("id") is not None else _DRDID_ALL_RC
+    alpha = float(common["alpha"])
+    z_crit = float(stats.norm.ppf(1.0 - alpha / 2.0))
+    rows = []
+    headline: Optional[CausalResult] = None
+    for label, kwargs in specs:
+        fit = drdid(data, **common, **kwargs)
+        est, se = float(fit.estimate), float(fit.se)
+        rows.append(
+            {
+                "estimator": label,
+                "att": est,
+                "se": se,
+                "ci_lower": est - z_crit * se,
+                "ci_upper": est + z_crit * se,
+                "pvalue": (
+                    float(2 * stats.norm.sf(abs(est / se))) if se > 0 else np.nan
+                ),
+            }
+        )
+        if label == "drimp":
+            headline = fit
+    assert headline is not None
+    headline.detail = pd.DataFrame(rows)
+    info = dict(headline.model_info or {})
+    info["estimators"] = [label for label, _ in specs]
+    info["headline_estimator"] = "drimp"
+    headline.model_info = info
+    return headline
+
+
 @accepts_aliases(_strict=True, unit="id", treat="group", controls="covariates")
 def drdid(
     data: pd.DataFrame,
@@ -2399,6 +2459,17 @@ def drdid(
         with covariates it is exactly the specification Sant'Anna & Zhao
         (2020) and Caetano & Callaway (2024) warn about.
 
+        ``'all'`` fits the doubly robust, outcome-regression and weighting
+        estimators on the same sample and lists them in ``.detail``, one
+        row each, as Stata ``drdid, all`` does: ``dripw``, ``drimp``,
+        ``reg``, ``ipw``, ``stdipw`` on a panel, with the ``rc1`` variants
+        of the two doubly robust ones on repeated cross-sections. The
+        result itself is the improved doubly robust fit (``drimp``).
+        ``method``, ``normalized`` and ``locally_efficient`` are not
+        consulted. Reading the table is a comparison of estimators under
+        different assumptions, not a menu: choosing the row after seeing
+        the numbers invalidates its standard error.
+
         .. versionadded:: 1.23.0
     normalized : bool, default True
         Only for ``est_method='ipw'``. ``True`` gives the Hájek-normalised
@@ -2460,6 +2531,18 @@ def drdid(
     >>> abs(result.estimate - 4.0) < 1.0
     True
     """
+    if est_method == "all":
+        return _drdid_all(
+            data,
+            y=y,
+            group=group,
+            time=time,
+            covariates=covariates,
+            alpha=alpha,
+            id=id,
+            weights=weights,
+            trim_level=trim_level,
+        )
     df = data.copy()
 
     # R-style covariate formula (DRDID::drdid(xformla = ~ x1 + I(x1**2))).
@@ -2481,7 +2564,8 @@ def drdid(
         )
     if est_method not in ("dr", "ipw", "reg", "twfe"):
         raise MethodIncompatibility(
-            f"est_method must be 'dr', 'ipw', 'reg' or 'twfe'; got " f"{est_method!r}."
+            "est_method must be 'dr', 'ipw', 'reg', 'twfe' or 'all'; got "
+            f"{est_method!r}."
         )
     if not (0.0 < float(trim_level) <= 1.0):
         raise MethodIncompatibility(

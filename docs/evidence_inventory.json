@@ -2564,6 +2564,10 @@
         "event_study": [
           "off",
           "on"
+        ],
+        "form": [
+          "first_treat",
+          "general"
         ]
       },
       "primary_outputs": [
@@ -2578,27 +2582,56 @@
           "reason": "the covariance is computed after the two stages"
         }
       },
-      "cells": 32,
+      "cells": 64,
       "overall": {
-        "covered": 2,
-        "estimate_only": 6,
-        "not_covered": 24
+        "covered": 6,
+        "estimate_only": 18,
+        "not_covered": 40
       },
       "by_output": {
         "estimate": {
-          "reference": 8,
-          "not_covered": 24
+          "reference": 24,
+          "not_covered": 40
         },
         "se": {
-          "reference": 2,
-          "not_covered": 30
+          "reference": 6,
+          "not_covered": 58
         },
         "vcov": {
           "reference": 1,
-          "not_covered": 31
+          "not_covered": 63
         }
       },
       "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_stata_did_commands_parity.py",
+          "entry_point": "sp.gardner_did(treat=, fe=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "event_study": [
+              "off"
+            ],
+            "form": [
+              "general"
+            ]
+          },
+          "compares": "the general form sp.gardner_did(treat=, fe=, second_stage=) vs Stata did2s in eight specifications: unit() demeaning, a region-by-year cell effect, a covariate, [aw=], a factor and a list of dummies in the second stage, a coarser cluster"
+        },
         {
           "kind": "T2",
           "artifact": "tests/r_parity/73_did2s.py",
@@ -2616,6 +2649,9 @@
             ],
             "covariates": [
               "none"
+            ],
+            "form": [
+              "first_treat"
             ],
             "event_study": [
               "off"
@@ -2641,6 +2677,9 @@
             ],
             "covariates": [
               "none"
+            ],
+            "form": [
+              "first_treat"
             ],
             "event_study": [
               "on"
@@ -6330,16 +6369,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 746,
+      "reference": 762,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45524
+      "not_covered": 45540
     },
     "se": {
-      "reference": 352,
+      "reference": 356,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45898
+      "not_covered": 45926
     },
     "coverage": {
       "coverage_simulation": 11,
@@ -6351,7 +6390,7 @@
     },
     "vcov": {
       "reference": 9,
-      "not_covered": 1423
+      "not_covered": 1455
     },
     "joint_test": {
       "reference": 16,

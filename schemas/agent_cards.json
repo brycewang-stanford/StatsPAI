@@ -25307,7 +25307,7 @@
     ],
     "category": "causal",
     "cost_profile": "vce='bootstrap' re-runs both stages n_boot times; the analytic Butts-Gardner correction is O(n).",
-    "description": "Gardner (2022) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Standard errors are the Butts-Gardner two-stage corrected clustered variance (R/Stata did2s), reproduced to ~1e-8 on castle-doctrine; weights= gives did2s(weights=) / [aw=]. Validation: certified parity evidence. Do NOT use when: there are no never-treated (or long not-yet-treated) units -- stage 1 fits the two-way FEs on untreated observations only and needs them in every period. Cost: vce='bootstrap' re-runs both stages n_boot times; the analytic Butts-Gardner correction is O(n).",
+    "description": "Gardner (2022) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Standard errors are the Butts-Gardner two-stage corrected clustered variance (R/Stata did2s), reproduced to ~1e-8 on castle-doctrine; weights= gives did2s(weights=) / [aw=]. treat= / fe= / second_stage= give did2s's general form: any treatment dummy, first-stage fixed effects and second-stage regressors. Validation: certified parity evidence. Do NOT use when: there are no never-treated (or long not-yet-treated) units -- stage 1 fits the two-way FEs on untreated observations only and needs them in every period. Cost: vce='bootstrap' re-runs both stages n_boot times; the analytic Butts-Gardner correction is O(n).",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -25382,7 +25382,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Gardner (2022) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Standard errors are the Butts-Gardner two-stage corrected clustered variance (R/Stata did2s), reproduced to ~1e-8 on castle-doctrine; weights= gives did2s(weights=) / [aw=]. Validation: certified parity evidence. Do NOT use when: there are no never-treated (or long not-yet-treated) units -- stage 1 fits the two-way FEs on untreated observations only and needs them in every period. Cost: vce='bootstrap' re-runs both stages n_boot times; the analytic Butts-Gardner correction is O(n).",
+      "description": "Gardner (2022) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Standard errors are the Butts-Gardner two-stage corrected clustered variance (R/Stata did2s), reproduced to ~1e-8 on castle-doctrine; weights= gives did2s(weights=) / [aw=]. treat= / fe= / second_stage= give did2s's general form: any treatment dummy, first-stage fixed effects and second-stage regressors. Validation: certified parity evidence. Do NOT use when: there are no never-treated (or long not-yet-treated) units -- stage 1 fits the two-way FEs on untreated observations only and needs them in every period. Cost: vce='bootstrap' re-runs both stages n_boot times; the analytic Butts-Gardner correction is O(n).",
       "name": "gardner_did",
       "parameters": {
         "properties": {
@@ -25422,13 +25422,20 @@
             "description": "If True, report coefficients by relative time k = t - first_treat",
             "type": "boolean"
           },
+          "fe": {
+            "description": "Stage-1 fixed effects replacing [group, time]; an entry is a column or 'a#b' for the cell, e.g. ['county', 'region#year']",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "first_treat": {
-            "description": "First-treatment-period column; 0/NaN/inf = never treated",
+            "description": "First-treatment-period column; 0/NaN/inf = never treated. Either this or treat= is required",
             "type": "string",
             "x-statspai-role": "column"
           },
           "group": {
-            "description": "Unit/panel-id column",
+            "description": "Unit/panel-id column (needed unless treat= and fe= are given)",
             "type": "string",
             "x-aliases": [
               "id",
@@ -25448,8 +25455,20 @@
             "description": "Cluster-bootstrap replications when vce='bootstrap'",
             "type": "integer"
           },
+          "second_stage": {
+            "description": "Stage-2 regressors replacing the treatment dummy: columns, or 'i.x' / 'ib0.x' for one indicator per level but the base. Coefficients are in .detail; .estimate is NaN when there are several",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "time": {
-            "description": "Time column",
+            "description": "Time column (needed unless treat= and fe= are given)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat": {
+            "description": "0/1 column marking the treated observations, in place of first_treat (the treatment argument of R / Stata did2s); Stage 1 is fitted where it is 0",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -25477,10 +25496,7 @@
         },
         "required": [
           "data",
-          "y",
-          "group",
-          "time",
-          "first_treat"
+          "y"
         ],
         "type": "object"
       }
@@ -25493,8 +25509,8 @@
       "Cross-language parity (bit-exact) vs did2s::did2s [R version 4.5.2 (2025-10-31), did2s 1.2.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 73_did2s -- tests/r_parity/73_did2s.py",
       "tests/reference_parity/test_did_variants_parity.py",
       "tests/reference_parity/test_event_study_vcov_R_parity.py",
-      "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
-      "tests/reference_parity/test_track_a_alias_equivalence.py"
+      "tests/reference_parity/test_stata_did_commands_parity.py",
+      "tests/reference_parity/test_sunab_did2s_mpdta_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -34218,12 +34234,13 @@
           },
           "est_method": {
             "default": "dr",
-            "description": "Estimator family. With method/normalized/locally_efficient and id=, this reaches all 14 R DRDID 1.2.3 estimators: dr -> drdid_[imp_]panel / drdid_[imp_]rc[1]; ipw -> [std_]ipw_did_panel|rc; reg -> reg_did_panel|rc; twfe -> twfe_did_panel|rc. 'twfe' is for comparison, not recommendation: with covariates it is the specification Sant'Anna-Zhao and Caetano-Callaway warn about.",
+            "description": "Estimator family. With method/normalized/locally_efficient and id=, this reaches all 14 R DRDID 1.2.3 estimators: dr -> drdid_[imp_]panel / drdid_[imp_]rc[1]; ipw -> [std_]ipw_did_panel|rc; reg -> reg_did_panel|rc; twfe -> twfe_did_panel|rc. 'twfe' is for comparison, not recommendation: with covariates it is the specification Sant'Anna-Zhao and Caetano-Callaway warn about. 'all' fits the doubly robust, regression and weighting estimators on one sample and lists them in .detail (Stata drdid, all); the result itself is the improved doubly robust fit.",
             "enum": [
               "dr",
               "ipw",
               "reg",
-              "twfe"
+              "twfe",
+              "all"
             ],
             "type": "string"
           },
@@ -47832,6 +47849,13 @@
             "description": "If True, Stage 2 reports coefficients by relative time ``k = t - first_treat_i``.",
             "type": "boolean"
           },
+          "fe": {
+            "description": "The fixed effects of Stage 1, replacing the default ``[group, time]``. Each entry is a column, or ``'a#b'`` for the cell of two columns, as in ``sp.did_imputation(fe=)``: ``fe=['county', 'region#year']`` is unit effects with region-by-year effects.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "first_treat": {
             "description": "First-treatment-period column. Never-treated units should be encoded as ``0``, ``NaN``, or ``+inf``.",
             "type": "string",
@@ -47858,8 +47882,20 @@
             "description": "Number of cluster-bootstrap replications when ``vce='bootstrap'``.",
             "type": "integer"
           },
+          "second_stage": {
+            "description": "The regressors of Stage 2, replacing the treatment dummy. A numeric column enters as it is; ``'i.x'`` or ``'ib0.x'`` enters one indicator per level of ``x`` other than the base, as in Stata. There is no intercept. The coefficients are in ``.detail``; ``.estimate`` is the coefficient when there is one regressor and NaN when there are several, since no single number summarises them.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "time": {
             "description": "Time column.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat": {
+            "description": "A 0/1 column marking the treated observations, in place of ``first_treat``: the ``treatment`` argument of R ``did2s`` and Stata ``did2s``. Stage 1 is fitted on the rows where it is 0. With it, ``group`` and ``time`` are needed only as the default fixed effects and the default cluster.",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -47885,10 +47921,7 @@
         },
         "required": [
           "data",
-          "y",
-          "group",
-          "time",
-          "first_treat"
+          "y"
         ],
         "type": "object"
       }

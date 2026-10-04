@@ -282,6 +282,8 @@ def _x_did2s(r: Any) -> Dict[str, Optional[str]]:
         "weights": _set(mi.get("weights")),
         "covariates": _lower(mi.get("covariates")),
         "event_study": "on" if mi.get("event_study") is not None else "off",
+        # treat= / fe= / second_stage= build both stages differently
+        "form": "general" if "first_stage_fe" in mi else "first_treat",
     }
 
 
@@ -1578,6 +1580,7 @@ _DID2S_BASE = {
     "vce": _vals("analytic"),
     "weights": _vals("none"),
     "covariates": _vals("none"),
+    "form": _vals("first_treat"),
 }
 
 _add(
@@ -1588,9 +1591,27 @@ _add(
             "weights": ("none", "set"),
             "covariates": ("none", "set"),
             "event_study": ("off", "on"),
+            "form": ("first_treat", "general"),
         },
         _x_did2s,
         (
+            _Row(
+                "T2",
+                _RP + "test_stata_did_commands_parity.py",
+                {
+                    "vce": _vals("analytic"),
+                    "weights": _vals("none", "set"),
+                    "covariates": _vals("none", "set"),
+                    "event_study": _vals("off"),
+                    "form": _vals("general"),
+                },
+                _EST_SE,
+                "the general form sp.gardner_did(treat=, fe=, second_stage=) vs "
+                "Stata did2s in eight specifications: unit() demeaning, a "
+                "region-by-year cell effect, a covariate, [aw=], a factor and a "
+                "list of dummies in the second stage, a coarser cluster",
+                "sp.gardner_did(treat=, fe=)",
+            ),
             _Row(
                 "T2",
                 _R + "73_did2s.py",
@@ -1615,7 +1636,8 @@ _add(
         },
         note="vce='stage2' is the pre-correction convention and understates; "
         "module 73 records its size as a diagnostic, not as a reference row. "
-        "Covariates, weights and the bootstrap SE have no reference row.",
+        "The bootstrap SE has no reference row; covariates and weights have "
+        "one in the general form (treat= / fe=) only, one at a time.",
     )
 )
 

@@ -224,6 +224,7 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     ),
     "synth": (("figure", 3),),
     "drdid": (("ivar", 1), ("time", 1), ("treatment", 2)),
+    "did2s": (("treatment", 5),),
     "csdid": (("ivar", 1), ("time", 1), ("gvar", 1)),
     "ttest": (("unpaired", 3), ("unequal", 3), ("welch", 1)),
     "tabstat": (("statistics", 1), ("columns", 1), ("format", 1)),

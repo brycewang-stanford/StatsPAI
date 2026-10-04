@@ -3888,6 +3888,7 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
         err, info = _normalise_command(parsed, columns)
     if err is not None:
         return _emit_error(err, command=parsed.command, suggestions=[])
+    parsed.columns = columns
     payload = handler(parsed)
     if not payload.get("ok"):
         return payload

@@ -1,5 +1,5 @@
 * Stata references for test_stata_did_commands_parity.py.
-* drdid 1.91, csdid 1.81, jwdid (SSC), Stata 18. Data: did_commands_data.csv
+* drdid 1.91, csdid 1.81, jwdid and did2s (SSC), Stata 18. Data: did_commands_data.csv
 * (_generate_did_commands_data.py). Each block is one command line the test
 * hands to sp.stata, followed by the e(b) / e(V) Stata left behind.
 * Run from this folder: stata-mp -q -b do _generate_did_commands_Stata.do
@@ -111,6 +111,39 @@ emit `fh' jwdid_never_event
 qui jwdid y, ivar(id) tvar(year) gvar(g) never
 qui estat simple, post
 emit `fh' jwdid_never_simple
+
+* --- drdid, all: the five estimators side by side ---------------------------
+preserve
+keep `two'
+qui drdid y x1 x2, ivar(id) time(year) treatment(d04) all
+emit `fh' drdid_panel_all
+qui drdid y x1 x2, time(year) treatment(d04) all
+emit `fh' drdid_rc_all
+restore
+
+* --- did2s ------------------------------------------------------------------
+gen d = g > 0 & year >= g
+gen relshift = cond(g > 0, year - g + 10, 0)
+gen wt = 1 + x2
+gen post0 = relshift == 10
+gen post1 = relshift == 11
+gen post2 = relshift >= 12 & g > 0
+qui did2s y, first_stage(i.id i.year) second_stage(i.d) treatment(d) cluster(id)
+emit `fh' did2s_static
+qui did2s y, first_stage(i.year) second_stage(i.d) treatment(d) cluster(id) unit(id)
+emit `fh' did2s_static_unit
+qui did2s y, first_stage(i.id i.year) second_stage(ib0.relshift) treatment(d) cluster(id)
+emit `fh' did2s_event
+qui did2s y, first_stage(i.x2#i.year) second_stage(i.d) treatment(d) cluster(id) unit(id)
+emit `fh' did2s_cell_fe
+qui did2s y, first_stage(i.id i.year xt) second_stage(i.d) treatment(d) cluster(id)
+emit `fh' did2s_control
+qui did2s y [aw=wt], first_stage(i.id i.year) second_stage(i.d) treatment(d) cluster(id)
+emit `fh' did2s_weighted
+qui did2s y, first_stage(i.id i.year) second_stage(post0 post1 post2) treatment(d) cluster(id)
+emit `fh' did2s_dummies
+qui did2s y, first_stage(i.id i.year) second_stage(d) treatment(d) cluster(x2)
+emit `fh' did2s_cluster_x2
 
 file write `fh' _n "}" _n
 file close `fh'

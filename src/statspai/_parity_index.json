@@ -6755,6 +6755,7 @@
       "additional_tests": [
         "tests/reference_parity/test_did_variants_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
+        "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],

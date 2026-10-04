@@ -1,7 +1,7 @@
 """Translations of the user-written difference-in-differences commands.
 
 ``drdid`` (Rios-Avila, Sant'Anna and Naqvi's port of ``DRDID``) maps to
-``sp.drdid``; ``jwdid`` (Rios-Avila's extended TWFE) to ``sp.jwdid``;
+``sp.drdid``; ``did2s`` (Butts) to the general form of ``sp.gardner_did``; ``jwdid`` (Rios-Avila's extended TWFE) to ``sp.jwdid``;
 ``csdid_estat`` and the ``estat simple | group | calendar | event`` that
 both ``csdid`` and ``jwdid`` define map to ``sp.estat``, which aggregates
 with the conventions of the command the result came from.
@@ -9,6 +9,7 @@ with the conventions of the command the result came from.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable, Dict, FrozenSet, List, Optional
 
 from ._stata import _emit, _emit_error
@@ -65,13 +66,40 @@ def _h_drdid(cmd: StataCommand) -> Dict[str, Any]:
             command="drdid",
         )
     if "all" in opts:
-        return _emit_error(
-            "drdid, all reports five estimators at once; one sp.drdid call "
-            "returns one. Run the command once per estimator: drimp, dripw, "
-            "reg, stdipw, ipw.",
-            command="drdid",
-            suggestions=[],
-        )
+        if any(name in opts for name in (*_DRDID_METHODS, "rc1")):
+            return _emit_error(
+                "drdid: all is every estimator; it does not combine with "
+                "another estimator option.",
+                command="drdid",
+            )
+        all_args: Dict[str, Any] = {
+            "y": y,
+            "group": treat.split()[0],
+            "time": time.split()[0],
+        }
+        if xs:
+            all_args["covariates"] = xs
+        if opts.get("ivar"):
+            all_args["id"] = (opts.get("ivar") or "").split()[0]
+        all_args["est_method"] = "all"
+        lost_all: List[str] = []
+        notes_all: List[str] = []
+        raw = opts.get("pscoretrim")
+        if raw is not None:
+            try:
+                all_args["trim_level"] = float(raw)
+            except ValueError:
+                lost_all.append("pscoretrim")
+                notes_all.append(f"pscoretrim({raw}) is not a number.")
+        kw = ", ".join(f"{k}={v!r}" for k, v in all_args.items())
+        out = _emit("drdid", all_args, f"sp.drdid(data=df, {kw})", notes_all)
+        out["untranslated_options"] = lost_all
+        out["semantics"] = [
+            "The estimators are the rows of result.detail; the result "
+            "itself is drimp. On a panel Stata also prints sipwra, which "
+            "sp.drdid does not have."
+        ]
+        return out
     if "ipwra" in opts:
         return _emit_error(
             "drdid, ipwra (inverse-probability-weighted regression "
@@ -209,6 +237,83 @@ def _h_jwdid(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
+_FE_TERM = re.compile(r"^i\.([A-Za-z_]\w*)(?:#i\.([A-Za-z_]\w*))?$")
+_NAME = re.compile(r"^[A-Za-z_]\w*$")
+_STAGE2_FACTOR = re.compile(r"^i(?:b\d+)?\.[A-Za-z_]\w*$")
+
+
+def _h_did2s(cmd: StataCommand) -> Dict[str, Any]:
+    """``did2s y, first_stage() second_stage() treatment(D) cluster(c)
+    [unit(u)]`` -> ``sp.gardner_did`` in its general form.
+
+    ``unit(u)`` demeans within ``u`` on the untreated rows, which is a unit
+    fixed effect in the first stage. A second stage that is the treatment
+    dummy itself is the static ATT and is left to the default.
+    """
+    from ._stata import _expand_abbreviations
+
+    if len(cmd.varlist) != 1:
+        return _emit_error("did2s takes one outcome variable", command="did2s")
+    opts = cmd.options
+    first, second = opts.get("first_stage"), opts.get("second_stage")
+    treat, cluster = opts.get("treatment"), opts.get("cluster")
+    if not (first and second and treat and cluster):
+        return _emit_error(
+            "did2s needs first_stage(), second_stage(), treatment() and " "cluster().",
+            command="did2s",
+        )
+    treat = treat.split()[0]
+    fe: List[str] = []
+    unit = opts.get("unit")
+    if unit:
+        fe.append(unit.split()[0])
+    err, first_tokens = _expand_abbreviations(first.split(), cmd.columns)
+    if err:
+        return _emit_error(f"did2s first_stage(): {err}", command="did2s")
+    controls: List[str] = []
+    for tok in first_tokens:
+        m = _FE_TERM.match(tok)
+        if m:
+            spec = m.group(1) if m.group(2) is None else f"{m.group(1)}#{m.group(2)}"
+            if spec not in fe:
+                fe.append(spec)
+        elif _NAME.match(tok):
+            controls.append(tok)
+        else:
+            return _emit_error(
+                f"did2s first_stage(): the term {tok!r} is not translated; "
+                "fixed effects `i.x`, cells `i.a#i.b` and plain covariates "
+                "are.",
+                command="did2s",
+                suggestions=[],
+            )
+    err, second_tokens = _expand_abbreviations(second.split(), cmd.columns)
+    if err:
+        return _emit_error(f"did2s second_stage(): {err}", command="did2s")
+    for tok in second_tokens:
+        if not (_NAME.match(tok) or _STAGE2_FACTOR.match(tok)):
+            return _emit_error(
+                f"did2s second_stage(): the term {tok!r} is not translated; "
+                "columns and `i.x` / `ib<k>.x` are.",
+                command="did2s",
+                suggestions=[],
+            )
+    args: Dict[str, Any] = {"y": cmd.varlist[0], "treat": treat, "fe": fe}
+    if controls:
+        args["controls"] = controls
+    if second_tokens not in ([treat], [f"i.{treat}"]):
+        args["second_stage"] = second_tokens
+    args["cluster"] = cluster.split()[0]
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit("gardner_did", args, f"sp.gardner_did(data=df, {kw})")
+    out["semantics"] = [
+        "The second stage has no intercept. With several second-stage "
+        "terms the coefficients are in result.detail and result.estimate "
+        "is NaN."
+    ]
+    return out
+
+
 def did_aggregation(
     command: str, kind: str, opts: Dict[str, Optional[str]]
 ) -> Dict[str, Any]:
@@ -272,6 +377,7 @@ def _h_csdid_estat(cmd: StataCommand) -> Dict[str, Any]:
 
 
 HANDLERS: Dict[str, Callable[[StataCommand], Dict[str, Any]]] = {
+    "did2s": _h_did2s,
     "drdid": _h_drdid,
     "jwdid": _h_jwdid,
     "csdid_estat": _h_csdid_estat,

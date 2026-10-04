@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 
 class StataParseError(ValueError):
@@ -39,6 +39,9 @@ class StataCommand:
     options: Dict[str, Optional[str]] = field(default_factory=dict)
     #: Original text, useful for error messages and round-tripping
     raw: str = ""
+    #: The dataset's columns when the caller supplied them, for handlers
+    #: whose options hold a varlist (``did2s, second_stage(pre_3-post_5)``)
+    columns: Optional[Sequence[str]] = None
 
 
 _WEIGHT_CLAUSE = re.compile(

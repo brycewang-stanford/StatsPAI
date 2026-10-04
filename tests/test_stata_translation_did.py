@@ -69,7 +69,7 @@ def test_drdid_abbreviated_options_and_repeated_cross_sections():
 @pytest.mark.parametrize(
     "line, words",
     [
-        ("drdid y x, ivar(id) time(t) treatment(d) all", "once per estimator"),
+        ("drdid y x, ivar(id) time(t) treatment(d) all reg", "does not combine"),
         ("drdid y x, ivar(id) time(t) treatment(d) ipwra", "ipwra"),
         ("drdid y x, ivar(id) treatment(d)", "time("),
         ("drdid y i.x, ivar(id) time(t) treatment(d)", "factor-variable"),
@@ -262,3 +262,125 @@ def test_jwdid_line_is_the_direct_call(panel):
         sp.jwdid, panel, "y", ivar="unit", tvar="time", gvar="first_treat", never=True
     )
     assert via.estimate == direct.estimate and via.se == direct.se
+
+
+def test_drdid_all_translation():
+    out = sp.from_stata("drdid y x, ivar(id) time(t) treatment(d) all")
+    assert out["ok"] and out["arguments"]["est_method"] == "all"
+    assert out["arguments"]["id"] == "id"
+    assert "method" not in out["arguments"]
+
+
+def test_drdid_all_rows_are_the_single_calls(panel):
+    two = panel[panel["time"].isin([2, 5]) & panel["first_treat"].isin([0, 4])].copy()
+    two["d"] = (two["first_treat"] == 4).astype(int)
+    kw = dict(y="y", group="d", time="time", covariates=["x"], id="unit")
+    table = _quiet(sp.drdid, two, est_method="all", **kw).detail.set_index("estimator")
+    single = _quiet(sp.drdid, two, est_method="reg", **kw)
+    assert table.loc["reg", "att"] == single.estimate
+    assert table.loc["reg", "se"] == single.se
+    with pytest.raises(MethodIncompatibility, match="'all'"):
+        sp.drdid(two, est_method="everything", **kw)
+
+
+# ----------------------------------------------------------------------
+# did2s
+# ----------------------------------------------------------------------
+
+
+def test_did2s_translation():
+    out = sp.from_stata(
+        "did2s y, first_stage(i.id i.year) second_stage(i.d) treatment(d) cluster(id)"
+    )
+    assert out["ok"] and out["tool"] == "gardner_did"
+    assert out["arguments"] == {
+        "y": "y",
+        "treat": "d",
+        "fe": ["id", "year"],
+        "cluster": "id",
+    }
+    out = sp.from_stata(
+        "did2s y, first_stage(i.region#i.year x) second_stage(ib0.rel) "
+        "treat(d) cluster(st) unit(id)"
+    )
+    assert out["arguments"]["fe"] == ["id", "region#year"]
+    assert out["arguments"]["controls"] == ["x"]
+    assert out["arguments"]["second_stage"] == ["ib0.rel"]
+    assert out["untranslated_options"] == []
+
+
+def test_did2s_second_stage_varlist_needs_the_columns():
+    line = (
+        "did2s y, first_stage(i.id i.year) second_stage(pre_2-post_1) "
+        "treatment(d) cluster(id)"
+    )
+    assert not sp.from_stata(line)["ok"]
+    out = sp.from_stata(line, columns=["y", "pre_2", "pre_1", "post_0", "post_1", "d"])
+    assert out["arguments"]["second_stage"] == ["pre_2", "pre_1", "post_0", "post_1"]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "did2s y, first_stage(i.id) second_stage(d) treatment(d)",
+        "did2s y, first_stage(c.x#i.year) second_stage(d) treatment(d) cluster(id)",
+        "did2s y, first_stage(i.id) second_stage(i.d#i.x) treatment(d) cluster(id)",
+        "did2s y z, first_stage(i.id) second_stage(d) treatment(d) cluster(id)",
+    ],
+)
+def test_did2s_refusals(line):
+    assert not sp.from_stata(line)["ok"]
+
+
+def test_gardner_general_form_guards(panel):
+    df = panel.assign(
+        d=(panel["first_treat"] > 0) & (panel["time"] >= panel["first_treat"])
+    )
+    df["d"] = df["d"].astype(int)
+    kw = dict(y="y", treat="d", fe=["unit", "time"], cluster="unit")
+    with pytest.raises(MethodIncompatibility, match="event_study"):
+        sp.gardner_did(df, event_study=True, **kw)
+    with pytest.raises(MethodIncompatibility, match="vce"):
+        sp.gardner_did(df, vce="bootstrap", **kw)
+    with pytest.raises(MethodIncompatibility, match="0/1"):
+        sp.gardner_did(df.assign(d=df["d"] * 2), **kw)
+    with pytest.raises(MethodIncompatibility, match="collinear"):
+        sp.gardner_did(df.assign(d2=df["d"]), second_stage=["d", "d2"], **kw)
+    with pytest.raises(MethodIncompatibility, match="base level"):
+        sp.gardner_did(df, second_stage=["ib99.time"], **kw)
+    with pytest.raises(MethodIncompatibility, match="cluster"):
+        sp.gardner_did(df, y="y", treat="d", fe=["unit", "time"])
+    with pytest.raises(MethodIncompatibility, match="first_treat"):
+        sp.gardner_did(df, y="y", group="unit", time="time")
+    # first_treat with fe=: the treated rows are derived from it
+    via_ft = _quiet(
+        sp.gardner_did,
+        df,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        fe=["unit", "time"],
+    )
+    via_d = _quiet(sp.gardner_did, df, **kw)
+    assert via_ft.estimate == via_d.estimate and via_ft.se == via_d.se
+
+
+def test_gardner_all_zero_second_stage_column_is_reported(panel):
+    df = panel.assign(
+        d=((panel["first_treat"] > 0) & (panel["time"] >= panel["first_treat"])).astype(
+            int
+        ),
+        never=0.0,
+    )
+    res = _quiet(
+        sp.gardner_did,
+        df,
+        y="y",
+        treat="d",
+        fe=["unit", "time"],
+        second_stage=["d", "never"],
+        cluster="unit",
+    )
+    assert res.model_info["second_stage_omitted"] == ["never"]
+    assert list(res.detail["term"]) == ["d"]

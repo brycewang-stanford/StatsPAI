@@ -416,3 +416,127 @@ def test_time_varying_covariate_against_r_did(df, base_period, control_group):
         _close(row["se"], se, 1e-7)
         checked += 1
     assert checked >= 12
+
+
+# ----------------------------------------------------------------------
+# drdid, all
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("design", ["panel", "rc"])
+def test_drdid_all(df, design):
+    """Every row of ``drdid, all``. On a panel Stata also prints ``sipwra``,
+    which StatsPAI does not have; the other five rows are compared."""
+    ivar = "ivar(id) " if design == "panel" else ""
+    res = _run(f"drdid y x1 x2 {_TWO}, {ivar}time(year) treatment(d04) all", df)
+    ref = {
+        name.split(":")[1]: value for name, value in _ref(f"drdid_{design}_all").items()
+    }
+    rows = res.detail.set_index("estimator")
+    assert set(ref) - set(rows.index) == ({"sipwra"} if design == "panel" else set())
+    assert len(rows) == (5 if design == "panel" else 7)
+    for name, row in rows.iterrows():
+        b, se = ref[name]
+        _close(row["att"], b, RTOL_PS)
+        _close(row["se"], se, RTOL_PS)
+    _close(res.estimate, ref["drimp"][0], RTOL_PS)
+
+
+# ----------------------------------------------------------------------
+# did2s
+# ----------------------------------------------------------------------
+
+_DID2S_SETUP = """gen d = g > 0 & year >= g
+gen relshift = cond(g > 0, year - g + 10, 0)
+gen wt = 1 + x2
+gen post0 = relshift == 10
+gen post1 = relshift == 11
+gen post2 = relshift >= 12 & g > 0
+"""
+
+# Stata demeans within unit() in single precision, which shows in the
+# ninth digit; the forms without unit() agree to rounding.
+_DID2S_LINES = [
+    (
+        "did2s y, first_stage(i.id i.year) second_stage(i.d) treatment(d) "
+        "cluster(id)",
+        "did2s_static",
+        1e-8,
+    ),
+    (
+        "did2s y, first_stage(i.year) second_stage(i.d) treatment(d) "
+        "cluster(id) unit(id)",
+        "did2s_static_unit",
+        1e-6,
+    ),
+    (
+        "did2s y, first_stage(i.id i.year) second_stage(ib0.relshift) "
+        "treatment(d) cluster(id)",
+        "did2s_event",
+        1e-8,
+    ),
+    (
+        "did2s y, first_stage(i.x2#i.year) second_stage(i.d) treatment(d) "
+        "cluster(id) unit(id)",
+        "did2s_cell_fe",
+        1e-6,
+    ),
+    (
+        "did2s y, first_stage(i.id i.year xt) second_stage(i.d) treatment(d) "
+        "cluster(id)",
+        "did2s_control",
+        1e-8,
+    ),
+    (
+        "did2s y [aw=wt], first_stage(i.id i.year) second_stage(i.d) "
+        "treatment(d) cluster(id)",
+        "did2s_weighted",
+        1e-8,
+    ),
+    (
+        "did2s y, first_stage(i.id i.year) second_stage(post0-post2) "
+        "treatment(d) cluster(id)",
+        "did2s_dummies",
+        1e-8,
+    ),
+    (
+        "did2s y, first_stage(i.id i.year) second_stage(d) treatment(d) " "cluster(x2)",
+        "did2s_cluster_x2",
+        1e-7,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "line, tag, rtol", _DID2S_LINES, ids=[t for _, t, _ in _DID2S_LINES]
+)
+def test_did2s(df, line, tag, rtol):
+    res = _run(_DID2S_SETUP + line, df)
+    ref = {
+        ("d" if name == "1.d" else name): value
+        for name, value in _ref(tag).items()
+        if value != (0.0, 0.0)  # Stata's base level
+    }
+    rows = res.detail.set_index("term")
+    assert set(rows.index) == set(ref)
+    for name, (b, se) in ref.items():
+        _close(rows.loc[name, "estimate"], b, rtol)
+        _close(rows.loc[name, "se"], se, rtol)
+    if len(ref) == 1:
+        _close(res.estimate, next(iter(ref.values()))[0], rtol)
+    else:
+        assert np.isnan(res.estimate)
+
+
+def test_did2s_general_form_contains_the_original_one(df):
+    """Unit and period effects with the treatment dummy as the second stage
+    is what ``sp.gardner_did(first_treat=)`` has always fitted."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        classic = sp.gardner_did(df, y="y", group="id", time="year", first_treat="g")
+        d = ((df["g"] > 0) & (df["year"] >= df["g"])).astype(int)
+        general = sp.gardner_did(
+            df.assign(d=d), y="y", treat="d", fe=["id", "year"], cluster="id"
+        )
+    assert general.estimate == pytest.approx(classic.estimate, rel=1e-10)
+    assert general.se == pytest.approx(classic.se, rel=1e-8)

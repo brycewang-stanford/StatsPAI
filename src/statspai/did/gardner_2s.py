@@ -47,7 +47,7 @@ Butts, K. and Gardner, J. (2022).  "did2s: Two-Stage Difference-in-Differences."
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -338,9 +338,9 @@ def _sparse_normal_solve(
 def gardner_did(
     data: pd.DataFrame,
     y: str,
-    group: str,
-    time: str,
-    first_treat: str,
+    group: Optional[str] = None,
+    time: Optional[str] = None,
+    first_treat: Optional[str] = None,
     controls: Optional[List[str]] = None,
     event_study: bool = False,
     horizon: Optional[List[int]] = None,
@@ -350,6 +350,10 @@ def gardner_did(
     n_boot: int = 199,
     boot_seed: int = 0,
     weights: Optional[str] = None,
+    *,
+    treat: Optional[str] = None,
+    fe: Optional[Sequence[str]] = None,
+    second_stage: Optional[Sequence[str]] = None,
 ) -> CausalResult:
     """Gardner (2022) two-stage DID estimator.
 
@@ -403,6 +407,30 @@ def gardner_did(
         ``did2s(weights=)`` and Stata ``did2s [aw=]``. In event-study mode
         the overall ATT is the weight-share average of the post-treatment
         coefficients.
+    treat : str, optional
+        A 0/1 column marking the treated observations, in place of
+        ``first_treat``: the ``treatment`` argument of R ``did2s`` and
+        Stata ``did2s``. Stage 1 is fitted on the rows where it is 0. With
+        it, ``group`` and ``time`` are needed only as the default fixed
+        effects and the default cluster.
+    fe : sequence of str, optional
+        The fixed effects of Stage 1, replacing the default
+        ``[group, time]``. Each entry is a column, or ``'a#b'`` for the
+        cell of two columns, as in ``sp.did_imputation(fe=)``:
+        ``fe=['county', 'region#year']`` is unit effects with
+        region-by-year effects.
+    second_stage : sequence of str, optional
+        The regressors of Stage 2, replacing the treatment dummy. A
+        numeric column enters as it is; ``'i.x'`` or ``'ib0.x'`` enters
+        one indicator per level of ``x`` other than the base, as in Stata.
+        There is no intercept. The coefficients are in ``.detail``;
+        ``.estimate`` is the coefficient when there is one regressor and
+        NaN when there are several, since no single number summarises
+        them.
+
+    ``treat``, ``fe`` and ``second_stage`` select the general form of the
+    estimator. It has the analytic variance only, and ``event_study`` does
+    not apply: an event study is ``second_stage=['ib<k>.<relative time>']``.
 
     Returns
     -------
@@ -471,6 +499,30 @@ def gardner_did(
         )
     if controls is None:
         controls = []
+    if treat is not None or fe is not None or second_stage is not None:
+        return _general_form(
+            data,
+            y,
+            group=group,
+            time=time,
+            first_treat=first_treat,
+            controls=list(controls),
+            event_study=event_study,
+            cluster=cluster,
+            alpha=alpha,
+            vce=vce,
+            weights=weights,
+            treat=treat,
+            fe=fe,
+            second_stage=second_stage,
+        )
+    if group is None or time is None or first_treat is None:
+        raise MethodIncompatibility(
+            "gardner_did needs group=, time= and first_treat= (or treat=, "
+            "a 0/1 column marking the treated observations).",
+            recovery_hint="Pass the unit, period and first-treatment-period "
+            "columns.",
+        )
     df = data.copy()
     required = [y, group, time, first_treat] + list(controls)
     if weights is not None:
@@ -800,6 +852,87 @@ def gardner_did(
     except Exception:  # pragma: no cover
         pass
     return _result
+
+
+def _general_form(
+    data: pd.DataFrame,
+    y: str,
+    *,
+    group: Optional[str],
+    time: Optional[str],
+    first_treat: Optional[str],
+    controls: List[str],
+    event_study: bool,
+    cluster: Optional[str],
+    alpha: float,
+    vce: str,
+    weights: Optional[str],
+    treat: Optional[str],
+    fe: Optional[Sequence[str]],
+    second_stage: Optional[Sequence[str]],
+) -> CausalResult:
+    """Validate the general-form arguments and hand over to ``did2s_general``."""
+    from ._did2s_general import did2s_general
+
+    if vce not in ("analytic", "none"):
+        raise MethodIncompatibility(
+            f"gardner_did: vce={vce!r} is not available with treat=, fe= or "
+            "second_stage=; the general form has the analytic did2s "
+            "variance.",
+            recovery_hint="Use vce='analytic'.",
+        )
+    if event_study:
+        raise MethodIncompatibility(
+            "gardner_did: event_study=True builds the event-time indicators "
+            "from first_treat and does not combine with treat=, fe= or "
+            "second_stage=.",
+            recovery_hint="Pass the event study as the second stage, "
+            "second_stage=['ib<k>.<relative-time column>'], with <k> the "
+            "level to leave out.",
+        )
+    work = data
+    if treat is None:
+        if first_treat is None or time is None:
+            raise MethodIncompatibility(
+                "gardner_did: pass treat= (a 0/1 column marking the treated "
+                "observations), or first_treat= with time=.",
+            )
+        for col in (first_treat, time):
+            if col not in data.columns:
+                raise ValueError(f"Column '{col}' not found in data")
+        ft = pd.to_numeric(data[first_treat], errors="coerce").to_numpy(float)
+        tt = pd.to_numeric(data[time], errors="coerce").to_numpy(float)
+        treat = "_gardner_treated"
+        work = data.assign(
+            **{treat: (np.isfinite(ft) & (ft > 0) & (tt >= ft)).astype(float)}
+        )
+    if fe is None:
+        if group is None or time is None:
+            raise MethodIncompatibility(
+                "gardner_did: without fe= the first stage has unit and "
+                "period effects, so group= and time= are needed.",
+                recovery_hint="Pass group= and time=, or list the fixed "
+                "effects in fe=.",
+            )
+        fe = [group, time]
+    if cluster is None:
+        cluster = group
+    if cluster is None:
+        raise MethodIncompatibility(
+            "gardner_did: pass cluster= (or group=, the default cluster).",
+        )
+    return did2s_general(
+        work,
+        y,
+        treat=treat,
+        fe=list(fe),
+        controls=controls,
+        second_stage=second_stage,
+        cluster=cluster,
+        weights=weights,
+        alpha=alpha,
+        vce=vce,
+    )
 
 
 # Convenience alias aligned with the R package ``did2s``.
