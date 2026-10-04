@@ -921,7 +921,13 @@ def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
 #: csdid ``method()`` -> ``sp.callaway_santanna(estimator=)``; the table in
 #: docs/guides/callaway_santanna.md. ``method(ipw)`` is Abadie's IPW, which
 #: StatsPAI (following R ``did``) calls ``'ipw_abadie'``.
-_CSDID_METHODS = {"dripw": "dr", "reg": "reg", "stdipw": "stdipw", "ipw": "ipw_abadie"}
+_CSDID_METHODS = {
+    "dripw": "dr",
+    "drimp": "drimp",
+    "reg": "reg",
+    "stdipw": "stdipw",
+    "ipw": "ipw_abadie",
+}
 
 
 def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
@@ -958,6 +964,16 @@ def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
             f"csdid method({method}) has no sp.callaway_santanna estimator; "
             f"translated methods: {sorted(_CSDID_METHODS)}.",
             command="csdid",
+        )
+    bare = [name for name in _CSDID_METHODS if name in opts]
+    if bare:
+        # csdid's syntax ends in `*`, so a method written as a bare option
+        # (as drdid takes it) is accepted and discarded: the fit is the
+        # one method() or the default selects.
+        notes.append(
+            f"csdid takes the estimator as method(); the bare option "
+            f"{', '.join(bare)} is accepted by csdid and has no effect, so "
+            f"the call is method({method}), as Stata runs it."
         )
     if "long" in opts:
         lost.append("long")
@@ -1115,6 +1131,19 @@ def _h_did_imputation(cmd: StataCommand) -> Dict[str, Any]:
             notes.append(f"pretrends({opts.get('pretrends')}) is not an integer.")
     if "autosample" in opts:
         args["autosample"] = True
+    if (opts.get("minn") or "").strip() == "0":
+        # minn(0) switches off Stata's suppression of thinly supported
+        # coefficients (default 30); sp.did_imputation suppresses nothing
+        # unless min_n= is given, so there is nothing to pass.
+        pass
+    elif "minn" in opts:
+        lost.append("minn")
+        notes.append(
+            f"minn({opts.get('minn')}) suppresses coefficients by the "
+            "effective number of observations behind them; "
+            "sp.did_imputation(min_n=) counts treated observations, a "
+            "different threshold, so it is not carried over."
+        )
     if opts.get("controls"):
         args["controls"] = (opts.get("controls") or "").split()
     cluster = _vce_cluster(cmd)
@@ -3702,6 +3731,7 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
 # Handlers kept in their own modules register here. They import the helpers
 # above, so the import has to come after them.
 from . import _stata_design as _design  # noqa: E402
+from . import _stata_did as _did  # noqa: E402
 from . import _stata_panel as _panel  # noqa: E402
 from . import _stata_postest as _postest  # noqa: E402
 from . import _stata_rd as _rd  # noqa: E402
@@ -3712,6 +3742,7 @@ STATA_COMMAND_MAP.update(_ts.HANDLERS)
 STATA_COMMAND_MAP.update(_panel.HANDLERS)
 STATA_COMMAND_MAP.update(_design.HANDLERS)
 STATA_COMMAND_MAP.update(_rd.HANDLERS)
+STATA_COMMAND_MAP.update(_did.HANDLERS)
 
 _POSTEST_HANDLERS = frozenset(
     {
@@ -3726,6 +3757,7 @@ _POSTEST_HANDLERS = frozenset(
     }
     | _postest.POSTEST
     | _ts.POSTEST
+    | _did.POSTEST
 )
 
 

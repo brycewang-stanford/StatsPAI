@@ -255,6 +255,43 @@ narrow. The `cutoffs=` path (one shared running variable) is unchanged.
 normalized score, `rdmulti`'s "Pooled" row; `pooled_estimate` remains the
 effective-sample-size-weighted average of the cutoffs.
 
+---
+
+---
+
+## 1.38.0 → next: ⚠️ `sp.callaway_santanna` with time-varying covariates, `sp.etwfe_emfx` headline SEs, unidentified `sp.did_imputation` leads
+
+**`sp.callaway_santanna` with time-varying covariates.**
+*What changed.* A covariate that varies within unit is now read, for each
+ATT(g, t), in the earlier of the cell's two periods. It used to be read
+from the unit's first row of the data for every cell.
+*Who is affected.* Calls with `x=` where at least one covariate changes
+over time. Every ATT(g, t) and every aggregate can move. Covariates that
+are constant within unit are unaffected.
+*What to do.* Re-run. The new numbers are the ones Stata `csdid` and R
+`did` give. To reproduce an old result, replace each covariate by its
+value in the unit's first row before calling.
+
+**`sp.etwfe_emfx(type='group' | 'calendar' | 'event')`.**
+*What changed.* `.se`, `.pvalue` and `.ci` of the returned result now
+belong to `.estimate` (the unweighted mean of the reported rows). They
+used to be those of the `'simple'` aggregate. With `include_leads=True`
+the mean is over the post-treatment rows only.
+*Who is affected.* Code that reads the headline of a non-simple
+aggregation of a `sp.etwfe` / `sp.jwdid` fit. The rows in `.detail` and
+`type='simple'` are unaffected.
+*What to do.* Re-run. For the overall ATT and its standard error use
+`type='simple'`.
+
+**`sp.did_imputation(pretrends=k)`.**
+*What changed.* A request for leads that the design does not identify
+raises `MethodIncompatibility` instead of returning numbers.
+*Who is affected.* Panels without never-treated units and a large `k`.
+The numbers such calls returned were not estimates of anything.
+*What to do.* Request the number of leads the message names.
+
+---
+
 ## 1.37.0 → 1.38.0: `sp.write_data` folds `<var>__miss` columns back into `<var>` in a .dta file
 
 **What changed.** A frame read with `sp.read_data(path,

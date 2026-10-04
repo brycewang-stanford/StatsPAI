@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, Optional
 
 import numpy as np
@@ -28,8 +29,10 @@ def etwfe_glm_emfx(
     ``type='simple'`` the estimate and SE are that scale's overall ATT.  For
     the other types ``detail`` holds one row per cohort / event time /
     period with its own delta-method SE; the headline ``estimate`` is the
-    unweighted mean of those rows and ``se`` the overall ATT's SE (the rows
-    share coefficients, so averaging their SEs would understate).
+    unweighted mean of the post-treatment rows and ``se`` its delta-method
+    standard error through the rows' joint covariance (the rows share
+    coefficients, so neither averaging their SEs nor borrowing the overall
+    ATT's SE gives the SE of that mean).
 
     ``model_info['event_study']`` and ``model_info['event_study_vcov']`` of
     the returned result are on the served scale, so ``sp.event_study_vcov``
@@ -104,15 +107,41 @@ def etwfe_glm_emfx(
     frame = frame.copy()
     frame["ci_lower"] = frame["att"] - z_crit * frame["se"]
     frame["ci_upper"] = frame["att"] + z_crit * frame["se"]
-    est = float(np.average(frame["att"].to_numpy(dtype=float)))
-    z_stat = est / se_all if se_all > 0 else 0.0
+    # Headline: the unweighted mean of the reported rows -- of the
+    # post-treatment ones when leads are listed, since a mean over leads and
+    # lags is not an effect. The rows share coefficients, so its SE goes
+    # through their joint covariance.
+    head = frame
+    if type == "event" and "relative_time" in frame.columns:
+        head = frame[frame["relative_time"] >= 0]
+    keys = [int(v) for v in head[label]]
+    est = float(np.average(head["att"].to_numpy(dtype=float))) if keys else np.nan
+    joint = agg.get(f"{type}_vcov")
+    if keys and isinstance(joint, pd.DataFrame) and all(k in joint.index for k in keys):
+        w = np.full(len(keys), 1.0 / len(keys))
+        se_head = float(np.sqrt(max(w @ joint.loc[keys, keys].to_numpy() @ w, 0.0)))
+    else:
+        se_head = np.nan
+        warnings.warn(
+            f"etwfe_emfx(type={type!r}): this fit does not carry the joint "
+            "covariance of the reported rows, so the SE of their mean (the "
+            "headline) is not available. Re-fit with the current sp.etwfe; "
+            "the rows and their own SEs are unaffected.",
+            UserWarning,
+            stacklevel=3,
+        )
+    if np.isfinite(se_head) and se_head > 0:
+        p_head = float(2 * stats.norm.sf(abs(est / se_head)))
+        ci_head = (est - z_crit * se_head, est + z_crit * se_head)
+    else:
+        p_head, ci_head = np.nan, (np.nan, np.nan)
     return CausalResult(
         method=f"{result.method} — emfx[{type}]",
         estimand=result.estimand if sc == mi.get("scale") else f"ATT ({sc} scale)",
         estimate=est,
-        se=se_all,
-        pvalue=float(2 * stats.norm.sf(abs(z_stat))),
-        ci=(est - z_crit * se_all, est + z_crit * se_all),
+        se=se_head,
+        pvalue=p_head,
+        ci=ci_head,
         alpha=alpha,
         n_obs=result.n_obs,
         detail=frame.reset_index(drop=True),
@@ -123,9 +152,10 @@ def etwfe_glm_emfx(
             "emfx_label": label,
             "emfx_scale": sc,
             "emfx_note": (
-                "estimate is the unweighted mean of the reported cells; "
-                "se is the overall delta-method SE from the fit; each row "
-                "carries its own delta-method se"
+                "estimate is the unweighted mean of the reported "
+                "post-treatment rows and se its delta-method standard error "
+                "through the rows' joint covariance; each row carries its "
+                "own delta-method se"
             ),
         },
         _citation_key="wooldridge2021two",

@@ -68,8 +68,9 @@ _DEFAULT_PSCORE_TRIM = 0.995
 #: ``'ipw'``/``'stdipw'`` are the SAME estimator: R ``did``'s
 #: ``est_method='ipw'`` dispatches to ``DRDID::std_ipw_did_panel``, which is
 #: Stata's ``method(stdipw)``. Stata's ``method(ipw)`` is Abadie (2005) and
-#: is reached here as ``'ipw_abadie'``.
-_ESTIMATORS = ("dr", "ipw", "stdipw", "ipw_abadie", "reg")
+#: is reached here as ``'ipw_abadie'``. ``'drimp'`` is the improved doubly
+#: robust estimator (``DRDID::drdid_imp_panel``, Stata's ``method(drimp)``).
+_ESTIMATORS = ("dr", "drimp", "ipw", "stdipw", "ipw_abadie", "reg")
 
 
 def _require_dataframe(data: Any, *, function: str) -> pd.DataFrame:
@@ -272,6 +273,17 @@ def callaway_santanna(
         ``I(x**2)``; an R ``I(x^2)`` is rejected rather than silently
         evaluated as bitwise XOR.
 
+        A covariate that varies within unit is read, for each ATT(g, t),
+        in the earlier of the cell's two periods (the base period of a
+        post-treatment cell), as R ``did`` and Stata ``csdid`` do. A unit
+        whose covariate is missing in that period leaves the cell. The
+        estimator still assumes the covariate is not itself moved by
+        treatment; :func:`did_timevarying_covariates` is for when it is.
+
+        .. versionchanged:: 1.39.0
+           ⚠️ Time-varying covariates used to be read from the unit's
+           first row for every cell, which matched neither package.
+
         .. versionadded:: 1.23.0
            The formula spelling.
     weights : str, optional
@@ -295,6 +307,14 @@ def callaway_santanna(
         Estimation method, one of:
 
         - ``'dr'`` — doubly robust (Sant'Anna & Zhao 2020).
+        - ``'drimp'`` — the *improved* doubly robust estimator of the same
+          paper: the propensity score is fitted by inverse probability
+          tilting and the outcome model by least squares weighted with the
+          fitted odds, so the estimator is also doubly robust for
+          inference and its influence function has no nuisance-estimation
+          terms. ``DRDID::drdid_imp_panel`` (``drdid_imp_rc`` on repeated
+          cross-sections); Stata ``csdid``'s ``method(drimp)``. Without
+          covariates it is the same number as ``'dr'``.
         - ``'ipw'`` / ``'stdipw'`` — **the same estimator**: stabilized
           (Hájek-normalized) IPW, where the control weights are divided by
           their own mean. This is what R ``did``'s ``est_method='ipw'``
@@ -784,6 +804,7 @@ def callaway_santanna(
     inf_funcs_list: List[np.ndarray] = []
     z_crit = stats.norm.ppf(1 - alpha / 2)
     _TRIM_TALLY.reset()
+    x_wide = _covariates_by_period(data, i, t, x, unit_info.index)
 
     for g_val, t_val, base_val in gt_pairs:
         att, se, inf_func = _estimate_single_att(
@@ -801,6 +822,7 @@ def callaway_santanna(
             pscore_trim,
             unit_weights,
             anticipation=anticipation,
+            x_wide=x_wide,
         )
 
         pval = 2 * stats.norm.sf(abs(att / se)) if se > 0 else 1.0
@@ -1165,6 +1187,34 @@ def _prepare_panel(
     return y_wide, unit_info, time_periods, cohorts, n_units, unit_weights
 
 
+def _covariates_by_period(
+    data: pd.DataFrame,
+    i: str,
+    t: str,
+    x: Optional[List[str]],
+    units: pd.Index,
+) -> Optional[Dict[str, pd.DataFrame]]:
+    """Covariates as (unit x period) tables, when any of them moves over time.
+
+    A covariate that is constant within unit is read once per unit and this
+    returns ``None``. One that varies has no single unit-level value: each
+    ATT(g,t) cell conditions on its value in the earlier of the cell's two
+    periods, which is what R ``did`` (``panel2cs2`` keeps the first period
+    of the pair) and Stata ``csdid`` / ``drdid`` do.
+    """
+    if not x:
+        return None
+    moves = data.groupby(i)[list(x)].nunique(dropna=False).gt(1).any(axis=0)
+    if not bool(moves.any()):
+        return None
+    return {
+        col: data.pivot_table(
+            index=i, columns=t, values=col, aggfunc="first", dropna=False
+        ).reindex(units)
+        for col in x
+    }
+
+
 def _prepare_unit_weights(
     data: pd.DataFrame,
     i: str,
@@ -1382,6 +1432,7 @@ def _estimate_single_att(
     pscore_trim: float = _DEFAULT_PSCORE_TRIM,
     unit_weights: Optional[np.ndarray] = None,
     anticipation: int = 0,
+    x_wide: Optional[Dict[str, pd.DataFrame]] = None,
 ) -> Tuple[float, float, np.ndarray]:
     """Estimate a single ATT(g,t) and return (att, se, influence_func)."""
 
@@ -1436,6 +1487,14 @@ def _estimate_single_att(
 
     # Valid units: in a relevant group AND observed in both periods
     relevant = (is_treated | is_control) & dy.notna()
+    x_cell = None
+    if x_cols and x_wide is not None:
+        # time-varying covariates: the value in the earlier period of the pair
+        first_period = min(t_val, base_val)
+        x_cell = np.column_stack(
+            [x_wide[c][first_period].to_numpy(dtype=float) for c in x_cols]
+        )
+        relevant = relevant & np.isfinite(x_cell).all(axis=1)
     n_rel = relevant.sum()
     if n_rel < 5:
         return 0.0, np.inf, np.zeros(n_total)
@@ -1463,7 +1522,10 @@ def _estimate_single_att(
     # Covariates
     x_sub = None
     if x_cols:
-        x_sub = unit_info.loc[relevant, x_cols].values.astype(float)
+        if x_cell is not None:
+            x_sub = x_cell[relevant.to_numpy()]
+        else:
+            x_sub = unit_info.loc[relevant, x_cols].values.astype(float)
         # Drop covariates with zero variance
         var = np.var(x_sub, axis=0)
         if np.any(var < 1e-12):
@@ -1477,6 +1539,8 @@ def _estimate_single_att(
     # see _ESTIMATORS.
     if estimator == "dr":
         att, se, inf_local = _dr_att(dy_sub, d_sub, x_sub, pscore_trim, w_sub)
+    elif estimator == "drimp":
+        att, se, inf_local = _dr_imp_att(dy_sub, d_sub, x_sub, pscore_trim, w_sub)
     elif estimator in ("ipw", "stdipw"):
         att, se, inf_local = _ipw_att(dy_sub, d_sub, x_sub, pscore_trim, w_sub)
     elif estimator == "ipw_abadie":
@@ -1655,6 +1719,66 @@ def _dr_estimation_effect(
 
     out = -(alr_wols @ m1) / mw_t - (alr_ps @ m2) / mw_c + (alr_wols @ m3) / mw_c
     return out if np.all(np.isfinite(out)) else None
+
+
+def _dr_imp_att(
+    dy: np.ndarray,
+    d: np.ndarray,
+    x: Optional[np.ndarray],
+    pscore_trim: float = _DEFAULT_PSCORE_TRIM,
+    w: Optional[np.ndarray] = None,
+) -> Tuple[float, float, np.ndarray]:
+    """Improved doubly robust ATT(g,t) (Sant'Anna & Zhao 2020, Section 3.1).
+
+    ``DRDID::drdid_imp_panel``: the propensity score solves the inverse
+    probability tilting moment (the odds-weighted controls reproduce the
+    treated covariate means exactly) and the outcome regression is least
+    squares on the controls weighted by the fitted odds. At that pair of
+    nuisance estimates the derivative of the DR moment in either nuisance
+    is zero in sample, so the influence function is the plug-in one.
+
+    Without covariates both nuisances are constants and every estimator of
+    the family is the difference in mean changes; the call is passed to
+    :func:`_dr_att` so that case stays one code path.
+    """
+    if x is None or x.shape[1] == 0:
+        return _dr_att(dy, d, x, pscore_trim, w)
+    from .wooldridge_did import _calibrated_pscore, _weighted_lstsq
+
+    n = len(dy)
+    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
+    xc = np.column_stack([np.ones(n), np.asarray(x, dtype=float)])
+
+    pscore, flag = _calibrated_pscore(xc, d, w)
+    if flag:
+        warnings.warn(
+            "callaway_santanna(estimator='drimp'): the inverse probability "
+            "tilting propensity score did not converge in an ATT(g,t) cell; "
+            "the logit fit is used there, so the cell is the plain doubly "
+            "robust estimate without its estimation-effect terms. Check "
+            "overlap, or use estimator='dr'.",
+            RuntimeWarning,
+            stacklevel=4,
+        )
+    keep = _pscore_trim_mask(pscore, d, pscore_trim)
+    _TRIM_TALLY.record(keep, d)
+
+    odds = pscore / (1.0 - pscore)
+    control = d == 0
+    beta = _weighted_lstsq(xc[control], dy[control], (w * odds)[control])
+    resid = dy - xc @ beta
+
+    w_treat = keep * w * d
+    w_cont = keep * w * odds * (1.0 - d)
+    m_t, m_c = float(np.mean(w_treat)), float(np.mean(w_cont))
+    if m_t <= 0 or m_c <= 1e-12:
+        return 0.0, np.inf, np.zeros(n)
+    eta_t = float(np.mean(w_treat * resid) / m_t)
+    eta_c = float(np.mean(w_cont * resid) / m_c)
+    att = eta_t - eta_c
+    inf_func = w_treat * (resid - eta_t) / m_t - w_cont * (resid - eta_c) / m_c
+    se = float(np.sqrt(np.mean(inf_func**2) / n))
+    return float(att), se, inf_func
 
 
 # ------------------------------------------------------------------
@@ -2549,7 +2673,7 @@ def _estimate_single_att_rcs_sz(
     ``n_obs / n_rel`` rescaling the panel path uses, so cross-(g, t)
     aggregation in :func:`sp.aggte` sees influence functions on a common scale.
     """
-    from ._rcs import drdid_rc, reg_did_rc, std_ipw_did_rc
+    from ._rcs import drdid_imp_rc, drdid_rc, reg_did_rc, std_ipw_did_rc
 
     is_treated = g_arr == g_val
     is_control = _rcs_control_mask(
@@ -2584,7 +2708,12 @@ def _estimate_single_att_rcs_sz(
     # All four treatment x period cells must be populated; the RCS estimators
     # raise otherwise, which for a single (g, t) cell should degrade to "no
     # estimate" rather than kill the whole fit.
-    fn = {"dr": drdid_rc, "ipw": std_ipw_did_rc, "reg": reg_did_rc}[estimator]
+    fn = {
+        "dr": drdid_rc,
+        "drimp": drdid_imp_rc,
+        "ipw": std_ipw_did_rc,
+        "reg": reg_did_rc,
+    }[estimator]
     try:
         res = fn(y_sub, post_sub, d_sub, x_sub, weights=w_sub)
     except (DataInsufficient, MethodIncompatibility, np.linalg.LinAlgError):
@@ -2805,7 +2934,7 @@ def _callaway_santanna_rcs(
     # consume raw covariates directly; the legacy cell-mean path residualises
     # first and then differences means, so the two must not be mixed.
     x_mat = df[list(x)].to_numpy(dtype=float) if x else None
-    use_sz = estimator in {"dr", "ipw"} or (estimator == "reg" and bool(x))
+    use_sz = estimator in {"dr", "drimp", "ipw"} or (estimator == "reg" and bool(x))
 
     for g_val, t_val, base_val in gt_pairs:
         if use_sz:

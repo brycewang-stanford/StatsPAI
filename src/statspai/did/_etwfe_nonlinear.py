@@ -765,22 +765,40 @@ def etwfe_glm(
             Gm = np.asarray(ev_grads, dtype=float).reshape(len(ev_times), Kc)
             ev_cov = Gm @ vcov_agg @ Gm.T
         ev_vcov = pd.DataFrame(ev_cov, index=ev_times, columns=ev_times)
-        grp_rows = []
+
+        def _joint(keys: List[int], grads: List[np.ndarray]) -> pd.DataFrame:
+            # the rows of one table share coefficients: their covariance,
+            # which the SE of any average over them goes through
+            Gj = np.asarray(grads, dtype=float).reshape(len(keys), -1)
+            cov = (
+                uncond_factor * (Gj @ Gj.T)
+                if _unconditional(sc)
+                else (Gj @ vcov_agg @ Gj.T)
+            )
+            return pd.DataFrame(cov, index=keys, columns=keys)
+
+        grp_rows, grp_keys, grp_grads = [], [], []
         for g_val in cohorts:
-            est, se, n, _ = _agg(base & upost & (ug == g_val), sc)
+            est, se, n, grad = _agg(base & upost & (ug == g_val), sc)
             if n:
                 grp_rows.append(_row("cohort", int(g_val), est, se, n))
-        cal_rows = []
+                grp_keys.append(int(g_val))
+                grp_grads.append(grad)
+        cal_rows, cal_keys, cal_grads = [], [], []
         for t_val in sorted(set(t_arr[post_arr].tolist())):
-            est, se, n, _ = _agg(base & upost & (ut == t_val), sc)
+            est, se, n, grad = _agg(base & upost & (ut == t_val), sc)
             if n:
                 cal_rows.append(_row("period", int(t_val), est, se, n))
+                cal_keys.append(int(t_val))
+                cal_grads.append(grad)
         return {
             "simple": {"att": simple[0], "se": simple[1], "n_treated": simple[2]},
             "event": ev,
             "event_vcov": ev_vcov,
             "group": pd.DataFrame(grp_rows),
+            "group_vcov": _joint(grp_keys, grp_grads),
             "calendar": pd.DataFrame(cal_rows),
+            "calendar_vcov": _joint(cal_keys, cal_grads),
         }
 
     aggregations: Dict[str, Dict[str, Any]] = {}

@@ -9974,7 +9974,7 @@
         },
         "test": {
           "default": "all",
-          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``. After ``sp.didregress``: ``'ptrends'`` and ``'granger'``.",
+          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``. After ``sp.didregress``: ``'ptrends'`` and ``'granger'``. After ``sp.callaway_santanna`` or ``sp.jwdid`` / ``sp.etwfe``: ``'simple'``, ``'group'``, ``'calendar'`` and ``'event'``, the aggregations of Stata's ``csdid`` / ``jwdid`` ``estat``. These return the aggregated result (``sp.aggte`` / ``sp.etwfe_emfx``), not a test dictionary.",
           "enum": [
             "hettest",
             "white",
@@ -10020,6 +10020,13 @@
             "fstat"
           ],
           "type": "string"
+        },
+        "window": {
+          "description": "``'event'`` after ``sp.callaway_santanna`` only: the first and last event time kept, as in ``estat event, window(-4 5)``. The overall estimate then averages the post-treatment event times inside it.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
         }
       },
       "required": [

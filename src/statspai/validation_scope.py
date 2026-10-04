@@ -1175,7 +1175,7 @@ _add(
 )
 
 _CS_DOMAINS = {
-    "estimator": ("dr", "reg", "ipw"),
+    "estimator": ("dr", "drimp", "reg", "ipw"),
     "control_group": ("nevertreated", "notyettreated"),
     "weights": ("none", "weighted"),
     "covariates": ("none", "set"),
@@ -1263,6 +1263,45 @@ _add(
                 "a time-invariant cluster (mpdta) and on repeated "
                 "cross-sections clustered on a row-level city x year",
                 "sp.callaway_santanna(clustervars=...)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_stata_did_commands_parity.py",
+                {
+                    "estimator": _vals("dr", "drimp"),
+                    "control_group": _vals("nevertreated", "notyettreated"),
+                    "weights": _vals("none"),
+                    "covariates": _vals("set"),
+                    "inference": _vals("analytic"),
+                    "base_period": _vals("universal", "varying"),
+                    "anticipation": _vals("0"),
+                    "clustering": _vals("none"),
+                },
+                _EST_SE,
+                "every ATT(g,t) and the simple / group / calendar / event "
+                "aggregates vs Stata csdid method(dripw) and method(drimp), "
+                "the improved doubly robust estimator, to 1e-5 (the logit "
+                "stopping rule); with a covariate that varies over time, vs "
+                "csdid and vs R did::att_gt to 1e-7",
+                "sp.callaway_santanna(estimator='drimp')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_stata_did_commands_parity.py",
+                {
+                    "estimator": _vals("reg"),
+                    "control_group": _vals("notyettreated"),
+                    "weights": _vals("none"),
+                    "covariates": _vals("set"),
+                    "inference": _vals("analytic"),
+                    "base_period": _vals("universal"),
+                    "anticipation": _vals("0"),
+                    "clustering": _vals("none"),
+                },
+                _EST_SE,
+                "every ATT(g,t) vs Stata csdid method(reg) notyet long2 with a "
+                "covariate that varies over time",
+                "sp.callaway_santanna(estimator='reg')",
             ),
             _Row(
                 "S",

@@ -8,6 +8,7 @@
       "dimensions": {
         "estimator": [
           "dr",
+          "drimp",
           "reg",
           "ipw"
         ],
@@ -52,29 +53,29 @@
           "reason": "the multiplier bootstrap resamples influence functions for SEs and bands; the ATT(g,t) and their aggregates are unchanged"
         }
       },
-      "cells": 384,
+      "cells": 512,
       "overall": {
-        "covered": 25,
-        "estimate_only": 25,
-        "not_covered": 334
+        "covered": 31,
+        "estimate_only": 31,
+        "not_covered": 450
       },
       "by_output": {
         "estimate": {
-          "reference": 50,
-          "not_covered": 334
+          "reference": 62,
+          "not_covered": 450
         },
         "se": {
-          "reference": 25,
+          "reference": 31,
           "stochastic_screen": 2,
-          "not_covered": 357
+          "not_covered": 479
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 383
+          "not_covered": 511
         },
         "vcov": {
           "reference": 1,
-          "not_covered": 383
+          "not_covered": 511
         }
       },
       "rows": [
@@ -225,6 +226,81 @@
             ]
           },
           "compares": "clustered analytic SEs vs Stata csdid (v1) cluster() to 1e-9: every ATT(g,t), group and simple aggregates, on a panel with a time-invariant cluster (mpdta) and on repeated cross-sections clustered on a row-level city x year"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_stata_did_commands_parity.py",
+          "entry_point": "sp.callaway_santanna(estimator='drimp')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "dr",
+              "drimp"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "set"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal",
+              "varying"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none"
+            ]
+          },
+          "compares": "every ATT(g,t) and the simple / group / calendar / event aggregates vs Stata csdid method(dripw) and method(drimp), the improved doubly robust estimator, to 1e-5 (the logit stopping rule); with a covariate that varies over time, vs csdid and vs R did::att_gt to 1e-7"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_stata_did_commands_parity.py",
+          "entry_point": "sp.callaway_santanna(estimator='reg')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "reg"
+            ],
+            "control_group": [
+              "notyettreated"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "set"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none"
+            ]
+          },
+          "compares": "every ATT(g,t) vs Stata csdid method(reg) notyet long2 with a covariate that varies over time"
         },
         {
           "kind": "S",
@@ -6254,20 +6330,20 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 734,
+      "reference": 746,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45408
+      "not_covered": 45524
     },
     "se": {
-      "reference": 346,
+      "reference": 352,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45776
+      "not_covered": 45898
     },
     "coverage": {
       "coverage_simulation": 11,
-      "not_covered": 36675
+      "not_covered": 36803
     },
     "diagnostic": {
       "reference": 3,
@@ -6275,7 +6351,7 @@
     },
     "vcov": {
       "reference": 9,
-      "not_covered": 1295
+      "not_covered": 1423
     },
     "joint_test": {
       "reference": 16,

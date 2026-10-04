@@ -887,6 +887,31 @@ TIER2_ROUND_TRIPS = [
 
 
 TIER3_ROUND_TRIPS = [
+    # User-written DiD commands (numbers against Stata:
+    # tests/reference_parity/test_stata_did_commands_parity.py)
+    (
+        "drdid y x1 x2, ivar(id) time(year) treatment(d) dripw",
+        "drdid",
+        {
+            "y": "y",
+            "group": "d",
+            "time": "year",
+            "covariates": ["x1", "x2"],
+            "id": "id",
+            "est_method": "dr",
+            "method": "trad",
+        },
+    ),
+    (
+        "jwdid y, ivar(id) tvar(year) gvar(g) never",
+        "jwdid",
+        {"y": "y", "ivar": "id", "tvar": "year", "gvar": "g", "never": True},
+    ),
+    (
+        "csdid_estat event, window(-2 3)",
+        "estat",
+        {"test": "event", "window": (-2, 3), "print_results": False},
+    ),
     # Quantile regression — Stata's quantile() maps to sp.qreg's quantile=
     (
         "qreg y x1 x2, quantile(0.25)",

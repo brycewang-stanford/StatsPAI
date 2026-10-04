@@ -223,6 +223,8 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
         ("pretrends", 3),
     ),
     "synth": (("figure", 3),),
+    "drdid": (("ivar", 1), ("time", 1), ("treatment", 2)),
+    "csdid": (("ivar", 1), ("time", 1), ("gvar", 1)),
     "ttest": (("unpaired", 3), ("unequal", 3), ("welch", 1)),
     "tabstat": (("statistics", 1), ("columns", 1), ("format", 1)),
     "dfuller": (("regress", 3), ("trend", 2), ("drift", 2), ("lags", 1)),

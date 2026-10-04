@@ -423,7 +423,9 @@ def test_csdid_follows_the_documented_mapping():
     assert out["arguments"]["notyet_cutoff"] == "cohort"
     asinr = sp.from_stata("csdid y, ivar(id) time(t) gvar(g) notyet asinr")
     assert asinr["arguments"]["notyet_cutoff"] == "asinr"
-    assert not sp.from_stata("csdid y, ivar(id) time(t) gvar(g) method(drimp)")["ok"]
+    drimp = sp.from_stata("csdid y, ivar(id) time(t) gvar(g) method(drimp)")
+    assert drimp["ok"] and drimp["arguments"]["estimator"] == "drimp"
+    assert not sp.from_stata("csdid y, ivar(id) time(t) gvar(g) method(aipw)")["ok"]
     wboot = sp.from_stata("csdid y, ivar(id) time(t) gvar(g) wboot")
     assert wboot["untranslated_options"] == ["wboot"]
 

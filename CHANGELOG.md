@@ -333,6 +333,69 @@ for each item below.
   the Senate data). Its documentation and the book's printed output
   describe the rule implemented here.
 
+### What the labs of Cunningham's *Causal Inference: The Remix* found
+
+The labs of the 2026 workshop tour were run in Stata 18 and R `did` and
+again through StatsPAI. Three results were wrong (⚠️ below) and four
+commands could not be translated. Details and what is still open are in
+`docs/dev/2026-10-04-mixtape-remix-review.md`.
+
+- ⚠️ **`sp.callaway_santanna` with a covariate that varies over time.** Each
+  ATT(g, t) now conditions on the covariate's value in the earlier of the
+  cell's two periods, as Stata `csdid` and R `did` do. The value in the
+  unit's first row of the data used to be taken for every cell, so the
+  estimates matched neither package and depended on the row order. On the
+  Remix's Brazilian mental-health panel (14 time-varying controls,
+  `method(drimp) notyet long2`) the simple ATT was 0.3985 (0.0613) and is
+  now 0.4028 (0.0598), `csdid`'s number, with all 196 cells within 6e-6.
+  Covariates that are constant within unit give the same numbers as
+  before. Reference rows against `csdid` and against `did::att_gt` are in
+  `tests/reference_parity/test_stata_did_commands_parity.py`.
+- ⚠️ **`sp.etwfe_emfx(type='group' | 'calendar' | 'event')` on a `sp.jwdid` /
+  `sp.etwfe` fit: the standard error of the headline.** The headline
+  estimate is the unweighted mean of the reported rows, and the standard
+  error printed beside it was the one of the `'simple'` aggregate, a
+  different quantity. It is now the delta-method standard error of that
+  mean through the rows' joint covariance, which is what Stata gives for
+  the mean of the rows `estat event, post` leaves in `e(b)` (0.1168
+  against the 0.1064 reported before, on the test fixture). With
+  `include_leads=True` the headline no longer averages the pre-treatment
+  rows in. The rows themselves, their standard errors and
+  `type='simple'` are unchanged.
+- ⚠️ **`sp.did_imputation(pretrends=k)` when some of the `k` leads are not
+  identified.** Without never-treated units the far leads are observed
+  for the last cohort only, and their indicators are spanned by the fixed
+  effects and the nearer leads. StatsPAI inverted the singular matrix
+  anyway and returned every lead, the identified ones included, with
+  standard errors in the thousands. It now refuses, names the
+  unidentified leads and the longest run that is identified. On Baker's
+  simulated panel `pretrends=17` reproduces Stata's `pre1` to `pre17`,
+  and the leads refused are the ones Stata reports as omitted.
+
+Added on the way:
+
+- **`sp.callaway_santanna(estimator='drimp')`**, the improved doubly
+  robust estimator of Sant'Anna and Zhao (inverse probability tilting for
+  the propensity score, odds-weighted least squares for the outcome
+  model), on panels and on repeated cross-sections. It is Stata
+  `csdid`'s `method(drimp)` and agrees with it to 1e-12 on the estimate
+  and 1e-9 on the standard error on the Remix's TVA panel.
+- **`sp.estat(result, 'simple' | 'group' | 'calendar' | 'event')`** after
+  `sp.callaway_santanna` or `sp.jwdid` / `sp.etwfe`, the aggregations
+  Stata's `csdid` and `jwdid` report through `estat`, with
+  `window=(a, b)` for `estat event, window(a b)`. After
+  `sp.callaway_santanna` the group average holds the cohort shares fixed,
+  as `csdid` does; `sp.aggte` keeps R `did`'s convention.
+- **`sp.stata` / `sp.from_stata` translate `drdid`, `jwdid`,
+  `csdid_estat` and `estat simple | group | calendar | event`**, and
+  `csdid ..., method(drimp)`. Every line is checked against what Stata 18
+  printed for it, 46 comparisons in the file named above. Two things the
+  translation says out loud. `drdid` with no estimator named is `drimp`.
+  `csdid ..., ipw` is not `method(ipw)`, because `csdid` accepts and
+  ignores an estimator written as a bare option, so the line runs the
+  default as Stata does. `drdid, all` and `did_imputation, minn(#)` other
+  than `minn(0)` are refused or reported instead of approximated.
+
 ### Reliability
 
 - **`sp.rdrobust` at polynomial orders 0, 3 and 4 now has reference

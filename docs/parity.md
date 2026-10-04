@@ -666,7 +666,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `dynamic_dml` | [`test_dynamic_dml_econml_parity.py`](../tests/reference_parity/test_dynamic_dml_econml_parity.py) |
 | `dynotears` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `equalized_odds` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
-| `estat` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+3) |
+| `estat` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+4) |
 | `evidence_without_injustice` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `fairness_audit` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `fci` | [`test_fci_parity.py`](../tests/reference_parity/test_fci_parity.py) |
@@ -676,7 +676,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `forest_policy_tree` | [`test_fe_forest_policy_recovery.py`](../tests/reference_parity/test_fe_forest_policy_recovery.py) |
 | `forest_support` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
-| `from_stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+4) |
+| `from_stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+5) |
 | `front_door` | [`test_front_door_parity.py`](../tests/reference_parity/test_front_door_parity.py) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
@@ -839,7 +839,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `spec_curve` | [`test_spec_curve_fe_Stata_parity.py`](../tests/reference_parity/test_spec_curve_fe_Stata_parity.py) |
 | `spillover` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
 | `ssc` | [`test_ssc_presets_Stata_parity.py`](../tests/reference_parity/test_ssc_presets_Stata_parity.py) |
-| `stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+3) |
+| `stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+4) |
 | `stepwise` | [`test_stepwise_parity.py`](../tests/reference_parity/test_stepwise_parity.py) |
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `structural_mdp` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |

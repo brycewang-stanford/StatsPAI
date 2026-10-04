@@ -146,6 +146,7 @@ your numbers silently. This table is the mapping.
 | `csdid` | StatsPAI | Note |
 | --- | --- | --- |
 | `method(dripw)` | `estimator='dr'` | default both sides |
+| `method(drimp)` | `estimator='drimp'` | the improved doubly robust estimator: tilting propensity score, odds-weighted outcome regression |
 | `method(reg)` | `estimator='reg'` | |
 | `method(stdipw)` | `estimator='ipw'` **or** `'stdipw'` | ⚠️ see below |
 | `method(ipw)` | `estimator='ipw_abadie'` | ⚠️ see below |
@@ -161,7 +162,32 @@ your numbers silently. This table is the mapping.
 | `notyet` | `control_group='notyettreated'` | |
 | `pscoretrim(#)` | `pscore_trim=#` | both default 0.995 |
 | `saverif(f)` | `sp.influence_functions(res, path=f)` | |
+| `estat simple` / `event` / `calendar` | `sp.estat(res, 'simple' \| 'event' \| 'calendar')` | same numbers as `sp.aggte` |
+| `estat group` | `sp.estat(res, 'group')` | `sp.aggte(res, type='group', share_variance=False)`: csdid holds the cohort shares fixed in `GAverage` |
+| `estat event, window(a b)` | `sp.estat(res, 'event', window=(a, b))` | `sp.aggte(..., min_e=a, max_e=b)` |
+| `csdid ..., ipw` (a bare estimator name) | the default, `estimator='dr'` | csdid's syntax ends in `*`, so the word is accepted and ignored; only `method()` selects an estimator |
 | `cluster(v)` | `clustervars=['v']` | requires `bstrap=True` |
+
+### Covariates that change over time
+
+A covariate that is constant within unit is read once per unit. One that
+varies is read, for each ATT(g, t), in the earlier of the cell's two
+periods: the base period for a post-treatment cell, the period itself for
+a pre-treatment cell of a long-gap (`base_period='universal'`)
+comparison. This is what `csdid` and R `did` do, and the cells agree with
+both (`tests/reference_parity/test_stata_did_commands_parity.py`).
+
+Up to 1.38.0 the value in the unit's first row of the data was used for
+every cell, so a time-varying covariate gave estimates that matched
+neither package and depended on how the rows were sorted. On the Brazilian
+mental-health panel of Cunningham's Remix labs (14 time-varying controls)
+the simple ATT moved from 0.3985 (0.0613) to 0.4028 (0.0598), which is
+`csdid`'s number.
+
+Conditioning on a covariate measured before treatment is the assumption
+the estimator is built on. If the covariate itself responds to treatment,
+its later values are bad controls and none of this helps;
+`sp.did_timevarying_covariates` is the estimator for that case.
 
 ### ⚠️ `ipw` means different things in the two ecosystems
 

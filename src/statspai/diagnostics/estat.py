@@ -74,6 +74,7 @@ from scipy import stats as sp_stats
 
 from ..exceptions import MethodIncompatibility
 from . import _estat_regression as _reg
+from ._estat_did import DID_AGGREGATIONS, estat_did_aggregate
 
 # ======================================================================
 #  Line characters for pretty-printing
@@ -100,7 +101,8 @@ def estat(
     rhs: bool = False,
     fill: str = "zero",
     threshold: Optional[float] = None,
-) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+    window: Optional[Sequence[float]] = None,
+) -> Any:
     """
     Unified post-estimation diagnostics dispatcher.
 
@@ -121,6 +123,11 @@ def estat(
         ``'vargranger'`` (Granger causality); after ``sp.vec``:
         ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``.
         After ``sp.didregress``: ``'ptrends'`` and ``'granger'``.
+        After ``sp.callaway_santanna`` or ``sp.jwdid`` / ``sp.etwfe``:
+        ``'simple'``, ``'group'``, ``'calendar'`` and ``'event'``, the
+        aggregations of Stata's ``csdid`` / ``jwdid`` ``estat``. These
+        return the aggregated result (``sp.aggte`` / ``sp.etwfe_emfx``),
+        not a test dictionary.
     print_results : bool, default True
         If True, print a formatted table to stdout.
     lags : int, optional
@@ -152,13 +159,28 @@ def estat(
     threshold : float, optional
         ``'classification'`` only: the probability above which an
         observation is classified as a positive. Default 0.5.
+    window : (int, int), optional
+        ``'event'`` after ``sp.callaway_santanna`` only: the first and last
+        event time kept, as in ``estat event, window(-4 5)``. The overall
+        estimate then averages the post-treatment event times inside it.
 
     Returns
     -------
     dict or list of dict
         Test result(s).  Each dict has keys ``'test'``, ``'statistic'``
         (or equivalent), ``'pvalue'`` (when applicable), and
-        ``'interpretation'``.
+        ``'interpretation'``. The difference-in-differences aggregations
+        return a ``CausalResult`` instead: the overall effect in
+        ``.estimate`` / ``.se`` and one row per cohort, period or event
+        time in ``.detail``.
+
+    Notes
+    -----
+    ``sp.estat(result, 'group')`` after ``sp.callaway_santanna`` holds the
+    cohort shares fixed, which is what ``csdid`` reports as ``GAverage``.
+    ``sp.aggte(result, type='group')`` by default also carries the sampling
+    error of the estimated shares, as R ``did`` does; the point estimates
+    are the same and only the standard error of the overall row differs.
 
     Examples
     --------
@@ -180,6 +202,11 @@ def estat(
     False
     """
     test = test.strip().lower()
+    if test in DID_AGGREGATIONS:
+        aggregated = estat_did_aggregate(result, test, window=window, alpha=alpha)
+        if print_results:
+            print(aggregated.summary())
+        return aggregated
     var_lags = lags
     lags = 1 if lags is None else lags
 

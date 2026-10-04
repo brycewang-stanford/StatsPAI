@@ -193,6 +193,9 @@ always-current list):
 | `newey y x, lag(m)` | `sp.regress(robust='hac', hac_lags=m, hac_small=True)` |
 | `dfuller` | `sp.unitroot(test='adf')` |
 | `csdid`, `didregress`, `did_imputation` | `sp.callaway_santanna` / `sp.did` / `sp.did_imputation` |
+| `drdid` (one estimator per call: `drimp`, `dripw`, `reg`, `stdipw`, `ipw`; panel or repeated cross-sections) | `sp.drdid` |
+| `jwdid` | `sp.jwdid` |
+| `csdid_estat` / `estat` `simple`, `group`, `calendar`, `event` after `csdid` or `jwdid` | `sp.estat(result, ...)`, which calls `sp.aggte` or `sp.etwfe_emfx` with the command's conventions |
 | `rdrobust`, `rdplot`, `rddensity` | `sp.rdrobust` / `sp.rdplot` / `sp.rddensity` |
 | `synth` | `sp.synth` |
 | `teffects` | `sp.ipw` / `sp.match` / `sp.aipw` |
@@ -230,6 +233,13 @@ These are part of the queryable contract — `sp.translation_coverage()["limitat
 - **Macros and loops.** `sp.from_stata` translates one command and refuses a
   macro; `sp.stata` expands the macros defined by text in the same snippet.
   Loops and macros computed by Stata are not run.
+- **User-written DiD commands.** `drdid, all` prints five estimators and is
+  refused (one call returns one); `did2s`, `eventstudyinteract`, `csdid2`,
+  `honestdid` and `allsynth` are not translated. Call `sp.gardner_did`,
+  `sp.sun_abraham`, `sp.callaway_santanna`, `sp.honest_did` and
+  `sp.augsynth` directly. `did_imputation, allhorizons` needs the list of
+  horizons, which is in the data, so it is reported in
+  `untranslated_options`.
 - **`psmatch2` without `logit`.** Stata then fits a probit propensity score;
   `sp.psmatch2` fits a logit, so the translation lists `probit` in
   `untranslated_options`.

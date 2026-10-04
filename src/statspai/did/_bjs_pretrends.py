@@ -158,6 +158,39 @@ def _partial_out(
     return x - np.asarray(design @ coef, dtype=float)
 
 
+#: A lead is treated as unidentified when, after the fixed effects and the
+#: leads nearer to treatment are partialled out, less than this share of its
+#: indicator's sum of squares is left. Exact collinearity leaves the
+#: rounding error of the sparse solves (1e-12 or less on the designs
+#: checked); an identified lead on the same designs keeps more than 1e-3.
+_LEAD_RANK_TOL = 1e-8
+
+
+def _unidentified_leads(
+    leads: List[int], lead_matrix: np.ndarray, lead_resid: np.ndarray
+) -> List[int]:
+    """Leads whose indicator is spanned by the Y(0) design and nearer leads.
+
+    The leads are taken from the one nearest to treatment outwards, the
+    order in which Stata's ``did_imputation`` lists them and therefore the
+    order in which its regression omits collinear ones.
+    """
+    order = sorted(range(len(leads)), key=lambda j: -leads[j])
+    basis: List[np.ndarray] = []
+    out: List[int] = []
+    for j in order:
+        total = float(lead_matrix[:, j] @ lead_matrix[:, j])
+        r = lead_resid[:, j].copy()
+        for q in basis:
+            r -= (q @ r) * q
+        left = float(r @ r)
+        if total <= 0 or left <= _LEAD_RANK_TOL * total:
+            out.append(leads[j])
+        else:
+            basis.append(r / np.sqrt(left))
+    return sorted(out)
+
+
 def bjs_pretrend_path(
     *,
     design_untreated: sparse.csr_matrix,
@@ -309,6 +342,26 @@ def bjs_pretrend_path(
         ]
     )
     y_resid = _partial_out(y_u, design_untreated, col_norms, scale)
+
+    unidentified = _unidentified_leads(leads, lead_matrix, lead_resid)
+    if unidentified:
+        kept = [k for k in leads if k not in unidentified]
+        raise MethodIncompatibility(
+            "pretrend_method='bjs': the lead coefficient(s) at relative time "
+            f"{unidentified} are not identified. Once the fixed effects and "
+            "the nearer leads are partialled out nothing is left of their "
+            "indicators, which happens when a lead is observed for a single "
+            "cohort only or when no reference period remains. Stata's "
+            "did_imputation omits such leads; returning numbers for them "
+            "would also corrupt the leads that are identified.",
+            recovery_hint=(
+                f"Request pretrends={-min(kept)}, the longest run of "
+                "identified leads."
+                if kept and kept == list(range(min(kept), 0))
+                else "Request fewer leads via pretrends=k or horizon=."
+            ),
+            diagnostics={"unidentified_leads": unidentified, "identified": kept},
+        )
 
     gram = lead_resid.T @ lead_resid
     try:

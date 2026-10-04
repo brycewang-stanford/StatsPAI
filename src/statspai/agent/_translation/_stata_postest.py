@@ -59,6 +59,12 @@ def _h_estat(cmd: StataCommand) -> Dict[str, Any]:
     sub = _subcommand(cmd.varlist[0])
     rest = cmd.varlist[1:]
     opts = cmd.options
+    word = cmd.varlist[0].lower()
+    if word in ("simple", "group", "calendar", "event") and not rest:
+        # the aggregations csdid and jwdid define; written in full by both
+        from ._stata_did import did_aggregation
+
+        return did_aggregation("estat", word, opts)
     if sub is None:
         return _emit_error(
             f"estat {cmd.varlist[0]} is not translated",

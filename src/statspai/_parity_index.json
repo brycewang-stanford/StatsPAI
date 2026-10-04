@@ -202,7 +202,8 @@
         "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
-        "tests/reference_parity/test_rcs_aggregation_conventions.py"
+        "tests/reference_parity/test_rcs_aggregation_conventions.py",
+        "tests/reference_parity/test_stata_did_commands_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -1877,7 +1878,8 @@
         "tests/reference_parity/test_honest_did_moments_R_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_rcs_aggregation_conventions.py",
-        "tests/reference_parity/test_staggered_rollout_parity.py"
+        "tests/reference_parity/test_staggered_rollout_parity.py",
+        "tests/reference_parity/test_stata_did_commands_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -5469,6 +5471,7 @@
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
+        "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
       "tolerance": ""
@@ -5564,6 +5567,7 @@
         "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
         "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
         "tests/reference_parity/test_jwdid_Stata_parity.py",
+        "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_verified_by": [
@@ -6473,7 +6477,8 @@
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_ivpoisson_stata_parity.py",
         "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py",
-        "tests/reference_parity/test_sdid_optimized_covariates.py"
+        "tests/reference_parity/test_sdid_optimized_covariates.py",
+        "tests/reference_parity/test_stata_did_commands_parity.py"
       ],
       "tolerance": ""
     },
@@ -8778,6 +8783,9 @@
       "tolerance": "BB, WW and BW all exact. A reference-free guard also asserts BB + WW + BW = S0/2, the identity the BW defect violated (70.75 against 50)."
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_stata_did_commands_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -17884,6 +17892,7 @@
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",
+        "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
       "tolerance": ""
