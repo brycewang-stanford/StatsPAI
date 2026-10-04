@@ -31,6 +31,23 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — call traces re-recorded for the third round of the Clarke textbook pass
+
+Commit `ff889a42`. `matching/match.py` and `matching/_ai2016.py` (module 11)
+gained the caliper condition of the Abadie-Imbens (2016) ATE variance, a
+branch module 11, which estimates the ATT without a caliper, does not
+execute. `forest/causal_forest.py` (modules 13 and 24) accepts `treat=` and
+`covariates=` as other names for `d=` and `x=`; the decorator line changed
+and nothing below it. The traces of modules 11, 13 and 24 were re-recorded.
+The rest of the commit is in `agent/_translation/`, which no Track A
+module executes.
+
+**Effect on the paper.** None. Only the recorded source hashes move; no
+result file changed and no module's implementation classification moved.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-05 — call traces re-recorded after a docstring in `synth/scm.py` changed
 
 Commit `57ccb23f`. `synth/scm.py` is on the estimation path of Track A
