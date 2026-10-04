@@ -896,7 +896,7 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
             }
         )
 
-    # --- RD: manipulation (McCrary) -------------------------------------
+    # --- RD: manipulation (density test; key kept as 'mccrary') ----------
     mccrary_p = _as_float(_safe_get(mi, "mccrary", "pvalue"))
     if mccrary_p is not None and mccrary_p < 0.05 and method_family == "rd":
         out.append(
@@ -907,11 +907,11 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
                 "value": mccrary_p,
                 "threshold": 0.05,
                 "message": (
-                    f"McCrary density test p = {mccrary_p:.3g} < 0.05 — "
+                    f"Density test (rddensity) p = {mccrary_p:.3g} < 0.05 — "
                     "running variable may be manipulated at the cutoff."
                 ),
                 "recovery_hint": (
-                    "Re-test with the CJM density test (sp.rddensity); "
+                    "Inspect the density with sp.rdplotdensity; "
                     "manipulation undermines RD identification, so also consider "
                     "excluding a donut window around the cutoff or reporting "
                     "partial-identification bounds."

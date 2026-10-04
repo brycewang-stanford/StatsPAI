@@ -292,6 +292,18 @@ for each item below.
   [-0.042, 0.408], p = 0.112. The estimate on the normalized score
   (`rdmulti`'s "Pooled" row) is now reported as `result.normalized`.
 
+- **`sp.rdrobust`'s automatic manipulation check is now `sp.rddensity`.**
+  It was McCrary's binned test, which is not built for a score with mass
+  points. On the book's academic-probation data (429 GPA values) it warned
+  of sorting with p = 6e-11 where `sp.rddensity` gives 0.082, the number
+  the book reports; over 60 placebo cutoffs on that data, where nothing
+  is manipulated, it rejected 43% of the time against 5%. Under simulated
+  sorting on a continuous score both tests reject every time. Estimates,
+  standard errors and intervals are unchanged; what changes is when the
+  warning fires and the value in `model_info['mccrary']['pvalue']` (the
+  key keeps its name; `'test'` beside it says `'rddensity'`).
+  `sp.mccrary_test` itself is unchanged.
+
 ### Added
 
 - `sp.rdrandinf`: `kernel=` (it was accepted and ignored), `nulltau=`,

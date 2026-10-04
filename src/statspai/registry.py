@@ -2485,7 +2485,7 @@ def _build_registry() -> None:
                     False,
                     True,
                     (
-                        "Run a McCrary density test for sorting at the cutoff; "
+                        "Run the rddensity test for sorting at the cutoff; "
                         "stores model_info['mccrary']['pvalue'] and warns + flags "
                         "result.violations() when p<0.05. Disable for placebo-"
                         "cutoff loops."

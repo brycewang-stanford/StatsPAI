@@ -1293,41 +1293,61 @@ def rdrobust(
     if rbc is not None:
         model_info["rbc_bootstrap"] = rbc
 
-    # Manipulation (McCrary) check — sorting around the cutoff is the canonical
-    # threat to RD identification. Run the density test best-effort so a
-    # significant discontinuity surfaces loudly here and in
-    # ``result.violations()``; a failure of the *test* never breaks the point
-    # estimate. Skipped by internal callers that loop over placebo cutoffs
+    # Manipulation check — sorting around the cutoff is the canonical threat
+    # to RD identification. Run the density test best-effort so a significant
+    # discontinuity surfaces loudly here and in ``result.violations()``; a
+    # failure of the *test* never breaks the point estimate. Skipped by
+    # internal callers that loop over placebo cutoffs
     # (manipulation_test=False), where a warning would be spurious.
+    #
+    # The test is sp.rddensity (Cattaneo, Jansson and Ma). It used to be
+    # McCrary's binned test, which is not built for a score with mass
+    # points: on the academic-probation data of Lindo, Sanders and
+    # Oreopoulos (429 GPA values) it rejects at 43% of placebo cutoffs where
+    # nothing is manipulated, against 5% for rddensity, and it reported
+    # p = 6e-11 at the true cutoff where rddensity gives 0.082. The key
+    # stays ``model_info['mccrary']`` because the audit rules and agent
+    # summaries read it; ``'test'`` says which test filled it.
     if manipulation_test:
         try:
-            from ..diagnostics.sensitivity import mccrary_test as _mccrary_test
+            from ..diagnostics.rddensity import rddensity as _rddensity
 
-            _mc = _mccrary_test(data, x=x, c=c)
+            _mc = _rddensity(data, x=x, c=c)
             _mc_p = float(_mc.pvalue)
         except (
             DataInsufficient,
             ConvergenceFailure,
+            MethodIncompatibility,
             ValueError,
             RuntimeError,
             np.linalg.LinAlgError,
             ZeroDivisionError,
         ) as _exc:
-            model_info["mccrary"] = {"pvalue": None, "error": type(_exc).__name__}
+            model_info["mccrary"] = {
+                "pvalue": None,
+                "error": type(_exc).__name__,
+                "test": "rddensity",
+            }
         else:
-            model_info["mccrary"] = {"pvalue": _mc_p}
+            model_info["mccrary"] = {"pvalue": _mc_p, "test": "rddensity"}
             if _mc_p < 0.05:
                 warnings.warn(
                     AssumptionWarning(
-                        f"Density manipulation at the cutoff: McCrary test "
-                        f"p = {_mc_p:.3g} < 0.05 — units may be sorting across "
-                        "the threshold, which breaks RD identification.",
+                        f"Density manipulation at the cutoff: the rddensity "
+                        f"test gives p = {_mc_p:.3g} < 0.05 — units may be "
+                        "sorting across the threshold, which breaks RD "
+                        "identification.",
                         recovery_hint=(
                             "Inspect sp.rddensity / sp.rdplotdensity; a donut "
                             "hole (donut=) can probe robustness, but confirmed "
                             "sorting makes the RD estimate suspect."
                         ),
-                        diagnostics={"mccrary_pvalue": _mc_p, "cutoff": c},
+                        diagnostics={
+                            "mccrary_pvalue": _mc_p,
+                            "density_pvalue": _mc_p,
+                            "density_test": "rddensity",
+                            "cutoff": c,
+                        },
                         alternative_functions=[
                             "sp.rddensity",
                             "sp.rdplotdensity",

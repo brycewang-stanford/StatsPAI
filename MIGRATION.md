@@ -131,6 +131,23 @@ zero-inflated model and its plain counterpart are nested on a boundary,
 and the statistic is not standard normal under that null (Wilson 2015,
 doi:10.1016/j.econlet.2014.12.029).
 
+## 1.38.0 → next: `sp.rdrobust` checks for manipulation with `sp.rddensity`
+
+**What changed.** The density check that `sp.rdrobust` runs by default
+(`manipulation_test=True`) used McCrary's binned test and now uses the
+local-polynomial density test of `sp.rddensity`. The point estimate,
+standard error and interval do not change.
+
+**Who is affected.** Code that reads `model_info['mccrary']['pvalue']`,
+`result.violations()` or the `AssumptionWarning`: the p-value is a
+different test's, so a fit may warn where it did not, or stop warning.
+With a discrete or heaped running variable the old check raised false
+alarms (43% of placebo cutoffs on one such dataset, against 5% now).
+
+**What to do.** Nothing, unless a stored p-value is compared across
+versions. `model_info['mccrary']['test']` is `'rddensity'` from this
+version on. For McCrary's test call `sp.mccrary_test` directly.
+
 ## 1.38.0 → next: ⚠️ `sp.rdrandinf` / `sp.rdrbounds` take the window's endpoints, not offsets
 
 **What changed.** `wl` and `wr` are the left and right ends of the window

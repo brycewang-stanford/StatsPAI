@@ -263,7 +263,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         evidence_paths=_p("mccrary", "pvalue"),
         threshold=0.05,
         compare="greater_passes",
-        suggest_function="sp.mccrary_test",
+        suggest_function="sp.rddensity",
         importance="high",
         rationale="Manipulation of the running variable invalidates the "
         "RD identifying assumption.",

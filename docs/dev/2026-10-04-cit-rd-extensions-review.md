@@ -53,6 +53,7 @@ turned out to matter, see D2.
 | F5 | `sp.rdwinselect` | Not the window-selection procedure: wrong default sequence, no binomial test, no covariate name, p = 1 without covariates | Senate: windows of 5 to 100 points against 0.53 to 1.42 |
 | F6 | `sp.rdmc(cutoff_var=)` | Conventional interval and p-value | Third cutoff: p = 0.033 against the robust 0.112 |
 | F7 | `sp.from_stata` | `rdrandinf`, `rdwinselect`, `rdmc` unknown; `rddensity` `bino_*` dropped | Each returned "unknown / unsupported Stata command" |
+| F8 | `sp.rdrobust` automatic density check | McCrary's binned test raised false alarms on a heaped score; now `sp.rddensity` | Academic-probation data: p = 6.5e-11 against 0.082; 43% rejection at 60 placebo cutoffs against 5% |
 
 After the fixes every deterministic number agrees with the reference to
 1e-11 or better: observed statistics and large-sample p-values of
@@ -97,12 +98,6 @@ investigated further.
 - **`sp.rdms` takes one boundary point per call** and has no `xnorm`
   pooled row. The book's three-point call is three calls; the pooled row
   is `sp.rdrobust` on the perpendicular distance.
-- **`sp.rdrobust`'s automatic density check uses McCrary's test.** On the
-  academic-probation data (heaped GPA) it warns with p = 6.5e-11 where
-  `sp.rddensity` gives 0.082, the number the book reports. On simulated
-  discrete scores without heaping the two tests have similar size (4.5%
-  and 6.5%), so the default was not changed on this evidence. Switching
-  the automatic check to `sp.rddensity` is the candidate fix.
 - **`sp.rddensity` binomial table, default first window.** StatsPAI and
   Stata use the smallest window holding 20 observations in total; R uses
   20 on each side. Both references are by the same authors. Kept as is.

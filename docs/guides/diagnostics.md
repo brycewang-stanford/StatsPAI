@@ -46,7 +46,7 @@ Two design commitments make these signals trustworthy:
 | **IV** | weak instrument | first-stage F < 10 (Stock-Yogo) | `sp.anderson_rubin_ci`, `sp.iv(method='liml')` |
 | **Panel / OLS** | few clusters | # clusters < 30 (Cameron-Gelbach-Miller 2008) | `sp.wild_cluster_bootstrap`, `sp.wild_cluster_ci_inv` |
 | **Synthetic control** | poor pre-fit | pre-RMSPE / pre-period SD > 0.6 | `sp.synth_compare`, `sp.augsynth`, `sp.synth_sensitivity` |
-| **RD** | manipulation | McCrary density test p < 0.05 | `sp.rddensity`, `sp.rdplotdensity`, `sp.rdrandinf` |
+| **RD** | manipulation | density test (`sp.rddensity`) p < 0.05 | `sp.rddensity`, `sp.rdplotdensity`, `sp.rdrandinf` |
 | **Matching** | residual imbalance | max post-match SMD > 0.25 (Stuart 2010) | `sp.ebalance`, `sp.cbps`, `sp.love_plot` |
 | **Matching / IPW** | overlap | min propensity weight share < 0.05 | `sp.trimming` |
 | **DML / AIPW** | weak overlap | > 5% of units at the trimming bound | `sp.trimming`, `sp.overlap_weights`, `sp.cbps` |

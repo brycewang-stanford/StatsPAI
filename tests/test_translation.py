@@ -683,6 +683,24 @@ TIER2_ROUND_TRIPS = [
     ("rddensity x, c(0.5)", "rddensity", {"x": "x", "c": 0.5}),
     ("rddensity x, p(1) all", "rddensity", {"x": "x", "p": 1}),
     (
+        "rddensity x, bino_w(0.13) bino_nw(1)",
+        "rddensity",
+        {"x": "x", "bino_w": 0.13, "bino_nw": 1},
+    ),
+    # Local randomization: wl() / wr() are the window's endpoints, c() is
+    # cutoff(); Stata computes no interval unless ci() is given.
+    (
+        "rdrandinf y x, c(1) wl(0.25) wr(1.75) reps(500)",
+        "rdrandinf",
+        {"y": "y", "x": "x", "c": 1.0, "wl": 0.25, "wr": 1.75, "n_perms": 500},
+    ),
+    (
+        "rdwinselect x z1 z2, wobs(2) approx",
+        "rdwinselect",
+        {"x": "x", "covs": ["z1", "z2"], "wobs": 2, "approx": True},
+    ),
+    ("rdmc y x, c(cut)", "rdmc", {"y": "y", "x": "x", "cutoff_var": "cut"}),
+    (
         "rdrobust y x, c(10) deriv(1) scalepar(-2)",
         "rdrobust",
         {"deriv": 1, "scalepar": -2.0},
