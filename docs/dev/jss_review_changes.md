@@ -31,6 +31,19 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded after `sp.best_linear_projection` gained `.attrs['vcov']`
+
+Commit `6a2558e3`. The projection of forest scores now attaches the
+coefficient covariance to the returned table. The edit is in
+`forest/_grf_inference.py` and `forest/forest_tools.py`, which Track A
+modules 13 and 24 execute.
+
+Effect on the paper: none. No estimate or standard error is computed
+differently; the result files of modules 13 and 24 are untouched, and
+only the recorded source hashes move.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded after `sp.survreg` was rewritten
 
 Commit `dbad2724`. `survival/models.py` is on the estimation path of
