@@ -75,6 +75,22 @@ files written here pass `dtaverify` in formats 117, 118 and 119, and
 
 ### Reliability
 
+- **A coverage study for staggered-adoption DiD on an unbalanced panel**
+  (`tests/reliability/unbalanced_panel.py`, 8 designs, 1,000
+  replications each). `sp.callaway_santanna`, `sp.did_imputation` and
+  two-way fixed effects hold 94% to 97% when cells are missing at random
+  and when units leave according to their level.
+  `sp.callaway_santanna(allow_unbalanced_panel=True)` compares group
+  means, and is biased by 40% of the effect (coverage 50% with 100
+  units, 3% with 400) when treated units with a high level leave. That
+  is what the estimator computes, in R `did` as here; what changed is
+  that the docstring and the unbalanced-panel warning, which recommended
+  the option without qualification, now state the assumption, and the
+  result records it in `model_info['unbalanced_assumption']`. No
+  estimate changes.
+- The `sp.rdrobust` warning for a running variable with fewer than 30
+  distinct values now quotes the coverage found in
+  `tests/reliability/rd_mass_points.py`.
 - **Weight diagnostics in `sp.panel`, `sp.hdfe_ols`, `sp.feols`,
   `sp.poisson` and `sp.ppmlhdfe`.** A second coverage study
   (`tests/reliability/extreme_weights_models.py`, 12 designs, 2,000
