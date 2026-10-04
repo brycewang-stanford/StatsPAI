@@ -71,6 +71,21 @@ from this file.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
 
+### 2026-10-04 — call traces re-recorded after `sp.rdmcplot` and `sp.bitest` were exported
+
+Commit `e3346427`. Two new public functions are imported in
+`src/statspai/__init__.py`, which the modules that reach the package
+through a lazy attribute execute: Track A 03, 13, 15, 24, 25, 26, 27, 53,
+65, 66 and original-data module 08.
+
+Effect on the paper: none on any number. The eleven modules were re-run
+and their result files are byte-identical. The registered-function count
+moves from 1,300 to 1,303, which the manuscript's inventory will pick up
+at the next re-anchoring.
+
+- `tests/r_parity/results/_implementation_trace.json`
+- `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded after `sp.best_linear_projection` gained `.attrs['vcov']`
 
 Commit `6a2558e3`. The projection of forest scores now attaches the
