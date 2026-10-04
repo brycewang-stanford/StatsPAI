@@ -1865,7 +1865,7 @@
    "result_sha256": "4a10dedbcb6a421390e698e381ade8ad28838f3dc616ae729cda430f8533a459"
   },
   "52_scm_unique": {
-   "seconds": 5.09,
+   "seconds": 3.11,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1899,7 +1899,7 @@
     "scikit-learn": "1.6.1"
    },
    "source_sha256": "96ce0e95f43323ef1e5b87a922361a20a91ccca5e0f1a3164739c89f15d01fd0",
-   "result_sha256": "0621698a7eb8fc5a8f5f0761ee35a9a5d15b08f7112455a692c8feb1ce67cde6"
+   "result_sha256": "e9efac810cdc126f0b6cfecbf6bae12644b6abb01a255a6a7e2429ae0a731dab"
   },
   "53_cr2": {
    "seconds": 0.94,
