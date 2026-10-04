@@ -65,7 +65,7 @@ No module's implementation classification moved.
 
 ### 2026-10-04 — original-data call trace of module 02 re-recorded
 
-Commit `dda8d73d`. Commit `6c9fd021` edited `did/callaway_santanna.py`,
+Commit `424bdd41`. Commit `6c9fd021` edited `did/callaway_santanna.py`,
 which the original-data module 02 (mpdta) executes, and left its trace
 stale. The same commit gives `RLassoEffectsResult` the agent contract;
 that class is on no parity module's path.
