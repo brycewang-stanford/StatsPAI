@@ -497,6 +497,17 @@ Added on the way:
 
 ### Reliability
 
+- **A coverage study for DML across first-stage learners**
+  (`tests/reliability/dml_learners.py`, 20 designs, 300 replications
+  each). Under linear confounding OLS, Lasso and `sp.dml_model_averaging`
+  cover 94% to 95% and the tree learners 90% to 93%. Under nonlinear
+  confounding the linear learners are biased by 0.72 on a coefficient of
+  0.5 and never cover, a random forest covers 43% to 67%, gradient
+  boosting (the `sp.dml` default) 87% to 90%, and model averaging 73% to
+  87%. The reported standard error matches the sampling spread in every
+  design, so the shortfall is nuisance bias, which the interval does not
+  carry. No code changed; the existing note on a default `sp.dml` fit
+  already points to learner choice and model averaging.
 - **`sp.rdrobust` at polynomial orders 0, 3 and 4 now has reference
   rows.** 54 cells (six bandwidth selectors, three kernels, three
   orders) against R `rdrobust` 4.0.0, eight outputs each: agreement to

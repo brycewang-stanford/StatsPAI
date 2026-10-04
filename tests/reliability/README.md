@@ -284,3 +284,42 @@ What the table says:
 
 No fit was refused in any cell. Rerun with
 `python tests/reliability/unbalanced_panel.py` (about ten minutes).
+
+## DML as the learner changes (`dml_learners.py`)
+
+Bias and coverage of the 95% interval of `sp.dml(model='plr')` for a
+treatment coefficient of 0.5, 300 replications per cell (Monte Carlo
+standard error about 0.013 at 95%). Ten covariates; the confounding is
+either linear or a smooth nonlinear function shared by treatment and
+outcome. The last column is `sp.dml_model_averaging` at its defaults.
+Entries are bias / coverage.
+
+| confounding | n | OLS | Lasso | random forest | gradient boosting (the default) | model averaging |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| linear | 500 | -0.00 / 0.953 | -0.00 / 0.950 | -0.01 / 0.930 | -0.02 / 0.903 | -0.00 / 0.950 |
+| linear | 2000 | -0.00 / 0.943 | +0.00 / 0.947 | -0.01 / 0.913 | -0.01 / 0.917 | +0.00 / 0.943 |
+| nonlinear | 500 | +0.72 / 0.000 | +0.72 / 0.000 | +0.15 / 0.433 | +0.06 / 0.867 | +0.09 / 0.727 |
+| nonlinear | 2000 | +0.72 / 0.000 | +0.72 / 0.000 | +0.05 / 0.667 | +0.02 / 0.900 | +0.02 / 0.870 |
+
+What the table says:
+
+- No learner is right in both rows. Linear learners are exact when the
+  confounding is linear and miss by 0.72 on a coefficient of 0.5 when it
+  is not, at either sample size: that bias is not a small-sample matter.
+- Tree learners pay a small regularisation bias when the truth is
+  linear (90% to 93%) and are slow to shed a larger one when it is not.
+  The forest covers 43% at n = 500 and 67% at n = 2000; boosting, the
+  `sp.dml` default, 87% and 90%.
+- Model averaging is the one choice that is never badly wrong: nominal
+  under linear confounding, 73% and 87% under nonlinear. It is not a
+  cure, and at n = 500 it does worse than boosting alone.
+- The reported standard error matches the spread of the estimates in
+  every cell (ratio 0.8 to 1.2). The intervals fail because of bias in
+  the nuisance fits, which no standard error reports. Comparing the
+  estimate across learners is the available check: in the nonlinear
+  rows they disagree by many standard errors.
+
+This complements the Track B mechanism experiment
+(`tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py`), on which
+the note in `sp.dml`'s result rests; that note is unchanged. Rerun with
+`python tests/reliability/dml_learners.py` (about an hour and a half).
