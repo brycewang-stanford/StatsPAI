@@ -127,7 +127,8 @@ Effect on the paper: none. Modules 09 and 89 were re-run and their
 result files are byte-identical; only the recorded source hashes move.
 `sp.rdmc`, `sp.rdrandinf` and `sp.rdwinselect`, whose numbers did
 change (see CHANGELOG, "Correctness: local randomization and multi-cutoff
-RD"), have no Track A module and no row in the manuscript's tables.
+RD"), have no Track A module. In the manuscript they appear only in the
+function inventory, whose one-line descriptions are unchanged.
 
 - `tests/r_parity/results/_implementation_trace.json`
 
