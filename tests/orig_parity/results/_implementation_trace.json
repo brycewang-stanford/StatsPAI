@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 4.94,
+   "seconds": 4.93,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -63,7 +63,7 @@
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
-    "src/statspai/regression/iv.py": "524cebf60e9a4a9d094f5d81b14c901510e9c0493aa593d96c9b439339bc013d",
+    "src/statspai/regression/iv.py": "d9b85dd57c552e8c89a2e107f558d69aab25c5b102d5f161bf485424ea6f5798",
     "src/statspai/regression/ols.py": "c93115b2fc755ecf9f24fec3c39f5e5bb489964767677a96219be4cfeb62ef1e"
    },
    "dependency_versions": {
@@ -76,7 +76,7 @@
    "result_sha256": "0770f9a37e8bc72e9f338d602037715ba70cb032401b8582095eebed942621b2"
   },
   "02_mpdta_original": {
-   "seconds": 3.35,
+   "seconds": 2.78,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -112,7 +112,7 @@
    "result_sha256": "f9f0953a27c1326f96e6a259dcd7c01f61ca1e016e2e39c648c8fecc1a8b597b"
   },
   "03_basque_original": {
-   "seconds": 9.59,
+   "seconds": 7.32,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -149,7 +149,7 @@
    "result_sha256": "b98ff256c9dcee03be2b3479563e8cbd510a91941ab95af8ecc62b07e5eab05a"
   },
   "04_lalonde_original": {
-   "seconds": 5.28,
+   "seconds": 5.65,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -187,10 +187,10 @@
     "scikit-learn": "1.6.1"
    },
    "source_sha256": "b83ad437f80dffbc62b61d6bc67e6c3dc9bb88750bab3742708b02913739ba82",
-   "result_sha256": "92240387cb9ec539cd1b9b2a5ef77d6898cfde24b4bf579ad99fbf16f1a09aa2"
+   "result_sha256": "72faf6409882746759800c5b2cc43aedbdfbe1f1be31d82e7bd518894a55017b"
   },
   "04b_nsw_psid_original": {
-   "seconds": 5.93,
+   "seconds": 5.26,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -231,7 +231,7 @@
    "result_sha256": "6fd62314f0a1aa5901fe52cc6df41bca5d1fa970b7ea52807b12af3099bbd001"
   },
   "05_lee_original": {
-   "seconds": 3.6,
+   "seconds": 3.28,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -268,7 +268,7 @@
    "result_sha256": "3eef9a448bc3efcf1ec7188d67a396cda48aad673999bda6a4f8a95581f6a58b"
   },
   "06_nhefs_ch12_ipw": {
-   "seconds": 17.35,
+   "seconds": 12.77,
    "error": null,
    "boundary_calls": [
     {
@@ -342,7 +342,7 @@
    "result_sha256": "19385647d1d7cb264a1e4c5352088ecdee3af7d4519c8cb93c01c71f646cb1e9"
   },
   "07_nhefs_ch13_gformula": {
-   "seconds": 188.19,
+   "seconds": 163.06,
    "error": null,
    "boundary_calls": [
     {
@@ -453,7 +453,7 @@
    "result_sha256": "7195a81581bfaa5e290c8d2f00d759b67ba8a4561d9a70172710d57f9d452a00"
   },
   "08_nhefs_ch14_gestimation": {
-   "seconds": 5.76,
+   "seconds": 8.08,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -482,7 +482,7 @@
    "result_sha256": "7bdbc6b5bdde259d3ac58e2b9658a8d92a60faf8e4b8712ba1723da8e8bf4fc2"
   },
   "09_nhefs_ch15_outcome": {
-   "seconds": 10.35,
+   "seconds": 9.46,
    "error": null,
    "boundary_calls": [
     {
@@ -556,7 +556,7 @@
    "result_sha256": "462bfbeb1e2d111c25a597e311a484d7e2efc75c968d1e6cc4361de50c63c960"
   },
   "10_nhefs_ch17_survival": {
-   "seconds": 15.46,
+   "seconds": 13.24,
    "error": null,
    "boundary_calls": [
     {
@@ -630,7 +630,7 @@
    "result_sha256": "e62cb21d80f4866599ff4ad6fca3fdc2943693a612292779f9a415ea2e986c7e"
   },
   "11_nhefs_evalue": {
-   "seconds": 44.6,
+   "seconds": 33.71,
    "error": null,
    "boundary_calls": [
     {
