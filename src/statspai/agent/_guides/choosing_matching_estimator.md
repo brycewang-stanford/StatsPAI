@@ -35,9 +35,42 @@ r = sp.ebalance(df, y='y', treat='d',
                 moments=1)  # balance means; moments=2 adds variances
 ```
 
+`moments` also takes one order per covariate, which is Stata's
+`targets(2 2 1)`. An indicator needs its mean only: its square is itself,
+and a moment that repeats another one is left out of the problem.
+
+```python
+r = sp.ebalance(df, y='y', treat='d',
+                covariates=['income', 'share_black', 'democrat'],
+                moments=[2, 2, 1],
+                dof_adjust=True)   # the scaling of Stata ebalance
+```
+
+With `dof_adjust=True` the weights agree with Stata `ebalance,
+tolerance(1e-10)` to 1e-10. Stata's default `tolerance(.015)` stops before
+the moments are balanced, so a default Stata run agrees to about three
+digits. Without `dof_adjust` the raw moments are matched, as R `ebal` and
+`WeightIt` do.
+
 **Pros:** no PSM model specification; exact balance by construction;
 no King-Nielsen issue.
 **Cons:** targets ATT only; can be sensitive to extreme weights.
+
+### Coarsened exact matching
+
+```python
+r = sp.match(df, y='y', treat='d',
+             covariates=['income', 'share_black', 'democrat'],
+             method='cem',
+             n_bins={'income': [2.5, 3.5, 5.0],   # cut edges
+                     'share_black': 6,            # six equal-width bins
+                     'democrat': 2})              # an indicator: two bins
+```
+
+Without `n_bins` every covariate is cut by Sturges' rule, as in the `cem`
+packages for R and Stata. That is rarely what you want for an indicator,
+so name it. Stata's `cem x(#k)` counts cut points: `x(#k)` is
+`n_bins=k - 1`, and `x(#2)` does not split `x` at all.
 
 ## 2. Nearest-neighbor matching
 
