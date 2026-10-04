@@ -44,6 +44,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 from ._core import _cluster_codes, rlasso
 
 # MASS::ginv (used throughout hdm's IV routines) defaults to a singular-value
@@ -565,7 +566,9 @@ def rlasso_iv(
     if cluster is not None:
         if isinstance(cluster, str):
             if data is None:
-                raise ValueError("cluster given as a column name needs `data`.")
+                raise MethodIncompatibility(
+                    "cluster given as a column name needs `data`."
+                )
             cluster = data[cluster].values
         codes, _ = _cluster_codes(cluster, len(Y))
 

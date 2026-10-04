@@ -58,6 +58,7 @@ import numpy as np
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Penalty / control defaults (mirror hdm::rlasso.default)
@@ -102,16 +103,16 @@ def _cluster_codes(cluster: Any, n: int) -> Tuple[np.ndarray, int]:
     """Integer codes ``0..G-1`` for a cluster identifier of length ``n``."""
     arr = np.asarray(cluster)
     if arr.ndim != 1 or arr.shape[0] != n:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"cluster must be one-dimensional with one entry per row ({n}); "
             f"got shape {arr.shape}."
         )
     if arr.dtype.kind in "fc" and np.isnan(arr.astype(float)).any():
-        raise ValueError("cluster contains missing values.")
+        raise DataInsufficient("cluster contains missing values.")
     _, codes = np.unique(arr, return_inverse=True)
     n_clusters = int(codes.max()) + 1 if n else 0
     if n_clusters < 2:
-        raise ValueError("cluster must identify at least two clusters.")
+        raise DataInsufficient("cluster must identify at least two clusters.")
     return codes.astype(np.intp), n_clusters
 
 
@@ -516,7 +517,7 @@ def rlasso(
     if codes is not None and (
         pen["homoscedastic"] is True or pen["X.dependent.lambda"] is True
     ):
-        raise ValueError(
+        raise MethodIncompatibility(
             "cluster= needs the heteroskedastic loadings: it cannot be "
             "combined with penalty={'homoscedastic': True} or "
             "{'X.dependent.lambda': True}."

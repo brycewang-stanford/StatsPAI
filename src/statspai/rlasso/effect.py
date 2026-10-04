@@ -41,6 +41,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin, attach_result_protocol
+from ..exceptions import MethodIncompatibility
 from ._core import _cluster_codes, rlasso
 
 
@@ -222,7 +223,9 @@ def rlasso_effect(
     if cluster is not None:
         if isinstance(cluster, str):
             if data is None:
-                raise ValueError("cluster given as a column name needs `data`.")
+                raise MethodIncompatibility(
+                    "cluster given as a column name needs `data`."
+                )
             cluster = data[cluster].values
         codes, n_clusters = _cluster_codes(cluster, n)
 

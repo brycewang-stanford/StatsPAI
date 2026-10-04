@@ -1358,7 +1358,7 @@ def _stat_all(A: np.ndarray, y: np.ndarray, statistic: str) -> np.ndarray:
         last = np.r_[ys[1:] != ys[:-1], True]
         out = np.abs(gap[:, last]).max(axis=1)
         return out
-    raise ValueError(f"Unknown statistic: {statistic!r}.")
+    raise MethodIncompatibility(f"Unknown statistic: {statistic!r}.")
 
 
 def _invert_constant_effect_generic(
