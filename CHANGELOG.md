@@ -497,6 +497,12 @@ Added on the way:
 
 ### Reliability
 
+- **New guide, "When the interval can be trusted"**
+  (`docs/guides/when_intervals_hold.md`): the findings of the reliability
+  studies as rules for clusters, weights, unbalanced panels, a discrete
+  running variable and the DML learner, each with the diagnostic to read
+  on the result. The DiD estimator guide's section on unbalanced panels
+  now says what `allow_unbalanced_panel=True` assumes.
 - **The reliability studies are in the evidence view.**
   `docs/evidence_inventory.json` lists every design and method of the six
   studies under `tests/reliability/` with its rate, Monte Carlo standard
