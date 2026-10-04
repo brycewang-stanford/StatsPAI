@@ -1510,3 +1510,34 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the pass over *The Effect* (Huntington-Klein)
+
+- **Commits.** `119ea880` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (Track A modules
+  01 02 04 05 06 11 14 16 17 22 37 42 44 45 46 47 48 49 51 53 54 55 56 57
+  58 63 64 67 78 79 83 84 85 89) and
+  `tests/orig_parity/results/_implementation_trace.json` (all 12
+  modules). The sources that staled them are in `96f33427`:
+  `src/statspai/core/utils.py` (narrow integer columns are widened to
+  `int64` before a formula is evaluated), `src/statspai/did/_core.py` (the
+  same, for covariate formulas), `src/statspai/rd/rdrobust.py` (a check
+  that the columns are numeric), `src/statspai/matching/match.py` (the
+  coarsening of `method='cem'`) and `src/statspai/diagnostics/sensemakr.py`
+  (group benchmarks).
+- **Reason.** A replay of the Stata code of Huntington-Klein's *The
+  Effect* (2nd ed.) against Stata 18
+  (`docs/dev/2026-10-05-the-effect-2e-review.md`). None of the edits
+  changes a number a Track A module computes:
+  `python tests/r_parity/verify_reproduce_py.py --no-report` on the 34
+  modules reported 34 reproduce, 0 drift (fixtures byte-identical, worst
+  relative difference 0). No module squares a narrow integer column
+  inside a formula, and none uses coarsened exact matching.
+- **Effect on the paper.** None. Checked field by field against the
+  version before `119ea880`: in the 34 Track A modules and the 12
+  original-data modules only `exercised_sources` digests and `seconds`
+  differ. No estimate, standard error or table cell is read from these
+  files.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
