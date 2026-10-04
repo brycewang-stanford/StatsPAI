@@ -376,6 +376,16 @@ rather than letting the default decide:
 The three give different numbers on the same data. Report which you
 used. The flag is inert when the panel turns out to be balanced.
 
+They also assume different things about the missing cells. The default
+compares each unit with itself, so it tolerates cells missing at random
+and units that leave according to their level. `allow_unbalanced_panel=True`
+compares group means, so it also needs each group's composition to be
+stable over time. In `tests/reliability/unbalanced_panel.py`, when treated
+units with a high level left the panel, the default still covered 94% and
+the group-mean route was biased by 40% of the effect (coverage 50% with
+100 units, 3% with 400). See
+[When the interval can be trusted](when_intervals_hold.md).
+
 ## 4.5 Frontier estimators
 
 Most of the post-2020 DiD advances are now shipped **with cross-language
