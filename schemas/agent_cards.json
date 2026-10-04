@@ -3236,7 +3236,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Covariate balance at c (optional but recommended)",
       "The estimand is local to c: the effect at the cutoff, not an average over the support of x; extrapolation away from c is not identified",
       "fuzzy=: the probability of treatment jumps at c (first stage) and no unit is pushed out of treatment by crossing it (monotonicity); the estimand is the effect on compliers at c",
@@ -3275,7 +3275,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -3695,7 +3695,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -3724,7 +3724,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -46055,7 +46055,7 @@
       "Continuity of potential outcomes at c (Hahn-Todd-van der Klaauw 2001)",
       "No manipulation of x at c (run sp.mccrary_test alongside)",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -46101,7 +46101,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -46439,7 +46439,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -46479,7 +46479,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -46631,7 +46631,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -46677,7 +46677,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -49745,7 +49745,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -49779,7 +49779,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -49997,7 +49997,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -50032,7 +50032,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -50183,7 +50183,7 @@
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -50225,7 +50225,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -50872,7 +50872,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -50901,7 +50901,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -51620,7 +51620,7 @@
     "assumptions": [
       "Local randomization window selection (rdwinselect) assumes covariate balance identifies the window, not the smoothness above",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -51654,7 +51654,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -51839,7 +51839,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -51873,7 +51873,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -52019,7 +52019,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -52053,7 +52053,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -52399,7 +52399,7 @@
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -52440,7 +52440,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -52580,7 +52580,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -52614,7 +52614,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -52877,7 +52877,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -52906,7 +52906,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -53212,7 +53212,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -53241,7 +53241,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -53380,7 +53380,7 @@
       "Units cannot precisely manipulate the running variable around the cutoff (no sorting).",
       "For fuzzy designs: monotonicity of treatment take-up at the cutoff.",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -53421,7 +53421,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -76160,7 +76160,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -76189,7 +76189,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -82974,7 +82974,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -83008,7 +83008,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -83331,7 +83331,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -83360,7 +83360,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -83502,7 +83502,7 @@
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -83538,7 +83538,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -83665,7 +83665,7 @@
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -83701,7 +83701,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -83819,7 +83819,7 @@
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -83854,7 +83854,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -83988,7 +83988,7 @@
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -84023,7 +84023,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -84136,7 +84136,7 @@
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -84171,7 +84171,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -86808,7 +86808,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -86833,7 +86833,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -100999,7 +100999,7 @@
     "assumptions": [
       "Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -101039,7 +101039,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -101295,7 +101295,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -101329,7 +101329,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -101481,7 +101481,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -101515,7 +101515,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -106950,7 +106950,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -106987,7 +106987,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -111117,7 +111117,7 @@
       "Units cannot precisely manipulate the running variable around the cutoff (no sorting).",
       "For fuzzy designs: monotonicity of treatment take-up at the cutoff.",
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -111159,7 +111159,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -111436,7 +111436,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -111465,7 +111465,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",
@@ -113028,7 +113028,7 @@
     ],
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
-      "No manipulation of x at c (McCrary density test)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
       "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
       "Covariate balance at c (optional but recommended)"
     ],
@@ -113057,7 +113057,7 @@
         "alternative": "sp.rdrobust",
         "exception": "AssumptionViolation",
         "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
-        "symptom": "McCrary density test p < 0.05"
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
       },
       {
         "alternative": "",

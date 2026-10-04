@@ -179,7 +179,7 @@ r.plot()           # Falls back to coefplot; use sp.rdplot for binscatter
 
 **Identifying assumptions**
 - Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)
-- No manipulation of x at c (McCrary density test)
+- No manipulation of x at c (density test, `sp.rddensity`)
 - Covariate balance at c (optional but recommended)
 - The estimand is local to c: the effect at the cutoff, not an average over the support of x; extrapolation away from c is not identified
 - fuzzy=: the probability of treatment jumps at c (first stage) and no unit is pushed out of treatment by crossing it (monotonicity); the estimand is the effect on compliers at c

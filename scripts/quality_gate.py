@@ -23,7 +23,12 @@ from typing import Optional, Sequence
 # 09-28, which also hid the mypy gate and the test run behind it. Long card
 # strings in ``_routing`` / ``_family_cards`` and elsewhere were split into
 # adjacent literals; files hashed by a parity trace were left alone.
-DEFAULT_FLAKE8_MAX = 855
+# 2026-10-05: 430. The count sat exactly at 855, so the next import line in
+# ``__init__.py`` would have turned the gate red. 446 long strings in
+# ``registry.py`` (not hashed by any trace) were split into adjacent
+# literals; the schema bundle is byte-identical apart from one reworded RD
+# failure mode. Measured 409, leaving room for about twenty new lines.
+DEFAULT_FLAKE8_MAX = 430
 # Baseline for StatsPAI-authored type debt only (see ``run_mypy`` — the count is
 # scoped to ``src/statspai/`` lines). Reset 2026-09-22 to the first real
 # measurement: the earlier value of 25 was set against runs that aborted on a
