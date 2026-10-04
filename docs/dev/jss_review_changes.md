@@ -31,6 +31,23 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded after two warning texts changed
+
+Commit `98538177`. The unbalanced-panel warning and docstring of
+`sp.callaway_santanna` now state what `allow_unbalanced_panel=True`
+assumes (the result records it in `model_info`), and the `sp.rdrobust`
+warning for a discrete running variable quotes the mass-points study.
+The edits are in `did/callaway_santanna.py` and `rd/rdrobust.py`, which
+Track A modules 04, 06, 79, 89 and the original-data modules 02 and 05
+execute, so their source hashes in the traces changed.
+
+Effect on the paper: none. The six modules were run on the source
+before and after the change and their result files are byte-identical;
+only the recorded source hashes move.
+
+- `tests/r_parity/results/_implementation_trace.json`
+- `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded after the weight diagnostic reached the fixed-effects and count entry points
 
 Commit `7579f977`. `sp.panel`, `sp.hdfe_ols`, `sp.feols`, `sp.poisson` and

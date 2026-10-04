@@ -244,3 +244,43 @@ under 100; fewer than 30 weight-effective clusters). `sp.nbreg` and
 
 Rerun with `python tests/reliability/extreme_weights_models.py` (about
 eight minutes).
+
+## Staggered adoption on an unbalanced panel (`unbalanced_panel.py`)
+
+Bias and coverage of the 95% interval for the overall ATT (truth 1 in
+every treated cell), 1,000 replications per cell. Eight periods,
+adoption in periods 4 and 6, AR(1) errors within unit. Entries are
+bias / coverage.
+
+| missing cells | units | `sp.callaway_santanna` | with `allow_unbalanced_panel=True` | `sp.did_imputation` | two-way FE, clustered |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| none | 100 | +0.00 / 0.945 | +0.00 / 0.945 | -0.00 / 0.946 | +0.00 / 0.966 |
+| none | 400 | +0.00 / 0.938 | +0.00 / 0.938 | +0.00 / 0.942 | +0.00 / 0.954 |
+| at random (30%) | 100 | +0.02 / 0.938 | +0.01 / 0.939 | +0.02 / 0.947 | +0.02 / 0.969 |
+| at random (30%) | 400 | +0.00 / 0.951 | +0.00 / 0.946 | +0.00 / 0.954 | -0.00 / 0.969 |
+| treated units with a high level leave | 100 | -0.00 / 0.936 | -0.41 / 0.501 | -0.01 / 0.935 | -0.01 / 0.953 |
+| treated units with a high level leave | 400 | +0.00 / 0.943 | -0.40 / 0.030 | +0.00 / 0.947 | +0.00 / 0.965 |
+| treated cells with a low outcome | 100 | +0.38 / 0.462 | +0.50 / 0.274 | +0.44 / 0.272 | +0.42 / 0.266 |
+| treated cells with a low outcome | 400 | +0.38 / 0.023 | +0.50 / 0.000 | +0.44 / 0.000 | +0.42 / 0.000 |
+
+What the table says:
+
+- Estimators that compare a unit with itself (the Callaway-Sant'Anna
+  default, imputation, two-way fixed effects) keep their coverage when
+  cells are missing at random and when units leave according to their
+  level, which the unit effect absorbs.
+- `allow_unbalanced_panel=True` keeps every observed row by comparing
+  group means. That is as good as the default when cells are missing at
+  random, and biased by 40% of the effect when treated units with a
+  high level leave: the group mean falls for a reason that is not the
+  treatment. Coverage is 50% with 100 units and 3% with 400. This is a
+  property of the estimator (R `did` computes the same thing), not a
+  bug; the option's docstring and the unbalanced-panel warning now say
+  what it assumes, and the result records it in
+  `model_info['unbalanced_assumption']`.
+- When cells go missing according to the outcome itself, every
+  estimator is biased by 38% to 50% of the effect and none covers. No
+  choice among them repairs it.
+
+No fit was refused in any cell. Rerun with
+`python tests/reliability/unbalanced_panel.py` (about ten minutes).

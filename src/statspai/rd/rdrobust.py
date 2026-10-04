@@ -751,7 +751,10 @@ def rdrobust(
             f"rdrobust: running variable has only {n_unique} distinct values. "
             "Local-polynomial inference can have poor coverage when the "
             "running variable is discrete; consider sp.rd.rd_discrete "
-            "(Kolesár & Rothe 2018, AER) for honest CIs in this regime.",
+            "(Kolesár & Rothe 2018, AER) for honest CIs in this regime. In "
+            "tests/reliability/rd_mass_points.py the robust 95% interval "
+            "covered 89% at 10 support points a side with n = 1000 and 69% "
+            "with n = 4000: more data narrows it around a biased value.",
             UserWarning,
             stacklevel=2,
         )

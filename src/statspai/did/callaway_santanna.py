@@ -447,6 +447,18 @@ def callaway_santanna(
 
         The two produce genuinely different estimates on the same
         unbalanced data — this is an estimator choice, not a tuning knob.
+        They also rest on different assumptions about the missing cells.
+        The default compares each unit with itself, so cells may go
+        missing in any way that is unrelated to the unit's own change
+        over time. ``True`` compares group means across periods, so it
+        also needs the *composition* of each group to be stable: if
+        units leave according to their level (high earners drop out of
+        the treated group), the group mean moves for a reason that is
+        not the treatment. In ``tests/reliability/unbalanced_panel.py``
+        both cover at the nominal rate when cells are missing at random;
+        when treated units with a high unit effect leave, the default
+        still covers 94% and ``True`` is biased by 40% of the effect and
+        covers 50% (100 units) and 3% (400 units).
 
         .. versionadded:: 1.23.0
 
@@ -1117,7 +1129,10 @@ def _prepare_panel(
             "cell; the effective sample varies across cells. Pass "
             "allow_unbalanced_panel=True to switch to the "
             "repeated-cross-section estimators instead, which keep every "
-            "observed row (R `did`'s allow_unbalanced_panel=TRUE), or "
+            "observed row (R `did`'s allow_unbalanced_panel=TRUE) but "
+            "compare group means and so need each group's composition to "
+            "be stable over time (biased when units leave according to "
+            "their level; see tests/reliability/unbalanced_panel.py), or "
             "balance the panel first (sp.balance_panel) if you need a "
             "single fixed sample. The three give different numbers on the "
             "same data — that is an estimator choice, not a bug.",
@@ -3023,6 +3038,13 @@ def _callaway_santanna_rcs(
         # RCS one, but the influence functions are indexed by unit.
         "panel": bool(unbalanced),
         "allow_unbalanced_panel": unbalanced,
+        # what the group-mean comparison needs beyond parallel trends
+        # (tests/reliability/unbalanced_panel.py)
+        **(
+            {"unbalanced_assumption": "stable group composition over time"}
+            if unbalanced
+            else {}
+        ),
         "n_units": n_scale,  # the "n" for aggte / the bootstrap
         "n_obs": n_obs,
         "n_periods": len(time_periods),
