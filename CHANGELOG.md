@@ -304,7 +304,7 @@ for each item below.
   key keeps its name; `'test'` beside it says `'rddensity'`).
   `sp.mccrary_test` itself is unchanged.
 
-### Added
+### Added: local randomization options
 
 - `sp.rdrandinf`: `kernel=` (it was accepted and ignored), `nulltau=`,
   `bernoulli=`, `ci=` (a grid of effects for the test-inversion

@@ -113,7 +113,7 @@ only the recorded source hashes move.
 
 ### 2026-10-04 — call traces re-recorded after `sp.rdrobust`'s density check moved to `sp.rddensity`
 
-Commit `6ed3bca1`. The manipulation check that `sp.rdrobust` runs beside
+Commit `799f920b`. The manipulation check that `sp.rdrobust` runs beside
 the estimate now calls `sp.rddensity` instead of McCrary's binned test,
 and the violation message in `core/_agent_summary.py` names the test.
 `rd/rdrobust.py` is on the path of Track A modules 06 and 89 and of the
@@ -128,7 +128,7 @@ enter it. Only the recorded source hashes move.
 
 ### 2026-10-04 — call traces re-recorded for the `sp.rddensity` binomial windows and `sp.rdmc` inference
 
-Commits `3c99d27f` and `b33b002c`. `sp.rddensity` gained options for the
+Commits `e6fb628b` and `7902b8b2`. `sp.rddensity` gained options for the
 windows of its binomial tests (`bino_w=` and four more), and
 `sp.rdmc(cutoff_var=)` now reports robust bias-corrected intervals. The
 edits are in `diagnostics/rddensity.py` and `rd/rdmulti.py`, which
