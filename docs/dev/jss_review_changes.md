@@ -31,6 +31,27 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded for the last two commits of the Croissant textbook pass
+
+Commits `912e97d9` and `623ca007`. Source files on the estimation path of
+Track A modules changed: `regression/tobit.py` (module 41; `method='scls'`
+is a new branch, the maximum likelihood path is unchanged),
+`regression/logit_probit.py` (modules 48 and 57; fits also report a family
+of goodness-of-fit measures), `regression/multinomial.py` (modules 44, 45,
+46 and 49; fits store their per-observation log-likelihood), and
+`src/statspai/__init__.py` (new exports `sp.etpoisson` and `sp.nlogit`),
+which is on the path of modules 03, 13, 15, 24, 25, 26, 27, 53, 65 and 66
+and of original-data module 08. The traces of all of these were
+re-recorded.
+
+**Effect on the paper.** None. Modules 41, 44, 45, 46, 48, 49 and 57 were
+re-run with `tests/r_parity/verify_reproduce_py.py` and are byte-identical
+to their committed files. No result file was regenerated and no parity row
+changes. No module's implementation classification moved.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
 ### 2026-10-04 — call traces re-recorded after a comment in `callaway_santanna.py` changed
 
 Commit `6c00bcce`. One source file on the estimation path of Track A
