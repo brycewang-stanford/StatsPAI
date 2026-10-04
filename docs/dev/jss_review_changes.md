@@ -31,6 +31,30 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded for the Clarke textbook pass (matching scores, `sp.twfe_decomposition`, `sp.wild_cluster_boot`)
+
+Commit `39a8be49`. Three source files on the estimation path of Track A
+modules changed: `matching/match.py` and `matching/_ai2016.py` (module 11;
+the propensity index is evaluated once per distinct covariate row, and a
+probit score is available), `did/wooldridge_did.py` (modules 17 and 38;
+only `sp.twfe_decomposition`, which neither module calls, was rewritten)
+and `inference/jackknife.py` (module 53; `sp.wild_cluster_boot` gained
+`h0=`). The traces of modules 11, 17, 38 and 53 were re-recorded.
+
+**Effect on the paper.** None. The Python results of the four modules were
+re-run on the new tree. Modules 17 and 53 are byte-identical. Module 11
+moves in the sixteenth digit (621.7932847377471 to 621.7932847377473),
+which is the row-wise evaluation of the same index. Module 38 differs from
+its committed file in the twelfth digit, and does so identically with the
+previous `wooldridge_did.py` put back, so that is this machine's numerical
+libraries against the ones the file was produced with, not this commit.
+Both are far inside the 1e-9 reproducibility tolerance, so the committed
+result files were left as they are and no parity row changes. No module's
+implementation classification moved.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — module 22 (`sp.sensemakr`) standard error from a QR factor; traces re-recorded for the causal-ML textbook pass
 
 Commit `b24b2777`. `sp.sensemakr` computed the treatment standard error
