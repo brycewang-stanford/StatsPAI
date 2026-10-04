@@ -530,5 +530,82 @@
     "mc_se": 0.009232442797006652
    }
   }
+ ],
+ "did_few_treated": [
+  {
+   "G": 40,
+   "treated": "1",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.749,
+    "mc_se": 0.009695333929267212,
+    "prefix_rejections": 47
+   },
+   "placebo": {
+    "rejection_rate": 0.0275,
+    "mc_se": 0.0036567574434189644,
+    "prefix_rejections": 5
+   }
+  },
+  {
+   "G": 40,
+   "treated": "2",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.3065,
+    "mc_se": 0.010309164612130316,
+    "prefix_rejections": 18
+   },
+   "placebo": {
+    "rejection_rate": 0.0695,
+    "mc_se": 0.005686376262612245,
+    "prefix_rejections": 4
+   }
+  },
+  {
+   "G": 40,
+   "treated": "5",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.1005,
+    "mc_se": 0.006723085229267884,
+    "prefix_rejections": 7
+   },
+   "placebo": {
+    "rejection_rate": 0.097,
+    "mc_se": 0.006617816860566633,
+    "prefix_rejections": 5
+   }
+  },
+  {
+   "G": 40,
+   "treated": "10",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.0595,
+    "mc_se": 0.005289600646551685,
+    "prefix_rejections": 6
+   },
+   "placebo": {
+    "rejection_rate": 0.139,
+    "mc_se": 0.0077355995242773526,
+    "prefix_rejections": 8
+   }
+  },
+  {
+   "G": 40,
+   "treated": "20",
+   "B": 2000,
+   "cr1": {
+    "rejection_rate": 0.0575,
+    "mc_se": 0.005205465877325487,
+    "prefix_rejections": 2
+   },
+   "placebo": {
+    "rejection_rate": 0.0,
+    "mc_se": 0.0,
+    "prefix_rejections": 0
+   }
+  }
  ]
 }

@@ -349,3 +349,128 @@ def test_panel_block_shows_the_distortion_the_warning_is_about(results):
     rate, se = bal["cr1"]["rejection_rate"], bal["cr1"]["mc_se"]
     assert abs(rate - 0.05) < 3 * se
     assert dom["cr1"]["rejection_rate"] > 0.20
+
+
+# --------------------------------------------------------------------- #
+# Fourth block: few units ever treated in a difference-in-differences
+# --------------------------------------------------------------------- #
+
+
+def _did(results, n_treated):
+    (cell,) = [c for c in results["did_few_treated"] if c["treated"] == str(n_treated)]
+    return cell
+
+
+def test_did_block_has_the_declared_design(study, results):
+    assert [int(c["treated"]) for c in results["did_few_treated"]] == list(
+        study.DID_TREATED
+    )
+    assert all(c["B"] == 2000 and c["G"] == 40 for c in results["did_few_treated"])
+
+
+def test_a_did_cell_reproduces_its_stored_prefix(study, results):
+    fresh = study.run_did_cell(2, study.PREFIX)
+    stored = _did(results, 2)
+    for m in study.DID_METHODS:
+        assert fresh[m]["prefix_rejections"] == stored[m]["prefix_rejections"], m
+
+
+def test_cluster_robust_test_fails_with_few_treated_units_and_recovers_by_ten(
+    results,
+):
+    rates = {k: _did(results, k)["cr1"]["rejection_rate"] for k in (1, 2, 5, 10, 20)}
+    assert rates[1] > 0.70 and 0.27 < rates[2] < 0.34 and 0.08 < rates[5] < 0.12
+    for k in (10, 20):
+        assert abs(rates[k] - 0.05) < 2.5 * _did(results, k)["cr1"]["mc_se"], k
+
+
+def test_placebo_test_is_for_one_or_two_treated_units(results):
+    rates = {
+        k: _did(results, k)["placebo"]["rejection_rate"] for k in (1, 2, 5, 10, 20)
+    }
+    assert rates[1] < 0.05 and rates[2] < 0.085
+    # beyond that it over-rejects, and with as many treated as controls
+    # it never rejects: neither is a usable test
+    assert rates[5] > 0.08 and rates[10] > 0.12 and rates[20] == 0.0
+
+
+@pytest.mark.parametrize("entry", ["panel", "hdfe_ols", "feols", "regress"])
+@pytest.mark.parametrize("n_treated", [2, 5])
+def test_entry_points_flag_few_ever_treated_units(study, entry, n_treated):
+    import warnings
+
+    import statspai as sp
+    from statspai.exceptions import AssumptionWarning
+
+    if entry == "feols":
+        pytest.importorskip("pyfixest")
+    df = study.draw_did(n_treated, 3)
+    calls = {
+        "panel": lambda: sp.panel(
+            df, "y ~ d", entity="id", time="t", method="twoway", cluster="id"
+        ),
+        "hdfe_ols": lambda: sp.hdfe_ols("y ~ d | id + t", df, cluster="id"),
+        "feols": lambda: sp.feols("y ~ d | id + t", df, vcov={"CRV1": "id"}),
+        "regress": lambda: sp.regress("y ~ d + C(id) + C(t)", df, cluster="id"),
+    }
+    with warnings.catch_warnings(record=True) as rec:
+        warnings.simplefilter("always")
+        res = calls[entry]()
+    info = getattr(res, "cluster_info", None) or res.model_info
+    assert info["few_treated_clusters"] == [
+        {
+            "variable": "d",
+            "clusters_ever_at_one": n_treated,
+            "clusters_never_at_one": 40 - n_treated,
+        }
+    ]
+    (msg,) = [
+        m.message
+        for m in rec
+        if issubclass(m.category, AssumptionWarning)
+        and "is 1 in only" in str(m.message)
+    ]
+    # the placebo test is offered only where the study found it to hold
+    assert ("sp.did_few_treated" in msg.alternative_functions) == (n_treated <= 2)
+    assert ("did no better" in msg.recovery_hint) == (n_treated > 2)
+
+
+@pytest.mark.parametrize("entry", ["panel", "hdfe_ols"])
+def test_ten_treated_units_or_a_covariate_everywhere_is_not_flagged(study, entry):
+    import warnings
+
+    import numpy as np
+
+    import statspai as sp
+
+    df = study.draw_did(10, 3)
+    # a binary covariate present in every unit is not a treatment
+    df["b"] = np.random.default_rng(0).integers(0, 2, len(df)).astype(float)
+    with warnings.catch_warnings(record=True) as rec:
+        warnings.simplefilter("always")
+        if entry == "panel":
+            res = sp.panel(
+                df, "y ~ d + b", entity="id", time="t", method="twoway", cluster="id"
+            )
+        else:
+            res = sp.hdfe_ols("y ~ d + b | id + t", df, cluster="id")
+    info = getattr(res, "cluster_info", None) or res.model_info
+    assert "few_treated_clusters" not in info
+    assert not [m for m in rec if "is 1 in only" in str(m.message)]
+
+
+def test_did_few_treated_says_when_it_is_out_of_its_range(study):
+    import warnings
+
+    import statspai as sp
+
+    def messages(n_treated):
+        with warnings.catch_warnings(record=True) as rec:
+            warnings.simplefilter("always")
+            sp.did_few_treated(
+                study.draw_did(n_treated, 3), y="y", unit="id", time="t", treat="d"
+            )
+        return [str(m.message) for m in rec if "one or two treated" in str(m.message)]
+
+    assert not messages(1) and not messages(2)
+    assert messages(5) and messages(10)

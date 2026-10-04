@@ -634,6 +634,18 @@ Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
 
 ### Reliability
 
+- **Few treated clusters in fixed-effects regressions.** A fourth block
+  of `tests/reliability/few_clusters.py` (40 units, 10 periods, a true
+  effect of zero, 2,000 replications) gives the rejection rate of the 5%
+  test as the number of treated units grows: unit-clustered two-way
+  fixed effects 75% / 31% / 10% / 6% at 1 / 2 / 5 / 10 treated units,
+  `sp.did_few_treated` 3% / 7% / 10% / 14%. `sp.panel`, `sp.hdfe_ols`,
+  `sp.feols` and `sp.regress` now record a 0/1 regressor that is ever 1
+  in fewer than 10 clusters in `few_treated_clusters` and warn; the hint
+  offers `sp.did_few_treated` only for one or two treated clusters.
+  `sp.did_few_treated` now warns when the treated groups are more than a
+  tenth of the controls (it used to wait until they were more than
+  half). No estimate changes.
 - **New guide, "When the interval can be trusted"**
   (`docs/guides/when_intervals_hold.md`): the findings of the reliability
   studies as rules for clusters, weights, unbalanced panels, a discrete

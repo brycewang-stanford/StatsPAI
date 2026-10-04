@@ -38,7 +38,21 @@ fit.model_info["n_clusters_effective_weights"]  # by weight
 
 A wild cluster bootstrap helps when clusters are few and similar in size.
 It does not help when only one or two clusters are treated, where it
-almost never rejects. `sp.did_few_treated` is built for that case.
+almost never rejects.
+
+### Few treated clusters
+
+What can be few is the number of clusters that are ever treated, however
+many clusters there are. With 40 units and a true effect of zero, a
+unit-clustered two-way fixed-effects test rejected 75% of the time with
+one treated unit, 31% with two, 10% with five and 6% with ten. StatsPAI
+records such a regressor in `few_treated_clusters` and warns.
+
+`sp.did_few_treated` is the remedy for one or two treated units, where
+it rejected 3% and 7%. It is not a remedy beyond that. With five treated
+units it rejected 10% and with ten 14%. Between three and nine treated
+units no test here is at its nominal size, and the honest report says
+so.
 
 ## Weights
 

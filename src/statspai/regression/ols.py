@@ -1139,6 +1139,19 @@ class OLSRegression(BaseModel):
                     ),
                     stacklevel=2,
                 )
+            # The same question for a 0/1 regressor that varies within its
+            # treated clusters (a difference-in-differences dummy with the
+            # unit and period effects written out as regressors).
+            from ..core._agent_summary import warn_if_few_ever_treated
+
+            few_treated = few_treated + warn_if_few_ever_treated(
+                self.X,
+                self.var_names,
+                cluster_var,
+                cluster,
+                stacklevel=2,
+                skip=[rec["variable"] for rec in few_treated],
+            )
             if n_clusters_obs < _FEW_CLUSTERS_MIN:
                 warnings.warn(
                     AssumptionWarning(

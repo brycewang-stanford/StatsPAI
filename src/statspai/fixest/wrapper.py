@@ -364,6 +364,24 @@ def _note_cluster_sizes(result: Any, data: pd.DataFrame, vcov: Any) -> None:
         return
     info = dict(getattr(result, "model_info", None) or {})
     info["n_clusters_effective"] = warn_if_clusters_unequal(keys, column, stacklevel=4)
+    # Few clusters ever treated: plain regressors only (a term such as
+    # i(x) or a transformed variable is not a column of ``data``).
+    names = [str(n) for n in getattr(result, "params", pd.Series(dtype=float)).index]
+    plain = [n for n in names if n in data.columns]
+    if plain:
+        frame = data[plain + [column]].dropna()
+        try:
+            X = frame[plain].to_numpy(dtype=float)
+        except (TypeError, ValueError):
+            X = None  # a non-numeric regressor column: nothing to scan
+        if X is not None and len(frame):
+            from ..core._agent_summary import warn_if_few_ever_treated
+
+            few = warn_if_few_ever_treated(
+                X, plain, frame[column].to_numpy(), column, stacklevel=4
+            )
+            if few:
+                info["few_treated_clusters"] = few
     result.model_info = info
 
 

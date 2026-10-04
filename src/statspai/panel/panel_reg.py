@@ -1578,6 +1578,20 @@ def _convert_lm_result(
             model_info["n_clusters_effective"] = warn_if_clusters_unequal(
                 _keys, cluster
             )
+            if all(c in raw_data.columns for c in indep_vars) and len(_keys) == len(
+                raw_data
+            ):
+                from ..core._agent_summary import warn_if_few_ever_treated
+
+                _few = warn_if_few_ever_treated(
+                    raw_data[list(indep_vars)].to_numpy(dtype=float),
+                    list(indep_vars),
+                    _keys,
+                    cluster,
+                    stacklevel=4,
+                )
+                if _few:
+                    model_info["few_treated_clusters"] = _few
 
     data_info = {
         "nobs": int(lm_result.nobs),

@@ -261,6 +261,114 @@ def warn_if_weights_extreme(
     return n_eff
 
 
+def few_ever_treated_columns(
+    X: Any, names: Any, keys: Any, max_columns: int = 60
+) -> List[Dict[str, Any]]:
+    """0/1 regressors that are ever 1 in only a few clusters.
+
+    The fixed-effects counterpart of :func:`few_treated_cluster_columns`.
+    In a difference-in-differences regression the treatment dummy varies
+    within a treated unit, so it is not a cluster-level regressor; what
+    can be few is the number of clusters in which it is ever 1. In the
+    fourth block of ``tests/reliability/few_clusters.py`` (40 units, 10
+    periods, AR(1) errors, a true effect of zero) the unit-clustered
+    two-way fixed-effects test rejects 75% of the time with one treated
+    unit, 31% with two, 10% with five and 6% with ten. The placebo test
+    of ``sp.did_few_treated`` holds its size with one or two (3% and 7%)
+    and over-rejects beyond that (10% at five, 14% at ten).
+
+    A column is reported when it is 0/1, at least one cluster is never 1,
+    and the clusters ever at 1 number fewer than ``_FEW_TREATED_MIN`` and
+    under a quarter of all clusters. Level dummies of a categorical term
+    are skipped, and designs wider than ``max_columns`` are not scanned.
+    """
+    X = np.asarray(X, dtype=float)
+    if X.ndim != 2 or X.shape[1] > max_columns:
+        return []
+    codes = pd.factorize(np.asarray(keys))[0]
+    if codes.size != X.shape[0] or codes.min(initial=0) < 0:
+        return []
+    n_clusters = int(codes.max()) + 1 if codes.size else 0
+    if n_clusters < 2:
+        return []
+    out: List[Dict[str, Any]] = []
+    for j, name in enumerate(names):
+        if "[T." in str(name) or str(name).startswith("C("):
+            continue
+        col = X[:, j]
+        if not np.all((col == 0.0) | (col == 1.0)) or col.max(initial=0.0) != 1.0:
+            continue
+        ever = int((np.bincount(codes, weights=col, minlength=n_clusters) > 0).sum())
+        never = n_clusters - ever
+        if never >= 1 and ever < _FEW_TREATED_MIN and 4 * ever < n_clusters:
+            out.append(
+                {
+                    "variable": str(name),
+                    "clusters_ever_at_one": ever,
+                    "clusters_never_at_one": never,
+                }
+            )
+    return out
+
+
+def warn_if_few_ever_treated(
+    X: Any,
+    names: Any,
+    keys: Any,
+    cluster: Any,
+    stacklevel: int = 3,
+    skip: Any = (),
+) -> List[Dict[str, Any]]:
+    """:func:`few_ever_treated_columns`, with a warning for each column.
+
+    More than three such columns is a hand-made set of dummies, not a
+    treatment: they are returned and not warned about. Variables named in
+    ``skip`` were reported by another check already.
+    """
+    import warnings
+
+    from ..exceptions import AssumptionWarning
+
+    skip = set(skip)
+    found = [
+        rec
+        for rec in few_ever_treated_columns(X, names, keys)
+        if rec["variable"] not in skip
+    ]
+    for rec in found if len(found) <= 3 else ():
+        warnings.warn(
+            AssumptionWarning(
+                f"'{rec['variable']}' is 1 in only "
+                f"{rec['clusters_ever_at_one']} of "
+                f"{rec['clusters_ever_at_one'] + rec['clusters_never_at_one']} "
+                f"clusters (cluster='{cluster}'). With so few treated clusters "
+                "the cluster-robust standard error of its coefficient is too "
+                "small whatever the total number of clusters.",
+                recovery_hint=(
+                    (
+                        "For a difference-in-differences design use "
+                        "sp.did_few_treated, which inverts a placebo "
+                        "distribution built from the untreated clusters and "
+                        "held its size with one or two treated clusters."
+                        if rec["clusters_ever_at_one"] <= 2
+                        else "No test here is exact with this many: with five "
+                        "treated clusters of 40 the cluster-robust test "
+                        "rejected a true null 10% of the time and "
+                        "sp.did_few_treated did no better. Report the result "
+                        "as fragile."
+                    )
+                    + " See tests/reliability/few_clusters_results.json."
+                ),
+                diagnostics=dict(rec),
+                alternative_functions=(
+                    ["sp.did_few_treated"] if rec["clusters_ever_at_one"] <= 2 else []
+                ),
+            ),
+            stacklevel=stacklevel,
+        )
+    return found
+
+
 def weighted_effective_n_clusters(weights: Any, keys: Any) -> float:
     """Kish effective number of clusters, by the weight each cluster carries.
 

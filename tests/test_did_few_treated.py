@@ -231,7 +231,7 @@ def test_non_binary_treatment_raises():
 def test_many_treated_groups_warns():
     rng = np.random.default_rng(12)
     df = _panel(rng, n_groups=40, n_treated=15)
-    with pytest.warns(UserWarning, match="small number of treated"):
+    with pytest.warns(UserWarning, match="one or two treated groups"):
         sp.did_few_treated(df, y="y", unit="g", time="t", treat="d")
 
 

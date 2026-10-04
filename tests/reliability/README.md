@@ -98,6 +98,37 @@ minutes). `tests/test_reliability_few_clusters.py` recomputes one cell on
 its first 60 replications and checks the statements above against the
 stored file.
 
+### Few units ever treated in a difference-in-differences
+
+The fourth block: 40 units over 10 periods, unit and period effects,
+AR(1) errors, and a treatment that switches on in period 6 for some of
+the units with a true effect of zero. Rejection rate of the 5% test,
+2,000 replications per row.
+
+| treated units of 40 | two-way FE, clustered on unit | `sp.did_few_treated` |
+| ---: | ---: | ---: |
+| 1 | 0.749 | 0.028 |
+| 2 | 0.306 | 0.070 |
+| 5 | 0.101 | 0.097 |
+| 10 | 0.059 | 0.139 |
+| 20 | 0.058 | 0.000 |
+
+- The cluster-robust test is unusable with one or two treated units and
+  still rejects 10% with five. It is back at its nominal size with ten.
+- The placebo test of `sp.did_few_treated` holds with one or two treated
+  units and over-rejects beyond that: its placebo distribution is built
+  from the treated units' paths alone, which is accurate only when they
+  are a small share. With as many treated as controls it never rejects.
+- Between three and nine treated units neither test is at its nominal
+  size.
+
+`sp.panel`, `sp.hdfe_ols`, `sp.feols` and `sp.regress` now report a 0/1
+regressor that is ever 1 in fewer than 10 clusters (and under a quarter
+of them) in `few_treated_clusters`, and warn. The hint offers
+`sp.did_few_treated` only for one or two treated clusters.
+`sp.did_few_treated` itself now warns when the treated groups are more
+than a tenth of the controls.
+
 ## Extreme weights (`extreme_weights.py`)
 
 Coverage of the 95% interval for a slope in `sp.regress(weights=)`,

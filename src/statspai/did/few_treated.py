@@ -299,11 +299,21 @@ def did_few_treated(
             ),
             diagnostics={"n_treated_groups": n1, "n_control_groups": n0},
         )
-    if n1 > n0 // 2:
+    if 10 * n1 > n0:
+        # The placebo distribution is built from the treated groups' paths
+        # alone; the control groups' own contribution to the coefficient is
+        # negligible only when the treated groups are a small share. In
+        # tests/reliability/few_clusters.py (40 groups, a true effect of
+        # zero) the 5% test rejected 2.8% with one treated group, 7.0% with
+        # two, 9.7% with five and 13.9% with ten, where the cluster-robust
+        # test was back at 5.9%.
         warnings.warn(
             f"did_few_treated: {n1} treated and {n0} control groups. These "
-            "methods are for a small number of treated groups; with this "
-            "many, the cluster-robust or jackknife variance is preferable.",
+            "methods are for one or two treated groups among many controls; "
+            "with more than a tenth as many treated as controls the placebo "
+            "test over-rejects (9.7% at 5 of 40, 13.9% at 10 of 40 in "
+            "tests/reliability/few_clusters.py). With ten or more treated "
+            "groups the cluster-robust variance is preferable.",
             UserWarning,
             stacklevel=2,
         )

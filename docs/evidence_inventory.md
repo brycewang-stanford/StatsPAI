@@ -516,10 +516,11 @@ Simulation studies under `tests/reliability/`, each with its design fixed in the
 | `extreme_weights` | hc1 | coverage | 2000 | 12 | 5 | 0.842 (errors=sampling, n=200, sigma=2.0) |
 | `extreme_weights` | hc2 | coverage | 2000 | 12 | 6 | 0.895 (errors=sampling, n=200, sigma=2.0) |
 | `extreme_weights` | hc3 | coverage | 2000 | 12 | 10 | 0.932 (errors=sampling, n=1000, sigma=2.0) |
-| `few_clusters` | cr1 | rejection | 2000 | 24 | 5 | 0.359 (treated=half, sizes=unbalanced, G=40) |
+| `few_clusters` | cr1 | rejection | 2000 | 29 | 7 | 0.749 (treated=1, G=40) |
 | `few_clusters` | cr2 | rejection | 2000 | 16 | 4 | 0.234 (treated=two, sizes=balanced, G=40) |
 | `few_clusters` | cr3 | rejection | 2000 | 22 | 12 | 0.170 (treated=two, sizes=balanced, G=40) |
 | `few_clusters` | wild | rejection | 2000 | 16 | 3 | 0.126 (treated=half, sizes=unbalanced, G=40) |
+| `few_clusters` | placebo | rejection | 2000 | 5 | 0 | 0.139 (treated=10, G=40) |
 | `rd_mass_points` | adjust | coverage | 1000 | 10 | 6 | 0.689 (n=4000, support_per_side=10) |
 | `rd_mass_points` | off | coverage | 1000 | 10 | 6 | 0.214 (n=1000, support_per_side=5, 708 refused) |
 | `rd_mass_points` | cluster | coverage | 1000 | 8 | 0 | 0.224 (n=4000, support_per_side=5) |

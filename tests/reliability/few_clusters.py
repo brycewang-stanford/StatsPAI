@@ -45,8 +45,18 @@ absorbed, AR(1) regressor and error (rho = 0.6), clustered by unit with
 ``sp.panel(method='fe', ssc='stata')``; either every unit has 8 periods
 or one unit has 312 and the other 39 have 8.
 
+A fourth block is the difference-in-differences version of "few treated":
+40 units over 10 periods, unit and period effects, AR(1) errors
+(rho = 0.5), and 1, 2, 5, 10 or 20 units treated from period 6 on with a
+true effect of zero. The treatment varies within units, so it is not a
+cluster-level regressor; what is few is the number of units ever treated.
+Two tests of the true null: the two-way fixed-effects coefficient with
+unit-clustered errors (``sp.panel(method='twoway', cluster=unit)``) and
+the placebo test of ``sp.did_few_treated``.
+
 Run: ``python tests/reliability/few_clusters.py [B]`` (about a quarter of
-an hour at B = 2000). Writes ``few_clusters_results.json`` next to this
+an hour at B = 2000; ``python tests/reliability/few_clusters.py B did``
+reruns the fourth block alone and keeps the rest of the stored file). Writes ``few_clusters_results.json`` next to this
 file. ``tests/test_reliability_few_clusters.py`` recomputes one cell on
 its first 60 replications and checks it against the stored prefix.
 """
@@ -242,8 +252,80 @@ def run_panel_cell(kind: str, B: int) -> Dict[str, object]:
     }
 
 
+DID_G = 40
+DID_T = 10
+DID_TREATED = (1, 2, 5, 10, 20)
+DID_METHODS = ("cr1", "placebo")
+
+
+def draw_did(n_treated: int, seed: int) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    rho = 0.5
+    e = np.empty((DID_G, DID_T))
+    e[:, 0] = rng.normal(size=DID_G)
+    for t in range(1, DID_T):
+        e[:, t] = rho * e[:, t - 1] + np.sqrt(1 - rho**2) * rng.normal(size=DID_G)
+    unit = np.repeat(np.arange(DID_G), DID_T)
+    period = np.tile(np.arange(1, DID_T + 1), DID_G)
+    d = ((unit < n_treated) & (period >= 6)).astype(float)
+    y = np.repeat(rng.normal(size=DID_G), DID_T) + 0.1 * period + e.ravel()
+    return pd.DataFrame({"id": unit, "t": period, "d": d, "y": y})
+
+
+def did_pvalues(df: pd.DataFrame) -> Dict[str, float]:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        twfe = sp.panel(
+            df, "y ~ d", entity="id", time="t", method="twoway", cluster="id"
+        )
+        placebo = sp.did_few_treated(df, y="y", unit="id", time="t", treat="d")
+    return {"cr1": float(twfe.pvalues["d"]), "placebo": float(placebo.pvalue)}
+
+
+def run_did_cell(n_treated: int, B: int) -> Dict[str, object]:
+    rej: Dict[str, List[int]] = {m: [] for m in DID_METHODS}
+    for rep in range(B):
+        p = did_pvalues(draw_did(n_treated, 9_000_000 + 1_000 * n_treated + rep))
+        for m in DID_METHODS:
+            rej[m].append(int(p[m] < ALPHA))
+    cell: Dict[str, object] = {"G": DID_G, "treated": str(n_treated), "B": B}
+    for m in DID_METHODS:
+        r = np.asarray(rej[m])
+        rate = float(r.mean())
+        cell[m] = {
+            "rejection_rate": rate,
+            "mc_se": float(np.sqrt(rate * (1 - rate) / B)),
+            "prefix_rejections": int(r[:PREFIX].sum()),
+        }
+    return cell
+
+
+def run_did_block(B: int) -> List[Dict[str, object]]:
+    out = []
+    for n_treated in DID_TREATED:
+        cell = run_did_cell(n_treated, B)
+        out.append(cell)
+        print(
+            f"DiD G={DID_G} treated={n_treated:2d} "
+            + " ".join(
+                f"{m}={cell[m]['rejection_rate']:.3f}"  # type: ignore[index]
+                for m in DID_METHODS
+            ),
+            flush=True,
+        )
+    return out
+
+
 def main() -> None:
     B = int(sys.argv[1]) if len(sys.argv) > 1 else 2000
+    if len(sys.argv) > 2 and sys.argv[2] == "did":
+        stored = json.loads(OUT.read_text(encoding="utf-8"))
+        if stored["B"] != B:
+            raise SystemExit(f"stored file has B={stored['B']}, not {B}")
+        stored["did_few_treated"] = run_did_block(B)
+        OUT.write_text(json.dumps(stored, indent=1) + "\n", encoding="utf-8")
+        print(f"wrote {OUT}")
+        return
     cells = []
     for G in G_VALUES:
         for treated in TREATED:
@@ -290,6 +372,7 @@ def main() -> None:
         "cells": cells,
         "size_dispersion": dispersion,
         "panel_fixed_effects": panel_cells,
+        "did_few_treated": run_did_block(B),
     }
     OUT.write_text(json.dumps(payload, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {OUT}")

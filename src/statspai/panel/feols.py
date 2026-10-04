@@ -1157,6 +1157,14 @@ def feols(
             cluster_info["n_clusters_effective"] = warn_if_clusters_unequal(
                 df[cluster_names[0]], cluster_names[0]
             )
+            if len(X_arr) == len(df):
+                from ..core._agent_summary import warn_if_few_ever_treated
+
+                _few = warn_if_few_ever_treated(
+                    X_arr, x_names, df[cluster_names[0]], cluster_names[0]
+                )
+                if _few:
+                    cluster_info["few_treated_clusters"] = _few
 
     # Optional wild bootstrap
     if wild and cluster_names:
