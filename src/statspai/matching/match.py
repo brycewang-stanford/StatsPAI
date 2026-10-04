@@ -34,7 +34,7 @@ Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University Press.
 
 import operator
 import warnings
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -93,6 +93,44 @@ def _positive_int(value: Any, *, name: str, context: str) -> int:
     if isinstance(value, bool) or parsed < 1:
         raise MethodIncompatibility(f"{context}: {name} must be a positive integer")
     return int(parsed)
+
+
+def _cem_bins(value: Any, covariates: List[str], *, context: str) -> Any:
+    """Validate ``n_bins``: one count for every covariate, one per covariate
+    (a sequence, or a mapping from name to a count or to the cut edges)."""
+    if value is None:
+        return None
+    if isinstance(value, Mapping):
+        unknown = [k for k in value if k not in covariates]
+        if unknown:
+            raise MethodIncompatibility(
+                f"{context}: n_bins names {unknown}, which are not covariates"
+            )
+        out: Dict[str, Any] = {}
+        for name, spec in value.items():
+            if isinstance(spec, (list, tuple, np.ndarray)):
+                edges = np.asarray(spec, dtype=float)
+                if edges.ndim != 1 or edges.size < 1 or np.any(np.diff(edges) <= 0):
+                    raise MethodIncompatibility(
+                        f"{context}: n_bins[{name!r}] must be increasing cut edges"
+                    )
+                out[name] = edges
+            else:
+                out[name] = _positive_int(
+                    spec, name=f"n_bins[{name!r}]", context=context
+                )
+        return out
+    if isinstance(value, (list, tuple, np.ndarray)):
+        if len(value) != len(covariates):
+            raise MethodIncompatibility(
+                f"{context}: n_bins has {len(value)} entries for "
+                f"{len(covariates)} covariates"
+            )
+        return {
+            name: _positive_int(v, name=f"n_bins[{name!r}]", context=context)
+            for name, v in zip(covariates, value)
+        }
+    return _positive_int(value, name="n_bins", context=context)
 
 
 def _open_unit_float(value: Any, *, name: str, context: str) -> float:
@@ -198,7 +236,7 @@ def match(
     # --- stratification parameters ---
     n_strata: int = 5,
     # --- CEM parameters ---
-    n_bins: Optional[int] = None,
+    n_bins: Optional[Union[int, Sequence[int], Mapping[str, Any]]] = None,
     # --- inference ---
     alpha: float = 0.05,
     # --- design ---
@@ -359,9 +397,19 @@ def match(
         standard errors.
     n_strata : int, default 5
         Number of strata for method='stratify'.
-    n_bins : int, optional
-        Number of bins per covariate for method='cem'.
-        Default uses Sturges' rule.
+    n_bins : int, sequence or dict, optional
+        Coarsening for method='cem'. An integer is the number of
+        equal-width bins used for every covariate. The default follows
+        the ``cem`` packages for R and Stata: Sturges' rule gives
+        ``ceil(log2(n) + 1)`` cut points from the minimum to the maximum,
+        hence one bin fewer, and a bin is closed on the right. A sequence
+        gives the number per covariate, in the order of ``covariates``; a
+        dict maps a covariate to its number of bins or to its increasing
+        cut edges (``{'age': [25, 40, 65], 'female': 2}``), and covariates
+        it does not name use Sturges' rule. A 0/1 covariate needs two bins
+        to be matched exactly. ``cem`` itself counts cut points, not bins:
+        its ``x(#k)`` is ``n_bins=k - 1``, and ``x(#2)`` does not split
+        ``x`` at all.
     alpha : float, default 0.05
         Significance level.
 
@@ -760,7 +808,7 @@ class MatchEstimator:
         bootstrap_seed: Optional[int] = None,
         llr_stata_compat: bool = False,
         n_strata: int = 5,
-        n_bins: Optional[int] = None,
+        n_bins: Optional[Union[int, Sequence[int], Mapping[str, Any]]] = None,
         alpha: float = 0.05,
     ):
         context = "match"
@@ -854,11 +902,7 @@ class MatchEstimator:
             name="n_strata",
             context=context,
         )
-        self.n_bins = (
-            None
-            if n_bins is None
-            else _positive_int(n_bins, name="n_bins", context=context)
-        )
+        self.n_bins = _cem_bins(n_bins, self.covariates, context=context)
         self.alpha = _open_unit_float(alpha, name="alpha", context=context)
         # Filled by _fit_nearest so fit() can build the matched-sample frame.
         self._assignment: Optional[dict[str, Any]] = None
@@ -2208,16 +2252,31 @@ class MatchEstimator:
         """Coarsened Exact Matching (Iacus, King & Porro 2012)."""
         n, k = X.shape
 
-        # Coarsen each covariate
-        n_bins = self.n_bins
-        if n_bins is None:
-            n_bins = max(int(np.ceil(np.log2(n) + 1)), 3)  # Sturges' rule
+        # Coarsen each covariate. The conventions are those of the `cem`
+        # packages for R and Stata (Iacus, King and Porro): Sturges' rule
+        # gives the number of cut *points* from the minimum to the maximum,
+        # hence one bin fewer, and a bin is closed on the right (the first
+        # one on both sides).
+        sturges = max(int(np.ceil(np.log2(n) + 1)) - 1, 2)
+        per_covariate = self.n_bins if isinstance(self.n_bins, dict) else {}
+        n_bins = self.n_bins if isinstance(self.n_bins, int) else sturges
+        used: Dict[str, Any] = {}
 
         strata = np.zeros(n, dtype=object)
         for j in range(k):
             col = X[:, j]
-            bins = np.linspace(col.min() - 1e-10, col.max() + 1e-10, n_bins + 1)
-            digitized = np.digitize(col, bins)
+            spec = per_covariate.get(self.covariates[j], n_bins)
+            if isinstance(spec, np.ndarray):
+                # explicit cut edges; values beyond the outer edges form
+                # cells of their own
+                bins = spec
+                used[self.covariates[j]] = spec.tolist()
+            else:
+                bins = np.linspace(col.min(), col.max(), spec + 1)
+                used[self.covariates[j]] = int(spec)
+            digitized = (col >= bins[0]).astype(int) + np.searchsorted(
+                bins[1:], col, side="left"
+            )
             if j == 0:
                 strata = digitized.astype(str)
             else:
@@ -2282,7 +2341,7 @@ class MatchEstimator:
             "n_matched_treated": n_matched_t,
             "n_matched_control": len(set(matched_c)),
             "n_unmatched_treated": len(idx_t) - n_matched_t,
-            "n_bins": n_bins,
+            "n_bins": n_bins if not per_covariate else used,
         }
         return att, se, balance, extra
 

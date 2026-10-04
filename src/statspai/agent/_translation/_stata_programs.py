@@ -34,6 +34,7 @@ import pandas as pd
 
 from ...exceptions import MethodIncompatibility
 from ._stata_expr import StataExprError
+from ._stata_script import ScriptError
 
 if TYPE_CHECKING:  # pragma: no cover
     from ._stata_run import StataSession
@@ -41,7 +42,7 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ["program_line", "run_simulate"]
 
 _PROGRAM = re.compile(
-    r"\s*(?:cap(?:ture)?\s+)?pr(?:ogram)?\s+(?:de(?:fine)?\s+)?"
+    r"\s*(?:cap(?:ture)?\s+)?pr(?:ogram)?\s+(?:de(?:f(?:i(?:ne?)?)?)?\s+)?"
     r"(?P<name>[A-Za-z_]\w*)\s*(?:,\s*(?P<opts>.*))?$"
 )
 _PROGRAM_DROP = re.compile(
@@ -102,21 +103,25 @@ def program_line(session: "StataSession", line: str) -> Optional[bool]:
         if session._returned is None:
             raise _refuse("`return scalar` outside a program", line)
         try:
-            session._returned[m.group(1)] = session.value(m.group(2).strip())
-        except StataExprError as exc:
+            # the value is often a local macro set a few lines above
+            expr = session._macros.expand(m.group(2).strip())
+            session._returned[m.group(1)] = session.value(expr)
+        except (StataExprError, ScriptError) as exc:
             raise _refuse(str(exc), line) from exc
         return False
     return None
 
 
 def _run_program(session: "StataSession", name: str) -> Dict[str, float]:
+    # a program may call another one: its own r() table is put back after
+    outer = session._returned
     session._returned = {}
     try:
         for command in session.programs[name]:
             session.run(command)
         returned = dict(session._returned)
     finally:
-        session._returned = None
+        session._returned = outer
     session.stored["r"] = returned
     return returned
 

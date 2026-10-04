@@ -46,7 +46,7 @@ import numpy as np
 import pandas as pd
 
 import statspai as sp
-from statspai.agent._translation._stata_expr import StataExprError
+from statspai.agent._translation._stata_expr import StataExprError, coefficient_key
 from statspai.agent._translation._stata_run import StataSession
 
 NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
@@ -268,7 +268,10 @@ def coefficient_table(
             continue
         if re.match(r"^\s*-+\+-+\s*$", ln):
             continue
-        m = re.match(rf"^\s*(\S+)\s*\|\s*({NUM})\s+({NUM})\s+({NUM})\s+({NUM})", ln)
+        # a value label may hold blanks ("Got a transfer")
+        m = re.match(
+            rf"^\s*(\S(?:[^|]*\S)?)\s*\|\s*({NUM})\s+({NUM})\s+({NUM})\s+({NUM})", ln
+        )
         if not m:
             if not ln.strip():
                 group = None
@@ -280,6 +283,24 @@ def coefficient_table(
         elif group is not None and ts:
             ops = "".join(f"{k}{n or 1}" for k, n in _TS_ONE.findall(ts.group(1)))
             name = f"{group}_{ops}"
+        elif group is not None and "#" in group and _crossed(group):
+            # `g#c.x |` or `d#t |`, then one row per level (`1#Quarter 4`)
+            factors, rest = _crossed(group)
+            # unlabelled levels of crossed factors are printed "1 1"
+            levels = name.split("#") if "#" in name else name.split()
+            if len(levels) != len(factors):
+                levels = [name]
+            codes = [
+                lv if re.fullmatch(r"\d+", lv) else labels.get(f, {}).get(lv)
+                for f, lv in zip(factors, levels)
+            ]
+            if len(levels) == len(factors) and None not in codes:
+                cells = [f"C({f})[T.{c}]" for f, c in zip(factors, codes)]
+                name = ":".join(cells + rest)
+            else:
+                group = None
+                if re.fullmatch(r"c\.\w+(?:#c\.\w+)+", name):
+                    name = ":".join(part[2:] for part in name.split("#"))
         elif group is not None and re.fullmatch(r"\d+", name):
             name = f"C({group})[T.{name}]"
         elif group is not None and name in labels.get(group, {}):
@@ -296,11 +317,26 @@ def coefficient_table(
 _LEVEL = re.compile(r"C\((\w+)\)\[T\.(-?\d+)(?:\.0)?\]")
 
 
+def _crossed(group: str) -> Optional[Tuple[List[str], List[str]]]:
+    """``d#t#c.x`` -> (["d", "t"], ["x"]); None without a factor."""
+    parts = group.split("#")
+    factors = [p for p in parts if not p.startswith("c.")]
+    if not factors or not all(re.fullmatch(r"(?:i\.)?\w+", f) for f in factors):
+        return None
+    names = [f.split(".")[-1] for f in factors]
+    return names, [p[2:] for p in parts if p.startswith("c.")]
+
+
+#: c.x#c.x is fitted as ``I(x ** 2)``
+_POWER = re.compile(r"I\((\w+) ?\*\* ?(\d+)\)")
+
+
 def stata_term(name: str) -> str:
     """A coefficient name in Stata's spelling: ``C(g)[T.2.0]:C(t)[T.3]`` and
     ``2.g#3.t`` both become ``2.g#3.t``, so a factor level generated as a
     float is found under the integer Stata prints."""
-    return "#".join(_LEVEL.sub(r"\2.\1", part) for part in name.split(":"))
+    name = _POWER.sub(lambda m: ":".join([m.group(1)] * int(m.group(2))), name)
+    return coefficient_key(name)
 
 
 def header_statistics(buf: List[str]) -> Dict[str, Printed]:
@@ -630,7 +666,18 @@ class Replay:
         # to about six digits
         ml_rtol = 1e-5 if word == "xtreg" and re.search(r",.*\bmle\b", cmd) else 0.0
         by_term = {stata_term(str(k)): k for k in params}
-        for name, (b, se) in coefficient_table(buf, self.labels).items():
+        # `encode` defines its value label inside the session, not in the file
+        labels = dict(self.labels)
+        steps = getattr(self.session, "_steps", None)
+        sets = getattr(steps, "_label_sets", {})
+        for var, set_name in getattr(steps, "_set_of", {}).items():
+            if var not in labels and set_name in sets:
+                mapping: Dict[str, Any] = {}
+                for code, text in sets[set_name].items():
+                    mapping[str(text)] = int(code)
+                    mapping.setdefault(str(text).split()[0], int(code))
+                labels[var] = mapping
+        for name, (b, se) in coefficient_table(buf, labels).items():
             if name in ("sigma_u", "sigma_e", "rho", "/sigma", "var(e.y)"):
                 continue
             if name in ("/sigma_u", "/sigma_e"):
@@ -1137,7 +1184,8 @@ def _cmp_rddensity(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
 
 def _cmp_teffects(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
     text = "\n".join(buf)
-    m = re.search(rf"\(1 vs 0\)\s*\|\s*({NUM})\s+({NUM})", text)
+    # the contrast is printed by value label when the treatment has one
+    m = re.search(rf"\([^()|]+ vs [^()|]+\)\s*\|\s*({NUM})\s+({NUM})", text)
     if m:
         self.report.number(self.name, cmd, "effect", Printed(m.group(1)), out.estimate)
         # the standard error carries the logit of the propensity score, which
@@ -1146,9 +1194,11 @@ def _cmp_teffects(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
     m = re.search(r"Number of obs\s*=\s*([\d,]+)", text)
     if m:
         info = out.model_info
+        # sp.match counts the arms; sp.g_computation holds n_obs on the result
+        count = info.get("n_treated", 0) + info.get("n_control", 0)
         self.report.number(
             self.name, cmd, "N", Printed(m.group(1).replace(",", "")),
-            info.get("n_treated", 0) + info.get("n_control", 0),
+            count or getattr(out, "n_obs", 0),
         )  # fmt: skip
 
 
@@ -1447,7 +1497,24 @@ def _cmp_psmatch2(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
         self.report.number(self.name, cmd, "se", Printed(m.group(4)), out.se)
 
 
+def _cmp_sensemakr(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    # Treatment | Coef.  S.E.  t(H0)  R2yd.x  RV_q  RV_qa
+    six = r"\s+".join([f"({NUM})"] * 6)
+    for m in _rows(buf, rf"^\s*\S+\s*\|\s*{six}\s*$"):
+        for label, group, key in (
+            ("coef", 1, "beta_treat"),
+            ("se", 2, "se_treat"),
+            ("t", 3, "t_treat"),
+            ("R2yd.x", 4, "partial_r2_yd"),
+            ("RV_q", 5, "rv_q"),
+            ("RV_qa", 6, "rv_qa"),
+        ):
+            self.report.number(self.name, cmd, label, Printed(m.group(group)), out[key])
+        break
+
+
 PANEL = {
+    "sensemakr": _cmp_sensemakr,
     "sdid": _cmp_sdid,
     "boottest": _cmp_boottest,
     "psmatch2": _cmp_psmatch2,

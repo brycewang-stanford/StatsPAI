@@ -14,14 +14,14 @@ from __future__ import annotations
 import inspect
 import re
 import warnings
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 from ...exceptions import MethodIncompatibility
 from ._stata_datastep import DataSteps, row_mask
-from ._stata_expr import StataExprError, evaluate
+from ._stata_expr import StataExprError, coefficient_key, evaluate
 from ._stata_flow import flow_line, macro_line, macro_value
 from ._stata_matrix import matrix_line
 from ._stata_multi import file_key, multi_line
@@ -152,6 +152,7 @@ _PLACEHOLDER = re.compile(r"<[A-Za-z_][A-Za-z0-9_ ]*>")
 _PIPE_NOTE = re.compile(r"\bpipe\b")
 
 
+_IWEIGHT = re.compile(r"\[\s*(iw|iweights?)\s*=\s*([A-Za-z_]\w*)\s*\]", re.I)
 _FACTOR_TERM = re.compile(r"C\((\w+)(?:,[^\]]*)?\)\[(?:T\.)?(.+)\]\Z")
 
 
@@ -425,6 +426,73 @@ def stata(
     return session.output
 
 
+_FACTOR_ARGUMENT = re.compile(
+    r"C\(([A-Za-z_]\w*)(?:, Treatment\((-?\d+(?:\.\d+)?)\))?\)\Z"
+)
+
+
+def _factor_columns(data: pd.DataFrame, arguments: Dict[str, Any]) -> pd.DataFrame:
+    """Indicator columns for ``i.g`` in an argument that lists columns.
+
+    A formula reads ``C(g)``; an estimator that takes its covariates as a
+    list of column names (``psmatch2 d i.g x``, ``teffects ... (d i.g)``)
+    needs the indicators to exist. They are built here, one per level but
+    the base (the smallest, or the one named by ``ib#.``), and the
+    argument is rewritten to name them. Rows with a missing level stay
+    missing, so the estimator drops them as Stata does.
+    """
+    built: Dict[str, List[str]] = {}
+    for key, value in list(arguments.items()):
+        if not (isinstance(value, list) and all(isinstance(v, str) for v in value)):
+            continue
+        if not any(_FACTOR_ARGUMENT.match(v) for v in value):
+            continue
+        names: List[str] = []
+        for term in value:
+            m = _FACTOR_ARGUMENT.match(term)
+            if m is None or m.group(1) not in data.columns:
+                names.append(term)
+                continue
+            if term not in built:
+                source = data[m.group(1)]
+                levels = sorted(source.dropna().unique())
+                base = levels[0] if m.group(2) is None else float(m.group(2))
+                cols = {}
+                for level in levels:
+                    if level == base:
+                        continue
+                    label = (
+                        f"{level:g}"
+                        if isinstance(level, (int, float, np.number))
+                        else str(level)
+                    )
+                    name = f"_I{m.group(1)}_{label}".replace(".", "_").replace("-", "m")
+                    cols[name] = np.where(
+                        source.isna(), np.nan, (source == level) * 1.0
+                    )
+                data = data.assign(**cols)
+                built[term] = list(cols)
+            names.extend(built[term])
+        arguments[key] = names
+    return data
+
+
+def _weighted_sample(data: pd.DataFrame, weights: Any) -> pd.DataFrame:
+    """The rows Stata keeps under a weight clause.
+
+    An observation whose weight is missing or zero is not part of the
+    estimation sample in Stata (``[pw = ipw]`` after trimming the propensity
+    score, a kernel weight that is zero outside the bandwidth). The sp
+    estimators refuse such weights instead, so the rows are dropped here.
+    Negative weights are left for the estimator to refuse, as Stata does.
+    """
+    if not isinstance(weights, str) or weights not in data.columns:
+        return data
+    w = pd.to_numeric(data[weights], errors="coerce").to_numpy(dtype=float)
+    keep = np.isfinite(w) & (w != 0)
+    return data if keep.all() else data.loc[keep]
+
+
 class StataSession:
     """State carried from one Stata command to the next.
 
@@ -530,6 +598,28 @@ class StataSession:
             pd.concat([self._steps.data, other], ignore_index=True, sort=False)
         )
 
+    def _importance_weights(self, line: str) -> str:
+        """``regress ... [iw = w]`` as ``[aw = w]`` when the two coincide.
+
+        `regress` with importance weights divides the residual sum of
+        squares by ``sum(w) - k``; with analytic weights the weights are
+        first rescaled to sum to N. When the nonzero weights already sum to
+        the number of observations that carry them -- which is how matching
+        weights such as ``cem_weights`` are built -- the two are the same
+        regression. Otherwise the line is left for the translation to refuse.
+        """
+        m = _IWEIGHT.search(line)
+        data = self.data
+        if m is None or data is None or m.group(2) not in data.columns:
+            return line
+        if not re.match(r"\s*(?:qui(?:etly)?\s+)?reg(?:ress)?\b", line):
+            return line
+        w = pd.to_numeric(data[m.group(2)], errors="coerce").to_numpy(dtype=float)
+        w = w[np.isfinite(w) & (w != 0)]
+        if w.size == 0 or np.any(w < 0) or abs(w.sum() - w.size) > 1e-6 * w.size:
+            return line
+        return line[: m.start()] + f"[aw={m.group(2)}]" + line[m.end() :]
+
     def value(self, expr: str) -> float:
         """A scalar Stata expression, e.g. ``_b[x] * r(mean)``."""
         frame = self.data
@@ -557,6 +647,11 @@ class StataSession:
                 b["_cons"] = b[alias]
                 if alias in se:
                     se["_cons"] = se[alias]
+        # the Stata spelling of a factor level or an interaction, so that
+        # _b[1.d#3.t] finds the column the estimator named its own way
+        for held in (b, se):
+            for name in list(held):
+                held.setdefault(coefficient_key(name), held[name])
         e: Dict[str, float] = {}
         for key, attr in (("N", "nobs"), ("r2", "r2"), ("r2_a", "r2_adj")):
             got = getattr(result, attr, None)
@@ -846,6 +941,7 @@ class StataSession:
                 ) from exc
         line = self._scalars_in_restriction(line)
         line = self._boundary_points(line)
+        line = self._importance_weights(line)
         key = (line, tuple(columns or ()), self.panel, self.survival)
         out = self._translations.get(key)
         if out is None:
@@ -1016,6 +1112,8 @@ class StataSession:
                         "(`... if name == 0`) and run the command again.",
                         diagnostics={"command": line},
                     ) from exc
+            run_data = _weighted_sample(run_data, arguments.get("weights"))
+            run_data = _factor_columns(run_data, arguments)
             self.output = fn(data=run_data, **arguments)
             if out["tool"] not in _DESCRIPTIVE_TOOLS:
                 self.last = self.output

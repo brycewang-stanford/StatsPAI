@@ -376,13 +376,15 @@ def call_program(
     session._macros.locals = {str(i): a for i, a in enumerate(arguments, 1)}
     session._macros.locals["0"] = " ".join(arguments)
     session._program_depth += 1
+    # a program may call another one: its own r() table is put back after
+    outer_returned = session._returned
     session._returned = {}
     try:
         for command in session.programs[name]:
             session.run(command)
         returned = dict(session._returned)
     finally:
-        session._returned = None
+        session._returned = outer_returned
         session._program_depth -= 1
         session._macros.locals = outer
         session._flow = None

@@ -838,7 +838,13 @@ def teffects_after(
         return
     info = getattr(session.last, "model_info", None) or {}
     matched = info.get("matched_data")
-    if matched is None or len(matched) != len(data):
+    if matched is None:
+        raise StataExprError(
+            "generate(): the observation numbers of the matches are written "
+            "back after `teffects psmatch` only; drop generate() to get the "
+            "estimate"
+        )
+    if len(matched) != len(data):
         raise StataExprError(
             "generate(): the fit dropped rows, so the matches cannot be "
             "written back as observation numbers"
@@ -888,6 +894,16 @@ def psmatch2_after(session: "StataSession", data: pd.DataFrame) -> None:
             continue
         column = pd.Series(np.nan, index=full.index)
         column.loc[matched.index] = matched[name].to_numpy(dtype=float, na_value=np.nan)
+        if name in session._steps.data.columns:
+            session._steps._own()
+            session._steps.data = session._steps.data.drop(columns=[name])
+        session._steps.add_column(name, column.to_numpy(), double=True)
+    # the matched outcome: psmatch2 names it after the outcome, `_<outcome>`
+    outcome = getattr(session.last, "outcome", None)
+    if isinstance(outcome, str) and "_y" in matched.columns:
+        name = f"_{outcome}"
+        column = pd.Series(np.nan, index=full.index)
+        column.loc[matched.index] = matched["_y"].to_numpy(dtype=float, na_value=np.nan)
         if name in session._steps.data.columns:
             session._steps._own()
             session._steps.data = session._steps.data.drop(columns=[name])

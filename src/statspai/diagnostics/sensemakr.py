@@ -35,7 +35,7 @@ def sensemakr(
     y: str,
     treat: str,
     controls: List[str],
-    benchmark: Optional[List[str]] = None,
+    benchmark: Optional[Union[List[str], Dict[str, List[str]]]] = None,
     alpha: float = 0.05,
     kd: Union[float, Sequence[float]] = 1.0,
     ky: Optional[Union[float, Sequence[float]]] = None,
@@ -58,7 +58,12 @@ def sensemakr(
         Subset of controls to use as benchmarks — "if the unobserved
         confounder were as strong as [benchmark], would the result
         survive?" Default: every control. A categorical control is
-        benchmarked as a group (all its indicators together).
+        benchmarked as a group (all its indicators together). A dict
+        ``{label: [controls]}`` benchmarks several controls jointly under
+        one label, e.g. the indicator columns of a factor that was
+        expanded by hand (Stata ``sensemakr, gbenchmark() gname()``, R
+        ``benchmark_covariates = list(label = c(...))``). A name that is
+        not a control is an error.
     alpha : float, default 0.05
     kd, ky : float or sequence of float, default 1 and ``kd``
         How many times as strong as the benchmark the confounder is
@@ -158,17 +163,32 @@ def sensemakr(
             "sensemakr: kd and ky must have the same length.",
             recovery_hint="Pass one ky per kd, or leave ky unset to use ky = kd.",
         )
-    benchmark_vars = benchmark or controls
+    if isinstance(benchmark, dict):
+        groups = {str(label): list(members) for label, members in benchmark.items()}
+    else:
+        groups = {var: [var] for var in (benchmark or controls)}
+    unknown = sorted(
+        {m for members in groups.values() for m in members} - set(controls)
+    )
+    if unknown or any(not members for members in groups.values()):
+        raise MethodIncompatibility(
+            (
+                f"sensemakr: benchmark names {unknown} that are not in controls."
+                if unknown
+                else "sensemakr: a benchmark group is empty."
+            ),
+            recovery_hint="A benchmark is one of the controls of the "
+            "regression; add it to controls= or correct the name.",
+            diagnostics={"unknown": unknown, "controls": list(controls)},
+        )
     # sensemakr uses the regression's own degrees of freedom here
     t_crit = float(stats.t.ppf(1 - alpha / 2.0, df=df_resid))
     bench_rows = []
-    for var in benchmark_vars:
-        if var not in controls:
-            continue
+    for var, members in groups.items():
         # Raw partial R² of this observed covariate with Y and D. The
         # treatment-side regression must not include D itself on the RHS.
-        r2_yv = _partial_r2_of(Y, var, blocks, treat=D)
-        r2_dv = _partial_r2_of(D, var, blocks, treat=None)
+        r2_yv = _partial_r2_of(Y, members, blocks, treat=D)
+        r2_dv = _partial_r2_of(D, members, blocks, treat=None)
         for kd_j, ky_j in zip(kd_list, ky_list):
             r2dz_x, r2yz_dx = _sensemakr_bound_scale(r2_dv, r2_yv, kd=kd_j, ky=ky_j)
             if r2yz_dx >= 1.0:
@@ -254,11 +274,13 @@ def _control_columns(col: pd.Series) -> np.ndarray:
 
 def _partial_r2_of(
     Y: np.ndarray,
-    var: str,
+    var: Union[str, Sequence[str]],
     blocks: Dict[str, np.ndarray],
     treat: Optional[np.ndarray],
 ) -> float:
-    """Partial R² of control ``var`` (all its columns) with Y given the rest."""
+    """Partial R² of the control(s) ``var`` (all their columns, jointly)
+    with Y given the rest."""
+    left_out = {var} if isinstance(var, str) else set(var)
     n = len(Y)
     base = [np.ones((n, 1))]
     if treat is not None:
@@ -269,7 +291,9 @@ def _partial_r2_of(
     rss_full = np.sum((Y - Z_full @ np.linalg.lstsq(Z_full, Y, rcond=None)[0]) ** 2)
 
     # Restricted (without var)
-    Z_restr = np.column_stack(base + [b for c, b in blocks.items() if c != var])
+    Z_restr = np.column_stack(
+        base + [b for c, b in blocks.items() if c not in left_out]
+    )
     rss_restr = np.sum((Y - Z_restr @ np.linalg.lstsq(Z_restr, Y, rcond=None)[0]) ** 2)
 
     return float(max(1 - rss_full / rss_restr, 0)) if rss_restr > 0 else 0.0

@@ -364,6 +364,17 @@ _DISPLAY_BY_COMMAND = {
     # noconstant: the constant is absorbed with the fixed effects, so the
     # option only removes the _cons row Stata prints
     "reghdfe": {"noabsorb", "noconstant"},
+    # the plots and their axes; r2yz() only sets the scenarios of extremeplot
+    "sensemakr": {
+        "contourplot",
+        "extremeplot",
+        "tplot",
+        "clim",
+        "clines",
+        "r2yz",
+        "latex",
+        "suppress",
+    },
 }
 
 

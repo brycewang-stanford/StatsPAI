@@ -47,11 +47,47 @@ _TOKEN = re.compile(
 
 Value = Any  # float | str | numpy array (float64 or object)
 
+_COEF_REF = re.compile(r"\b(_b|_se)\[\s*([^\]\"]*#[^\]\"]*?)\s*\]")
+_POWER_TERM = re.compile(r"I\((\w+) ?\*\* ?(\d+)\)\Z")
+_LEVEL_SPELLINGS = (
+    re.compile(r"C\((\w+)(?:, Treatment\([^)]*\))?\)\[T\.(-?\d+)(?:\.0)?\]\Z"),
+    re.compile(r"(\w+)::(-?\d+)(?:\.0)?\Z"),
+    re.compile(r"(\w+)\[(-?\d+)(?:\.0)?\]\Z"),
+)
+
+
+def coefficient_key(name: str) -> str:
+    """A coefficient name in one spelling, whoever wrote it.
+
+    Stata writes ``1.d#3.t`` and ``1.d#c.x``; the estimators name the same
+    columns ``C(d)[T.1]:C(t)[T.3]``, ``d::1.0:t::3.0`` or ``d[1.0]``. All of
+    them map to the level-dot-name parts, sorted (the order of the factors
+    in a product carries no meaning).
+    """
+    parts = []
+    for part in re.split(r"#|(?<!:):(?!:)", name.strip()):
+        part = part.strip()
+        if part.startswith("c."):
+            part = part[2:]
+        power = _POWER_TERM.match(part)
+        if power:
+            # c.x#c.x is fitted as I(x ** 2)
+            parts.extend([power.group(1)] * int(power.group(2)))
+            continue
+        for pattern in _LEVEL_SPELLINGS:
+            m = pattern.match(part)
+            if m:
+                part = f"{m.group(2)}.{m.group(1)}"
+                break
+        parts.append(part)
+    return "#".join(sorted(parts))
+
 
 def _tokenise(text: str) -> List[Tuple[str, str]]:
     out: List[Tuple[str, str]] = []
     pos = 0
-    text = text.rstrip()
+    # _b[1.d#3.t] holds factor-variable notation, which is not an expression
+    text = _COEF_REF.sub(r'\1["\2"]', text.rstrip())
     while pos < len(text):
         m = _TOKEN.match(text, pos)
         if m is None or m.end() == pos:
@@ -358,6 +394,62 @@ def _f_mdy(*args: Value) -> Any:
     return np.where(ok, (day - _EPOCH).astype(float), np.nan)
 
 
+_MONTH_NAMES = {
+    name: i + 1
+    for i, name in enumerate(
+        ["jan", "feb", "mar", "apr", "may", "jun"]
+        + ["jul", "aug", "sep", "oct", "nov", "dec"]
+    )
+}
+
+
+def _parse_date_text(text: Any, order: str) -> float:
+    """One string -> days since 01jan1960 under a three-letter mask."""
+    if not isinstance(text, str):
+        return np.nan
+    text = text.strip()
+    # digits and letters are fields of their own: 31jul2015, July 31, 2015
+    parts = re.findall(r"\d+|[A-Za-z]+", text)
+    if len(parts) == 1 and parts[0].isdigit() and len(parts[0]) == 8:
+        # run-together digits: the year is the four-digit field
+        digits, parts, pos = parts[0], [], 0
+        for field in order:
+            width = 4 if field == "Y" else 2
+            parts.append(digits[pos : pos + width])
+            pos += width
+    if len(parts) != 3:
+        return np.nan
+    field = dict(zip(order, parts))
+    month = field["M"]
+    if month.isdigit():
+        m_num = int(month)
+    else:
+        m_num = _MONTH_NAMES.get(month[:3].lower(), 0)
+    # a two-digit year needs a century in the mask, which is not read here
+    if not (field["Y"].isdigit() and len(field["Y"]) == 4 and field["D"].isdigit()):
+        return np.nan
+    out = _f_mdy(float(m_num), float(field["D"]), float(field["Y"]))
+    return float(np.asarray(out))
+
+
+def _f_date(*args: Value) -> Any:
+    """``date(s, mask)`` for the masks that are a permutation of D, M, Y."""
+    if len(args) != 2 or not isinstance(args[1], str):
+        raise StataExprError("date() takes a string and a literal mask")
+    order = args[1].strip().upper()
+    if sorted(order) != ["D", "M", "Y"]:
+        raise StataExprError(
+            f"date(): the mask {args[1]!r} is not implemented (only the "
+            'orderings of D, M and Y, e.g. "YMD")'
+        )
+    source = args[0]
+    if isinstance(source, str):
+        return _parse_date_text(source, order)
+    if not _is_str(source):
+        raise StataExprError("date() needs a string, got a number")
+    return np.array([_parse_date_text(v, order) for v in source], dtype=float)
+
+
 def _f_periodic(per_year: int) -> Callable[..., Any]:
     """``ym(y, m)`` / ``yq(y, q)``."""
 
@@ -503,6 +595,8 @@ _FUNCTIONS: Dict[str, Callable[..., Any]] = {
     "dofq": _periods_to_days(4),
     "dofy": _periods_to_days(1),
     "mdy": _f_mdy,
+    "date": _f_date,
+    "daily": _f_date,
     "ym": _f_periodic(12),
     "yq": _f_periodic(4),
 }
@@ -801,6 +895,18 @@ class _Parser:
             from ._stata_tsops import _name, _parse_ops
 
             return _name(m.group(2), _parse_ops(m.group(1)))
+        held = self.stored.get(kind) or {}
+        if text not in held and ("#" in text or re.match(r"\d+\.[A-Za-z_]", text)):
+            key = coefficient_key(text)
+            if key not in held and held:
+                # the base level of a factor that is in the model: Stata
+                # holds a zero for it (coefficient and standard error)
+                def shape(k: str) -> List[str]:
+                    return [re.sub(r"^-?\d+\.", "", p) for p in k.split("#")]
+
+                if any(shape(k) == shape(key) and k != key for k in held):
+                    held[key] = 0.0
+            return key
         return text
 
     def _ts_operator(self, ops: str) -> Value:
@@ -900,7 +1006,15 @@ class _Parser:
 
     def _column(self, name: str) -> Value:
         if name not in self.data.columns:
-            raise StataExprError(f"variable {name!r} is not in the data")
+            # Stata reads an unambiguous abbreviation of a variable name
+            hits = [c for c in self.data.columns if str(c).startswith(name)]
+            if len(hits) > 1:
+                raise StataExprError(
+                    f"{name!r} is an ambiguous abbreviation: it fits {hits[:4]}"
+                )
+            if not hits:
+                raise StataExprError(f"variable {name!r} is not in the data")
+            name = hits[0]
         col = self.data[name]
         if pd.api.types.is_bool_dtype(col) or pd.api.types.is_numeric_dtype(col):
             return col.to_numpy(dtype=float, na_value=np.nan)

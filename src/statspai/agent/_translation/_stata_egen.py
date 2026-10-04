@@ -271,7 +271,7 @@ def run_egen(
     allowed.update({"mode": {"minmode", "maxmode"}, "rank": {"field", "track"}})
     allowed.update({"seq": {"from", "f", "to", "t", "block", "b"}})
     allowed.update({"anycount": {"values", "v"}, "anymatch": {"values", "v"}})
-    allowed.update({"cut": {"at", "icodes"}})
+    allowed.update({"cut": {"at", "icodes", "group", "label"}})
     extra = set(options) - allowed.get(fcn, set())
     if extra:
         raise StataExprError(
@@ -409,17 +409,45 @@ def run_egen(
             elif fcn == "cut":
                 if block.shape[1] != 1:
                     raise StataExprError("egen cut() takes one variable")
-                at = np.array(_values(str(options.get("at") or "")), dtype=float)
-                if len(at) < 2 or np.any(np.diff(at) <= 0):
-                    raise StataExprError(
-                        "egen cut() needs at(#, #, ...) in ascending order; "
-                        "group() is not implemented"
-                    )
                 x = block[:, 0]
+                codes = "icodes" in options or "label" in options
+                if options.get("group"):
+                    # group(#): # groups of about equal frequency. The cuts
+                    # are the minimum, the # - 1 quantiles of `pctile x,
+                    # nq(#)` and the maximum plus one; the result is the
+                    # group number from 0 (group() implies icodes).
+                    if options.get("at"):
+                        raise StataExprError(
+                            "egen cut(): at() and group() cannot be combined"
+                        )
+                    try:
+                        n_groups = int(float(str(options["group"])))
+                    except ValueError:
+                        n_groups = 0
+                    held = np.sort(x[present[:, 0] & mask])
+                    if n_groups < 2 or held.size == 0:
+                        raise StataExprError(
+                            "egen cut(): group(#) needs an integer of 2 or more"
+                        )
+                    inner = [
+                        _percentile(held, 100.0 * i / n_groups)
+                        for i in range(1, n_groups)
+                    ]
+                    at = np.array([held[0]] + inner + [held[-1] + 1.0])
+                    # ties in the quantiles leave empty groups, as in Stata
+                    at = np.maximum.accumulate(at)
+                    codes = True
+                else:
+                    at = np.array(_values(str(options.get("at") or "")), dtype=float)
+                    if len(at) < 2 or np.any(np.diff(at) <= 0):
+                        raise StataExprError(
+                            "egen cut() needs at(#, #, ...) in ascending order "
+                            "or group(#)"
+                        )
                 where = np.searchsorted(at, x, side="right") - 1
                 inside = present[:, 0] & (where >= 0) & (x < at[-1])
                 where = np.clip(where, 0, len(at) - 1)
-                picked = where.astype(float) if "icodes" in options else at[where]
+                picked = where.astype(float) if codes else at[where]
                 value = np.where(inside, picked, np.nan)
             elif fcn == "rowtotal":
                 value = np.where(present, block, 0.0).sum(axis=1)

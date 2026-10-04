@@ -28,6 +28,7 @@ Design principles
 
 from __future__ import annotations
 
+import itertools
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -339,7 +340,30 @@ def _cluster_vars(cmd: StataCommand) -> List[str]:
 
 
 _PATSY_FACTOR = re.compile(r"^C\(([A-Za-z_]\w*)\)$")
+_PATSY_POWER = re.compile(r"^I\(([A-Za-z_]\w*)\*\*(\d+)\)$")
 _PATSY_FACTOR_BASE = re.compile(r"^C\(([A-Za-z_]\w*), Treatment\((\d+(?:\.\d+)?)\)\)$")
+
+
+def _hdfe_product(term: str) -> Optional[str]:
+    """``C(d):C(t, Treatment(3)):x`` in the grammar of ``sp.hdfe_ols``:
+    ``i.d:ib3.t:x``. None when a part is neither a factor nor a name."""
+    out: List[str] = []
+    for part in term.split(":"):
+        m = _PATSY_FACTOR.match(part)
+        mb = _PATSY_FACTOR_BASE.match(part)
+        if m:
+            out.append(f"i.{m.group(1)}")
+        elif mb:
+            out.append(f"ib{mb.group(2)}.{mb.group(1)}")
+        elif re.fullmatch(r"[A-Za-z_]\w*", part):
+            out.append(part)
+        elif _PATSY_POWER.match(part):
+            # sp.hdfe_ols writes the square of x as x:x
+            mp = _PATSY_POWER.match(part)
+            out.extend([mp.group(1)] * int(mp.group(2)))  # type: ignore[union-attr]
+        else:
+            return None
+    return ":".join(out)
 
 
 def _hdfe_terms(terms: List[str], command: str) -> Tuple[Optional[str], List[str]]:
@@ -352,13 +376,28 @@ def _hdfe_terms(terms: List[str], command: str) -> Tuple[Optional[str], List[str
     that cannot run.
     """
     out: List[str] = []
-    for term in terms:
+    # a##b arrives as one string, "C(a) + C(b) + C(a):C(b)"
+    flat = [t for joined in terms for t in joined.split(" + ")]
+    present = {frozenset(t.split(":")) for t in flat}
+    for term in flat:
         m = _PATSY_FACTOR.match(term)
         mb = _PATSY_FACTOR_BASE.match(term)
+        pieces = term.split(":")
+        # sp.hdfe_ols drops the base level of a factor inside a product.
+        # That is Stata's coding only when the product without the factor
+        # is in the model too (`i.g##c.x`); `i.g#c.x` alone has a slope for
+        # every level of g.
+        nested = all(
+            frozenset(pieces[:i] + pieces[i + 1 :]) in present
+            for i, piece in enumerate(pieces)
+            if piece.startswith("C(")
+        )
         if m:
             out.append(f"i.{m.group(1)}")
         elif mb:
             out.append(f"ib{mb.group(2)}.{mb.group(1)}")
+        elif ("C(" in term or "I(" in term) and nested and _hdfe_product(term):
+            out.append(_hdfe_product(term))  # type: ignore[arg-type]
         elif "C(" in term:
             return (
                 f"{command}: the factor-variable term {term!r} (a factor "
@@ -2919,7 +2958,8 @@ def _h_margins(cmd: StataCommand) -> Dict[str, Any]:
         args["method"] = "mem"
     if cmd.options.get("at"):
         at: Dict[str, Any] = {}
-        for part in cmd.options["at"].split():
+        # `at(x = 100)` and `at(x=100)` are the same specification
+        for part in re.sub(r"\s*=\s*", "=", cmd.options["at"]).split():
             name, sep, value = part.partition("=")
             if not (sep and name and value) or "(" in value:
                 return _emit_error(
@@ -3671,20 +3711,30 @@ def _fv_part(tok: str) -> Optional[str]:
     return None
 
 
+def _fv_crossed(tok: str) -> Optional[str]:
+    """A component of ``a#b`` / ``a##b``: a variable written without a
+    prefix there is a factor (``i.a``), not a continuous regressor."""
+    if re.fullmatch(r"[A-Za-z_]\w*", tok):
+        return f"C({tok})"
+    return _fv_part(tok)
+
+
 def _fv_token(tok: str) -> Optional[str]:
     """A varlist token in factor-variable notation -> formula syntax."""
     if "##" in tok:
-        # a##b is a + b + a#b; going through the '#' rule keeps c.x##c.x
-        # as x + I(x**2) (x*x would collapse to x in the formula language).
+        # a##b##c is the full factorial: every main effect, every two-way
+        # product and the three-way one. Each subset goes through the '#'
+        # rule, which keeps c.x##c.x as x + I(x**2) (x*x would collapse to
+        # x in the formula language).
         raw = tok.split("##")
-        mains = [_fv_part(t) for t in raw]
-        inter = _fv_token("#".join(raw))
-        if None in mains or inter is None:
-            return None
         terms: List[str] = []
-        for t in mains + [inter]:  # type: ignore[operator]
-            if t not in terms:
-                terms.append(t)  # type: ignore[arg-type]
+        for size in range(1, len(raw) + 1):
+            for combo in itertools.combinations(raw, size):
+                t = _fv_token("#".join(combo)) if size > 1 else _fv_crossed(combo[0])
+                if t is None:
+                    return None
+                if t not in terms:
+                    terms.append(t)
         return " + ".join(terms)
     if "#" in tok:
         raw = tok.split("#")
@@ -3695,13 +3745,21 @@ def _fv_token(tok: str) -> Optional[str]:
             re.fullmatch(r"(?:i\.)?[A-Za-z_]\w*", t) for t in raw
         ):
             return None
-        parts = [_fv_part(t) for t in raw]
-        if None in parts:
-            return None
-        # c.x#c.x is the square of x (x:x would collapse to x)
-        if len(set(parts)) == 1 and all(r.startswith("c.") for r in raw):
-            return f"I({parts[0]}**{len(parts)})"
-        return ":".join(parts)  # type: ignore[arg-type]
+        parts: List[str] = []
+        powers: Dict[str, int] = {}
+        for r in raw:
+            part = _fv_crossed(r)
+            if part is None:
+                return None
+            if part in powers:
+                # c.x#c.x is the square of x (x:x would collapse to x); a
+                # factor crossed with itself is the factor.
+                if r.startswith("c."):
+                    powers[part] += 1
+                continue
+            powers[part] = 1
+            parts.append(part)
+        return ":".join(p if powers[p] == 1 else f"I({p}**{powers[p]})" for p in parts)
     return _fv_part(tok)
 
 
@@ -3900,8 +3958,8 @@ def _expand_fv_groups(
     out: List[str] = []
     if ops == ["##"]:
         for side in choices:
-            out.extend(side)
-    import itertools
+            # a main effect of `d##c.(x x2)`: d without a prefix is a factor
+            out.extend("i." + t if _NAME.match(t) else t for t in side)
 
     for combo in itertools.product(*choices):
         out.append("#".join(combo))
@@ -3957,6 +4015,63 @@ def _expand_abbreviations(
     return None, out
 
 
+#: Commands whose arguments are variables and nothing else, so that a word
+#: which is not a column can only be an abbreviated variable name.
+_VARLIST_COMMANDS = frozenset(
+    {
+        "regress", "logit", "probit", "poisson", "nbreg", "tobit", "newey",
+        "qreg", "ivregress", "ivreg2", "ivreghdfe", "reghdfe", "areg", "xtreg",
+        "ologit", "oprobit", "mlogit", "summarize", "correlate", "pwcorr",
+        "teffects", "psmatch2",
+    }
+)  # fmt: skip
+
+
+def _takes_varlist(command: str) -> bool:
+    """Whether ``command`` (in any spelling: ``reg``, ``su``) is handled by
+    the handler of one of the ``_VARLIST_COMMANDS``."""
+    handler = STATA_COMMAND_MAP.get(_resolve_command(command))
+    return handler is not None and handler in {
+        STATA_COMMAND_MAP[c] for c in _VARLIST_COMMANDS if c in STATA_COMMAND_MAP
+    }
+
+
+_FV_NAME = re.compile(r"^((?:(?:i|c|ibn|ib\d+|\d+)\.)?)([A-Za-z_]\w*)$")
+
+
+def _unabbreviate(
+    toks: List[str], columns: List[str]
+) -> Tuple[Optional[str], List[str]]:
+    """Spell out abbreviated variable names (``statessq`` for
+    ``statessquireindex``).
+
+    Stata accepts any prefix of a variable name that fits one variable
+    only, and stops with "ambiguous abbreviation" when it fits several.
+    Words that are neither a column nor a prefix of one are left alone for
+    the estimator to report.
+    """
+    known = set(columns)
+    out: List[str] = []
+    for tok in toks:
+        parts = tok.split("#")
+        for i, part in enumerate(parts):
+            m = _FV_NAME.match(part)
+            if m is None or m.group(2) in known:
+                continue
+            hits = [c for c in columns if c.startswith(m.group(2))]
+            if len(hits) > 1:
+                return (
+                    f"{m.group(2)!r} is an ambiguous abbreviation: it fits "
+                    f"{hits[:4]}",
+                    toks,
+                )
+            if hits:
+                parts[i] = m.group(1) + hits[0]
+        # a##b splits into "a", "", "b": joining restores the operators
+        out.append("#".join(parts))
+    return None, out
+
+
 def _normalise_command(
     cmd: StataCommand, columns: Optional[Sequence[str]] = None
 ) -> Tuple[Optional[str], Dict[str, Any]]:
@@ -3984,6 +4099,10 @@ def _normalise_command(
     err, toks = _expand_abbreviations(toks, columns)
     if err is not None:
         return err, info
+    if columns is not None and _takes_varlist(cmd.command):
+        err, toks = _unabbreviate(toks, [str(c) for c in columns])
+        if err is not None:
+            return err, info
     grouped: List[str] = []
     for tok in toks:
         err, pieces = (
@@ -4012,6 +4131,27 @@ def _normalise_command(
             return f"factor-variable term {tok!r} is not translated", info
         factor_used = factor_used or "C(" in new
         out.append(new)
+    # A product of two factors is coded the way Stata codes it only when
+    # the lower-order terms are in the model (a##b, or a b a#b). On its own,
+    # `a#b` is one indicator per cell in Stata but a main effect plus nested
+    # contrasts in the formula language: the same fit under other
+    # coefficients, so `_b[1.a#1.b]` would not be Stata's number.
+    flat = [t for term in out for t in term.split(" + ")]
+    present = {frozenset(t.split(":")) for t in flat}
+    for term in flat:
+        pieces = term.split(":")
+        factors = [i for i, piece in enumerate(pieces) if piece.startswith("C(")]
+        if len(factors) < 2:
+            continue
+        if not all(frozenset(pieces[:i] + pieces[i + 1 :]) in present for i in factors):
+            return (
+                f"the factor-variable term {term!r} crosses factors whose "
+                "main effects are not in the model; Stata then fits one "
+                "indicator per cell, which the formula does not reproduce "
+                "coefficient by coefficient. Write a##b, or build the cell "
+                "variable with `egen cell = group(a b)` and use i.cell",
+                info,
+            )
     cmd.varlist = out
     if factor_used:
         info["semantics"].append(
@@ -4100,6 +4240,7 @@ from . import _stata_did as _did  # noqa: E402
 from . import _stata_panel as _panel  # noqa: E402
 from . import _stata_postest as _postest  # noqa: E402
 from . import _stata_rd as _rd  # noqa: E402
+from . import _stata_sensitivity as _sensitivity  # noqa: E402
 from . import _stata_ts as _ts  # noqa: E402
 
 STATA_COMMAND_MAP.update(_postest.HANDLERS)
@@ -4108,6 +4249,7 @@ STATA_COMMAND_MAP.update(_panel.HANDLERS)
 STATA_COMMAND_MAP.update(_design.HANDLERS)
 STATA_COMMAND_MAP.update(_rd.HANDLERS)
 STATA_COMMAND_MAP.update(_did.HANDLERS)
+STATA_COMMAND_MAP.update(_sensitivity.HANDLERS)
 
 _POSTEST_HANDLERS = frozenset(
     {

@@ -7865,7 +7865,8 @@ def _build_registry() -> None:
                     "list",
                     False,
                     None,
-                    "Covariates to benchmark confounding strength against",
+                    "Covariates to benchmark confounding strength against; a "
+                    "dict {label: [controls]} benchmarks a group jointly",
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec(

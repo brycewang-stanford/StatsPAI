@@ -16,6 +16,7 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
+from ..core.utils import _widen_narrow_integers
 from ..exceptions import MethodIncompatibility, NumericalInstability
 from ..output._lineage import records_provenance
 from .adapter import _multi_fit_to_results, _pyfixest_to_econometric_results
@@ -1182,6 +1183,9 @@ def feols(
     >>> r2 = sp.feols("y ~ x1 | firm", data=df)  # doctest: +SKIP
     >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
+    # numpy integer arithmetic wraps around silently: I(x**2) on an int16
+    # column (what pd.read_stata returns for a Stata int) is garbage.
+    data = _widen_narrow_integers(data)
     # ``i(rel, ref=[-1, -5])``: several reference levels (fixest's
     # ``ref = c(-1, -5)``); pyfixest takes one, so rewrite and map back.
     if isinstance(fml, str) and isinstance(data, pd.DataFrame):
@@ -1426,6 +1430,9 @@ def fepois(
     >>> res = sp.fepois("y ~ x1 | firm", data=df, vce="CR2",  # doctest: +SKIP
     ...                 cluster="firm")
     """
+    # numpy integer arithmetic wraps around silently: I(x**2) on an int16
+    # column (what pd.read_stata returns for a Stata int) is garbage.
+    data = _widen_narrow_integers(data)
     _reject_silent_varying_slopes(fml)
 
     # Conley spatial HAC (conleyreg spherical convention).
@@ -1615,6 +1622,9 @@ def feglm(
     >>> "x1" in res.params.index  # doctest: +SKIP
     True
     """
+    # numpy integer arithmetic wraps around silently: I(x**2) on an int16
+    # column (what pd.read_stata returns for a Stata int) is garbage.
+    data = _widen_narrow_integers(data)
     _reject_silent_varying_slopes(fml)
 
     # Conley spatial HAC (conleyreg spherical convention).

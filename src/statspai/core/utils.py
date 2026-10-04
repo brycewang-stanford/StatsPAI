@@ -2,10 +2,11 @@
 Utility functions for formula parsing and data processing
 """
 
-from typing import Tuple, List, Optional, Dict, Any
-import pandas as pd
-import numpy as np
 import re
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
 from patsy import dmatrices
 
 _BARE_NAME_RE = re.compile(r"^[A-Za-z_]\w*$")
@@ -229,6 +230,37 @@ def _coerce_string_extension_dtypes(data: pd.DataFrame) -> pd.DataFrame:
             offenders[col] = data[col].astype(object)
     if offenders:
         data = data.assign(**offenders)
+    return _widen_narrow_integers(data)
+
+
+def _widen_narrow_integers(data: pd.DataFrame) -> pd.DataFrame:
+    """Cast ``int8`` / ``int16`` / ``int32`` (and unsigned) columns to ``int64``.
+
+    ``pd.read_stata`` and ``pd.read_parquet`` keep the storage type of the
+    file, so a Stata ``int`` arrives as ``int16``. numpy arithmetic stays in
+    that type and wraps around without a warning: ``I(x**2)`` on an ``int16``
+    column with values above 181 is a column of garbage, and the regression
+    built on it has no error to show for it. Stata and R do arithmetic in
+    double precision, so the same formula there is right. ``int64`` keeps the
+    names of ``C(x)`` levels unchanged (a cast to float would rename ``T.2``
+    to ``T.2.0``). A column that only holds -1, 0 and 1 cannot overflow in
+    a product or a power and is left as it is, so the indicator columns of a
+    large frame are not copied; the frame itself is copied only when a
+    column is widened.
+    """
+    if not isinstance(data, pd.DataFrame) or not data.columns.is_unique:
+        return data
+    narrow = {}
+    for col, dtype in data.dtypes.items():
+        if not (
+            isinstance(dtype, np.dtype) and dtype.kind in "iu" and dtype.itemsize < 8
+        ):
+            continue
+        values = data[col].to_numpy()
+        if values.size and (values.max() > 1 or values.min() < -1):
+            narrow[col] = values.astype(np.int64)
+    if narrow:
+        data = data.assign(**narrow)
     return data
 
 

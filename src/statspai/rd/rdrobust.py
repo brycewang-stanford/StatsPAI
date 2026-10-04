@@ -2204,6 +2204,23 @@ def _parse_data(
             },
         )
 
+    # a string or categorical column cannot enter the local regression; say
+    # which one it is (Stata's rdrobust stops with r(2000) on the same input)
+    for role, col in [("outcome", y), ("running variable", x), ("fuzzy", fuzzy)] + [
+        ("covariate", name) for name in (covs or []) if name in data.columns
+    ]:
+        if col and not (
+            pd.api.types.is_numeric_dtype(data[col])
+            or pd.api.types.is_bool_dtype(data[col])
+        ):
+            raise MethodIncompatibility(
+                f"rdrobust: the {role} {col!r} is not numeric "
+                f"(dtype {data[col].dtype}).",
+                recovery_hint="Encode it as numbers first; a categorical "
+                "covariate enters as indicator columns, e.g. "
+                "pd.get_dummies(df[col], drop_first=True, dtype=float).",
+                diagnostics={"column": col, "dtype": str(data[col].dtype)},
+            )
     Y = data[y].values.astype(float)
     X_c = data[x].values.astype(float) - c
     D = data[fuzzy].values.astype(float) if fuzzy else None

@@ -106,6 +106,9 @@ def is_data_step(command: str) -> bool:
             "reshape",
             "ipolate",
             "egen",
+            "xi",
+            "ebalance",
+            "cem",
         )
         or command in ("ren", "rena", "renam", "rename")
     )
@@ -216,6 +219,15 @@ class DataSteps:
             from ._stata_egen import run_egen
 
             run_egen(self, line)
+            return True
+        if cmd.command in ("xi", "ebalance", "cem"):
+            from ._stata_balance import run_balance
+
+            if cmd.if_cond or cmd.in_range:
+                raise StataExprError(
+                    f"`{cmd.command}` with an if / in qualifier is not implemented"
+                )
+            run_balance(self, cmd.command, list(cmd.varlist), dict(cmd.options))
             return True
         if cmd.command == "mvdecode":
             self._mvdecode(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
@@ -414,7 +426,12 @@ class DataSteps:
 
     def _encode(self, varlist: List[str], options: dict, qualifier: Any) -> None:
         """``encode strvar, generate(newvar)``: codes 1..K in sorted order."""
-        new = options.pop("generate", None) or options.pop("gen", None)
+        # encode accepts generate() down to a single letter
+        new = (
+            options.pop("generate", None)
+            or options.pop("gen", None)
+            or options.pop("g", None)
+        )
         if qualifier or options or new is None or len(varlist) != 1:
             raise StataExprError(
                 "only `encode strvar, generate(newvar)` is implemented"
@@ -811,7 +828,8 @@ class DataSteps:
             raise StataExprError("collapse with weights is not implemented")
         stat = "mean"
         targets: List[tuple] = []
-        for tok in varlist:
+        # `s = x` and `s=x` name the result the same way
+        for tok in re.sub(r"\s*=\s*", "=", " ".join(varlist)).split():
             m = re.fullmatch(r"\((\w+)\)", tok)
             if m:
                 stat = m.group(1).lower()
@@ -871,9 +889,32 @@ class DataSteps:
                     for new, source, how in targets
                 }
             )
+        # Stata stores a mean, median or sd as a float unless its source is
+        # a long or a double (checked against `collapse` in Stata 18), so
+        # the collapsed value carries single precision into what follows.
+        single = set()
+        for new, source, how in targets:
+            dtype = self.data[source].dtype
+            narrow = source in self._float or (
+                isinstance(dtype, np.dtype)
+                and (dtype.kind == "b" or (dtype.kind in "iuf" and dtype.itemsize < 4))
+                or dtype == np.float32
+            )
+            if how in ("mean", "median", "std") and narrow:
+                with np.errstate(over="ignore"):
+                    out[new] = (
+                        out[new]
+                        .to_numpy(dtype=float, na_value=np.nan)
+                        .astype(np.float32)
+                        .astype(np.float64)
+                    )
+                single.add(new)
+            elif how in ("min", "max", "first", "last", "_row_first", "_row_last"):
+                if source in self._float:
+                    single.add(new)
         self._own()
         self.data = out
-        self._float = set()
+        self._float = single
 
     def _ipolate(self, varlist: List[str], options: dict, qualifier: Any) -> None:
         """``ipolate y x, generate(new) [epolate]``: linear interpolation of

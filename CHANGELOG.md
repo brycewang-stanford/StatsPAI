@@ -61,6 +61,46 @@ All notable changes to StatsPAI will be documented in this file.
   and a constant effect of 0.75 the 95% interval covers 96.0% (rank sum)
   and 96.7% (KS) of the time over 150 draws. The same holds for
   `statistic='t'`. p-values are unchanged. See `MIGRATION.md`.
+- **Arithmetic inside a formula wrapped around on small integer
+  columns.** `pd.read_stata` returns a Stata `int` as `int16` and a `byte`
+  as `int8`, and numpy keeps arithmetic in that type, so `I(x**2)` was a
+  column of garbage for values above 181 (or 11) and the regression was
+  fitted on it without a warning. On the restaurant-inspection data of
+  Huntington-Klein's *The Effect* (a count up to 646) the coefficient of
+  the quadratic model was -0.0171 where Stata and R give -0.0844. It
+  affected `sp.regress`, `sp.feols`, `sp.fepois`, `sp.feglm`, `sp.glm`,
+  `sp.logit`, `sp.ivreg`, `sp.panel`, the covariate formulas of the DiD
+  family and the spatial models. Narrow integer columns are now widened to
+  `int64` before a formula is evaluated
+  (`tests/test_narrow_integer_formula.py`). Frames whose integers are
+  already `int64` or float are unaffected. See `MIGRATION.md`.
+- **`sp.ebalance(moments=2)` with a 0/1 covariate returned uniform
+  weights.** The square of an indicator is the indicator, the dual was
+  singular, and the estimate reported was the raw difference in means
+  behind a `ConvergenceWarning`. A moment that repeats another one is now
+  left out (`model_info['redundant_moments']`) and the weights balance the
+  rest exactly.
+- **`sp.match(method='cem')` follows the `cem` packages.** Sturges' rule
+  gives the number of cut points, hence one bin fewer than before, and a
+  bin is closed on the right. The default now reproduces Stata `cem` on
+  the NSW data (matched sample and estimate). Estimates from the default
+  change, and so do estimates with integer covariates under an explicit
+  `n_bins`. See `MIGRATION.md`.
+- **`sp.sensemakr` skipped a benchmark name it did not find** and returned
+  a table without that row. It is now an error.
+- **`sp.stata` / `sp.from_stata`, four silent mistranslations of factor
+  notation.** `a##b##c` was written as the main effects and the three-way
+  product, without the two-way terms. A variable with no prefix inside `#`
+  or `##` was read as continuous where Stata reads a factor. `a#b` without
+  main effects was written as the product of two columns; it is now
+  refused, because the formula's coefficients would not be Stata's.
+  `i.p##c.x##c.x` lost the square. All four now follow Stata and are
+  pinned against Stata 18
+  (`tests/reference_parity/test_the_effect_stata_parity.py`).
+- **`sp.stata`: `collapse` stores a mean, median or sd as Stata does**
+  (float unless the source is a long or a double). Regressions on
+  collapsed data differed from Stata in the sixth digit.
+
 - **`sp.survreg` ignored `robust=` and `cluster=`.** Both were accepted
   and written into `model_info`, and the standard errors were the
   observed-information ones whatever was asked. They are now the sandwich
@@ -88,6 +128,30 @@ All notable changes to StatsPAI will be documented in this file.
   2015). See `MIGRATION.md`.
 
 ### Added
+
+From a pass over Huntington-Klein, *The Effect* (2nd ed.): its Stata code
+for chapters 4 and 13 to 21 was run in Stata 18 and replayed through
+`sp.stata` (836 printed numbers reproduced, 148 before). Notes are in
+`docs/dev/2026-10-05-the-effect-2e-review.md`.
+
+- `sp.ebalance(moments=[2, 2, 1])` takes one order per covariate (Stata
+  `targets(2 2 1)`), and `dof_adjust=True` matches the sample variance
+  and skewness as Stata `ebalance` does. With it the weights agree with
+  `ebalance, tolerance(1e-10)` to 1e-10. The default is unchanged.
+- `sp.match(method='cem', n_bins=...)` takes a list or a dict, from
+  covariate to a number of bins or to cut edges.
+- `sp.sensemakr(benchmark={'label': [columns]})` benchmarks several
+  controls as one group (`gbenchmark()` / `gname()` in Stata). Agrees with
+  Stata `sensemakr` to 1e-12.
+- `sp.rdrobust` names a covariate, outcome or running variable that is not
+  numeric instead of failing inside numpy.
+- `sp.stata` runs `xi`, `ebalance`, `cem` and `sensemakr`; `encode, g()`;
+  `date()`; `egen cut(), group()`; `reghdfe` with `d##ib3.t` and squares;
+  `_b[1.d#3.t]`; abbreviated variable names; weights that are missing or
+  zero (the observation is dropped, as in Stata); `[iw = w]` in `regress`
+  when the weights sum to the number of observations; `i.` covariates in
+  `psmatch2` and `teffects`; `program def`, `return scalar` of a local
+  macro and nested programs.
 
 Seven functions from a pass over Croissant (2025), *Microeconometrics with
 R*, and its companion package `micsr`. The book's chapters on binary,

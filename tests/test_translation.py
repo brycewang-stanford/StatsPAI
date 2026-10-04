@@ -554,6 +554,19 @@ class TestRpcSurface:
 # ----------------------------------------------------------------------
 
 TIER2_ROUND_TRIPS = [
+    # sensemakr -> sp.sensemakr: the treatment is listed among the
+    # regressors, the group benchmark becomes a labelled dict
+    (
+        "sensemakr y d x1 x2 x3, treat(d) gbenchmark(x2 x3) gname(pair) kd(1 2)",
+        "sensemakr",
+        {
+            "y": "y",
+            "treat": "d",
+            "controls": ["x1", "x2", "x3"],
+            "benchmark": {"pair": ["x2", "x3"]},
+            "kd": [1.0, 2.0],
+        },
+    ),
     # correlate / pwcorr -> sp.pwcorr; ttest -> sp.ttest
     (
         "correlate y x z",

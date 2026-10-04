@@ -653,7 +653,8 @@ def test_a_lone_hyphen_is_never_a_regressor():
     [
         ("reg y c.(x x2)", "y ~ x + x2"),
         ("reg y i.(g post)", "y ~ C(g) + C(post)"),
-        ("reg y d##c.(x x2)", "y ~ d + x + x2 + d:x + d:x2"),
+        # d has no prefix inside ##, so Stata reads it as the factor i.d
+        ("reg y d##c.(x x2)", "y ~ C(d) + x + x2 + C(d):x + C(d):x2"),
         ("reg y i.g#c.(x x2)", "y ~ C(g):x + C(g):x2"),
         ("reg y c.(x - x3)#i.g", "y ~ x:C(g) + x2:C(g) + x3:C(g)"),
         ("reg y 1.d", "y ~ I(1 * (d == 1))"),

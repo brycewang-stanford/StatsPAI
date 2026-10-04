@@ -25,7 +25,12 @@ def build_design_matrix(
     Column names come from the formulaic model matrix header and may include
     "Intercept" (when the intercept is present).
     """
-    y_mat, X_mat = formulaic.Formula(formula).get_model_matrix(data)
+    from ...core.utils import _widen_narrow_integers
+
+    # int16 / int8 columns wrap around inside I(x**2)
+    y_mat, X_mat = formulaic.Formula(formula).get_model_matrix(
+        _widen_narrow_integers(data)
+    )
     y = np.asarray(y_mat).ravel().astype(float)
     X = np.asarray(X_mat, dtype=float)
     names = list(X_mat.columns)

@@ -54,6 +54,86 @@ statistic are unchanged. A design with too few assignments to reject at
 `alpha` now returns `(-inf, inf)` with a warning where it used to return
 the edges of the grid.
 
+<a id="oct2026-the-effect-textbook-fixes"></a>
+
+## 1.38.0 → next: ⚠️ formulas on `int8` / `int16` / `int32` columns
+
+**What changed.** Integer columns narrower than 64 bits are widened to
+`int64` before a formula is evaluated. Before, `I(x**2)`, `I(x*z)` and any
+other arithmetic written inside a formula was computed in the column's own
+type and wrapped around without a warning: above 181 for `int16`, above 11
+for `int8`, above 46,340 for `int32`.
+
+**Who is affected.** Fits whose formula does arithmetic on a column that
+came from `pd.read_stata`, a parquet file or an explicit `astype('int16')`
+and holds values large enough to overflow. The functions are `sp.regress`,
+`sp.feols`, `sp.fepois`, `sp.feglm`, `sp.glm`, `sp.logit`, `sp.probit`,
+`sp.poisson`, `sp.ivreg`, `sp.panel`, the covariate formulas of the DiD
+family and the spatial models. The old numbers were
+wrong; there is nothing to reproduce them with.
+
+**What to do.** Rerun. No argument changes.
+
+**Unaffected.** Frames whose integers are `int64` (the pandas default for
+data built in Python or read from CSV) or float; formulas without
+arithmetic; factor terms, whose level names are unchanged (`C(g)[T.2]`).
+
+## 1.38.0 → next: ⚠️ `sp.match(method='cem')` coarsening
+
+**What changed.** Two conventions now follow the `cem` packages for R and
+Stata. The default number of bins is one fewer: Sturges' rule,
+`ceil(log2(n) + 1)`, counts cut points from the minimum to the maximum.
+And a bin is closed on the right, `(a, b]`, where it used to be closed on
+the left.
+
+**Who is affected.** Calls without `n_bins=` (other strata, other matched
+sample, other estimate). Calls with `n_bins=` whose covariates take values
+that fall exactly on a bin edge, which in practice means integer-valued
+covariates.
+
+**What to do.** Rerun. To get the old number of bins back pass
+`n_bins=int(np.ceil(np.log2(n) + 1))`; the old closure is not available.
+
+**New.** `n_bins` also takes a list (one count per covariate) or a dict
+from covariate to a count or to cut edges.
+
+## 1.38.0 → next: ⚠️ `sp.ebalance` with redundant moments; `sp.sensemakr` benchmarks
+
+**What changed.** `sp.ebalance(moments=2)` (or 3) on a covariate whose
+higher moment repeats a lower one, such as a 0/1 indicator, used to fail
+to converge and return uniform control weights with a warning. The
+redundant moment is now left out and the remaining ones are balanced
+exactly. `sp.sensemakr(benchmark=[...])` raises on a name that is not among
+`controls`; it used to drop the row.
+
+**Who is affected.** `sp.ebalance` calls with `moments >= 2` and a binary
+covariate: the estimate changes from the unweighted difference in means to
+the entropy-balanced one. `sp.sensemakr` calls with a misspelt benchmark.
+
+**What to do.** Rerun `sp.ebalance`. Correct the benchmark name.
+
+## 1.38.0 → next: ⚠️ Stata translations of factor-variable notation
+
+**What changed.** In `sp.stata` and `sp.from_stata`:
+
+- `a##b##c` is the full factorial (it lacked the two-way terms);
+- a variable without a prefix inside `#` or `##` is a factor, as in Stata
+  (`reg y d##c.x` now gives `C(d) + x + C(d):x`);
+- `a#b` without the main effects is refused (it was the product of the two
+  columns);
+- `collapse` stores means, medians and sds in single precision when Stata
+  does.
+
+**Who is affected.** Translations of commands with three-way `##`, with an
+unprefixed variable of more than two levels in an interaction, or with
+`a#b` alone. Coefficient names change from `d` to `C(d)[T.1]` for an
+unprefixed 0/1 variable inside an interaction; the fit is the same.
+
+**What to do.** Rerun. For `a#b` write `a##b`, or build the cell variable
+with `egen cell = group(a b)` and use `i.cell`.
+
+---
+
 <a id="oct2026-causalml-textbook-fixes"></a>
 
 ## 1.38.0 → next: ⚠️ `sp.dml` PLR / PLIV with a classifier nuisance

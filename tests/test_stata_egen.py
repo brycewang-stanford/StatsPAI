@@ -200,7 +200,7 @@ def test_std(df):
     [
         ("egen s = fill(1 2)", "not implemented"),
         ("egen r = rank(x), unique", "not implemented"),
-        ("egen q = cut(x), group(4)", "not implemented"),
+        ("egen q = cut(x), group(4) at(0 1)", "cannot be combined"),
         ("egen m = mean(x), by(nope)", "not in the data"),
         ("egen g = mean(x)", "already exists"),
         ("egen id = group(g), by(h)", "may not be combined with by"),
@@ -282,3 +282,23 @@ def test_moments_and_modes():
     same(column(two, "egen s = mode(x)"), [NAN] * 5)  # two modes: missing
     same(column(two, "egen s = mode(x), minmode"), [1.0] * 5)
     same(column(two, "egen s = mode(x), maxmode"), [4.0] * 5)
+
+
+def test_cut_group_is_stata_quantile_groups():
+    """``egen cut(x), group(#)``: the cuts are the minimum, the quantiles of
+    ``pctile x, nq(#)`` and the maximum plus one; the result is the group
+    number from 0. The counts are those of Stata 18 on the same columns.
+    With ties the first tercile of ``k`` is its minimum, so group 0 is
+    empty and the numbering starts at 1, as in Stata."""
+    k = np.r_[np.zeros(190), np.ones(120), np.full(80, 2.0), np.full(37, 3.0)]
+    session = StataSession(pd.DataFrame({"k": k, "x": np.arange(427.0)}))
+    session.run("egen kg = cut(k), group(3)")
+    session.run("egen xg = cut(x), group(4) label")
+    held = session.data
+    assert held["kg"].value_counts().sort_index().to_dict() == {1.0: 190, 2.0: 237}
+    assert held["xg"].value_counts().sort_index().to_dict() == {
+        0.0: 106,
+        1.0: 107,
+        2.0: 107,
+        3.0: 107,
+    }

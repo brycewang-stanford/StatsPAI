@@ -1017,8 +1017,16 @@ def covariates_from_formula(
             diagnostics={"formula": formula},
         ) from exc
 
+    from ..core.utils import _coerce_string_extension_dtypes
+
     try:
-        design = patsy.dmatrix(rhs, data, return_type="dataframe", NA_action="drop")
+        design = patsy.dmatrix(
+            rhs,
+            # int16 / int8 columns wrap around inside I(x**2)
+            _coerce_string_extension_dtypes(data),
+            return_type="dataframe",
+            NA_action="drop",
+        )
     except Exception as exc:
         raise MethodIncompatibility(
             f"{function}: could not evaluate the covariate formula "

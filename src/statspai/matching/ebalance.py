@@ -16,7 +16,8 @@ Method to Produce Balanced Samples in Observational Studies."
 *Political Analysis*, 20(1), 25-46. [@hainmueller2012entropy]
 """
 
-from typing import List, Tuple
+import warnings
+from typing import List, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -32,9 +33,10 @@ def ebalance(
     y: str,
     treat: str,
     covariates: List[str],
-    moments: int = 1,
+    moments: Union[int, Sequence[int]] = 1,
     alpha: float = 0.05,
     vce: str = "mestimation",
+    dof_adjust: bool = False,
 ) -> CausalResult:
     """
     Entropy Balancing treatment effect estimator.
@@ -51,11 +53,18 @@ def ebalance(
         Binary treatment indicator (0/1).
     covariates : list of str
         Covariates to balance on.
-    moments : int, default 1
+    moments : int or sequence of int, default 1
         Number of moments to balance:
         - 1: means only
         - 2: means and variances
         - 3: means, variances, and skewness
+
+        A sequence gives the order covariate by covariate, in the order of
+        ``covariates`` (Stata ``ebalance ..., targets(2 2 1)``). A moment
+        that repeats another one in the sample is balanced by it and is
+        left out of the problem: the square of a 0/1 indicator is the
+        indicator, so asking for its variance adds nothing. Such moments
+        are listed in ``model_info['redundant_moments']``.
     alpha : float, default 0.05
     vce : {'mestimation', 'naive'}, default 'mestimation'
         Standard error of the ATT.
@@ -75,6 +84,18 @@ def ebalance(
           overstates the standard error whenever the covariates predict the
           outcome (by about 2x on the Track B design: coverage 1.000, size
           0.000). Retained only to reproduce earlier numbers.
+
+    dof_adjust : bool, default False
+        How a second or third moment is matched. By default the raw
+        moments of the controls are set to those of the treated, which is
+        what R ``ebal`` and ``WeightIt`` do when handed ``x**2``. Stata's
+        ``ebalance`` instead matches the *sample* variance: it scales the
+        centred moment ``(x - mean_treated)**p`` by ``(n / (n - 1))**(p/2)``
+        within each group, so the reweighted controls reproduce the treated
+        variance with its ``n - 1`` divisor. ``dof_adjust=True`` follows
+        Stata; with ``moments=1`` the two agree. The factor differs from
+        one by ``O(1/n)`` and does not enter the first-order variance, so
+        the standard error is computed the same way.
 
     Returns
     -------
@@ -152,7 +173,13 @@ def ebalance(
     Y_c = Y[c_mask]
 
     # Build moment constraint targets (from treated group)
-    targets, C_matrix = _build_constraints(X_t, X_c, covariates, moments)
+    spec = _moment_spec(covariates, moments)
+    spec, redundant = _drop_redundant(X, spec)
+    C_all = _constraint_functions(X, spec)
+    if dof_adjust:
+        C_all = _sample_moment_functions(X, spec, t_mask)
+    targets = C_all[t_mask].mean(axis=0)
+    C_matrix = C_all[c_mask]
 
     # Solve for entropy-balanced weights
     weights, weights_fallback = _solve_ebalance(C_matrix, targets, n_c)
@@ -202,9 +229,6 @@ def ebalance(
         )
         vce_l = "naive"
     if vce_l == "mestimation":
-        C_all = np.empty((len(D), C_matrix.shape[1]))
-        C_all[c_mask] = C_matrix
-        C_all[t_mask] = _constraint_functions(X_t, moments)
         se = _mestimation_se(Y, D, C_all, weights)
     else:
         # Weighted two-sample variance with the weights held fixed.
@@ -232,7 +256,9 @@ def ebalance(
 
     model_info = {
         "method": "Entropy Balancing",
-        "moments_balanced": moments,
+        "moments_balanced": moments if isinstance(moments, int) else list(moments),
+        "dof_adjust": bool(dof_adjust),
+        "redundant_moments": [f"{covariates[j]}^{power}" for j, power in redundant],
         "n_treated": int(n_t),
         "n_control": int(n_c),
         "max_weight": float(np.max(weights)),
@@ -260,9 +286,113 @@ def ebalance(
     )
 
 
-def _constraint_functions(X: np.ndarray, moments: int) -> np.ndarray:
-    """Raw-moment constraint functions ``c(X)`` in ``_build_constraints`` order."""
-    cols = [X**power for power in range(1, moments + 1)]
+def ebalance_weights(
+    data: pd.DataFrame,
+    treat: str,
+    covariates: List[str],
+    moments: Union[int, Sequence[int]] = 1,
+    dof_adjust: bool = False,
+) -> np.ndarray:
+    """The entropy-balancing weights alone, one per row of ``data``.
+
+    Treated units carry weight 1 and the control weights sum to the number
+    of treated units (the layout of ``model_info['weights_full']`` of
+    :func:`ebalance`, and of the variable Stata ``ebalance, generate()``
+    creates). ``data`` must be free of missing values in the columns used.
+    Raises ``NumericalInstability`` when no balancing weights exist.
+    """
+    from ..exceptions import NumericalInstability
+
+    D = data[treat].to_numpy(dtype=float)
+    X = data[covariates].to_numpy(dtype=float)
+    t_mask = D == 1
+    c_mask = D == 0
+    spec, _ = _drop_redundant(X, _moment_spec(covariates, moments))
+    C_all = _constraint_functions(X, spec)
+    if dof_adjust:
+        C_all = _sample_moment_functions(X, spec, t_mask)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        weights, fallback = _solve_ebalance(
+            C_all[c_mask], C_all[t_mask].mean(axis=0), int(c_mask.sum())
+        )
+    if fallback:
+        raise NumericalInstability(
+            "ebalance: no weights balance the requested moments; the treated "
+            "moments are probably outside the range the controls can reach.",
+            recovery_hint="Balance fewer moments or covariates, or check for "
+            "a covariate with no overlap between the groups.",
+            diagnostics={"covariates": list(covariates)},
+        )
+    out = np.ones(len(D), dtype=float)
+    out[c_mask] = weights * t_mask.sum() / weights.sum()
+    return out
+
+
+def _moment_spec(
+    covariates: Sequence[str], moments: Union[int, Sequence[int]]
+) -> List[Tuple[int, int]]:
+    """The balanced moments as ``(covariate index, power)``: every mean
+    first, then every second moment, then every third."""
+    from ..exceptions import MethodIncompatibility
+
+    if isinstance(moments, (int, np.integer)):
+        orders = [int(moments)] * len(covariates)
+    else:
+        orders = [int(m) for m in moments]
+        if len(orders) != len(covariates):
+            raise MethodIncompatibility(
+                f"ebalance: moments has {len(orders)} entries for "
+                f"{len(covariates)} covariates.",
+                recovery_hint="Give one order per covariate, or a single "
+                "integer for all of them.",
+                diagnostics={"moments": orders, "covariates": list(covariates)},
+            )
+    if any(m not in (1, 2, 3) for m in orders):
+        raise MethodIncompatibility(
+            f"ebalance: moments must be 1, 2 or 3, got {orders}.",
+            recovery_hint="Use moments=1 (means), 2 (and variances) or 3 "
+            "(and skewness).",
+            diagnostics={"moments": orders},
+        )
+    return [
+        (j, power)
+        for power in (1, 2, 3)
+        for j, order in enumerate(orders)
+        if order >= power
+    ]
+
+
+def _drop_redundant(
+    X: np.ndarray, spec: List[Tuple[int, int]]
+) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
+    """Leave out a moment that is a linear combination of the earlier ones
+    (and the constant) in the whole sample.
+
+    Such a moment is balanced as soon as the others are, so it carries no
+    restriction; kept, it makes the dual Hessian singular and the solver
+    fail. The check runs on treated and controls together: a relation that
+    holds only among the controls is a real restriction and stays.
+    """
+    kept: List[Tuple[int, int]] = []
+    dropped: List[Tuple[int, int]] = []
+    basis = np.ones((X.shape[0], 1))
+    for j, power in spec:
+        col = X[:, j] ** power
+        scale = float(np.linalg.norm(col - col.mean()))
+        resid = col - basis @ np.linalg.lstsq(basis, col, rcond=None)[0]
+        if scale == 0.0 or np.linalg.norm(resid) <= 1e-9 * scale:
+            dropped.append((j, power))
+            continue
+        kept.append((j, power))
+        basis = np.column_stack([basis, col])
+    return kept, dropped
+
+
+def _constraint_functions(X: np.ndarray, spec: List[Tuple[int, int]]) -> np.ndarray:
+    """Raw-moment constraint functions ``c(X)``, one column per entry of
+    ``spec``."""
+    cols = [X[:, j] ** power for j, power in spec]
     return np.asarray(np.column_stack(cols), dtype=float)
 
 
@@ -321,38 +451,23 @@ def _mestimation_se(
     return float(np.sqrt(g @ v @ g))
 
 
-def _build_constraints(
-    X_t: np.ndarray,
-    X_c: np.ndarray,
-    covariates: List[str],
-    moments: int,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Build moment targets and constraint matrix."""
-    k = len(covariates)
-    targets: List[float] = []
-    C_cols: List[np.ndarray] = []
-
-    # First moments (means)
-    for j in range(k):
-        targets.append(np.mean(X_t[:, j]))
-        C_cols.append(X_c[:, j])
-
-    # Second moments (variances) if requested
-    if moments >= 2:
-        for j in range(k):
-            targets.append(np.mean(X_t[:, j] ** 2))
-            C_cols.append(X_c[:, j] ** 2)
-
-    # Third moments (skewness) if requested
-    if moments >= 3:
-        for j in range(k):
-            targets.append(np.mean(X_t[:, j] ** 3))
-            C_cols.append(X_c[:, j] ** 3)
-
-    C_matrix = np.asarray(np.column_stack(C_cols), dtype=float)
-    targets_arr = np.asarray(targets, dtype=float)
-
-    return targets_arr, C_matrix
+def _sample_moment_functions(
+    X: np.ndarray, spec: List[Tuple[int, int]], treated: np.ndarray
+) -> np.ndarray:
+    """Constraint functions in the scaling of Stata ``ebalance``: a moment
+    of order ``p >= 2`` is ``(x - mean_treated)**p * (n_g / (n_g - 1))**(p/2)``
+    with ``n_g`` the size of the unit's own group."""
+    n_t = float(treated.sum())
+    n_c = float((~treated).sum())
+    ratio = np.where(treated, n_t / (n_t - 1.0), n_c / (n_c - 1.0))
+    cols = []
+    for j, power in spec:
+        x = X[:, j]
+        if power == 1:
+            cols.append(x)
+        else:
+            cols.append((x - x[treated].mean()) ** power * ratio ** (power / 2.0))
+    return np.asarray(np.column_stack(cols), dtype=float)
 
 
 def _solve_ebalance(
