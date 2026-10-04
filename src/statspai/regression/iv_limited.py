@@ -680,7 +680,17 @@ def ivprobit(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> u = rng.normal(size=n)
+    >>> df = pd.DataFrame({"age": rng.normal(size=n), "kids": rng.normal(size=n),
+    ...                    "husband_educ": rng.normal(size=n)})
+    >>> df["other_income"] = df["husband_educ"] + 0.5 * u + rng.normal(size=n)
+    >>> latent = 0.5 * df["age"] - 0.5 * df["other_income"] + u
+    >>> df["works"] = (latent > 0).astype(int)
     >>> res = sp.ivprobit(df, y="works", x=["age", "kids"],
     ...                   endog="other_income", instruments=["husband_educ"])
     >>> print(res.summary())  # doctest: +SKIP
@@ -761,7 +771,16 @@ def ivtobit(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> u = rng.normal(size=n)
+    >>> df = pd.DataFrame({"age": rng.normal(size=n), "kids": rng.normal(size=n),
+    ...                    "experience": rng.normal(size=n)})
+    >>> df["wage"] = df["experience"] + 0.5 * u + rng.normal(size=n)
+    >>> df["hours"] = np.maximum(1 + df["wage"] + 0.5 * df["age"] + u, 0)
     >>> res = sp.ivtobit(df, y="hours", x=["age", "kids"],
     ...                  endog="wage", instruments=["experience"], ll=0)
     >>> print(res.summary())  # doctest: +SKIP

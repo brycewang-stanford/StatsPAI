@@ -130,7 +130,18 @@ def ivpoisson(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> u = rng.normal(size=n)
+    >>> df = pd.DataFrame({"income": rng.normal(size=n),
+    ...                    "distance": rng.normal(size=n),
+    ...                    "tolls": rng.normal(size=n)})
+    >>> df["cost"] = df["distance"] + 0.5 * df["tolls"] + 0.5 * u + rng.normal(size=n)
+    >>> mean = np.exp(0.5 + 0.3 * df["income"] - 0.3 * df["cost"] + 0.3 * u)
+    >>> df["trips"] = rng.poisson(mean)
     >>> res = sp.ivpoisson(df, y="trips", x=["income"], endog="cost",
     ...                    instruments=["distance", "tolls"],
     ...                    errors="multiplicative")

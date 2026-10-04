@@ -200,7 +200,13 @@ def cmtest(result: Any, test: str = "normality", opg: bool = False) -> Dict[str,
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> df = pd.DataFrame({"wage": rng.normal(size=n), "kids": rng.normal(size=n)})
+    >>> df["hours"] = np.maximum(1 + df["wage"] + rng.normal(size=n), 0)
     >>> fit = sp.tobit(df, y="hours", x=["wage", "kids"], ll=0)
     >>> sp.cmtest(fit, test="normality")  # doctest: +SKIP
     >>> sp.cmtest(fit, test="heterosc")  # doctest: +SKIP

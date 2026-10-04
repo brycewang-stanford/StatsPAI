@@ -90,7 +90,14 @@ def vuong(model1: Any, model2: Any) -> Dict[str, Any]:
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> df = pd.DataFrame({"income": rng.normal(size=n), "dist": rng.normal(size=n)})
+    >>> mean = np.exp(0.5 + 0.3 * df["income"]) * rng.gamma(2.0, 0.5, size=n)
+    >>> df["trips"] = rng.poisson(mean)
     >>> nb = sp.nbreg(data=df, y="trips", x=["income", "dist"])
     >>> hd = sp.hurdle(data=df, y="trips", x=["income", "dist"])
     >>> sp.vuong(nb, hd)["statistic"]  # doctest: +SKIP
