@@ -110,9 +110,17 @@ def nlogit(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> res = sp.nlogit(df, y="chosen", x=["cost", "time"], chid="trip",
-    ...                 alt="mode",
+    >>> rng = np.random.default_rng(0)
+    >>> n, modes = 400, ["air", "bus", "car", "train"]
+    >>> df = pd.DataFrame({"trip": np.repeat(np.arange(n), 4), "mode": modes * n})
+    >>> df["cost"] = rng.normal(size=len(df))
+    >>> utility = -0.8 * df["cost"].to_numpy() + rng.gumbel(size=len(df))
+    >>> best = utility.reshape(n, 4).argmax(axis=1)
+    >>> df["chosen"] = (np.tile(np.arange(4), n) == np.repeat(best, 4)).astype(int)
+    >>> res = sp.nlogit(df, y="chosen", x=["cost"], chid="trip", alt="mode",
     ...                 nests={"ground": ["bus", "car", "train"], "air": ["air"]})
     >>> res.model_info["lr_iia_pvalue"]  # doctest: +SKIP
 

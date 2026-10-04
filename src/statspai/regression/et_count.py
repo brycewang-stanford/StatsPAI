@@ -99,9 +99,20 @@ def etpoisson(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> res = sp.etpoisson(df, y="visits", x=["age", "income"],
-    ...                    treat="insured", z=["age", "employer_offer"])
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> u = rng.normal(size=n)
+    >>> df = pd.DataFrame({"age": rng.normal(size=n),
+    ...                    "employer_offer": rng.normal(size=n)})
+    >>> df["insured"] = (df["employer_offer"] + 0.3 * df["age"] + u > 0).astype(int)
+    >>> eps = 0.3 * u + 0.3 * rng.normal(size=n)
+    >>> df["visits"] = rng.poisson(np.exp(0.2 + 0.3 * df["age"]
+    ...                                   + 0.5 * df["insured"] + eps))
+    >>> res = sp.etpoisson(df, y="visits", x=["age"], treat="insured",
+    ...                    z=["age", "employer_offer"], intpoints=12)
     >>> res.model_info["ate"]  # doctest: +SKIP
 
     References
