@@ -147,6 +147,64 @@ def test_reliability_flags_the_designs_that_miss_nominal(built):
     assert lo <= weak["rate"] <= hi < 0.96
 
 
+def test_reliability_studies_are_tabulated_from_the_stored_files(built):
+    """Every study under tests/reliability/ is in the view, row for row."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    root = _Path(__file__).resolve().parent / "reliability"
+    studies = {s["study"]: s for s in built["inference_reliability"]["studies"]}
+    stored = sorted(root.glob("*_results.json"))
+    assert len(stored) >= 6 and len(studies) == len(stored)
+    for path in stored:
+        payload = _json.loads(path.read_text(encoding="utf-8"))
+        study = studies[payload["study"]]
+        assert (root.parent.parent / study["script"]).exists()
+        assert study["rows"], payload["study"]
+        for row in study["rows"]:
+            expected = (row["rate"] * (1 - row["rate"]) / row["B"]) ** 0.5
+            # both numbers are stored to four decimals
+            assert row["mc_se"] == pytest.approx(expected, abs=1e-4)
+            assert row["nominal"] == (0.95 if row["quantity"] == "coverage" else 0.05)
+
+
+def test_a_refused_fit_counts_against_the_rate(built):
+    """rd_mass_points, masspoints='off', 5 support points: 708 of 1,000 refused."""
+    studies = {s["study"]: s for s in built["inference_reliability"]["studies"]}
+    (row,) = [
+        r
+        for r in studies["rd_mass_points"]["rows"]
+        if r["method"] == "off" and r["design"] == "n=1000, support_per_side=5"
+    ]
+    assert row["refused"] == 708
+    # 73.3% of the 292 fits that ran covered; over all 1,000 that is 21.4%
+    assert row["rate"] == pytest.approx(0.214, abs=1e-3)
+    assert row["within_2_mc_se_of_nominal"] is False
+
+
+def test_reliability_studies_flag_what_their_readme_reports(built):
+    studies = {s["study"]: s for s in built["inference_reliability"]["studies"]}
+
+    def rate(study, method, design):
+        (row,) = [
+            r
+            for r in studies[study]["rows"]
+            if r["method"] == method and r["design"] == design and r["block"] == "cells"
+        ]
+        return row
+
+    row = rate("unbalanced_panel", "cs_rcs", "pattern=attrit_level, N=400")
+    assert row["rate"] == pytest.approx(0.030, abs=1e-9)
+    assert not row["within_2_mc_se_of_nominal"]
+    assert rate("unbalanced_panel", "cs", "pattern=attrit_level, N=400")[
+        "within_2_mc_se_of_nominal"
+    ]
+    assert rate("dml_learners", "lasso", "shape=nonlinear, n=2000")["rate"] == 0.0
+    assert rate("dml_learners", "stacking", "shape=linear, n=2000")[
+        "within_2_mc_se_of_nominal"
+    ]
+
+
 def test_joint_test_evidence_reaches_iv_and_panel(built):
     """Until 2026-10 only sp.regress had a joint-test reference."""
     with_joint = {

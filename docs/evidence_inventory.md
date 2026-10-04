@@ -498,6 +498,36 @@ Designs built to break an assumption. The band is the range documented in advanc
 | sp.callaway_santanna staggered | 300 | 0.050 | 0.0126 | 0.0: 0.050, 0.3: 0.777, 0.6: 1.000, 0.9: 1.000 |
 | sp.ebalance (M-estimation SE) | 1000 | 0.055 | 0.0072 | 0.0: 0.055, 0.4: 1.000, 0.7: 1.000, 1.0: 1.000 |
 
+## Reliability studies
+
+Simulation studies under `tests/reliability/`, each with its design fixed in the script before the first run. A row of a study is one method on one design; a fit that was refused counts in the denominator. The table gives, per study and method, how many designs land within two Monte Carlo standard errors of the nominal rate, and the design furthest from it. Every row is in `docs/evidence_inventory.json`; the reading of each study is in `tests/reliability/README.md`.
+
+| Study | Method | Quantity | B | Designs | At nominal | Furthest from nominal |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| `dml_learners` | ols | coverage | 300 | 4 | 2 | 0.000 (shape=nonlinear, n=500) |
+| `dml_learners` | lasso | coverage | 300 | 4 | 2 | 0.000 (shape=nonlinear, n=500) |
+| `dml_learners` | rf | coverage | 300 | 4 | 1 | 0.433 (shape=nonlinear, n=500) |
+| `dml_learners` | gbm | coverage | 300 | 4 | 0 | 0.867 (shape=nonlinear, n=500) |
+| `dml_learners` | stacking | coverage | 300 | 4 | 2 | 0.727 (shape=nonlinear, n=500) |
+| `extreme_weights_models` | classical | coverage | 2000 | 12 | 4 | 0.143 (model=poisson, size=1000, sigma=2.0) |
+| `extreme_weights_models` | robust | coverage | 2000 | 12 | 6 | 0.840 (model=poisson, size=200, sigma=2.0) |
+| `extreme_weights_models` | cluster | coverage | 2000 | 6 | 2 | 0.777 (model=panel_fe, size=50, sigma=2.0) |
+| `extreme_weights` | classical | coverage | 2000 | 12 | 8 | 0.340 (errors=sampling, n=1000, sigma=2.0) |
+| `extreme_weights` | hc1 | coverage | 2000 | 12 | 5 | 0.842 (errors=sampling, n=200, sigma=2.0) |
+| `extreme_weights` | hc2 | coverage | 2000 | 12 | 6 | 0.895 (errors=sampling, n=200, sigma=2.0) |
+| `extreme_weights` | hc3 | coverage | 2000 | 12 | 10 | 0.932 (errors=sampling, n=1000, sigma=2.0) |
+| `few_clusters` | cr1 | rejection | 2000 | 24 | 5 | 0.359 (treated=half, sizes=unbalanced, G=40) |
+| `few_clusters` | cr2 | rejection | 2000 | 16 | 4 | 0.234 (treated=two, sizes=balanced, G=40) |
+| `few_clusters` | cr3 | rejection | 2000 | 22 | 12 | 0.170 (treated=two, sizes=balanced, G=40) |
+| `few_clusters` | wild | rejection | 2000 | 16 | 3 | 0.126 (treated=half, sizes=unbalanced, G=40) |
+| `rd_mass_points` | adjust | coverage | 1000 | 10 | 6 | 0.689 (n=4000, support_per_side=10) |
+| `rd_mass_points` | off | coverage | 1000 | 10 | 6 | 0.214 (n=1000, support_per_side=5, 708 refused) |
+| `rd_mass_points` | cluster | coverage | 1000 | 8 | 0 | 0.224 (n=4000, support_per_side=5) |
+| `unbalanced_panel` | cs | coverage | 1000 | 8 | 5 | 0.023 (pattern=attrit_outcome, N=400) |
+| `unbalanced_panel` | cs_rcs | coverage | 1000 | 8 | 4 | 0.000 (pattern=attrit_outcome, N=400) |
+| `unbalanced_panel` | bjs | coverage | 1000 | 8 | 5 | 0.000 (pattern=attrit_outcome, N=400) |
+| `unbalanced_panel` | twfe | coverage | 1000 | 8 | 2 | 0.000 (pattern=attrit_outcome, N=400) |
+
 Inputs those do-files read (the other fixtures use `tests/orig_parity/data/02_mpdta_original.csv`):
 
 | Input | SHA-256 (first 16) |

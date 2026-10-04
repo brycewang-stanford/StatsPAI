@@ -497,6 +497,12 @@ Added on the way:
 
 ### Reliability
 
+- **The reliability studies are in the evidence view.**
+  `docs/evidence_inventory.json` lists every design and method of the six
+  studies under `tests/reliability/` with its rate, Monte Carlo standard
+  error and the number of refused fits (which count in the denominator);
+  `docs/evidence_inventory.md` summarises, per study and method, how many
+  designs sit at the nominal rate and which is furthest from it.
 - **A coverage study for DML across first-stage learners**
   (`tests/reliability/dml_learners.py`, 20 designs, 300 replications
   each). Under linear confounding OLS, Lasso and `sp.dml_model_averaging`

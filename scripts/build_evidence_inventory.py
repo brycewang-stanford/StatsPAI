@@ -239,7 +239,102 @@ def _reliability() -> Dict[str, Any]:
         "coverage": coverage,
         "stress_designs": stress,
         "size_and_power": size_power,
+        "studies": _reliability_studies(),
     }
+
+
+STUDY_DIR = REPO_ROOT / "tests" / "reliability"
+
+#: Keys of a study cell that describe the design (the rest are results).
+_DESIGN_KEYS = (
+    "model",
+    "shape",
+    "pattern",
+    "errors",
+    "treated",
+    "sizes",
+    "n",
+    "N",
+    "G",
+    "size",
+    "sigma",
+    "support_per_side",
+)
+_METHOD_KEYS = ("method", "learner")
+
+
+def _study_rows(study: str, block: str, cell: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """One row per method of one design cell, refusals in the denominator."""
+    design = ", ".join(f"{k}={cell[k]}" for k in _DESIGN_KEYS if k in cell)
+    b = int(cell["B"])
+    if "coverage" in cell or "rejection_rate" in cell:
+        label = next((str(cell[k]) for k in _METHOD_KEYS if k in cell), "default")
+        methods = {label: cell}
+    else:
+        methods = {
+            k: v
+            for k, v in cell.items()
+            if isinstance(v, dict) and ("coverage" in v or "rejection_rate" in v)
+        }
+    rows = []
+    for method, res in methods.items():
+        quantity = "coverage" if "coverage" in res else "rejection"
+        fitted_rate = float(
+            res["coverage" if quantity == "coverage" else "rejection_rate"]
+        )
+        refused = int(sum((res.get("refused") or {}).values()))
+        fitted = int(res.get("n_fitted", b - refused))
+        # A refused fit did not produce an interval that covers, nor a
+        # rejection: it counts in the denominator and not in the numerator.
+        rate = fitted_rate * fitted / b if fitted else 0.0
+        nominal = 0.95 if quantity == "coverage" else 0.05
+        mc_se = (rate * (1.0 - rate) / b) ** 0.5
+        nominal_se = (nominal * (1.0 - nominal) / b) ** 0.5
+        rows.append(
+            {
+                "study": study,
+                "block": block,
+                "design": design,
+                "method": method,
+                "quantity": quantity,
+                "B": b,
+                "refused": refused,
+                "rate": round(rate, 4),
+                "mc_se": round(mc_se, 4),
+                "nominal": nominal,
+                "within_2_mc_se_of_nominal": abs(rate - nominal) <= 2 * nominal_se,
+            }
+        )
+    return rows
+
+
+def _reliability_studies() -> List[Dict[str, Any]]:
+    """The simulation studies under ``tests/reliability/``, one row a method.
+
+    Each study fixes its design in the script's docstring before the first
+    run and stores every cell; this reads the stored files as they stand.
+    """
+    studies = []
+    for path in sorted(STUDY_DIR.glob("*_results.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows: List[Dict[str, Any]] = []
+        for block, cells in payload.items():
+            if isinstance(cells, list):
+                for cell in cells:
+                    rows.extend(_study_rows(payload["study"], block, cell))
+        studies.append(
+            {
+                "study": payload["study"],
+                "source": str(path.relative_to(REPO_ROOT)),
+                "script": str(
+                    path.with_name(
+                        path.name.replace("_results.json", ".py")
+                    ).relative_to(REPO_ROOT)
+                ),
+                "rows": rows,
+            }
+        )
+    return studies
 
 
 def build() -> Dict[str, Any]:
@@ -457,6 +552,37 @@ def render(inv: Dict[str, Any]) -> str:
                 f"| {r['design']} | {r['B']} | {r['size']:.3f} | {r['mc_se']:.4f} | "
                 f"{power} |"
             )
+    if rel.get("studies"):
+        lines += [
+            "",
+            "## Reliability studies",
+            "",
+            "Simulation studies under `tests/reliability/`, each with its "
+            "design fixed in the script before the first run. A row of a "
+            "study is one method on one design; a fit that was refused "
+            "counts in the denominator. The table gives, per study and "
+            "method, how many designs land within two Monte Carlo standard "
+            "errors of the nominal rate, and the design furthest from it. "
+            "Every row is in `docs/evidence_inventory.json`; the reading of "
+            "each study is in `tests/reliability/README.md`.",
+            "",
+            "| Study | Method | Quantity | B | Designs | At nominal | "
+            "Furthest from nominal |",
+            "| --- | --- | --- | ---: | ---: | ---: | --- |",
+        ]
+        for study in rel["studies"]:
+            by_method: Dict[str, List[Dict[str, Any]]] = {}
+            for row in study["rows"]:
+                by_method.setdefault(row["method"], []).append(row)
+            for method, rows in by_method.items():
+                worst = max(rows, key=lambda r: abs(r["rate"] - r["nominal"]))
+                ok = sum(r["within_2_mc_se_of_nominal"] for r in rows)
+                refused = f", {worst['refused']} refused" if worst["refused"] else ""
+                lines.append(
+                    f"| `{study['study']}` | {method} | {rows[0]['quantity']} | "
+                    f"{rows[0]['B']} | {len(rows)} | {ok} | "
+                    f"{worst['rate']:.3f} ({worst['design']}{refused}) |"
+                )
     lines += [
         "",
         "Inputs those do-files read (the other fixtures use "
