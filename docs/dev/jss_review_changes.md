@@ -63,6 +63,18 @@ No module's implementation classification moved.
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
 
+### 2026-10-04 — original-data call trace of module 02 re-recorded
+
+Commit `2ce82a3b`. Commit `6c9fd021` edited `did/callaway_santanna.py`,
+which the original-data module 02 (mpdta) executes, and left its trace
+stale. The same commit gives `RLassoEffectsResult` the agent contract;
+that class is on no parity module's path.
+
+Effect on the paper: none. Module 02 was re-run and its result file is
+byte-identical; only the recorded source hash moves.
+
+- `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call trace re-recorded after `sp.rdms` gained several boundary points
 
 Commit `7f700ff5`. `sp.rdms` accepts lists for `cutoff1=` / `cutoff2=`
