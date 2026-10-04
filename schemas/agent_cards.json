@@ -113914,19 +113914,19 @@
             "type": "number"
           },
           "e_hat": {
-            "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs.",
+            "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs. ``m_hat`` is not needed when ``mu1_hat`` and ``mu0_hat`` are given.",
             "type": "string"
           },
           "m_hat": {
-            "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs.",
+            "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs. ``m_hat`` is not needed when ``mu1_hat`` and ``mu0_hat`` are given.",
             "type": "string"
           },
           "mu0_hat": {
-            "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs.",
+            "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs. ``m_hat`` is not needed when ``mu1_hat`` and ``mu0_hat`` are given.",
             "type": "string"
           },
           "mu1_hat": {
-            "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs.",
+            "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs. ``m_hat`` is not needed when ``mu1_hat`` and ``mu0_hat`` are given.",
             "type": "string"
           },
           "n_folds": {
@@ -113966,6 +113966,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (aligned) vs grf::rank_average_treatment_effect 2.6.1 (AUTOC, QINI, TOC), fed grf's nuisances; shares sp.rate's operator [R version 4.5.2 (2025-10-31), grf 2.6.1]; tolerance Point estimate (AUTOC, QINI) and TOC curve on q = 0.1..1 exact at 1e-10 rel (observed 4.6e-15), including a 30-group tied-priority case against rank_average_treatment_effect.fit. SE is T3: the analytic rank-corrected influence-function SE is compared with grf's half-sample bootstrap (R = 2000) at 6% rel (observed 2.6% AUTOC, 1.7% QINI). -- tests/reference_parity/test_ml_causal_R_parity.py",
+      "tests/reference_parity/test_cate_eval_toc_bands.py",
       "tests/reference_parity/test_ml_causal_recovery_parity.py"
     ],
     "validation_status": "certified"

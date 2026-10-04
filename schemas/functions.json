@@ -53226,19 +53226,19 @@
           "type": "number"
         },
         "e_hat": {
-          "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs.",
+          "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs. ``m_hat`` is not needed when ``mu1_hat`` and ``mu0_hat`` are given.",
           "type": "string"
         },
         "m_hat": {
-          "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs.",
+          "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs. ``m_hat`` is not needed when ``mu1_hat`` and ``mu0_hat`` are given.",
           "type": "string"
         },
         "mu0_hat": {
-          "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs.",
+          "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs. ``m_hat`` is not needed when ``mu1_hat`` and ``mu0_hat`` are given.",
           "type": "string"
         },
         "mu1_hat": {
-          "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs.",
+          "description": "Pre-computed nuisance predictions (e.g., from the same estimator that produced ``cate``). If provided, no internal cross-fitting runs. ``m_hat`` is not needed when ``mu1_hat`` and ``mu0_hat`` are given.",
           "type": "string"
         },
         "n_folds": {

@@ -1969,6 +1969,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_cate_eval_toc_bands.py",
         "tests/reference_parity/test_ml_causal_recovery_parity.py"
       ],
       "also_verified_by": [

@@ -139,6 +139,19 @@ sp.best_linear_projection(irm, A=df[["x1"]])
 The table is the best linear predictor of the conditional effect given
 `A`. With group indicators in `A` it gives group average effects.
 
+To judge a CATE estimate on held-out data, `sp.cate_eval` gives AUTOC,
+Qini and the TOC curve with a band that covers the whole curve:
+
+```python
+ev = sp.cate_eval(cate_hat, Y, T, X=X)
+ev.autoc, ev.autoc_ci
+ev.toc_curve[["q", "toc", "band_lower", "band_upper"]]
+```
+
+The notebook takes the ranking thresholds from a separate sample.
+`sp.cate_eval` ranks within the evaluation sample, as grf does, and its
+standard errors account for that.
+
 ## Where the notebooks have aged
 
 - **`hdmpy`** is cloned from GitHub in most notebooks. `sp.rlasso` is a

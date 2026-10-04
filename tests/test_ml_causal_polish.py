@@ -417,7 +417,8 @@ class TestCATEEval:
         assert res.autoc > 0
         # 95% CI shouldn't include zero on this strong signal
         assert res.autoc_ci[0] > 0
-        assert res.toc_curve.shape[1] == 2  # columns: q, toc
+        assert list(res.toc_curve.columns[:2]) == ["q", "toc"]
+        assert {"se", "band_lower", "band_upper"} <= set(res.toc_curve.columns)
 
     def test_random_cate_has_AUTOC_near_zero(self):
         rng = np.random.default_rng(1)

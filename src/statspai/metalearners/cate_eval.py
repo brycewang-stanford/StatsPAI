@@ -61,7 +61,11 @@ class CATEEvalResult(ResultProtocolMixin):
     qini_se : float
     qini_ci : (float, float)
     toc_curve : pd.DataFrame
-        Columns ``q`` and ``toc``; one row per quantile grid point.
+        One row per quantile grid point: ``q``, ``toc``, its standard error
+        ``se``, the pointwise interval ``ci_lower`` / ``ci_upper`` and the
+        uniform band ``band_lower`` / ``band_upper``, which covers the
+        whole curve with probability ``1 - alpha``. If the band lies above
+        zero anywhere, the score has found heterogeneity.
     n_obs : int
     target : str
         ``"AUTOC"`` (default) or ``"QINI"``.
@@ -82,8 +86,8 @@ class CATEEvalResult(ResultProtocolMixin):
     >>> res = sp.cate_eval(cate, Y, T, X=X, n_folds=3, q_grid=20, random_state=0)
     >>> isinstance(res, sp.CATEEvalResult)
     True
-    >>> res.toc_curve.columns.tolist()
-    ['q', 'toc']
+    >>> res.toc_curve.columns.tolist()[:3]
+    ['q', 'toc', 'se']
     >>> bool(res.n_obs == n)
     True
     """
@@ -147,6 +151,16 @@ class CATEEvalResult(ResultProtocolMixin):
         ax.fill_between(
             self.toc_curve["q"], 0, self.toc_curve["toc"], color="#1f77b4", alpha=0.15
         )
+        if "band_lower" in self.toc_curve:
+            ax.fill_between(
+                self.toc_curve["q"],
+                self.toc_curve["band_lower"],
+                self.toc_curve["band_upper"],
+                color="#1f77b4",
+                alpha=0.12,
+                lw=0,
+                label=f"{1 - self.alpha:.0%} uniform band",
+            )
         ax.axhline(0, color="#555", lw=0.7, ls="--")
         ax.set_xlabel(r"Quantile $q$ of priority score")
         ax.set_ylabel(r"$E[\tau(X) \mid S \ge Q_{1-q}] - E[\tau(X)]$")
@@ -176,6 +190,67 @@ def _aipw_pseudo_outcome(
         T * (Y - m_hat) / e_hat - (1 - T) * (Y - m_hat) / (1 - e_hat),
         dtype=float,
     )
+
+
+def _toc_inference(
+    scores: np.ndarray,
+    priorities: np.ndarray,
+    q: np.ndarray,
+    alpha: float,
+    seed: int,
+    n_draws: int = 20_000,
+) -> Tuple[np.ndarray, float]:
+    r"""Standard errors of the TOC curve and a sup-t critical value.
+
+    ``TOC(q) = E[\Gamma (1\{U \le q\}/q - 1)]`` with ``U`` the fractional
+    rank from the top. Its influence function is the covariance term
+    ``(\Gamma - \bar\Gamma)(1\{U \le q\}/q - 1) - TOC(q)`` plus a rank
+    term, ``-(m(q) - \bar\Gamma)(1\{U \le q\} - q)/q``, for the threshold
+    being estimated from the same sample; ``m(q)`` is the mean score at the
+    threshold, taken over a window of ``n^{0.8}`` ranks. Leaving the rank
+    term out overstates the standard error at both ends of the curve (by
+    more than 10% in ``tests/reference_parity/test_cate_eval_toc_bands.py``).
+
+    The critical value is the ``1 - alpha`` quantile of the largest
+    absolute t-ratio over the grid, simulated from the correlation of the
+    influence functions; a band built with it covers the whole curve.
+    """
+    from ..forest.forest_inference import _tie_averaged_sorted
+
+    s, _ = _tie_averaged_sorted(
+        np.asarray(scores, dtype=np.float64),
+        np.asarray(priorities, dtype=np.float64),
+    )
+    n = len(s)
+    ate = float(s.mean())
+    cum0 = np.concatenate([[0.0], np.cumsum(s)])
+    half = max(int(round(0.5 * n**0.8)), 5)
+    pos = np.arange(n)
+    # one row per grid point; single precision once that is above 320 MB
+    infl = np.zeros((len(q), n), dtype=np.float32 if len(q) * n > 4e7 else float)
+    for j, qj in enumerate(q):
+        k = int(min(max(np.floor(qj * n + 1e-9), 1), n))
+        if k == n:
+            continue  # TOC(1) is zero by construction
+        p = k / n
+        top = (pos < k).astype(float)
+        toc_k = cum0[k] / k - ate
+        lo, hi = max(k - half, 0), min(k + half, n)
+        at_threshold = (cum0[hi] - cum0[lo]) / (hi - lo)
+        infl[j] = (
+            (s - ate) * (top / p - 1.0) - toc_k - (at_threshold - ate) / p * (top - p)
+        )
+    se = np.sqrt(np.einsum("ij,ij->i", infl, infl, dtype=float)) / n
+    live = se > 1e-12
+    crit = float(stats.norm.ppf(1 - alpha / 2))
+    if live.sum() > 1:
+        corr = np.corrcoef(infl[live])
+        w, v = np.linalg.eigh(corr)
+        root = v * np.sqrt(np.clip(w, 0.0, None))
+        rng = np.random.default_rng(seed)
+        z = rng.standard_normal((n_draws, int(live.sum()))) @ root.T
+        crit = float(np.quantile(np.max(np.abs(z), axis=1), 1 - alpha))
+    return se, crit
 
 
 def _crossfit_nuisances(
@@ -256,7 +331,8 @@ def cate_eval(
     e_hat, m_hat, mu1_hat, mu0_hat : (n,) arrays, optional
         Pre-computed nuisance predictions (e.g., from the same estimator
         that produced ``cate``). If provided, no internal cross-fitting
-        runs.
+        runs. ``m_hat`` is not needed when ``mu1_hat`` and ``mu0_hat`` are
+        given.
     n_folds : int, default 5
     alpha : float, default 0.05
     clip : float, default 0.02
@@ -284,6 +360,9 @@ def cate_eval(
     if not (len(Y) == n and len(T) == n):
         raise ValueError("cate, Y, T must all have length n.")
 
+    # m_hat only enters the score when the arm-specific means are missing.
+    if m_hat is None and mu1_hat is not None and mu0_hat is not None:
+        m_hat = np.zeros(n)
     if e_hat is None or m_hat is None or mu1_hat is None or mu0_hat is None:
         if X is None:
             raise ValueError(
@@ -323,6 +402,13 @@ def cate_eval(
     se_qini = _rate_influence_se(psi, cate, "QINI")
     z = float(stats.norm.ppf(1 - alpha / 2))
     toc_df = pd.DataFrame({"q": core_a["toc_q"], "toc": core_a["toc"]})
+    toc_se, crit_u = _toc_inference(psi, cate, q_targets, alpha, random_state)
+    toc_df["se"] = toc_se
+    toc_df["ci_lower"] = toc_df["toc"] - z * toc_se
+    toc_df["ci_upper"] = toc_df["toc"] + z * toc_se
+    toc_df["band_lower"] = toc_df["toc"] - crit_u * toc_se
+    toc_df["band_upper"] = toc_df["toc"] + crit_u * toc_se
+    toc_df.attrs["uniform_critical_value"] = crit_u
 
     return CATEEvalResult(
         autoc=autoc,

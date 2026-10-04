@@ -123,6 +123,16 @@ redistributed. Reader guide: `docs/guides/applied_causal_ml.md`.
   covariates and heterogeneous effects the regression interval covered
   the population effect 83% of the time in simulation and the corrected
   one 94%.
+- **Standard errors and a uniform band for the TOC curve of
+  `sp.cate_eval`.** `toc_curve` gains `se`, `ci_lower` / `ci_upper` and
+  `band_lower` / `band_upper`; the band covers the whole curve, so a
+  stretch of it above zero is evidence that the score found heterogeneity.
+  The influence function includes the term for ranking within the
+  evaluation sample; without it the standard error is more than 10% too
+  large at the top of the curve. Checked against a known curve
+  (`tests/reference_parity/test_cate_eval_toc_bands.py`). `m_hat` is no
+  longer required when `mu1_hat` and `mu0_hat` are given. AUTOC and Qini
+  are unchanged (equal to grf's to 1e-10).
 - **Standard errors and an interval for the sensitivity bounds.**
   `sp.dml_sensitivity(...)` returns `se_low`, `se_high`, `ci_low` and
   `ci_high` for PLR and IRM fits, with clusters and with repeated
