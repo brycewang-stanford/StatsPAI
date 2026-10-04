@@ -31,6 +31,26 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded after a comment in `callaway_santanna.py` changed
+
+Commit `6c00bcce`. One source file on the estimation path of Track A
+modules 04 and 79 changed, `did/callaway_santanna.py`, and only in a
+comment: the note above the default propensity-score trimming level said
+Stata `csdid` inherits 0.995, and `csdid` 1.81 defaults to no trimming.
+No executable line of the file changed. The same commit changes
+`panel/feols.py` (a base level for a categorical regressor) and
+`inference/g_computation.py`, which are on no Track A module's path. The
+traces of modules 04 and 79 were re-recorded on the tree of that commit.
+
+**Effect on the paper.** None. The Python results of both modules were
+re-run on the new tree: module 04 reproduces its committed file exactly
+and module 79 to 1.4e-15. Only `exercised_sources` digests and `seconds`
+changed in the trace. No estimate, standard error or table cell is read
+from this file.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call trace of module 73 re-recorded after a docstring edit
 
 Commit `75f9a73a`. A paragraph in the docstring of `sp.gardner_did`
