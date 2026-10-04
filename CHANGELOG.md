@@ -325,6 +325,11 @@ for each item below.
   `binom_pvalue`; `attrs['recommended_window']`.
 - `sp.rddensity`: `bino_w=`, `bino_wstep=`, `bino_n=`, `bino_nw=`,
   `bino_p=` for the binomial tests.
+- `sp.rdms`: lists for `cutoff1=` / `cutoff2=` estimate several boundary
+  points in one call and return one row per point; `xnorm=` adds the
+  pooled estimate on the distance to the boundary. Both agree with
+  `rdmulti::rdms` to 1e-9 (`test_rdms_points_parity.py`). A call with
+  scalar cutoffs returns what it did before.
 
 ### Where StatsPAI departs from `rdlocrand`, and why
 

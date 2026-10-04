@@ -39938,7 +39938,7 @@
     }
   },
   {
-    "description": "Multi-score / Geographic RD design at a single boundary point. Validation: certified parity evidence.",
+    "description": "Multi-score / Geographic RD design at one or several boundary points. Validation: certified parity evidence.",
     "name": "rdms",
     "parameters": {
       "properties": {
@@ -39954,12 +39954,24 @@
         "cutoff1": {
           "default": 0,
           "description": "Cutoff for x1.",
-          "type": "number"
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "cutoff2": {
           "default": 0,
           "description": "Cutoff for x2.",
-          "type": "number"
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -39982,6 +39994,10 @@
         },
         "x2": {
           "description": "Second running variable (e.g., longitude distance to boundary).",
+          "type": "string"
+        },
+        "xnorm": {
+          "description": "Column with the signed distance to the boundary (positive on the treated side). Adds the pooled estimate: a sharp RD at zero on that score.",
           "type": "string"
         },
         "y": {
@@ -40076,12 +40092,24 @@
         "cutoff1": {
           "default": 0,
           "description": "Cutoff for x1.",
-          "type": "number"
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "cutoff2": {
           "default": 0,
           "description": "Cutoff for x2.",
-          "type": "number"
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -40104,6 +40132,10 @@
         },
         "x2": {
           "description": "Second running variable (e.g., longitude distance to boundary).",
+          "type": "string"
+        },
+        "xnorm": {
+          "description": "Column with the signed distance to the boundary (positive on the treated side). Adds the pooled estimate: a sharp RD at zero on that score.",
           "type": "string"
         },
         "y": {

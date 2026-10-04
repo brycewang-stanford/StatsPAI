@@ -54,6 +54,22 @@ takes the grid of effects to test). With `p > 0` the randomization
 p-value is built by permuting outcomes against the scores, which differs
 from `rdlocrand`; the function's Notes give the reason.
 
+## Multiple cutoffs and multiple scores
+
+```python
+# Each unit has its own cutoff, in a column
+res = sp.rdmc(df, y='y', x='score', cutoff_var='cutoff')
+res.summary()          # per cutoff, weighted, and pooled on the normalized score
+
+# Two scores: several points on the boundary, plus the pooled estimate on
+# the signed perpendicular distance to it
+sp.rdms(df, y='y', x1='s1', x2='s2', treat='d',
+        cutoff1=[0, 30, 0], cutoff2=[0, 0, 50], xnorm='dist')
+```
+
+Both report the conventional point estimate with the robust
+bias-corrected standard error, interval and p-value, as `rdmulti` does.
+
 ## Diagnostics
 
 ```python

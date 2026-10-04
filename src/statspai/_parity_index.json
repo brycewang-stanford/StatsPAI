@@ -15307,6 +15307,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_rdms_points_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_verified_by": [
@@ -15524,6 +15525,7 @@
         "tests/reference_parity/test_rd_weights_parity.py",
         "tests/reference_parity/test_rdbwselect_comb_rules.py",
         "tests/reference_parity/test_rdbwselect_iqr_pilot.py",
+        "tests/reference_parity/test_rdms_points_parity.py",
         "tests/reference_parity/test_rdrobust_asym_bandwidth_R_parity.py",
         "tests/reference_parity/test_rdrobust_fuzzy_parity.py",
         "tests/reference_parity/test_rdrobust_params_parity.py",

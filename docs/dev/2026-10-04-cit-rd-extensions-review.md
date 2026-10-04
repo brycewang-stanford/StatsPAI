@@ -95,9 +95,10 @@ investigated further.
   established. `sp.from_stata` reports the option as untranslated.
 - **`rdmcplot`**: no StatsPAI equivalent; `RDMultiResult.plot()` is a
   forest plot of the estimates, not the binned scatter.
-- **`sp.rdms` takes one boundary point per call** and has no `xnorm`
-  pooled row. The book's three-point call is three calls; the pooled row
-  is `sp.rdrobust` on the perpendicular distance.
+- **`rdms` in `sp.from_stata`.** `sp.rdms` now takes several boundary
+  points and `xnorm=` (added after this review, matching `rdmulti::rdms`
+  to 1e-9), but Stata's `cvar(p1 p2)` names variables whose first rows
+  hold the points, which a one-line translation cannot read.
 - **`sp.rddensity` binomial table, default first window.** StatsPAI and
   Stata use the smallest window holding 20 observations in total; R uses
   20 on each side. Both references are by the same authors. Kept as is.

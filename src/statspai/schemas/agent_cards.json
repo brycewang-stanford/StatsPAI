@@ -86404,7 +86404,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Multi-score / Geographic RD design at a single boundary point. Validation: certified parity evidence.",
+    "description": "Multi-score / Geographic RD design at one or several boundary points. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -86463,7 +86463,7 @@
     "reference": "",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: estimate / se / ci are the bias-corrected point estimate with robust inference. model_info carries the selected bandwidths, effective sample sizes either side, the conventional estimates,",
+      "description": "CausalResult or RDMultiResult: A :class:`RDMultiResult` when cutoff1 / cutoff2 are sequences or xnorm is given: cutoff_results holds, per boundary point, the conventional estimate with the robust standard error, interval and p-value;",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -86479,7 +86479,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Multi-score / Geographic RD design at a single boundary point. Validation: certified parity evidence.",
+      "description": "Multi-score / Geographic RD design at one or several boundary points. Validation: certified parity evidence.",
       "name": "rdms",
       "parameters": {
         "properties": {
@@ -86495,12 +86495,24 @@
           "cutoff1": {
             "default": 0,
             "description": "Cutoff for x1.",
-            "type": "number"
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
           },
           "cutoff2": {
             "default": 0,
             "description": "Cutoff for x2.",
-            "type": "number"
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -86525,6 +86537,10 @@
             "description": "Second running variable (e.g., longitude distance to boundary).",
             "type": "string"
           },
+          "xnorm": {
+            "description": "Column with the signed distance to the boundary (positive on the treated side). Adds the pooled estimate: a sharp RD at zero on that score.",
+            "type": "string"
+          },
           "y": {
             "description": "Outcome variable.",
             "type": "string",
@@ -86546,6 +86562,7 @@
       "R parity module 89_rdms",
       "Stata parity module 89_rdms",
       "Cross-language parity (bit-exact) vs rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path [R version 4.5.2 (2025-10-31), rdmulti 2.0.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 89_rdms -- tests/r_parity/89_rdms.py",
+      "tests/reference_parity/test_rdms_points_parity.py",
       "tests/reference_parity/test_track_a_alias_equivalence.py"
     ],
     "validation_status": "certified"
@@ -86777,21 +86794,9 @@
     },
     "reference": "keele2015geographic",
     "returns": {
-      "class": "CausalResult",
+      "class": null,
       "description": "",
-      "fields": {
-        "alpha": "float",
-        "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
-        "estimand": "str",
-        "estimate": "float",
-        "method": "str",
-        "model_info": "Optional[Dict[str, Any]]",
-        "n_obs": "int",
-        "pvalue": "float",
-        "se": "float"
-      },
-      "payload_schema": "result.schema.json"
+      "fields": {}
     },
     "signature": {
       "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD). Validation: certified parity evidence. Do NOT use when: the effect plausibly varies along the boundary -- sp.rd2d reports it pointwise.",
@@ -86810,12 +86815,24 @@
           "cutoff1": {
             "default": 0,
             "description": "Cutoff for x1.",
-            "type": "number"
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
           },
           "cutoff2": {
             "default": 0,
             "description": "Cutoff for x2.",
-            "type": "number"
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -86838,6 +86855,10 @@
           },
           "x2": {
             "description": "Second running variable (e.g., longitude distance to boundary).",
+            "type": "string"
+          },
+          "xnorm": {
+            "description": "Column with the signed distance to the boundary (positive on the treated side). Adds the pooled estimate: a sharp RD at zero on that score.",
             "type": "string"
           },
           "y": {

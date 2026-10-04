@@ -26331,7 +26331,7 @@
     "name": "rdmc"
   },
   {
-    "description": "Multi-score / Geographic RD design at a single boundary point. Validation: certified parity evidence. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
+    "description": "Multi-score / Geographic RD design at one or several boundary points. Validation: certified parity evidence. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -26346,12 +26346,24 @@
         "cutoff1": {
           "default": 0,
           "description": "Cutoff for x1.",
-          "type": "number"
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "cutoff2": {
           "default": 0,
           "description": "Cutoff for x2.",
-          "type": "number"
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "kernel": {
           "default": "triangular",
@@ -26369,6 +26381,10 @@
         },
         "x2": {
           "description": "Second running variable (e.g., longitude distance to boundary).",
+          "type": "string"
+        },
+        "xnorm": {
+          "description": "Column with the signed distance to the boundary (positive on the treated side). Adds the pooled estimate: a sharp RD at zero on that score.",
           "type": "string"
         },
         "y": {
