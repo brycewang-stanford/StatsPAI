@@ -24,7 +24,8 @@ Vuong, Q.H. (1989).
 *Econometrica*, 57(2), 307-333. [@vuong1989likelihood]
 
 Cameron, A.C. and P.K. Trivedi (2013).
-*Regression Analysis of Count Data*, 2nd ed. Cambridge University Press. [@cameron2013regression]
+*Regression Analysis of Count Data*, 2nd ed. Cambridge University Press.
+[@cameron2013regression]
 
 Mullahy, J. (1986).
 "Specification and Testing of Some Modified Count Data Models."
@@ -63,6 +64,53 @@ def _logit(z: np.ndarray) -> np.ndarray:
     return _as_float_array(special.expit(z))
 
 
+def _warn_flat_terms(se: pd.Series, function: str) -> None:
+    """Warn when the likelihood is flat along some coefficient.
+
+    Under quasi-complete separation in the binary part a coefficient runs
+    off towards infinity and its standard error explodes (R ``pscl``
+    prints ~2e4 at its looser stopping rule, the exact optimum gives far
+    more). The other coefficients are unaffected, so the fit is returned,
+    but the term is named rather than left for the reader to spot.
+    """
+    flat = [str(name) for name, v in se.items() if np.isfinite(v) and v > 1e4]
+    if flat:
+        import warnings
+
+        from ..exceptions import ConvergenceWarning
+
+        warnings.warn(
+            f"{function}: the likelihood is flat along {flat} (standard error "
+            "above 1e4), which is what quasi-complete separation in the "
+            "zero / hurdle part looks like. Those coefficients are not "
+            "identified; the remaining estimates and standard errors are "
+            "unaffected. Drop or recode the separating regressor to remove "
+            "the term.",
+            ConvergenceWarning,
+            stacklevel=3,
+        )
+
+
+def _log_expit(z: np.ndarray) -> np.ndarray:
+    """``log(expit(z))`` without overflow; complex-step safe.
+
+    ``1 / (1 + exp(-z))`` overflows once ``-z`` passes ~709, and one
+    overflowing row turns the whole complex-step Hessian into NaN. That
+    happens whenever a binary-part coefficient runs off under
+    quasi-complete separation.
+    """
+    neg = np.real(z) < 0
+    return np.asarray(np.where(neg, z, 0.0) - np.log1p(np.exp(np.where(neg, z, -z))))
+
+
+def _logaddexp(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """``log(exp(a) + exp(b))``; complex-step safe (``np.logaddexp`` is not)."""
+    a_big = np.real(a) >= np.real(b)
+    hi = np.where(a_big, a, b)
+    lo = np.where(a_big, b, a)
+    return np.asarray(hi + np.log1p(np.exp(lo - hi)))
+
+
 def _log_poisson_pmf(y: np.ndarray, mu: np.ndarray) -> np.ndarray:
     """Log P(Y=y | mu) for Poisson, vectorized."""
     return _as_float_array(
@@ -96,7 +144,8 @@ def _build_matrices(
     inflate: Optional[List[str]],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str], List[str], str, pd.DataFrame]:
     """
-    Parse inputs and return (Y, X_count, X_inflate, count_names, inflate_names, dep_var).
+    Parse inputs and return
+    (Y, X_count, X_inflate, count_names, inflate_names, dep_var).
 
     X matrices include a constant column.
     """
@@ -354,9 +403,10 @@ def zip_model(
     def obs_loglik(theta: np.ndarray) -> np.ndarray:
         """Per-observation ZIP log-likelihood; complex-step safe."""
         mu = np.exp(X_count @ theta[:k_count])
-        pi = 1.0 / (1.0 + np.exp(-(X_inflate @ theta[k_count:])))
-        positive = np.log(1 - pi) + Y * np.log(mu) - mu - special.gammaln(Y + 1)
-        zero = np.log(pi + (1 - pi) * np.exp(-mu))
+        zg = X_inflate @ theta[k_count:]
+        log_pi, log_1mpi = _log_expit(zg), _log_expit(-zg)
+        positive = log_1mpi + Y * np.log(mu) - mu - special.gammaln(Y + 1)
+        zero = _logaddexp(log_pi, log_1mpi - mu)
         return np.where(Y == 0, zero, positive)
 
     # Exact Newton steps from the BFGS solution; the same call returns the
@@ -400,6 +450,7 @@ def zip_model(
     all_names = count_names + inflate_names
     params = pd.Series(theta_hat, index=all_names)
     std_errors = pd.Series(se, index=all_names)
+    _warn_flat_terms(std_errors, "zip_model")
 
     model_info = {
         "model_type": "zip",
@@ -667,7 +718,8 @@ def zinb(
     def obs_loglik(theta: np.ndarray) -> np.ndarray:
         """Per-observation ZINB (NB2) log-likelihood; complex-step safe."""
         mu = np.exp(X_count @ theta[:k_count])
-        pi = 1.0 / (1.0 + np.exp(-(X_inflate @ theta[k_count : k_count + k_inflate])))
+        zg = X_inflate @ theta[k_count : k_count + k_inflate]
+        log_pi, log_1mpi = _log_expit(zg), _log_expit(-zg)
         m = np.exp(-theta[-1])  # 1 / alpha
         log_nb_zero = m * np.log(m / (m + mu))
         log_nb = (
@@ -677,8 +729,8 @@ def zinb(
             + log_nb_zero
             + Y * np.log(mu / (m + mu))
         )
-        zero = np.log(pi + (1 - pi) * np.exp(log_nb_zero))
-        return np.where(Y == 0, zero, np.log(1 - pi) + log_nb)
+        zero = _logaddexp(log_pi, log_1mpi + log_nb_zero)
+        return np.where(Y == 0, zero, log_1mpi + log_nb)
 
     # Exact Newton steps from the BFGS solution; the same call returns the
     # observed information and per-observation scores by complex-step
@@ -719,6 +771,7 @@ def zinb(
     all_names = count_names + inflate_names + ["ln_alpha"]
     params = pd.Series(theta_hat, index=all_names)
     std_errors = pd.Series(se, index=all_names)
+    _warn_flat_terms(std_errors, "zinb")
 
     model_info = {
         "model_type": "zinb",
@@ -986,7 +1039,7 @@ def hurdle(
 
     def obs_loglik(theta: np.ndarray) -> np.ndarray:
         """Per-observation hurdle log-likelihood; complex-step safe."""
-        p = 1.0 / (1.0 + np.exp(-(X @ theta[:k_hurdle])))  # P(Y > 0)
+        zd = X @ theta[:k_hurdle]  # index of P(Y > 0)
         mu = np.exp(X @ theta[k_hurdle : k_hurdle + k_count])
         if use_negbin:
             m = np.exp(-theta[-1])  # 1 / alpha
@@ -1002,8 +1055,8 @@ def hurdle(
             log_f0 = -mu
             log_f = Y * np.log(mu) - mu - special.gammaln(Y + 1)
         # Zero-truncated count density f(y) / (1 - f(0)) above the hurdle.
-        positive = np.log(p) + log_f - np.log(-np.expm1(log_f0))
-        return np.where(Y == 0, np.log(1 - p), positive)
+        positive = _log_expit(zd) + log_f - np.log(-np.expm1(log_f0))
+        return np.where(Y == 0, _log_expit(-zd), positive)
 
     # Exact Newton steps from the BFGS solution; the same call returns the
     # observed information and per-observation scores by complex-step
@@ -1046,6 +1099,7 @@ def hurdle(
 
     params = pd.Series(theta_hat, index=all_names)
     std_errors = pd.Series(se, index=all_names)
+    _warn_flat_terms(std_errors, "hurdle")
 
     model_info = {
         "model_type": "hurdle",
