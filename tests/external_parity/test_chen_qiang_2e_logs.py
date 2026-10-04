@@ -50,7 +50,10 @@ REPRODUCED = {
     "Chapter_12.log": 545,
     "Chapter_13.log": 316,
     "Chapter_14.log": 122,
-    "Chapter_15.log": 128,
+    # 127 since units with the same covariates tie in the score (2026-10):
+    # the mean of pscore[match1] joins its standard deviation in the entry
+    # for `sum pscore pscore_match` below. The estimates did not move.
+    "Chapter_15.log": 127,
     "Chapter_16.log": 120,
     "Chapter_17.log": 112,
     "Chapter_18.log": 89,

@@ -222,6 +222,8 @@ each programme interpolates across a step.
 | `reg ..., vce(bootstrap, reps() cluster())` | 1 | `sp.regress` has no bootstrap variance option; `sp.bootstrap` is the generic tool. The numbers would be random in any case. |
 | a comment the log wraps over two lines | 1 | Not a command. |
 
+All but the bootstrap variance were closed in the third round, below.
+
 ## Second round: the three items the first round left open
 
 **`egen`.** Not used by the book, and the most common remaining gap in
@@ -267,17 +269,122 @@ probit, 445 and 614 observations).
 `teffects psmatch, ate` is translated with it. With a caliper the ATE
 variance is not implemented and the translation says so.
 
-## Open items
+## Third round: what the first two declined
 
-- Chapter 9 (double machine learning and causal forests on the Oreopoulos
-  data) exists only in Python on the site, written with scikit-learn and
-  `econml`. There is no Stata or R output to compare with, and the
-  comparison of `sp.dml` and the forests with those libraries is already
-  the subject of `tests/external_parity/test_dml_python_parity.py` and the
-  forest seed studies. Not pursued.
-- `egen` functions outside the list above (`seq`, `cut`, `anycount`,
-  `ends`, `concat`, `egenmore`) are refused.
-- `merge`, `reshape`, frames, matrices and loops are still declined.
+The first round left 107 commands of the three logs unrun, and the second
+closed none of them. They were of five kinds: loops and the program the
+book defines, frames, matrices, temporary files, and lines that needed one
+of those to have run. All five are now run. One command is left.
+
+| | Round 1 | Round 3 |
+| --- | --- | --- |
+| Numbers compared and reproduced | 663 | 663 |
+| Numbers different | 21 (`synth`) | 21 (`synth`) |
+| Commands `sp.stata` refused | 107 | 1 |
+| Numbers on simulated or resampled data (not comparable) | 20 | 153 |
+
+The 133 numbers that moved to "not comparable" are the ones the book
+computes on bootstrap and permutation draws. They are now computed, on
+numpy's draws instead of Stata's. Where the book's hand-written wild
+cluster bootstrap ends in a p-value, Stata's run gave 0.084, `boottest`
+0.0951, and the replay about 0.10.
+
+**Loops, branches, macros, programs** (`_stata_flow.py`). `forvalues`,
+`foreach`, `while`, `if { } else { }` and `continue` are run as Stata runs
+them: the body is collected up to its closing brace, the loop macro is
+set, and the lines go back to the session one at a time. A command inside
+a loop is therefore translated and refused by the same rules as outside
+one. The macros a loop needs are evaluated (`local x = exp`, `local ++i`,
+`` `=exp' ``, `` `r(N)' ``, `tempvar`, `tempfile`), and a program can take
+arguments. This reverses a rule the translator had ("loops are refused").
+The reason for the rule was that a loop cannot be translated into one
+`sp.*` call. It does not have to be: it can be run. What stays refused is
+what cannot be read off the text, namely extended macro functions,
+`syntax` and `mata`.
+
+**More than one dataset** (`_stata_multi.py`). `save` keeps a copy in the
+session and `use`, `append` and `merge ... using` find it there or in
+`sp.stata(..., files={...})`. No file is read or written. `merge` (1:1,
+m:1, 1:m, on `_n`), `append` and the frame commands the
+chapter uses (`frame put`, `frame change`, `frlink`, `frget`, and `frame
+create` / `post` / `copy` / `drop`) were each run beside Stata 18 on small
+frames. Two things had to be learned from Stata's output. After a merge
+the master's rows are sorted by the key and the rows found only in the
+using data come last. And a variable present on both sides keeps the
+master's value on the master's rows but has the using data's value on a
+using-only row. `frget ag, from(cluster)` works when the link variable is
+`clusters`, since Stata accepts an unambiguous abbreviation.
+
+**Matrices** (`_stata_matrix.py`). A matrix as a table of results: `J()`,
+`e(b)` (constant last, as Stata stores it), `e(V)`, a cell at a time,
+`A[i, j]` in an expression, `svmat`, `mkmat`, and matrix expressions with
+sums, products, a transpose and `inv()` (a Stock and Watson log computes the
+variance of a linear combination as `d * V * d'`, and the result equals
+`lincom`'s). Other matrix functions are refused. A
+matrix filled from resampled data is marked, so that the numbers computed
+after `svmat` are reported as random and not as differences.
+
+**The rest of `egen`.** `skew`, `kurt`, `mad`, `mdev`, `mode`, `rank`,
+`seq`, `anycount`, `anymatch`, `cut` with `at()`, `rowfirst`, `rowlast`.
+Nineteen commands beside Stata 18, all equal on every row.
+
+**The ATE of `teffects psmatch` with a caliper.** In Stata a caliper is a
+condition and not a change of estimator. Either every unit has `m`
+opposite-arm matches and `h` other same-arm units within it, and the
+estimate and standard error are the ones without a caliper, or the command
+stops. `sp.match` does the same: at `caliper(0.3)` it returns 320.1955
+(973.734), at `caliper(0.05)` it stops because one observation (number 58,
+the one Stata names) has a single same-arm unit in range, at
+`caliper(0.02)` it stops for want of matches. `nneighbor(3)` and
+`vce(robust, nn(3))` were added to the reference fits (120.075 (820.524)
+and 320.1955 (1226.906)) and agree.
+
+**The log replay** reads a block as one command. Stata echoes the body of
+a loop as numbered lines and the replay hands them to the session. A body
+that ran quietly is not in the log at all, so it is taken from the do-file
+next to the log. The session now keeps its macros, scalars, matrices and
+saved datasets when a new dataset is loaded, as Stata does.
+
+### Chapter 9, which exists only in Python
+
+The site's last chapter has two examples and no Stata or R output.
+
+*Double machine learning on the 401(k) data*, with `DoubleMLPLR` and random
+forests in three folds. The book's call gives 8884 (1308). `sp.dml` with
+the same learners gives 8915 (1312), 8675 (1304) and 9024 (1305) for three
+fold assignments. That spread is the fold assignment, and the comparison
+at fixed folds is `tests/external_parity/test_dml_python_parity.py`.
+
+*A causal forest on a correspondence study* (Oreopoulos 2011: résumés with
+randomly assigned names, 10,184 of them). This is where the chapter is
+dated. It fits `econml`'s `CausalForestDML`, predicts the effect for every
+row it trained on, and reports the mean of those predictions as "the ATE",
+0.0645, with no standard error. Names were randomised, so the difference
+in callback rates is an unbiased benchmark: 0.0563 (0.0072).
+`sp.causal_forest` reports the doubly robust average of out-of-bag scores,
+0.0575 (0.0071), which is the benchmark to within a fifth of a standard
+error. The two forests agree on the direction of the heterogeneity the
+chapter looks at (a larger effect for the lower-quality degree: 0.073
+against 0.043 here, 0.085 against 0.047 in `econml`).
+
+One thing turned up on the way. `sp.causal_forest` took `d=` and `x=` for
+the column names and refused the names the rest of the package uses. It
+now also accepts `treat=` and `covariates=`.
+
+## What is still declined, and why
+
+- **`regress ..., vce(bootstrap, reps() cluster())`**, the one command
+  left. `sp.regress` has no bootstrap variance, and giving it one is a new
+  option on the package's central estimator, with its own validation
+  entries, for a standard error that is random on both sides.
+  `sp.bootstrap` resamples any statistic, by cluster if asked.
+- Extended macro functions, `syntax`, `mata`, matrix functions beyond
+  `inv` / `diag` / `trace`, `merge m:m`,
+  `frame name { }` blocks, `egen` with `fill`, `cut(, group())`,
+  `rank(, unique)` and the string functions. Each is refused with its
+  reason.
+- String variables are not generated (`gen s = "a"`), so `string()`,
+  `substr()` and their relatives are not implemented.
 
 ## How to run it again
 

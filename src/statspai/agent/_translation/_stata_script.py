@@ -15,7 +15,7 @@ loops are refused: their value depends on running Stata.
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 __all__ = [
     "split_commands",
@@ -171,6 +171,9 @@ class MacroTable:
     def __init__(self) -> None:
         self.globals: Dict[str, Optional[str]] = {}
         self.locals: Dict[str, Optional[str]] = {}
+        #: what `` `name' `` stands for when no macro has that name
+        #: (`` `=exp' ``, `` `r(mean)' ``); ``None`` when it cannot say
+        self.evaluator: Any = None
 
     def define(self, command: str) -> bool:
         """Record ``global name ...`` / ``local name ...``; True if it was one.
@@ -219,6 +222,10 @@ class MacroTable:
                 name, table, shown = m.group(3), self.locals, m.group(0)
             else:
                 name, table, shown = m.group(1) or m.group(2), self.globals, m.group(0)
+            if name not in table and self.evaluator is not None and m.group(3):
+                computed = self.evaluator(name)
+                if computed is not None:
+                    return str(computed)
             if name not in table:
                 raise ScriptError(
                     f"macro {shown} is not defined in these lines; define it "

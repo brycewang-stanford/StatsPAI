@@ -276,7 +276,7 @@ def test_post_estimation_uses_the_rows_the_model_was_fitted_on(panel):
     "text, reason",
     [
         ("reg y x if e(sample)", "not applied"),
-        ("egen m = seq(), from(1)", "not implemented"),
+        ("egen m = fill(1 2)", "not implemented"),
         ("merge 1:1 id using other", "merge"),
         ("use somefile.dta", "use"),
         ('gen s = "a"', "string"),

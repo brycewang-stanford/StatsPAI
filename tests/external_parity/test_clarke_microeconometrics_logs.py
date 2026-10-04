@@ -54,26 +54,13 @@ DIFFERENT = {
     ),
 }
 
-#: First words of the commands sp.stata declines on these logs, with the
-#: reason. A command that depends on a declined one (a variable a loop would
-#: have created) fails with it; those are listed under FOLLOWS.
+#: Commands sp.stata declines on these logs, by their start, with the reason.
 DECLINED = {
-    "frame": "Stata 16 frames",
-    "frlink": "Stata 16 frames",
-    "frget": "Stata 16 frames",
-    "forvalues": "loops are written in Python around the call",
-    "forval": "loops are written in Python around the call",
-    "foreach": "loops are written in Python around the call",
-    "if": "an `if` block is control flow",
-    "program": "a program with arguments",
-    "randomization_inference": "the program the chapter defines",
-    "svmat": "matrices are not held",
-    "tempfile": "files are not written",
-    "save": "files are not written",
-    "/*": "a comment the log wraps over several lines",
+    "reg econmajor yr_2016 treatment_class treat2016": (
+        "vce(bootstrap, reps() cluster()): sp.regress has no bootstrap "
+        "variance; the standard errors would be random on both sides"
+    ),
 }
-FOLLOWS = {"gen", "reg", "summarize", "sum", "_pctile", "scalar", "count", "use", "di"}
-FOLLOWS |= {"kdensity"}
 
 
 @pytest.fixture(scope="module")
@@ -110,12 +97,13 @@ def test_each_log_reproduces_its_numbers(frame, log, expected):
 
 
 def test_only_documented_commands_are_declined(frame):
+    # the loops, frames, matrices, tempfiles and the program of chapters 2
+    # and 4 all run; one command is left
     notrun = frame[frame.status == "NOT RUN"]
-    words = {c.split()[0] for c in notrun.command}
-    assert words <= set(DECLINED) | FOLLOWS, sorted(words - set(DECLINED) - FOLLOWS)
-    # the estimation commands of the chapters all run
-    for command in ("teffects", "psmatch2", "boottest", "sdid", "synth", "logit"):
-        assert command not in words
+    stray = [c for c in notrun.command if not any(c.startswith(d) for d in DECLINED)]
+    assert not stray, stray
+    assert len(notrun) == len(DECLINED)
+    assert "vce(bootstrap" in notrun.command.iloc[0]
 
 
 def test_no_number_lacks_a_counterpart(frame):
@@ -151,6 +139,23 @@ def test_boottest_statistic(frame):
 
 
 def test_resampled_data_are_marked_not_compared(frame):
-    # chapter 2 simulates and bootstraps; numpy's draws are not Stata's
+    # chapter 2 simulates, permutes and bootstraps; chapter 4 writes the
+    # wild cluster bootstrap as a loop. numpy's draws are not Stata's.
     random = frame[frame.status == "random"]
-    assert set(random.log) == {"Chapter_02.log"}
+    assert set(random.log) == {"Chapter_02.log", "Chapter_04.log"}
+    # chapter 3 has no random number in it
+    assert (frame[frame.log == "Chapter_03.log"].status == "ok").all()
+
+
+def test_the_hand_written_wild_bootstrap_runs(frame):
+    """Chapter 4 codes the wild cluster bootstrap with frames, a matrix and
+    a loop of 999 draws, then reads the p-value off the bootstrap t
+    statistics. Stata's run gave 0.084 and `boottest` 0.0951; this run draws
+    other weights (about 0.10) and is reported as random, not as a
+    difference."""
+    rows = frame[
+        (frame.log == "Chapter_04.log")
+        & frame.command.str.startswith("di \"The p-value is")
+    ]
+    # the report does not keep a value it marks as random; the line ran
+    assert len(rows) == 1 and rows.status.iloc[0] == "random"

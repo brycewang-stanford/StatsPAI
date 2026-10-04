@@ -2252,6 +2252,9 @@
         "d": {
           "description": "Treatment column.",
           "type": "string",
+          "x-aliases": [
+            "treat"
+          ],
           "x-statspai-role": "column"
         },
         "data": {
@@ -2329,7 +2332,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
         },
         "y": {
           "description": "Outcome column.",
@@ -28564,13 +28570,17 @@
     "parameters": {
       "properties": {
         "commands": {
-          "description": "One Stata command, or a do-file snippet: commands separated by newlines or ``;``, with ``///`` continuations, ``*`` / ``//`` / ``/* */`` comments and ``#delimit ;``. ``global`` / ``local`` macros whose value is written out are expanded, and ``xtset id [time]`` supplies the panel of a later ``xtreg, fe`` / ``xtabond``. Post-estimation commands (``margins``, ``test``, ``lincom`` ...) apply to the most recent estimation result. ``if`` / ``in`` qualifiers are applied with Stata's rules for missing values (a missing value is larger than any number, so ``if x > 0`` keeps the rows where ``x`` is missing). The data steps ``generate``, ``replace``, ``keep``, ``drop``, ``sort``, ``preserve`` and ``restore`` run on a private copy of ``data``; ``generate`` stores single precision unless the line says ``double``, as Stata does. ``predict`` gives fitted values or residuals after a linear fit. ``scalar name = exp`` and ``display exp`` evaluate one numeric expression, which may use ``_b[x]``, ``_se[x]``, ``e(N)`` / ``e(r2)`` / ``e(r2_a)`` and the ``r()`` results of ``summarize``, ``test`` and ``ttest``. Session settings and output-only lines (``set more off``, ``log``, ``label``, ``describe`` ...) are skipped; graph and export commands are skipped with a warning. ``use`` is refused: pass the data in. After ``tsset time`` (or ``xtset id time``) the time-series operators ``L.x``, ``L2.x``, ``F.x``, ``D.x``, ``L(1/4).x`` are resolved against the time variable, within panel, as Stata does: a lag is missing where the earlier period is absent. The term ``L2.x`` enters the model as a column named ``x_L2``.",
+          "description": "One Stata command, or a do-file snippet: commands separated by newlines or ``;``, with ``///`` continuations, ``*`` / ``//`` / ``/* */`` comments and ``#delimit ;``. ``global`` / ``local`` macros whose value is written out are expanded, and ``xtset id [time]`` supplies the panel of a later ``xtreg, fe`` / ``xtabond``. Post-estimation commands (``margins``, ``test``, ``lincom`` ...) apply to the most recent estimation result. ``if`` / ``in`` qualifiers are applied with Stata's rules for missing values (a missing value is larger than any number, so ``if x > 0`` keeps the rows where ``x`` is missing). The data steps ``generate``, ``replace``, ``keep``, ``drop``, ``sort``, ``preserve`` and ``restore`` run on a private copy of ``data``; ``generate`` stores single precision unless the line says ``double``, as Stata does. ``predict`` gives fitted values or residuals after a linear fit. ``scalar name = exp`` and ``display exp`` evaluate one numeric expression, which may use ``_b[x]``, ``_se[x]``, ``e(N)`` / ``e(r2)`` / ``e(r2_a)`` and the ``r()`` results of ``summarize``, ``test`` and ``ttest``. Session settings and output-only lines (``set more off``, ``log``, ``label``, ``describe`` ...) are skipped; graph and export commands are skipped with a warning. Loops and branches are run as Stata runs them (``forvalues``, ``foreach``, ``while``, ``if { } else { }``, ``continue``), with the macros they need: ``local x = exp``, `` `=exp' ``, ``local ++i``, ``tempvar`` / ``tempfile``, and programs called with arguments. ``egen``, ``collapse``, ``count``, ``by g:`` data steps, matrices filled cell by cell (``matrix A = J(r, c, .)``, ``matrix A[i, j] = exp``, ``e(b)``, ``d * V * d'``, ``svmat``) and frames are run too. Nothing is read from or written to disk. ``save name`` keeps a copy in the session; ``use``, ``append using``, ``merge ... using`` work on those copies and on the frames passed in ``files``. ``use`` of a file that is neither is refused: pass the data in. After ``tsset time`` (or ``xtset id time``) the time-series operators ``L.x``, ``L2.x``, ``F.x``, ``D.x``, ``L(1/4).x`` are resolved against the time variable, within panel, as Stata does: a lag is missing where the earlier period is absent. The term ``L2.x`` enters the model as a column named ``x_L2``.",
           "type": "string"
         },
         "data": {
           "description": "The dataset estimation commands run on. Required unless every command is a post-estimation command applied to ``result``.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "files": {
+          "description": "Other datasets the commands name: ``merge 1:1 id using wages``, ``append using wave2`` and ``use wages`` look ``wages`` up here (the file name without folder and ``.dta``). Nothing is read from disk.",
+          "type": "object"
         },
         "result": {
           "description": "The estimation result that leading post-estimation commands apply to.",

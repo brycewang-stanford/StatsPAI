@@ -323,6 +323,7 @@ def abadie_imbens_2016_ate_se(
     h: int = 2,
     chunk: int = 256,
     density: Any = None,
+    caliper: Any = None,
 ) -> Tuple[float, Dict[str, Any]]:
     """ATE standard error of Abadie & Imbens (2016) for score matching.
 
@@ -356,6 +357,12 @@ def abadie_imbens_2016_ate_se(
 
     Parameters are those of :func:`abadie_imbens_2016_se` that apply; the
     matches are found here, on the unclipped score, for both arms.
+
+    ``caliper`` is a feasibility condition, as in Stata: every unit must
+    have ``m`` opposite-arm units and ``h`` other same-arm units within
+    it, and then the sets are the ones found without a
+    caliper. When a unit does not, Stata stops; here the standard error is
+    ``nan`` and ``components['caliper_deficient']`` counts those units.
 
     Returns
     -------
@@ -393,6 +400,7 @@ def abadie_imbens_2016_ate_se(
     if len(idx_t) < 2 or len(idx_c) < 2:
         return float("nan"), nan_components
 
+    deficient = 0
     K = np.zeros(n)
     Kp = np.zeros(n)
     y_opp = np.full(n, np.nan)  # mean outcome of the m nearest opposite units
@@ -411,6 +419,12 @@ def abadie_imbens_2016_ate_se(
             # weight each of them receives
             d_opp = np.abs(p[rows][:, None] - p_oth[None, :])
             mask_m = _tie_inclusive_mask(d_opp, n_matches)
+            if caliper is not None:
+                near = (d_opp <= caliper).sum(axis=1) >= min(n_matches, len(other))
+                d_own = np.abs(p[rows][:, None] - p_own[None, :])
+                # h same-arm units besides the unit itself
+                near &= (d_own <= caliper).sum(axis=1) >= min(h + 1, len(own))
+                deficient += int((~near).sum())
             cnt, ybar_m, _, _ = _set_stats(mask_m, y_oth, Z_oth)
             y_opp[rows] = ybar_m
             share = mask_m / cnt[:, None]
@@ -450,7 +464,8 @@ def abadie_imbens_2016_ate_se(
         "n": int(n),
         "h": h,
         "ate": tau,
+        "caliper_deficient": deficient,
     }
-    if not np.isfinite(var) or var < 0:
+    if deficient or not np.isfinite(var) or var < 0:
         return float("nan"), components
     return float(np.sqrt(var)), components

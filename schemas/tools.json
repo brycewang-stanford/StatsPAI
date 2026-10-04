@@ -3490,6 +3490,9 @@
         "d": {
           "description": "Treatment column.",
           "type": "string",
+          "x-aliases": [
+            "treat"
+          ],
           "x-statspai-role": "column"
         },
         "fe": {
@@ -3562,7 +3565,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
         },
         "y": {
           "description": "Outcome column.",

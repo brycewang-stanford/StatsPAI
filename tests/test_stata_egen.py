@@ -198,7 +198,9 @@ def test_std(df):
 @pytest.mark.parametrize(
     "line, message",
     [
-        ("egen s = seq(), from(1) to(3)", "not implemented"),
+        ("egen s = fill(1 2)", "not implemented"),
+        ("egen r = rank(x), unique", "not implemented"),
+        ("egen q = cut(x), group(4)", "not implemented"),
         ("egen m = mean(x), by(nope)", "not in the data"),
         ("egen g = mean(x)", "already exists"),
         ("egen id = group(g), by(h)", "may not be combined with by"),
@@ -229,3 +231,54 @@ def test_egen_feeds_an_estimation_command():
         )
         fe = sp.regress("y ~ x + C(id)", data=d)
     assert float(within.params["xd"]) == pytest.approx(float(fe.params["x"]), rel=1e-10)
+
+
+# ------------------------------------------------- the rest of the functions
+# Run beside Stata 18 on the same 614 rows as the functions above: all 19
+# commands agree on every row.
+def test_rank_ties_share_the_average(df):
+    d = pd.DataFrame({"g": [1, 1, 1, 1, 2, 2.0], "x": [3.0, 1.0, 3.0, NAN, 5.0, 4.0]})
+    same(column(d, "egen r = rank(x)"), [2.5, 1, 2.5, NAN, 5, 4])
+    same(column(d, "egen r = rank(x), by(g)"), [2.5, 1, 2.5, NAN, 2, 1])
+    same(column(d, "egen r = rank(x), field"), [3, 5, 3, NAN, 1, 2])
+    same(column(d, "egen r = rank(x), track"), [2, 1, 2, NAN, 5, 4])
+
+
+def test_seq(df):
+    same(column(df, "egen s = seq(), from(1) to(3)"), [1, 2, 3, 1, 2, 3, 1, 2])
+    same(
+        column(df, "egen s = seq(), from(10) block(2)"),
+        [10, 10, 11, 11, 12, 12, 13, 13],
+    )
+    same(column(df, "egen s = seq(), by(g)"), [1, 2, 3, 1, 2, 1, 2, 3])
+
+
+def test_anycount_anymatch_cut(df):
+    same(column(df, "egen k = anycount(a b c), values(1 3)"), [2, 0, 2, 0, 0, 0, 1, 0])
+    same(column(df, "egen k = anymatch(a b c), values(5/7)"), [0, 0, 1, 0, 1, 1, 0, 0])
+    same(column(df, "egen k = cut(c), at(0, 4, 8)"), [0, NAN, 4, NAN, 4, NAN, 0, 4])
+    same(
+        column(df, "egen k = cut(c), at(0, 4, 8) icodes"),
+        [0, NAN, 1, NAN, 1, NAN, 0, 1],
+    )
+
+
+def test_rowfirst_rowlast(df):
+    same(column(df, "egen double f = rowfirst(a b c)"), [1, NAN, 3, 4, 5, 6, 1, 8])
+    same(column(df, "egen double f = rowlast(a b c)"), [3, NAN, 5, 4, 7, 9, 1, 4])
+
+
+def test_moments_and_modes():
+    d = pd.DataFrame({"x": [1.0, 2.0, 2.0, 3.0, 10.0]})
+    x = d.x.to_numpy()
+    dev = x - x.mean()
+    m2 = np.mean(dev**2)
+    same(column(d, "egen double s = skew(x)"), [np.mean(dev**3) / m2**1.5] * 5)
+    same(column(d, "egen double s = kurt(x)"), [np.mean(dev**4) / m2**2] * 5)
+    same(column(d, "egen double s = mdev(x)"), [np.mean(np.abs(dev))] * 5)
+    same(column(d, "egen double s = mad(x)"), [1.0] * 5)  # |x - 2| -> 0 0 1 1 8
+    same(column(d, "egen s = mode(x)"), [2.0] * 5)
+    two = pd.DataFrame({"x": [1.0, 1.0, 4.0, 4.0, 2.0]})
+    same(column(two, "egen s = mode(x)"), [NAN] * 5)  # two modes: missing
+    same(column(two, "egen s = mode(x), minmode"), [1.0] * 5)
+    same(column(two, "egen s = mode(x), maxmode"), [4.0] * 5)

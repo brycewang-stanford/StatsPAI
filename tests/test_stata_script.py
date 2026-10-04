@@ -180,8 +180,8 @@ def test_xtset_supplies_id_and_time_to_xtabond(df):
     "script, match",
     [
         ("reg y x $controls", "not defined"),
-        ("local k = _N\nreg y x `k'", "only known to Stata"),
-        ("foreach v in x age {\n reg y `v'\n}", "control flow"),
+        ("local k : word count x age\nreg y x `k'", "only known to Stata"),
+        ("mata\n x = 1\nend", "control flow"),
         ("xtreg y x, fe", "cannot be run as written"),
     ],
 )

@@ -14,8 +14,10 @@ sample, estimate, return the estimate" in a program and repeating it:
 
 ``sp.stata`` runs exactly that shape: the body is a list of commands it
 already runs, ``return scalar name = exp`` fills ``r()``, and ``simulate``
-repeats the body and leaves one row per repetition in memory. Programs with
-arguments, ``syntax``, loops or macros are refused.
+repeats the body and leaves one row per repetition in memory. A program
+may take arguments (``args a b``, or `` `1' `` `` `2' ``), loop and set local
+macros, which do not outlive the call (``_stata_flow.py``). ``syntax`` and
+``mata`` are refused.
 
 The random numbers come from numpy, not from Stata's generator: the design
 is reproduced, the individual draws are not.
@@ -53,7 +55,7 @@ _SIMULATE = re.compile(
     r"(?P<prog>[A-Za-z_]\w*)\s*$",
     re.S,
 )
-_UNSUPPORTED_BODY = re.compile(r"\s*(?:syntax|args|tempvar|tempname|local|global)\b")
+_UNSUPPORTED_BODY = re.compile(r"\s*(?:syntax|mata)\b")
 
 
 def _refuse(message: str, line: str) -> MethodIncompatibility:
@@ -79,7 +81,7 @@ def program_line(session: "StataSession", line: str) -> Optional[bool]:
             if _UNSUPPORTED_BODY.match(line):
                 session._defining = None
                 raise _refuse(
-                    "the program uses arguments or macros, which are not run",
+                    "the program uses `syntax` or `mata`, which are not run",
                     line,
                 )
             body.append(line)
@@ -122,8 +124,11 @@ def _run_program(session: "StataSession", name: str) -> Dict[str, float]:
 def run_simulate(session: "StataSession", line: str) -> Optional[bool]:
     """``simulate name = exp ..., reps(#) [seed(#)]: program``."""
     if not re.match(r"\s*simulate\b", line):
-        if line.strip() in session.programs:
-            _run_program(session, line.strip())
+        words = line.split()
+        if words and words[0] in session.programs:
+            from ._stata_flow import call_program
+
+            call_program(session, words[0], words[1:])
             return False
         return None
     m = _SIMULATE.match(line)

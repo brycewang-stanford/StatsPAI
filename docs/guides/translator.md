@@ -84,11 +84,66 @@ sp.stata("""
 - the panel declared by `xtset id year`, which supplies the `<panel_id>` of
   a later `xtreg, fe` or `xtabond`.
 
-What only Stata can evaluate is refused: a macro set by an expression or an
-extended function (`local n = _N`, `local k : word count ...`), a macro that
-is never defined (Stata would expand it to nothing and run another model),
-and `foreach` / `forvalues` / `program` blocks. Write the loop in Python
-around `sp.stata`.
+What only Stata can evaluate is refused: a macro set by an extended function
+(`local k : word count ...`), a macro that is never defined (Stata would
+expand it to nothing and run another model), `syntax` and `mata`.
+
+### Loops, branches and programs
+
+`forvalues`, `foreach` (`in`, `of varlist`, `of numlist`, `of local`),
+`while`, `if { } else { }` and `continue` are run the way Stata runs them.
+The body of a block is collected up to its closing brace, the loop macro is
+set, and the lines are run one by one, so every command inside is still
+translated and checked on its own.
+
+```python
+sp.stata("""
+    matrix taus = J(1000, 1, .)
+    forvalues i = 1/1000 {
+        quietly {
+            preserve
+            bsample
+            reg y treatment
+            matrix taus[`i', 1] = _b[treatment]
+            restore
+        }
+    }
+    clear
+    svmat taus, names(tau)
+    _pctile tau1, percentiles(2.5 97.5)
+""", data=df)
+```
+
+The macros a loop needs are evaluated: `local m = r(mean)`, `local ++i`,
+`` `=2 * `k'' ``, `` `r(N)' ``, and `tempvar` / `tempfile` names. A program
+defined with `program name ... end` can be called with arguments (`args a
+b`); the local macros it sets do not outlive the call. Matrices are held as
+tables of results (`J()`, `e(b)`, `e(V)`, a cell at a time, `svmat`,
+`mkmat`), and the right-hand side may be a matrix expression with sums,
+products, a transpose and `inv()` (`matrix ve = d * V * d'`). Other matrix
+functions (`cholesky`, `det` ...) are refused.
+
+Random numbers (`rnormal()`, `runiform()`, `bsample`) are numpy's, so a
+simulation has Stata's design and other draws.
+
+### More than one dataset
+
+Nothing is read from or written to disk. `save name` keeps a copy of the
+data in the session, and `use`, `append using`, `merge ... using` and frames
+work on those copies. Datasets from elsewhere are passed in:
+
+```python
+sp.stata("""
+    merge m:1 county using rates, keep(match master) nogenerate
+    reshape long wage, i(id) j(year)
+    regress wage rate i.year, vce(cluster county)
+""", data=workers, files={"rates": county_rates})
+```
+
+`merge` (1:1, m:1, 1:m, on `_n`) follows Stata on what it keeps (`_merge`,
+the master's values for a shared variable) and on the order it leaves the
+rows in. `frame create / copy / change / put /
+post`, `frlink` and `frget` are run. `merge m:m` is refused.
 
 `sp.stata(...)` runs a translation only when nothing was lost: an entry in
 `untranslated_options` raises `MethodIncompatibility` with the call to run
@@ -138,9 +193,15 @@ The functions available are `ln` `log` `log10` `exp` `sqrt` `abs` `floor`
 `ceil` `int` `round` `mod` `min` `max` `sign` `cond` `missing` `mi`
 `inlist` `inrange` `normal` `normalden` `invnormal` `chi2` `chi2tail`
 `ttail` `invttail` `F` `Ftail`. Anything else is refused with the reason:
-`e(sample)`, string functions, extended missing values (`.a`), `merge`,
-`expand`, `matrix`. `use` is
-refused as well, since it replaces the data; pass the DataFrame in. Settings
+`e(sample)`, string functions, extended missing values (`.a`), `expand`.
+
+`egen` covers `count` `mean` `median` `sd` `min` `max` `total` `pctile`
+`iqr` `skew` `kurt` `mad` `mdev` `mode` `std` `rank` `seq` `group` `tag`
+`cut` (with `at()`), `anycount` `anymatch` and the `row*` functions, with
+`if`, `in`, `by()` and behind `by g:`. Each follows the missing-value rule
+of its entry in `[D] egen` (`total` counts missing as zero, `tag` is never
+missing). `by g:` and `bysort g (t):` also work in front of `generate` and
+`replace`, where `_n`, `_N` and `x[_n-1]` count within the group. Settings
 and output-only lines (`set more off`, `log using`, `label`, `describe`) are
 skipped, and graph or export commands are skipped with a warning.
 
@@ -237,8 +298,12 @@ These are part of the queryable contract — `sp.translation_coverage()["limitat
 - **`xtreg, fe` has no `_cons`.** Stata prints the average fixed effect;
   `sp.feols` absorbs it.
 - **Macros and loops.** `sp.from_stata` translates one command and refuses a
-  macro; `sp.stata` expands the macros defined by text in the same snippet
-  and the ones that hold a stored result. Loops are not run.
+  macro. `sp.stata` runs loops and `if` blocks and evaluates the macros
+  they use; extended macro functions, `syntax` and `mata` are refused.
+- **Files.** `sp.stata` never reads or writes a file. `use name` works for a
+  dataset saved earlier in the snippet or passed in `files=`.
+- **`regress, vce(bootstrap)`.** Not translated: `sp.regress` has no
+  bootstrap variance. `sp.bootstrap` resamples any statistic.
 - **User-written DiD commands.** `eventstudyinteract`, `csdid2`,
   `honestdid` and `allsynth` are not translated. Call `sp.sun_abraham`,
   `sp.callaway_santanna`, `sp.honest_did` and `sp.augsynth` directly.
@@ -252,9 +317,8 @@ These are part of the queryable contract — `sp.translation_coverage()["limitat
   comes from an extended function is refused. `did_imputation, allhorizons` needs the list of
   horizons, which is in the data, so it is reported in
   `untranslated_options`.
-- **`psmatch2` without `logit`.** Stata then fits a probit propensity score;
-  `sp.psmatch2` fits a logit, so the translation lists `probit` in
-  `untranslated_options`.
+- **`psmatch2` without `logit`.** Stata then fits a probit propensity score,
+  and the translation passes `ps_model='probit'`.
 
 For the hand-written equivalence reference, see also
 [Migrating from R to StatsPAI](migration-from-r.md).

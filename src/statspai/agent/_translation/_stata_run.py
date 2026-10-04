@@ -22,6 +22,10 @@ import pandas as pd
 from ...exceptions import MethodIncompatibility
 from ._stata_datastep import DataSteps, row_mask
 from ._stata_expr import StataExprError, evaluate
+from ._stata_flow import flow_line, macro_line, macro_value
+from ._stata_matrix import matrix_line
+from ._stata_multi import file_key, multi_line
+from ._stata_programs import program_line
 from ._stata_session import (
     absorbed_constant,
     expand_frequency,
@@ -180,6 +184,21 @@ def _term_column(term: str, data: pd.DataFrame) -> Optional[np.ndarray]:
     return out
 
 
+_DISPLAY_NOISE = re.compile(
+    r"`\"[^`]*?\"'|(?<!\[)\"[^\"]*\"|\bas\s+(?:text|txt|result|res|error|err|input)\b|"
+    r"%[-0-9.,]*[a-zA-Z]+\b|\b_n(?:ewline)?\b(?:\(\d+\))?|\b_skip\(\d+\)|"
+    r"\b_col(?:umn)?\(\d+\)|\b_continue\b|\b_dup\(\d+\)|"
+    r"\bin\s+(?:smcl|red|green|yellow|white)\b"
+)
+
+
+def _display_expression(text: str) -> str:
+    """What `display` is asked to evaluate, without the text around it:
+    quoted strings, ``as text`` / ``as result``, formats and spacing
+    directives are dropped. One expression may remain."""
+    return _DISPLAY_NOISE.sub(" ", text).strip()
+
+
 def _e_scalars(result: Any) -> Dict[str, float]:
     """``e(rss)``, ``e(mss)``, ``e(rmse)``, ``e(df_r)``, ``e(df_m)``, ``e(F)``
     and ``e(ll)`` where the result carries what they are computed from."""
@@ -286,6 +305,7 @@ def stata(
     data: Optional[pd.DataFrame] = None,
     *,
     result: Any = None,
+    files: Optional[Dict[str, pd.DataFrame]] = None,
 ) -> Any:
     """Execute Stata estimation / post-estimation commands on a DataFrame.
 
@@ -313,7 +333,22 @@ def stata(
         ``r()`` results of ``summarize``, ``test`` and ``ttest``. Session
         settings and output-only lines (``set more off``, ``log``,
         ``label``, ``describe`` ...) are skipped; graph and export commands
-        are skipped with a warning. ``use`` is refused: pass the data in.
+        are skipped with a warning.
+
+        Loops and branches are run as Stata runs them (``forvalues``,
+        ``foreach``, ``while``, ``if { } else { }``, ``continue``), with
+        the macros they need: ``local x = exp``, `` `=exp' ``, ``local
+        ++i``, ``tempvar`` / ``tempfile``, and programs called with
+        arguments. ``egen``, ``collapse``, ``count``, ``by g:`` data steps,
+        matrices filled cell by cell (``matrix A = J(r, c, .)``, ``matrix
+        A[i, j] = exp``, ``e(b)``, ``d * V * d'``, ``svmat``) and frames
+        are run too.
+
+        Nothing is read from or written to disk. ``save name`` keeps a
+        copy in the session; ``use``, ``append using``, ``merge ... using``
+        work on those copies and on the frames passed in
+        ``files``. ``use`` of a file that is neither is refused: pass the
+        data in.
 
         After ``tsset time`` (or ``xtset id time``) the time-series
         operators ``L.x``, ``L2.x``, ``F.x``, ``D.x``, ``L(1/4).x`` are
@@ -326,6 +361,11 @@ def stata(
     result : fitted result, optional
         The estimation result that leading post-estimation commands apply
         to.
+    files : dict of str to DataFrame, optional
+        Other datasets the commands name: ``merge 1:1 id using wages``,
+        ``append using wave2`` and ``use wages`` look ``wages`` up here
+        (the file name without folder and ``.dta``). Nothing is read from
+        disk.
 
     Returns
     -------
@@ -340,9 +380,10 @@ def stata(
         its translation needs information the line does not carry (for
         example the panel identifier of ``xtreg, fe``, which Stata takes
         from an earlier ``xtset`` when the snippet has none), or the snippet
-        uses a loop, an undefined macro, or a macro only Stata can evaluate,
+        uses an undefined macro, a macro only Stata can evaluate (an
+        extended macro function), ``syntax`` or ``mata``,
         or an expression outside the implemented set (``e(sample)``,
-        ``_b[x]``, time-series operators, string functions).
+        string functions).
     TypeError
         When an estimation command is run without ``data``, or a
         post-estimation command before any estimation result exists.
@@ -375,6 +416,8 @@ def stata(
     if not lines:
         raise ValueError("sp.stata: no command given.")
     session = StataSession(data, result=result)
+    for name, frame in (files or {}).items():
+        session.files[file_key(str(name))] = frame
     for line in lines:
         if _EXIT.match(line):
             break  # `exit` ends a do-file; Stata runs nothing after it
@@ -415,6 +458,21 @@ class StataSession:
         self.output: Any = result
         self._last_call: Optional[Dict[str, Any]] = None
         self._quiet_blocks = 0
+        #: the block being collected (`forvalues ... {` up to its `}`)
+        self._flow: Optional[Dict[str, Any]] = None
+        #: whether the `if` block just run was taken, for a following `else`
+        self._if_taken: Optional[bool] = None
+        self._temp_count = 0
+        self._program_depth = 0
+        #: datasets of the session by name (`save`, or files= of sp.stata)
+        self.files: Dict[str, pd.DataFrame] = {}
+        #: a caller's way to find a dataset by name (the log replay's)
+        self.file_loader: Any = None
+        #: frames other than the one in memory, and the links between them
+        self.frames: Dict[str, Any] = {}
+        self.frame = "default"
+        self.links: Dict[Tuple[str, str], str] = {}
+        self._macros.evaluator = lambda name: macro_value(self, name)
         #: models named by `estimates store`: name -> (result, data, call)
         self.estimates: Dict[str, Tuple[Any, Any, Any]] = {}
         #: columns a command needed for its own run (a weight expression)
@@ -479,7 +537,10 @@ class StataSession:
             # a scalar does not need data in memory (`clear`, then `scalar`)
             columns = [] if frame is None else list(frame.columns)
             frame = pd.DataFrame({c: [np.nan] for c in columns} or {"_": [0.0]})
-        out = evaluate(expr, frame.iloc[:1], self.stored)
+        # a scalar expression is evaluated in the first observation; one
+        # that counts rows or subscripts (`_N`, `x[_N]`) needs all of them
+        whole = re.search(r"\b_[nN]\b|\[", expr) is not None
+        out = evaluate(expr, frame if whole else frame.iloc[:1], self.stored)
         if out.dtype == object:
             raise StataExprError("the expression is a string, not a number")
         return float(out[0])
@@ -558,6 +619,15 @@ class StataSession:
         """Run one command. Returns ``False`` for a line that produces no
         output (a macro definition, ``xtset``, a data step, a setting)."""
         try:
+            if self._defining is not None:
+                # inside `program ... end`: the line belongs to the body
+                handled = program_line(self, line)
+                return bool(handled)
+            flowed = flow_line(self, line)
+            if flowed is not None:
+                return flowed
+            if macro_line(self, line):
+                return False
             if _QUIET_BLOCK.match(line):
                 self._quiet_blocks += 1
                 return False
@@ -599,7 +669,7 @@ class StataSession:
         import statspai as sp
 
         from ._stata import from_stata
-        from ._stata_programs import program_line, run_simulate
+        from ._stata_programs import run_simulate
         from ._stata_script import (
             ScriptError,
             control_flow,
@@ -646,6 +716,32 @@ class StataSession:
         if st is not None:
             self.survival = st
             return False
+        if self._steps is None and re.match(r"\s*restore\s*$", line):
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: `restore` without a `preserve`.",
+                diagnostics={"command": line},
+            ) from StataExprError("`restore` without a `preserve`")
+        try:
+            multi = multi_line(self, line)
+        except StataExprError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                recovery_hint="Do this step in pandas and pass the prepared "
+                "DataFrame as data=.",
+                diagnostics={"command": line},
+            ) from exc
+        if multi is not None:
+            return multi
+        try:
+            matrix = matrix_line(self, line)
+        except StataExprError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                recovery_hint="Hold the table in numpy or pandas instead.",
+                diagnostics={"command": line},
+            ) from exc
+        if matrix is not None:
+            return matrix
         declared = panel_declaration(line)
         if declared is not None:
             self.panel = declared
@@ -719,7 +815,9 @@ class StataSession:
         if scalar is not None:
             expr = scalar.group(2).strip()
         elif show is not None:
-            expr = show.group(1).strip()
+            expr = _display_expression(show.group(1))
+            if not expr:
+                return False  # only text: nothing to evaluate
         if scalar is not None or show is not None:
             try:
                 number = self.value(expr)
@@ -930,6 +1028,18 @@ class StataSession:
                     absorbed_constant(self, out, run_data)
                 if out["tool"] == "psmatch2":
                     psmatch2_after(self, run_data)
+                kept = re.search(r",.*\bkeep\(\s*\"?([^)\"]+?)\"?\s*\)", line, re.S)
+                if out["tool"] == "synth" and kept:
+                    # synth, keep(name): the paths, as the file Stata writes
+                    info = getattr(self.output, "model_info", None) or {}
+                    if all(k in info for k in ("times", "Y_treated", "Y_synth")):
+                        self.files[file_key(kept.group(1))] = pd.DataFrame(
+                            {
+                                "_time": np.asarray(info["times"], dtype=float),
+                                "_Y_treated": np.asarray(info["Y_treated"], float),
+                                "_Y_synthetic": np.asarray(info["Y_synth"], float),
+                            }
+                        )
                 if is_teffects:
                     try:
                         teffects_after(self, line, out, run_data)

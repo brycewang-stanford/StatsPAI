@@ -46,9 +46,13 @@ def test_quiet_block_runs_its_body(df, opener):
     )
 
 
-def test_loop_is_still_refused(df):
-    with pytest.raises(MethodIncompatibility, match="control flow"):
-        run("forvalues i = 1/3 {\n gen z`i' = x\n}", df)
+def test_a_loop_runs_its_body_inside_a_quiet_block(df):
+    out = run(
+        "quietly {\n forvalues i = 1/3 {\n  gen z`i' = x * `i'\n }\n}\n"
+        "su z3\ndisplay r(N)",
+        df,
+    )
+    assert out == 360
 
 
 # ----------------------------------------------------------------- capture

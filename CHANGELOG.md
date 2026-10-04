@@ -341,7 +341,37 @@ difference in differences) were run in Stata 18 and replayed through
   are still refused.
 - `scripts/stata_log_replay.py` reads `import delimited` (Stata's
   delimiter detection and lower-cased names) and `input` blocks, and
-  compares `sdid`, `boottest` and `psmatch2` output.
+  compares `sdid`, `boottest` and `psmatch2` output. It reads a block as
+  one command (the body from the log's numbered echo, or from the do-file
+  beside the log when the block ran quietly) and keeps macros, scalars,
+  matrices and saved datasets across `use`.
+- **`sp.stata` runs loops.** `forvalues`, `foreach`, `while`, `if { } else
+  { }` and `continue`, with the macros they use (`local x = exp`, `local
+  ++i`, `` `=exp' ``, `` `r(N)' ``, `tempvar`, `tempfile`) and programs
+  called with arguments. A block's body is run line by line, so each
+  command in it is translated and refused as it would be outside. Extended
+  macro functions, `syntax` and `mata` are still refused.
+- **`sp.stata` holds more than one dataset.** `save` keeps a copy in the
+  session (no file is written); `use`, `append using`, `merge 1:1 | m:1 |
+  1:m ... using` work on those copies and on the
+  frames passed in the new `files=` argument. Frames (`frame create / copy
+  / change / put / post`, `frlink`, `frget`) are run. `merge`, `append`,
+  and `frlink` / `frget` were run beside Stata 18 and give its
+  rows in its order.
+- **Matrices in `sp.stata`**: `matrix A = J(r, c, .)`, `e(b)`, `e(V)`, a
+  cell at a time, `A[i, j]` in expressions, `svmat`, `mkmat`, and matrix
+  expressions with sums, products, a transpose and `inv()`.
+- More of `egen`: `skew`, `kurt`, `mad`, `mdev`, `mode`, `rank`, `seq`,
+  `anycount`, `anymatch`, `cut(, at())`, `rowfirst`, `rowlast`. Nineteen
+  commands beside Stata 18, all equal on every row.
+- `sp.match(estimand='ATE', se_method='abadie_imbens_2016', caliper=)`:
+  as in Stata the caliper is a condition every unit has to meet, and the
+  call stops when one does not.
+- `sp.causal_forest` accepts `treat=` and `covariates=` for `d=` and `x=`.
+- `display "text" exp` evaluates the expression.
+
+With these the three chapter logs of the book run with one command
+declined (`regress, vce(bootstrap)`), down from 107.
 
 ### ⚠️ Correctness: local randomization and multi-cutoff RD
 

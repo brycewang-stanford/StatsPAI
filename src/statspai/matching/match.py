@@ -324,8 +324,10 @@ def match(
         ``model_info['ai2016_components']``.  With ``estimand='ATE'`` it is
         the ATE counterpart ``sigma^2 - c'V_gamma c`` that ``teffects
         psmatch, ate`` reports (estimating the score can only lower the
-        variance of the ATE); that needs ``ties='all'``, matching with
-        replacement and no caliper.  Not on the coverage grid above.
+        variance of the ATE); that needs ``ties='all'`` and matching with
+        replacement, and a caliper is a condition every unit has to meet
+        (as in Stata, the call stops when one does not).  Not on the
+        coverage grid above.
         ``'bootstrap'`` is an arm-stratified nonparametric bootstrap that
         re-estimates the propensity score in every replication, so unlike the
         analytic options it accounts for the sampling variability of the
@@ -996,8 +998,6 @@ class MatchEstimator:
                 # psmatch makes: every tied unit, with replacement, no caliper
                 if self.ties != "all":
                     problems.append(f"ties={self.ties!r} (the ATE needs 'all')")
-                if self.caliper is not None:
-                    problems.append("a caliper (not with the ATE)")
                 if not self.replace:
                     problems.append("replace=False (not with the ATE)")
             if problems:
@@ -1279,7 +1279,18 @@ class MatchEstimator:
                     n_matches=self.n_matches,
                     h=self.ai_matches + 1,
                     density=ps_fit["density"],
+                    caliper=self.caliper,
                 )
+                if comps.get("caliper_deficient"):
+                    raise MethodIncompatibility(
+                        f"match: {comps['caliper_deficient']} observation(s) "
+                        "have too few propensity-score matches within "
+                        f"caliper {self.caliper} (opposite arm, or same arm "
+                        "for the robust variance). Stata teffects psmatch "
+                        "stops here too.",
+                        recovery_hint="Widen the caliper, drop it, or drop "
+                        "the observations without a match.",
+                    )
                 model_info["se_method"] = "abadie_imbens_2016"
                 model_info["ai_matches"] = self.ai_matches
                 model_info["ai2016_components"] = comps

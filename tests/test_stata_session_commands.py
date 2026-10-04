@@ -311,7 +311,7 @@ def test_random_draws_warn_and_unsupported_programs_are_refused():
     with pytest.warns(UserWarning, match="numpy, not from Stata"):
         s.run("gen e = rnormal()")
     s.run("program bad")
-    with pytest.raises(MethodIncompatibility, match="arguments or macros"):
+    with pytest.raises(MethodIncompatibility, match="`syntax` or `mata`"):
         s.run("syntax varlist")
     with pytest.raises(MethodIncompatibility, match="program defined above"):
         s.run("simulate b = r(b), reps(5): nosuch")

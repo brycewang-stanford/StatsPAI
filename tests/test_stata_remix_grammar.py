@@ -76,8 +76,6 @@ def test_local_defined_from_a_result_and_from_arithmetic(df):
 @pytest.mark.parametrize(
     "lines",
     [
-        "local k = _N\nreg y xt if year > `k'",  # reads the data
-        "local k = xt\ndisplay `k'",  # a variable: Stata takes observation 1
         "gen q = `r(sd)'",  # nothing stored r(sd)
         "local w : word 1 of a b\ngen q = `w'",  # an extended function
     ],
@@ -85,6 +83,15 @@ def test_local_defined_from_a_result_and_from_arithmetic(df):
 def test_macros_the_session_cannot_know_are_still_refused(df, lines):
     with pytest.raises(MethodIncompatibility, match="macro"):
         sp.stata(lines, df)
+
+
+def test_macros_that_read_the_data_take_statas_value(df):
+    # `local k = exp` is evaluated as Stata evaluates it (2026-10): _N is
+    # the number of observations, a variable is its value in observation 1
+    assert sp.stata("local k = _N\ndisplay `k'", df) == len(df)
+    assert sp.stata("local k = xt\ndisplay `k'", df) == pytest.approx(
+        float(np.float64(df["xt"].iloc[0])), rel=1e-12
+    )
 
 
 def test_text_macros_are_unchanged(df):

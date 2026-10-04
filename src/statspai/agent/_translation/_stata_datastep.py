@@ -506,6 +506,11 @@ class DataSteps:
         if _abbrev(sub, "variable", 3):
             name, _, text = rest.partition(" ")
             if name not in self.data.columns:
+                # Stata takes an unambiguous abbreviation of a variable name
+                full = [str(c) for c in self.data.columns if str(c).startswith(name)]
+                if len(full) == 1:
+                    name = full[0]
+            if name not in self.data.columns:
                 raise StataExprError(
                     f"label variable: variable {name!r} is not in the data"
                 )

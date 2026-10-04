@@ -49,13 +49,18 @@ LIMITATIONS: List[str] = [
     "cannot evaluate (e(sample), string functions).",
     "sp.stata runs generate / replace / keep / drop / sort / mvdecode / "
     "encode / preserve / restore / predict / scalar / display / egen / "
-    "collapse / count / duplicates drop, also by group; merge, reshape, "
-    "loops and `use` are refused.",
-    "Stata macros (`$global`, `local') and prefixes that change the estimate "
-    "(by, bootstrap, jackknife, permute, svy, rolling, statsby) are refused: "
-    "expand the macro, or apply the prefix in Python.",
-    "One command per call: multi-command .do / multi-line R scripts must be "
-    "split by the caller before translation.",
+    "collapse / count / duplicates drop, also by group; loops and "
+    "if-else blocks with their macros; matrices filled cell by cell and "
+    "svmat; save / use / append / merge / reshape and frames on datasets "
+    "held in the session (nothing is read from or written to disk; pass "
+    "other datasets in files=). `use` of a file that was not passed in, "
+    "`syntax` and `mata` are refused.",
+    "sp.from_stata translates one line and does not expand macros. In "
+    "sp.stata, prefixes that change the estimate (by on an estimation "
+    "command, bootstrap, jackknife, permute, svy, rolling, statsby), "
+    "undefined macros and extended macro functions are refused.",
+    "sp.from_stata / sp.from_r take one command per call; sp.stata takes a "
+    "do-file snippet.",
 ]
 
 

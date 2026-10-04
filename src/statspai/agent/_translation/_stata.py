@@ -2562,20 +2562,10 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
         args["se_method"] = "abadie_imbens_2016"
         if h is not None:
             args["ai_matches"] = max(h - 1, 1)
-        if estimand == "ATE" and opts.get("caliper") is not None:
-            # the ATE variance is defined on the uncalipered matches
-            del args["se_method"]
-            lost.append("caliper")
-            notes.append(
-                "teffects psmatch, ate with a caliper: sp.match has the "
-                "Abadie-Imbens (2016) ATE standard error without a caliper "
-                "only."
-            )
-        else:
-            notes.append(
-                "Standard error: Abadie-Imbens (2016), which charges for the "
-                "estimated propensity score, as teffects psmatch reports."
-            )
+        notes.append(
+            "Standard error: Abadie-Imbens (2016), which charges for the "
+            "estimated propensity score, as teffects psmatch reports."
+        )
         if opts.get("generate") is not None:
             notes.append(
                 "generate(): sp.stata creates the match variables (the row "

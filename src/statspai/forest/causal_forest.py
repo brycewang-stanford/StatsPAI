@@ -2185,7 +2185,15 @@ class CausalForest(BaseModel):
 # ML4CI agent-surface audit found it the one documented keyword the callable
 # rejected.  ``unit`` is the pre-house-style spelling of the panel id.  Passing
 # both spellings of either is a TypeError, as for any duplicate argument.
-@accepts_aliases(_strict=True, _warn=False, n_trees="n_estimators", unit="id")
+# ``treat`` / ``covariates`` are the house-style names of ``d`` / ``x``.
+@accepts_aliases(
+    _strict=True,
+    _warn=False,
+    n_trees="n_estimators",
+    unit="id",
+    treat="d",
+    covariates="x",
+)
 def causal_forest(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,

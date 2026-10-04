@@ -161,16 +161,17 @@ def parse(line: str) -> StataCommand:
 
 
 def _split_options(line: str) -> Tuple[str, str]:
-    """Split ``line`` on the first comma that is NOT inside parentheses.
+    """Split ``line`` on the first comma that is NOT inside parentheses or
+    square brackets (``A[1, 2]`` is a matrix cell, not an option list).
 
     Returns ``(head, options_str)``. When no top-level comma exists the
     options string is empty.
     """
     depth = 0
     for idx, ch in enumerate(line):
-        if ch == "(":
+        if ch in "([":
             depth += 1
-        elif ch == ")":
+        elif ch in ")]":
             depth = max(0, depth - 1)
         elif ch == "," and depth == 0:
             return line[:idx].strip(), line[idx + 1 :].strip()

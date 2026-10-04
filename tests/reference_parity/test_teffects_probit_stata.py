@@ -106,12 +106,45 @@ def test_psmatch_ate_variance_needs_the_matches_stata_makes(lalonde):
         y="re78", treat="treat", covariates=FULL, distance="propensity",
         estimand="ATE", se_method="abadie_imbens_2016",
     )  # fmt: skip
-    for extra, message in (
-        ({}, "ties"),
-        ({"ties": "all", "caliper": 0.1}, "caliper"),
-    ):
-        with pytest.raises(sp.exceptions.MethodIncompatibility, match=message):
-            sp.match(lalonde, **kw, **extra)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="ties"):
+        sp.match(lalonde, **kw)
+
+
+@pytest.mark.parametrize(
+    "options, effect, se",
+    [
+        # teffects psmatch (re78) (treat <DISCRETE>), ate <options>
+        ({"n_matches": 3}, 120.075, 820.524),  # nneighbor(3)
+        ({"ai_matches": 2}, 320.1955, 1226.906),  # vce(robust, nn(3))
+        ({"caliper": 0.3}, 320.1955, 973.734),  # caliper(0.3)
+    ],
+)
+def test_psmatch_ate_options_match_stata(lalonde, options, effect, se):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = sp.match(
+            lalonde, y="re78", treat="treat", covariates=DISCRETE,
+            distance="propensity", estimand="ATE", ties="all",
+            se_method="abadie_imbens_2016", **options,
+        )  # fmt: skip
+    assert _close(r.estimate, effect) and _close(r.se, se)
+
+
+@pytest.mark.parametrize("caliper, deficient", [(0.05, 1), (0.02, None)])
+def test_psmatch_ate_stops_where_stata_stops(lalonde, caliper, deficient):
+    """A caliper is a condition on every unit. Stata stops at caliper(0.05)
+    because observation 58 has one same-arm unit within it, not two, and at
+    caliper(0.02) because an observation has no match at all."""
+    with pytest.raises(sp.exceptions.MethodIncompatibility) as info:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sp.match(
+                lalonde, y="re78", treat="treat", covariates=DISCRETE,
+                distance="propensity", estimand="ATE", ties="all",
+                se_method="abadie_imbens_2016", caliper=caliper,
+            )  # fmt: skip
+    if deficient is not None:
+        assert f"{deficient} observation(s)" in str(info.value)
 
 
 # ------------------------------------------------------------- teffects ipw

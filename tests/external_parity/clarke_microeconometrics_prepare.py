@@ -15,7 +15,9 @@ run once with a log. This script writes, into ``<folder>/run``:
   start from an empty session. The one block
   that continues the data of the block before it (the simulation of
   chapter 2) is left alone. ``quietly { ... }`` wrappers around data steps
-  are removed so the log shows the commands they run; loops keep theirs;
+  are removed so the log shows the commands they run; loops keep theirs
+  (the replay reads the body of a quiet block from the do-file, which is
+  why ``Chapter_NN.do`` has to stay beside ``Chapter_NN.log``);
 * a link to the ``Datasets`` folder;
 * ``_master.do``, which runs each chapter under ``log using
   Chapter_NN.log, text`` with ``nostop``: chapter 4 has one line that

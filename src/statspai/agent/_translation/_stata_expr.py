@@ -723,6 +723,29 @@ class _Parser:
             if kind != "name" or key not in scalars:
                 raise StataExprError(f"scalar {key!r} is not defined")
             return float(scalars[key])
+        matrices = self.stored.get("matrices") or {}
+        if name in ("rowsof", "colsof", "el") and nxt == ("op", "("):
+            self._expect("(")
+            kind, key = self._take()
+            if kind != "name" or key not in matrices:
+                raise StataExprError(f"matrix {key} not found")
+            values = matrices[key]["values"]
+            if name == "el":
+                self._expect(",")
+                i = _num(self._or(), "a row number")
+                self._expect(",")
+                j = _num(self._or(), "a column number")
+                self._expect(")")
+                return self._cell(key, values, i, j)
+            self._expect(")")
+            return float(values.shape[0 if name == "rowsof" else 1])
+        if name in matrices and nxt == ("op", "[") and name not in self.data.columns:
+            self._expect("[")
+            i = _num(self._or(), "a row number")
+            self._expect(",")
+            j = _num(self._or(), "a column number")
+            self._expect("]")
+            return self._cell(name, matrices[name]["values"], i, j)
         if name == "tin" and nxt == ("op", "("):
             return self._tin()
         if name in _DATE_LITERALS and nxt == ("op", "("):
@@ -748,6 +771,16 @@ class _Parser:
             self._expect("]")
             return self._subscript(column, index)
         return column
+
+    def _cell(self, name: str, values: Any, i: Any, j: Any) -> float:
+        """``A[i, j]``; a subscript outside the matrix is missing, as in
+        Stata's ``el()``."""
+        row, col = float(np.asarray(i).flat[0]), float(np.asarray(j).flat[0])
+        if not (row == int(row) and col == int(col)):
+            raise StataExprError(f"matrix {name}: subscripts must be whole numbers")
+        if not (1 <= row <= values.shape[0] and 1 <= col <= values.shape[1]):
+            return float("nan")
+        return float(values[int(row) - 1, int(col) - 1])
 
     def _coefficient_name(self, kind: str) -> str:
         """The name inside ``_b[...]``; ``_b[L.y]`` is the coefficient the

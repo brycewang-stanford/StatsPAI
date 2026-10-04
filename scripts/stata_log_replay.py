@@ -110,20 +110,93 @@ def dta_tsset(path: Path) -> Optional[str]:
 
 
 # ------------------------------------------------------------- the log
+_NUMBERED = re.compile(r"^\s*\d+\.(?:\s+(.*\S))?\s*$")
+
+
+def _do_file_commands(path: Path) -> List[str]:
+    """The commands of the do-file beside a log, for the blocks whose body
+    the log does not show (``quietly { }``, ``quietly forvalues``)."""
+    source = path.with_suffix(".do")
+    if not source.is_file():
+        return []
+    from statspai.agent._translation._stata_script import split_commands
+
+    return split_commands(source.read_text(encoding="utf-8", errors="replace"))
+
+
+def _hidden_body(commands: List[str], start: int, opener: str) -> Tuple[List[str], int]:
+    """Body of the block ``opener`` opens, found in the do-file from
+    ``start`` on: its lines up to and including the closing brace."""
+    want = " ".join(opener.split())
+    for at in range(start, len(commands)):
+        if " ".join(commands[at].split()) != want:
+            continue
+        depth, body = 1, []
+        for line in commands[at + 1 :]:
+            bare = line.strip()
+            if bare.endswith("{") and not bare.startswith("}"):
+                depth += 1
+            elif bare == "}":
+                depth -= 1
+            body.append(line)
+            if depth == 0:
+                return body, at + 1 + len(body)
+        return [], start
+    return [], start
+
+
 def parse_log(path: Path) -> List[Tuple[str, List[str]]]:
-    """``[(command, lines it printed), ...]`` in the order they ran."""
+    """``[(command, lines it printed), ...]`` in the order they ran.
+
+    A block (``forvalues ... {``) is one command. Stata echoes its body as
+    numbered lines, which stay at the head of what it printed; a body line
+    that follows a comment is echoed with a dot instead of a number and is
+    numbered here. A block the log does not show the body of (it ran
+    quietly) takes its body from the do-file next to the log, if there is
+    one.
+    """
     lines = path.read_text(encoding="latin-1").splitlines()
     out: List[Tuple[str, List[str]]] = []
     cmd: Optional[str] = None
     buf: List[str] = []
+    depth = 0  # braces open in the block being echoed
+    echoed = False  # a numbered line of that block has been seen
     for ln in lines:
+        if depth > 0:
+            numbered = _NUMBERED.match(ln)
+            dotted = re.match(r"^\.\s+(.*\S)\s*$", ln) if numbered is None else None
+            content = None
+            if numbered is not None:
+                content = numbered.group(1) or ""
+            elif dotted is not None:
+                content = dotted.group(1)
+            elif ln.strip() in ("", "."):
+                continue
+            if ln.startswith("> ") and buf:
+                # a body line wrapped by the log, or continued with ///
+                buf[-1] = re.sub(r"\s*///.*$", "", buf[-1]) + " " + ln[2:].strip()
+                continue
+            echoed = echoed or numbered is not None
+            if content is not None and echoed:
+                bare = content.strip()
+                if bare and not bare.startswith(("*", "//")):
+                    buf.append(f"  0. {bare}")
+                    if bare.endswith("{") and not bare.startswith("}"):
+                        depth += 1
+                    elif bare == "}":
+                        depth -= 1
+                continue
+            depth = 0  # no echo: the body ran quietly, or this is output
         if ln.startswith(". "):
             if cmd is not None:
                 out.append((cmd, buf))
             cmd, buf = ln[2:].strip(), []
+            if cmd.rstrip().endswith("{"):
+                depth, echoed = 1, False
         elif ln.startswith("> ") and cmd is not None and not buf:
             # a wrapped command line; `///` is the do-file's continuation mark
             cmd = re.sub(r"\s*///.*$", "", cmd) + " " + ln[2:].strip()
+            depth = 1 if cmd.rstrip().endswith("{") else 0
         elif cmd is not None:
             buf.append(ln)
     if cmd is not None:
@@ -131,8 +204,17 @@ def parse_log(path: Path) -> List[Tuple[str, List[str]]]:
     cleaned = []
     for c, b in out:
         c = c.rstrip(";").strip()
-        if c and not c.startswith("*") and not c.startswith("//"):
+        if c and not c.startswith(("*", "//", "/*")):
             cleaned.append((c, b))
+    commands = _do_file_commands(path)
+    at = 0
+    for k, (c, b) in enumerate(cleaned):
+        if commands and c.endswith("{"):
+            # every block moves the place in the do-file past its body, so a
+            # block nested in an echoed one is not taken for a later one
+            body, at = _hidden_body(commands, at, c)
+            if body and not (b and _NUMBERED.match(b[0])):
+                cleaned[k] = (c, [f"  0. {line.strip()}" for line in body] + b)
     return cleaned
 
 
@@ -298,6 +380,49 @@ class Replay:
                 return hits[0]
         raise FileNotFoundError(f"{stem} is not under --data")
 
+    def _session(self, frame: Optional[pd.DataFrame]) -> StataSession:
+        """A session on ``frame`` that keeps what a new dataset does not
+        erase in Stata: macros, scalars, matrices, programs, saved data."""
+        new = StataSession(frame)
+        old = self.session
+        if old is not None:
+            new._macros.locals = old._macros.locals
+            new._macros.globals = old._macros.globals
+            new.programs = old.programs
+            new.files = old.files
+            new._temp_count = old._temp_count
+            for key in ("scalars", "matrices", "rng"):
+                if key in old.stored:
+                    new.stored[key] = old.stored[key]
+        new.file_loader = self._file
+        return new
+
+    def _file(self, name: str) -> Optional[pd.DataFrame]:
+        """A .dta file under --data, for `merge ... using` and `append`."""
+        for root in self.data_dirs:
+            for path in root.rglob("*.dta"):
+                if path.stem.lower() == name.lower():
+                    return read_dta(path)
+        return None
+
+    def _loop(self, cmd: str, buf: List[str]) -> None:
+        """A block the log echoes as numbered lines (``  2.  replace ...``):
+        hand the opener and the body to the session, which runs it."""
+        assert self.session is not None
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.session.run(cmd)
+            try:
+                for ln in buf:
+                    m = _NUMBERED.match(ln)
+                    if m is None:
+                        break
+                    if m.group(1):
+                        self.session.run(m.group(1))
+            finally:
+                self.session._flow = None
+                self.session._quiet_blocks = 0
+
     def _load(self, cmd: str) -> None:
         path = self._find(cmd)
         frame = read_dta(path)
@@ -313,7 +438,7 @@ class Replay:
                 texts[var] = {int(k): str(v) for k, v in sets[set_name].items()}
         if texts:
             frame.attrs["_value_labels"] = texts
-        self.session = StataSession(frame)
+        self.session = self._session(frame)
         # a .dta file remembers its `tsset` / `xtset`
         declared = dta_tsset(path)
         if declared is not None:
@@ -347,7 +472,7 @@ class Replay:
         frame = pd.read_csv(hits[0], sep=sep, low_memory=False)
         if not re.search(r"case\(\s*(preserve|upper)", options):
             frame.columns = [str(c).lower() for c in frame.columns]
-        self.session = StataSession(frame)
+        self.session = self._session(frame)
         self.labels = {}
 
     def _input(self, cmd: str, buf: List[str]) -> None:
@@ -366,7 +491,7 @@ class Replay:
             n.startswith("str") or not re.match(r"[A-Za-z_]\w*\Z", n) for n in names
         ):
             raise StataExprError("input: only numeric variables are read")
-        self.session = StataSession(pd.DataFrame(rows, columns=names))
+        self.session = self._session(pd.DataFrame(rows, columns=names))
         self.labels = {}
 
     def _append(self, cmd: str) -> None:
@@ -378,6 +503,16 @@ class Replay:
         def first_word(text: str) -> str:
             return re.split(r"[\s,]", text.strip(), maxsplit=1)[0].lower()
 
+        if cmd.rstrip().endswith("{") and buf and _NUMBERED.match(buf[0]):
+            if self.session is None:
+                self.session = self._session(None)
+            self.report.simulated = bool(self.session.simulated)
+            try:
+                self._loop(cmd, buf)
+            except Exception as exc:  # noqa: BLE001 - reported, not raised
+                reason = str(exc).split("\n")[0]
+                self.report.add(self.name, cmd, "-", "NOT RUN", reason=reason[:200])
+            return
         word = first_word(cmd)
         quiet = False
         captured = False
@@ -409,7 +544,15 @@ class Replay:
 
     def _dispatch(self, cmd: str, word: str, buf: List[str], quiet: bool) -> None:
         if word in ("use", "sysuse"):
-            self._load(cmd)
+            try:
+                self._load(cmd)
+            except FileNotFoundError:
+                # not a file under --data: a dataset the session saved
+                if self.session is None:
+                    raise
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    self.session.run(cmd)
             return
         if word == "import" and re.match(r"import\s+delim", cmd):
             self._import_delimited(cmd)
@@ -417,12 +560,17 @@ class Replay:
         if word == "input":
             self._input(cmd, buf)
             return
-        if word in ("cd", "do", "exit", "#", "#delimit", "vce", "matrix"):
+        if word in ("cd", "do", "exit", "#", "#delimit", "vce"):
             return
         if self.session is None:
-            self.session = StataSession(None)
+            self.session = self._session(None)
         if word == "append":
-            self._append(cmd)
+            try:
+                self._append(cmd)
+            except FileNotFoundError:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    self.session.run(cmd)
             return
         if word == "program" and "drop" not in cmd.split()[:3]:
             # the log echoes the body as numbered lines: "  1.   drop _all"
