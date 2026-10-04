@@ -270,7 +270,23 @@ difference in differences) were run in Stata 18 and replayed through
   numbers. `teffects ... , probit` and `psmatch2` without `logit` are
   translated accordingly; they were refused or run as a logit.
 - `sp.wild_cluster_boot(h0=)`: the value of the coefficient under the
-  null.
+  null. `confidence_set=True` adds `ci_inverted`, the set of null values
+  the test does not reject, which is what `boottest` prints; the
+  translated `boottest` asks for it.
+- **The Abadie-Imbens (2016) standard error for the ATE.**
+  `sp.match(estimand='ATE', se_method='abadie_imbens_2016')` reports what
+  `teffects psmatch, ate` reports, to the seven digits it prints on five
+  reference fits. The Stata manual prints the score adjustment with a
+  plus sign; `e(V)` and the paper have a minus (estimating the score can
+  only lower the variance of the ATE), and that is what is implemented.
+  `teffects psmatch, ate` is translated with it; it used to be flagged as
+  not carrying Stata's standard error.
+- **`egen` in `sp.stata`**: `count`, `mean`, `median`, `sd`, `min`, `max`,
+  `total`, `pctile`, `iqr`, `std`, `group`, `tag` and the `row*`
+  functions, with `if`, `in`, `by()` and behind `by g:`. Each follows the
+  missing-value rule of `[D] egen`. Run beside Stata 18 on 30 commands:
+  27 agree to 1e-15 on every row, the other three depend on a row order
+  Stata's sort does not fix.
 - **`sp.stata` runs more of an ordinary do-file.** `quietly { ... }`,
   `capture { ... }` and `noisily { ... }` blocks; `capture cmd`, which
   swallows what Stata would raise (a variable that is not there,
@@ -282,8 +298,8 @@ difference in differences) were run in Stata 18 and replayed through
   `bsample [, cluster()]` (the data are then marked as random);
   `predict` after a regression with `i.` variables; the variables
   `psmatch2` leaves behind (`_pscore`, `_weight`, `_support` ...); a
-  `scalar` defined with no data in memory. Loops, `egen`, frames and
-  matrices are still refused.
+  `scalar` defined with no data in memory. Loops, frames and matrices
+  are still refused.
 - `scripts/stata_log_replay.py` reads `import delimited` (Stata's
   delimiter detection and lower-cased names) and `input` blocks, and
   compares `sdid`, `boottest` and `psmatch2` output.

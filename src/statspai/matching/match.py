@@ -43,7 +43,7 @@ from scipy.spatial.distance import cdist
 
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
-from ._ai2016 import abadie_imbens_2016_se
+from ._ai2016 import abadie_imbens_2016_ate_se, abadie_imbens_2016_se
 from ._matched_frame import (
     COL_WEIGHT,
     abadie_imbens_se,
@@ -319,10 +319,13 @@ def match(
         only this one charges for the estimated score (on NSW-DW the score
         term ``-c'Vc + d'Vd`` is *negative*, which is why the corrected SE
         is the smaller one).  It requires ``distance='propensity'``,
-        ``estimand='ATT'``, nearest-neighbour matching and
-        ``bias_correction=False``; the formula's terms are returned in
-        ``model_info['ai2016_components']``.  Not on the coverage grid
-        above.
+        nearest-neighbour matching and ``bias_correction=False``; the
+        formula's terms are returned in
+        ``model_info['ai2016_components']``.  With ``estimand='ATE'`` it is
+        the ATE counterpart ``sigma^2 - c'V_gamma c`` that ``teffects
+        psmatch, ate`` reports (estimating the score can only lower the
+        variance of the ATE); that needs ``ties='all'``, matching with
+        replacement and no caliper.  Not on the coverage grid above.
         ``'bootstrap'`` is an arm-stratified nonparametric bootstrap that
         re-estimates the propensity score in every replication, so unlike the
         analytic options it accounts for the sampling variability of the
@@ -984,22 +987,31 @@ class MatchEstimator:
                 problems.append(f"distance={self.distance!r} (needs 'propensity')")
             if self.method != "nearest":
                 problems.append(f"method={self.method!r} (needs 'nearest')")
-            if self.estimand != "ATT":
-                problems.append(f"estimand={self.estimand!r} (needs 'ATT')")
+            if self.estimand not in ("ATT", "ATE"):
+                problems.append(f"estimand={self.estimand!r} (needs ATT or ATE)")
             if self.bias_correction:
                 problems.append("bias_correction=True")
+            if self.estimand == "ATE":
+                # the ATE variance is computed on the matches teffects
+                # psmatch makes: every tied unit, with replacement, no caliper
+                if self.ties != "all":
+                    problems.append(f"ties={self.ties!r} (the ATE needs 'all')")
+                if self.caliper is not None:
+                    problems.append("a caliper (not with the ATE)")
+                if not self.replace:
+                    problems.append("replace=False (not with the ATE)")
             if problems:
                 raise MethodIncompatibility(
                     "match: se_method='abadie_imbens_2016' is the Abadie-"
-                    "Imbens (2016) variance for nearest-neighbour ATT "
+                    "Imbens (2016) variance for nearest-neighbour "
                     "matching on an estimated logit or probit propensity score "
-                    "(Stata teffects psmatch, atet); incompatible with "
+                    "(Stata teffects psmatch); incompatible with "
                     + ", ".join(problems)
                     + ".",
                     recovery_hint=(
-                        "Use distance='propensity', method='nearest', "
-                        "estimand='ATT' and bias_correction=False, or pick "
-                        "se_method='abadie_imbens'."
+                        "Use distance='propensity', method='nearest' and "
+                        "bias_correction=False (for the ATE also ties='all', "
+                        "no caliper), or pick se_method='abadie_imbens'."
                     ),
                 )
         if self.llr_stata_compat and self.method != "llr":
@@ -1256,6 +1268,36 @@ class MatchEstimator:
                 "regression. Use estimand='ATT' for the psmatch2 frequency "
                 "semantics."
             )
+            if self.se_method == "abadie_imbens_2016":
+                ps_fit = a["ps_fit"]
+                se_2016, comps = abadie_imbens_2016_ate_se(
+                    a["outcome"],
+                    a["treated"],
+                    ps_fit["p_raw"],
+                    ps_fit["design"],
+                    ps_fit["vcov"],
+                    n_matches=self.n_matches,
+                    h=self.ai_matches + 1,
+                    density=ps_fit["density"],
+                )
+                model_info["se_method"] = "abadie_imbens_2016"
+                model_info["ai_matches"] = self.ai_matches
+                model_info["ai2016_components"] = comps
+                scale = max(abs(float(att)), float(np.std(a["outcome"])), 1e-12)
+                if not np.isfinite(se_2016) or abs(comps["ate"] - att) > 1e-8 * scale:
+                    warnings.warn(
+                        "sp.match: the Abadie-Imbens (2016) ATE variance is "
+                        "not available here (it is undefined, or the matches "
+                        "it is computed on are not the ones behind the "
+                        "estimate, which happens when scores below 1e-6 are "
+                        "clipped). Reporting se=nan; use "
+                        "se_method='abadie_imbens'.",
+                        UserWarning,
+                        stacklevel=3,
+                    )
+                    se = float("nan")
+                else:
+                    se = se_2016
         elif self._stratum_assignment is not None:
             # Stratification / CEM: cell comparisons, not ordered neighbours.
             s = self._stratum_assignment

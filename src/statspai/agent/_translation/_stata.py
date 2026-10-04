@@ -2343,20 +2343,22 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
         kind, h = _vce_nn(opts.get("vce"))
         if kind not in (None, "robust"):
             lost.append("vce")
-        if estimand == "ATT":
-            args["se_method"] = "abadie_imbens_2016"
-            if h is not None:
-                args["ai_matches"] = max(h - 1, 1)
+        args["se_method"] = "abadie_imbens_2016"
+        if h is not None:
+            args["ai_matches"] = max(h - 1, 1)
+        if estimand == "ATE" and opts.get("caliper") is not None:
+            # the ATE variance is defined on the uncalipered matches
+            del args["se_method"]
+            lost.append("caliper")
+            notes.append(
+                "teffects psmatch, ate with a caliper: sp.match has the "
+                "Abadie-Imbens (2016) ATE standard error without a caliper "
+                "only."
+            )
+        else:
             notes.append(
                 "Standard error: Abadie-Imbens (2016), which charges for the "
                 "estimated propensity score, as teffects psmatch reports."
-            )
-        else:
-            lost.append("ate")
-            notes.append(
-                "The ATE point estimate is the same matching estimator, but "
-                "sp.match has the Abadie-Imbens (2016) standard error for the "
-                "ATET only; its ATE standard error is not Stata's."
             )
         if opts.get("generate") is not None:
             notes.append(
@@ -3007,11 +3009,15 @@ def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
             lost.append("level")
     if h0:
         args["h0"] = h0
+    if "noci" not in cmd.options:
+        # boottest prints the confidence set obtained by inverting the test
+        args["confidence_set"] = True
     notes.append(
         "sp.wild_cluster_boot takes the fitted regression as its first "
         "argument — pipe the previous estimator's result. The confidence "
-        "set boottest prints inverts the test; sp.wild_cluster_ci_inv "
-        "computes it (ci_boot here is the percentile-t interval)."
+        "set boottest prints is ci_inverted (ci_boot is the percentile-t "
+        "interval); boottest interpolates its endpoints on a grid, so they "
+        "can differ by up to about 2% of a standard error."
     )
     if "cluster" not in args and "cluster" not in lost:
         notes.append(

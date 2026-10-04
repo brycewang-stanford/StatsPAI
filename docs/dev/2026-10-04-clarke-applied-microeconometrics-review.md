@@ -210,9 +210,6 @@ p-value at each of the four endpoints is within two steps of 0.05, so both
 are a valid reading of where the function crosses. The difference is how
 each programme interpolates across a step.
 
-**The ATE standard error of `teffects psmatch`.** The point estimates
-agree. The standard error is the Abadie-Imbens (2016) one for the ATET
-only, which the translation has always said.
 
 ## What `sp.stata` still declines on these logs
 
@@ -225,19 +222,62 @@ only, which the translation has always said.
 | `reg ..., vce(bootstrap, reps() cluster())` | 1 | `sp.regress` has no bootstrap variance option; `sp.bootstrap` is the generic tool. The numbers would be random in any case. |
 | a comment the log wraps over two lines | 1 | Not a command. |
 
-`egen` is not used by the book and is still not implemented. It is the
-most common of the remaining gaps in other do-files.
+## Second round: the three items the first round left open
+
+**`egen`.** Not used by the book, and the most common remaining gap in
+other do-files. `sp.stata` now runs `egen [type] newvar = fcn(...) [if]
+[in] [, by()]`, also behind `by g:` / `bysort g:`, for `count`, `mean`,
+`median`, `sd`, `min`, `max`, `total`, `pctile`, `iqr`, `std`, `group`,
+`tag`, `rowtotal`, `rowmean`, `rowmin`, `rowmax`, `rowsd`, `rownonmiss` and
+`rowmiss` (`_stata_egen.py`). Each follows the missing-value rule its entry
+in `[D] egen` states: `total` counts missing as zero, `count` of nothing is
+0, `tag` is never missing, a missing value of a `by()` variable is a group
+of its own. Thirty commands were run beside Stata 18 on 614 rows with
+missing values planted in them. Twenty-seven agree to 1e-15 on every row.
+The other three depend on the order of rows within a group, which Stata's
+sort does not fix; `tag` marks one row per group on both sides.
+
+**The confidence set of `boottest`.** `sp.wild_cluster_boot(confidence_set=True)`
+returns `ci_inverted`, the null values the test does not reject, found by
+bracketing each side on a grid and bisecting to the jump of the p-value.
+The translated `boottest` asks for it unless the line says `noci`. The
+difference from Stata's endpoints described above remains and is stated in
+the docstring: about 0.2% and 1.9% of a standard error on the book's
+regression.
+
+**The ATE standard error of `teffects psmatch`.** `sp.match(estimand='ATE',
+se_method='abadie_imbens_2016')` now reports it, from the formulas of
+"PSM, ATE, and ATET variance adjustment" in `[CAUSAL] teffects nnmatch`.
+One thing in that section is not what Stata computes. The manual prints
+the adjusted variance as the base variance *plus* `c'Vc`. Stata's `e(V)`
+is the base variance *minus* `c'Vc`, which is also what Abadie and Imbens
+(2016) prove: estimating the score can only lower the variance of the ATE.
+With the plus sign the five reference fits are off by 1% to 5%. With the
+minus sign all five agree to the seven digits `teffects` prints (logit and
+probit, 445 and 614 observations).
+
+| Fit | Stata | plus | minus |
+| --- | --- | --- | --- |
+| DW 445, probit | 651.6872 | 663.2612 | 651.6872 |
+| DW 445, logit | 662.6717 | 675.0007 | 662.6717 |
+| Lalonde, discrete covariates, logit | 973.734 | 990.9515 | 973.7340 |
+| Lalonde, all covariates, logit | 1076.527 | 1125.7525 | 1076.5271 |
+| Lalonde, all covariates, probit | 1029.85 | 1090.8848 | 1029.8499 |
+
+`teffects psmatch, ate` is translated with it. With a caliper the ATE
+variance is not implemented and the translation says so.
 
 ## Open items
 
-- `egen` (at least `mean`, `total`, `count`, `max`, `min`, `group`, `tag`,
-  with `by`). The by-group machinery added here is what it needs.
-- `sp.wild_cluster_boot` could return the inverted confidence set beside
-  the percentile-t interval, so that a translated `boottest` shows what
-  Stata shows.
-- The Abadie-Imbens (2016) standard error for the ATE.
 - Chapter 9 (double machine learning and causal forests on the Oreopoulos
-  data) exists only in Python on the site and was not compared.
+  data) exists only in Python on the site, written with scikit-learn and
+  `econml`. There is no Stata or R output to compare with, and the
+  comparison of `sp.dml` and the forests with those libraries is already
+  the subject of `tests/external_parity/test_dml_python_parity.py` and the
+  forest seed studies. Not pursued.
+- `egen` functions outside the list above (`seq`, `cut`, `anycount`,
+  `ends`, `concat`, `egenmore`) are refused.
+- `merge`, `reshape`, frames, matrices and loops are still declined.
 
 ## How to run it again
 

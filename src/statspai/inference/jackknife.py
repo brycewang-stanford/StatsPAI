@@ -357,6 +357,7 @@ def wild_cluster_boot(
     seed: Optional[int] = None,
     alpha: float = 0.05,
     h0: float = 0.0,
+    confidence_set: bool = False,
 ) -> Dict[str, Any]:
     """
     Wild cluster bootstrap t-test for a single coefficient.
@@ -390,6 +391,12 @@ def wild_cluster_boot(
     h0 : float, default 0.0
         The value of the coefficient under the null, imposed when the
         bootstrap samples are generated (Stata ``boottest x = h0``).
+    confidence_set : bool, default False
+        Also return ``ci_inverted``, the set of null values the test does
+        not reject at level ``alpha``: the confidence set Stata
+        ``boottest`` prints. The test is repeated over null values with the
+        same bootstrap weights (a few hundred times), so it is off by
+        default.
 
     Returns
     -------
@@ -406,6 +413,13 @@ def wild_cluster_boot(
         - ``n_boot``: number of replications used (``2**G`` when the
           Rademacher grid is enumerated, i.e. when ``2**G <= n_boot``)
         - ``n_boot_requested`` / ``enumerated``
+        - ``ci_inverted``: with ``confidence_set=True``, the interval of
+          null values with a bootstrap p-value of at least ``alpha``. The
+          p-value is a step function of the null value and each endpoint
+          is the jump where it falls below ``alpha``. ``boottest``
+          interpolates between the points of a grid instead, and its
+          endpoints differ from these by up to about 2% of a standard
+          error.
 
     Examples
     --------
@@ -471,45 +485,50 @@ def wild_cluster_boot(
     vcov_cl = correction * XtX_inv @ meat @ XtX_inv
     se_cl = float(np.sqrt(vcov_cl[test_idx, test_idx]))
     h0 = float(h0)
-    t_stat = (beta_test - h0) / se_cl if se_cl > 0 else 0.0
-
-    # Restricted OLS (impose H0: beta_variable = h0)
-    other_cols = [j for j in range(k) if j != test_idx]
-    X_other = X[:, other_cols]
-    beta_other = np.linalg.lstsq(X_other, Y - h0 * X[:, test_idx], rcond=None)[0]
-    beta_r = np.zeros(k)
-    for i, j in enumerate(other_cols):
-        beta_r[j] = beta_other[i]
-    beta_r[test_idx] = h0
-    resid_r = Y - X @ beta_r
 
     # Bootstrap (shared WCR engine; enumerates the Rademacher grid when
     # 2**G <= n_boot, as Stata boottest / R fwildclusterboot do).
     from .wild_bootstrap import (
+        _invert_bootstrap_test,
         _symmetric_boot_pvalue,
         _wcr_t_stats,
         _wild_weight_matrix,
     )
 
+    other_cols = [j for j in range(k) if j != test_idx]
+    X_other = X[:, other_cols]
     _, cl_idx = np.unique(cl, return_inverse=True)
     W, enumerated = _wild_weight_matrix(G, n_boot, weight_type, rng)
-    t_boot = _wcr_t_stats(
-        X,
-        XtX_inv,
-        X @ beta_r,
-        resid_r,
-        cl_idx,
-        cl_idx,
-        G,
-        test_idx,
-        h0,
-        correction,
-        W,
-    )
 
-    # Bootstrap p-value (two-sided, symmetric; strict inequality as in
-    # boottest -- ties at |t| are the identity draw and its negation).
-    p_boot = _symmetric_boot_pvalue(t_boot, t_stat, W)
+    def _test_at(null: float) -> Tuple[float, np.ndarray, float]:
+        """t statistic, bootstrap t statistics and p-value under
+        H0: beta_variable = null, with the weights drawn once."""
+        t_obs = (beta_test - null) / se_cl if se_cl > 0 else 0.0
+        # Restricted OLS (impose H0)
+        beta_other = np.linalg.lstsq(X_other, Y - null * X[:, test_idx], rcond=None)[0]
+        beta_r = np.zeros(k)
+        for i, j in enumerate(other_cols):
+            beta_r[j] = beta_other[i]
+        beta_r[test_idx] = null
+        resid_r = Y - X @ beta_r
+        draws = _wcr_t_stats(
+            X,
+            XtX_inv,
+            X @ beta_r,
+            resid_r,
+            cl_idx,
+            cl_idx,
+            G,
+            test_idx,
+            null,
+            correction,
+            W,
+        )
+        # two-sided, symmetric; strict inequality as in boottest -- ties at
+        # |t| are the identity draw and its negation
+        return float(t_obs), draws, _symmetric_boot_pvalue(draws, t_obs, W)
+
+    t_stat, t_boot, p_boot = _test_at(h0)
 
     # Percentile-t CI
     t_lower = np.percentile(t_boot, 100 * alpha / 2)
@@ -533,6 +552,15 @@ def wild_cluster_boot(
         "enumerated": bool(enumerated),
         "weight_type": weight_type,
         "h0": h0,
+        **(
+            {
+                "ci_inverted": _invert_bootstrap_test(
+                    lambda null: _test_at(null)[2], float(beta_test), se_cl, alpha
+                )
+            }
+            if confidence_set
+            else {}
+        ),
     }
 
 

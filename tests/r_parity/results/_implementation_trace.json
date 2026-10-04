@@ -440,7 +440,7 @@
    "result_sha256": "ea132f42ceb479639b345b67996e3cbfe0650c319544eea666e6898408362a31"
   },
   "11_psm": {
-   "seconds": 2.86,
+   "seconds": 2.45,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -461,9 +461,9 @@
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/results.py": "0f217ec51108e4fc0986fbb26e7d8a13a7dc720f7ff0b54e7142e17fc0bd8a01",
     "src/statspai/datasets/_canonical.py": "8bf214579220ed4281e7c2f8ae6aef71ed6ee9b2f7604bc8ea92e9b88dbe894a",
-    "src/statspai/matching/_ai2016.py": "eb217a95d7e63b597659848bab373fd7b7989fd7c616238b3f815fd91aea7b7c",
+    "src/statspai/matching/_ai2016.py": "2c3df007e6daac3f1f56ac8bcda503c17bfad6fd83ecb5f8598240cc9e243fec",
     "src/statspai/matching/_matched_frame.py": "bd4a234d276f68d5c98dd00beac3e0ef417bd777a9fdca14b052f7016b1206d3",
-    "src/statspai/matching/match.py": "eaff043fc5d88c932a42b01689fe5ef199b825cfcfd9c0610ce42e96d2b5c6c1",
+    "src/statspai/matching/match.py": "3c4604592257598a875b2a952170baba0744a8c1f386dbc4072729cd6a5338d8",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
@@ -1902,7 +1902,7 @@
    "result_sha256": "0621698a7eb8fc5a8f5f0761ee35a9a5d15b08f7112455a692c8feb1ce67cde6"
   },
   "53_cr2": {
-   "seconds": 3.94,
+   "seconds": 3.44,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1943,7 +1943,7 @@
     "src/statspai/fast/jax_feols.py": "2e3df073320ecbf8cfc7933d73f27ff0985850e3b7468e8790b1cbcbd9075a86",
     "src/statspai/fast/polars_io.py": "b2843c0319adecca7f2ee4af74c7ad59619fd3c03915941833a75a18686484c9",
     "src/statspai/fast/within.py": "e88fc7c3f5dbeb63c5d5c6c999666db4187cd406feab888175c8ffc490e188a2",
-    "src/statspai/inference/jackknife.py": "49eb7ea7ef71e80e7b1b36d7e22519616aa093e56afc6bb41bbcc8d179c89f2f",
+    "src/statspai/inference/jackknife.py": "a55f0f2688d0a7431e54e512a1e13649d0d6b86180abf7baaa8d869e3a9edb11",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",

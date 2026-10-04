@@ -61,6 +61,7 @@ a logit).
 r = sp.match(df, y='y', treat='d', covariates=['x1', 'x2'],
              distance='propensity', estimand='ATT', ties='all',
              se_method='abadie_imbens_2016', ps_model='probit')
+# teffects psmatch (y) (d x1 x2), ate   -- same call with estimand='ATE'
 # psmatch2 d x1 x2, outcome(y)
 r = sp.psmatch2(df, treat='d', covariates=['x1', 'x2'], outcome='y',
                 ps_model='probit')

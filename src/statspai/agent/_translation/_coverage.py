@@ -48,8 +48,9 @@ LIMITATIONS: List[str] = [
     "run a translation with an untranslated option, or a qualifier it "
     "cannot evaluate (e(sample), string functions).",
     "sp.stata runs generate / replace / keep / drop / sort / mvdecode / "
-    "encode / preserve / restore / predict / scalar / display; egen, merge, "
-    "reshape, collapse and `use` are refused.",
+    "encode / preserve / restore / predict / scalar / display / egen / "
+    "collapse / count / duplicates drop, also by group; merge, reshape, "
+    "loops and `use` are refused.",
     "Stata macros (`$global`, `local') and prefixes that change the estimate "
     "(by, bootstrap, jackknife, permute, svy, rolling, statsby) are refused: "
     "expand the macro, or apply the prefix in Python.",

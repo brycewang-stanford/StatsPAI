@@ -17,6 +17,7 @@ of the last digit printed. ``psmatch2`` returns ``r(att)`` in full but
 holds the score in single precision, so its ATT agrees to about 1e-7.
 
     teffects psmatch (re78) (treat <x>[, probit]), atet | ate
+        (both with the Abadie-Imbens (2016) standard error)
     teffects ipw     (re78) (treat <x>[, probit]), atet | ate
     teffects aipw    (re78 <x>) (treat <x>), ate
     psmatch2 treat <x>, outcome(re78) [logit]
@@ -49,13 +50,12 @@ def _close(ours: float, printed: float, digits: int = 7) -> bool:
 
 
 def _match(data: pd.DataFrame, covariates: list, estimand: str, model: str):
-    kwargs = {"se_method": "abadie_imbens_2016"} if estimand == "ATT" else {}
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return sp.match(
             data, y="re78", treat="treat", covariates=covariates,
             distance="propensity", estimand=estimand, ties="all",
-            ps_model=model, **kwargs,
+            ps_model=model, se_method="abadie_imbens_2016",
         )  # fmt: skip
 
 
@@ -77,16 +77,41 @@ def test_psmatch_atet_matches_stata(lalonde, covariates, model, effect, se):
 
 
 @pytest.mark.parametrize(
-    "covariates, model, effect",
+    "covariates, model, effect, se",
     [
-        (DISCRETE, "logit", 320.1955),
-        (FULL, "logit", -304.6074),
-        (FULL, "probit", -204.2756),
+        (DISCRETE, "logit", 320.1955, 973.734),
+        (FULL, "logit", -304.6074, 1076.527),
+        (FULL, "probit", -204.2756, 1029.85),
     ],
 )
-def test_psmatch_ate_point_estimate_matches_stata(lalonde, covariates, model, effect):
-    # the ATE standard error of teffects psmatch is not implemented
-    assert _close(_match(lalonde, covariates, "ATE", model).estimate, effect)
+def test_psmatch_ate_matches_stata(lalonde, covariates, model, effect, se):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = sp.match(
+            lalonde, y="re78", treat="treat", covariates=covariates,
+            distance="propensity", estimand="ATE", ties="all",
+            se_method="abadie_imbens_2016", ps_model=model,
+        )  # fmt: skip
+    assert _close(r.estimate, effect)
+    # sigma^2 - c'Vc: the Stata 18 manual prints the adjustment with a plus
+    # sign, e(V) has the minus sign of Abadie and Imbens (2016)
+    assert _close(r.se, se)
+    comps = r.model_info["ai2016_components"]
+    assert comps["c_V_c"] > 0 and r.se < comps["base_se"]
+    assert comps["ate"] == pytest.approx(r.estimate, rel=1e-12)
+
+
+def test_psmatch_ate_variance_needs_the_matches_stata_makes(lalonde):
+    kw = dict(
+        y="re78", treat="treat", covariates=FULL, distance="propensity",
+        estimand="ATE", se_method="abadie_imbens_2016",
+    )  # fmt: skip
+    for extra, message in (
+        ({}, "ties"),
+        ({"ties": "all", "caliper": 0.1}, "caliper"),
+    ):
+        with pytest.raises(sp.exceptions.MethodIncompatibility, match=message):
+            sp.match(lalonde, **kw, **extra)
 
 
 # ------------------------------------------------------------- teffects ipw

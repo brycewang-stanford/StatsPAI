@@ -738,7 +738,7 @@ def test_command_specific_abbreviations(abbreviated, full):
     [
         ("sdid y s t d, vce(placebo) covariates(x)", ["covariates"]),
         ("synth y x, trunit(1) trperiod(5) counit(2 3) i(s) t(t)", ["counit"]),
-        ("teffects psmatch (y) (treat x)", ["ate"]),
+        ("teffects psmatch (y) (treat x), caliper(0.1)", ["caliper"]),
         ("rdplot y x, nbins(20 30)", ["nbins"]),
     ],
 )

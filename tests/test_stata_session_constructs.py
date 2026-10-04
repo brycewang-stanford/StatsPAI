@@ -289,8 +289,10 @@ def test_boottest_translation_names_a_function_that_exists():
     assert out["tool"] == "wild_cluster_boot"
     assert out["arguments"] == {
         "variable": "x", "n_boot": 999, "weight_type": "webb", "seed": 3, "h0": 0.1,
+        "confidence_set": True,
     }  # fmt: skip
     assert out["untranslated_options"] == []
+    assert "confidence_set" not in sp.from_stata("boottest x, noci")["arguments"]
     assert out["python_code"].startswith("sp.wild_cluster_boot(result, data=df")
 
 
@@ -316,6 +318,29 @@ def test_boottest_null_value(df):
         df, y="y", x=["x", "w"], cluster="g", test_var="x", h0=0.3, n_boot=99999
     )
     assert out["p_boot"] == pytest.approx(other["p_boot"], abs=1e-12)
+
+
+def test_boottest_confidence_set_is_the_inverted_test(df):
+    out = run(REG + "\nboottest x, reps(99999)", df)
+    lo, hi = out["ci_inverted"]
+    assert lo < out["beta_hat"] < hi
+    fit = sp.regress("y ~ x + w", data=df, cluster="g")
+    kw = dict(data=df, cluster="g", variable="x", n_boot=99999)
+    width = hi - lo
+    # just inside each endpoint the null is not rejected, just outside it is
+    for inside, outside in ((lo + 1e-9 * width, lo - 1e-9 * width),
+                            (hi - 1e-9 * width, hi + 1e-9 * width)):  # fmt: skip
+        assert sp.wild_cluster_boot(fit, h0=inside, **kw)["p_boot"] >= 0.05
+        assert sp.wild_cluster_boot(fit, h0=outside, **kw)["p_boot"] < 0.05
+    # the data-first function finds the same set
+    other = sp.wild_cluster_ci_inv(
+        df, y="y", x=["x", "w"], cluster="g", test_var="x", n_boot=99999,
+        weight_type="rademacher",
+    )  # fmt: skip
+    assert other["ci"] == pytest.approx((lo, hi), abs=1e-9)
+    # not asked for, not computed
+    assert "ci_inverted" not in sp.wild_cluster_boot(fit, **kw)
+    assert "ci_inverted" not in run(REG + "\nboottest x, reps(999) noci", df)
 
 
 def test_boottest_weights_and_bootcluster(df):

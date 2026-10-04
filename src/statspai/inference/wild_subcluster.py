@@ -228,7 +228,10 @@ def wild_cluster_ci_inv(
     of the null value, and the bracket is then bisected to machine
     precision to locate the jump where p falls below ``alpha``. With
     Rademacher weights and ``2**G <= n_boot`` the bootstrap grid is
-    enumerated, so the interval is exact and reproduces Stata ``boottest``.
+    enumerated, so the interval does not depend on a seed. Stata
+    ``boottest`` interpolates its endpoints between grid points instead of
+    locating the jump; on a 12-cluster example with the same enumerated
+    draws the two sets differ by 0.2% and 1.9% of a standard error.
 
     Shares the data / model arguments of :func:`subcluster_wild_bootstrap`;
     the grid-specific parameters are documented below.

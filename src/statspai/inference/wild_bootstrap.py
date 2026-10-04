@@ -373,6 +373,51 @@ def _wcr_t_stats(
     return out
 
 
+def _invert_bootstrap_test(
+    p_at: Any,
+    center: float,
+    se: float,
+    alpha: float,
+    grid_size: int = 41,
+    grid_span: float = 6.0,
+) -> Tuple[float, float]:
+    """The interval of null values whose bootstrap p-value is ``>= alpha``.
+
+    ``p_at(null)`` is the p-value of H0: beta = null. It is a step function
+    of the null (it changes only when a bootstrap statistic crosses the
+    observed one), so an endpoint is the location of a jump. Each side is
+    bracketed on a grid of ``grid_size`` points spanning ``grid_span``
+    standard errors around ``center`` and the bracket is bisected until it
+    cannot be halved. A side with no rejection inside the grid is unbounded
+    (``-inf`` / ``inf``).
+    """
+    if not (se > 0 and np.isfinite(se)):
+        return (float("nan"), float("nan"))
+    half = max(int(grid_size) // 2, 1)
+    steps = np.linspace(0.0, grid_span, half + 1)[1:] * se
+
+    def side(sign: float) -> float:
+        inside = center
+        if p_at(center) < alpha:
+            return float("nan")
+        for step in steps:
+            outside = center + sign * step
+            if p_at(outside) < alpha:
+                for _ in range(200):
+                    mid = 0.5 * (inside + outside)
+                    if mid in (inside, outside):
+                        break
+                    if p_at(mid) >= alpha:
+                        inside = mid
+                    else:
+                        outside = mid
+                return float(0.5 * (inside + outside))
+            inside = outside
+        return float(sign * np.inf)
+
+    return (side(-1.0), side(1.0))
+
+
 def _symmetric_boot_pvalue(
     t_boot: np.ndarray, t_obs: float, W: Optional[np.ndarray] = None
 ) -> float:

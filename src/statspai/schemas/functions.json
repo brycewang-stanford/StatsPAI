@@ -31674,6 +31674,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "confidence_set": {
+          "default": false,
+          "description": "Also return ``ci_inverted``, the set of null values the test does not reject at level ``alpha``: the confidence set Stata ``boottest`` prints. The test is repeated over null values with the same bootstrap weights (a few hundred times), so it is off by default.",
+          "type": "boolean"
+        },
         "data": {
           "description": "The original data used for estimation.",
           "type": "object",

@@ -73,7 +73,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
 
-__all__ = ["abadie_imbens_2016_se"]
+__all__ = ["abadie_imbens_2016_se", "abadie_imbens_2016_ate_se"]
 
 
 def _tie_inclusive_mask(dist: np.ndarray, k: int) -> np.ndarray:
@@ -307,6 +307,149 @@ def abadie_imbens_2016_se(
         "n1": int(n1),
         "h": h,
         "att": delta,
+    }
+    if not np.isfinite(var) or var < 0:
+        return float("nan"), components
+    return float(np.sqrt(var)), components
+
+
+def abadie_imbens_2016_ate_se(
+    outcome: np.ndarray,
+    treated: np.ndarray,
+    pscore: np.ndarray,
+    design: np.ndarray,
+    vcov_gamma: np.ndarray,
+    n_matches: int = 1,
+    h: int = 2,
+    chunk: int = 256,
+    density: Any = None,
+) -> Tuple[float, Dict[str, Any]]:
+    """ATE standard error of Abadie & Imbens (2016) for score matching.
+
+    Reproduces Stata ``teffects psmatch (y) (t x), ate nneighbor(m)
+    vce(robust, nn(h))``. In the notation of the module docstring and of
+    "PSM, ATE, and ATET variance adjustment" in ``[CAUSAL] teffects
+    nnmatch``, with ``N`` the sample size, ``yhat1_i`` / ``yhat0_i`` the
+    imputed potential outcomes (the unit's own outcome in its arm, the mean
+    of its ``m`` nearest opposite-arm units in the other) and ``tau`` their
+    mean difference::
+
+        base = sum_i [ (yhat1_i - yhat0_i - tau)^2
+                       + xi2_i (K_i^2 + 2 K_i - K'_i) ] / N^2
+
+        c    = (1/N) sum_i f_i [ cov(z_i, yhat1_i) / p_i
+                                 + cov(z_i, yhat0_i) / (1 - p_i) ]
+
+        var  = base - c' V_gamma c
+
+    ``K_i`` is the matching weight unit ``i`` receives from the opposite
+    arm (both arms are matched for the ATE) and ``K'_i`` the sum of the
+    squared shares. ``xi2_i`` and ``cov(z_i, yhat_{t_i,i})`` are taken over
+    the ``h`` nearest same-arm units counting the unit itself, and
+    ``cov(z_i, yhat_{1-t_i,i})`` over the ``h`` nearest opposite-arm units,
+    ties included, as for the ATT. There is no ``d(tau)/d(gamma)`` term:
+    estimating the score can only lower the variance of the ATE (Abadie
+    and Imbens 2016, Theorem 1). The Stata 18 manual prints the adjustment
+    with a plus sign; ``e(V)`` is reproduced with the minus sign of the
+    paper (five reference fits, logit and probit, to the seven digits
+    ``teffects`` prints).
+
+    Parameters are those of :func:`abadie_imbens_2016_se` that apply; the
+    matches are found here, on the unclipped score, for both arms.
+
+    Returns
+    -------
+    se : float
+        ``sqrt(var)``; ``nan`` when undefined.
+    components : dict
+        ``base_var``, ``base_se``, ``c_V_c``, ``var``, ``n``, ``h``, ``ate``.
+
+    References
+    ----------
+    abadie2006large, abadie2016matching
+    """
+    y = np.asarray(outcome, dtype=float)
+    t = np.asarray(treated, dtype=int)
+    p = np.asarray(pscore, dtype=float)
+    Z = np.asarray(design, dtype=float)
+    Vg = np.asarray(vcov_gamma, dtype=float)
+    n = len(y)
+    h = int(h)
+    if h < 2:
+        raise ValueError("abadie_imbens_2016_ate_se: h must be >= 2 (Stata nn(#))")
+    if Z.shape != (n, Vg.shape[0]) or Vg.shape[0] != Vg.shape[1]:
+        raise ValueError("abadie_imbens_2016_ate_se: design / vcov_gamma shapes differ")
+    nan_components: Dict[str, Any] = {
+        "base_var": float("nan"),
+        "base_se": float("nan"),
+        "c_V_c": float("nan"),
+        "var": float("nan"),
+        "n": n,
+        "h": h,
+        "ate": float("nan"),
+    }
+    idx_t = np.flatnonzero(t == 1)
+    idx_c = np.flatnonzero(t == 0)
+    if len(idx_t) < 2 or len(idx_c) < 2:
+        return float("nan"), nan_components
+
+    K = np.zeros(n)
+    Kp = np.zeros(n)
+    y_opp = np.full(n, np.nan)  # mean outcome of the m nearest opposite units
+    xi2 = np.full(n, np.nan)
+    cov_same = np.full((n, Z.shape[1]), np.nan)
+    cov_opp = np.full((n, Z.shape[1]), np.nan)
+    arms = {1: idx_t, 0: idx_c}
+    for g in (1, 0):
+        own = arms[g]
+        other = arms[1 - g]
+        p_own, y_own, Z_own = p[own], y[own], Z[own]
+        p_oth, y_oth, Z_oth = p[other], y[other], Z[other]
+        for start in range(0, len(own), chunk):
+            rows = own[start : start + chunk]
+            # the m nearest opposite-arm units: the imputed outcome, and the
+            # weight each of them receives
+            d_opp = np.abs(p[rows][:, None] - p_oth[None, :])
+            mask_m = _tie_inclusive_mask(d_opp, n_matches)
+            cnt, ybar_m, _, _ = _set_stats(mask_m, y_oth, Z_oth)
+            y_opp[rows] = ybar_m
+            share = mask_m / cnt[:, None]
+            np.add.at(K, other, share.sum(axis=0))
+            np.add.at(Kp, other, (share**2).sum(axis=0))
+            # h nearest opposite-arm units: the covariance of (z, y)
+            mask_o = _tie_inclusive_mask(d_opp, h)
+            _, _, _, cov_o = _set_stats(mask_o, y_oth, Z_oth)
+            cov_opp[rows] = cov_o
+            # same arm, self included
+            d_same = np.abs(p[rows][:, None] - p_own[None, :])
+            mask_s = _tie_inclusive_mask(d_same, h)
+            _, _, var_s, cov_s = _set_stats(mask_s, y_own, Z_own)
+            xi2[rows] = var_s
+            cov_same[rows] = cov_s
+
+    y1 = np.where(t == 1, y, y_opp)
+    y0 = np.where(t == 1, y_opp, y)
+    tau = float(np.mean(y1 - y0))
+    hetero = float(np.sum((y1 - y0 - tau) ** 2))
+    reuse = float(np.nansum(xi2 * (K**2 + 2.0 * K - Kp)))
+    base_var = (hetero + reuse) / n**2
+
+    f = p * (1.0 - p) if density is None else np.asarray(density, dtype=float)
+    cov1 = np.where((t == 1)[:, None], cov_same, cov_opp)
+    cov0 = np.where((t == 1)[:, None], cov_opp, cov_same)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        term = (f / p)[:, None] * cov1 + (f / (1.0 - p))[:, None] * cov0
+    c = np.nansum(term, axis=0) / n
+    c_V_c = float(c @ Vg @ c)
+    var = base_var - c_V_c
+    components: Dict[str, Any] = {
+        "base_var": float(base_var),
+        "base_se": float(np.sqrt(base_var)) if base_var >= 0 else float("nan"),
+        "c_V_c": c_V_c,
+        "var": float(var),
+        "n": int(n),
+        "h": h,
+        "ate": tau,
     }
     if not np.isfinite(var) or var < 0:
         return float("nan"), components

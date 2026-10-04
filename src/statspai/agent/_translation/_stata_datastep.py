@@ -21,8 +21,8 @@ lines that follow see the data Stata would have had:
     set obs #               clear / drop _all
 
 Expressions go through :mod:`._stata_expr` (Stata's missing-value rules).
-Anything else -- ``egen``, ``merge``, ``reshape``, ``by:`` -- is not a data
-step here, and ``sp.stata`` refuses the snippet.
+``egen`` is in ``_stata_egen.py``. Anything else -- ``merge``, ``reshape`` -- is
+not a data step here, and ``sp.stata`` refuses the snippet.
 
 Storage follows Stata: ``generate`` without a type stores a ``float`` (single
 precision), so ``gen x = 0.1`` holds 0.100000001490116 and a regression on it
@@ -104,6 +104,7 @@ def is_data_step(command: str) -> bool:
             "decode",
             "collapse",
             "ipolate",
+            "egen",
         )
         or command in ("ren", "rena", "renam", "rename")
     )
@@ -201,6 +202,11 @@ class DataSteps:
             return False
         if not is_data_step(cmd.command):
             return False
+        if cmd.command == "egen":
+            from ._stata_egen import run_egen
+
+            run_egen(self, line)
+            return True
         if cmd.command == "mvdecode":
             self._mvdecode(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
             return True
@@ -335,9 +341,10 @@ class DataSteps:
             cmd = _parse_stata(line)
         except StataParseError:
             return False
-        if not (_is_generate(cmd.command) or cmd.command == "replace"):
+        is_egen = cmd.command == "egen"
+        if not (_is_generate(cmd.command) or cmd.command == "replace" or is_egen):
             return False
-        if cmd.options:
+        if cmd.options and not is_egen:
             raise StataExprError(
                 f"options {sorted(cmd.options)} of `{cmd.command}` are not "
                 "implemented"
@@ -355,6 +362,11 @@ class DataSteps:
             )
         bounds = np.r_[starts, len(codes)]
         groups = [np.arange(bounds[i], bounds[i + 1]) for i in range(len(starts))]
+        if is_egen:
+            from ._stata_egen import run_egen
+
+            run_egen(self, line, groups)
+            return True
         self._assign(
             cmd.command == "replace",
             " ".join(cmd.varlist),
