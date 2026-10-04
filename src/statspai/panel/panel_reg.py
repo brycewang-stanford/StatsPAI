@@ -1315,6 +1315,28 @@ def _fit_linearmodels(
         ssc_inf=ssc_inf,
     )
     result.model_info["weights"] = weights
+    if w is not None:
+        from ..core._agent_summary import note_weight_diagnostics
+
+        _keys = (
+            None
+            if cluster is None
+            else _binding_cluster_keys(cluster, entity, time, data)
+        )
+        note_weight_diagnostics(
+            result.model_info,
+            w.to_numpy(),
+            (
+                "cluster"
+                if cluster is not None
+                else ("classical" if robust == "nonrobust" else "robust")
+            ),
+            entry="sp.panel",
+            robust_option="robust='robust' or cluster=",
+            classical_reading="analytic weights (Stata [aw=])",
+            cluster_keys=_keys if _keys is not None and len(_keys) == len(w) else None,
+            cluster=cluster,
+        )
     return result
 
 

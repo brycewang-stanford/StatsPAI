@@ -168,6 +168,8 @@ class FEOLSResult(ResultProtocolMixin):
     iv_diagnostics: Optional[Dict[str, Any]] = None
     df_a: Optional[int] = None
     df_a_nested: int = 0
+    #: Kish effective sizes of a weighted fit (``None`` without weights)
+    weight_info: Optional[Dict[str, Any]] = None
 
     @property
     def data_info(self) -> Dict[str, Any]:
@@ -1315,6 +1317,28 @@ def feols(
         ci_lo = coef - t_crit * se
         ci_hi = coef + t_crit * se
 
+    weight_info: Optional[Dict[str, Any]] = None
+    if w_kept is not None:
+        from ..core._agent_summary import note_weight_diagnostics
+
+        weight_info = {}
+        _kind = {"iid": "classical", "cluster": "cluster"}.get(se_type, "other")
+        _one_way = _kind == "cluster" and len(cluster_names) == 1
+        note_weight_diagnostics(
+            weight_info,
+            w_kept,
+            _kind,
+            entry="sp.hdfe_ols",
+            robust_option="cluster=",
+            classical_reading="analytic weights (Stata [aw=])",
+            cluster_keys=(
+                df[cluster_names[0]].to_numpy()[result["absorber"].keep_mask]
+                if _one_way
+                else None
+            ),
+            cluster=cluster_names[0] if _one_way else None,
+        )
+
     return FEOLSResult(
         params=coef,
         std_errors=se,
@@ -1346,6 +1370,7 @@ def feols(
         df_inference=float(df_t),
         df_a=df_a,
         df_a_nested=df_a_nested,
+        weight_info=weight_info,
     )
 
 

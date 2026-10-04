@@ -367,6 +367,48 @@ def _note_cluster_sizes(result: Any, data: pd.DataFrame, vcov: Any) -> None:
     result.model_info = info
 
 
+def _note_weights(result: Any, data: pd.DataFrame, vcov: Any, weights: Any) -> None:
+    """Record the Kish effective sizes of a weighted fit, and warn.
+
+    Same diagnostic as ``sp.panel`` and ``sp.hdfe_ols``. Weights and the
+    cluster key are read from ``data`` on the rows where both are present.
+    """
+    if not isinstance(weights, str) or weights not in getattr(data, "columns", ()):
+        return
+    info = dict(getattr(result, "model_info", None) or {})
+    label = str(info.get("vcov_type", "")).lower()
+    column = None
+    if isinstance(vcov, dict) and len(vcov) == 1:
+        column = next(iter(vcov.values()))
+        if not isinstance(column, str) or column not in data.columns:
+            column = None
+    frame = data[[weights] + ([column] if column else [])].dropna()
+    if frame.empty:
+        return
+    if label == "iid":
+        kind = "classical"
+    elif label in ("hetero", "hc1", "hc2", "hc3"):
+        kind = "robust" if label == "hetero" else label
+    elif column is not None:
+        kind = "cluster"
+    else:
+        kind = "other"
+    from ..core._agent_summary import note_weight_diagnostics
+
+    note_weight_diagnostics(
+        info,
+        frame[weights].to_numpy(dtype=float),
+        kind,
+        entry="sp.feols",
+        robust_option="vcov='hetero' or vcov={'CRV1': <cluster>}",
+        classical_reading="analytic weights (Stata [aw=])",
+        cluster_keys=frame[column].to_numpy() if column else None,
+        cluster=column,
+        stacklevel=5,
+    )
+    result.model_info = info
+
+
 def _check_pyfixest() -> Any:
     """Import pyfixest or raise a structured ``MissingDependencyError``.
 
@@ -1262,6 +1304,7 @@ def feols(
 
     out = _pyfixest_to_econometric_results(fit)
     _note_cluster_sizes(out, data, vcov)
+    _note_weights(out, data, vcov, weights)
     return out
 
 

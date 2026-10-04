@@ -58482,7 +58482,8 @@
         "std_errors": "pd.Series",
         "tss": "float",
         "tvalues": "pd.Series",
-        "vcov": "np.ndarray"
+        "vcov": "np.ndarray",
+        "weight_info": "Optional[Dict[str, Any]]"
       }
     },
     "signature": {

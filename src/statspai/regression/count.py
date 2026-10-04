@@ -1408,6 +1408,26 @@ def poisson(
         model_info["formula"] = formula
     if cluster_arr is not None:
         model_info["n_clusters"] = int(len(np.unique(cluster_arr)))
+    if weights is not None:
+        from ..core._agent_summary import note_weight_diagnostics
+
+        note_weight_diagnostics(
+            model_info,
+            w_arr,
+            (
+                "cluster"
+                if cluster_arr is not None
+                else ("classical" if robust == "nonrobust" else "robust")
+            ),
+            entry="sp.poisson",
+            robust_option="robust='robust' (Stata [pw=])",
+            classical_reading="frequency weights (Stata [fw=])",
+            classical_assumption=(
+                "frequencies (each row standing for w identical observations)"
+            ),
+            cluster_keys=cluster_arr,
+            cluster=cluster,
+        )
 
     data_info = {
         "nobs": n,
@@ -3243,6 +3263,27 @@ def ppmlhdfe(
         )
     else:
         n_cluster = None
+    if w_arr is not None:
+        from ..core._agent_summary import note_weight_diagnostics
+
+        _one_way = cluster_arr is not None and len(cluster_arr) == len(w_arr)
+        note_weight_diagnostics(
+            model_info,
+            w_arr,
+            (
+                "cluster"
+                if (cluster_arr is not None or cluster_pair is not None)
+                else ("robust" if robust.lower() in ("robust", "hc1") else "classical")
+            ),
+            entry="sp.ppmlhdfe",
+            robust_option="robust='robust' (the default) or cluster=",
+            classical_reading="frequency weights (Stata [fw=])",
+            classical_assumption=(
+                "frequencies (each row standing for w identical observations)"
+            ),
+            cluster_keys=cluster_arr if _one_way else None,
+            cluster=cluster,
+        )
     data_info = {
         "nobs": n,
         "df_model": k,

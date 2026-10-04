@@ -75,6 +75,20 @@ files written here pass `dtaverify` in formats 117, 118 and 119, and
 
 ### Reliability
 
+- **Weight diagnostics in `sp.panel`, `sp.hdfe_ols`, `sp.feols`,
+  `sp.poisson` and `sp.ppmlhdfe`.** A second coverage study
+  (`tests/reliability/extreme_weights_models.py`, 12 designs, 2,000
+  replications each) repeats the weight question for fixed effects and
+  Poisson. The default variance covers 45% to 80% (fixed effects) and
+  14% to 68% (Poisson) of the time under dispersed sampling weights; the
+  robust variance drops to 84% at a Kish effective size of 17; and a
+  cluster-robust interval with unit-level weights follows the number of
+  clusters the weights leave in effect (78% at 7, 87% at 17, 91% at 23),
+  whatever the count of clusters. These entry points now record
+  `n_effective_weights` and, for one-way clustering,
+  `n_clusters_effective_weights` (in `model_info`, or `weight_info` on
+  the `sp.hdfe_ols` result), and warn in those three cases. No estimate
+  or standard error changes.
 - **A coverage study for `sp.rdrobust` on a discrete running variable**
   (`tests/reliability/rd_mass_points.py`, 28 designs, 1,000 replications
   each). The robust interval holds 94% to 96% down to 20 support points a

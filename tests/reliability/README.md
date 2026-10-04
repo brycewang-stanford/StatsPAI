@@ -190,3 +190,57 @@ What the table says:
 Rerun with `python tests/reliability/rd_mass_points.py` (about half an
 hour). `tests/test_reliability_rd_mass_points.py` recomputes one cell on
 its first 40 replications and checks the statements above.
+
+## Extreme weights beyond OLS (`extreme_weights_models.py`)
+
+The same question as `extreme_weights.py`, for a weighted fixed-effects
+regression (`sp.panel(method='fe')`, unit-level weights, 5 periods) and
+a weighted Poisson regression (`sp.poisson`). The errors do not depend
+on the weight, as with sampling weights. Coverage of the 95% interval
+for the slope, 2,000 replications per cell.
+
+Fixed effects (Kish size is over units):
+
+| units | sigma of log weight | Kish size | classical | robust | cluster on unit |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 50 | 0 | 50 | 0.956 | 0.957 | 0.951 |
+| 50 | 1 | 23 | 0.800 | 0.932 | 0.908 |
+| 50 | 2 | 7 | 0.542 | 0.889 | 0.777 |
+| 200 | 0 | 200 | 0.945 | 0.945 | 0.944 |
+| 200 | 1 | 82 | 0.779 | 0.954 | 0.936 |
+| 200 | 2 | 17 | 0.445 | 0.924 | 0.871 |
+
+Poisson (Kish size is over observations):
+
+| n | sigma of log weight | Kish size | classical | robust |
+| ---: | ---: | ---: | ---: | ---: |
+| 200 | 0 | 200 | 0.960 | 0.953 |
+| 200 | 1 | 82 | 0.679 | 0.914 |
+| 200 | 2 | 17 | 0.207 | 0.840 |
+| 1000 | 0 | 1000 | 0.951 | 0.947 |
+| 1000 | 1 | 382 | 0.652 | 0.943 |
+| 1000 | 2 | 53 | 0.143 | 0.882 |
+
+What the tables say:
+
+- The default variance fails under sampling weights in both models, as
+  it does for OLS: 45% to 80% with fixed effects, 14% to 68% for
+  Poisson. It is the right variance only when the weights are precisions
+  (linear model) or frequencies (Poisson).
+- The robust variance is right in large effective samples and short in
+  small ones: Poisson covers 84% at a Kish size of 17 and 88% at 53.
+- Clustering on the unit does not repair unit-level weights. Coverage
+  follows the number of units the weights leave in effect: 78% at 7, 87%
+  at 17, 91% at 23, nominal from 50 up. The count of clusters (50 or
+  200) and the size-based effective count say nothing here, because the
+  clusters are equal in size.
+
+`sp.panel`, `sp.hdfe_ols`, `sp.feols`, `sp.poisson` and `sp.ppmlhdfe` now
+record `n_effective_weights`, and `n_clusters_effective_weights` for a
+one-way clustered fit, and warn in the three cases above (classical
+variance with a Kish ratio under 0.5; robust variance with a Kish size
+under 100; fewer than 30 weight-effective clusters). `sp.nbreg` and
+`sp.fast.*` were not simulated and carry no warning.
+
+Rerun with `python tests/reliability/extreme_weights_models.py` (about
+eight minutes).

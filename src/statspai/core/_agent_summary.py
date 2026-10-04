@@ -164,19 +164,38 @@ def kish_effective_n(weights: Any) -> float:
     return float(w.sum() ** 2 / denom) if denom > 0 else 0.0
 
 
-def warn_if_weights_extreme(weights: Any, variance: str, stacklevel: int = 3) -> float:
-    """Kish effective sample size; warn where the study found intervals short.
+def warn_if_weights_extreme(
+    weights: Any,
+    variance: str,
+    stacklevel: int = 3,
+    *,
+    entry: str = "sp.regress",
+    robust_option: str = "robust='hc1' (Stata [pw=])",
+    small_sample_option: Optional[str] = "vce='hc3'",
+    classical_reading: str = "analytic weights (Stata [aw=])",
+    classical_assumption: str = "precisions (error variance proportional to 1 / w)",
+    evidence: str = "tests/reliability/extreme_weights_results.json",
+) -> float:
+    """Kish effective sample size; warn where the studies found intervals short.
 
-    ``variance`` is ``"classical"``, ``"hc0"`` / ``"hc1"`` / ``"hc2"``, or anything
-    else (no warning). Two findings of
-    ``tests/reliability/extreme_weights.py`` (2,000 replications a cell):
+    ``variance`` is ``"classical"``, a heteroskedasticity-robust label
+    (``"hc0"`` / ``"hc1"`` / ``"hc2"`` / ``"robust"``), or anything else (no
+    warning). Two findings, of ``tests/reliability/extreme_weights.py`` for
+    ``sp.regress`` and ``extreme_weights_models.py`` for fixed effects and
+    Poisson (2,000 replications a cell):
 
     * the classical weighted variance is right when the weights are
-      precisions (``Var(e) = 1 / w``) and badly wrong when they are
-      sampling weights: 78% coverage of a 95% interval at a Kish ratio of
-      0.4, 34% to 47% at 0.05 to 0.09;
-    * HC1 and HC2 are right in large effective samples and too short in
-      small ones (84% and 90% at a Kish size of 17), where HC3 holds.
+      precisions or frequencies and badly wrong when they are sampling
+      weights: 78% coverage of a 95% interval at a Kish ratio of 0.4, 34%
+      to 47% at 0.05 to 0.09 (OLS); 45% to 80% (fixed effects) and 14% to
+      68% (Poisson) in the same range;
+    * robust variances are right in large effective samples and too short
+      in small ones (OLS HC1 84% at a Kish size of 17, Poisson 84% at 17
+      and 88% at 53), where HC3 holds for OLS.
+
+    The keyword arguments name the entry point's own options, so the
+    hint is one the caller can act on; ``small_sample_option=None`` says
+    the entry point has no small-sample correction to offer.
     """
     import warnings
 
@@ -190,43 +209,119 @@ def warn_if_weights_extreme(weights: Any, variance: str, stacklevel: int = 3) ->
     ratio = n_eff / n
     diagnostics = {"n_obs": n, "n_effective_weights": n_eff, "kish_ratio": ratio}
     if variance == "classical" and ratio < 0.5:
+        small = (
+            f", or {small_sample_option} when the effective sample is small"
+            if small_sample_option
+            else ""
+        )
         warnings.warn(
             AssumptionWarning(
                 f"The weights are dispersed (Kish effective sample size "
                 f"{n_eff:.0f} of {n}) and the standard errors are the "
                 "classical weighted ones, which assume the weights are "
-                "precisions (error variance proportional to 1 / w). If they "
+                f"{classical_assumption}. If they "
                 "are sampling weights these intervals are far too short.",
                 recovery_hint=(
                     "For sampling or inverse-probability weights pass "
-                    "robust='hc1' (Stata [pw=]), or vce='hc3' when the "
-                    "effective sample is small. Keep the default only for "
-                    "analytic weights (Stata [aw=]). See "
-                    "tests/reliability/extreme_weights_results.json."
+                    f"{robust_option}{small}. Keep the default only for "
+                    f"{classical_reading}. See {evidence}."
                 ),
                 diagnostics=diagnostics,
-                alternative_functions=["sp.regress"],
+                alternative_functions=[entry],
             ),
             stacklevel=stacklevel,
         )
     elif (
-        variance in ("hc0", "hc1", "hc2") and n_eff < _FEW_EFFECTIVE_OBS and ratio < 0.5
+        variance in ("hc0", "hc1", "hc2", "robust")
+        and n_eff < _FEW_EFFECTIVE_OBS
+        and ratio < 0.5
     ):
+        label = "robust" if variance == "robust" else variance.upper()
+        hint = (
+            f"Use {small_sample_option}, which held its coverage in the same "
+            f"designs; see {evidence}."
+            if small_sample_option
+            else (
+                f"{entry} has no small-sample correction for this case: "
+                "report the interval as a lower bound on the uncertainty, or "
+                f"trim the weights. See {evidence}."
+            )
+        )
         warnings.warn(
             AssumptionWarning(
                 f"A few observations carry most of the weight (Kish effective "
-                f"sample size {n_eff:.0f} of {n}): {variance.upper()} "
+                f"sample size {n_eff:.0f} of {n}): {label} "
                 "intervals are too short in that case.",
-                recovery_hint=(
-                    "Use vce='hc3', which held its coverage in the same "
-                    "designs; see tests/reliability/extreme_weights_results.json."
-                ),
+                recovery_hint=hint,
                 diagnostics=diagnostics,
-                alternative_functions=["sp.regress"],
+                alternative_functions=[entry],
             ),
             stacklevel=stacklevel,
         )
     return n_eff
+
+
+def weighted_effective_n_clusters(weights: Any, keys: Any) -> float:
+    """Kish effective number of clusters, by the weight each cluster carries.
+
+    ``(sum_g W_g)^2 / sum_g W_g^2`` with ``W_g`` the total weight of
+    cluster ``g``. With equal weights this is :func:`effective_n_clusters`.
+    """
+    totals = (
+        pd.Series(np.asarray(weights, dtype=float).ravel())
+        .groupby(pd.Series(np.asarray(keys)).to_numpy())
+        .sum()
+        .to_numpy()
+    )
+    return kish_effective_n(totals)
+
+
+def warn_if_weighted_clusters_few(
+    weights: Any, keys: Any, cluster: Any, stacklevel: int = 3
+) -> float:
+    """Weight-effective number of clusters; warn when the weights leave few.
+
+    In ``tests/reliability/extreme_weights_models.py`` the cluster-robust
+    interval of a weighted fixed-effects regression covered 94% with 82
+    clusters in effect, 91% with 23, 87% with 17 and 78% with 7, although
+    50 or 200 clusters were present and equal in size. The warning fires
+    when the count and the size-effective count are both at least
+    ``_FEW_CLUSTERS_MIN`` (otherwise the existing warnings already speak)
+    and the weight-effective count is below it.
+    """
+    import warnings
+
+    from ..exceptions import AssumptionWarning
+
+    series = pd.Series(np.asarray(keys))
+    n_clusters = int(series.nunique())
+    effective = weighted_effective_n_clusters(weights, series.to_numpy())
+    if (
+        n_clusters >= _FEW_CLUSTERS_MIN
+        and effective_n_clusters(series) >= _FEW_CLUSTERS_MIN
+        and effective < _FEW_CLUSTERS_MIN
+    ):
+        warnings.warn(
+            AssumptionWarning(
+                f"{n_clusters} clusters for cluster='{cluster}', but the "
+                f"weights concentrate on a few of them: the weight-effective "
+                f"number is {effective:.1f} (< {_FEW_CLUSTERS_MIN}). "
+                "Cluster-robust intervals are too short in that case.",
+                recovery_hint=(
+                    "Report the weight-effective count next to the estimate "
+                    "and read the interval as too short; trimming the weights "
+                    "is the usual remedy. See "
+                    "tests/reliability/extreme_weights_models_results.json."
+                ),
+                diagnostics={
+                    "n_clusters": n_clusters,
+                    "n_clusters_effective_weights": effective,
+                    "threshold": _FEW_CLUSTERS_MIN,
+                },
+            ),
+            stacklevel=stacklevel,
+        )
+    return effective
 
 
 def warn_if_clusters_unequal(keys: Any, cluster: Any, stacklevel: int = 3) -> float:
@@ -1242,3 +1337,40 @@ def econometric_agent_summary(result: Any) -> Dict[str, Any]:
         "violations": econometric_violations(result),
         "next_steps": next_steps,
     }
+
+
+def note_weight_diagnostics(
+    model_info: Dict[str, Any],
+    weights: Any,
+    variance: str,
+    *,
+    entry: str,
+    robust_option: str,
+    classical_reading: str,
+    classical_assumption: str = "precisions (error variance proportional to 1 / w)",
+    cluster_keys: Any = None,
+    cluster: Any = None,
+    stacklevel: int = 4,
+) -> None:
+    """Record (and warn on) the weight diagnostics of a weighted fit.
+
+    For the entry points that have no HC3: ``sp.panel``, ``sp.hdfe_ols``,
+    ``sp.feols``, ``sp.poisson``, ``sp.ppmlhdfe``. Writes
+    ``n_effective_weights`` and, for a one-way clustered fit,
+    ``n_clusters_effective_weights`` into ``model_info``.
+    """
+    model_info["n_effective_weights"] = warn_if_weights_extreme(
+        weights,
+        variance,
+        stacklevel=stacklevel,
+        entry=entry,
+        robust_option=robust_option,
+        small_sample_option=None,
+        classical_reading=classical_reading,
+        classical_assumption=classical_assumption,
+        evidence="tests/reliability/extreme_weights_models_results.json",
+    )
+    if variance == "cluster" and cluster_keys is not None:
+        model_info["n_clusters_effective_weights"] = warn_if_weighted_clusters_few(
+            weights, cluster_keys, cluster, stacklevel=stacklevel
+        )
