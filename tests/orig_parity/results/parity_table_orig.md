@@ -34,7 +34,7 @@ Data source: `MatchIt::lalonde` (614 obs)
 |---|---:|---:|---:|---:|---:|---|
 | `naive_ols_att` | -635 | -635 | -8498 | 6.8e-15 | 0.93 | Dehejia-Wahba (1999) Table 3, naive OLS |
 | `adj_ols_att` | 1548 | 1548 | 218 | 2.1e-15 | 6.1 | Dehejia-Wahba (1999) Table 3, covariate-adjusted OLS |
-| `psm_att` | 1963 | 2007 | 1794 | 0.022 | 0.094 | Dehejia-Wahba (1999) Table 4, PSM 1:1 NN |
+| `psm_att` | 1968 | 2007 | 1794 | 0.019 | 0.097 | Dehejia-Wahba (1999) Table 4, PSM 1:1 NN |
 
 ## Module `04b_nsw_psid_original`
 Data source: `causalsens::lalonde.psid` (2675 obs)
