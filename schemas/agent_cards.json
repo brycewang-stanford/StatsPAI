@@ -7313,6 +7313,15 @@
             ],
             "type": "string"
           },
+          "ps_model": {
+            "default": "logit",
+            "description": "Propensity-score model; 'probit' is teffects psmatch (..., probit)",
+            "enum": [
+              "logit",
+              "probit"
+            ],
+            "type": "string"
+          },
           "se_method": {
             "default": "auto",
             "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw. 'abadie_imbens_2016' is the Abadie-Imbens (2016) estimated-propensity-score variance Stata teffects psmatch reports (population ATT; the score-estimation term can be negative).",
@@ -7565,6 +7574,15 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "ps_model": {
+            "default": "logit",
+            "description": "Propensity-score model. Stata psmatch2 fits a probit unless its logit option is given",
+            "enum": [
+              "logit",
+              "probit"
+            ],
+            "type": "string"
+          },
           "se": {
             "default": "psmatch2",
             "description": "Standard-error estimator. 'bootstrap' re-estimates the propensity score each replication and is the only valid choice for method='llr' (Stata reports seatt = . there).",
@@ -7599,7 +7617,8 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 MP + psmatch2 4.0.12 / pstest 4.2.2 (Leuven & Sianesi 2003) [Stata 18 MP, psmatch2 4.0.12]; tolerance Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9). -- tests/reference_parity/test_psmatch2_parity.py",
-      "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py"
+      "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py",
+      "tests/reference_parity/test_teffects_probit_stata.py"
     ],
     "validation_status": "certified"
   },
@@ -11305,6 +11324,15 @@
             ],
             "type": "string"
           },
+          "ps_model": {
+            "default": "logit",
+            "description": "Propensity-score model; 'probit' is teffects ipw (..., probit)",
+            "enum": [
+              "logit",
+              "probit"
+            ],
+            "type": "string"
+          },
           "se_method": {
             "default": "bootstrap",
             "description": "'sandwich' = teffects ipw robust M-estimation SE (needs normalize=True, trim=0)",
@@ -11350,6 +11378,7 @@
       "Cross-language parity (bit-exact) vs base R stats::glm(binomial) + hand-rolled Hajek weighted means; tolerance Hajek ATE/ATT estimate 1e-9 (observed <= 2e-15; SE not pinned) -- tests/reference_parity/test_ipw_parity.py",
       "tests/external_parity/test_whatif_nhefs.py",
       "tests/reference_parity/test_teffects_design_stata_parity.py",
+      "tests/reference_parity/test_teffects_probit_stata.py",
       "API/unit contract evidence: tests/test_new_features.py"
     ],
     "validation_status": "certified"
@@ -36301,7 +36330,8 @@
       "Stata parity module 20_bacon",
       "Cross-language parity (bit-exact) vs bacondecomp::bacon [R version 4.5.2 (2025-10-31), bacondecomp 0.1.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 20_bacon -- tests/r_parity/20_bacon.py",
       "tests/reference_parity/test_castle_stata_parity.py",
-      "tests/reference_parity/test_did_parity.py"
+      "tests/reference_parity/test_did_parity.py",
+      "tests/reference_parity/test_twfe_decomposition_known_truth.py"
     ],
     "validation_status": "certified"
   },
@@ -41461,6 +41491,7 @@
       "Cross-language parity (bit-exact) vs Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 stratified_fit(k_split = 1) [AIPW 0.6.9.3, R version 4.5.2 (2025-10-31), Stata 18, SuperLearner 2.0.40]; tolerance 1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14) -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/reference_parity/test_paper_parity.py",
       "tests/reference_parity/test_teffects_design_stata_parity.py",
+      "tests/reference_parity/test_teffects_probit_stata.py",
       "tests/reference_parity/test_tmle_parity.py"
     ],
     "validation_status": "certified"
@@ -49114,7 +49145,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_did_synth_R_parity.py"
+        "tests/reference_parity/test_did_synth_R_parity.py",
+        "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
       "tolerance": ""
     },
@@ -49154,7 +49186,7 @@
     "reference": "",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: detail DataFrame has columns: type, treated_cohort, control_cohort, estimate, weight, weighted_est. model_info includes summary statistics and dCDH weights.",
+      "description": "CausalResult: estimate is the TWFE coefficient and se its standard error clustered by unit (the small-sample factor of Stata xtreg, fe vce(cluster)). detail has columns type, treated_cohort, control_cohort, estimate, weight, weighted_est.",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -66860,6 +66892,11 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "h0": {
+            "default": 0.0,
+            "description": "The value of the coefficient under the null, imposed when the bootstrap samples are generated (Stata ``boottest x = h0``).",
+            "type": "number"
+          },
           "n_boot": {
             "default": 999,
             "description": "Number of bootstrap replications (use odd number).",
@@ -66874,7 +66911,7 @@
             "type": "integer"
           },
           "variable": {
-            "description": "Name of the coefficient to test (H0: beta = 0).",
+            "description": "Name of the coefficient to test (H0: beta = ``h0``).",
             "type": "string"
           },
           "weight_type": {

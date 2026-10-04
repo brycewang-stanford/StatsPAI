@@ -2124,7 +2124,10 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
     ``nnmatch`` goes to ``sp.match(method='nnmatch')``, the same estimator
     (ties kept, Abadie-Imbens variance, ``biasadj()`` / ``ematch()``).
     ``psmatch`` goes to propensity-score matching with ties kept and, for
-    the ATET, the Abadie-Imbens (2016) standard error Stata reports.
+    the ATET, the Abadie-Imbens (2016) standard error Stata reports; the
+    treatment model may be ``logit`` (the default) or ``probit``. ``ipw``
+    and ``aipw`` ask for the stacked M-estimation standard error Stata
+    reports, and ``aipw`` for the fit without cross-fitting.
     ``ra`` and ``ipwra`` fit a separate outcome model in each treatment arm,
     which no single sp call reproduces, so they are refused.
     """
@@ -2266,11 +2269,11 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
                 command="teffects",
             )
         model = treat_opts[0].lower() if treat_opts else "logit"
-        if model != "logit" or len(treat_opts) > 1:
+        if model not in ("logit", "probit") or len(treat_opts) > 1:
             return _emit_error(
                 f"teffects psmatch with the treatment model "
                 f"{' '.join(treat_opts)!r} is not translated; sp.match "
-                "estimates the propensity score by logit.",
+                "estimates the propensity score by logit or probit.",
                 command="teffects",
                 suggestions=[],
             )
@@ -2282,6 +2285,8 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
             "estimand": estimand,
             "ties": "all",
         }
+        if model == "probit":
+            args["ps_model"] = "probit"
         raw_nn = opts.get("nneighbor")
         if raw_nn is not None:
             try:
@@ -2330,21 +2335,48 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
         out["untranslated_options"] = lost
         return out
 
-    if treat_opts and [t.lower() for t in treat_opts] != ["logit"]:
+    t_model = [t.lower() for t in treat_opts] or ["logit"]
+    if method == "ipw" and t_model in (["logit"], ["probit"]):
+        args = {
+            "y": y,
+            "treat": treat,
+            "covariates": treat_xs,
+            "estimand": estimand,
+            "se_method": "sandwich",
+        }
+        if t_model == ["probit"]:
+            args["ps_model"] = "probit"
+        kind, _ = _vce_nn(opts.get("vce"))
+        if kind not in (None, "robust"):
+            lost.append("vce")
+        kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+        out = _emit(
+            "ipw",
+            args,
+            f"sp.ipw(data=df, {kw})",
+            [
+                "Standard error: the stacked M-estimation (sandwich) variance "
+                "of the treatment model and the weighted means, as teffects "
+                "ipw reports."
+            ],
+        )
+        out["untranslated_options"] = lost
+        return out
+    if t_model != ["logit"]:
         return _emit_error(
             f"teffects {method} with the treatment model "
             f"{' '.join(treat_opts)!r} is not translated.",
             command="teffects",
             suggestions=[],
         )
-    if method == "ipw":
-        args = {"y": y, "treat": treat, "covariates": treat_xs, "estimand": estimand}
-        python = (
-            f"sp.ipw(data=df, y={y!r}, treat={treat!r}, "
-            f"covariates={treat_xs!r}, estimand={estimand!r})"
-        )
-        return _emit("ipw", args, python)
     if method == "aipw":
+        if estimand != "ATE":
+            return _emit_error(
+                "teffects aipw estimates the ATE or the potential-outcome "
+                "means; it has no atet.",
+                command="teffects",
+                suggestions=[],
+            )
         if out_xs and treat_xs and out_xs != treat_xs:
             return _emit_error(
                 "teffects aipw with different covariates in the outcome and "
@@ -2354,12 +2386,30 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
                 suggestions=[],
             )
         covs = treat_xs or out_xs
-        args = {"y": y, "treat": treat, "covariates": covs, "estimand": estimand}
-        python = (
-            f"sp.aipw(data=df, y={y!r}, treat={treat!r}, "
-            f"covariates={covs!r}, estimand={estimand!r})"
+        args = {
+            "y": y,
+            "treat": treat,
+            "covariates": covs,
+            "estimand": estimand,
+            "cross_fit": False,
+            "se_method": "sandwich",
+        }
+        kind, _ = _vce_nn(opts.get("vce"))
+        if kind not in (None, "robust"):
+            lost.append("vce")
+        kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+        out = _emit(
+            "aipw",
+            args,
+            f"sp.aipw(data=df, {kw})",
+            [
+                "teffects aipw fits both models on the full sample: "
+                "cross_fit=False, with the stacked M-estimation standard "
+                "error."
+            ],
         )
-        return _emit("aipw", args, python)
+        out["untranslated_options"] = lost
+        return out
     return _emit_error(
         f"teffects method {method!r} not supported "
         f"(known: nnmatch / psmatch / ipw / aipw)",
@@ -2374,8 +2424,15 @@ def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
             "psmatch2 requires treatment plus covariates: `psmatch2 d x1 x2`",
             command="psmatch2",
         )
-    treat = cmd.varlist[0]
-    covariates = cmd.varlist[1:]
+    # Stata reads `psmatch2 d (x1 x2)` as `psmatch2 d x1 x2`
+    names = [v for v in cmd.varlist if v not in ("(", ")")]
+    if len(names) < 2:
+        return _emit_error(
+            "psmatch2 requires treatment plus covariates: `psmatch2 d x1 x2`",
+            command="psmatch2",
+        )
+    treat = names[0]
+    covariates = names[1:]
     args: Dict[str, Any] = {"treat": treat, "covariates": covariates}
     notes: List[str] = []
 
@@ -2432,14 +2489,12 @@ def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
     if "noreplacement" in cmd.options or "noreplace" in cmd.options:
         args["replace"] = False
     lost: List[str] = []
-    cmd.options.get("probit")  # psmatch2's default: same message either way
+    cmd.options.get("probit")  # psmatch2's default
     if "logit" not in cmd.options:
-        lost.append("probit")
+        args["ps_model"] = "probit"
         notes.append(
             "Stata psmatch2 estimates the propensity score by probit unless "
-            "`logit` is given; sp.psmatch2 uses a logit, so the scores and "
-            "possibly the matches differ. Add `logit` in Stata for an exact "
-            "counterpart."
+            "`logit` is given: ps_model='probit'."
         )
     if "ties" in cmd.options:
         args["ties"] = True
@@ -2461,6 +2516,7 @@ def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
         "common_support",
         "ai",
         "replace",
+        "ps_model",
         "ties",
         "ate",
     ):
@@ -2823,35 +2879,109 @@ def _h_mi_estimate(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
-def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
-    """``boottest x1=0, reps(999)`` → ``sp.wild_cluster_bootstrap``.
+_BOOTTEST_WEIGHTS = ("rademacher", "webb", "mammen")
 
-    Stata's boottest is Roodman-Webb-MacKinnon-Nielsen wild-cluster
-    bootstrap. sp ships an equivalent.
+
+def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
+    """``boottest x [= c], reps(999) weight(webb)`` -> ``sp.wild_cluster_boot``.
+
+    ``boottest`` tests a coefficient of the regression before it with the
+    wild cluster bootstrap, null imposed (Roodman, MacKinnon, Nielsen and
+    Webb 2019). ``sp.wild_cluster_boot`` is that test: same restricted
+    residuals, same symmetric p-value, the Rademacher draws enumerated when
+    there are fewer of them than replications.
     """
-    args: Dict[str, Any] = {"hypothesis": cmd.varlist}
-    reps = cmd.options.get("reps")
-    if reps:
-        try:
-            args["B"] = int(reps)
-        except (TypeError, ValueError):
-            pass
+    tokens = [t for t in cmd.varlist if t != ","]
+    # `x`, `x = c` and `x=c` (one token) are the same hypothesis
+    stated = re.fullmatch(
+        r"([A-Za-z_][\w.]*)(?:=([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?))?",
+        re.sub(r"\s*=\s*", "=", " ".join(tokens)),
+    )
+    if stated is None:
+        return _emit_error(
+            "boottest: only a single-coefficient hypothesis is translated: "
+            "`boottest x` or `boottest x = c`.",
+            command="boottest",
+            suggestions=[],
+        )
+    variable = stated.group(1)
+    h0 = float(stated.group(2)) if stated.group(2) else 0.0
+    args: Dict[str, Any] = {"variable": variable}
+    lost: List[str] = []
+    notes: List[str] = []
     cluster = cmd.options.get("cluster") or _vce_cluster(cmd)
-    if cluster:
+    bootcluster = cmd.options.get("bootcluster")
+    if cluster and len(cluster.split()) == 1:
         args["cluster"] = cluster.split()[0]
-    notes = [
-        "sp.wild_cluster_bootstrap takes a fitted result as the "
-        "first arg — pipe the previous estimator's result_id."
-    ]
-    # Round-trip contract: code must mirror args (besides the ``result``
-    # carrier) so copy-paste and dispatch agree.
-    code_pairs = ["result"]
-    for k in ("hypothesis", "B", "cluster"):
-        if k in args and args[k] not in (None, "", []):
-            v = args[k]
-            code_pairs.append(f"{k}={v!r}" if isinstance(v, str) else f"{k}={v}")
-    python = f"sp.wild_cluster_bootstrap({', '.join(code_pairs)})"
-    return _emit("wild_cluster_bootstrap", args, python, notes)
+    elif cluster:
+        lost.append("cluster")
+        notes.append("Multiway clustering in boottest is not translated.")
+    if bootcluster is not None:
+        named = bootcluster.split()
+        if "cluster" not in args and len(named) == 1:
+            # one bootstrap cluster and no cluster(): the estimation
+            # command's own, or this one (checked when the line is run)
+            args["cluster"] = named[0]
+        elif named != [args.get("cluster")]:
+            lost.append("bootcluster")
+            notes.append(
+                "bootcluster() differs from the error cluster (the "
+                "subcluster bootstrap); sp.subcluster_wild_bootstrap does "
+                "that."
+            )
+    reps = cmd.options.get("reps")
+    if reps is not None:
+        try:
+            args["n_boot"] = int(reps)
+        except (TypeError, ValueError):
+            lost.append("reps")
+    weight = cmd.options.get("weight")
+    if weight is not None:
+        head = weight.split()[0].lower() if weight.split() else ""
+        if head in _BOOTTEST_WEIGHTS:
+            args["weight_type"] = head
+        else:
+            lost.append("weight")
+            notes.append(
+                f"weight({weight}) is not one sp.wild_cluster_boot has "
+                "(rademacher, webb, mammen)."
+            )
+    seed = cmd.options.get("seed")
+    if seed is not None:
+        try:
+            args["seed"] = int(seed)
+            notes.append(
+                "The seed fixes the draws within StatsPAI; they are not "
+                "Stata's draws. With few clusters the Rademacher weights "
+                "are enumerated and the p-value is exact on both sides."
+            )
+        except (TypeError, ValueError):
+            lost.append("seed")
+    level = cmd.options.get("level")
+    if level is not None:
+        try:
+            args["alpha"] = round(1 - float(level) / 100, 10)
+        except (TypeError, ValueError):
+            lost.append("level")
+    if h0:
+        args["h0"] = h0
+    notes.append(
+        "sp.wild_cluster_boot takes the fitted regression as its first "
+        "argument — pipe the previous estimator's result. The confidence "
+        "set boottest prints inverts the test; sp.wild_cluster_ci_inv "
+        "computes it (ci_boot here is the percentile-t interval)."
+    )
+    if "cluster" not in args and "cluster" not in lost:
+        notes.append(
+            "cluster= is the cluster variable of the estimation command; "
+            "sp.stata takes it from the regression before."
+        )
+    pairs = ["result", "data=df"] + [f"{k}={v!r}" for k, v in args.items()]
+    out = _emit(
+        "wild_cluster_boot", args, f"sp.wild_cluster_boot({', '.join(pairs)})", notes
+    )
+    out["untranslated_options"] = lost
+    return out
 
 
 def _h_newey(cmd: StataCommand) -> Dict[str, Any]:

@@ -25,7 +25,7 @@ Crump, R.K., Hotz, V.J., Imbens, G.W. and Mitnik, O.A. (2009).
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -51,6 +51,7 @@ def ipw(
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
     se_method: str = "bootstrap",
+    ps_model: str = "logit",
 ) -> CausalResult:
     """
     Inverse Probability Weighting estimator for treatment effects.
@@ -96,6 +97,11 @@ def ipw(
         score and the normalised IPW means (divisor ``n``) -- the robust
         standard error of Stata ``teffects ipw``, deterministic and
         bootstrap-free. Requires ``normalize=True`` and ``trim=0``.
+    ps_model : {'logit', 'probit'}, default 'logit'
+        The binary model for the propensity score. ``'probit'`` is the
+        treatment model of Stata ``teffects ipw (y) (d x, probit)``. The
+        sandwich variance uses the score and the observed Hessian of the
+        chosen model.
 
     Returns
     -------
@@ -138,6 +144,10 @@ def ipw(
     if se_method not in ("bootstrap", "sandwich"):
         raise MethodIncompatibility(
             f"se_method must be 'bootstrap' or 'sandwich', got {se_method!r}"
+        )
+    if ps_model not in ("logit", "probit"):
+        raise MethodIncompatibility(
+            f"ps_model must be 'logit' or 'probit', got {ps_model!r}"
         )
     if se_method == "sandwich" and (not normalize or trim > 0):
         raise MethodIncompatibility(
@@ -191,7 +201,7 @@ def ipw(
         )
 
     # --- Estimate propensity scores ---
-    pscore = _estimate_propensity(X, T, sw)
+    pscore = _estimate_propensity(X, T, sw, ps_model)
     pscore_raw = np.asarray(pscore, dtype=float).copy()  # pre-trim, for overlap
 
     # --- Trim ---
@@ -205,7 +215,7 @@ def ipw(
     estimate = float(np.sum(weights_1 * Y) - np.sum(weights_0 * Y))
 
     if se_method == "sandwich":
-        se = _ipw_sandwich_se(X, T, Y, pscore, estimand, sw, groups)
+        se = _ipw_sandwich_se(X, T, Y, pscore, estimand, sw, groups, ps_model)
         boot_estimates = None
     else:
         # --- Bootstrap SE (whole clusters when cluster= is given) ---
@@ -220,7 +230,7 @@ def ipw(
                 idx = np.concatenate([members[g] for g in pick])
             Y_b, T_b, X_b = Y[idx], T[idx], X[idx]
             sw_b = None if sw is None else sw[idx]
-            ps_b = _estimate_propensity(X_b, T_b, sw_b)
+            ps_b = _estimate_propensity(X_b, T_b, sw_b, ps_model)
             if trim > 0:
                 ps_b = np.clip(ps_b, trim, 1 - trim)
             w1, w0 = _compute_weights(T_b, ps_b, estimand, normalize, sw_b)
@@ -253,6 +263,7 @@ def ipw(
         "normalized": normalize,
         "n_bootstrap": n_bootstrap if se_method == "bootstrap" else None,
         "se_method": se_method,
+        "ps_model": ps_model,
         "weights": weights,
         "cluster": cluster,
         "n_clusters": None if groups is None else int(groups.max() + 1),
@@ -288,6 +299,7 @@ def ipw(
                 "weights": weights,
                 "cluster": cluster,
                 "se_method": se_method,
+                "ps_model": ps_model,
             },
             data=data,
             overwrite=False,
@@ -302,18 +314,43 @@ def ipw(
 # ====================================================================== #
 
 
+def _binomial_family(ps_model: str) -> Any:
+    import statsmodels.api as sm
+
+    if ps_model == "probit":
+        return sm.families.Binomial(link=sm.families.links.Probit())
+    return sm.families.Binomial()
+
+
 def _estimate_propensity(
-    X: np.ndarray, T: np.ndarray, sw: Optional[np.ndarray] = None
+    X: np.ndarray,
+    T: np.ndarray,
+    sw: Optional[np.ndarray] = None,
+    ps_model: str = "logit",
 ) -> np.ndarray:
-    """Logistic regression propensity score (weighted MLE if ``sw``)."""
+    """Logit or probit propensity score (weighted MLE if ``sw``)."""
     if sw is not None:
         import statsmodels.api as sm
 
         X_const = sm.add_constant(X, has_constant="add")
         # freq_weights gives the pweighted likelihood's point estimates.
-        res = sm.GLM(T, X_const, family=sm.families.Binomial(), freq_weights=sw).fit(
+        res = sm.GLM(
+            T, X_const, family=_binomial_family(ps_model), freq_weights=sw
+        ).fit(tol=1e-12, maxiter=300)
+        return np.clip(np.asarray(res.predict(X_const), dtype=float), 1e-8, 1 - 1e-8)
+    if ps_model == "probit":
+        import statsmodels.api as sm
+
+        X_const = sm.add_constant(X, has_constant="add")
+        res = sm.GLM(T, X_const, family=_binomial_family(ps_model)).fit(
             tol=1e-12, maxiter=300
         )
+        if getattr(res, "converged", True) is False:
+            raise MethodIncompatibility(
+                "ipw: the probit propensity model did not converge.",
+                recovery_hint="Check for separation or badly scaled "
+                "covariates, or use ps_model='logit'.",
+            )
         return np.clip(np.asarray(res.predict(X_const), dtype=float), 1e-8, 1 - 1e-8)
     try:
         import statsmodels.api as sm
@@ -363,6 +400,7 @@ def _ipw_sandwich_se(
     estimand: str,
     sw: Optional[np.ndarray],
     groups: Optional[np.ndarray],
+    ps_model: str = "logit",
 ) -> float:
     """M-estimation SE of the normalised IPW contrast (Stata ``teffects ipw``).
 
@@ -374,22 +412,42 @@ def _ipw_sandwich_se(
     ``G_k = mean(w (Y - mu_k) d a_k / d gamma)`` and
     ``IF_gamma = H^{-1} w (T - e) x``, ``H = mean(w e (1-e) x x')``.
     Divisor ``n``; with clusters the rows are summed within clusters first.
+
+    For a probit the score is ``w lam x`` with ``lam = (T - e) f / (e (1-e))``
+    and ``f`` the normal density at the index, ``H`` is the observed Hessian
+    ``mean(w lam (lam + index) x x')`` and ``e (1-e)`` in ``d a_k / d gamma``
+    becomes ``f``.
     """
     n = len(Y)
     w = np.ones(n) if sw is None else sw
     Xc = np.column_stack([np.ones(n), X])
     odds = e / (1 - e)
+    if ps_model == "probit":
+        index = sp_stats.norm.ppf(e)
+        dens = sp_stats.norm.pdf(index)  # d e / d index
+        score = (T - e) * dens / (e * (1 - e))
+        curv = score * (score + index)  # minus the observed second derivative
+    else:
+        dens = e * (1 - e)
+        score = T - e
+        curv = dens
+    # d(1/e) and d(e/(1-e)) with respect to the index; the logit forms are
+    # written out so that path keeps its earlier floating-point result
+    if ps_model == "probit":
+        d_inv, d_odds = -T * dens / e**2, (1 - T) * dens / (1 - e) ** 2
+    else:
+        d_inv, d_odds = -T * (1 - e) / e, (1 - T) * odds
     if estimand == "ATE":
         a1, a0 = T / e, (1 - T) / (1 - e)
-        da1, da0 = -T * (1 - e) / e, (1 - T) * odds
+        da1, da0 = d_inv, d_odds
     elif estimand == "ATT":
         a1, a0 = T, (1 - T) * odds
-        da1, da0 = np.zeros(n), (1 - T) * odds
+        da1, da0 = np.zeros(n), d_odds
     else:  # ATC
         a1, a0 = T * (1 - e) / e, 1 - T
-        da1, da0 = -T * (1 - e) / e, np.zeros(n)
-    H = (Xc * (w * e * (1 - e))[:, None]).T @ Xc / n
-    if_gamma = np.linalg.solve(H, (Xc * (w * (T - e))[:, None]).T).T
+        da1, da0 = d_inv, np.zeros(n)
+    H = (Xc * (w * curv)[:, None]).T @ Xc / n
+    if_gamma = np.linalg.solve(H, (Xc * (w * score)[:, None]).T).T
 
     def _if(a: np.ndarray, da: np.ndarray) -> np.ndarray:
         mu = np.sum(w * a * Y) / np.sum(w * a)

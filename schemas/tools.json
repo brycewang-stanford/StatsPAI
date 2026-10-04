@@ -14679,6 +14679,15 @@
           ],
           "type": "string"
         },
+        "ps_model": {
+          "default": "logit",
+          "description": "Propensity-score model; 'probit' is teffects ipw (..., probit)",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
+        },
         "se_method": {
           "default": "bootstrap",
           "description": "'sandwich' = teffects ipw robust M-estimation SE (needs normalize=True, trim=0)",
@@ -17706,6 +17715,15 @@
             "cbps",
             "sbw",
             "overlap"
+          ],
+          "type": "string"
+        },
+        "ps_model": {
+          "default": "logit",
+          "description": "Propensity-score model; 'probit' is teffects psmatch (..., probit)",
+          "enum": [
+            "logit",
+            "probit"
           ],
           "type": "string"
         },
@@ -22906,6 +22924,15 @@
           "description": "Outcome variable (Stata outcome(); optional)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "ps_model": {
+          "default": "logit",
+          "description": "Propensity-score model. Stata psmatch2 fits a probit unless its logit option is given",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
         },
         "se": {
           "default": "psmatch2",
@@ -33842,6 +33869,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "h0": {
+          "default": 0.0,
+          "description": "The value of the coefficient under the null, imposed when the bootstrap samples are generated (Stata ``boottest x = h0``).",
+          "type": "number"
+        },
         "n_boot": {
           "default": 999,
           "description": "Number of bootstrap replications (use odd number).",
@@ -33856,7 +33888,7 @@
           "type": "integer"
         },
         "variable": {
-          "description": "Name of the coefficient to test (H0: beta = 0).",
+          "description": "Name of the coefficient to test (H0: beta = ``h0``).",
           "type": "string"
         },
         "weight_type": {

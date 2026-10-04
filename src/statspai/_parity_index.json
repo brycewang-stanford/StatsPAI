@@ -245,6 +245,7 @@
       "additional_tests": [
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",
+        "tests/reference_parity/test_teffects_probit_stata.py",
         "tests/reference_parity/test_tmle_parity.py"
       ],
       "also_verified_by": [
@@ -695,7 +696,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_castle_stata_parity.py",
-        "tests/reference_parity/test_did_parity.py"
+        "tests/reference_parity/test_did_parity.py",
+        "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -8247,7 +8249,8 @@
     {
       "additional_tests": [
         "tests/external_parity/test_whatif_nhefs.py",
-        "tests/reference_parity/test_teffects_design_stata_parity.py"
+        "tests/reference_parity/test_teffects_design_stata_parity.py",
+        "tests/reference_parity/test_teffects_probit_stata.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -10122,7 +10125,8 @@
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_nnmatch_teffects_parity.py",
         "tests/reference_parity/test_psmatch2_llr_parity.py",
-        "tests/reference_parity/test_psmatch2_parity.py"
+        "tests/reference_parity/test_psmatch2_parity.py",
+        "tests/reference_parity/test_teffects_probit_stata.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -14122,7 +14126,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py"
+        "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py",
+        "tests/reference_parity/test_teffects_probit_stata.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -15737,6 +15742,7 @@
         "tests/reference_parity/test_spdep_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_thornton_ri_parity.py",
+        "tests/reference_parity/test_twfe_decomposition_known_truth.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],
       "also_in_modules": [
@@ -17862,7 +17868,8 @@
       "test": [
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
-        "tests/reference_parity/test_mediate_potential_outcomes.py"
+        "tests/reference_parity/test_mediate_potential_outcomes.py",
+        "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
       "tolerance": ""
     },
@@ -19378,7 +19385,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_did_synth_R_parity.py"
+        "tests/reference_parity/test_did_synth_R_parity.py",
+        "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
       "tolerance": ""
     },

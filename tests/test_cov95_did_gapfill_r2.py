@@ -360,9 +360,11 @@ def test_calibrated_pscore_i_weights():
 # ======================================================================
 # twfe_decomposition — degenerate designs
 # ======================================================================
-def test_twfe_decomposition_single_comparison_zero_se():
-    # One treated cohort + never-treated ⇒ exactly one 2×2 comparison,
-    # so the across-comparison SE is 0 and the p-value undefined.
+def test_twfe_decomposition_single_comparison():
+    # One treated cohort + never-treated ⇒ exactly one 2×2 comparison, which
+    # is the TWFE coefficient itself. (Until 2026-10 the standard error was
+    # the spread across comparisons, hence zero here; it is now the
+    # unit-clustered standard error of the coefficient.)
     rng = np.random.default_rng(0)
     rows = []
     for u in range(20):
@@ -379,9 +381,9 @@ def test_twfe_decomposition_single_comparison_zero_se():
         first_treat="first_treat",
     )
     assert r.model_info["n_comparisons"] == 1
-    assert r.se == 0.0
-    assert np.isnan(r.pvalue)
-    assert np.isfinite(r.estimate)
+    assert abs(r.detail["estimate"].iloc[0] - r.estimate) < 1e-12
+    assert abs(r.detail["weight"].iloc[0] - 1.0) < 1e-12
+    assert r.se > 0 and 0 <= r.pvalue <= 1
 
 
 def test_twfe_decomposition_missing_cohort_period_cell():
@@ -391,11 +393,14 @@ def test_twfe_decomposition_missing_cohort_period_cell():
     coh = sorted(df["first_treat"].dropna().unique())[0]
     t_max = df["time"].max()
     df = df[~((df["first_treat"] == coh) & (df["time"] == t_max))]
-    r = sp.twfe_decomposition(
-        df, y="y", group="unit", time="time", first_treat="first_treat"
-    )
+    with pytest.warns(UserWarning, match="unbalanced"):
+        r = sp.twfe_decomposition(
+            df, y="y", group="unit", time="time", first_treat="first_treat"
+        )
     assert np.isfinite(r.estimate)
+    assert r.detail.empty and not r.model_info["balanced"]
     cells = r.model_info["dcdh_weights"]
+    assert abs(cells["dcdh_weight"].sum() - 1.0) < 1e-10
     missing = (cells["cohort"] == int(coh)) & (cells["period"] == int(t_max))
     assert missing.sum() == 0
 

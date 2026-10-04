@@ -356,6 +356,7 @@ def wild_cluster_boot(
     weight_type: str = "rademacher",
     seed: Optional[int] = None,
     alpha: float = 0.05,
+    h0: float = 0.0,
 ) -> Dict[str, Any]:
     """
     Wild cluster bootstrap t-test for a single coefficient.
@@ -374,7 +375,7 @@ def wild_cluster_boot(
     cluster : str
         Name of the cluster variable.
     variable : str
-        Name of the coefficient to test (H0: beta = 0).
+        Name of the coefficient to test (H0: beta = ``h0``).
     n_boot : int, default 999
         Number of bootstrap replications (use odd number).
     weight_type : str, default 'rademacher'
@@ -386,6 +387,9 @@ def wild_cluster_boot(
         Random seed for reproducibility.
     alpha : float, default 0.05
         Significance level for confidence interval.
+    h0 : float, default 0.0
+        The value of the coefficient under the null, imposed when the
+        bootstrap samples are generated (Stata ``boottest x = h0``).
 
     Returns
     -------
@@ -466,16 +470,17 @@ def wild_cluster_boot(
         meat += np.outer(score_g, score_g)
     vcov_cl = correction * XtX_inv @ meat @ XtX_inv
     se_cl = float(np.sqrt(vcov_cl[test_idx, test_idx]))
-    t_stat = beta_test / se_cl if se_cl > 0 else 0.0
+    h0 = float(h0)
+    t_stat = (beta_test - h0) / se_cl if se_cl > 0 else 0.0
 
-    # Restricted OLS (impose H0: beta_variable = 0)
+    # Restricted OLS (impose H0: beta_variable = h0)
     other_cols = [j for j in range(k) if j != test_idx]
     X_other = X[:, other_cols]
-    beta_other = np.linalg.lstsq(X_other, Y, rcond=None)[0]
+    beta_other = np.linalg.lstsq(X_other, Y - h0 * X[:, test_idx], rcond=None)[0]
     beta_r = np.zeros(k)
     for i, j in enumerate(other_cols):
         beta_r[j] = beta_other[i]
-    beta_r[test_idx] = 0.0
+    beta_r[test_idx] = h0
     resid_r = Y - X @ beta_r
 
     # Bootstrap (shared WCR engine; enumerates the Rademacher grid when
@@ -497,7 +502,7 @@ def wild_cluster_boot(
         cl_idx,
         G,
         test_idx,
-        0.0,
+        h0,
         correction,
         W,
     )
@@ -527,6 +532,7 @@ def wild_cluster_boot(
         "n_boot_requested": n_boot,
         "enumerated": bool(enumerated),
         "weight_type": weight_type,
+        "h0": h0,
     }
 
 

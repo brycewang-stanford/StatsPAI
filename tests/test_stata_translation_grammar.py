@@ -577,8 +577,11 @@ def test_psmatch2_options_and_its_probit_default():
     out = sp.from_stata("psmatch2 d x1 x2, outcome(y) neighbor(1) logit ate ties")
     assert out["arguments"]["ties"] is True and out["arguments"]["ate"] is True
     assert out["untranslated_options"] == []
-    # without `logit` Stata fits a probit score; sp.psmatch2 fits a logit
-    assert sp.from_stata("psmatch2 d x, out(y)")["untranslated_options"] == ["probit"]
+    # without `logit` Stata fits a probit score, and so does the translation
+    default = sp.from_stata("psmatch2 d x, out(y)")
+    assert default["untranslated_options"] == []
+    assert default["arguments"]["ps_model"] == "probit"
+    assert "ps_model" not in out["arguments"]
 
 
 # ---------------------------------------------------------------------------
@@ -749,7 +752,9 @@ def test_what_cannot_be_carried_over_is_reported(line, lost):
         ("teffects ra (y x) (treat)", "separate outcome regression"),
         ("teffects ipwra (y x) (treat x)", "separate outcome regression"),
         ("teffects aipw (y x1) (treat x2)", "different covariates"),
-        ("teffects psmatch (y) (treat x, probit), atet", "logit"),
+        ("teffects psmatch (y) (treat x, hetprobit(x)), atet", "logit or probit"),
+        ("teffects aipw (y x) (treat x, probit)", "treatment model"),
+        ("teffects aipw (y x) (treat x), atet", "no atet"),
         ("mediate (y x1) (m x2) (treat)", "different covariates"),
         ("mediate (y x, logit) (m x) (treat)", "outcome model"),
         ("bacondecomp y treat x, ddetail", "control variables"),

@@ -1040,6 +1040,7 @@ def psmatch2(
     ai: int = 0,
     replace: bool = True,
     ps_poly: int = 1,
+    ps_model: str = "logit",
     distance: Optional[str] = None,
     bootstrap_reps: int = 200,
     bootstrap_seed: Optional[int] = None,
@@ -1117,7 +1118,12 @@ def psmatch2(
     replace : bool, default True
         Match with replacement (psmatch2 default).
     ps_poly : int, default 1
-        Polynomial degree of the logit propensity-score model.
+        Polynomial degree of the propensity-score model.
+    ps_model : {'logit', 'probit'}, default 'logit'
+        The binary model for the propensity score. Stata ``psmatch2``
+        fits a probit unless its ``logit`` option is given, so
+        ``ps_model='probit'`` is the counterpart of a Stata call without
+        ``logit``; the default here stays the logit of earlier releases.
     distance : str, default 'propensity'
         Matching metric; ``'propensity'`` reproduces psmatch2.
     alpha : float, default 0.05
@@ -1306,6 +1312,7 @@ def psmatch2(
             caliper=caliper,
             replace=replace,
             ps_poly=ps_poly,
+            ps_model=ps_model,
             common_support=common_support,
             kernel=kernel,
             bwidth=bwidth,
@@ -1329,7 +1336,7 @@ def psmatch2(
     model_info.update(
         {
             "psmatch2_method": method,
-            "propensity_model": "logit",
+            "propensity_model": str(ps_model).lower(),
             "estimand_scope": "ATT",
             "outcome_status": "observed" if out_var is not None else "omitted",
             "att_defined": out_var is not None,

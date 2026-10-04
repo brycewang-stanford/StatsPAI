@@ -39,6 +39,8 @@ __all__ = [
     "absorbed_constant",
     "teffects_before",
     "teffects_after",
+    "stata_percentile",
+    "psmatch2_after",
 ]
 
 _SET = re.compile(r"\s*set\s+(seed|obs)\s+(\S+)\s*$", re.I)
@@ -51,6 +53,10 @@ _BY = re.compile(
 _ESTIMATES = re.compile(
     r"\s*(?:est(?:i(?:m(?:a(?:t(?:es?)?)?)?)?)?)\s+(\w+)\s*(.*)\Z", re.S
 )
+_BSAMPLE = re.compile(r"\s*bsample\b(.*)\Z", re.I | re.S)
+_DUPLICATES = re.compile(r"\s*duplicates\s+drop\b(.*)\Z", re.I | re.S)
+_COUNT = re.compile(r"\s*count\b(.*)\Z", re.I | re.S)
+_PCTILE = re.compile(r"\s*_pctile\b(.*)\Z", re.I | re.S)
 _ESTSTO = re.compile(r"\s*eststo\s+([A-Za-z_]\w*)\s*$")
 _ESTTAB = re.compile(r"\s*(esttab|estout)\b\s*(.*)\Z", re.S)
 _WEIGHT = re.compile(
@@ -162,7 +168,135 @@ def run_session_command(session: "StataSession", line: str) -> Optional[bool]:
     head = line.split(None, 1)[0].rstrip(",").lower() if line.strip() else ""
     if _is_tabulate(head) or head == "tab1":
         return _tabulate(session, line)
+    m = _COUNT.match(line)
+    if m and session._steps is not None:
+        return _count(session, m.group(1))
+    m = _PCTILE.match(line)
+    if m and session._steps is not None:
+        return _pctile(session, m.group(1), line)
+    m = _BSAMPLE.match(line)
+    if m and session._steps is not None:
+        return _bsample(session, m.group(1))
+    m = _DUPLICATES.match(line)
+    if m and session._steps is not None:
+        return _duplicates_drop(session, m.group(1))
     return None
+
+
+def _duplicates_drop(session: "StataSession", rest: str) -> bool:
+    """``duplicates drop [varlist] [, force]``: keep the first row of each
+    group of rows that agree on the variables (on all of them when none is
+    named)."""
+    assert session._steps is not None
+    cmd = _parse("duplicates_drop " + rest)
+    options = dict(cmd.options)
+    force = "force" in options
+    options.pop("force", None)
+    if cmd.if_cond or cmd.in_range or options:
+        raise StataExprError(
+            "`duplicates drop` is run as `duplicates drop [varlist] [, force]`"
+        )
+    data = session._steps.data
+    names = list(cmd.varlist)
+    unknown = [v for v in names if v not in data.columns]
+    if unknown:
+        raise StataExprError(f"variable(s) {unknown} are not in the data")
+    if names and not force:
+        raise StataExprError(
+            "`duplicates drop varlist` needs the `force` option, as in Stata"
+        )
+    keep = ~data.duplicated(subset=names or None, keep="first").to_numpy()
+    session._steps.replace_data(data.loc[keep])
+    return False
+
+
+def _bsample(session: "StataSession", rest: str) -> bool:
+    """``bsample [, cluster(g)]``: the data replaced by a bootstrap sample.
+
+    Rows (or whole clusters) are drawn with replacement by numpy, so the
+    sample is not the one Stata draws from the same seed.
+    """
+    assert session._steps is not None
+    cmd = _parse("bsample " + rest)
+    options = dict(cmd.options)
+    cluster = options.pop("cluster", None)
+    if cmd.varlist or cmd.if_cond or cmd.in_range or options:
+        raise StataExprError("`bsample` is run as `bsample [, cluster(varname)]`")
+    data = session._steps.data
+    rng = session.stored.get("rng")
+    if rng is None:
+        rng = session.stored["rng"] = np.random.default_rng()
+    if cluster is None:
+        rows = rng.integers(0, len(data), size=len(data))
+    else:
+        if cluster not in data.columns:
+            raise StataExprError(f"variable {cluster!r} is not in the data")
+        codes, levels = pd.factorize(data[cluster], sort=True)
+        members = [np.flatnonzero(codes == g) for g in range(len(levels))]
+        drawn = rng.integers(0, len(members), size=len(members))
+        rows = np.concatenate([members[g] for g in drawn])
+    session._steps.replace_data(data.iloc[rows].reset_index(drop=True))
+    session.stored["random_draws"] = True
+    return False
+
+
+def stata_percentile(x: np.ndarray, p: float) -> float:
+    """The ``p``-th percentile as ``summarize, detail`` and ``_pctile``
+    define it: with ``P = n p / 100``, the mean of the ``P``-th and
+    ``(P+1)``-th order statistics when ``P`` is an integer, otherwise the
+    next order statistic above ``P``."""
+    x = np.sort(np.asarray(x, dtype=float))
+    n = x.size
+    if n == 0:
+        return float("nan")
+    pos = n * p / 100.0
+    k = int(np.floor(pos + 1e-12))
+    if abs(pos - k) < 1e-12:
+        lo = x[max(k, 1) - 1]
+        hi = x[min(k + 1, n) - 1]
+        return float((lo + hi) / 2.0)
+    return float(x[min(k + 1, n) - 1])
+
+
+def _count(session: "StataSession", rest: str) -> bool:
+    """``count [if exp] [in range]``: the number of rows, left in ``r(N)``."""
+    assert session._steps is not None
+    data = session._steps.data
+    cmd = _parse("count " + rest)
+    if cmd.varlist or cmd.options:
+        raise StataExprError("`count` takes only an if / in qualifier")
+    n = int(row_mask(data, cmd.if_cond, cmd.in_range, session.stored).sum())
+    session.stored["r"] = {"N": float(n)}
+    session.output = n
+    return True
+
+
+def _pctile(session: "StataSession", rest: str, line: str) -> bool:
+    """``_pctile x [if], percentiles(# ...)``: ``r(r1)``, ``r(r2)`` ..."""
+    assert session._steps is not None
+    data = session._steps.data
+    cmd = _parse("_pctile " + rest)
+    options = dict(cmd.options)
+    spec = options.pop("percentiles", None) or options.pop("p", None)
+    if len(cmd.varlist) != 1 or options:
+        raise StataExprError(
+            "`_pctile` is run as `_pctile var [if], percentiles(# ...)`"
+        )
+    name = cmd.varlist[0]
+    if name not in data.columns:
+        raise StataExprError(f"variable {name!r} is not in the data")
+    try:
+        wanted = [float(t) for t in (spec or "50").replace(",", " ").split()]
+    except ValueError:
+        raise StataExprError(
+            f"percentiles({spec}): a list of numbers is expected"
+        ) from None
+    mask = row_mask(data, cmd.if_cond, cmd.in_range, session.stored)
+    x = data.loc[mask, name].dropna().to_numpy(dtype=float)
+    values = [stata_percentile(x, q) for q in wanted]
+    session.stored["r"] = {f"r{i + 1}": v for i, v in enumerate(values)}
+    session.output = pd.Series(values, index=wanted, name=name)
+    return True
 
 
 def _set(session: "StataSession", what: str, raw: str) -> bool:
@@ -281,7 +415,19 @@ def _by(session: "StataSession", m: "re.Match[str]", line: str) -> Optional[bool
     inner = m.group("cmd").strip()
     word = inner.split(None, 1)[0].rstrip(",").lower()
     descriptive = len(word) >= 2 and "summarize".startswith(word)
-    if not descriptive or session._steps is None:
+    if session._steps is None:
+        return None
+    if not descriptive:
+        # `by g: generate` / `bysort g (t): replace`: a data step by group
+        spec = m.group("by")
+        paren = re.search(r"\(([^)]*)\)", spec)
+        order = paren.group(1).split() if paren else []
+        keys = re.sub(r"\([^)]*\)", " ", spec).split()
+        sorts = line.lstrip().lower().startswith("bys") or "sort" in (
+            m.group("opts") or ""
+        )
+        if keys and session._steps.by_assign(keys, order, sorts, inner):
+            return False
         return None
     keys = [k for k in m.group("by").replace("(", " ").replace(")", " ").split()]
     data = session._steps.data
@@ -710,6 +856,42 @@ def teffects_after(
         column.loc[data.index] = target
         session._steps.add_column(f"{stub}{k}", column.to_numpy(), double=True)
         k += 1
+
+
+_PSMATCH2_VARS = (
+    "_pscore",
+    "_treated",
+    "_support",
+    "_weight",
+    "_id",
+    "_n1",
+    "_nn",
+    "_pdif",
+)
+
+
+def psmatch2_after(session: "StataSession", data: pd.DataFrame) -> None:
+    """The variables ``psmatch2`` leaves in the data: ``_pscore``,
+    ``_treated``, ``_support``, ``_weight``, ``_id``, ``_n1``, ``_nn`` and
+    ``_pdif``, replaced if they are already there, missing on the rows the
+    fit did not use."""
+    if session._steps is None:
+        return
+    matched = getattr(session.last, "matched_data", None)
+    if not isinstance(matched, pd.DataFrame):
+        return
+    full = session._steps.data
+    if not matched.index.isin(full.index).all():
+        return  # fitted on a filtered copy whose rows cannot be placed
+    for name in _PSMATCH2_VARS:
+        if name not in matched.columns:
+            continue
+        column = pd.Series(np.nan, index=full.index)
+        column.loc[matched.index] = matched[name].to_numpy(dtype=float, na_value=np.nan)
+        if name in session._steps.data.columns:
+            session._steps._own()
+            session._steps.data = session._steps.data.drop(columns=[name])
+        session._steps.add_column(name, column.to_numpy(), double=True)
 
 
 def _weighted_moments(x: np.ndarray, w: np.ndarray) -> Tuple[float, float]:

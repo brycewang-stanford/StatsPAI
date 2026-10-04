@@ -156,6 +156,8 @@ class Printed:
         # the standard errors of a model Stata fits with `ml`: its Hessian is
         # evaluated where its own iterations stopped.
         gap = abs(ours - self.value)
+        if abs(self.value) < 1e-12 and abs(ours) < 1e-12:
+            return True  # zero on both sides, printed with its rounding error
         return bool(gap <= 2.0 * self.unit or gap <= rtol * abs(self.value))
 
 
@@ -207,6 +209,16 @@ def coefficient_table(
                 name = ":".join(part[2:] for part in name.split("#"))
         rows[name] = (Printed(m.group(2)), Printed(m.group(3)))
     return rows
+
+
+_LEVEL = re.compile(r"C\((\w+)\)\[T\.(-?\d+)(?:\.0)?\]")
+
+
+def stata_term(name: str) -> str:
+    """A coefficient name in Stata's spelling: ``C(g)[T.2.0]:C(t)[T.3]`` and
+    ``2.g#3.t`` both become ``2.g#3.t``, so a factor level generated as a
+    float is found under the integer Stata prints."""
+    return "#".join(_LEVEL.sub(r"\2.\1", part) for part in name.split(":"))
 
 
 def header_statistics(buf: List[str]) -> Dict[str, Printed]:
@@ -288,12 +300,74 @@ class Replay:
 
     def _load(self, cmd: str) -> None:
         path = self._find(cmd)
-        self.session = StataSession(read_dta(path))
+        frame = read_dta(path)
         self.labels = dta_value_labels(path)
+        # code -> text per variable, where `decode` looks for it
+        texts: Dict[str, Dict[Any, str]] = {}
+        with pd.io.stata.StataReader(path) as reader:
+            sets = reader.value_labels()
+            attached = dict(zip(getattr(reader, "_varlist", []),
+                                getattr(reader, "_lbllist", [])))  # fmt: skip
+        for var, set_name in attached.items():
+            if set_name in sets and var in frame.columns:
+                texts[var] = {int(k): str(v) for k, v in sets[set_name].items()}
+        if texts:
+            frame.attrs["_value_labels"] = texts
+        self.session = StataSession(frame)
         # a .dta file remembers its `tsset` / `xtset`
         declared = dta_tsset(path)
         if declared is not None:
             self.session.run(declared)
+
+    def _import_delimited(self, cmd: str) -> None:
+        """``import delimited "file.csv"``: Stata works out the delimiter
+        and lower-cases the variable names (``case(lower)``, its default)."""
+        m = re.search(r'"([^"]+)"', cmd) or re.match(
+            r"import\s+delim\w*\s+(?:using\s+)?([^\s,]+)", cmd
+        )
+        if m is None:
+            raise FileNotFoundError("cannot read the file name")
+        name = Path(m.group(1)).name.lower()
+        hits = [
+            p for root in self.data_dirs for p in root.rglob("*")
+            if p.is_file() and p.name.lower() == name
+        ]  # fmt: skip
+        if not hits:
+            raise FileNotFoundError(f"{name} is not under --data")
+        options = cmd.split(",", 1)[1] if "," in cmd.split('"')[-1] else ""
+        with hits[0].open(encoding="utf-8", errors="replace") as fh:
+            head = fh.readline()
+        named = re.search(r"delim\w*\(\s*\"?(.+?)\"?\s*\)", options)
+        if named:
+            sep = {"tab": "\t", "\\t": "\t", "comma": ","}.get(
+                named.group(1), named.group(1)
+            )
+        else:
+            sep = max(",;\t|", key=head.count)
+        frame = pd.read_csv(hits[0], sep=sep, low_memory=False)
+        if not re.search(r"case\(\s*(preserve|upper)", options):
+            frame.columns = [str(c).lower() for c in frame.columns]
+        self.session = StataSession(frame)
+        self.labels = {}
+
+    def _input(self, cmd: str, buf: List[str]) -> None:
+        """``input y w`` with the rows the log echoes as ``  1. 34 1``."""
+        names = cmd.split()[1:]
+        rows = []
+        for ln in buf:
+            m = re.match(r"^\s*\d+\.\s+(.*\S)\s*$", ln)
+            if not m or m.group(1).strip() == "end":
+                continue
+            cells = m.group(1).split()
+            if len(cells) != len(names):
+                raise StataExprError("input: a row does not match the variable list")
+            rows.append([np.nan if c == "." else float(c) for c in cells])
+        if any(
+            n.startswith("str") or not re.match(r"[A-Za-z_]\w*\Z", n) for n in names
+        ):
+            raise StataExprError("input: only numeric variables are read")
+        self.session = StataSession(pd.DataFrame(rows, columns=names))
+        self.labels = {}
 
     def _append(self, cmd: str) -> None:
         assert self.session is not None
@@ -306,10 +380,14 @@ class Replay:
 
         word = first_word(cmd)
         quiet = False
+        captured = False
         while word in ("qui", "quietly", "cap", "capture", "noi", "noisily"):
+            captured = captured or word.startswith("cap")
             cmd = cmd.split(None, 1)[1]
             word = first_word(cmd)
             quiet = True
+        if cmd.strip() in ("{", "}"):
+            return  # `quietly {`: the log does not echo what the block ran
         self.report.simulated = bool(
             self.session is not None and self.session.simulated
         )
@@ -318,6 +396,8 @@ class Replay:
         except (KeyError, FileNotFoundError, StataExprError) as exc:
             self.report.add(self.name, cmd, "-", "NOT RUN", reason=str(exc)[:200])
         except Exception as exc:  # noqa: BLE001 - every refusal belongs in the report
+            if captured and isinstance(exc.__cause__, StataExprError):
+                return  # an error `capture` swallows in Stata too
             reason = str(exc).split("\n")[0]
             # a command Stata itself stops at (run under `capture`): stopping
             # too is the faithful outcome
@@ -330,6 +410,12 @@ class Replay:
     def _dispatch(self, cmd: str, word: str, buf: List[str], quiet: bool) -> None:
         if word in ("use", "sysuse"):
             self._load(cmd)
+            return
+        if word == "import" and re.match(r"import\s+delim", cmd):
+            self._import_delimited(cmd)
+            return
+        if word == "input":
+            self._input(cmd, buf)
             return
         if word in ("cd", "do", "exit", "#", "#delimit", "vce", "matrix"):
             return
@@ -395,6 +481,7 @@ class Replay:
         # `xtreg, mle` is fitted by Stata's `ml`; its standard errors agree
         # to about six digits
         ml_rtol = 1e-5 if word == "xtreg" and re.search(r",.*\bmle\b", cmd) else 0.0
+        by_term = {stata_term(str(k)): k for k in params}
         for name, (b, se) in coefficient_table(buf, self.labels).items():
             if name in ("sigma_u", "sigma_e", "rho", "/sigma", "var(e.y)"):
                 continue
@@ -403,6 +490,10 @@ class Replay:
             # xtreg, fe prints _cons, which the session derives
             ours_b = params.get(name, stored_b.get(name))
             ours_se = ses.get(name, stored_se.get(name))
+            if ours_b is None:
+                key = by_term.get(stata_term(name))
+                if key is not None:
+                    ours_b, ours_se = params[key], ses.get(key)
             self.report.number(self.name, cmd, f"b[{name}]", b, ours_b)
             self.report.number(self.name, cmd, f"se[{name}]", se, ours_se, rtol=ml_rtol)
         if word == "xtreg":
@@ -1178,7 +1269,40 @@ def _cmp_synth2(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
                 )
 
 
+def _cmp_sdid(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """``sdid``: the ATT. Its placebo / bootstrap standard error is drawn
+    at random on both sides and is not compared."""
+    m = re.search(rf"^\s*\S+\s*\|\s*({NUM})\s+({NUM})\s+({NUM})", "\n".join(buf), re.M)
+    if m:
+        self.report.number(self.name, cmd, "ATT", Printed(m.group(1)), out.estimate)
+
+
+def _cmp_boottest(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """``boottest``: the t statistic, and the p-value when the Rademacher
+    draws were enumerated (it is then the same number on both sides)."""
+    text = "\n".join(buf)
+    m = re.search(rf"t\(\d+\)\s*=\s*({NUM})", text)
+    if m:
+        self.report.number(self.name, cmd, "t", Printed(m.group(1)), out["t_stat"])
+    m = re.search(rf"Prob>\|t\|\s*=\s*({NUM})", text)
+    if m and out.get("enumerated"):
+        self.report.number(self.name, cmd, "p", Printed(m.group(1)), out["p_boot"])
+
+
+def _cmp_psmatch2(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """``psmatch2``: the ATT row (difference and its standard error)."""
+    m = re.search(
+        rf"^\s*ATT\s*\|\s*({NUM})\s+({NUM})\s+({NUM})\s+({NUM})", "\n".join(buf), re.M
+    )
+    if m:
+        self.report.number(self.name, cmd, "ATT", Printed(m.group(3)), out.att)
+        self.report.number(self.name, cmd, "se", Printed(m.group(4)), out.se)
+
+
 PANEL = {
+    "sdid": _cmp_sdid,
+    "boottest": _cmp_boottest,
+    "psmatch2": _cmp_psmatch2,
     "synth": _cmp_synth,
     "synth2": _cmp_synth2,
     "rcm": _cmp_rcm,

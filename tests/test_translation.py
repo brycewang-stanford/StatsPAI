@@ -773,13 +773,15 @@ TIER2_ROUND_TRIPS = [
         },
     ),
     (
-        "teffects aipw (y z1 z2) (treat z1 z2), atet",
+        "teffects aipw (y z1 z2) (treat z1 z2), ate",
         "aipw",
         {
             "y": "y",
             "treat": "treat",
             "covariates": ["z1", "z2"],
-            "estimand": "ATT",
+            "estimand": "ATE",
+            "cross_fit": False,
+            "se_method": "sandwich",
         },
     ),
     (
@@ -918,8 +920,8 @@ TIER3_ROUND_TRIPS = [
     # boottest (post-estimation)
     (
         "boottest x1=0, reps(999) cluster(id)",
-        "wild_cluster_bootstrap",
-        {"hypothesis": ["x1=0"], "B": 999, "cluster": "id"},
+        "wild_cluster_boot",
+        {"variable": "x1", "n_boot": 999, "cluster": "id"},
     ),
     # mi estimate: passes through with a translation note.
     ("mi estimate: reg y x", "mi_estimate", {}),
@@ -1150,7 +1152,9 @@ class TestTier2EdgeCases:
         assert out["ok"] is True
         assert out["tool"] == "psmatch2"
         assert any("probit" in note for note in out["notes"])
-        assert out["untranslated_options"] == ["probit"]
+        # psmatch2's default score is a probit; sp.psmatch2 fits one (1.39)
+        assert out["untranslated_options"] == []
+        assert out["arguments"]["ps_model"] == "probit"
         # sp.psmatch2 reports the ATU / ATE with ate=True (1.34)
         assert out["arguments"]["ate"] is True
 
@@ -1227,7 +1231,7 @@ _NON_EXECUTABLE_TOOLS = frozenset(
         "contrast",
         "test",
         "lincom",
-        "wild_cluster_bootstrap",
+        "wild_cluster_boot",
         "mi_estimate",
         "estat",
         # setup / declaration — no estimator target (no-op)
@@ -1625,7 +1629,7 @@ def test_python_code_and_arguments_describe_the_same_call(command, channel):
         "contrast",
         "test",
         "lincom",
-        "wild_cluster_bootstrap",
+        "wild_cluster_boot",
         "estat",
         "mi_estimate",
     }
@@ -1661,7 +1665,7 @@ POSTEST_TOOLS = {
     "contrast",
     "test",
     "lincom",
-    "wild_cluster_bootstrap",
+    "wild_cluster_boot",
     "mi_estimate",
     "estat",
 }

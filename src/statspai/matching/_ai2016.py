@@ -126,6 +126,7 @@ def abadie_imbens_2016_se(
     n_matches: int,
     h: int = 2,
     chunk: int = 256,
+    density: Any = None,
 ) -> Tuple[float, Dict[str, Any]]:
     """ATT standard error of Abadie & Imbens (2016) for logit-score matching.
 
@@ -164,6 +165,11 @@ def abadie_imbens_2016_se(
         take ``h`` units.  Must be ``>= 2``.
     chunk : int, default 256
         Rows per block in the neighbour searches.
+    density : ndarray, shape (n,), optional
+        Derivative of the score with respect to the treatment-model index,
+        ``f_i``. Omitted, it is the logit's ``p (1 - p)``; for a probit
+        score pass the normal density at the index (and the probit's
+        ``vcov_gamma``).
 
     Returns
     -------
@@ -273,14 +279,19 @@ def abadie_imbens_2016_se(
     base_var = (hetero + reuse) / n1**2
 
     # ---- estimated-score adjustment (Abadie-Imbens 2016) -----------------
-    f = p * (1.0 - p)
+    if density is None:
+        f = p * (1.0 - p)
+        odds_f = p**2  # f_i p_i / (1 - p_i): finite as p -> 1
+    else:
+        f = np.asarray(density, dtype=float)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            odds_f = np.where(p < 1.0, f * p / (1.0 - p), 0.0)
     y1til = np.where(t == 1, ytil_same, ytil_opp)
     y0til = np.where(t == 1, ytil_opp, ytil_same)
     cov1 = np.where((t == 1)[:, None], cov_same, cov_opp)
     cov0 = np.where((t == 1)[:, None], cov_opp, cov_same)
     c1 = (Z * (f * (y1til - y0til - delta))[:, None]).sum(axis=0) / n1
-    # f_i * p_i / (1 - p_i) == p_i^2: written that way so p -> 1 is finite.
-    c2 = (f[:, None] * cov1 + (p**2)[:, None] * cov0).sum(axis=0) / n1
+    c2 = (f[:, None] * cov1 + odds_f[:, None] * cov0).sum(axis=0) / n1
     d = (Z * (f * ((2 * t - 1) * (y - ybar_z) - delta))[:, None]).sum(axis=0) / n1
     c = c1 + c2
     c_V_c = float(c @ Vg @ c)

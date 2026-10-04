@@ -257,6 +257,7 @@ class DataSteps:
         body: str,
         if_cond: Optional[str],
         in_range: Optional[str],
+        groups: Optional[List[np.ndarray]] = None,
     ) -> None:
         m = _ASSIGN.match(body)
         if m is None:
@@ -272,10 +273,25 @@ class DataSteps:
         if not replace and exists:
             raise StataExprError(f"`generate`: variable {name!r} already exists")
 
-        value = evaluate(expr, self.data, self.stored)
-        if value.dtype == object:
-            raise StataExprError("string variables are not generated here")
-        mask = row_mask(self.data, if_cond, in_range, self.stored)
+        if groups is None:
+            value = evaluate(expr, self.data, self.stored)
+            if value.dtype == object:
+                raise StataExprError("string variables are not generated here")
+            mask = row_mask(self.data, if_cond, in_range, self.stored)
+        else:
+            # `by g:` -- the expression sees one group at a time, so `_n`,
+            # `_N` and subscripts count within the group
+            if in_range:
+                raise StataExprError("`in` may not be combined with `by`")
+            value = np.full(len(self.data), np.nan)
+            mask = np.zeros(len(self.data), dtype=bool)
+            for rows in groups:
+                part = self.data.iloc[rows].reset_index(drop=True)
+                got = evaluate(expr, part, self.stored)
+                if got.dtype == object:
+                    raise StataExprError("string variables are not generated here")
+                value[rows] = got
+                mask[rows] = row_mask(part, if_cond, None, self.stored)
 
         single = name in self._float if replace else vtype in (None, "float")
         if replace and exists and self.data[name].dtype == np.float32:
@@ -305,6 +321,48 @@ class DataSteps:
             self.data[name] = np.where(mask, value, np.nan)
             if single:
                 self._float.add(name)
+
+    def by_assign(
+        self, keys: List[str], order: List[str], sort: bool, line: str
+    ) -> bool:
+        """``by g: generate`` / ``bysort g (t): replace``; whether it was one.
+
+        ``bysort`` sorts by the group variables and then the ones in
+        parentheses (ties keep their order); plain ``by`` needs the data
+        already in runs of the group variables, as Stata does.
+        """
+        try:
+            cmd = _parse_stata(line)
+        except StataParseError:
+            return False
+        if not (_is_generate(cmd.command) or cmd.command == "replace"):
+            return False
+        if cmd.options:
+            raise StataExprError(
+                f"options {sorted(cmd.options)} of `{cmd.command}` are not "
+                "implemented"
+            )
+        unknown = [k for k in keys + order if k not in self.data.columns]
+        if unknown:
+            raise StataExprError(f"by: variable(s) {unknown} are not in the data")
+        if sort:
+            self._sort(keys + order, None)
+        codes = self.data.groupby(keys, sort=False, dropna=False).ngroup().to_numpy()
+        starts = np.flatnonzero(np.r_[True, codes[1:] != codes[:-1]])
+        if len(starts) != len(np.unique(codes)):
+            raise StataExprError(
+                "not sorted: `by` needs the data sorted by " + " ".join(keys)
+            )
+        bounds = np.r_[starts, len(codes)]
+        groups = [np.arange(bounds[i], bounds[i + 1]) for i in range(len(starts))]
+        self._assign(
+            cmd.command == "replace",
+            " ".join(cmd.varlist),
+            cmd.if_cond,
+            cmd.in_range,
+            groups=groups,
+        )
+        return True
 
     def _mvdecode(self, varlist: List[str], options: dict, qualifier: Any) -> None:
         """``mvdecode varlist, mv(#)``: turn the value # into missing."""

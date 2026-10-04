@@ -3425,6 +3425,15 @@
           ],
           "type": "string"
         },
+        "ps_model": {
+          "default": "logit",
+          "description": "Propensity-score model; 'probit' is teffects psmatch (..., probit)",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
+        },
         "se_method": {
           "default": "auto",
           "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw. 'abadie_imbens_2016' is the Abadie-Imbens (2016) estimated-propensity-score variance Stata teffects psmatch reports (population ATT; the score-estimation term can be negative).",
@@ -3574,6 +3583,15 @@
           "description": "Outcome variable (Stata outcome(); optional)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "ps_model": {
+          "default": "logit",
+          "description": "Propensity-score model. Stata psmatch2 fits a probit unless its logit option is given",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
         },
         "se": {
           "default": "psmatch2",
@@ -5410,6 +5428,15 @@
             "ATE",
             "ATT",
             "ATC"
+          ],
+          "type": "string"
+        },
+        "ps_model": {
+          "default": "logit",
+          "description": "Propensity-score model; 'probit' is teffects ipw (..., probit)",
+          "enum": [
+            "logit",
+            "probit"
           ],
           "type": "string"
         },
@@ -31489,6 +31516,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "h0": {
+          "default": 0.0,
+          "description": "The value of the coefficient under the null, imposed when the bootstrap samples are generated (Stata ``boottest x = h0``).",
+          "type": "number"
+        },
         "n_boot": {
           "default": 999,
           "description": "Number of bootstrap replications (use odd number).",
@@ -31503,7 +31535,7 @@
           "type": "integer"
         },
         "variable": {
-          "description": "Name of the coefficient to test (H0: beta = 0).",
+          "description": "Name of the coefficient to test (H0: beta = ``h0``).",
           "type": "string"
         },
         "weight_type": {

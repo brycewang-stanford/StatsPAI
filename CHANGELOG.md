@@ -139,6 +139,90 @@ redistributed. Reader guide: `docs/guides/applied_causal_ml.md`.
 - `sp.dml_sensitivity` refuses PLIV and IIVM fits with a reason instead of
   asking for residuals that those models never store.
 
+### What Clarke's *Applied Microeconometrics* found
+
+The Stata chapters of the book's companion site (randomisation inference
+and the bootstrap, matching and weighting, clustered inference and the
+two-way fixed effects decompositions, synthetic control and synthetic
+difference in differences) were run in Stata 18 and replayed through
+`sp.stata`. Method and ledger in
+`docs/dev/2026-10-04-clarke-applied-microeconometrics-review.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.twfe_decomposition` now decomposes the TWFE coefficient.** Its
+  2×2 rows were weighted by unit counts and its timing comparisons were
+  not restricted to their windows, so the rows did not sum to the
+  coefficient, and its "dCDH" weights were not de Chaisemartin and
+  D'Haultfoeuille's. On the book's three-unit panel, where every piece is
+  known by hand, the headline was 1.839 for a coefficient of 27/11. The
+  rows are now those of `sp.bacon_decomposition` and sum to the
+  coefficient exactly, the weights are the dCDH (2020) weights, the
+  estimate is the TWFE coefficient and the standard error is its
+  unit-clustered one (equal to `xtreg, fe vce(cluster)` to 1e-10). The
+  comparison with R `bacondecomp` and `twowayfeweights` on `mpdta`, a
+  strict `xfail` until now, passes. See MIGRATION.
+- **Propensity-score matching: units with the same covariates now tie.**
+  The fitted score of two units with identical covariates could differ in
+  the last place, because a matrix product rounds each row on its own.
+  With every tied control kept (`ties='all'`, what `teffects psmatch`
+  does) that rounding decided which of several identical controls was
+  matched, and the estimate changed when the rows were shuffled. The
+  index is now evaluated once per distinct covariate row. On the Lalonde
+  data with discrete covariates `teffects psmatch, atet` gives 1209.718
+  (1261.376); StatsPAI gave 1199.666 (1266.607) and now gives 1209.718
+  (1261.376). Samples with continuous covariates are unaffected. See
+  MIGRATION.
+- **`sp.stata` / `sp.from_stata`: three translations ran something other
+  than the Stata command.**
+  - `teffects ipw` was translated to `sp.ipw` with its default bootstrap
+    standard error. It now asks for the stacked M-estimation standard
+    error `teffects ipw` reports (`se_method='sandwich'`).
+  - `teffects aipw` was translated to `sp.aipw` with its default
+    five-fold cross-fitting, a different (and random) estimator. It now
+    runs `cross_fit=False, se_method='sandwich'`, and `atet`, which
+    `teffects aipw` does not have, is refused.
+  - `boottest` was translated to a call of `sp.wild_cluster_bootstrap`
+    with arguments that function does not take, so it raised a
+    `TypeError`. It now runs `sp.wild_cluster_boot` on the regression
+    before it, with `weight()`, `reps()`, `seed()`, `level()` and a null
+    value (`boottest x = c`). With few clusters the Rademacher draws are
+    enumerated and the p-value equals Stata's (0.09179688 on the book's
+    regression). A `bootcluster()` other than the error cluster, a joint
+    hypothesis and an unknown weight are refused.
+
+#### Added
+
+- **A probit propensity score.** `sp.ipw`, `sp.match` and `sp.psmatch2`
+  take `ps_model='probit'` (default `'logit'`, as before). The sandwich
+  standard error of `sp.ipw` and the Abadie-Imbens (2016) standard error
+  of `sp.match` use the probit's score, density and observed Hessian.
+  Against Stata 18 on the Lalonde data, to the seven digits `teffects`
+  prints: `teffects ipw (..., probit)` ATET and ATE with their standard
+  errors, `teffects psmatch (..., probit), atet` with its standard error,
+  and `psmatch2` (whose default is a probit) to 1e-7.
+  `tests/reference_parity/test_teffects_probit_stata.py` holds the
+  numbers. `teffects ... , probit` and `psmatch2` without `logit` are
+  translated accordingly; they were refused or run as a logit.
+- `sp.wild_cluster_boot(h0=)`: the value of the coefficient under the
+  null.
+- **`sp.stata` runs more of an ordinary do-file.** `quietly { ... }`,
+  `capture { ... }` and `noisily { ... }` blocks; `capture cmd`, which
+  swallows what Stata would raise (a variable that is not there,
+  `restore` without `preserve`) and nothing else; `by g:` / `bysort g
+  (t):` in front of `generate` and `replace`, with `_n`, `_N` and
+  subscripts counted within the group; `count [if] [in]`; `_pctile` and
+  the percentiles, skewness and kurtosis `summarize, detail` leaves in
+  `r()`; `scalar(name)`; `_b["x"]`; `duplicates drop [varlist, force]`;
+  `bsample [, cluster()]` (the data are then marked as random);
+  `predict` after a regression with `i.` variables; the variables
+  `psmatch2` leaves behind (`_pscore`, `_weight`, `_support` ...); a
+  `scalar` defined with no data in memory. Loops, `egen`, frames and
+  matrices are still refused.
+- `scripts/stata_log_replay.py` reads `import delimited` (Stata's
+  delimiter detection and lower-cased names) and `input` blocks, and
+  compares `sdid`, `boottest` and `psmatch2` output.
+
 ### Reliability
 
 - **`sp.rdrobust` at polynomial orders 0, 3 and 4 now has reference

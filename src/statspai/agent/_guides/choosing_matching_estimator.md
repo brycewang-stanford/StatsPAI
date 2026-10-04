@@ -51,6 +51,27 @@ r = sp.match(df, y='y', treat='d', covariates=[...],
              method='nearest', n_matches=3)
 ```
 
+If a paper or a Stata do-file matches on the propensity score and you
+need its numbers, these are the counterparts. The score is a logit unless
+`ps_model='probit'` (Stata `psmatch2` fits a probit by default, `teffects`
+a logit).
+
+```python
+# teffects psmatch (y) (d x1 x2, probit), atet
+r = sp.match(df, y='y', treat='d', covariates=['x1', 'x2'],
+             distance='propensity', estimand='ATT', ties='all',
+             se_method='abadie_imbens_2016', ps_model='probit')
+# psmatch2 d x1 x2, outcome(y)
+r = sp.psmatch2(df, treat='d', covariates=['x1', 'x2'], outcome='y',
+                ps_model='probit')
+# teffects ipw (y) (d x1 x2, probit), atet
+r = sp.ipw(df, y='y', treat='d', covariates=['x1', 'x2'],
+           estimand='ATT', se_method='sandwich', ps_model='probit')
+```
+
+With `ties='all'` every control at the smallest score distance is kept.
+Units with the same covariates have the same score, so they tie.
+
 ## 3. Covariate Balancing Propensity Score (CBPS)
 
 Imai-Ratkovic (2014). Fits the propensity score to balance covariates

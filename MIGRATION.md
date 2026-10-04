@@ -48,6 +48,70 @@ score elements are not stored for them; refit without `sample_weight`.
 **Unaffected.** `sp.sensemakr`, `sp.evalue` and the other sensitivity
 tools.
 
+## 1.38.0 → next: ⚠️ `sp.twfe_decomposition` returns the TWFE coefficient and its exact decomposition
+
+**What changed.** `sp.twfe_decomposition` described itself as the
+Goodman-Bacon (2021) decomposition with de Chaisemartin-D'Haultfoeuille
+(2020) weights, and computed neither. Its 2×2 rows were weighted by the
+number of units in each comparison, the timing comparisons used every
+period instead of the window in which the comparison is clean, and the
+"dCDH" weights came from a simplified formula that did not sum to one.
+The rows therefore did not add up to the coefficient they claimed to
+decompose. On a noiseless three-unit panel whose pieces can be worked out
+by hand (27/11 for the coefficient; weights 7/22, 8/22, 3/22, 4/22) the
+function returned 1.839 with four weights of 0.25.
+
+It now returns
+
+- `estimate`: the TWFE coefficient (it was the unit-weighted average of
+  the 2×2 rows);
+- `se`: the unit-clustered standard error of that coefficient, with the
+  small-sample factor of Stata `xtreg, fe vce(cluster)` (it was the
+  spread of the rows around their average, zero with one comparison);
+- `detail`: the rows of `sp.bacon_decomposition`, which sum to
+  `estimate` exactly. The `n_units` column is gone;
+- `model_info['dcdh_weights']`: the dCDH weights summed over the units of
+  each cohort and period, with `n_negative`; they sum to one;
+- `model_info['n_negative_weights_dcdh']`: counted over unit × period
+  cells, as R `twowayfeweights` counts them.
+
+**Who is affected.** Anyone who reported `estimate`, `se`, the weights in
+`detail` or the dCDH weights from this function. `model_info['twfe_beta']`
+was right and is unchanged.
+
+**What to do.** Rerun. On an unbalanced panel the Goodman-Bacon theorem
+does not hold: the coefficient and the dCDH weights are still returned,
+`detail` is empty and a warning says so (it used to return rows computed
+on the unbalanced data).
+
+## 1.38.0 → next: ⚠️ propensity-score matching with tied scores; Stata translations of `teffects ipw` / `teffects aipw` / `boottest`
+
+**Matching.** `sp.match(distance='propensity', ties='all')`, and the
+functions built on it, decide ties by equality of the fitted score. Two
+units with the same covariates have the same score, but the matrix
+product that computed it could round them one unit in the last place
+apart, and then only one of several identical controls was matched. The
+score is now computed once per distinct covariate row. Estimates change
+only where the sample has units that share every covariate (discrete
+covariates): on the Lalonde data with age, education and four indicators
+the ATET moves from 1199.666 to 1209.718, which is what Stata `teffects
+psmatch` reports. Nothing to do but rerun; the earlier number also
+depended on the order of the rows.
+
+**Translations.** Through `sp.stata` and `sp.from_stata`:
+
+| Stata | ran before | runs now |
+| --- | --- | --- |
+| `teffects ipw (y) (d x)` | `sp.ipw(...)`, bootstrap standard error | `sp.ipw(..., se_method='sandwich')`, the standard error Stata prints |
+| `teffects aipw (y x) (d x)` | `sp.aipw(...)`, five-fold cross-fitting | `sp.aipw(..., cross_fit=False, se_method='sandwich')` |
+| `teffects aipw ..., atet` | `sp.aipw(estimand='ATT')` | refused: `teffects aipw` has no `atet` |
+| `boottest x, reps(999)` | `TypeError` | `sp.wild_cluster_boot(result, variable='x', n_boot=999)` |
+| `psmatch2 d x, out(y)` | refused (probit not available) | `sp.psmatch2(..., ps_model='probit')` |
+
+The point estimates of `teffects ipw` were right before; its standard
+error and everything about `teffects aipw` were not Stata's. The direct
+calls `sp.ipw` and `sp.aipw` keep their defaults.
+
 ## 1.37.0 → 1.38.0: `sp.write_data` folds `<var>__miss` columns back into `<var>` in a .dta file
 
 **What changed.** A frame read with `sp.read_data(path,

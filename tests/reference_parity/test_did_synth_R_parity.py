@@ -34,10 +34,9 @@ TwoWayFEWeights 2.1.0 and bacondecomp 0.1.1
     tolerance tightened to 1e-11 (its floor is 2.2e-12); at the default 1e-6
     the reference itself carries ~2e-8 of convergence error, which the
     ``_default_tol`` block records and the test bounds. ``sp.twfe_decomposition``
-    -- which does NOT yet use this primitive -- is checked against the same
-    two references and the gaps are pinned as a strict ``xfail`` (see
-    ``docs/dev/campaign_phase3/did_synth.md``: the function body lives in
-    ``did/wooldridge_did.py``, owned by another line of work).
+    is checked against the same two references: its 2x2 rows against
+    ``bacondecomp`` and its count of negative weights against
+    ``twowayfeweights``.
 
 ``did_synth_honest_R.json`` -- ``_generate_did_synth_honest_R.R``,
 HonestDiD 0.2.8
@@ -386,17 +385,9 @@ def test_twfe_decomposition_beta_matches_r():
     assert _rel(TW["bacon_mpdta"]["weighted_sum"], TW["twfew_mpdta"]["beta"]) < 1e-10
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT (open; fix belongs to the owner of did/wooldridge_did.py): "
-        "sp.twfe_decomposition's 'Bacon' rows use ad hoc windows and "
-        "n_units weights, its headline is not the TWFE beta, and its 'dCDH' "
-        "weights are not de Chaisemartin-D'Haultfoeuille's. See "
-        "docs/dev/campaign_phase3/did_synth.md."
-    ),
-)
 def test_twfe_decomposition_matches_bacon_and_twowayfeweights():
+    """Was a strict xfail until 2026-10: the 2x2 rows used ad hoc windows
+    and unit-count weights, and the headline was not the TWFE coefficient."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         res = sp.twfe_decomposition(

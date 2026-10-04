@@ -5318,6 +5318,15 @@ def _build_registry() -> None:
                     "only weight teffects matching accepts). Sampling weights "
                     "and cluster= are refused: use sp.ipw / sp.aipw / sp.tmle.",
                 ),
+                ParamSpec(
+                    "ps_model",
+                    "str",
+                    False,
+                    "logit",
+                    "Propensity-score model; 'probit' is teffects psmatch "
+                    "(..., probit)",
+                    ["logit", "probit"],
+                ),
             ],
             returns="CausalResult",
             example='sp.match(df, y="y", treat="treat", covariates=["x1","x2"])',
@@ -5504,6 +5513,15 @@ def _build_registry() -> None:
                     False,
                     "Stata ate: also match controls to treated (ATU/ATE in model_info); "
                     "_weight != . then marks units used as a match",
+                ),
+                ParamSpec(
+                    "ps_model",
+                    "str",
+                    False,
+                    "logit",
+                    "Propensity-score model. Stata psmatch2 fits a probit "
+                    "unless its logit option is given",
+                    ["logit", "probit"],
                 ),
             ],
             returns=(
@@ -7387,6 +7405,14 @@ def _build_registry() -> None:
                     "'sandwich' = teffects ipw robust M-estimation SE "
                     "(needs normalize=True, trim=0)",
                     ["bootstrap", "sandwich"],
+                ),
+                ParamSpec(
+                    "ps_model",
+                    "str",
+                    False,
+                    "logit",
+                    "Propensity-score model; 'probit' is teffects ipw (..., probit)",
+                    ["logit", "probit"],
                 ),
             ],
             returns="CausalResult",

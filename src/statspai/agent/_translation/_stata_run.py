@@ -26,7 +26,9 @@ from ._stata_session import (
     absorbed_constant,
     expand_frequency,
     prepare_weights,
+    psmatch2_after,
     run_session_command,
+    stata_percentile,
     teffects_after,
     teffects_before,
     xtreg_extras,
@@ -59,6 +61,22 @@ _SKIPPED = re.compile(
     re.I,
 )
 
+#: ``quietly {`` / ``capture {`` / ``noisily {``: a block that changes what
+#: is shown (or whether an error stops the do-file), not what is computed
+_QUIET_BLOCK = re.compile(
+    r"\s*(?:qui(?:e(?:t(?:ly?)?)?)?|n(?:o(?:i(?:s(?:i(?:ly?)?)?)?)?)?|"
+    r"cap(?:t(?:u(?:re?)?)?)?)\s*\{\s*$",
+    re.I,
+)
+_CAPTURE = re.compile(
+    r"\s*cap(?:t(?:u(?:re?)?)?)?\s+(?:n(?:o(?:i(?:s(?:i(?:ly?)?)?)?)?)?\s+)?"
+    r"(?!log\b|program\b|\{)(\S.*)\Z",
+    re.I | re.S,
+)
+_QUIETLY = re.compile(
+    r"\s*(?:qui(?:e(?:t(?:ly?)?)?)?|noi(?:s(?:i(?:ly?)?)?)?)\s+(?!\{)(\S.*)\Z",
+    re.I | re.S,
+)
 _EXIT = re.compile(r"\s*exit\s*(?:,\s*clear\s*)?$", re.I)
 
 
@@ -100,6 +118,38 @@ _FILTER_NOTE = re.compile(r"pre-filter df|filter df first")
 
 _PLACEHOLDER = re.compile(r"<[A-Za-z_][A-Za-z0-9_ ]*>")
 _PIPE_NOTE = re.compile(r"\bpipe\b")
+
+
+_FACTOR_TERM = re.compile(r"C\((\w+)(?:,[^\]]*)?\)\[(?:T\.)?(.+)\]\Z")
+
+
+def _term_column(term: str, data: pd.DataFrame) -> Optional[np.ndarray]:
+    """The regressor behind a coefficient name such as ``C(g)[T.2.0]:x``.
+
+    Each ``:``-separated piece is a column or the indicator of one level of
+    a factor; the regressor is their product, missing where any of the
+    variables is. ``None`` when a piece is neither.
+    """
+    out = np.ones(len(data))
+    for piece in term.split(":"):
+        if piece in data.columns:
+            column = data[piece].to_numpy(dtype=float, na_value=np.nan)
+        else:
+            m = _FACTOR_TERM.match(piece)
+            if m is None or m.group(1) not in data.columns:
+                return None
+            raw = data[m.group(1)]
+            level = m.group(2)
+            if pd.api.types.is_numeric_dtype(raw) or pd.api.types.is_bool_dtype(raw):
+                try:
+                    hit = raw.to_numpy(dtype=float, na_value=np.nan) == float(level)
+                except ValueError:
+                    return None
+            else:
+                hit = raw.astype(str).to_numpy() == level
+            column = np.where(raw.isna().to_numpy(), np.nan, hit.astype(float))
+        out = out * column
+    return out
 
 
 def _e_scalars(result: Any) -> Dict[str, float]:
@@ -314,6 +364,7 @@ class StataSession:
         self.last_data = data
         self.output: Any = result
         self._last_call: Optional[Dict[str, Any]] = None
+        self._quiet_blocks = 0
         #: models named by `estimates store`: name -> (result, data, call)
         self.estimates: Dict[str, Tuple[Any, Any, Any]] = {}
         #: columns a command needed for its own run (a weight expression)
@@ -372,7 +423,11 @@ class StataSession:
 
     def value(self, expr: str) -> float:
         """A scalar Stata expression, e.g. ``_b[x] * r(mean)``."""
-        frame = self.data if self.data is not None else pd.DataFrame({"_": [0.0]})
+        frame = self.data
+        if frame is None or frame.empty:
+            # a scalar does not need data in memory (`clear`, then `scalar`)
+            columns = [] if frame is None else list(frame.columns)
+            frame = pd.DataFrame({c: [np.nan] for c in columns} or {"_": [0.0]})
         out = evaluate(expr, frame.iloc[:1], self.stored)
         if out.dtype == object:
             raise StataExprError("the expression is a string, not a number")
@@ -413,6 +468,15 @@ class StataSession:
                              min=float(x.min()), max=float(x.max()))  # fmt: skip
                 if x.size > 1:
                     r.update(sd=float(x.std(ddof=1)), Var=float(x.var(ddof=1)))
+                if x.size:
+                    # what `summarize, detail` adds
+                    for q in (1, 5, 10, 25, 50, 75, 90, 95, 99):
+                        r[f"p{q}"] = stata_percentile(x, q)
+                    dev = x - x.mean()
+                    m2 = float(np.mean(dev**2))
+                    if m2 > 0:
+                        r["skewness"] = float(np.mean(dev**3) / m2**1.5)
+                        r["kurtosis"] = float(np.mean(dev**4) / m2**2)
         elif tool == "test" and isinstance(out, dict):
             df = out.get("df")
             q, resid = df if isinstance(df, tuple) else (df, None)
@@ -436,6 +500,26 @@ class StataSession:
         """Run one command. Returns ``False`` for a line that produces no
         output (a macro definition, ``xtset``, a data step, a setting)."""
         try:
+            if _QUIET_BLOCK.match(line):
+                self._quiet_blocks += 1
+                return False
+            if self._quiet_blocks and line.strip() == "}":
+                self._quiet_blocks -= 1
+                return False
+            captured = _CAPTURE.match(line)
+            if captured is not None:
+                # `capture cmd`: an error Stata would raise (a variable that
+                # is not there, `restore` without `preserve`) is swallowed;
+                # a command this runner cannot translate still stops it
+                try:
+                    return self._run(captured.group(1))
+                except MethodIncompatibility as exc:
+                    if isinstance(exc.__cause__, StataExprError):
+                        return False
+                    raise
+            quiet = _QUIETLY.match(line)
+            if quiet is not None:
+                line = quiet.group(1)
             return self._run(line)
         finally:
             if self._scratch and self._steps is not None:
@@ -695,6 +779,31 @@ class StataSession:
                     f"sp.stata: {line!r} is a post-estimation command; run an "
                     "estimation command first or pass result=."
                 )
+            if out["tool"] == "wild_cluster_boot":
+                # boottest bootstraps the clusters of the regression before it
+                fitted = (getattr(self, "_last_call", None) or {}).get("arguments")
+                fitted_cluster = (fitted or {}).get("cluster")
+                asked = arguments.get("cluster")
+                if asked is None and isinstance(fitted_cluster, str):
+                    arguments["cluster"] = fitted_cluster
+                elif asked is None or (
+                    fitted_cluster is not None and asked != fitted_cluster
+                ):
+                    raise MethodIncompatibility(
+                        f"sp.stata: cannot run {line!r}: "
+                        + (
+                            "the regression before it is not clustered and "
+                            "the line names no cluster."
+                            if asked is None
+                            else f"it bootstraps {asked!r} but the regression "
+                            f"before it is clustered on {fitted_cluster!r}."
+                        ),
+                        recovery_hint="Cluster the regression on one variable "
+                        "(`, cluster(g)`), or call "
+                        "sp.subcluster_wild_bootstrap for a bootstrap "
+                        "cluster finer than the error cluster.",
+                        diagnostics={"command": line, "translation": out},
+                    )
             if (
                 _accepts(fn, "data")
                 and "data" not in arguments
@@ -731,6 +840,8 @@ class StataSession:
                     xtreg_extras(self, out, run_data)
                 if out["tool"] == "hdfe_ols":
                     absorbed_constant(self, out, run_data)
+                if out["tool"] == "psmatch2":
+                    psmatch2_after(self, run_data)
                 if is_teffects:
                     try:
                         teffects_after(self, line, out, run_data)
@@ -770,9 +881,9 @@ class StataSession:
         Stata predicts for every row whose regressors are observed, not only
         the estimation sample; so does this. Covered: the linear prediction,
         residuals and leverage after a linear fit, and the linear index or
-        the probability (the default) after ``logit`` / ``probit``. The
-        coefficients must be plain columns -- with factor variables or
-        absorbed effects the line is refused.
+        the probability (the default) after ``logit`` / ``probit``. A
+        coefficient may be a plain column, an ``i.`` indicator or a product
+        of those; with absorbed effects the line is refused.
         """
         from scipy import stats as _stats
 
@@ -825,10 +936,14 @@ class StataSession:
             elif term in data.columns:
                 column = data[term].to_numpy(dtype=float, na_value=np.nan)
             else:
-                raise StataExprError(
-                    f"`predict`: coefficient {term!r} is not a column of the "
-                    "data (factor variables and interactions are not covered)"
-                )
+                built = _term_column(str(term), data)
+                if built is None:
+                    raise StataExprError(
+                        f"`predict`: coefficient {term!r} is not built from "
+                        "columns of the data (plain columns, i. indicators "
+                        "and their products are covered)"
+                    )
+                column = built
             design.append(column)
             total = total + float(beta) * column
         if kind == "residuals":

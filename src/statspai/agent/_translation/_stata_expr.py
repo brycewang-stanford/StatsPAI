@@ -714,6 +714,15 @@ class _Parser:
             self._expect("[")
             key = self._coefficient_name(name)
             return self._stored(name, key, f"{name}[{key}]")
+        if name == "scalar" and nxt == ("op", "("):
+            # scalar(name): the named scalar, even if a variable shares it
+            self._expect("(")
+            kind, key = self._take()
+            self._expect(")")
+            scalars = self.stored.get("scalars", {})
+            if kind != "name" or key not in scalars:
+                raise StataExprError(f"scalar {key!r} is not defined")
+            return float(scalars[key])
         if name == "tin" and nxt == ("op", "("):
             return self._tin()
         if name in _DATE_LITERALS and nxt == ("op", "("):
@@ -751,6 +760,7 @@ class _Parser:
             if tok_kind == "op" and val == "]":
                 break
             text += val
+        text = text.strip('"')  # _b["x"] is _b[x]
         if not text:
             raise StataExprError(f"expected a coefficient name inside {kind}[]")
         m = re.fullmatch(r"((?:[LlFfDd]\d*)+)\.([A-Za-z_]\w*)", text)

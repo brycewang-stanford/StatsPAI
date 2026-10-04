@@ -838,7 +838,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `spec_curve` | [`test_spec_curve_fe_Stata_parity.py`](../tests/reference_parity/test_spec_curve_fe_Stata_parity.py) |
 | `spillover` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
 | `ssc` | [`test_ssc_presets_Stata_parity.py`](../tests/reference_parity/test_ssc_presets_Stata_parity.py) |
-| `stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+2) |
+| `stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+3) |
 | `stepwise` | [`test_stepwise_parity.py`](../tests/reference_parity/test_stepwise_parity.py) |
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `structural_mdp` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
@@ -868,7 +868,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `transport_generalize` | [`test_transport_parity.py`](../tests/reference_parity/test_transport_parity.py) |
 | `trimming` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `ttest` | [`test_difference_in_means_estimatr.py`](../tests/reference_parity/test_difference_in_means_estimatr.py) (+1) |
-| `twfe_decomposition` | [`test_did_synth_R_parity.py`](../tests/reference_parity/test_did_synth_R_parity.py) |
+| `twfe_decomposition` | [`test_did_synth_R_parity.py`](../tests/reference_parity/test_did_synth_R_parity.py) (+1) |
 | `uniform_bands` | [`test_event_study_vcov_R_parity.py`](../tests/reference_parity/test_event_study_vcov_R_parity.py) (+1) |
 | `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+3) |
 | `variable_importance` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) |

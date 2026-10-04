@@ -3146,10 +3146,14 @@ def twfe_decomposition(
     """
     TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin–D'Haultfoeuille weights.
 
-    Decomposes the standard two-way fixed effects estimator into all
-    pairwise 2×2 DID comparisons, showing the weight and estimate for
-    each.  Also computes de Chaisemartin–D'Haultfoeuille (2020) weights
-    to diagnose whether *negative weights* are present.
+    The coefficient of the two-way fixed effects regression of ``y`` on a
+    treatment indicator, taken apart two ways. ``detail`` holds the
+    Goodman-Bacon decomposition: every 2×2 difference in differences
+    between timing groups with its weight, which sum to the coefficient
+    exactly (the same rows as :func:`statspai.bacon_decomposition`).
+    ``model_info['dcdh_weights']`` holds the de Chaisemartin–D'Haultfoeuille
+    (2020) weights the coefficient puts on the treated cells, some of which
+    can be negative.
 
     Parameters
     ----------
@@ -3169,9 +3173,23 @@ def twfe_decomposition(
     Returns
     -------
     CausalResult
-        ``detail`` DataFrame has columns: ``type``, ``treated_cohort``,
-        ``control_cohort``, ``estimate``, ``weight``, ``weighted_est``.
-        ``model_info`` includes summary statistics and dCDH weights.
+        ``estimate`` is the TWFE coefficient and ``se`` its standard error
+        clustered by unit (the small-sample factor of Stata ``xtreg, fe
+        vce(cluster)``). ``detail`` has columns ``type``,
+        ``treated_cohort``, ``control_cohort``, ``estimate``, ``weight``,
+        ``weighted_est``. ``model_info`` has ``twfe_beta``, ``bacon_att``
+        (the weighted sum of the 2×2 estimates), ``dcdh_weights`` (one row
+        per cohort and treated period: the sum of the unit-level weights,
+        the number of units and how many of their weights are negative),
+        ``n_negative_weights_dcdh`` and ``sum_negative_weights_dcdh``
+        (counted over unit × period cells, as R ``twowayfeweights``
+        does).
+
+    Notes
+    -----
+    The Goodman-Bacon theorem needs a balanced panel. On an unbalanced one
+    the coefficient and the dCDH weights are still reported, ``detail`` is
+    empty and a warning says so.
 
     Examples
     --------
@@ -3182,222 +3200,180 @@ def twfe_decomposition(
     ...                                first_treat='first_treat')
     >>> bool('weight' in result.detail.columns)  # 2x2 decomposition weights
     True
+    >>> bool(abs(result.detail['weighted_est'].sum() - result.estimate) < 1e-8)
+    True
     """
-    df = data.copy()
+    from ._twfe_weights import _ZERO_BELOW, _two_way_residual
+    from .bacon import bacon_decomposition
 
-    ft = df[first_treat].copy()
-    ft = ft.replace(0, np.nan)
-    df["_ft"] = ft
+    missing = [c for c in (y, group, time, first_treat) if c not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"twfe_decomposition: columns not found in data: {missing}",
+            diagnostics={"missing": missing},
+        )
+    df = data[[y, group, time, first_treat]].copy()
+    df["_ft"] = df[first_treat].replace(0, np.nan)
+    df = df.dropna(subset=[y, group, time]).reset_index(drop=True)
 
     periods = sorted(df[time].unique())
     n_periods = len(periods)
     cohorts = sorted(df.loc[df["_ft"].notna(), "_ft"].unique())
-    has_never = df["_ft"].isna().any()
-
-    # ── Standard TWFE estimate ──────────────────────────────────────
-    # Unit and time demeaning, then regress on treatment indicator
-    df["_treated"] = ((df["_ft"].notna()) & (df[time] >= df["_ft"])).astype(float)
-    df["_y"] = df[y].astype(float)
-
-    u_m = df.groupby(group)["_y"].transform("mean")
-    t_m = df.groupby(time)["_y"].transform("mean")
-    g_m = df["_y"].mean()
-    y_dm = (df["_y"] - u_m - t_m + g_m).values
-
-    u_m_d = df.groupby(group)["_treated"].transform("mean")
-    t_m_d = df.groupby(time)["_treated"].transform("mean")
-    g_m_d = df["_treated"].mean()
-    d_dm = (df["_treated"] - u_m_d - t_m_d + g_m_d).values
-
-    denom = d_dm @ d_dm
-    twfe_beta = float(d_dm @ y_dm / denom) if denom > 0 else np.nan
-
-    # ── Bacon decomposition ─────────────────────────────────────────
-    # Enumerate all 2×2 comparisons
-    comparisons: List[Dict[str, Any]] = []
-
-    def _did_2x2_simple(
-        df_sub: pd.DataFrame,
-        unit_col: str,
-        time_col: str,
-        y_col: str,
-        g1_units: List[Any],
-        g2_units: List[Any],
-    ) -> Tuple[float, float]:
-        """Simple 2x2 DID between two groups over their overlapping periods."""
-        sub = df_sub[df_sub[unit_col].isin(set(g1_units) | set(g2_units))].copy()
-        if len(sub) == 0:
-            return np.nan, 0.0
-        treat_mask = sub[unit_col].isin(set(g1_units))
-        sub["_g"] = treat_mask.astype(float)
-        # post = time >= treatment time of g1
-        g1_ft = sub.loc[treat_mask, "_ft"].iloc[0] if treat_mask.any() else np.nan
-        if np.isnan(g1_ft):
-            return np.nan, 0.0
-        sub["_post"] = (sub[time_col] >= g1_ft).astype(float)
-        # Simple 2x2 DID
-        yt = sub.groupby(["_g", "_post"])[y_col].mean()
-        try:
-            est = (yt[(1.0, 1.0)] - yt[(1.0, 0.0)]) - (yt[(0.0, 1.0)] - yt[(0.0, 0.0)])
-        except KeyError:
-            return np.nan, 0.0
-        n_comp = len(sub[unit_col].unique())
-        return float(est), n_comp
-
-    # Type 1: Earlier vs Later treated
-    for i, g_early in enumerate(cohorts):
-        for g_late in cohorts[i + 1 :]:
-            early_units = df.loc[df["_ft"] == g_early, group].unique()
-            late_units = df.loc[df["_ft"] == g_late, group].unique()
-            est, n_comp = _did_2x2_simple(
-                df, group, time, "_y", early_units, late_units
-            )
-            if not np.isnan(est):
-                comparisons.append(
-                    {
-                        "type": "Earlier vs Later",
-                        "treated_cohort": int(g_early),
-                        "control_cohort": int(g_late),
-                        "estimate": est,
-                        "n_units": n_comp,
-                    }
-                )
-
-    # Type 2: Later vs Earlier (forbidden — uses already-treated as control)
-    for i, g_late in enumerate(cohorts):
-        for g_early in cohorts[:i]:
-            late_units = df.loc[df["_ft"] == g_late, group].unique()
-            early_units = df.loc[df["_ft"] == g_early, group].unique()
-            est, n_comp = _did_2x2_simple(
-                df, group, time, "_y", late_units, early_units
-            )
-            if not np.isnan(est):
-                comparisons.append(
-                    {
-                        "type": "Later vs Earlier",
-                        "treated_cohort": int(g_late),
-                        "control_cohort": int(g_early),
-                        "estimate": est,
-                        "n_units": n_comp,
-                    }
-                )
-
-    # Type 3: Treated vs Never-treated
-    if has_never:
-        never_units = df.loc[df["_ft"].isna(), group].unique()
-        for g in cohorts:
-            g_units = df.loc[df["_ft"] == g, group].unique()
-            est, n_comp = _did_2x2_simple(df, group, time, "_y", g_units, never_units)
-            if not np.isnan(est):
-                comparisons.append(
-                    {
-                        "type": "Treated vs Never",
-                        "treated_cohort": int(g),
-                        "control_cohort": "Never",
-                        "estimate": est,
-                        "n_units": n_comp,
-                    }
-                )
-
-    if len(comparisons) == 0:
+    has_never = bool(df["_ft"].isna().any())
+    if not cohorts:
         raise DataInsufficient("No valid 2×2 comparisons found. Check data structure.")
 
-    comp_df = pd.DataFrame(comparisons)
+    df["_treated"] = ((df["_ft"].notna()) & (df[time] >= df["_ft"])).astype(float)
+    df["_y"] = df[y].astype(float)
+    n = len(df)
+    gi = pd.factorize(df[group], sort=True)[0]
+    ti = pd.factorize(df[time], sort=True)[0]
+    n_units = int(gi.max() + 1)
+    counts = np.bincount(gi * n_periods + ti, minlength=n_units * n_periods)
+    balanced = bool(np.all(counts == 1))
+    if not balanced and counts.max() > 1:
+        raise MethodIncompatibility(
+            "twfe_decomposition: more than one row for a unit in a period.",
+            recovery_hint="Aggregate to one row per unit and period first.",
+        )
 
-    # Compute weights proportional to n_units × variance-of-treatment
-    # Simplified: proportional to n_units (sample share)
-    total_n = comp_df["n_units"].sum()
-    comp_df["weight"] = comp_df["n_units"] / total_n
-    # Re-normalise to sum to 1
-    comp_df["weight"] = comp_df["weight"] / comp_df["weight"].sum()
-    comp_df["weighted_est"] = comp_df["weight"] * comp_df["estimate"]
+    def _residual(v: np.ndarray) -> np.ndarray:
+        if balanced:
+            # exact on a balanced panel: v - unit mean - period mean + mean
+            unit_mean = np.bincount(gi, weights=v) / n_periods
+            time_mean = np.bincount(ti, weights=v) / n_units
+            return np.asarray(v - unit_mean[gi] - time_mean[ti] + v.mean())
+        if n_units + n_periods > 5000:
+            raise MethodIncompatibility(
+                "twfe_decomposition: the panel is unbalanced and too large "
+                "for the exact two-way projection used here.",
+                recovery_hint="Balance the panel (keep the units observed in "
+                "every period) and run it again.",
+            )
+        return _two_way_residual(v, gi, ti, np.ones(n))
+
+    D = df["_treated"].to_numpy(dtype=float)
+    eps = _residual(D)
+    y_res = _residual(df["_y"].to_numpy(dtype=float))
+    denom = float(eps @ eps)
+    if not denom > 0:
+        raise DataInsufficient(
+            "twfe_decomposition: treatment does not vary within units and "
+            "periods, so the TWFE coefficient is not identified."
+        )
+    twfe_beta = float(eps @ y_res / denom)
+
+    # ── standard error of the coefficient, clustered by unit ────────
+    resid = y_res - twfe_beta * eps
+    score = np.bincount(gi, weights=eps * resid, minlength=n_units)
+    k_slopes = n_periods + 1  # treatment, period dummies, constant
+    if n_units > 1 and n > k_slopes:
+        factor = (n_units / (n_units - 1)) * ((n - 1) / (n - k_slopes))
+        att_se = float(np.sqrt(factor * float(score @ score)) / denom)
+    else:
+        att_se = float("nan")
+
+    # ── Goodman-Bacon decomposition ─────────────────────────────────
+    detail_cols = [
+        "type", "treated_cohort", "control_cohort", "estimate", "weight",
+        "weighted_est",
+    ]  # fmt: skip
+    comp_df = pd.DataFrame(columns=detail_cols)
+    bacon_att = float("nan")
+    if balanced:
+        bacon = bacon_decomposition(
+            df, y="_y", treat="_treated", time=time, id=group, alpha=alpha
+        )
+        rows = bacon["decomposition"]
+        labels = {
+            "Earlier vs Later Treated": "Earlier vs Later",
+            "Later vs Earlier Treated": "Later vs Earlier",
+            "Treated vs Untreated": "Treated vs Never",
+        }
+
+        def _cohort(value: Any) -> Any:
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                return value
+            return int(number) if number == int(number) else number
+
+        comp_df = pd.DataFrame(
+            {
+                "type": [labels.get(t, t) for t in rows["type"]],
+                "treated_cohort": [_cohort(v) for v in rows["treated"]],
+                "control_cohort": [_cohort(v) for v in rows["control"]],
+                "estimate": rows["estimate"].to_numpy(dtype=float),
+                "weight": rows["weight"].to_numpy(dtype=float),
+            }
+        )
+        comp_df["weighted_est"] = comp_df["weight"] * comp_df["estimate"]
+        bacon_att = float(comp_df["weighted_est"].sum())
+    else:
+        warnings.warn(
+            "twfe_decomposition: the panel is unbalanced, so the "
+            "Goodman-Bacon decomposition (which holds for a balanced panel) "
+            "is not computed; the TWFE coefficient and the dCDH weights are.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # ── de Chaisemartin–D'Haultfoeuille weights ─────────────────────
-    # Compute weights on each (g, t) cell in the TWFE regression.
-    # dCDH show: beta_TWFE = sum_{g,t} w_{g,t} * ATT_{g,t}
-    # where some w_{g,t} can be NEGATIVE.
-    dcdh_rows: List[Dict[str, Any]] = []
-    n_total = len(df)
-    for g in cohorts:
-        g_mask = df["_ft"] == g
-        for t_val in periods:
-            if t_val < g:
-                continue  # only post-treatment cells
-            t_mask = df[time] == t_val
-            n_gt = (g_mask & t_mask).sum()
-            if n_gt == 0:
-                continue
-            # Variance of treatment status in period t
-            d_t = df.loc[t_mask, "_treated"].values
-            var_d_t = np.var(d_t, ddof=0)
-            if var_d_t == 0:
-                continue
-            # dCDH weight ∝ (n_gt / n_total) * (E[D|t] - E[D|g,t]) / Var(D|t)
-            # Simplified formula
-            e_d_t = d_t.mean()
-            e_d_gt = df.loc[g_mask & t_mask, "_treated"].mean()
-            w_gt = (n_gt / n_total) * (e_d_gt - e_d_t) / var_d_t
-            dcdh_rows.append(
-                {
-                    "cohort": int(g),
-                    "period": (
-                        int(t_val) if isinstance(t_val, (int, np.integer)) else t_val
-                    ),
-                    "dcdh_weight": float(w_gt),
-                    "n_cell": int(n_gt),
-                }
-            )
-
-    dcdh_df = pd.DataFrame(dcdh_rows) if dcdh_rows else pd.DataFrame()
-
-    n_negative = int((comp_df["weight"] < -1e-10).sum())
-    bacon_att = float(comp_df["weighted_est"].sum())
-    n_negative_dcdh = (
-        int((dcdh_df["dcdh_weight"] < -1e-10).sum()) if len(dcdh_df) > 0 else 0
+    # beta_TWFE = sum over treated cells of w_gt * ATT_gt with
+    # w_gt = D_gt eps_gt / sum(D eps); here a cell is a unit in a period.
+    weight = D * eps / float(D @ eps)
+    weight = np.where(np.abs(weight) < _ZERO_BELOW, 0.0, weight)
+    treated_rows = D > 0
+    cells = pd.DataFrame(
+        {
+            "cohort": df.loc[treated_rows, "_ft"].to_numpy(),
+            "period": df.loc[treated_rows, time].to_numpy(),
+            "w": weight[treated_rows],
+        }
     )
+    dcdh_df = (
+        cells.groupby(["cohort", "period"], sort=True)["w"]
+        .agg(dcdh_weight="sum", n_cell="size", n_negative=lambda v: int((v < 0).sum()))
+        .reset_index()
+    )
+    dcdh_df["cohort"] = [int(c) if float(c) == int(c) else c for c in dcdh_df["cohort"]]
+    n_negative_dcdh = int((cells["w"] < 0).sum())
 
     model_info: Dict[str, Any] = {
         "twfe_beta": twfe_beta,
         "bacon_att": bacon_att,
+        "balanced": balanced,
         "n_comparisons": len(comp_df),
-        "n_negative_weights_bacon": n_negative,
+        "n_negative_weights_bacon": int((comp_df["weight"] < -1e-10).sum()),
         "n_negative_weights_dcdh": n_negative_dcdh,
+        "sum_negative_weights_dcdh": float(cells.loc[cells["w"] < 0, "w"].sum()),
         "n_cohorts": len(cohorts),
-        "cohorts": [int(g) for g in cohorts],
-        "has_never_treated": bool(has_never),
-        "n_units": df[group].nunique(),
+        "cohorts": [int(g) if float(g) == int(g) else g for g in cohorts],
+        "has_never_treated": has_never,
+        "n_units": n_units,
         "n_periods": n_periods,
+        "se_type": "cluster (unit)",
+        "dcdh_weights": dcdh_df,
     }
-    if len(dcdh_df) > 0:
-        model_info["dcdh_weights"] = dcdh_df
 
-    # SE via simple approach: variation across comparisons
-    if len(comp_df) > 1:
-        att_se = float(
-            np.sqrt(
-                (comp_df["weight"] ** 2 * (comp_df["estimate"] - bacon_att) ** 2).sum()
-            )
-        )
-    else:
-        att_se = 0.0
-
-    pvalue = float(2 * stats.norm.sf(abs(bacon_att / att_se))) if att_se > 0 else np.nan
+    usable = np.isfinite(att_se) and att_se > 0
+    pvalue = float(2 * stats.norm.sf(abs(twfe_beta / att_se))) if usable else np.nan
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (
-        (bacon_att - z_crit * att_se, bacon_att + z_crit * att_se)
-        if att_se > 0
+        (twfe_beta - z_crit * att_se, twfe_beta + z_crit * att_se)
+        if usable
         else (np.nan, np.nan)
     )
 
     return CausalResult(
         method="TWFE Decomposition (Bacon 2021 + dCDH 2020)",
         estimand="ATT (TWFE composite)",
-        estimate=bacon_att,
+        estimate=twfe_beta,
         se=att_se,
         pvalue=pvalue,
         ci=ci,
         alpha=alpha,
-        n_obs=len(df),
+        n_obs=n,
         detail=comp_df,
         model_info=model_info,
         _citation_key="twfe_decomposition",

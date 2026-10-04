@@ -169,6 +169,16 @@ parts that remain T3, T4 or 6 are listed in §5.
 
 ### D4 — `sp.twfe_decomposition` is not the decomposition it names (**open**, fix outside ownership)
 
+> **Closed 2026-10-04.** The body now takes its 2×2 rows from
+> `sp.bacon_decomposition` and its weights from the dCDH formula on unit ×
+> period cells, the headline is the TWFE coefficient and the standard error
+> its unit-clustered one. The strict xfail below is an ordinary passing
+> test. Found again, independently, on the three-unit panel of Clarke's
+> textbook, where every piece is known by hand
+> (`tests/reference_parity/test_twfe_decomposition_known_truth.py`,
+> `docs/dev/2026-10-04-clarke-applied-microeconometrics-review.md`). What
+> follows is the record of the defect as it was found.
+
 - **What** (on the Track A mpdta bytes, against `bacondecomp::bacon` and `TwoWayFEWeights`):
   - **Headline.** The headline `estimate` is −0.02718. The TWFE β is −0.03751, and the Bacon weighted
     sum is exactly β.
