@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.37.0 → next: `sp.write_data` folds `<var>__miss` columns back into `<var>` in a .dta file
+## 1.37.0 → 1.38.0: `sp.write_data` folds `<var>__miss` columns back into `<var>` in a .dta file
 
 **What changed.** A frame read with `sp.read_data(path,
 extended_missing='column')` has, beside each variable that held `.a` ...

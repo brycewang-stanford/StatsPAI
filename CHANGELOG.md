@@ -4,6 +4,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.38.0] — 2026-10-04
+
+A .dta file that is read and written back is now the same file. The names
+of value-label sets, the extended missing values `.a` to `.z`, notes,
+characteristics (`xtset` declarations among them) and display formats all
+survive `sp.read_data` followed by `sp.write_data`, and Stata 18 confirms
+it. Files from Stata 18 with alias variables (format 120 / 121) can be
+read. The release also carries weight diagnostics beyond `sp.regress` and
+a `sp.rdrobust` that refuses an undefined bandwidth on a discrete running
+variable in place of returning a NaN interval.
+
+One default changes: `sp.write_data` folds a `<var>__miss` column back
+into `<var>`. See `MIGRATION.md` under `1.37.0 → 1.38.0`.
+
 ### A .dta file read and written back is the same file
 
 `sp.read_data` followed by `sp.write_data` used to lose four things Stata

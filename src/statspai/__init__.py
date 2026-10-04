@@ -50,7 +50,7 @@ Publication-quality export
 ['results.xlsx']
 """
 
-__version__ = "1.37.0"
+__version__ = "1.38.0"
 __author__ = "Biaoyue Wang and Scott Rozelle"
 __email__ = "brycew6m@stanford.edu"
 
