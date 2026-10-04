@@ -37,6 +37,16 @@ All notable changes to StatsPAI will be documented in this file.
   `sp.principal_strat`, `sp.survivor_average_causal_effect` and
   `sp.attrition_bounds` now say so and point to `trimming='exact'`. The
   default and its numbers are unchanged.
+- **For `statistic='ks'` and `'rank_sum'` the "confidence interval" of
+  `sp.fisher_exact` was not an interval for the effect.** It was the 2.5%
+  and 97.5% percentiles of the null distribution of the statistic, centred
+  on zero whatever the effect. It is now the same constant-effect
+  inversion as for the difference in means, in outcome units: the
+  statistic is recomputed on `Y - tau_0 * D` for a stored set of
+  assignments and each end is bisected. With 12 treated among 60 units
+  and a constant effect of 0.75 the 95% interval covers 96.0% (rank sum)
+  and 96.7% (KS) of the time over 150 draws. The same holds for
+  `statistic='t'`. p-values are unchanged. See `MIGRATION.md`.
 - **`sp.survreg` ignored `robust=` and `cluster=`.** Both were accepted
   and written into `model_info`, and the standard errors were the
   observed-information ones whatever was asked. They are now the sandwich
@@ -156,6 +166,60 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   `ivpoisson gmm`. `ivtobit` without `ll()` is written as `ll=None`,
   because `sp.ivtobit` censors at zero by default and Stata does not.
   `ivpoisson cfunction` is refused.
+
+### What Gaillac and L'Hour's *Machine Learning for Econometrics* found
+
+A pass over the companion code of Gaillac and L'Hour (2025, OUP): notebooks
+and R scripts for chapters 2 to 11. Notes, what was run and what is left
+open are in `docs/dev/2026-10-05-gaillac-lhour-ml4econometrics-review.md`.
+Most of the book already had a counterpart that reproduces its references
+(`hdm::rlassoIV`, `ivmodel` LIML and Fuller on the Card and BLP data to
+1e-8; the double-selection simulation of chapter 5 gives bias 0.017 and
+coverage 0.949 against the book's 0.012 and 0.942). Three things did not.
+
+- **Cluster-Lasso for panels (chapter 7): `cluster=` on `sp.rlasso`,
+  `sp.rlasso_effect`, `sp.rlasso_effects` and `sp.rlasso_iv`.** The
+  penalty loadings of Belloni, Chernozhukov, Hansen and Kozbur (2016) sum
+  the scores within cluster before squaring, `gamma` defaults to
+  `0.1 / log(G)`, and the final standard error is cluster-robust. hdm has
+  no such option and the book sources an unpublished `rlasso_cluster.R`.
+  Against Stata's lassopack on the same bytes: the penalty level, the
+  selected variables and the post-Lasso coefficients of `rlasso,
+  cluster()` agree to 1e-10, and the point estimates and variances of
+  `pdslasso, cluster()` (double selection and partialling out) and
+  `ivlasso, cluster()` (selection among instruments, and among both
+  instruments and controls) agree to 1e-9
+  (`tests/reference_parity/test_cluster_lasso_stata.py`). Variances carry
+  no small-sample factor, as in `pdslasso`. What ignoring the clustering
+  costs: in a within-transformed panel of 100 units and 8 periods with
+  AR(1) regressors and errors (coefficient 0.8), double selection without
+  `cluster=` keeps 6.1 controls on average and its 95% interval covers
+  78.6% of the time; with `cluster=` it keeps 4.6 and covers 93.3% (1,167
+  draws). On one of the two test panels lassopack and hdm's iteration stop
+  at different supports. The test shows that both are fixed points of the
+  loading iteration under StatsPAI's cluster loadings, so the difference
+  is the path and not the penalty; this also happens without clustering.
+- **A confidence interval for classic synthetic control that agrees with
+  its p-value (chapter 10).** `sp.synth(method='classic')` reports the
+  rank p-value of the post/pre RMSPE ratio, and as `ci` the estimate plus
+  or minus a normal quantile times the standard deviation of the placebo
+  ATTs. The two can disagree, which the book's end-of-chapter question 5
+  rules out for a test and the interval that inverts it.
+  `model_info['ci_permutation']` now holds the interval dual to the
+  p-value: the constant effects that the same rank test does not reject
+  (Firpo and Possebom 2018). Under `H0: effect = C` the weights do not
+  move, the treated gap becomes `gap - C` and the gap of a placebo whose
+  donor pool holds the treated unit with weight `w` becomes `gap + w C`,
+  so each comparison is a quadratic inequality in `C` and the ends are
+  exact (`statspai.synth._core.placebo_inversion_ci`, checked against a
+  brute-force grid). On Proposition 99 without covariates (p = 3/39) the
+  90% interval is [-33.0, -5.3] and the 95% one [-58.6, 19.6]; the normal
+  95% interval is [-40.7, 1.6]. `ci`, `se` and `pvalue` are unchanged.
+- **`sp.datasets.nsw_dw()` said it was the Dehejia-Wahba data.** It is a
+  simulated replica with a built-in latent effect of $1,794 (the treated mean of
+  `re78` is 5,508; in the real file it is 6,349). The catalogue already
+  listed it as simulated; the docstring now opens with that, and the frame
+  carries `attrs['simulated'] = True`. The rows are unchanged.
 
 ### Changed
 

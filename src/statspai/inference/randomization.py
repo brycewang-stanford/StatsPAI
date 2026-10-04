@@ -378,6 +378,11 @@ def fisher_exact(
     standard deviations of the outcome, each point tested on its own 500
     draws, and with ``controls`` the unresidualized ``tau_0 * D`` was
     subtracted from the residualized outcome.
+    For ``statistic='t'``, ``'ks'`` and ``'rank_sum'`` the interval is the
+    same inversion, in outcome units: the statistic is recomputed on
+    ``Y - tau_0 * D`` for a stored set of assignments. Through 1.38.0 those
+    statistics returned the 2.5% and 97.5% percentiles of the null
+    distribution of the statistic, which is not an interval for the effect.
 
     For stratified experiments, treatment is permuted within strata.
     For cluster-randomized experiments, treatment is permuted at
@@ -452,19 +457,28 @@ def fisher_exact(
     # ``perm_stats - tau_0 * shift_stats``, so the interval is inverted on
     # the very draws that gave the p-value.
     want_ci = statistic == "ate"
+    # The other statistics are not linear in the outcome: their interval is
+    # inverted on stored assignments (at most ``_MAX_DRAW_CELLS / n`` rows).
+    draws: Optional[np.ndarray] = None
     if assignments is not None:
         perm_stats = np.array([stat_fn(Y, a) for a in assignments])
         shift_stats = (
             np.array([stat_fn(D_shift, a) for a in assignments]) if want_ci else None
         )
+        if not want_ci:
+            draws = np.asarray(assignments, dtype=float)
     else:
         perm_stats = np.zeros(n_perm)
         shift_stats = np.zeros(n_perm) if want_ci else None
+        if not want_ci:
+            draws = np.empty((min(n_perm, max(_MAX_DRAW_CELLS // n, 99)), n))
         for b in range(n_perm):
             D_perm = perm_fn()
             perm_stats[b] = stat_fn(Y, D_perm)
             if shift_stats is not None:
                 shift_stats[b] = stat_fn(D_shift, D_perm)
+            if draws is not None and b < draws.shape[0]:
+                draws[b] = D_perm
 
     # P-values
     p_two_sided = _share_at_least(perm_stats, obs_stat, two_sided=True)
@@ -486,10 +500,11 @@ def fisher_exact(
                 stacklevel=2,
             )
     else:
-        # For non-ATE statistics, use percentile CI from permutation dist
-        ci = (
-            float(np.percentile(perm_stats, 100 * alpha / 2)),
-            float(np.percentile(perm_stats, 100 * (1 - alpha / 2))),
+        # Same inversion for the statistics that are not linear in the
+        # outcome, on the stored assignments.
+        assert draws is not None
+        ci = _invert_constant_effect_generic(
+            Y, D, D_shift, draws[: min(draws.shape[0], n_perm)], statistic, alpha
         )
 
     _result = FisherResult(
@@ -1286,6 +1301,114 @@ def _invert_constant_effect(
         else:
             return sign * float("inf")
         for _ in range(200):
+            mid = 0.5 * (inside + outside)
+            if mid == inside or mid == outside:
+                break
+            if pval(mid) < alpha:
+                outside = mid
+            else:
+                inside = mid
+        return float(inside)
+
+    return (end(-1.0), end(1.0))
+
+
+#: Cap on ``rows * n`` of the assignments stored to invert a statistic that
+#: is not linear in the outcome.
+_MAX_DRAW_CELLS = 20_000_000
+
+
+def _stat_all(A: np.ndarray, y: np.ndarray, statistic: str) -> np.ndarray:
+    """``statistic`` of ``y`` under every assignment (row) of ``A``.
+
+    Vectorised versions of the functions :func:`_get_stat_fn` returns, with
+    the same definitions (``scipy.stats.ranksums`` and ``ks_2samp``
+    statistics, the Welch ``t``).
+    """
+    n = A.shape[1]
+    n1 = A.sum(axis=1)
+    n0 = n - n1
+    s1 = A @ y
+    s0 = y.sum() - s1
+    if statistic == "ate":
+        out: np.ndarray = s1 / n1 - s0 / n0
+        return out
+    if statistic == "t":
+        q1 = A @ (y * y)
+        q0 = float(y @ y) - q1
+        with np.errstate(divide="ignore", invalid="ignore"):
+            v1 = (q1 - s1 * s1 / n1) / (n1 - 1.0)
+            v0 = (q0 - s0 * s0 / n0) / (n0 - 1.0)
+            se = np.sqrt(np.clip(v1, 0.0, None) / n1 + np.clip(v0, 0.0, None) / n0)
+            out = (s1 / n1 - s0 / n0) / se
+        out = np.where((n1 < 2) | (n0 < 2) | ~(se > 0), 0.0, out)
+        return out
+    if statistic == "rank_sum":
+        ranks = stats.rankdata(y)
+        out = (A @ ranks - n1 * (n + 1) / 2.0) / np.sqrt(n0 * n1 * (n + 1) / 12.0)
+        return out
+    if statistic == "ks":
+        order = np.argsort(y, kind="stable")
+        ys = y[order]
+        As = A[:, order]
+        gap = np.cumsum(As, axis=1) / n1[:, None] - np.cumsum(1.0 - As, axis=1) / (
+            n0[:, None]
+        )
+        # The ECDFs are compared at distinct outcome values only.
+        last = np.r_[ys[1:] != ys[:-1], True]
+        out = np.abs(gap[:, last]).max(axis=1)
+        return out
+    raise ValueError(f"Unknown statistic: {statistic!r}.")
+
+
+def _invert_constant_effect_generic(
+    Y: np.ndarray,
+    D: np.ndarray,
+    D_shift: np.ndarray,
+    draws: np.ndarray,
+    statistic: str,
+    alpha: float,
+) -> Tuple[float, float]:
+    """:func:`_invert_constant_effect` for a statistic that is not linear.
+
+    The test of ``tau_0`` is the randomization test applied to
+    ``Y - tau_0 * D_shift``, with any ``statistic``; the interval is in
+    outcome units. The statistic has to be recomputed at every ``tau_0``,
+    which is done for all stored assignments at once. Ends are bracketed
+    from the difference-in-means estimate and bisected; an end is infinite
+    when the test never rejects in that direction, and the interval is
+    ``(nan, nan)`` when the estimate itself is rejected.
+    """
+    obs_row = D[None, :]
+
+    def pval(tau0: float) -> float:
+        y_adj = Y - tau0 * D_shift
+        return _share_at_least(
+            _stat_all(draws, y_adj, statistic),
+            float(_stat_all(obs_row, y_adj, statistic)[0]),
+            two_sided=True,
+        )
+
+    shift = float(_stat_all(obs_row, D_shift, "ate")[0])
+    if shift == 0:
+        return (float("nan"), float("nan"))
+    center = float(_stat_all(obs_row, Y, "ate")[0]) / shift
+    if pval(center) < alpha:
+        return (float("nan"), float("nan"))
+    scale = float(np.std(_stat_all(draws, Y, "ate"))) / abs(shift)
+    if not np.isfinite(scale) or scale <= 0:
+        scale = max(abs(center), 1.0)
+
+    def end(sign: float) -> float:
+        inside, step = center, scale
+        for _ in range(60):
+            outside = inside + sign * step
+            if pval(outside) < alpha:
+                break
+            inside, step = outside, step * 2.0
+        else:
+            return sign * float("inf")
+        for _ in range(50):
             mid = 0.5 * (inside + outside)
             if mid == inside or mid == outside:
                 break

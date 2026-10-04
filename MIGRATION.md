@@ -5,7 +5,14 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-<a id="oct2026-causalml-textbook-fixes"></a>
+## 1.38.0 → next: ⚠️ `sp.fisher_exact(statistic='ks' | 'rank_sum' | 't').ci` is an interval for the effect
+
+For these statistics `FisherResult.ci` used to be the 2.5% and 97.5%
+percentiles of the null distribution of the statistic. It is now the set
+of constant effects the test does not reject, in outcome units, like the
+interval for `statistic='ate'`. Code that read the two numbers as
+critical values should take `np.percentile(result.perm_dist, [2.5, 97.5])`.
+`statistic`, `p_value` and `p_one_sided` are unchanged.
 
 ## 1.38.0 → next: ⚠️ `sp.ipw` Horvitz-Thompson ATT / ATC; the interval of `sp.fisher_exact`
 
@@ -26,6 +33,8 @@ move because the shifted outcome is now residualized. p-values and the
 statistic are unchanged. A design with too few assignments to reject at
 `alpha` now returns `(-inf, inf)` with a warning where it used to return
 the edges of the grid.
+
+<a id="oct2026-causalml-textbook-fixes"></a>
 
 ## 1.38.0 → next: ⚠️ `sp.dml` PLR / PLIV with a classifier nuisance
 

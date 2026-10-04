@@ -447,6 +447,14 @@ def _dispatch_synth_impl(
           among itself and its placebos divided by ``J+1`` (so the floor is
           ``1/(J+1)``).
         * ``ci`` : tuple[float, float] — ``(1-alpha)`` confidence interval.
+          For ``method='classic'`` with placebos this is
+          ``estimate -/+ z * sd(placebo ATTs)``, a normal approximation
+          that need not agree with the rank-based ``pvalue``.
+          ``model_info['ci_permutation']`` holds the interval that does:
+          the constant effects not rejected by the same RMSPE-ratio rank
+          test (:func:`statspai.synth._core.placebo_inversion_ci`,
+          [@firpo2018synthetic]). Its ends are infinite when
+          ``1 / (J + 1) > alpha``.
         * ``detail`` : pd.DataFrame — one row per post-treatment period with
           columns ``time, treated, counterfactual, effect``.
         * ``model_info`` : dict — method-specific diagnostics. Keys present
@@ -1809,7 +1817,19 @@ class SyntheticControl:
             pvalue = placebo_rank_pvalue(ratio_treated, placebo_result["ratios"])
 
             se = float(np.std(placebo_atts)) if len(placebo_atts) > 1 else 0.0
+            # Constant-effect confidence interval dual to that p-value.
+            from ._core import placebo_inversion_ci
+
+            ci_permutation = placebo_inversion_ci(
+                gap,
+                placebo_result["gaps"],
+                np.asarray(placebo_result["weights"])[:, 0],
+                self.pre_mask,
+                self.post_mask,
+                alpha=self.alpha,
+            )
         else:
+            ci_permutation = None
             pvalue = np.nan
             se = float(np.std(gap_post)) / max(np.sqrt(len(gap_post)), 1)
 
@@ -2017,6 +2037,10 @@ class SyntheticControl:
             ]
             model_info["treated_ratio"] = ratio_treated
             model_info["n_placebos"] = len(placebo_atts)
+            if ci_permutation is not None:
+                model_info["ci_permutation"] = ci_permutation
+                model_info["ci_permutation_lower"] = ci_permutation[0]
+                model_info["ci_permutation_upper"] = ci_permutation[1]
 
         return CausalResult(
             method="Synthetic Control Method",

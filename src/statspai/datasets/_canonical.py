@@ -433,22 +433,35 @@ def _nsw_lalonde_simulated(seed: int = 42) -> pd.DataFrame:
 
 
 def nsw_dw(seed: int = 42) -> pd.DataFrame:
-    """Dehejia-Wahba NSW + PSID-1 non-experimental comparison.
+    """Simulated replica of the Dehejia-Wahba NSW + PSID-1 comparison.
 
-    Combines the 185 NSW treated (from the experiment) with 2,490
-    non-experimental PSID males as the comparison group — the classic
-    observational-vs-experimental benchmark.
+    **These are not the Dehejia-Wahba data.** Every row is drawn from a
+    DGP calibrated to the published summary statistics: 185 "NSW treated"
+    rows and 2,490 "PSID-1" comparison rows with the right covariate
+    imbalance, and a treatment effect of $1,794 on latent earnings
+    (earnings are censored at zero, so the realised effect on the treated
+    is somewhat smaller, and the outcome is not linear in the covariates
+    where the treated are). Use it to see how an estimator copes with a
+    large selection bias and almost no overlap; do not report its numbers
+    as a replication of LaLonde (1986) or Dehejia and Wahba (1999).
+    ``df.attrs['simulated']`` is ``True``. For real data use :func:`nsw_lalonde` (the MatchIt
+    extract), or read the original files from Dehejia's NBER page.
 
-    A naive OLS on re78 ~ treat (no covariates) yields strongly
-    *negative* estimates (~-$8,500) because the PSID controls are
-    much better-off on average.  With PSM on rich covariates, the
-    estimate should return to the experimental benchmark of ≈ $1,794.
+    A naive OLS of ``re78`` on ``treat`` is strongly negative (about
+    -$8,400 on this replica) because the comparison group is much
+    better off; adjustment moves the estimate to the right sign, and how
+    close it gets depends on the method (the propensity score is within
+    0.002 of zero or one for most rows).
+
+    Parameters
+    ----------
+    seed : int, default 42
+        Seed of the replica.
 
     Returns
     -------
     pd.DataFrame with columns: treat, age, education, black, hispanic,
-        married, nodegree, re74, re75, re78.  Treated units (185) are
-        the NSW experimental cohort; controls (2,490) are PSID.
+        married, nodegree, re74, re75, re78 (2,675 rows).
 
     References
     ----------
@@ -538,6 +551,8 @@ def nsw_dw(seed: int = 42) -> pd.DataFrame:
         }
     )
     df.attrs["paper"] = "Dehejia & Wahba (1999). NSW + PSID-1."
+    df.attrs["data_source"] = "simulated"
+    df.attrs["simulated"] = True
     df.attrs["expected_naive_ols_att"] = -8498
     df.attrs["expected_psm_att"] = 1794
     df.attrs["notes"] = (

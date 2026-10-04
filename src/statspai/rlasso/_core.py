@@ -65,7 +65,10 @@ from .._result_serialize import ResultProtocolMixin
 
 
 def _default_penalty(
-    n: int, post: bool, user: Optional[Dict[str, Any]]
+    n: int,
+    post: bool,
+    user: Optional[Dict[str, Any]],
+    n_clusters: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Resolve the ``penalty`` list exactly as ``hdm::rlasso.default`` does.
 
@@ -81,7 +84,11 @@ def _default_penalty(
         "X.dependent.lambda": user.get("X.dependent.lambda", False),
         "lambda.start": user.get("lambda.start", None),
         "c": user.get("c", 1.1),
-        "gamma": user.get("gamma", 0.1 / np.log(n)),
+        # Cluster-Lasso: the effective sample size for the moderate-deviation
+        # bound is the number of clusters (Belloni et al. 2016; lassopack).
+        "gamma": user.get(
+            "gamma", 0.1 / np.log(n if n_clusters is None else n_clusters)
+        ),
     }
     if "numSim" in user:
         pen["numSim"] = user["numSim"]
@@ -89,6 +96,43 @@ def _default_penalty(
     if not post and "c" not in user:
         pen["c"] = 0.5
     return pen
+
+
+def _cluster_codes(cluster: Any, n: int) -> Tuple[np.ndarray, int]:
+    """Integer codes ``0..G-1`` for a cluster identifier of length ``n``."""
+    arr = np.asarray(cluster)
+    if arr.ndim != 1 or arr.shape[0] != n:
+        raise ValueError(
+            f"cluster must be one-dimensional with one entry per row ({n}); "
+            f"got shape {arr.shape}."
+        )
+    if arr.dtype.kind in "fc" and np.isnan(arr.astype(float)).any():
+        raise ValueError("cluster contains missing values.")
+    _, codes = np.unique(arr, return_inverse=True)
+    n_clusters = int(codes.max()) + 1 if n else 0
+    if n_clusters < 2:
+        raise ValueError("cluster must identify at least two clusters.")
+    return codes.astype(np.intp), n_clusters
+
+
+def _score_norm(
+    X: np.ndarray, e: np.ndarray, codes: Optional[np.ndarray]
+) -> np.ndarray:
+    """``sqrt(sum_i (x_ij e_i)^2)``, or its cluster analogue.
+
+    With ``codes`` the scores are summed within cluster before squaring:
+    ``sqrt(sum_g (sum_{i in g} x_ij e_i)^2)``, the cluster-Lasso loading of
+    Belloni, Chernozhukov, Hansen and Kozbur (2016), which keeps the
+    within-cluster cross products that the heteroskedastic loading drops.
+    """
+    if codes is None:
+        out: np.ndarray = np.sqrt((e**2) @ (X**2))
+        return out
+    n_clusters = int(codes.max()) + 1
+    sums = np.zeros((n_clusters, X.shape[1]))
+    np.add.at(sums, codes, X * e[:, None])
+    out = np.sqrt((sums**2).sum(axis=0))
+    return out
 
 
 def _default_control(user: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -202,6 +246,7 @@ def _lambda_calculation(
     y: np.ndarray,
     X: np.ndarray,
     rng: Optional[np.random.Generator] = None,
+    codes: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
     """Data-driven penalty level and loadings (``hdm::lambdaCalculation``).
 
@@ -236,7 +281,7 @@ def _lambda_calculation(
         lam = np.full(p, lambda0 * Ups0)
     elif homo is False and xdep is False:
         lambda0 = 2.0 * c * np.sqrt(n) * stats.norm.ppf(1.0 - gamma / (2.0 * p))
-        Ups0 = (1.0 / np.sqrt(n)) * np.sqrt((y**2) @ (X**2))
+        Ups0 = (1.0 / np.sqrt(n)) * _score_norm(X, y, codes)
         lam = lambda0 * Ups0
     elif homo is False and xdep is True:
         num_sim = penalty.get("numSim", 5000)
@@ -257,7 +302,7 @@ def _lambda_calculation(
         if lstart is None:
             raise ValueError('For method "none" lambda.start must be provided')
         lambda0 = float(lstart)
-        Ups0 = (1.0 / np.sqrt(n)) * np.sqrt((y**2) @ (X**2))
+        Ups0 = (1.0 / np.sqrt(n)) * _score_norm(X, y, codes)
         lam = lambda0 * Ups0
     else:  # pragma: no cover - defensive
         raise ValueError(f"Unsupported penalty combination: {penalty!r}")
@@ -281,6 +326,7 @@ def _update_loadings(
     lambda0: float,
     n: int,
     rng: Optional[np.random.Generator] = None,
+    codes: Optional[np.ndarray] = None,
 ) -> tuple:
     """In-loop loading/penalty refresh (the per-branch updates in rlasso)."""
     homo = penalty.get("homoscedastic", False)
@@ -292,14 +338,14 @@ def _update_loadings(
         Ups1 = s1 * Psi
         lam = lambda0 * Ups1
     elif homo is False and xdep is False:
-        Ups1 = (1.0 / np.sqrt(n)) * np.sqrt((e1**2) @ (X**2))
+        Ups1 = (1.0 / np.sqrt(n)) * _score_norm(X, e1, codes)
         lam = lambda0 * Ups1
     elif homo is False and xdep is True:
         lc = _lambda_calculation(penalty, y=e1, X=X, rng=rng)
         Ups1 = lc["Ups0"]
         lam = lc["lambda"]
     elif homo == "none":
-        Ups1 = (1.0 / np.sqrt(n)) * np.sqrt((e1**2) @ (X**2))
+        Ups1 = (1.0 / np.sqrt(n)) * _score_norm(X, e1, codes)
         lam = lambda0 * Ups1
     else:  # pragma: no cover
         Ups1 = (1.0 / np.sqrt(n)) * np.sqrt((e1**2) @ (X**2))
@@ -394,6 +440,7 @@ def rlasso(
     control: Optional[Dict[str, Any]] = None,
     colnames: Optional[List[str]] = None,
     rng: Optional[np.random.Generator] = None,
+    cluster: Optional[Any] = None,
 ) -> RLassoFit:
     """Rigorous Lasso / post-Lasso — a faithful port of ``hdm::rlasso``.
 
@@ -420,6 +467,20 @@ def rlasso(
         Names for the columns of ``X`` (default ``V1..Vp``).
     rng : numpy Generator, optional
         Only used when ``X.dependent.lambda`` simulation is requested.
+    cluster : (n,) array-like, optional
+        Cluster identifier. Switches to the cluster-Lasso of Belloni,
+        Chernozhukov, Hansen and Kozbur (2016) [@belloni2016inference]:
+        the loading of column ``j`` becomes
+        ``sqrt(sum_g (sum_{i in g} x_ij e_i)^2 / n)``, which keeps the
+        within-cluster dependence of the scores, and ``gamma`` defaults
+        to ``0.1 / log(G)`` with ``G`` the number of clusters (the
+        ``rlasso, cluster()`` rule of Stata's lassopack). Under positive
+        within-cluster correlation the loadings are larger than the
+        heteroskedastic ones, so fewer variables are selected; ignoring
+        the clustering over-selects. In a fixed-effects panel pass the
+        within-transformed ``X`` and ``y`` with ``intercept=False``.
+        Requires the default heteroskedastic loadings
+        (``homoscedastic=False``, no ``X.dependent.lambda``).
 
     Returns
     -------
@@ -447,7 +508,19 @@ def rlasso(
     if colnames is None:
         colnames = [f"V{j + 1}" for j in range(p)]
 
-    pen = _default_penalty(n, post, penalty)
+    codes: Optional[np.ndarray] = None
+    n_clusters: Optional[int] = None
+    if cluster is not None:
+        codes, n_clusters = _cluster_codes(cluster, n)
+    pen = _default_penalty(n, post, penalty, n_clusters=n_clusters)
+    if codes is not None and (
+        pen["homoscedastic"] is True or pen["X.dependent.lambda"] is True
+    ):
+        raise ValueError(
+            "cluster= needs the heteroskedastic loadings: it cannot be "
+            "combined with penalty={'homoscedastic': True} or "
+            "{'X.dependent.lambda': True}."
+        )
     ctrl = _default_control(control)
 
     if intercept:
@@ -466,7 +539,7 @@ def rlasso(
     Xy = Xc.T @ yc
 
     startingval = _init_values(Xc, yc)["residuals"]
-    pencalc = _lambda_calculation(pen, y=startingval, X=Xc, rng=rng)
+    pencalc = _lambda_calculation(pen, y=startingval, X=Xc, rng=rng, codes=codes)
     lam = pencalc["lambda"].copy()
     lambda0 = pencalc["lambda0"]
     Ups1 = np.atleast_1d(pencalc["Ups0"]).astype(float)
@@ -522,7 +595,9 @@ def rlasso(
         else:
             e1 = yc - x1 @ coefTemp[ind1]
 
-        Ups1, lam, s1 = _update_loadings(pen, e1, Xc, Psi, lambda0, n, rng=rng)
+        Ups1, lam, s1 = _update_loadings(
+            pen, e1, Xc, Psi, lambda0, n, rng=rng, codes=codes
+        )
 
         mm += 1
         if abs(s0 - s1) < ctrl["tol"]:

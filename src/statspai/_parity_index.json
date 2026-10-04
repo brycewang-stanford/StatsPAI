@@ -16200,6 +16200,9 @@
       "tolerance": "conventional and robust estimate / SE, bandwidth: rel 1e-9 (observed 5.2e-12 vs R, 6.0e-11 vs Stata)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_cluster_lasso_stata.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -16225,6 +16228,9 @@
       "tolerance": "support exact; beta / sigma / loadings / residuals atol 1e-6, lambda0 rtol 1e-8 (observed rel <= 1.8e-12)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_cluster_lasso_stata.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -16280,6 +16286,9 @@
       "tolerance": "alpha / se rtol 1e-9 on cps2012 (observed 2.8e-12); atol 1e-6 on the synthetic fixture"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_cluster_lasso_stata.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

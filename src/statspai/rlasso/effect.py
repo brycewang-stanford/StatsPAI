@@ -41,7 +41,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin, attach_result_protocol
-from ._core import rlasso
+from ._core import _cluster_codes, rlasso
 
 
 @dataclass
@@ -98,6 +98,19 @@ def _ols(y: np.ndarray, X: np.ndarray) -> tuple:
     return beta, resid, XtX_inv, n - A.shape[1]
 
 
+def _cluster_var(
+    e: np.ndarray, v: np.ndarray, codes: np.ndarray, n_clusters: int
+) -> float:
+    """Cluster-robust variance of a partialled-out coefficient.
+
+    ``sum_g (sum_{i in g} v_i e_i)^2 / (sum_i v_i^2)^2`` for final
+    residual ``e`` and treatment residual ``v``; no small-sample factor
+    (the ``pdslasso`` / ``ivreg2`` convention).
+    """
+    sums = np.bincount(codes, weights=v * e, minlength=n_clusters)
+    return float(sums @ sums) / float(v @ v) ** 2
+
+
 def _warn_if_unidentified(resid_d: np.ndarray, d: np.ndarray, target: Any) -> None:
     """Warn when the target is (numerically) spanned by the selected controls.
 
@@ -129,6 +142,7 @@ def rlasso_effect(
     data: Optional[pd.DataFrame] = None,
     penalty: Optional[Dict[str, Any]] = None,
     control: Optional[Dict[str, Any]] = None,
+    cluster: Optional[Union[np.ndarray, pd.Series, str]] = None,
 ) -> RLassoEffectResult:
     """Effect of ``d`` on ``y`` after Lasso-selecting controls ``x``.
 
@@ -148,6 +162,15 @@ def rlasso_effect(
     data : DataFrame backing string/column-name inputs.
     penalty, control : dict, optional
         Forwarded to :func:`statspai.rlasso.rlasso`.
+    cluster : array-like or str, optional
+        Cluster identifier (a column name when ``data`` is given). Every
+        selection step then uses the cluster-Lasso loadings of
+        :func:`statspai.rlasso.rlasso` and the standard error is
+        cluster-robust [@belloni2016inference] with no small-sample
+        factor, as in Stata's ``pdslasso, cluster()`` (multiply the
+        variance by ``G / (G - 1)`` for the ``regress, cluster()``
+        convention). For a fixed-effects panel pass within-transformed
+        ``x``, ``y`` and ``d``. hdm has no counterpart.
 
     Returns
     -------
@@ -194,11 +217,19 @@ def rlasso_effect(
     yv = yv.ravel()
     dv = dv.ravel()
     n = len(yv)
+    codes: Optional[np.ndarray] = None
+    n_clusters = 0
+    if cluster is not None:
+        if isinstance(cluster, str):
+            if data is None:
+                raise ValueError("cluster given as a column name needs `data`.")
+            cluster = data[cluster].values
+        codes, n_clusters = _cluster_codes(cluster, n)
 
     if method == "partialling out":
-        reg1 = rlasso(X, yv, post=post, penalty=penalty, control=control)
+        reg1 = rlasso(X, yv, post=post, penalty=penalty, control=control, cluster=codes)
         yr = reg1.residuals
-        reg2 = rlasso(X, dv, post=post, penalty=penalty, control=control)
+        reg2 = rlasso(X, dv, post=post, penalty=penalty, control=control, cluster=codes)
         dr = reg2.residuals
         _warn_if_unidentified(dr, dv, target)
         # lm(yr ~ dr) with intercept
@@ -206,12 +237,18 @@ def rlasso_effect(
         alpha = float(beta[1])
         sigma2 = float(resid @ resid) / dof
         var = sigma2 * XtX_inv[1, 1]
+        if codes is not None:
+            var = _cluster_var(resid, dr - dr.mean(), codes, n_clusters)
         se = float(np.sqrt(var))
         sel = np.asarray(reg1.index | reg2.index, dtype=bool)
         res_e, res_v = resid, dr
     elif method == "double selection":
-        I1 = rlasso(X, dv, post=post, penalty=penalty, control=control).index
-        I2 = rlasso(X, yv, post=post, penalty=penalty, control=control).index
+        I1 = rlasso(
+            X, dv, post=post, penalty=penalty, control=control, cluster=codes
+        ).index
+        I2 = rlasso(
+            X, yv, post=post, penalty=penalty, control=control, cluster=codes
+        ).index
         if I3 is not None:
             idx_union = (
                 np.asarray(I1, bool) | np.asarray(I2, bool) | np.asarray(I3, bool)
@@ -235,6 +272,8 @@ def rlasso_effect(
         _warn_if_unidentified(v, dv, target)
         mv2 = float(np.mean(v**2))
         var = (1.0 / n) * (1.0 / mv2) * float(np.mean(v**2 * xi**2)) * (1.0 / mv2)
+        if codes is not None:
+            var = _cluster_var(resid, v, codes, n_clusters)
         se = float(np.sqrt(var))
         sel = idx_union
         res_e, res_v = xi, v
@@ -284,13 +323,24 @@ class RLassoEffectsResult(Dict[str, RLassoEffectResult]):
             },
         }
 
+    #: Cluster identifier the effects were estimated with, if any.
+    _cluster: Any = None
+
     def vcov(self) -> pd.DataFrame:
-        """Joint covariance ``Omega / n`` of the estimates."""
+        """Joint covariance ``Omega / n`` of the estimates.
+
+        With ``cluster=`` the scores are summed within cluster first.
+        """
         names = list(self)
         e = np.column_stack([self[k].resid_e for k in names])
         v = np.column_stack([self[k].resid_v for k in names])
         n = e.shape[0]
         ev = e * v / np.mean(v**2, axis=0)
+        if self._cluster is not None:
+            codes, n_clusters = _cluster_codes(self._cluster, n)
+            sums = np.zeros((n_clusters, ev.shape[1]))
+            np.add.at(sums, codes, ev)
+            ev = sums
         return pd.DataFrame(ev.T @ ev / n / n, index=names, columns=names)
 
     def conf_int(
@@ -367,6 +417,7 @@ def rlasso_effects(
     data: Optional[pd.DataFrame] = None,
     penalty: Optional[Dict[str, Any]] = None,
     control: Optional[Dict[str, Any]] = None,
+    cluster: Optional[Union[np.ndarray, pd.Series, str]] = None,
 ) -> "RLassoEffectsResult":
     """Estimate the effect of each targeted column of ``X`` on ``y``.
 
@@ -417,13 +468,26 @@ def rlasso_effects(
 
     if index is None:
         index = list(range(Xv.shape[1]))
+    cluster_arr = (
+        data[cluster].values
+        if (isinstance(cluster, str) and data is not None)
+        else cluster
+    )
 
     out = RLassoEffectsResult()
+    out._cluster = cluster_arr
     for j in index:
         d = pd.Series(Xv[:, j], name=cols[j])
         Xt = np.delete(Xv, j, axis=1)
         res = rlasso_effect(
-            Xt, yv, d, method=method, post=post, penalty=penalty, control=control
+            Xt,
+            yv,
+            d,
+            method=method,
+            post=post,
+            penalty=penalty,
+            control=control,
+            cluster=cluster_arr,
         )
         res.target = cols[j]
         out[cols[j]] = res

@@ -48,7 +48,8 @@ IV
 Matching / SOO
     ``nsw_lalonde()``           — LaLonde NSW job training (real MatchIt
                                   extract n=614)
-    ``nsw_dw()``                — Dehejia-Wahba NSW + PSID comparison
+    ``nsw_dw()``                — simulated replica of the Dehejia-Wahba
+                                  NSW + PSID comparison (known ATT)
 
 Synthetic control
     ``california_prop99()``     — ADH tobacco (re-exported from synth)

@@ -80688,6 +80688,11 @@
             "description": "Design matrix of candidate covariates (``p`` may exceed ``n``).",
             "type": "string"
           },
+          "cluster": {
+            "description": "Cluster identifier. Switches to the cluster-Lasso of Belloni, Chernozhukov, Hansen and Kozbur (2016) [@belloni2016inference]: the loading of column ``j`` becomes ``sqrt(sum_g (sum_{i in g} x_ij e_i)^2 / n)``, which keeps the within-cluster dependence of the scores, and ``gamma`` defaults to ``0.1 / log(G)`` with ``G`` the number of clusters (the ``rlasso, cluster()`` rule of Stata's lassopack). Under positive within-cluster correlation the loadings are larger than the heteroskedastic ones, so fewer variables are selected; ignoring the clustering over-selects. In a fixed-effects panel pass the within-transformed ``X`` and ``y`` with ``intercept=False``. Requires the default heteroskedastic loadings (``homoscedastic=False``, no ``X.dependent.lambda``).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "colnames": {
             "description": "Names for the columns of ``X`` (default ``V1..Vp``).",
             "items": {
@@ -80732,7 +80737,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R hdm::rlasso 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance support exact; beta / sigma / loadings / residuals atol 1e-6, lambda0 rtol 1e-8 (observed rel <= 1.8e-12) -- tests/reference_parity/test_rlasso_parity.py"
+      "Cross-language parity (bit-exact) vs R hdm::rlasso 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance support exact; beta / sigma / loadings / residuals atol 1e-6, lambda0 rtol 1e-8 (observed rel <= 1.8e-12) -- tests/reference_parity/test_rlasso_parity.py",
+      "tests/reference_parity/test_cluster_lasso_stata.py"
     ],
     "validation_status": "certified"
   },
@@ -80822,6 +80828,11 @@
             "description": "Amelioration set forced into the control set (double-selection only) -- hdm's ``I3`` argument.",
             "type": "string"
           },
+          "cluster": {
+            "description": "Cluster identifier (a column name when ``data`` is given). Every selection step then uses the cluster-Lasso loadings of :func:`statspai.rlasso.rlasso` and the standard error is cluster-robust [@belloni2016inference] with no small-sample factor, as in Stata's ``pdslasso, cluster()`` (multiply the variance by ``G / (G - 1)`` for the ``regress, cluster()`` convention). For a fixed-effects panel pass within-transformed ``x``, ``y`` and ``d``. hdm has no counterpart.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "control": {
             "description": "Forwarded to :func:`statspai.rlasso.rlasso`.",
             "type": "object"
@@ -80873,7 +80884,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R hdm::rlassoEffect 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance alpha / se atol 1e-6 (observed rel <= 3.3e-15), incl. hdm's GrowthData vignette -- tests/reference_parity/test_rlasso_parity.py"
+      "Cross-language parity (bit-exact) vs R hdm::rlassoEffect 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance alpha / se atol 1e-6 (observed rel <= 3.3e-15), incl. hdm's GrowthData vignette -- tests/reference_parity/test_rlasso_parity.py",
+      "tests/reference_parity/test_cluster_lasso_stata.py"
     ],
     "validation_status": "certified"
   },
@@ -80952,6 +80964,11 @@
           "X": {
             "description": "Feature matrix or covariate DataFrame.",
             "type": "string"
+          },
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string",
+            "x-statspai-role": "column"
           },
           "control": {
             "description": "control parameter (Optional[Dict[str, Any]]).",
@@ -81121,6 +81138,11 @@
       "name": "rlasso_iv",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "Cluster identifier (a column name when ``data`` is given). All selection steps use the cluster-Lasso loadings [@belloni2016inference] and the reported variance is cluster-robust with no small-sample factor (``ivlasso``'s rule). For a fixed-effects panel pass within-transformed variables and ``intercept=False``. With ``select_Z=True, select_X=False`` and no controls the point estimate is the post-Lasso IV estimate of Stata's ``ivlasso, cluster()``.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "control": {
             "description": "Forwarded to :func:`statspai.rlasso.rlasso` (penalty level, loadings, iteration controls).",
             "type": "object"
@@ -81189,7 +81211,8 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R hdm::rlassoIV 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance coef / se atol 1e-6 (observed <= 3e-15); EminentDomain atol 1e-4 (observed 6.1e-9: pseudo-inverse of a rank-deficient control block) -- tests/reference_parity/test_rlasso_parity.py"
+      "Cross-language parity (bit-exact) vs R hdm::rlassoIV 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance coef / se atol 1e-6 (observed <= 3e-15); EminentDomain atol 1e-4 (observed 6.1e-9: pseudo-inverse of a rank-deficient control block) -- tests/reference_parity/test_rlasso_parity.py",
+      "tests/reference_parity/test_cluster_lasso_stata.py"
     ],
     "validation_status": "certified"
   },

@@ -141,6 +141,54 @@ res.coef, res.se        # eminent domain logGDP -> 0.2274, 0.2466
 | `True` | `True` (default) | double selection on Z and X |
 | `False` | `False` | plain robust 2SLS (`tsls`) |
 
+## Panels: `cluster=` (the cluster-Lasso)
+
+`hdm` assumes independent observations. In a panel the scores
+`x_it * e_it` are correlated within unit, the heteroskedastic loadings
+are too small, and the Lasso keeps variables it should not. Belloni,
+Chernozhukov, Hansen and Kozbur (2016) replace the loading by
+`sqrt(sum_i (sum_t x_itj e_it)^2 / (nT))`. `sp.rlasso`,
+`sp.rlasso_effect`, `sp.rlasso_effects` and `sp.rlasso_iv` take
+`cluster=` for this. The final standard error is then cluster-robust.
+
+```python
+import statspai as sp
+
+# Fixed effects: within-transform first, then no intercept is needed.
+cols = ["y", "d"] + controls + instruments
+w = df[cols] - df.groupby("unit")[cols].transform("mean")
+w["unit"] = df["unit"]
+
+# Effect of d on y, controls selected by double selection
+res = sp.rlasso_effect(controls, "y", "d", data=w,
+                       method="double selection", cluster="unit")
+
+# Many instruments and many controls
+iv = sp.rlasso_iv("y", "d", instruments, controls, data=w,
+                  cluster="unit", intercept=False)
+```
+
+What it buys, in a design with a known answer (100 units, 8 periods, 60
+candidate controls, AR(1) regressors and errors with coefficient 0.8,
+1,167 draws): without `cluster=` double selection keeps 6.1 controls on
+average and its 95% interval covers 78.6% of the time; with it, 4.6
+controls and 93.3%.
+
+This is the estimator of Stata's `rlasso, cluster()`, `pdslasso,
+cluster()` and `ivlasso, cluster()` (lassopack). On the same data the
+penalty level, the selected variables, the estimates and the variances
+agree to 1e-9 (`tests/reference_parity/test_cluster_lasso_stata.py`).
+Three conventions to know when comparing:
+
+- `gamma` defaults to `0.1 / log(G)`, `G` the number of clusters.
+- The variance has no small-sample factor, as in `pdslasso`. Multiply by
+  `G / (G - 1)` for the `regress, cluster()` convention.
+- The loadings depend on the residuals, and the residuals on what was
+  selected, so the iteration can have more than one fixed point.
+  StatsPAI follows hdm's iteration and lassopack its own; on small
+  panels they sometimes stop at supports that differ in one marginal
+  variable. Both are valid solutions of the same problem.
+
 ## As a Double-ML nuisance learner
 
 The rigorous Lasso is the *theory-correct* sparse nuisance learner for
@@ -296,6 +344,10 @@ pytest tests/reference_parity/test_rlasso_parity.py tests/reference_parity/test_
   Models and Methods for Optimal Instruments With an Application to
   Eminent Domain. *Econometrica*, 80(6), 2369–2429.
   doi [`10.3982/ECTA9626`](https://doi.org/10.3982/ECTA9626).
+- Belloni, A., Chernozhukov, V., Hansen, C. & Kozbur, D. (2016).
+  Inference in High-Dimensional Panel Models With an Application to Gun
+  Control. *Journal of Business & Economic Statistics*, 34(4), 590–605.
+  doi [`10.1080/07350015.2015.1102733`](https://doi.org/10.1080/07350015.2015.1102733).
 - Belloni, A., Chernozhukov, V. & Hansen, C. (2014). Inference on
   Treatment Effects after Selection among High-Dimensional Controls.
   *The Review of Economic Studies*, 81(2), 608–650.

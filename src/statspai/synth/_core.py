@@ -42,7 +42,7 @@ Literature* 59(2), 391-425. [@abadie2021synthetic]
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy import optimize
@@ -533,6 +533,117 @@ def placebo_rank_pvalue(treated_stat: float, placebo_stats: Any) -> float:
         return float("nan")
     n_at_least = int(np.sum(stats_arr >= treated_stat))
     return float((1 + n_at_least) / (stats_arr.size + 1))
+
+
+def placebo_inversion_ci(
+    gap_treated: np.ndarray,
+    placebo_gaps: np.ndarray,
+    weight_on_treated: np.ndarray,
+    pre_mask: np.ndarray,
+    post_mask: np.ndarray,
+    alpha: float = 0.05,
+) -> Tuple[float, float]:
+    """
+    Confidence interval for a constant effect, by inverting the placebo test
+    (Firpo & Possebom 2018 [@firpo2018synthetic]).
+
+    Under ``H0: effect_t = C`` in every post period, subtracting ``C`` from
+    the treated unit's post-treatment outcomes gives data in which no unit
+    is treated. Synthetic-control weights use pre-treatment data only, so
+    they do not move; the treated gap becomes ``gap_1t - C`` and the gap of
+    placebo ``j``, whose donor pool contains the treated unit with weight
+    ``w_j1``, becomes ``gap_jt + w_j1 * C``. The post/pre RMSPE-ratio rank
+    test of :func:`placebo_rank_pvalue` applied to those gaps has p-value
+    ``p(C)``, and the interval is the convex hull of ``{C : p(C) >= alpha}``.
+    ``p(0)`` is the reported placebo p-value, so the interval excludes zero
+    exactly when that p-value is below ``alpha`` (up to the hull).
+
+    Each comparison "placebo ``j`` at least as extreme as the treated unit"
+    is a quadratic inequality in ``C``; the end points are found exactly
+    from the roots, with no grid.
+
+    Parameters
+    ----------
+    gap_treated : (T,) array
+        Treated minus synthetic, all periods.
+    placebo_gaps : (T, J) array
+        The same for each placebo unit.
+    weight_on_treated : (J,) array
+        Weight of the real treated unit in each placebo's synthetic control
+        (zeros when the treated unit is not in the placebo donor pools).
+    pre_mask, post_mask : (T,) bool arrays
+    alpha : float
+
+    Returns
+    -------
+    (float, float)
+        Lower and upper end. Infinite when no ``C`` in that direction is
+        rejected -- always the case when ``J + 1 < 1 / alpha``, since the
+        smallest attainable p-value is ``1 / (J + 1)``. ``(nan, nan)`` when
+        every ``C`` is rejected (the post-treatment gap is not a constant
+        shift, so no constant effect fits), when the treated pre-period fit
+        is perfect, or when no placebo is usable.
+    """
+    g1 = np.asarray(gap_treated, dtype=np.float64)
+    G = np.asarray(placebo_gaps, dtype=np.float64)
+    if G.ndim == 1:
+        G = G.reshape(-1, 1)
+    w = np.asarray(weight_on_treated, dtype=np.float64).ravel()
+    pre1 = float(np.mean(g1[pre_mask] ** 2))
+    pre_j = np.mean(G[pre_mask] ** 2, axis=0)
+    usable = np.isfinite(pre_j) & (pre_j > 1e-10) & np.isfinite(G).all(axis=0)
+    if not np.isfinite(pre1) or pre1 <= 1e-10 or not usable.any():
+        return (float("nan"), float("nan"))
+    G, w, pre_j = G[:, usable], w[usable], pre_j[usable]
+    n_units = G.shape[1] + 1
+    # p(C) = (1 + count(C)) / n_units >= alpha
+    need = int(np.ceil(alpha * n_units - 1e-9)) - 1
+    if need <= 0:
+        return (-np.inf, np.inf)
+
+    g1_post = g1[post_mask]
+    G_post = G[post_mask]
+    # ratio_j(C)^2 - ratio_1(C)^2 = a C^2 + b C + c
+    a = w**2 / pre_j - 1.0 / pre1
+    b = 2.0 * (w * G_post.mean(axis=0) / pre_j + g1_post.mean() / pre1)
+    c = (G_post**2).mean(axis=0) / pre_j - float(np.mean(g1_post**2)) / pre1
+
+    def count(val: float) -> int:
+        return int(np.sum(a * val * val + b * val + c >= 0.0))
+
+    roots: List[float] = []
+    for aj, bj, cj in zip(a, b, c):
+        if abs(aj) > 1e-14:
+            disc = bj * bj - 4.0 * aj * cj
+            if disc >= 0.0:
+                sq = float(np.sqrt(disc))
+                roots += [(-bj - sq) / (2.0 * aj), (-bj + sq) / (2.0 * aj)]
+        elif abs(bj) > 1e-14:
+            roots.append(-cj / bj)
+    if not roots:
+        return (-np.inf, np.inf) if count(0.0) >= need else (float("nan"),) * 2
+    pts = np.unique(np.asarray(roots, dtype=np.float64))
+    span = max(1.0, float(pts[-1] - pts[0]))
+    lo: float = float("nan")
+    hi: float = float("nan")
+    if count(float(pts[0]) - span) >= need:
+        lo = -np.inf
+    if count(float(pts[-1]) + span) >= need:
+        hi = np.inf
+    # Between consecutive roots the count is constant; closed inequalities
+    # make a root belong to the accepted set of the segment on either side.
+    mids = 0.5 * (pts[:-1] + pts[1:])
+    ok_mid = np.array([count(float(m)) >= need for m in mids], dtype=bool)
+    ok_pt = np.array([count(float(v)) >= need for v in pts], dtype=bool)
+    accepted_lo = np.r_[pts[:-1][ok_mid], pts[ok_pt]]
+    accepted_hi = np.r_[pts[1:][ok_mid], pts[ok_pt]]
+    if np.isnan(lo):
+        if not np.isinf(hi) and accepted_lo.size == 0:
+            return (float("nan"), float("nan"))
+        lo = float(accepted_lo.min()) if accepted_lo.size else float(pts[-1])
+    if np.isnan(hi):
+        hi = float(accepted_hi.max()) if accepted_hi.size else float(pts[0])
+    return (lo, hi)
 
 
 # ---------------------------------------------------------------------------

@@ -44,7 +44,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-from ._core import rlasso
+from ._core import _cluster_codes, rlasso
 
 # MASS::ginv (used throughout hdm's IV routines) defaults to a singular-value
 # cutoff of ``tol = sqrt(.Machine$double.eps)`` relative to the largest
@@ -73,6 +73,7 @@ def _tsls(
     z: np.ndarray,
     intercept: bool = True,
     homoscedastic: bool = True,
+    codes: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
     """Two-stage least squares, faithful to ``hdm::tsls.default``.
 
@@ -112,7 +113,15 @@ def _tsls(
     b = M @ Mxz @ Mzz @ (Z.T @ y)
 
     e = y - X @ b
-    if homoscedastic:
+    if codes is not None:
+        # Cluster-robust: sum the moment z_i e_i within cluster; no
+        # small-sample factor (the ivlasso / ivreg2 convention).
+        n_clusters = int(codes.max()) + 1
+        sums = np.zeros((n_clusters, Z.shape[1]))
+        np.add.at(sums, codes, Z * e)
+        S = sums.T @ sums
+        VC1 = M @ (Mxz @ Mzz @ S @ Mzz @ Mxz.T) @ M
+    elif homoscedastic:
         VC1 = float((e**2).sum() / (n - k)) * M
     else:
         S = (Z * (e**2)).T @ Z / n  # (1/n) Σ e_i² z_i z_i'
@@ -210,6 +219,7 @@ def _select_z(
     penalty: Optional[Dict[str, Any]],
     control: Optional[Dict[str, Any]],
     treat_names: List[str],
+    codes: Optional[np.ndarray] = None,
 ) -> RLassoIVResult:
     n = len(y)
     d = np.asarray(d, dtype=float)
@@ -227,7 +237,13 @@ def _select_z(
     for i in range(ke):
         di = d[:, i]
         fit = rlasso(
-            Z, di, post=post, intercept=intercept, penalty=penalty, control=control
+            Z,
+            di,
+            post=post,
+            intercept=intercept,
+            penalty=penalty,
+            control=control,
+            cluster=codes,
         )
         if fit.index.sum() == 0:
             dihat = np.full(n, di.mean())
@@ -280,7 +296,13 @@ def _select_z(
 
     alpha = _ginv(Dhat.T @ d_aug) @ (Dhat.T @ y)
     residuals = y - d_aug @ alpha
-    Omega = Dhat.T @ (Dhat * (residuals**2)[:, None])
+    if codes is None:
+        Omega = Dhat.T @ (Dhat * (residuals**2)[:, None])
+    else:
+        n_clusters = int(codes.max()) + 1
+        sums = np.zeros((n_clusters, Dhat.shape[1]))
+        np.add.at(sums, codes, Dhat * residuals[:, None])
+        Omega = sums.T @ sums
     Qinv = _ginv(d_aug.T @ Dhat)
     vcov_full = Qinv @ Omega @ Qinv.T
 
@@ -317,6 +339,7 @@ def _select_x(
     penalty: Optional[Dict[str, Any]],
     control: Optional[Dict[str, Any]],
     treat_names: List[str],
+    codes: Optional[np.ndarray] = None,
 ) -> RLassoIVResult:
     n = len(y)
     d = np.asarray(d, dtype=float).ravel()
@@ -325,19 +348,23 @@ def _select_x(
         z = z.reshape(-1, 1)
     num_iv = z.shape[1]
 
-    lasso_d_x = rlasso(x, d, post=post, penalty=penalty, control=control)
+    lasso_d_x = rlasso(x, d, post=post, penalty=penalty, control=control, cluster=codes)
     Dr = d - lasso_d_x.predict(x)
-    lasso_y_x = rlasso(x, y, post=post, penalty=penalty, control=control)
+    lasso_y_x = rlasso(x, y, post=post, penalty=penalty, control=control, cluster=codes)
     Yr = y - lasso_y_x.predict(x)
 
     Zr = np.empty((n, num_iv))
     nsel_x = int(lasso_y_x.index.sum() + lasso_d_x.index.sum())
     for i in range(num_iv):
-        lasso_z_x = rlasso(x, z[:, i], post=post, penalty=penalty, control=control)
+        lasso_z_x = rlasso(
+            x, z[:, i], post=post, penalty=penalty, control=control, cluster=codes
+        )
         Zr[:, i] = z[:, i] - lasso_z_x.predict(x)
         nsel_x += int(lasso_z_x.index.sum())
 
-    res = _tsls(y=Yr, d=Dr, x=None, z=Zr, intercept=False, homoscedastic=True)
+    res = _tsls(
+        y=Yr, d=Dr, x=None, z=Zr, intercept=False, homoscedastic=True, codes=codes
+    )
     return RLassoIVResult(
         coef=np.atleast_1d(res["coefficients"]),
         se=np.atleast_1d(res["se"]),
@@ -364,13 +391,16 @@ def _select_both(
     penalty: Optional[Dict[str, Any]],
     control: Optional[Dict[str, Any]],
     treat_names: List[str],
+    codes: Optional[np.ndarray] = None,
 ) -> RLassoIVResult:
     n = len(y)
     d = np.asarray(d, dtype=float).ravel()
     Zmat = np.column_stack([z, x])
 
-    lasso_d_zx = rlasso(Zmat, d, post=post, penalty=penalty, control=control)
-    lasso_y_x = rlasso(x, y, post=post, penalty=penalty, control=control)
+    lasso_d_zx = rlasso(
+        Zmat, d, post=post, penalty=penalty, control=control, cluster=codes
+    )
+    lasso_y_x = rlasso(x, y, post=post, penalty=penalty, control=control, cluster=codes)
 
     if lasso_d_zx.index.sum() == 0:
         return RLassoIVResult(
@@ -384,7 +414,9 @@ def _select_both(
         )
 
     PZ = lasso_d_zx.predict(Zmat)
-    lasso_PZ_x = rlasso(x, PZ, post=post, penalty=penalty, control=control)
+    lasso_PZ_x = rlasso(
+        x, PZ, post=post, penalty=penalty, control=control, cluster=codes
+    )
 
     n_PZ_sel = int(lasso_PZ_x.index.sum())
     if n_PZ_sel == 0:
@@ -399,7 +431,9 @@ def _select_both(
     else:
         Yr = lasso_y_x.residuals
 
-    res = _tsls(y=Yr, d=Dr, x=None, z=Zr, intercept=False, homoscedastic=False)
+    res = _tsls(
+        y=Yr, d=Dr, x=None, z=Zr, intercept=False, homoscedastic=False, codes=codes
+    )
     n_sel_z = int(lasso_d_zx.index.sum())
     return RLassoIVResult(
         coef=np.atleast_1d(res["coefficients"]),
@@ -446,6 +480,7 @@ def rlasso_iv(
     intercept: bool = True,
     penalty: Optional[Dict[str, Any]] = None,
     control: Optional[Dict[str, Any]] = None,
+    cluster: Optional[Union[np.ndarray, pd.Series, str]] = None,
 ) -> RLassoIVResult:
     """Instrumental-variables estimation with rigorous-Lasso selection.
 
@@ -471,6 +506,15 @@ def rlasso_iv(
     penalty, control : dict, optional
         Forwarded to :func:`statspai.rlasso.rlasso` (penalty level,
         loadings, iteration controls).
+    cluster : array-like or str, optional
+        Cluster identifier (a column name when ``data`` is given). All
+        selection steps use the cluster-Lasso loadings
+        [@belloni2016inference] and the reported variance is
+        cluster-robust with no small-sample factor (``ivlasso``'s rule).
+        For a fixed-effects panel pass within-transformed variables and
+        ``intercept=False``. With ``select_Z=True, select_X=False`` and no
+        controls the point estimate is the post-Lasso IV estimate of
+        Stata's ``ivlasso, cluster()``.
 
     Returns
     -------
@@ -517,8 +561,24 @@ def rlasso_iv(
         )
     )
 
+    codes: Optional[np.ndarray] = None
+    if cluster is not None:
+        if isinstance(cluster, str):
+            if data is None:
+                raise ValueError("cluster given as a column name needs `data`.")
+            cluster = data[cluster].values
+        codes, _ = _cluster_codes(cluster, len(Y))
+
     if not select_Z and not select_X:
-        res = _tsls(y=Y, d=D, x=Xmat, z=Zmat, intercept=intercept, homoscedastic=False)
+        res = _tsls(
+            y=Y,
+            d=D,
+            x=Xmat,
+            z=Zmat,
+            intercept=intercept,
+            homoscedastic=False,
+            codes=codes,
+        )
         a1 = res["a1"]
         return RLassoIVResult(
             coef=np.atleast_1d(res["coefficients"])[:a1],
@@ -531,13 +591,13 @@ def rlasso_iv(
         )
     if select_Z and not select_X:
         return _select_z(
-            Xmat, D, Y, Zmat, post, intercept, penalty, control, treat_names
+            Xmat, D, Y, Zmat, post, intercept, penalty, control, treat_names, codes
         )
     if select_X and not select_Z:
         if Xmat is None:
             raise ValueError("select_X=True requires controls `x`.")
-        return _select_x(Xmat, D, Y, Zmat, post, penalty, control, treat_names)
+        return _select_x(Xmat, D, Y, Zmat, post, penalty, control, treat_names, codes)
     # both
     if Xmat is None:
         raise ValueError("select_X=True requires controls `x`.")
-    return _select_both(Xmat, D, Y, Zmat, post, penalty, control, treat_names)
+    return _select_both(Xmat, D, Y, Zmat, post, penalty, control, treat_names, codes)
