@@ -40,7 +40,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .._result_serialize import ResultProtocolMixin
+from .._result_serialize import ResultProtocolMixin, attach_result_protocol
 from ._core import rlasso
 
 
@@ -259,6 +259,7 @@ def rlasso_effect(
     )
 
 
+@attach_result_protocol
 class RLassoEffectsResult(Dict[str, RLassoEffectResult]):
     """Effects of several targets, with their joint covariance.
 
@@ -269,6 +270,19 @@ class RLassoEffectsResult(Dict[str, RLassoEffectResult]):
     which is what ``confint(<rlassoEffects>, joint = TRUE)`` simulates from
     in hdm [@chernozhukov2016hdm].
     """
+
+    _citation_keys: ClassVar[Tuple[str, ...]] = RLassoEffectResult._citation_keys
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Each target's result, and the joint covariance of the estimates."""
+        vcov = self.vcov()
+        return {
+            "effects": {name: res.to_dict() for name, res in self.items()},
+            "vcov": {
+                "names": list(vcov.index),
+                "matrix": vcov.to_numpy().tolist(),
+            },
+        }
 
     def vcov(self) -> pd.DataFrame:
         """Joint covariance ``Omega / n`` of the estimates."""

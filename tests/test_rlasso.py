@@ -467,3 +467,22 @@ def test_dml_irm_with_rlassologit_propensity(logit_dgp):
         n_folds=5,
     )
     assert abs(float(res.estimate) - 0.8) < 0.35
+
+
+def test_effects_result_carries_the_agent_contract():
+    """The multi-target result is a dict of results; it still serializes."""
+    import json
+
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(300, 6))
+    y = X[:, 0] + 0.5 * X[:, 1] + rng.normal(size=300)
+    res = sp.rlasso_effects(X, y, index=[0, 1])
+    payload = res.to_dict(detail="agent")
+    json.dumps(payload)
+    assert set(res.to_dict()["effects"]) == set(res)
+    assert np.allclose(res.to_dict()["vcov"]["matrix"], res.vcov().to_numpy())
+    assert isinstance(res.violations(), list)
+    assert isinstance(res.next_steps(), list)
+    assert res.cite()
+    # ... and it is still the dict it has always been.
+    assert all(k in res for k in res.to_dict()["effects"])
