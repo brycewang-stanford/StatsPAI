@@ -31,6 +31,25 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — call traces re-recorded after a docstring in `synth/scm.py` changed
+
+Commit `57ccb23f`. `synth/scm.py` is on the estimation path of Track A
+modules 07 and 52. Only its docstring changed: the description of the
+default without predictors, which called the fit the simplex
+least-squares estimator, now says that each pre-treatment period is
+rescaled and how to obtain the least-squares weights. No executable line
+changed. The traces of modules 07 and 52 were re-recorded on the tree of
+that commit.
+
+**Effect on the paper.** None. Only `exercised_sources` digests and
+`seconds` changed in the trace, and no module's implementation
+classification moved. The Python results of modules 07 and 52 were not
+regenerated. No estimate, standard error or table cell is read from this
+file.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded for the last two commits of the Croissant textbook pass
 
 Commits `912e97d9` and `623ca007`. Source files on the estimation path of
