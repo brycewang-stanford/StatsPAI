@@ -61,7 +61,7 @@ That is right when the weights are precisions (linear models) or
 frequencies (Poisson). It is wrong for sampling or inverse-probability
 weights. Under dispersed sampling weights the default interval covered
 34% to 78% for OLS, 45% to 80% with fixed effects and 14% to 68% for
-Poisson.
+Poisson. The fast entry points and `sp.nbreg` behave the same way.
 
 Ask for a robust variance when the weights are sampling weights.
 

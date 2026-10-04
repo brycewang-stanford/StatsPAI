@@ -1463,7 +1463,8 @@ def note_weight_diagnostics(
     """Record (and warn on) the weight diagnostics of a weighted fit.
 
     For the entry points that have no HC3: ``sp.panel``, ``sp.hdfe_ols``,
-    ``sp.feols``, ``sp.poisson``, ``sp.ppmlhdfe``. Writes
+    ``sp.feols``, ``sp.poisson``, ``sp.nbreg``, ``sp.ppmlhdfe``,
+    ``sp.fast.feols``, ``sp.fast.fepois``. Writes
     ``n_effective_weights`` and, for a one-way clustered fit,
     ``n_clusters_effective_weights`` into ``model_info``.
     """
@@ -1476,7 +1477,10 @@ def note_weight_diagnostics(
         small_sample_option=None,
         classical_reading=classical_reading,
         classical_assumption=classical_assumption,
-        evidence="tests/reliability/extreme_weights_models_results.json",
+        evidence=(
+            "tests/reliability/extreme_weights_models_results.json and "
+            "extreme_weights_fast_results.json"
+        ),
     )
     if variance == "cluster" and cluster_keys is not None:
         model_info["n_clusters_effective_weights"] = warn_if_weighted_clusters_few(

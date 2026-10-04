@@ -509,6 +509,11 @@ Simulation studies under `tests/reliability/`, each with its design fixed in the
 | `dml_learners` | rf | coverage | 300 | 4 | 1 | 0.433 (shape=nonlinear, n=500) |
 | `dml_learners` | gbm | coverage | 300 | 4 | 0 | 0.867 (shape=nonlinear, n=500) |
 | `dml_learners` | stacking | coverage | 300 | 4 | 2 | 0.727 (shape=nonlinear, n=500) |
+| `extreme_weights_fast` | iid | coverage | 2000 | 12 | 2 | 0.223 (model=fast_fepois, size=200, sigma=2.0) |
+| `extreme_weights_fast` | hc1 | coverage | 2000 | 12 | 6 | 0.870 (model=fast_feols, size=50, sigma=2.0) |
+| `extreme_weights_fast` | cr1 | coverage | 2000 | 12 | 4 | 0.789 (model=fast_feols, size=50, sigma=2.0) |
+| `extreme_weights_fast` | classical | coverage | 2000 | 6 | 2 | 0.140 (model=nbreg, size=1000, sigma=2.0) |
+| `extreme_weights_fast` | robust | coverage | 2000 | 6 | 2 | 0.841 (model=nbreg, size=200, sigma=2.0) |
 | `extreme_weights_models` | classical | coverage | 2000 | 12 | 4 | 0.143 (model=poisson, size=1000, sigma=2.0) |
 | `extreme_weights_models` | robust | coverage | 2000 | 12 | 6 | 0.840 (model=poisson, size=200, sigma=2.0) |
 | `extreme_weights_models` | cluster | coverage | 2000 | 6 | 2 | 0.777 (model=panel_fe, size=50, sigma=2.0) |

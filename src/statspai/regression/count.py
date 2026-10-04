@@ -1739,6 +1739,26 @@ def nbreg(
         model_info["formula"] = formula
     if cluster_arr is not None:
         model_info["n_clusters"] = int(len(np.unique(cluster_arr)))
+    if weights is not None:
+        from ..core._agent_summary import note_weight_diagnostics
+
+        note_weight_diagnostics(
+            model_info,
+            w_arr,
+            (
+                "cluster"
+                if cluster_arr is not None
+                else ("classical" if robust == "nonrobust" else "robust")
+            ),
+            entry="sp.nbreg",
+            robust_option="robust='robust' (Stata [pw=])",
+            classical_reading="frequency weights (Stata [fw=])",
+            classical_assumption=(
+                "frequencies (each row standing for w identical observations)"
+            ),
+            cluster_keys=cluster_arr,
+            cluster=cluster,
+        )
 
     data_info = {
         "nobs": n,

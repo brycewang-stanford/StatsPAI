@@ -35,7 +35,7 @@ Correia, S. (2017). Linear models with high-dimensional fixed effects.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -79,6 +79,8 @@ class FeolsResult(ResultProtocolMixin):
     ssc: str = "fixest"
     cluster_var: Optional[str] = None
     backend: str = "statspai-native"
+    #: Kish effective sizes of a weighted fit (``None`` without weights)
+    weight_info: Optional[Dict[str, Any]] = None
 
     def coef(self) -> pd.Series:
         return pd.Series(self.coef_vec, index=self.coef_names, name="Estimate")
@@ -570,6 +572,22 @@ def feols(
             extra_df=cr1_extra_df,
         )
 
+    weight_info: Optional[Dict[str, Any]] = None
+    if weights is not None:
+        from ..core._agent_summary import note_weight_diagnostics
+
+        weight_info = {}
+        note_weight_diagnostics(
+            weight_info,
+            w,
+            {"iid": "classical", "hc1": "hc1", "cr1": "cluster"}[vcov],
+            entry="sp.fast.feols",
+            robust_option="vcov='hc1' or vcov='cr1' with cluster=",
+            classical_reading="analytic weights (Stata [aw=])",
+            cluster_keys=cluster_arr_kept if vcov == "cr1" else None,
+            cluster=cluster,
+        )
+
     return FeolsResult(
         formula=formula,
         coef_names=coef_names_full,
@@ -587,6 +605,7 @@ def feols(
         vcov_type=vcov,
         ssc=ssc,
         cluster_var=cluster,
+        weight_info=weight_info,
     )
 
 

@@ -271,10 +271,61 @@ record `n_effective_weights`, and `n_clusters_effective_weights` for a
 one-way clustered fit, and warn in the three cases above (classical
 variance with a Kish ratio under 0.5; robust variance with a Kish size
 under 100; fewer than 30 weight-effective clusters). `sp.nbreg` and
-`sp.fast.*` were not simulated and carry no warning.
+`sp.fast.*` are covered by the next study.
 
 Rerun with `python tests/reliability/extreme_weights_models.py` (about
 eight minutes).
+
+## Extreme weights in the fast and negative-binomial entry points (`extreme_weights_fast.py`)
+
+The same question for `sp.fast.feols`, `sp.fast.fepois` and `sp.nbreg`.
+A regressor with a true coefficient of zero is tested at 5% with the
+package's own p-value; the entry is the share of 2,000 replications
+that do not reject, which is the coverage of the 95% interval at the
+truth.
+
+`sp.fast.feols`, unit fixed effects, unit-level weights:
+
+| units | sigma of log weight | Kish size | `iid` | `hc1` | `cr1` on unit |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 50 | 0 | 50 | 0.953 | 0.948 | 0.939 |
+| 50 | 1 | 23 | 0.806 | 0.930 | 0.913 |
+| 50 | 2 | 7 | 0.542 | 0.870 | 0.789 |
+| 200 | 0 | 200 | 0.949 | 0.950 | 0.951 |
+| 200 | 1 | 81 | 0.807 | 0.952 | 0.949 |
+| 200 | 2 | 17 | 0.427 | 0.907 | 0.858 |
+
+`sp.fast.fepois`, the same panel with a Poisson outcome:
+
+| units | sigma of log weight | Kish size | `iid` | `hc1` | `cr1` on unit |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 50 | 0 | 50 | 0.972 | 0.943 | 0.943 |
+| 50 | 1 | 23 | 0.753 | 0.922 | 0.908 |
+| 50 | 2 | 7 | 0.314 | 0.882 | 0.796 |
+| 200 | 0 | 200 | 0.974 | 0.957 | 0.958 |
+| 200 | 1 | 81 | 0.730 | 0.946 | 0.936 |
+| 200 | 2 | 18 | 0.223 | 0.900 | 0.863 |
+
+`sp.nbreg`, observation weights:
+
+| n | sigma of log weight | Kish size | classical | robust |
+| ---: | ---: | ---: | ---: | ---: |
+| 200 | 0 | 200 | 0.951 | 0.942 |
+| 200 | 1 | 81 | 0.690 | 0.913 |
+| 200 | 2 | 17 | 0.221 | 0.841 |
+| 1000 | 0 | 1000 | 0.947 | 0.945 |
+| 1000 | 1 | 385 | 0.656 | 0.939 |
+| 1000 | 2 | 52 | 0.140 | 0.879 |
+
+The three findings of the earlier weight studies repeat here. The
+default variance fails under sampling weights (22% to 81%), the robust
+one is short when the effective sample is small, and the clustered one
+follows the number of clusters the weights leave in effect (79% at 7,
+86% at 17, 91% at 23). The three entry points now carry the same
+diagnostics as the others; the fast result objects hold them in
+`weight_info`. One negative-binomial fit of 84,000 did not converge (one
+observation held 80% of the weight); `sp.nbreg` said so and reported no
+standard errors, and the fit counts as a miss.
 
 ## Staggered adoption on an unbalanced panel (`unbalanced_panel.py`)
 

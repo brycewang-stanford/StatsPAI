@@ -89,6 +89,8 @@ class FePoisResult(ResultProtocolMixin):
     vcov_type: str
     df_residual: int = 0
     backend: str = "statspai-native"
+    #: Kish effective sizes of a weighted fit (``None`` without weights)
+    weight_info: Optional[Dict[str, Any]] = None
 
     # ------------------------------------------------------------------
     # pyfixest-compatible accessors
@@ -1174,6 +1176,25 @@ def fepois(
 
     log_lik = float(np.sum(obs_weights * (y * np.log(np.maximum(mu, 1e-30)) - mu)))
 
+    weight_info: Optional[Dict[str, Any]] = None
+    if weights is not None:
+        from ..core._agent_summary import note_weight_diagnostics
+
+        weight_info = {}
+        note_weight_diagnostics(
+            weight_info,
+            obs_weights,
+            {"iid": "classical", "hc1": "hc1", "cr1": "cluster"}[vcov],
+            entry="sp.fast.fepois",
+            robust_option="vcov='hc1' or vcov='cr1' with cluster=",
+            classical_reading="frequency weights (Stata [fw=])",
+            classical_assumption=(
+                "frequencies (each row standing for w identical observations)"
+            ),
+            cluster_keys=cluster_arr_full if vcov == "cr1" else None,
+            cluster=cluster,
+        )
+
     return FePoisResult(
         formula=formula,
         coef_names=coef_names_full,
@@ -1191,6 +1212,7 @@ def fepois(
         fe_cardinality=[int(np.unique(c).size) for c in fe_codes],
         vcov_type=vcov,
         df_residual=int(max(df_resid, 0)),
+        weight_info=weight_info,
     )
 
 

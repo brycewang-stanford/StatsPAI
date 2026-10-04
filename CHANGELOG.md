@@ -634,6 +634,16 @@ Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
 
 ### Reliability
 
+- **Weight diagnostics in `sp.fast.feols`, `sp.fast.fepois` and
+  `sp.nbreg`.** A third weight study
+  (`tests/reliability/extreme_weights_fast.py`, 18 designs, 2,000
+  replications each) finds the same three failures there as elsewhere:
+  the default variance under sampling weights (22% to 81% coverage), a
+  robust variance in a small effective sample (84% to 90%), and a
+  clustered one when the weights leave few clusters in effect (79% at
+  7). The three entry points now record `n_effective_weights` and
+  `n_clusters_effective_weights` and warn; the fast result objects carry
+  them in a new `weight_info` attribute. No estimate changes.
 - **Few treated clusters in fixed-effects regressions.** A fourth block
   of `tests/reliability/few_clusters.py` (40 units, 10 periods, a true
   effect of zero, 2,000 replications) gives the rejection rate of the 5%
