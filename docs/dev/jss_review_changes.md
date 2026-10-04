@@ -33,7 +33,7 @@ Rules:
 
 ### 2026-10-04 — call trace re-recorded after `sp.rdms` gained several boundary points
 
-Commit `b4b23089`. `sp.rdms` accepts lists for `cutoff1=` / `cutoff2=`
+Commit `7f700ff5`. `sp.rdms` accepts lists for `cutoff1=` / `cutoff2=`
 and an `xnorm=` column, returning one row per boundary point and a pooled
 row. The code is in `rd/rdmulti.py`, which Track A module 89 executes.
 
