@@ -425,6 +425,106 @@ listed above. What was added:
   noncompliance: the arm in which the stratum variable is constant is not
   fitted and its empty stratum has share zero.
 
+### What de Chaisemartin and D'Haultfoeuille's DiD textbook found
+
+The four applications of the authors' difference-in-differences textbook
+(SSC package `cc_xd_didtextbook`) were run in Stata 18 and again in
+StatsPAI. Six results were wrong (⚠️ below), the authors' own diagnostic
+was missing, and their main estimator refused the book's central example.
+Details, one documented departure from the reference command and what is
+still open are in `docs/dev/2026-10-05-dcdh-did-textbook-review.md`.
+
+- ⚠️ **`sp.did_multiplegt` with a non-binary treatment.** Every switcher
+  from a baseline other than 0 was signed as a switch off, whichever way
+  it moved, and nothing was divided by the size of the change. On the
+  newspaper panel of Gentzkow, Shapiro and Sinkinson (2011) the estimate
+  was -0.00082. It is now the effect per unit of treatment, 0.0057791,
+  which is what Stata `did_multiplegt_old` returns (1e-8), as are the two
+  placebos. Binary treatments give the same numbers as before.
+- ⚠️ **`sp.sun_abraham` on an unbalanced panel.** The weight of a cohort
+  at a relative time was its share of units. It is now its share of the
+  observations at that relative time (of their weight under `weights=`),
+  as in Sun and Abraham (2021) and Stata `eventstudyinteract`. On the
+  Wolfers (2006) divorce panel, where 52 state-years have no outcome, the
+  unweighted effect at relative time 0 was -0.1399 and is -0.1054, Stata's
+  number to nine digits. Weights that vary over time now give Stata's
+  estimates and standard errors as well. Balanced panels are unchanged.
+- ⚠️ **`sp.sun_abraham(event_window=)`.** Relative times outside the
+  window were left out of the regression, which puts their treated
+  observations in the reference category. On the Wolfers panel a window of
+  (-14, 12) moved the effect at relative time 0 from 0.246 to 0.502. The
+  window now selects what is reported and the regression stays saturated
+  (`window_rule='report'`, the new default). `window_rule='bin'` pools the
+  relative times beyond each end into that end, the specification usually
+  written for `eventstudyinteract`; `window_rule='reference'` is the old
+  behaviour.
+- ⚠️ **`sp.did_multiplegt_dyn(same_switchers=True)`** kept every switcher
+  observed at all the horizons, including those with no control left at
+  the long ones, so the switchers were not the same across horizons. It
+  now keeps the switchers whose effect is estimable at every horizon, as
+  Stata does.
+- ⚠️ **`sp.did_multiplegt_dyn(aggregation='switchers')`** divides the
+  summed effects by the treatment changes in place at each horizon, which
+  is the definition of `Av_tot_eff`. Nothing changes for a binary
+  treatment that stays switched; a treatment that comes back within the
+  horizons gave a different number before.
+- ⚠️ **`sp.did_multiplegt_dyn(controls=)`.** The first-difference
+  regression behind the option was fitted without the groups that never
+  switch, whose outcomes were then left unadjusted, and on a panel with
+  holes a change between two rows several periods apart was used as a
+  one-period change. Estimates now agree with Stata on panels with
+  never-switchers and with holes. The analytic standard errors under
+  `controls=` still treat the covariate slopes as known and differ from
+  Stata's by a few tenths of a percent (open).
+- ⚠️ **`regress y x, vce(hc2 clustvar, dfadjust)` through `sp.stata` /
+  `sp.from_stata`** came back as `sp.regress(robust='hc2')`: the cluster
+  variable and the degrees-of-freedom adjustment were dropped without a
+  note. It is now `vce='cr2', cluster=, dfadjust=True`.
+- **`sp.twowayfeweights`** (new). The weights a two-way fixed effects
+  regression puts on the treatment effects of the treated cells (de
+  Chaisemartin and D'Haultfoeuille 2020), for the fixed effects regression
+  (`type='feTR'`) and the first-difference regression (`'fdTR'`), with
+  controls, with other treatments in the regression (their contamination
+  weights are reported too), with observation weights, and with the
+  regression of chosen variables on the weights. Any treatment, binary or
+  not, staggered or not. Every count, sum, coefficient and test of the
+  nine calls in the book agrees with Stata `twowayfeweights`.
+- **`sp.did_multiplegt_dyn` takes a non-binary treatment.** Periods are
+  ranked, so a four-yearly panel works; cells where a group has been on
+  both sides of its starting treatment are dropped; switchers are matched
+  on their period-one level. Effects, placebos, analytic standard errors,
+  normalized effects and `Av_tot_eff` agree with Stata `did_multiplegt_dyn`
+  on the synthetic test panel and, once one county the command discards by
+  accident is set aside, on the newspaper panel.
+- **Joint tests without the bootstrap.** With `se_method='analytic'`,
+  `joint_placebo_test`, the new `joint_effects_test`, `joint_overall_test`
+  and `effects_equal_test` are Wald tests on the analytic joint covariance
+  and reproduce Stata's p-values. No replicate is drawn any more, so an
+  analytic fit no longer spends its time on 500 bootstrap draws it did not
+  use for the standard errors.
+- **`design=`, `by_path=` and `normalized_weights=`** in
+  `sp.did_multiplegt_dyn`: the treatment paths behind an effect, the
+  effects path by path, and the weights of a normalized effect on the
+  current and lagged treatments.
+- **`sp.regress(dfadjust=True)`**: Bell-McCaffrey degrees of freedom for
+  `robust='hc2'` and for `vce='cr2'` with `cluster=`, as Stata 18
+  `vce(hc2 [clustvar], dfadjust)`. `sp.test` now works after
+  `vce='cr2'` / `'cr3'`, whose full covariance is stored.
+- **Translations**: `twowayfeweights`, `did_multiplegt_dyn`, `did_had`
+  and `did_multiplegt_old` run through `sp.stata`.
+- **`sp.fect` on large panels.** The initial two-way fit built one dummy
+  column per unit, so a panel of 7,248 units and 40 periods needed a 17 GB
+  matrix and did not finish. Above 50 million design cells the same
+  least-squares fit is solved by alternating projections (equal to the
+  dense fit to 1e-11 where both run); that panel now takes 0.4 seconds
+  for `method='fe'`. Smaller panels take the same path as before.
+- **`sp.fect` warns when the iterations stop at `max_iter`**
+  (`ConvergenceWarning`). `model_info['converged']` already said so, and
+  nothing else did. With weak factors the ATT can keep moving for
+  thousands of iterations: on the Moser and Voena (2012) panel the
+  two-factor estimate is 0.277 at `tol=1e-3`, 0.131 at `1e-4` and 0.051 at
+  `1e-5`.
+
 ### A causal-ML textbook's notebooks, run against their references
 
 The Python notebooks of Chernozhukov, Hansen, Kallus, Spindler and

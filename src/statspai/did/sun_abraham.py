@@ -298,6 +298,7 @@ def sun_abraham(
     alpha: float = 0.05,
     pretest: str = "joint",
     pretest_periods: Optional[int] = None,
+    window_rule: str = "report",
 ) -> CausalResult:
     """
     Sun & Abraham (2021) interaction-weighted event-study estimator.
@@ -316,7 +317,33 @@ def sun_abraham(
         Unit identifier.
     event_window : tuple of (int, int), optional
         (min_relative_time, max_relative_time).
-        Default: observed range in the data.
+        Default: observed range in the data. What happens to the treated
+        observations outside the window is set by ``window_rule``.
+    window_rule : {'report', 'bin', 'reference'}, default 'report'
+        Only matters when ``event_window`` leaves out relative times that
+        are in the data.
+
+        - ``'report'``: the regression is saturated in every observed
+          relative time and the window only selects what is reported and
+          aggregated. The estimates inside the window are those of the
+          unrestricted fit.
+        - ``'bin'``: relative times at or beyond an end of the window are
+          pooled into that end, so the first and last coefficients are
+          "``e_min`` or earlier" and "``e_max`` or later". This is the
+          specification one writes for Stata ``eventstudyinteract`` with
+          binned end dummies.
+        - ``'reference'``: the left-out relative times join the omitted
+          category, next to period -1 and the control cohort. Every
+          coefficient is then measured against a reference that contains
+          treated observations, and is biased by the effects they carry
+          unless those are zero. Kept to reproduce earlier output.
+
+        .. versionchanged:: 1.39.0
+           ⚠️ The default was what is now ``'reference'``. On the Wolfers
+           (2006) divorce panel, restricting the window to (-14, 12) moved
+           the effect at relative time 0 from 0.246 to 0.502, because
+           relative times 13 to 19, where the effect is negative, had
+           become part of the reference.
     control_group : str, default 'nevertreated'
         ``'nevertreated'`` or ``'lastcohort'``.  When ``'lastcohort'``,
         the latest treated cohort is used as the reference and dropped
@@ -463,6 +490,12 @@ def sun_abraham(
             f"got {aggregation!r}"
         )
     aggregation_key = aggregation_aliases[aggregation]
+    if window_rule not in ("report", "bin", "reference"):
+        raise MethodIncompatibility(
+            "window_rule must be 'report', 'bin' or 'reference', "
+            f"got {window_rule!r}",
+            diagnostics={"window_rule": repr(window_rule)},
+        )
 
     df[g] = df[g].fillna(0).replace([np.inf, -np.inf], 0).astype(int)
     time_periods = sorted(df[t].unique())
@@ -516,15 +549,41 @@ def sun_abraham(
     # Relative time (NaN for reference observations)
     df["_rel_time"] = np.where(df[g] > 0, df[t] - df[g], np.nan)
 
+    rel_obs = df.loc[df[g] > 0, "_rel_time"].dropna()
+    obs_min, obs_max = int(rel_obs.min()), int(rel_obs.max())
     if event_window is None:
-        rel_obs = df.loc[df[g] > 0, "_rel_time"].dropna()
-        e_min = int(rel_obs.min())
-        e_max = int(rel_obs.max())
+        e_min, e_max = obs_min, obs_max
     else:
         e_min, e_max = int(event_window[0]), int(event_window[1])
+        if e_min > e_max:
+            raise MethodIncompatibility(
+                f"event_window={event_window!r} has its bounds reversed.",
+                diagnostics={"event_window": repr(event_window)},
+            )
 
     # Reference relative time = -1 (CS-SA standard).
-    rel_times = [e for e in range(e_min, e_max + 1) if e != -1]
+    binned = (
+        window_rule == "bin"
+        and event_window is not None
+        and (obs_min < e_min or obs_max > e_max)
+    )
+    if binned:
+        if e_min > -2 or e_max < 0:
+            raise MethodIncompatibility(
+                "window_rule='bin' needs a window that keeps the reference "
+                "period out of the end bins: event_window[0] <= -2 and "
+                f"event_window[1] >= 0, got {event_window!r}.",
+            )
+        # "e_min or earlier" and "e_max or later"
+        df["_rel_time"] = df["_rel_time"].clip(lower=e_min, upper=e_max)
+        rel_times = [e for e in range(e_min, e_max + 1) if e != -1]
+    elif window_rule == "report":
+        # Saturate in every observed relative time; the window selects what
+        # is reported. Leaving relative times out of the regression would
+        # put their treated observations into the reference.
+        rel_times = [e for e in range(obs_min, obs_max + 1) if e != -1]
+    else:
+        rel_times = [e for e in range(e_min, e_max + 1) if e != -1]
 
     # ----- Saturated design: 1(G=g) × 1(e=ℓ), one column per observed cell -----
     # Only cells that exist in the data are parameters. A cohort first
@@ -629,17 +688,23 @@ def sun_abraham(
     beta_int = beta[:k_int]
 
     # ----- IW aggregation at each relative time -----
-    unit_cohorts = df.groupby(i)[g].first()
-    if weights is None:
-        cohort_counts = unit_cohorts[unit_cohorts > 0].value_counts()
-    else:
-        # Interaction weights are cohort *shares*; under omega those are
-        # shares of omega-mass, not head counts, or a weighted estimate
-        # would be aggregated with unweighted weights.
-        unit_w = df.groupby(i)[weights].first()
-        cohort_counts = (
-            unit_w[unit_cohorts > 0].groupby(unit_cohorts[unit_cohorts > 0]).sum()
-        )
+    # Interaction weights: the share of each cohort among the observations
+    # at relative time l (their omega-mass under weights), as in SA (2021)
+    # and eventstudyinteract's share regression. On a balanced panel this is
+    # the cohort's share of units; where rows are missing, or relative times
+    # are pooled into an end bin, only the observation count is right.
+    _cell_rows = df[df[g].isin(cohorts) & df["_rel_time"].notna()]
+    _cell_w = (
+        pd.Series(1.0, index=_cell_rows.index)
+        if weights is None
+        else _cell_rows[weights].astype(float)
+    )
+    cell_mass: Dict[Tuple[Any, int], float] = {
+        (gv, int(ev)): float(m)
+        for (gv, ev), m in _cell_w.groupby([_cell_rows[g], _cell_rows["_rel_time"]])
+        .sum()
+        .items()
+    }
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     # Observation counts per relative time over the *estimated* cohorts
@@ -666,16 +731,19 @@ def sun_abraham(
     es_rows = []
     combos: Dict[int, Tuple[np.ndarray, float]] = {}
     for e in sorted(set(rel_times)):
+        if not e_min <= e <= e_max:
+            continue  # window_rule='report': estimated, not reported
         eligible = [
             g_val
             for g_val in cohorts
-            if (g_val, e) in cell_index and (g_val + e) in time_set
+            if (g_val, e) in cell_index
+            and ((g_val + e) in time_set or (binned and e in (e_min, e_max)))
         ]
         if not eligible:
             continue
 
         shares = np.array(
-            [cohort_counts.get(g_val, 0) for g_val in eligible], dtype=float
+            [cell_mass.get((g_val, e), 0.0) for g_val in eligible], dtype=float
         )
         if shares.sum() <= 0:
             continue
@@ -755,12 +823,13 @@ def sun_abraham(
             eligible = [
                 g_val
                 for g_val in cohorts
-                if (g_val, e) in set(interact_meta) and (g_val + e) in time_periods
+                if (g_val, e) in cell_index
+                and ((g_val + e) in time_set or (binned and e in (e_min, e_max)))
             ]
             if not eligible:
                 continue
             shares = np.array(
-                [cohort_counts.get(g_val, 0) for g_val in eligible],
+                [cell_mass.get((g_val, e), 0.0) for g_val in eligible],
                 dtype=float,
             )
             if shares.sum() <= 0:
@@ -783,10 +852,11 @@ def sun_abraham(
             eligible = [
                 g_val
                 for g_val in cohorts
-                if (g_val, e) in set(interact_meta) and (g_val + e) in time_periods
+                if (g_val, e) in cell_index
+                and ((g_val + e) in time_set or (binned and e in (e_min, e_max)))
             ]
             for g_val in eligible:
-                count = float(cohort_counts.get(g_val, 0))
+                count = float(cell_mass.get((g_val, e), 0.0))
                 if count <= 0:
                     continue
                 W_fixest[cell_index[(g_val, e)]] += count
@@ -836,6 +906,7 @@ def sun_abraham(
         "pretest": pretest,
         "pretest_periods": pretest_periods,
         "event_window": (e_min, e_max),
+        "window_rule": window_rule,
         "n_cohorts": len(cohorts),
         "cohorts": cohorts,
         "event_study": event_study,
@@ -887,6 +958,7 @@ def sun_abraham(
                 "t": t,
                 "i": i,
                 "event_window": list(event_window) if event_window else None,
+                "window_rule": window_rule,
                 "control_group": control_group,
                 "covariates": list(covariates) if covariates else None,
                 "cluster": cluster,

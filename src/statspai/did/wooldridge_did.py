@@ -3275,6 +3275,12 @@ def twfe_decomposition(
     the coefficient and the dCDH weights are still reported, ``detail`` is
     empty and a warning says so.
 
+    This function is for a binary treatment that turns on once. For any
+    other treatment (non-binary, or one that can turn off), for a
+    regression with controls or other treatments, for the first-difference
+    regression and for the cell-level weights themselves, use
+    :func:`statspai.twowayfeweights`.
+
     Examples
     --------
     >>> import statspai as sp

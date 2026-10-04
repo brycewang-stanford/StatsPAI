@@ -4287,19 +4287,25 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_did_had_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "did_had",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_did_had_parity.py"
+        "tests/external_parity/test_dcdh_did_textbook.py"
       ],
       "tolerance": ""
     },
@@ -4308,6 +4314,7 @@
         "tests/r_parity/84_bjs_pretrends.py",
         "tests/r_parity/84_bjs_pretrends.R",
         "tests/stata_parity/84_bjs_pretrends.do",
+        "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/reference_parity/test_bjs_fe_covariates_parity.py",
         "tests/reference_parity/test_bjs_project_parity.py",
         "tests/reference_parity/test_did_imputation_autosample_Stata_parity.py",
@@ -4321,6 +4328,7 @@
         "84_bjs_pretrends"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -4387,10 +4395,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/reference_parity/test_absorbing_reference.py",
+        "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_did_multiplegt_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -4442,11 +4453,14 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/reference_parity/test_dcdh_options_parity.py",
+        "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_multiplegt_dyn_options_parity.py",
         "tests/reference_parity/test_multiplegt_dyn_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -6113,6 +6127,7 @@
         "tests/r_parity/15_hdfe_cluster.R",
         "tests/stata_parity/15_hdfe_cluster.do",
         "tests/reference_parity/test_castle_stata_parity.py",
+        "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_fast_feols_weights_fixest_parity.py",
         "tests/reference_parity/test_feols_multiref_R_parity.py",
         "tests/reference_parity/test_feols_varying_slopes_parity.py",
@@ -15848,6 +15863,7 @@
         "tests/r_parity/55_hc2_hc3.py",
         "tests/r_parity/55_hc2_hc3.R",
         "tests/stata_parity/55_hc2_hc3.do",
+        "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_published_replications.py",
         "tests/external_parity/test_whatif_nhefs.py",
@@ -15856,6 +15872,7 @@
         "tests/reference_parity/test_conley_parity.py",
         "tests/reference_parity/test_contrast_pwcompare_parity.py",
         "tests/reference_parity/test_cross_estimator_parity.py",
+        "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_did2x2_wild_parity.py",
         "tests/reference_parity/test_did_synth_shiftshare_parity.py",
         "tests/reference_parity/test_didregress_stata.py",
@@ -18223,6 +18240,8 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_dcdh_did_textbook.py",
+        "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_sunab_control_cohort_parity.py",
         "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
@@ -18230,6 +18249,7 @@
         "tests/reference_parity/test_sunab_weighted_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -19174,12 +19194,15 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_dcdh_did_textbook.py",
+        "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_dml_multi_treatment_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "test",
@@ -19562,6 +19585,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_did_synth_R_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
@@ -19619,6 +19643,29 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_dcdh_textbook_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "twowayfeweights",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_dcdh_did_textbook.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [

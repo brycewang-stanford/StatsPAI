@@ -1137,6 +1137,38 @@ TIER3_ROUND_TRIPS = [
             "pre_periods": [1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988],
         },
     ),
+    # de Chaisemartin-D'Haultfoeuille commands (numbers against Stata:
+    # tests/reference_parity/test_dcdh_textbook_stata_parity.py)
+    (
+        "twowayfeweights y g t d, type(feTR) weight(w)",
+        "twowayfeweights",
+        {"y": "y", "group": "g", "time": "t", "treat": "d", "weights": "w"},
+    ),
+    (
+        "did_multiplegt_dyn y g t d, effects(3) placebo(2) normalized",
+        "did_multiplegt_dyn",
+        {
+            "y": "y",
+            "group": "g",
+            "time": "t",
+            "treatment": "d",
+            "dynamic": 2,
+            "placebo": 2,
+            "normalized": True,
+            "se_method": "analytic",
+            "aggregation": "switchers",
+        },
+    ),
+    (
+        "did_had y g t d, effects(2) placebo(1)",
+        "did_had",
+        {"y": "y", "group": "g", "time": "t", "treat": "d", "effects": 2},
+    ),
+    (
+        "did_multiplegt_old y g t d, placebo(1) breps(0)",
+        "did_multiplegt",
+        {"y": "y", "treatment": "d", "placebo": 1, "placebo_sign": "r"},
+    ),
 ]
 
 

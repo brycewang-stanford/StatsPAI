@@ -23,6 +23,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "dfadjust": {
+          "default": false,
+          "description": "With robust='hc2', or vce='cr2' and cluster=: each coefficient's own Bell-McCaffrey degrees of freedom for p-values and intervals, as Stata 18 vce(hc2 [clustvar], dfadjust). Standard errors are unchanged",
+          "type": "boolean"
+        },
         "ewc_df": {
           "description": "With robust='ewc' (equal-weighted cosine long-run variance, t and F critical values): number of cosine terms = degrees of freedom. Default floor(0.4*T^(2/3))",
           "type": "integer"
@@ -14233,7 +14238,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Significance level for confidence intervals.",
           "type": "number"
         },
         "cluster": {
@@ -14284,7 +14289,7 @@
         },
         "placebo_sign": {
           "default": "stata",
-          "description": "Placebo sign convention. dCDH's own Stata and R packages disagree: on did::mpdta both give |placebo_1| = 0.024269 with identical effects, but opposite signs. Default keeps Stata's",
+          "description": "Placebo sign convention. 'r' is the forward difference, reported by R DIDmultiplegt and by Stata did_multiplegt_old without robust_dynamic; 'stata' is its negative, the convention of did_multiplegt_old, robust_dynamic. Same magnitude",
           "enum": [
             "stata",
             "r"
@@ -14301,7 +14306,7 @@
           "x-statspai-role": "column"
         },
         "treatment": {
-          "description": "Binary current-treatment indicator (may switch on and off)",
+          "description": "Current treatment: a 0/1 indicator or a discrete level (may move in both directions)",
           "type": "string",
           "x-aliases": [
             "treat"
@@ -14612,6 +14617,16 @@
           "description": "Unit-level sampling/population weights omega. Enters the fixed-effect projection, the least-squares solve, the cluster-robust variance, and the interaction weights (which become shares of omega-mass). Changes the target parameter, not the precision.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "window_rule": {
+          "default": "report",
+          "description": "What event_window does to relative times outside it. 'report': the regression stays saturated and the window selects what is reported. 'bin': they are pooled into the window's end points (binned eventstudyinteract dummies). 'reference': they join the omitted category, which biases every coefficient unless their effects are zero; the behaviour before 1.39.0",
+          "enum": [
+            "report",
+            "bin",
+            "reference"
+          ],
+          "type": "string"
         },
         "y": {
           "description": "Outcome variable.",
@@ -16532,7 +16547,7 @@
     }
   },
   {
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn; weight= is supported. **MVP caveats**: no controls=, trends or normalized/continuous options; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het; with controls= the analytic standard errors treat the covariate slopes as known. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "name": "did_multiplegt_dyn",
     "parameters": {
       "properties": {
@@ -16549,6 +16564,10 @@
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
+        },
+        "by_path": {
+          "description": "Estimate the effects separately for this many of the most frequent treatment paths; results in model_info['by_path']. Needs se_method='analytic'",
+          "type": "integer"
         },
         "cluster": {
           "description": "Cluster column (defaults to group)",
@@ -16585,6 +16604,10 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "design": {
+          "description": "Share (0, 1] of the switchers behind the last effect whose treatment paths to list in model_info['design'], most frequent first (Stata design(p, console))",
+          "type": "number"
+        },
         "dynamic": {
           "default": 3,
           "description": "Number of post-treatment dynamic horizons",
@@ -16614,6 +16637,11 @@
           "description": "Report the effect per unit of treatment received between the base period and the horizon",
           "type": "boolean"
         },
+        "normalized_weights": {
+          "default": false,
+          "description": "With normalized=True: the weights each normalized effect puts on the current and lagged treatments, in model_info['normalized_weights']",
+          "type": "boolean"
+        },
         "placebo": {
           "default": 0,
           "description": "Number of pre-treatment placebo horizons",
@@ -16621,7 +16649,7 @@
         },
         "same_switchers": {
           "default": false,
-          "description": "Restrict the treated arm to switchers observed at every requested horizon, holding the composition fixed across relative time. Stata's same_switchers.",
+          "description": "Restrict the treated arm to switchers whose effect is estimable at every requested horizon, holding the composition fixed across relative time. Stata's same_switchers.",
           "type": "boolean"
         },
         "se_method": {
@@ -40957,6 +40985,105 @@
           "default": false,
           "description": "Report the Yatchew differencing test alongside each horizon. Effects are tested for **linearity** in the dose (order 1), placebos for **mean independence** of the pre-period evolution from the future dose (order 0). Theorem 5 of the paper: with (quasi-)untreated groups, plain OLS of the evolution on the dose is unbiased for the same estimand *iff* that conditional expectation is linear. Failing to reject therefore licenses the far simpler estimator; rejecting says the nonparametric machinery is doing real work.",
           "type": "boolean"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "group",
+        "time",
+        "treat"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Weights a two-way fixed effects regression puts on treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "twowayfeweights",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the confidence interval of the coefficient.",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Control variables of the regression (Stata ``controls()``, accepted here as ``controls=`` too). The decomposition then holds under parallel trends conditional on a linear model in the controls.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "controls"
+          ],
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "Long panel, one or several rows per group and period.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "group": {
+          "description": "Group and period identifiers (the fixed effects of the regression).",
+          "type": "string",
+          "x-aliases": [
+            "id",
+            "unit"
+          ],
+          "x-statspai-role": "column"
+        },
+        "other_treatments": {
+          "description": "Other treatments in the regression (``type='feTR'`` only). The coefficient of ``treat`` is then the weighted sum of its own effects plus, for each other treatment, a weighted sum of that treatment's effects with weights that add up to zero: the coefficient is contaminated by the other treatments' effects unless these are homogeneous. The result reports both sets.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "test_random_weights": {
+          "description": "Variables to regress on the weights. If the weights are uncorrelated with the treatment effects the coefficient is still the average effect; a variable likely to move with the effects (calendar time, length of exposure) that is correlated with the weights is evidence against that.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "time": {
+          "description": "Group and period identifiers (the fixed effects of the regression).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "Treatment of the regression. With ``type='fdTR'``, the first difference of the treatment.",
+          "type": "string",
+          "x-aliases": [
+            "treatment"
+          ],
+          "x-statspai-role": "column"
+        },
+        "treat_level": {
+          "description": "The treatment in levels. Required with ``type='fdTR'``, where the weights are attached to the cells with a non-zero treatment, not to those with a non-zero change.",
+          "type": "string"
+        },
+        "type": {
+          "default": "feTR",
+          "description": "``'feTR'``: the regression of ``y`` on group and period fixed effects and ``treat``. ``'fdTR'``: the regression of the first difference of the outcome on period fixed effects and the first difference of the treatment; pass the differences in ``y`` and ``treat`` and the treatment itself in ``treat_level``.",
+          "enum": [
+            "feTR",
+            "fdTR"
+          ],
+          "type": "string"
+        },
+        "weights": {
+          "description": "Observation weights of the regression.",
+          "type": "string",
+          "x-aliases": [
+            "weight"
+          ],
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome of the regression. With ``type='fdTR'``, the first difference of the outcome.",
+          "type": "string",
+          "x-statspai-role": "column"
         }
       },
       "required": [

@@ -49,7 +49,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 
 __all__ = ["fect"]
 
@@ -189,6 +189,9 @@ def _initial_fit(
     untreated cells, predicted on every cell. Returns (Y0, beta0)."""
     T, N = Y.shape
     p = 0 if X is None else X.shape[2]
+    n_coef = 1 + (N - 1 if force in (1, 3) else 0) + (T - 1 if force in (2, 3) else 0)
+    if T * N * (n_coef + p) > _DENSE_INITIAL_FIT_CELLS:
+        return _initial_fit_iterative(Y, X, II, force)
     obs = np.where(II.ravel(order="F") == 1)[0]  # column-major like R's c()
     y_all = Y.ravel(order="F")
     unit_id = np.repeat(np.arange(N), T)
@@ -222,6 +225,79 @@ def _initial_fit(
     bad = ~np.isfinite(Y0)
     if bad.any():
         fill = float(np.nanmean(y_all[obs]))
+        Y0[bad] = fill if np.isfinite(fill) else 0.0
+    return Y0, beta0
+
+
+#: Size (rows x columns) of the dummy design above which the initial fit is
+#: solved by alternating projections instead of dense least squares. A panel
+#: of 7,000 units and 40 periods would need a 17 GB design.
+_DENSE_INITIAL_FIT_CELLS = 50_000_000
+
+
+def _initial_fit_iterative(
+    Y: np.ndarray, X: Optional[np.ndarray], II: np.ndarray, force: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """The same fit as :func:`_initial_fit` without the dummy design.
+
+    The fixed effects are solved by alternating between the unit and the
+    period means over the untreated cells (to 1e-12), and the covariate
+    slopes by Frisch-Waugh-Lovell on the residualised columns. On a panel
+    where every unit and every period has an untreated cell this is the
+    least-squares fit of the dense path. A unit (period) with no untreated
+    cell has no identified effect and is given the average one.
+    """
+    T, N = Y.shape
+    p = 0 if X is None else X.shape[2]
+    M = II == 1
+    n_unit = M.sum(axis=0).astype(float)
+    n_time = M.sum(axis=1).astype(float)
+    use_unit, use_time = force in (1, 3), force in (2, 3)
+
+    def _effects(V: np.ndarray) -> Tuple[float, np.ndarray, np.ndarray]:
+        """Constant, unit and period effects of ``V`` on the untreated cells."""
+        Vz = np.where(M, V, 0.0)
+        mu = float(Vz.sum() / max(M.sum(), 1))
+        alpha, xi = np.zeros(N), np.zeros(T)
+        for _ in range(10_000):
+            change = 0.0
+            if use_unit:
+                r = np.where(M, V - mu - xi[:, None], 0.0).sum(axis=0)
+                new = np.divide(r, n_unit, out=np.zeros(N), where=n_unit > 0)
+                change = max(change, float(np.max(np.abs(new - alpha), initial=0.0)))
+                alpha = new
+            if use_time:
+                r = np.where(M, V - mu - alpha[None, :], 0.0).sum(axis=1)
+                new = np.divide(r, n_time, out=np.zeros(T), where=n_time > 0)
+                change = max(change, float(np.max(np.abs(new - xi), initial=0.0)))
+                xi = new
+            if change < 1e-12 or not (use_unit and use_time):
+                break
+        if use_unit and (n_unit == 0).any() and (n_unit > 0).any():
+            alpha[n_unit == 0] = float(alpha[n_unit > 0].mean())
+        if use_time and (n_time == 0).any() and (n_time > 0).any():
+            xi[n_time == 0] = float(xi[n_time > 0].mean())
+        return mu, alpha, xi
+
+    def _fit(V: np.ndarray) -> np.ndarray:
+        mu, alpha, xi = _effects(V)
+        return mu + alpha[None, :] + xi[:, None]
+
+    beta0 = np.zeros(0)
+    target = Y
+    if p > 0:
+        assert X is not None
+        y_res = (Y - _fit(Y))[M]
+        x_res = np.column_stack([(X[:, :, k] - _fit(X[:, :, k]))[M] for k in range(p)])
+        beta0, *_ = np.linalg.lstsq(x_res, y_res, rcond=None)
+        target = Y - np.tensordot(X, beta0, axes=([2], [0]))
+    Y0 = _fit(target)
+    if p > 0:
+        assert X is not None
+        Y0 = Y0 + np.tensordot(X, beta0, axes=([2], [0]))
+    bad = ~np.isfinite(Y0)
+    if bad.any():
+        fill = float(np.nanmean(Y[M])) if M.any() else 0.0
         Y0[bad] = fill if np.isfinite(fill) else 0.0
     return Y0, beta0
 
@@ -997,6 +1073,20 @@ def fect(
     )
     if att_by_period_se is not None:
         detail["se"] = att_by_period_se
+
+    if int(est.get("niter", 0)) > max_iter:
+        # The EM iterations stopped at the cap, not at the tolerance. With
+        # weak factors the fit can keep moving for thousands of iterations
+        # and the ATT with it, so the number reported is the stopping
+        # rule's as much as the model's.
+        warnings.warn(
+            f"fect: the {method} iterations did not reach tol={tol:g} within "
+            f"max_iter={max_iter}; the estimate still depends on where they "
+            "stopped. Raise max_iter, and check that the ATT is stable when "
+            "tol is tightened.",
+            ConvergenceWarning,
+            stacklevel=2,
+        )
 
     model_info: Dict[str, Any] = {
         "estimator": f"fect ({method})",

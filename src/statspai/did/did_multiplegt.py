@@ -1,8 +1,9 @@
 """
 de Chaisemartin & D'Haultfœuille (2020) DID_M estimator.
 
-Estimates the effect of a binary treatment that can switch on AND off,
-robust to heterogeneous treatment effects across groups and time periods.
+Estimates the effect of a binary or discrete treatment that can move in
+both directions, robust to heterogeneous treatment effects across groups
+and time periods.
 Unlike Callaway & Sant'Anna (which assumes staggered adoption / no
 treatment reversal), this estimator handles general treatment paths
 where units can enter and exit treatment.
@@ -73,8 +74,9 @@ def did_multiplegt(
     """
     de Chaisemartin & D'Haultfœuille (2020) DID_M estimator.
 
-    Estimates the effect of a binary treatment that can switch on AND off,
-    robust to heterogeneous treatment effects across groups and time.
+    Estimates the effect of a binary or discrete treatment that can move in
+    both directions, robust to heterogeneous treatment effects across groups
+    and time.
 
     **Note** — ``dynamic=H`` here extends the DID_M pair rollup to H
     horizons; it is not equivalent to the dCDH (2024) ``_dyn``
@@ -93,9 +95,27 @@ def did_multiplegt(
     time : str
         Time period variable.
     treatment : str
-        Binary treatment indicator (0/1). Unlike Callaway-Sant'Anna, this
-        is the *current* treatment status, not the first-treatment period.
-        Units may switch treatment on and off.
+        Treatment in the current period: a 0/1 indicator or a discrete
+        (ordered) treatment such as a count. Unlike Callaway-Sant'Anna,
+        this is the *current* treatment, not the first-treatment period,
+        and units may move in both directions.
+
+        With a non-binary treatment switchers are compared to stayers
+        that had the same treatment in the previous period, each switcher
+        enters with the sign of its own change, and the sum is divided by
+        the total absolute change of treatment, so ``DID_M`` is an effect
+        per unit of treatment (the non-binary estimator of dCDH 2020, as
+        Stata ``did_multiplegt_old`` computes it). A baseline level with
+        switchers but no stayer, or the reverse, contributes nothing.
+
+        .. versionchanged:: 1.39.0
+           ⚠️ Correctness fix for non-binary treatments. Every switcher
+           from a baseline other than 0 used to be signed as a switch
+           *off* whichever way it moved, and nothing was divided by the
+           size of the change. On the Gentzkow, Shapiro and Sinkinson
+           (2011) newspaper panel that returned -0.00082 where
+           ``did_multiplegt_old`` returns 0.0057791. Binary treatments
+           are unaffected.
     controls : list of str, optional
         Control variables. When provided, first-differences of the outcome
         are residualized on first-differences of the controls.
@@ -114,14 +134,17 @@ def did_multiplegt(
     seed : int, optional
         Random seed for reproducibility.
     alpha : float, default 0.05
-    placebo_sign : {"stata", "r"}, default "stata"
-        Which implementation's placebo sign convention to report. dCDH's
-        Stata and R packages disagree: on ``did::mpdta`` both give
-        ``|placebo_1| = 0.024269`` with identical effects, but Stata reports
-        it positive and R negative. Neither is "the" answer, so this is a
-        parameter rather than a decision made for you, and the default is
-        what this function has always returned.
         Significance level for confidence intervals.
+    placebo_sign : {"stata", "r"}, default "stata"
+        Sign convention of the placebos. ``"r"`` is the forward difference
+        ``Y_{t-l} - Y_{t-l-1}`` of switchers minus stayers, which is what R
+        ``DIDmultiplegt`` 0.1.4 **and** Stata ``did_multiplegt_old`` without
+        ``robust_dynamic`` report. ``"stata"`` is its negative, the
+        convention of Stata ``did_multiplegt_old, robust_dynamic`` (on
+        ``did::mpdta``: ``+0.024269`` there, ``-0.024269`` in R). The
+        magnitude and the inference are the same either way; pass ``"r"``
+        to reproduce a plain ``did_multiplegt_old Y G T D, placebo()`` run.
+        The default is what this function has always returned.
 
     Returns
     -------
@@ -519,11 +542,23 @@ def _estimate_did_m(
                 dy_switch = resid[:n_switch]
                 dy_stay = resid[n_switch:]
 
-            # Binary treatment: baseline 0 -> switch ON (+); baseline 1 -> OFF (-).
-            turned_on = base == 0
-            sign = 1.0 if turned_on else -1.0
-
-            did_gt = sign * (np.mean(dy_switch) - np.mean(dy_stay))
+            # Each switcher enters with the sign of its own treatment change
+            # and the cell is weighted by the total absolute change, so that
+            # DID_M is the effect per unit of treatment (dCDH 2020, the
+            # non-binary case). With a binary treatment the change is +1 from
+            # baseline 0 and -1 from baseline 1, and this is the switcher-
+            # count-weighted average of signed cell DIDs it has always been.
+            dd_switch = switchers[treatment].to_numpy(dtype=float) - float(base)
+            sgn = np.sign(dd_switch)
+            abs_change = float(np.abs(dd_switch).sum())
+            numerator = float(np.sum(sgn * (dy_switch - np.mean(dy_stay))))
+            did_gt = numerator / abs_change
+            if np.all(sgn > 0):
+                direction = "on"
+            elif np.all(sgn < 0):
+                direction = "off"
+            else:
+                direction = "mixed"
 
             cell_estimates.append(
                 {
@@ -535,7 +570,8 @@ def _estimate_did_m(
                     "did_gt": did_gt,
                     "mean_dy_switch": float(np.mean(dy_switch)),
                     "mean_dy_stay": float(np.mean(dy_stay)),
-                    "direction": "on" if turned_on else "off",
+                    "direction": direction,
+                    "treatment_change": abs_change,
                 }
             )
             total_switchers += n_switch
@@ -548,9 +584,10 @@ def _estimate_did_m(
             "cell_estimates": [],
         }
 
-    # Weighted average
+    # Weighted average, weights = total absolute treatment change of the cell
+    total_change = sum(ce["treatment_change"] for ce in cell_estimates)
     did_m = sum(
-        ce["did_gt"] * ce["n_switchers"] / total_switchers for ce in cell_estimates
+        ce["did_gt"] * ce["treatment_change"] / total_change for ce in cell_estimates
     )
 
     return {
@@ -598,7 +635,7 @@ def _estimate_placebo(
     ypiv = df.pivot_table(index=group, columns=time, values=y, aggfunc="first")
 
     estimates: List[float] = []
-    weights: List[int] = []
+    weights: List[float] = []
 
     for i in range(1, len(periods)):
         t_prev, t_curr = periods[i - 1], periods[i]  # switching step (t-1 -> t)
@@ -630,9 +667,11 @@ def _estimate_placebo(
             st = st[ypiv.loc[st, t_end].notna() & ypiv.loc[st, t_base].notna()]
             if len(sw) == 0 or len(st) == 0:
                 continue
-            ps = float((ypiv.loc[sw, t_end] - ypiv.loc[sw, t_base]).mean())
             pt = float((ypiv.loc[st, t_end] - ypiv.loc[st, t_base]).mean())
-            sign = 1.0 if base == 0 else -1.0
+            dd = dpiv.loc[sw, t_curr].to_numpy(dtype=float) - float(base)
+            abs_change = float(np.abs(dd).sum())
+            pdiff = (ypiv.loc[sw, t_end] - ypiv.loc[sw, t_base]).to_numpy(dtype=float)
+            signed = float(np.sum(np.sign(dd) * (pdiff - pt))) / abs_change
             # ⚠️ dCDH's own Stata and R implementations disagree here. On
             # did::mpdta both return |placebo_1| = 0.024269, and the three
             # effects agree to six decimals, but Stata reports +0.024269 and
@@ -640,8 +679,8 @@ def _estimate_placebo(
             # so the convention is a parameter and the default preserves what
             # this function has always reported.
             flip = -1.0 if placebo_sign == "stata" else 1.0
-            estimates.append(flip * sign * (ps - pt))
-            weights.append(len(sw))
+            estimates.append(flip * signed)
+            weights.append(abs_change)
 
     if not estimates:
         return {"estimate": 0.0, "n_cells": 0}
@@ -682,7 +721,7 @@ def _estimate_dynamic(
     ypiv = df.pivot_table(index=group, columns=time, values=y, aggfunc="first")
 
     estimates: List[float] = []
-    weights: List[int] = []
+    weights: List[float] = []
 
     for i in range(1, len(periods)):
         t_prev, t_curr = periods[i - 1], periods[i]
@@ -711,11 +750,14 @@ def _estimate_dynamic(
             st = st[ypiv.loc[st, t_future].notna() & ypiv.loc[st, t_prev].notna()]
             if len(sw) == 0 or len(st) == 0:
                 continue
-            lds = float((ypiv.loc[sw, t_future] - ypiv.loc[sw, t_prev]).mean())
             ldt = float((ypiv.loc[st, t_future] - ypiv.loc[st, t_prev]).mean())
-            sign = 1.0 if base == 0 else -1.0
-            estimates.append(sign * (lds - ldt))
-            weights.append(len(sw))
+            dd = dpiv.loc[sw, t_curr].to_numpy(dtype=float) - float(base)
+            abs_change = float(np.abs(dd).sum())
+            ldiff = (ypiv.loc[sw, t_future] - ypiv.loc[sw, t_prev]).to_numpy(
+                dtype=float
+            )
+            estimates.append(float(np.sum(np.sign(dd) * (ldiff - ldt))) / abs_change)
+            weights.append(abs_change)
 
     if not estimates:
         return {"estimate": 0.0, "n_cells": 0}

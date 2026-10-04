@@ -117,6 +117,11 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "dfadjust": {
+            "default": false,
+            "description": "With robust='hc2', or vce='cr2' and cluster=: each coefficient's own Bell-McCaffrey degrees of freedom for p-values and intervals, as Stata 18 vce(hc2 [clustvar], dfadjust). Standard errors are unchanged",
+            "type": "boolean"
+          },
           "ewc_df": {
             "description": "With robust='ewc' (equal-weighted cosine long-run variance, t and F critical values): number of cosine terms = degrees of freedom. Default floor(0.4*T^(2/3))",
             "type": "integer"
@@ -34157,7 +34162,7 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Significance level for confidence intervals and tests.",
+            "description": "Significance level for confidence intervals.",
             "type": "number"
           },
           "cluster": {
@@ -34208,7 +34213,7 @@
           },
           "placebo_sign": {
             "default": "stata",
-            "description": "Placebo sign convention. dCDH's own Stata and R packages disagree: on did::mpdta both give |placebo_1| = 0.024269 with identical effects, but opposite signs. Default keeps Stata's",
+            "description": "Placebo sign convention. 'r' is the forward difference, reported by R DIDmultiplegt and by Stata did_multiplegt_old without robust_dynamic; 'stata' is its negative, the convention of did_multiplegt_old, robust_dynamic. Same magnitude",
             "enum": [
               "stata",
               "r"
@@ -34225,7 +34230,7 @@
             "x-statspai-role": "column"
           },
           "treatment": {
-            "description": "Binary current-treatment indicator (may switch on and off)",
+            "description": "Current treatment: a 0/1 indicator or a discrete level (may move in both directions)",
             "type": "string",
             "x-aliases": [
               "treat"
@@ -34255,7 +34260,9 @@
       "R parity module 81_didm",
       "Stata parity module 81_didm",
       "Cross-language parity (bit-exact) vs DIDmultiplegt::did_multiplegt (archived 0.1.4) [DIDmultiplegt 0.1.4, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06; parity module 81_didm -- tests/r_parity/81_didm.py",
+      "tests/external_parity/test_dcdh_did_textbook.py",
       "tests/reference_parity/test_absorbing_reference.py",
+      "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
       "tests/reference_parity/test_did_multiplegt_parity.py"
     ],
     "validation_status": "certified"
@@ -34932,6 +34939,16 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "window_rule": {
+            "default": "report",
+            "description": "What event_window does to relative times outside it. 'report': the regression stays saturated and the window selects what is reported. 'bin': they are pooled into the window's end points (binned eventstudyinteract dummies). 'reference': they join the omitted category, which biases every coefficient unless their effects are zero; the behaviour before 1.39.0",
+            "enum": [
+              "report",
+              "bin",
+              "reference"
+            ],
+            "type": "string"
+          },
           "y": {
             "description": "Outcome variable.",
             "type": "string",
@@ -34954,10 +34971,10 @@
       "R parity module 05_sunab",
       "Stata parity module 05_sunab",
       "Cross-language parity (bit-exact) vs fixest::sunab [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=0.03; parity module 05_sunab -- tests/r_parity/05_sunab.py",
+      "tests/external_parity/test_dcdh_did_textbook.py",
+      "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
       "tests/reference_parity/test_event_study_vcov_R_parity.py",
-      "tests/reference_parity/test_sunab_control_cohort_parity.py",
-      "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
-      "tests/reference_parity/test_sunab_event_time_aggregate_parity.py"
+      "tests/reference_parity/test_sunab_control_cohort_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -35602,7 +35619,7 @@
       "tests/r_parity/84_bjs_pretrends.py",
       "tests/r_parity/84_bjs_pretrends.R",
       "tests/stata_parity/84_bjs_pretrends.do",
-      "tests/reference_parity/test_bjs_fe_covariates_parity.py",
+      "tests/external_parity/test_dcdh_did_textbook.py",
       "BJS certification is convention-specific; the parity harness keeps R's 0-for-never input and Stata's missing-Ei input explicit."
     ],
     "validation_status": "certified"
@@ -38977,7 +38994,7 @@
     ],
     "category": "causal",
     "cost_profile": "Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn; weight= is supported. **MVP caveats**: no controls=, trends or normalized/continuous options; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het; with controls= the analytic standard errors treat the covariate slopes as known. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -39105,7 +39122,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn; weight= is supported. **MVP caveats**: no controls=, trends or normalized/continuous options; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn, for binary and for discrete (count) treatments; weights, controls, trends_nonparam, normalized, continuous, design and by_path are supported, and with se_method='analytic' the joint tests need no bootstrap. **MVP caveats**: no trends_lin or predict_het; with controls= the analytic standard errors treat the covariate slopes as known. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
       "name": "did_multiplegt_dyn",
       "parameters": {
         "properties": {
@@ -39122,6 +39139,10 @@
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
+          },
+          "by_path": {
+            "description": "Estimate the effects separately for this many of the most frequent treatment paths; results in model_info['by_path']. Needs se_method='analytic'",
+            "type": "integer"
           },
           "cluster": {
             "description": "Cluster column (defaults to group)",
@@ -39158,6 +39179,10 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "design": {
+            "description": "Share (0, 1] of the switchers behind the last effect whose treatment paths to list in model_info['design'], most frequent first (Stata design(p, console))",
+            "type": "number"
+          },
           "dynamic": {
             "default": 3,
             "description": "Number of post-treatment dynamic horizons",
@@ -39187,6 +39212,11 @@
             "description": "Report the effect per unit of treatment received between the base period and the horizon",
             "type": "boolean"
           },
+          "normalized_weights": {
+            "default": false,
+            "description": "With normalized=True: the weights each normalized effect puts on the current and lagged treatments, in model_info['normalized_weights']",
+            "type": "boolean"
+          },
           "placebo": {
             "default": 0,
             "description": "Number of pre-treatment placebo horizons",
@@ -39194,7 +39224,7 @@
           },
           "same_switchers": {
             "default": false,
-            "description": "Restrict the treated arm to switchers observed at every requested horizon, holding the composition fixed across relative time. Stata's same_switchers.",
+            "description": "Restrict the treated arm to switchers whose effect is estimable at every requested horizon, holding the composition fixed across relative time. Stata's same_switchers.",
             "type": "boolean"
           },
           "se_method": {
@@ -49638,6 +49668,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_did_synth_R_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
@@ -49743,7 +49774,7 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_did_synth_R_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_dcdh_textbook_stata_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -63955,10 +63986,10 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (aligned) vs Stata 18 test (after regress / ivregress / logit / poisson) [Stata 18]; tolerance 1e-6 rel (observed <= 2.3e-15 on linear fits, <= 8e-10 on ML fits, far-tail p <= 4.7e-8) -- tests/reference_parity/test_postestimation_stata_parity.py",
+      "tests/external_parity/test_dcdh_did_textbook.py",
+      "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
       "tests/reference_parity/test_dml_multi_treatment_parity.py",
-      "tests/reference_parity/test_joint_wald_stata_parity.py",
-      "tests/reference_parity/test_postestimation_parity.py",
-      "tests/reference_parity/test_r2_postest_parity.py"
+      "tests/reference_parity/test_joint_wald_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -88040,18 +88071,18 @@
     "cost_profile": "method='cs' with bstrap=True runs biters multiplier-bootstrap draws over every ATT(g,t) cell; cost grows with cohorts x periods x biters. Analytic SEs (default) are O(n).",
     "description": "Heterogeneous-adoption DiD using quasi-untreateded groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_did_had_parity.py"
+        "tests/external_parity/test_dcdh_did_textbook.py"
       ],
       "tolerance": ""
     },
@@ -88228,7 +88259,8 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_did_had_parity.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_dcdh_did_textbook.py",
+      "tests/reference_parity/test_did_had_parity.py"
     ],
     "validation_status": "validated"
   },

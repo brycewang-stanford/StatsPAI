@@ -161,6 +161,86 @@ through `sp.stata`.
 identity fit, for in-sample predictions, for leverage and Cook's distance,
 or for direct calls to `sp.heckman`.
 
+<a id="oct2026-dcdh-textbook-fixes"></a>
+
+## 1.38.0 → next: ⚠️ `sp.did_multiplegt` with a non-binary treatment
+
+**What changed.** Each switcher now enters with the sign of its own
+treatment change, and the sum is divided by the total absolute change, so
+the estimate is an effect per unit of treatment. Every switcher from a
+baseline other than 0 used to be signed as a switch off, and nothing was
+divided.
+
+**Who is affected.** Calls where the treatment takes values other than 0
+and 1. The old numbers were wrong: -0.00082 against 0.0057791 on the
+newspaper panel of Gentzkow, Shapiro and Sinkinson (2011).
+
+**What to do.** Rerun.
+
+**Unaffected.** Binary treatments. `placebo_sign` keeps its default; its
+description is corrected (`'r'` is the sign of a plain
+`did_multiplegt_old` run, `'stata'` the sign of `did_multiplegt_old,
+robust_dynamic`).
+
+## 1.38.0 → next: ⚠️ `sp.sun_abraham`: cohort shares and `event_window`
+
+**What changed.** (1) The interaction weights are the cohorts' shares of
+the observations at each relative time, not of the units. (2) With
+`event_window=`, the regression stays saturated in every relative time and
+the window only selects what is reported and aggregated. The new argument
+`window_rule` chooses between that (`'report'`), pooled ends (`'bin'`) and
+the previous behaviour (`'reference'`).
+
+**Who is affected.** (1) Unbalanced panels, where the two shares differ.
+(2) Every call with an `event_window` narrower than the data. The previous
+estimates measured each coefficient against a reference that contained the
+treated observations outside the window.
+
+**What to do.** Rerun. Pass `window_rule='reference'` only to reproduce an
+earlier number.
+
+**Unaffected.** Balanced panels without `event_window`.
+
+## 1.38.0 → next: ⚠️ `sp.did_multiplegt_dyn`: `same_switchers`, `aggregation='switchers'`, `controls=`, joint tests
+
+**What changed.** (1) `same_switchers=True` keeps the switchers whose
+effect is estimable at every requested horizon. It kept those merely
+observed there. (2) `aggregation='switchers'` divides by the treatment
+changes in place at each horizon. (3) `controls=` fits its regression on
+the never-switchers too and no longer uses a change across a hole in the
+panel as a one-period change. (4) With `se_method='analytic'` the joint
+tests are computed from the analytic covariance and `n_boot` is ignored;
+`joint_effects_test` is new. (5) A non-binary treatment is estimated
+instead of refused.
+
+**Who is affected.** (1) Panels where some switchers have no control at
+the longest horizon, which includes every staggered panel without
+never-treated groups. (2) Treatments that return to their starting value
+within the horizons. (3) Panels with never-switchers, or with missing
+periods. (4) Analytic fits that read `joint_placebo_test`,
+`joint_overall_test` or `effects_equal_test`: the p-values now come from
+the same variance as the standard errors, and an analytic fit with
+`n_boot=0`, which used to return `None` for them, returns the test.
+
+**What to do.** Rerun. Code that relied on a `ValueError` for a non-binary
+treatment should check the treatment itself.
+
+**Unaffected.** Effects, placebos and standard errors of fits without
+these options; bootstrap fits.
+
+## 1.38.0 → next: ⚠️ `regress, vce(hc2 clustvar, dfadjust)` in `sp.stata`
+
+**What changed.** The command translates to `sp.regress(..., vce='cr2',
+cluster='clustvar', dfadjust=True)`. It used to translate to
+`robust='hc2'`, without the cluster and without the adjusted degrees of
+freedom.
+
+**Who is affected.** Anyone who ran such a line through `sp.stata` or
+`sp.from_stata`. With a cluster variable the standard errors change; with
+`dfadjust` the p-values and intervals do.
+
+**What to do.** Rerun.
+
 <a id="oct2026-causalml-textbook-fixes"></a>
 
 ## 1.38.0 → next: ⚠️ `sp.dml` PLR / PLIV with a classifier nuisance

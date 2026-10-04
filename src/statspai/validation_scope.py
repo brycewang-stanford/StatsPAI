@@ -261,6 +261,7 @@ def _x_sa(r: Any) -> Dict[str, Optional[str]]:
         "share_variance": {True: "estimated", False: "fixed"}.get(
             mi.get("share_variance")
         ),
+        "window_rule": _lower(mi.get("window_rule")),
     }
 
 
@@ -1408,6 +1409,7 @@ _add(
             "control_group": ("nevertreated", "lastcohort"),
             "aggregation": ("fixest_att", "event_time"),
             "share_variance": ("estimated", "fixed"),
+            "window_rule": ("report", "bin", "reference"),
         },
         _x_sa,
         (
@@ -1418,6 +1420,7 @@ _add(
                     "control_group": _vals("nevertreated"),
                     "aggregation": _vals("fixest_att"),
                     "share_variance": _vals("estimated", "fixed"),
+                    "window_rule": _vals("report"),
                 },
                 _EST_SE,
                 "cohort-size-weighted ATT (agg='att') and SE vs fixest::sunab and "
@@ -1431,6 +1434,7 @@ _add(
                     "control_group": _vals("nevertreated"),
                     "aggregation": _vals("event_time"),
                     "share_variance": _vals("estimated", "fixed"),
+                    "window_rule": _vals("report"),
                 },
                 _EST_SE,
                 "equal-weighted post-period event-time average and its SE vs the "
@@ -1445,6 +1449,7 @@ _add(
                     "control_group": _vals("nevertreated"),
                     "aggregation": _vals("event_time"),
                     "share_variance": _vals("estimated"),
+                    "window_rule": _vals("report"),
                 },
                 _COV,
                 "95% CI coverage of the default event-time aggregate",
@@ -1457,12 +1462,28 @@ _add(
                     "control_group": _vals("nevertreated"),
                     "aggregation": _vals("event_time"),
                     "share_variance": _vals("fixed"),
+                    "window_rule": _vals("report"),
                 },
                 ("vcov",),
                 "every entry of the event-study covariance (off-diagonal blocks "
                 "included) vs fixest::sunab's A V A'; the matrix sp.uniform_bands "
                 "and sp.honest_did consume",
                 "sp.sun_abraham(share_variance=False)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_dcdh_textbook_stata_parity.py",
+                {
+                    "control_group": _vals("nevertreated"),
+                    "aggregation": _vals("event_time"),
+                    "share_variance": _vals("estimated"),
+                    "window_rule": _vals("bin"),
+                },
+                _EST_SE,
+                "event-time coefficients and SEs with both ends of the window "
+                "pooled, on an unbalanced panel, unweighted and with weights "
+                "that vary over time, vs Stata eventstudyinteract",
+                "sp.sun_abraham(window_rule='bin')",
             ),
         ),
         invariant={
@@ -1473,7 +1494,11 @@ _add(
             ),
         },
         defaults={"share_variance": "estimated"},
-        note="share_variance changes the per-period SEs only (module 05 pins both "
+        note="window_rule only matters with event_window=; 'report' fits the "
+        "saturated regression and is what every row without a window runs. "
+        "'reference' (the behaviour before 1.39.0) has no reference "
+        "implementation and is kept to reproduce earlier output. "
+        "share_variance changes the per-period SEs only (module 05 pins both "
         "conventions: fixest for fixed shares, eventstudyinteract for the Prop. 3 "
         "term); the overall aggregate's SE treats cohort shares as fixed on both "
         "settings. The joint event-study covariance has a reference only with "

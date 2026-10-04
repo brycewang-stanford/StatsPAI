@@ -129,6 +129,7 @@ from .summary import (
     did_summary_to_markdown,
 )
 from .sun_abraham import sun_abraham
+from .twowayfeweights import twowayfeweights
 from .wooldridge_did import drdid, etwfe, etwfe_emfx, twfe_decomposition, wooldridge_did
 from .xtevent import xtevent
 
@@ -1041,6 +1042,7 @@ __all__ = [
     "did_report",
     "drdid",
     "twfe_decomposition",
+    "twowayfeweights",
     # v0.10 staggered DiD frontier
     "did_bcf",
     "did_forest",

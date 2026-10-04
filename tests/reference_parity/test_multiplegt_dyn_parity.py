@@ -40,6 +40,7 @@ from __future__ import annotations
 import pathlib
 import warnings
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -272,9 +273,21 @@ def test_analytic_path_estimates_are_unchanged(analytic_fit, fit):
 
 def test_analytic_path_reports_itself(analytic_fit):
     assert analytic_fit.model_info["se_method"] == "analytic"
-    # The joint tests come from the bootstrap, so with n_boot=0 they are
-    # absent rather than silently fabricated from the analytic variance.
-    assert analytic_fit.model_info["joint_placebo_test"] is None
+    # Since 1.39.0 the joint tests of an analytic fit are Wald tests on the
+    # analytic joint covariance of the horizons, as the reference computes
+    # them (tests/reference_parity/test_dcdh_textbook_stata_parity.py pins
+    # the p-values against Stata). No replicate is drawn.
+    joint = analytic_fit.model_info["joint_placebo_test"]
+    es = analytic_fit.model_info["event_study"]
+    vcov = analytic_fit.model_info["event_study_vcov"]
+    pre = [int(h) for h in es.loc[es["relative_time"] < 0, "relative_time"]]
+    if pre:
+        b = es.set_index("relative_time").loc[pre, "att"].to_numpy()
+        wald = float(b @ np.linalg.solve(vcov.loc[pre, pre].to_numpy(), b))
+        assert joint["statistic"] == pytest.approx(wald, rel=1e-10)
+        assert joint["df"] == len(pre)
+    else:
+        assert joint is None
 
 
 def test_unknown_se_method_fails_loudly(panel):

@@ -6332,6 +6332,11 @@
         "share_variance": [
           "estimated",
           "fixed"
+        ],
+        "window_rule": [
+          "report",
+          "bin",
+          "reference"
         ]
       },
       "primary_outputs": [
@@ -6346,27 +6351,27 @@
           "reason": "the event-time covariance is formed before the summary aggregate is chosen"
         }
       },
-      "cells": 8,
+      "cells": 24,
       "overall": {
-        "covered": 4,
-        "not_covered": 4
+        "covered": 5,
+        "not_covered": 19
       },
       "by_output": {
         "estimate": {
-          "reference": 4,
-          "not_covered": 4
+          "reference": 5,
+          "not_covered": 19
         },
         "se": {
-          "reference": 4,
-          "not_covered": 4
+          "reference": 5,
+          "not_covered": 19
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 7
+          "not_covered": 23
         },
         "vcov": {
           "reference": 2,
-          "not_covered": 6
+          "not_covered": 22
         }
       },
       "rows": [
@@ -6388,6 +6393,9 @@
             "share_variance": [
               "estimated",
               "fixed"
+            ],
+            "window_rule": [
+              "report"
             ]
           },
           "compares": "cohort-size-weighted ATT (agg='att') and SE vs fixest::sunab and eventstudyinteract"
@@ -6410,6 +6418,9 @@
             "share_variance": [
               "estimated",
               "fixed"
+            ],
+            "window_rule": [
+              "report"
             ]
           },
           "compares": "equal-weighted post-period event-time average and its SE vs the same linear combination of fixest::sunab coefficients, on both share_variance settings"
@@ -6430,6 +6441,9 @@
             ],
             "share_variance": [
               "estimated"
+            ],
+            "window_rule": [
+              "report"
             ]
           },
           "compares": "95% CI coverage of the default event-time aggregate"
@@ -6450,9 +6464,36 @@
             ],
             "share_variance": [
               "fixed"
+            ],
+            "window_rule": [
+              "report"
             ]
           },
           "compares": "every entry of the event-study covariance (off-diagonal blocks included) vs fixest::sunab's A V A'; the matrix sp.uniform_bands and sp.honest_did consume"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+          "entry_point": "sp.sun_abraham(window_rule='bin')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "control_group": [
+              "nevertreated"
+            ],
+            "aggregation": [
+              "event_time"
+            ],
+            "share_variance": [
+              "estimated"
+            ],
+            "window_rule": [
+              "bin"
+            ]
+          },
+          "compares": "event-time coefficients and SEs with both ends of the window pooled, on an unbalanced panel, unweighted and with weights that vary over time, vs Stata eventstudyinteract"
         }
       ]
     },
@@ -6535,20 +6576,20 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 814,
+      "reference": 815,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45488
+      "not_covered": 45503
     },
     "se": {
-      "reference": 366,
+      "reference": 367,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45916
+      "not_covered": 45931
     },
     "coverage": {
       "coverage_simulation": 11,
-      "not_covered": 36803
+      "not_covered": 36819
     },
     "diagnostic": {
       "reference": 3,
@@ -6556,7 +6597,7 @@
     },
     "vcov": {
       "reference": 9,
-      "not_covered": 1455
+      "not_covered": 1471
     },
     "joint_test": {
       "reference": 16,

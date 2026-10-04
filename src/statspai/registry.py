@@ -907,6 +907,16 @@ def _build_registry() -> None:
                     "Stata's newey and sandwich::NeweyWest(adjust=TRUE)",
                 ),
                 ParamSpec(
+                    "dfadjust",
+                    "bool",
+                    False,
+                    False,
+                    "With robust='hc2', or vce='cr2' and cluster=: each "
+                    "coefficient's own Bell-McCaffrey degrees of freedom for "
+                    "p-values and intervals, as Stata 18 vce(hc2 [clustvar], "
+                    "dfadjust). Standard errors are unchanged",
+                ),
+                ParamSpec(
                     "ewc_df",
                     "int",
                     False,
@@ -15201,8 +15211,8 @@ def _build_registry() -> None:
                     "treatment",
                     "str",
                     True,
-                    description="Binary current-treatment indicator "
-                    "(may switch on and off)",
+                    description="Current treatment: a 0/1 indicator or a "
+                    "discrete level (may move in both directions)",
                 ),
                 ParamSpec(
                     "controls",
@@ -15239,10 +15249,11 @@ def _build_registry() -> None:
                     False,
                     "stata",
                     description=(
-                        "Placebo sign convention. dCDH's own Stata and R "
-                        "packages disagree: on did::mpdta both give "
-                        "|placebo_1| = 0.024269 with identical effects, but "
-                        "opposite signs. Default keeps Stata's"
+                        "Placebo sign convention. 'r' is the forward "
+                        "difference, reported by R DIDmultiplegt and by Stata "
+                        "did_multiplegt_old without robust_dynamic; 'stata' "
+                        "is its negative, the convention of "
+                        "did_multiplegt_old, robust_dynamic. Same magnitude"
                     ),
                     enum=["stata", "r"],
                 ),
@@ -15631,6 +15642,23 @@ def _build_registry() -> None:
                     None,
                     "Restrict the pre-trend test to the k estimated leads "
                     "closest to treatment.",
+                ),
+                ParamSpec(
+                    "window_rule",
+                    "str",
+                    False,
+                    "report",
+                    description=(
+                        "What event_window does to relative times outside it. "
+                        "'report': the regression stays saturated and the "
+                        "window selects what is reported. 'bin': they are "
+                        "pooled into the window's end points (binned "
+                        "eventstudyinteract dummies). 'reference': they join "
+                        "the omitted category, which biases every coefficient "
+                        "unless their effects are zero; the behaviour before "
+                        "1.39.0"
+                    ),
+                    enum=["report", "bin", "reference"],
                 ),
                 ParamSpec("y", "str", True),
                 ParamSpec(
@@ -17855,9 +17883,13 @@ def _build_registry() -> None:
                 "placebos, switcher counts, the switcher-weighted aggregate "
                 "and the analytic (se_method='analytic') standard errors are "
                 "pinned to the authors' DIDmultiplegtDYN / Stata "
-                "did_multiplegt_dyn; weight= is supported. **MVP caveats**: "
-                "no controls=, trends or normalized/continuous options; "
-                "heteroskedastic-weights variant pending."
+                "did_multiplegt_dyn, for binary and for discrete (count) "
+                "treatments; weights, controls, trends_nonparam, normalized, "
+                "continuous, design and by_path are supported, and with "
+                "se_method='analytic' the joint tests need no bootstrap. "
+                "**MVP caveats**: no trends_lin or predict_het; with "
+                "controls= the analytic standard errors treat the covariate "
+                "slopes as known."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -17875,9 +17907,10 @@ def _build_registry() -> None:
                     "bool",
                     False,
                     False,
-                    "Restrict the treated arm to switchers observed at every "
-                    "requested horizon, holding the composition fixed across "
-                    "relative time. Stata's same_switchers.",
+                    "Restrict the treated arm to switchers whose effect is "
+                    "estimable at every requested horizon, holding the "
+                    "composition fixed across relative time. Stata's "
+                    "same_switchers.",
                 ),
                 ParamSpec(
                     "effects_equal",
@@ -17954,6 +17987,33 @@ def _build_registry() -> None:
                     None,
                     "Time-invariant variables a control must match the "
                     "switcher on, over and above the baseline treatment",
+                ),
+                ParamSpec(
+                    "design",
+                    "float",
+                    False,
+                    None,
+                    "Share (0, 1] of the switchers behind the last effect whose "
+                    "treatment paths to list in model_info['design'], most "
+                    "frequent first (Stata design(p, console))",
+                ),
+                ParamSpec(
+                    "by_path",
+                    "int",
+                    False,
+                    None,
+                    "Estimate the effects separately for this many of the most "
+                    "frequent treatment paths; results in model_info['by_path']. "
+                    "Needs se_method='analytic'",
+                ),
+                ParamSpec(
+                    "normalized_weights",
+                    "bool",
+                    False,
+                    False,
+                    "With normalized=True: the weights each normalized effect "
+                    "puts on the current and lagged treatments, in "
+                    "model_info['normalized_weights']",
                 ),
                 ParamSpec(
                     "continuous",

@@ -153,9 +153,28 @@ def test_multiplegt_dyn_negative_dynamic_raises(sw):
         sp.did_multiplegt_dyn(sw, y="y", group="i", time="t", treatment="d", dynamic=-1)
 
 
-def test_multiplegt_dyn_nonbinary_raises(sw):
+def test_multiplegt_dyn_doubled_treatment_halves_the_normalized_effect(sw):
+    """A 0/2 treatment is accepted (1.39.0) and is the 0/1 one in other units.
+
+    The non-normalized effects compare the same switchers with the same
+    controls, so they are unchanged; per unit of treatment they are halved.
+    """
+    kwargs = dict(y="y", group="i", time="t", treatment="d", se_method="analytic")
+    one = sp.did_multiplegt_dyn(sw, **kwargs).model_info["event_study"]
+    doubled = sw.copy()
+    doubled["d"] = doubled["d"] * 2
+    two = sp.did_multiplegt_dyn(doubled, **kwargs).model_info["event_study"]
+    assert two["att"].to_numpy() == pytest.approx(one["att"].to_numpy(), abs=1e-12)
+    per_unit_one = sp.did_multiplegt_dyn(sw, normalized=True, **kwargs)
+    per_unit_two = sp.did_multiplegt_dyn(doubled, normalized=True, **kwargs)
+    a = per_unit_one.model_info["event_study"]["att"].to_numpy()
+    b = per_unit_two.model_info["event_study"]["att"].to_numpy()
+    assert b == pytest.approx(a / 2, abs=1e-12)
+
+
+def test_multiplegt_dyn_non_numeric_treatment_raises(sw):
     bad = sw.copy()
-    bad["d"] = bad["d"] * 2
+    bad["d"] = bad["d"].astype(str)
     with pytest.raises(ValueError):
         sp.did_multiplegt_dyn(bad, y="y", group="i", time="t", treatment="d")
 

@@ -712,6 +712,7 @@ from .did.did_had import did_had, quasi_untreated_test, yatchew_linearity_test
 from .did.did_multiplegt_dyn import did_multiplegt_dyn
 from .did.lp_did import lp_did
 from .did.timevarying_covariates import did_timevarying_covariates
+from .did.twowayfeweights import twowayfeweights
 
 # Eager: ``dose_response`` collides (function + subpackage of same name).
 from .dose_response import DoseResponse, VCNetResult, dose_response, scigan, vcnet
@@ -1955,6 +1956,7 @@ __all__ = [
     "did_timevarying_covariates",
     # dCDH (2024) intertemporal event-study DiD (MVP — see RFC)
     "did_had",
+    "twowayfeweights",
     "quasi_untreated_test",
     "yatchew_linearity_test",
     "did_multiplegt_dyn",

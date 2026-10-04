@@ -29,7 +29,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `rdrobust` | 25920 | 129 / 25920 | 129 / 25920 | -- | -- | -- | 129 / 25920 |
 | `regress` | 26 | 26 / 26 | 15 / 26 | -- | 5 / 26 | -- | 15 / 26 |
 | `sdid` | 288 | 52 / 288 | 24 / 288 | -- | -- | -- | 24 / 288 |
-| `sun_abraham` | 8 | 4 / 8 | 4 / 8 | 2 / 8 | -- | -- | 4 / 8 |
+| `sun_abraham` | 24 | 5 / 24 | 5 / 24 | 2 / 24 | -- | -- | 5 / 24 |
 | `synth` | 8 | 1 / 8 | -- | -- | -- | -- | 1 / 8 |
 
 `--` means no artifact compares that output for the function at all. `Fully covered` counts cells whose primary outputs all have reference evidence.
@@ -95,10 +95,10 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `sdid` | estimate | 0 | 0 | 0 | 0 | 236 |
 | `sdid` | se | 0 | 0 | 0 | 0 | 264 |
 | `sdid` | coverage | 0 | 0 | 1 | 0 | 287 |
-| `sun_abraham` | estimate | 0 | 0 | 0 | 0 | 4 |
-| `sun_abraham` | se | 0 | 0 | 0 | 0 | 4 |
-| `sun_abraham` | coverage | 0 | 0 | 1 | 0 | 7 |
-| `sun_abraham` | vcov | 0 | 0 | 0 | 0 | 6 |
+| `sun_abraham` | estimate | 0 | 0 | 0 | 0 | 19 |
+| `sun_abraham` | se | 0 | 0 | 0 | 0 | 19 |
+| `sun_abraham` | coverage | 0 | 0 | 1 | 0 | 23 |
+| `sun_abraham` | vcov | 0 | 0 | 0 | 0 | 22 |
 | `synth` | estimate | 0 | 0 | 0 | 2 | 5 |
 
 ## Artifacts per function
@@ -422,14 +422,15 @@ Dimensions: `method` in {sdid, sc, did}; `se_method` in {placebo, bootstrap, jac
 
 ### `sun_abraham`
 
-Dimensions: `control_group` in {nevertreated, lastcohort}; `aggregation` in {fixest_att, event_time}; `share_variance` in {estimated, fixed}.
+Dimensions: `control_group` in {nevertreated, lastcohort}; `aggregation` in {fixest_att, event_time}; `share_variance` in {estimated, fixed}; `window_rule` in {report, bin, reference}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
-| T2 | estimate, se | control_group=nevertreated; aggregation=fixest_att; share_variance=estimated/fixed | `tests/r_parity/05_sunab.py` | `sp.sun_abraham(aggregation='fixest_att')` |
-| T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated/fixed | `tests/reference_parity/test_sunab_event_time_aggregate_parity.py` | `sp.sun_abraham()` |
-| B | coverage | control_group=nevertreated; aggregation=event_time; share_variance=estimated | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.sun_abraham()` |
-| T2 | vcov | control_group=nevertreated; aggregation=event_time; share_variance=fixed | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.sun_abraham(share_variance=False)` |
+| T2 | estimate, se | control_group=nevertreated; aggregation=fixest_att; share_variance=estimated/fixed; window_rule=report | `tests/r_parity/05_sunab.py` | `sp.sun_abraham(aggregation='fixest_att')` |
+| T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated/fixed; window_rule=report | `tests/reference_parity/test_sunab_event_time_aggregate_parity.py` | `sp.sun_abraham()` |
+| B | coverage | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=report | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.sun_abraham()` |
+| T2 | vcov | control_group=nevertreated; aggregation=event_time; share_variance=fixed; window_rule=report | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.sun_abraham(share_variance=False)` |
+| T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=bin | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.sun_abraham(window_rule='bin')` |
 
 `aggregation` is ignored for vcov: the event-time covariance is formed before the summary aggregate is chosen
 

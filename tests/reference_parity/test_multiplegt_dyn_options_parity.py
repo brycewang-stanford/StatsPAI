@@ -328,9 +328,21 @@ class TestEffectsEqual:
         """
         assert _boot_fit(panel).diagnostics["effects_equal_test"] is None
 
-    def test_requires_bootstrap_draws(self, panel):
-        """Documented behaviour: the covariance comes from the bootstrap."""
-        assert _fit(panel, effects_equal=True).diagnostics["effects_equal_test"] is None
+    def test_analytic_fit_tests_on_the_analytic_covariance(self, panel):
+        """Since 1.39.0 an analytic fit needs no bootstrap draw for the test.
+
+        The covariance is the joint analytic one of the horizons, as in the
+        reference (p-values pinned against Stata in
+        test_dcdh_textbook_stata_parity.py).
+        """
+        res = _fit(panel, effects_equal=True)
+        test = res.diagnostics["effects_equal_test"]
+        if res.model_info["se_method"] == "analytic":
+            assert test is not None
+            assert test["df"] == len(test["horizons"]) - 1
+            assert 0.0 <= test["pvalue"] <= 1.0
+        else:
+            assert test is None
 
     @pytest.mark.parametrize("bad", [(3, 1), "all", (1,)])
     def test_invalid_range_rejected(self, panel, bad):

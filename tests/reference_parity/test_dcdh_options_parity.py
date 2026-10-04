@@ -211,10 +211,21 @@ def test_continuous_matches_didmultiplegtdyn(continuous_panel, degree):
 
 
 def test_continuous_accepts_a_non_binary_treatment(continuous_panel):
-    """That check is exactly what continuous= exists to relax."""
-    with pytest.raises(ValueError, match="binary"):
+    """Without continuous= no two groups share a period-one treatment.
+
+    A discrete non-binary treatment is estimated by matching on the
+    period-one level (since 1.39.0); here every level is its own, so there
+    is no control for any switcher and the error says what to pass.
+    """
+    with pytest.raises(sp.exceptions.DataInsufficient, match="continuous="):
         sp.did_multiplegt_dyn(
-            continuous_panel, y="y", group="id", time="t", treatment="d", dynamic=1
+            continuous_panel,
+            y="y",
+            group="id",
+            time="t",
+            treatment="d",
+            dynamic=1,
+            n_boot=0,
         )
 
 

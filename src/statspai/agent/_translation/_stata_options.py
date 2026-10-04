@@ -379,6 +379,9 @@ _DISPLAY_BY_COMMAND = {
         "latex",
         "suppress",
     },
+    "did_multiplegt_dyn": {"graph_off", "graphoptions", "_no_updates"},
+    "did_had": {"graph_off", "graph_opts", "_no_updates"},
+    "did_multiplegt_old": {"graphoptions"},
 }
 
 
@@ -486,7 +489,8 @@ def se_note(
         names.append("vce")
     if not asked:
         return None, []
-    vce_head = vce.split()[0].lower() if vce else ""
+    vce_words = vce.replace(",", " ").split() if vce else []
+    vce_head = vce_words[0].lower() if vce_words else ""
     known_vce = vce_head in ("", "robust", "cluster", "hc0", "hc1", "hc2", "hc3", "nn")
     if known_vce and any(arguments.get(k) for k in _SE_ARGUMENTS):
         return None, []

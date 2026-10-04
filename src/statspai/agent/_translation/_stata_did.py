@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable, Dict, FrozenSet, List, Optional
 
-from ._stata import _emit, _emit_error
+from ._stata import _emit, _emit_error, _expand_abbreviations, _numlist
 from ._stata_lexer import StataCommand
 
 __all__ = ["HANDLERS", "POSTEST", "did_aggregation"]
@@ -378,8 +378,338 @@ def _h_csdid_estat(cmd: StataCommand) -> Dict[str, Any]:
     return did_aggregation("csdid_estat", kind, cmd.options)
 
 
+def _option_varlist(
+    cmd: StataCommand, name: str, command: str
+) -> "tuple[Optional[Dict[str, Any]], List[str]]":
+    """The variables named in a varlist option, wildcards and ranges expanded."""
+    raw = cmd.options.get(name)
+    if not raw:
+        return None, []
+    err, names = _expand_abbreviations(raw.split(), cmd.columns)
+    if err:
+        return _emit_error(f"{command} {name}(): {err}", command=command), []
+    bad = _plain_names(names, command)
+    return bad, names
+
+
+def _positional(
+    cmd: StataCommand, command: str, labels: str, at_least: int, at_most: int
+) -> Optional[Dict[str, Any]]:
+    if not at_least <= len(cmd.varlist) <= at_most:
+        return _emit_error(
+            f"{command} is positional: `{command} {labels}`.", command=command
+        )
+    return _plain_names(list(cmd.varlist), command)
+
+
+def _h_twowayfeweights(cmd: StataCommand) -> Dict[str, Any]:
+    """``twowayfeweights Y G T D [D0], type(feTR | fdTR) [controls()
+    other_treatments() test_random_weights() weight()]`` ->
+    ``sp.twowayfeweights``.
+
+    ``type(feS)`` and ``type(fdS)`` have no counterpart and are refused.
+    """
+    name = "twowayfeweights"
+    bad = _positional(cmd, name, "Y G T D [D0]", 4, 5)
+    if bad:
+        return bad
+    opts = cmd.options
+    kind = (opts.get("type") or "").strip()
+    if kind not in ("feTR", "fdTR"):
+        return _emit_error(
+            f"twowayfeweights, type({kind}) is not translated: sp.twowayfeweights "
+            "has type='feTR' (fixed effects regression) and 'fdTR' (first-"
+            "difference regression).",
+            command=name,
+            suggestions=[],
+        )
+    y, group, time, treat = cmd.varlist[:4]
+    args: Dict[str, Any] = {"y": y, "group": group, "time": time, "treat": treat}
+    if kind == "fdTR":
+        if len(cmd.varlist) != 5:
+            return _emit_error(
+                "twowayfeweights, type(fdTR) takes five variables: the first "
+                "differences of the outcome and of the treatment, and the "
+                "treatment in levels last.",
+                command=name,
+            )
+        args["type"] = "fdTR"
+        args["treat_level"] = cmd.varlist[4]
+    elif len(cmd.varlist) == 5:
+        return _emit_error(
+            "twowayfeweights, type(feTR) takes four variables (Y G T D).",
+            command=name,
+        )
+    for option, argument in (
+        ("controls", "covariates"),
+        ("other_treatments", "other_treatments"),
+        ("test_random_weights", "test_random_weights"),
+    ):
+        bad, names = _option_varlist(cmd, option, name)
+        if bad:
+            return bad
+        if names:
+            args[argument] = names
+    if opts.get("weight"):
+        args["weights"] = (opts.get("weight") or "").split()[0]
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit("twowayfeweights", args, f"sp.twowayfeweights(data=df, {kw})", [])
+
+
+def _h_did_multiplegt_dyn(cmd: StataCommand) -> Dict[str, Any]:
+    """``did_multiplegt_dyn Y G T D, effects() placebo() ...`` ->
+    ``sp.did_multiplegt_dyn`` with the analytic variance and the
+    switcher-weighted average, which is what the command reports.
+
+    ``effects(k)`` is ``dynamic=k-1``: the command's ``Effect_1`` is the
+    effect at the switch period, horizon 0.
+    """
+    name = "did_multiplegt_dyn"
+    bad = _positional(cmd, name, "Y G T D", 4, 4)
+    if bad:
+        return bad
+    opts = cmd.options
+    y, group, time, treat = cmd.varlist
+    args: Dict[str, Any] = {
+        "y": y,
+        "group": group,
+        "time": time,
+        "treatment": treat,
+    }
+    notes: List[str] = []
+    lost: List[str] = []
+    for option, default in (("effects", 1), ("placebo", 0)):
+        raw = opts.get(option)
+        try:
+            value = default if raw is None else int(raw)
+        except ValueError:
+            return _emit_error(
+                f"did_multiplegt_dyn, {option}({raw}) is not an integer.",
+                command=name,
+            )
+        if option == "effects":
+            if value < 1:
+                return _emit_error(
+                    "did_multiplegt_dyn, effects() must be at least 1.", command=name
+                )
+            args["dynamic"] = value - 1
+        else:
+            args["placebo"] = value
+    args["se_method"] = "analytic"
+    args["aggregation"] = "switchers"
+    switchers = opts.get("switchers")
+    if switchers is not None:
+        if switchers.strip() in ("in", "out"):
+            args["switchers"] = switchers.strip()
+        else:
+            lost.append("switchers")
+            notes.append(f"switchers({switchers}) is neither in nor out.")
+    if "only_never_switchers" in opts:
+        args["control"] = "never_treated"
+    for flag in ("normalized", "same_switchers", "normalized_weights"):
+        if flag in opts:
+            args[flag] = True
+    design = opts.get("design")
+    if design is not None:
+        share, _, where = design.partition(",")
+        try:
+            covered = float(share) if share.strip() else 1.0
+        except ValueError:
+            covered = -1.0
+        if 0 < covered <= 1 and where.strip() in ("", "console"):
+            args["design"] = covered
+        else:
+            lost.append("design")
+            notes.append(
+                f"design({design}): only `design(p, console)` with a share p "
+                "is translated; the table is model_info['design']."
+            )
+    paths = opts.get("by_path")
+    if paths is not None:
+        if paths.strip().isdigit() and int(paths) > 0:
+            args["by_path"] = int(paths)
+        else:
+            lost.append("by_path")
+            notes.append(f"by_path({paths}) is not a number of paths.")
+    equal = opts.get("effects_equal")
+    if equal is not None:
+        text = equal.replace('"', "").strip()
+        if text == "all":
+            args["effects_equal"] = True
+        else:
+            bounds = _numlist(text)
+            if bounds is None or len(bounds) != 2:
+                lost.append("effects_equal")
+                notes.append(
+                    f"effects_equal({equal}) is neither all nor a pair of bounds."
+                )
+            else:
+                # the command numbers effects from 1, sp horizons from 0
+                args["effects_equal"] = (bounds[0] - 1, bounds[1] - 1)
+    for option in ("controls", "trends_nonparam"):
+        bad, names = _option_varlist(cmd, option, name)
+        if bad:
+            return bad
+        if names:
+            args[option] = names
+    if opts.get("continuous") is not None:
+        try:
+            degree = int(opts.get("continuous") or "")
+        except ValueError:
+            degree = -1
+        if degree > 0:
+            args["continuous"] = degree
+        elif degree != 0:
+            lost.append("continuous")
+            notes.append(f"continuous({opts.get('continuous')}) is not a degree.")
+    if opts.get("weight"):
+        args["weights"] = (opts.get("weight") or "").split()[0]
+    if opts.get("cluster"):
+        args["cluster"] = (opts.get("cluster") or "").split()[0]
+    level = opts.get("ci_level")
+    if level is not None:
+        try:
+            args["alpha"] = round(1 - float(level) / 100.0, 10)
+        except ValueError:
+            lost.append("ci_level")
+            notes.append(f"ci_level({level}) is not a number.")
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit(
+        "did_multiplegt_dyn", args, f"sp.did_multiplegt_dyn(data=df, {kw})", notes
+    )
+    out["untranslated_options"] = lost
+    out["semantics"] = [
+        "Effect_k of the command is relative_time k-1 in "
+        "model_info['event_study']; Placebo_k is relative_time -k. "
+        "Av_tot_eff is the result's estimate.",
+        "On an unbalanced panel with a non-binary treatment the command can "
+        "discard a not-yet-switched group as a control because of what its "
+        "treatment does after it switches (it drops the periods of a "
+        "baseline treatment that have no control, then the groups whose "
+        "remaining post-switch treatment averages to their baseline). "
+        "sp.did_multiplegt_dyn keeps such a group, so a few switchers more "
+        "can have an estimable effect; otherwise the numbers are the same.",
+    ]
+    return out
+
+
+def _h_did_had(cmd: StataCommand) -> Dict[str, Any]:
+    """``did_had Y G T D, effects() placebo() [kernel() dynamic trends_lin
+    yatchew level()]`` -> ``sp.did_had``."""
+    name = "did_had"
+    bad = _positional(cmd, name, "Y G T D", 4, 4)
+    if bad:
+        return bad
+    opts = cmd.options
+    y, group, time, treat = cmd.varlist
+    args: Dict[str, Any] = {"y": y, "group": group, "time": time, "treat": treat}
+    notes: List[str] = []
+    lost: List[str] = []
+    for option in ("effects", "placebo"):
+        raw = opts.get(option)
+        if raw is None:
+            continue
+        try:
+            args[option] = int(raw)
+        except ValueError:
+            return _emit_error(
+                f"did_had, {option}({raw}) is not an integer.", command=name
+            )
+    kernel = opts.get("kernel")
+    if kernel is not None:
+        short = {"epa": "epanechnikov", "tri": "triangular", "uni": "uniform"}
+        key = kernel.strip().lower()
+        if key in short or key in short.values() or key == "gau":
+            args["kernel"] = short.get(key, key)
+        else:
+            lost.append("kernel")
+            notes.append(f"kernel({kernel}) is not one of epa, tri, uni, gau.")
+    for flag in ("dynamic", "trends_lin", "yatchew"):
+        if flag in opts:
+            args[flag] = True
+    level = opts.get("level")
+    if level is not None:
+        try:
+            args["alpha"] = float(level)
+        except ValueError:
+            lost.append("level")
+            notes.append(f"level({level}) is not a number.")
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit("did_had", args, f"sp.did_had(data=df, {kw})", notes)
+    out["untranslated_options"] = lost
+    return out
+
+
+def _h_did_multiplegt_old(cmd: StataCommand) -> Dict[str, Any]:
+    """``did_multiplegt_old Y G T D [, placebo() breps() cluster() controls()
+    seed()]`` -> ``sp.did_multiplegt``, the DID_M estimator.
+
+    ``robust_dynamic`` and ``dynamic()`` switch the command to the
+    intertemporal estimators, which are ``sp.did_multiplegt_dyn``'s: refused
+    here so that the pair-by-pair estimator is not returned in their place.
+    """
+    name = cmd.command
+    bad = _positional(cmd, name, "Y G T D", 4, 4)
+    if bad:
+        return bad
+    opts = cmd.options
+    if "robust_dynamic" in opts or opts.get("dynamic") not in (None, "0"):
+        return _emit_error(
+            f"{name}, robust_dynamic / dynamic() are the intertemporal "
+            "estimators; use `did_multiplegt_dyn Y G T D, effects() "
+            "placebo()`, which translates to sp.did_multiplegt_dyn.",
+            command=name,
+            suggestions=["did_multiplegt_dyn"],
+        )
+    y, group, time, treat = cmd.varlist
+    args: Dict[str, Any] = {
+        "y": y,
+        "group": group,
+        "time": time,
+        "treatment": treat,
+        # the command's placebos are forward differences
+        "placebo_sign": "r",
+    }
+    notes: List[str] = []
+    lost: List[str] = []
+    for option, argument, default in (
+        ("placebo", "placebo", None),
+        ("breps", "n_boot", 50),
+        ("seed", "seed", None),
+    ):
+        raw = opts.get(option)
+        if raw is None:
+            if default is not None:
+                args[argument] = default
+            continue
+        try:
+            args[argument] = int(raw)
+        except ValueError:
+            lost.append(option)
+            notes.append(f"{option}({raw}) is not an integer.")
+    bad, names = _option_varlist(cmd, "controls", name)
+    if bad:
+        return bad
+    if names:
+        args["controls"] = names
+    if opts.get("cluster"):
+        args["cluster"] = (opts.get("cluster") or "").split()[0]
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit("did_multiplegt", args, f"sp.did_multiplegt(data=df, {kw})", notes)
+    out["untranslated_options"] = lost
+    out["semantics"] = [
+        "Standard errors are from a cluster bootstrap, as the command's: "
+        "they agree with Stata's up to the draws, not digit by digit."
+    ]
+    return out
+
+
 HANDLERS: Dict[str, Callable[[StataCommand], Dict[str, Any]]] = {
     "did2s": _h_did2s,
+    "twowayfeweights": _h_twowayfeweights,
+    "did_multiplegt_dyn": _h_did_multiplegt_dyn,
+    "did_had": _h_did_had,
+    "did_multiplegt_old": _h_did_multiplegt_old,
     "drdid": _h_drdid,
     "jwdid": _h_jwdid,
     "csdid_estat": _h_csdid_estat,

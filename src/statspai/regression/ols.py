@@ -1546,6 +1546,7 @@ def regress(
     hac_lags: Optional[int] = None,
     hac_small: bool = False,
     ewc_df: Optional[int] = None,
+    dfadjust: bool = False,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1600,6 +1601,16 @@ def regress(
         as Stata's ``newey`` and ``sandwich::NeweyWest(adjust = TRUE)`` do.
         The default (no factor) is ``NeweyWest(adjust = FALSE)`` and
         statsmodels' ``cov_type='HAC'``.
+    dfadjust : bool, default False
+        With ``robust='hc2'``, or ``vce='cr2'`` and ``cluster=``: refer each
+        coefficient to a t distribution with its own Bell and McCaffrey
+        (2002) degrees of freedom, as Stata 18 ``regress, vce(hc2,
+        dfadjust)`` and ``vce(hc2 clustvar, dfadjust)`` do. The standard
+        errors are unchanged; p-values and intervals widen when few
+        observations (or clusters) carry the regressor's variation, which
+        is when the usual ``n - k`` or ``G - 1`` is too optimistic. The
+        degrees of freedom are in ``diagnostics['satterthwaite_dof']``.
+        Not available with weights.
     ewc_df : int, optional
         With ``robust='ewc'``: the number of cosine terms ``nu``, which is
         also the degrees of freedom of the t distribution used for p-values
@@ -1744,6 +1755,63 @@ def regress(
     # take the native efficient path on the stored design; vce=cluster=[a,b]
     # runs CGM-2011 two-way; vce='jackknife' is an alias of CR3).
     vce_kw = kwargs.pop("vce", None) or robust
+    if dfadjust:
+        kind_adj = vce_kw.lower() if isinstance(vce_kw, str) else ""
+        if kind_adj not in ("hc2", "cr2") or (kind_adj == "cr2" and cluster is None):
+            raise MethodIncompatibility(
+                "regress(dfadjust=True) is the Bell-McCaffrey degrees of "
+                "freedom of the HC2 / CR2 variance: use it with robust='hc2', "
+                "or with vce='cr2' and cluster=.",
+                diagnostics={"vce": vce_kw, "cluster": cluster},
+            )
+        _refuse_weights(weights, "dfadjust=True")
+        from ..inference.jackknife import cr2_se
+
+        work, cl_name = data, cluster
+        if cluster is None:
+            # HC2 is CR2 with every observation its own cluster.
+            work = data.copy()
+            cl_name = "_statspai_obs"
+            work[cl_name] = np.arange(len(work))
+        base = regress(
+            formula=formula,
+            data=work,
+            robust="nonrobust",
+            cluster=cl_name,
+            collinear=collinear,
+        )
+        out = cr2_se(base, data=work, cluster=cl_name)
+        # Joint tests need the full matrix, and use the fit's ordinary
+        # denominator degrees of freedom (n - k, or G - 1 when clustered),
+        # as Stata's ``test`` does after ``vce(hc2, dfadjust)``; only the
+        # single-coefficient t statistics get the Bell-McCaffrey df.
+        _di = base.data_info
+        if {"X", "y"} <= set(_di):
+            from ..inference.jackknife import cr_vcov_matrix
+
+            _codes = _sample_codes(base, work, cl_name)
+            _X = np.asarray(_di["X"], dtype=float)
+            _V = cr_vcov_matrix(
+                _X,
+                np.asarray(_di["y"], dtype=float).ravel(),
+                _codes,
+                power=0.5,
+                small_sample=False,
+            )
+            out.data_info = dict(out.data_info)
+            out.data_info["var_cov"] = _V
+            _g = len(np.unique(_codes))
+            if cluster is None or _g == _X.shape[0]:
+                out.data_info["df_resid"] = float(_X.shape[0] - _X.shape[1])
+            else:
+                out.data_info["df_resid"] = float(_g - 1)
+        out.model_info = dict(out.model_info)
+        out.model_info["vcov_type"] = (
+            "HC2" if cluster is None else "CR2 cluster-robust"
+        ) + ", Bell-McCaffrey degrees of freedom"
+        out.model_info["cluster"] = cluster
+        out.model_info["dfadjust"] = True
+        return out
     if isinstance(vce_kw, str) and vce_kw.lower() in ("cr2", "cr3", "jackknife"):
         if cluster is None:
             raise MethodIncompatibility(
@@ -1773,6 +1841,24 @@ def regress(
         from ..inference.jackknife import set_cluster_t_inference
 
         set_cluster_t_inference(base, se, len(np.unique(cl_codes)))
+        # The full matrix, so that joint tests (sp.test) see the same
+        # variance as the standard errors.
+        if {"X", "y"} <= set(base.data_info):
+            from ..inference.jackknife import _weighted_design, cr_vcov_matrix
+
+            _Xw, _yw = _weighted_design(
+                np.asarray(base.data_info["X"], dtype=float),
+                np.asarray(base.data_info["y"], dtype=float).ravel(),
+                base.data_info.get("analytic_weights"),
+            )
+            base.data_info = dict(base.data_info)
+            base.data_info["var_cov"] = cr_vcov_matrix(
+                _Xw,
+                _yw,
+                cl_codes,
+                power=0.5 if kind == "CR2" else 1.0,
+                small_sample=False,
+            )
         base.model_info = dict(base.model_info)
         base.model_info["vcov_type"] = (
             f"{kind} cluster-robust (Pustejovsky-Tipton 2018; matches R "

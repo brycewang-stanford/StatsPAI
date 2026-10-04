@@ -156,10 +156,47 @@ def _h_regress(cmd: StataCommand) -> Dict[str, Any]:
     cluster = _vce_cluster(cmd)
     robust = _robust_kind(cmd)
     args: Dict[str, Any] = {"formula": formula}
-    if robust != "nonrobust":
-        args["robust"] = robust
-    if cluster:
-        args["cluster"] = cluster
+    # Stata 18: vce(hc2 [clustvar] [, dfadjust]). The cluster variable makes
+    # it the CR2 variance, and dfadjust asks for Bell-McCaffrey degrees of
+    # freedom; reading only the leading `hc2` would return plain HC2.
+    vce_raw = str(cmd.options.get("vce") or "")
+    vce_head, _, vce_sub = vce_raw.partition(",")
+    vce_words = vce_head.split()
+    vce_sub_words = vce_sub.split()
+    if (
+        vce_words
+        and vce_words[0].lower() in {"hc2", "hc3"}
+        and (len(vce_words) > 1 or vce_sub_words)
+    ):
+        kind = vce_words[0].lower()
+        if (
+            kind != "hc2"
+            or len(vce_words) > 2
+            or [w.lower() for w in vce_sub_words] not in ([], ["dfadjust"])
+        ):
+            return _emit_error(
+                f"regress: vce({vce_raw}) is not translated; sp.regress has "
+                "vce='cr2' / 'cr3' with cluster= and dfadjust=True for the "
+                "Bell-McCaffrey degrees of freedom of HC2 / CR2.",
+                command="regress",
+            )
+        if len(vce_words) == 2:
+            args["vce"] = "cr2"
+            args["cluster"] = vce_words[1]
+        else:
+            args["robust"] = "hc2"
+        if vce_sub_words:
+            args["dfadjust"] = True
+        semantics.append(
+            "vce(hc2 clustvar) -> vce='cr2', cluster=: the bias-reduced "
+            "cluster variance with t(G - 1); dfadjust -> dfadjust=True, each "
+            "coefficient's own Bell-McCaffrey degrees of freedom."
+        )
+    else:
+        if robust != "nonrobust":
+            args["robust"] = robust
+        if cluster:
+            args["cluster"] = cluster
     code_kwargs = ", ".join(
         [f"{k}={v!r}" for k, v in args.items() if k != "formula"] + ["data=df"]
     )

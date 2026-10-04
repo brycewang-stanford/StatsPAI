@@ -179,6 +179,24 @@ bacon = sp.bacon_decomposition(df, y='y', treat='treat',
 # TWFE is contaminated by already-treated units acting as controls.
 ```
 
+`sp.bacon_decomposition` needs a binary treatment that turns on once.
+`sp.twowayfeweights` does not. It returns the weights the regression puts
+on the effect of each treated cell (de Chaisemartin & D'Haultfoeuille
+2020), for any treatment, with controls, with other treatments in the
+regression, and for the first-difference regression too:
+
+```python
+w = sp.twowayfeweights(df, y='y', group='i', time='t', treat='d',
+                       test_random_weights=['t'])
+w.model_info['n_negative'], w.model_info['sum_negative']
+w.model_info['sigma_fe']        # heterogeneity at which beta and ATT = 0 coexist
+w.model_info['random_weights']  # are the weights related to calendar time?
+```
+
+Negative weights that add up to a few percent, with a large `sigma_fe`,
+say the coefficient is safe to read. Weights correlated with a variable
+that plausibly moves the effect say it is not.
+
 ### 2a. Staggered + homogeneous effects
 
 TWFE is fine here. But CS / SA / Wooldridge are all also unbiased, and
@@ -396,8 +414,9 @@ and "checked against the reference" are different claims.
 | --- | --- | --- |
 | Continuous-dose DiD — CGS ATT(d) / ACRT(d) | `sp.cgs_continuous_did` | curves and both overall quantities match R `contdid` 0.1.1 at 1e-12 (Track A 80) |
 | Continuous-dose DiD — quick heuristic | `sp.continuous_did(method='att_gt')` | dose-quantile 2×2 rollup; a look, not the CGS estimand |
-| On/off switching — dCDH 2020 DID_M | `sp.did_multiplegt` | pair rollup + joint placebo; the 2.x R package's `mode="old"` is broken upstream, so no parity |
-| On/off switching — dCDH 2024 event study | `sp.did_multiplegt_dyn` | effects, placebos and the switcher-weighted aggregate match `DIDmultiplegtDYN` 2.3.4 at 5e-15, switcher counts included (Track A 78) |
+| On/off switching, binary or count treatment — dCDH 2020 DID_M | `sp.did_multiplegt` | effect and placebos match Stata `did_multiplegt_old` at 1e-8 on a binary and on a count treatment; standard errors are bootstrap on both sides |
+| On/off switching, binary or count treatment — dCDH 2024 event study | `sp.did_multiplegt_dyn` | effects, placebos and the switcher-weighted aggregate match `DIDmultiplegtDYN` 2.3.4 at 5e-15, switcher counts included (Track A 78); on a count treatment effects, analytic SEs, joint tests, normalized effects and path-by-path effects match Stata `did_multiplegt_dyn` at 1e-6 |
+| What does the TWFE coefficient weight? | `sp.twowayfeweights` | counts, sums, sensitivity measures and the random-weights regression match Stata `twowayfeweights` for `feTR` and `fdTR`, with controls, other treatments and weights |
 | Triple differences, heterogeneity-robust | `sp.ddd_heterogeneous` | cells and analytic SEs match `triplediff` 0.2.4 at 1e-12 across dr / ipw / reg (Track A 77) |
 | Stacked DiD (CDLZ) | `sp.stacked_did` | matches a hand-written `fixest` stack at 1.3e-13 under both control-group conventions (Track A 75) |
 | Is parallel trends scale-dependent? | `sp.functional_form_test` | matches `didFF` 0.1.0 at 2e-15 on an accepting and a rejecting design, weighted and unweighted, across all four aggregations, the dynamic event-time window, and both the automatic and discrete binning rules (Track A 79) |
@@ -429,14 +448,16 @@ reports the same distinction as `validation_status`.
 > is the 2020 pair rollup extended to H horizons — numerically close on simple
 > DGPs, different in identification, control construction and inference.
 
-> **`sp.did_multiplegt_dyn` is still `experimental`** despite the parity:
-> switch-off events are dropped, and `controls=` / `trends_lin` /
-> `normalized` / `continuous` are not implemented. Its variance is no
-> longer a gap, though — since 1.30 `se_method='analytic'` builds the
-> authors' `U_Gg_var` (each `(g, t)` contribution centred on its cell mean
-> with the `sqrt(n/(n-1))` factor, summed within clusters before squaring)
-> and reproduces R `DIDmultiplegtDYN` 2.3.4 to 4e-15 on the castle-doctrine
-> panel, weighted and unweighted, placebos included.
+> **`sp.did_multiplegt_dyn` is still labelled `experimental`**: `trends_lin`
+> and `predict_het` are not implemented, and with `controls=` the analytic
+> standard errors treat the covariate slopes as known. Everything else the
+> authors' textbook uses is there and checked against their Stata command:
+> both switch directions, non-binary treatments, `normalized`, `controls`,
+> `trends_nonparam`, `continuous`, `same_switchers`, `design`, `by_path`,
+> and the joint tests. With `se_method='analytic'` the variance is the
+> authors' `U_Gg_var` and nothing is bootstrapped. On an unbalanced panel
+> with a non-binary treatment a handful of switchers can differ from
+> Stata's sample; the function's module docstring says which and why.
 
 ## 5. Reading the output
 

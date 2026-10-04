@@ -155,18 +155,29 @@ class TestDidMultiplegtDynControlGroups:
 
 
 class TestDidMultiplegtDynInputValidation:
-    def test_rejects_non_binary_treatment(self):
+    def test_treatment_levels_do_not_matter_only_their_changes(self):
+        """A two-level treatment at 0.5 / 1.5 is the binary one, relabelled.
+
+        Since 1.39.0 a discrete treatment is matched on its period-one level
+        instead of being refused; shifting both levels by a constant changes
+        neither the switchers, nor their controls, nor the effects.
+        """
         df = _staggered_on_panel(seed=0).copy()
+        kwargs = dict(y="y", group="i", time="t", treatment="d", n_boot=0)
+        binary = sp.did_multiplegt_dyn(df, se_method="analytic", **kwargs)
         df["d"] = df["d"].astype(float) + 0.5
-        with pytest.raises(ValueError, match="binary"):
+        shifted = sp.did_multiplegt_dyn(df, se_method="analytic", **kwargs)
+        a = binary.model_info["event_study"]
+        b = shifted.model_info["event_study"]
+        np.testing.assert_allclose(a["att"], b["att"], rtol=0, atol=1e-12)
+        np.testing.assert_allclose(a["se"], b["se"], rtol=0, atol=1e-12)
+
+    def test_rejects_non_numeric_treatment(self):
+        df = _staggered_on_panel(seed=0).copy()
+        df["d"] = df["d"].map({0: "off", 1: "on"})
+        with pytest.raises(sp.exceptions.MethodIncompatibility, match="numeric"):
             sp.did_multiplegt_dyn(
-                df,
-                y="y",
-                group="i",
-                time="t",
-                treatment="d",
-                n_boot=5,
-                seed=0,
+                df, y="y", group="i", time="t", treatment="d", n_boot=0
             )
 
     def test_rejects_invalid_control(self):

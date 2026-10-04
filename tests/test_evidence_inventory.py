@@ -72,9 +72,11 @@ def test_counts_agree_with_direct_queries(built):
     assert direct["outputs"]["joint_test"]["status"] == "not_covered"
 
     sa = built["functions"]["sun_abraham"]
-    # fixed shares x two summary aggregations x never-treated controls.
+    # fixed shares x two summary aggregations x never-treated controls, on
+    # the saturated regression (window_rule='report').
     assert sa["by_output"]["vcov"]["reference"] == 2
-    assert sa["cells"] == 8
+    # 2 control groups x 2 aggregations x 2 share conventions x 3 window rules
+    assert sa["cells"] == 24
 
     forest = built["functions"]["causal_forest"]
     # A forest is never a same-byte reference: T3 / S / B only.
