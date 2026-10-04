@@ -309,6 +309,14 @@ def attrition_bounds(
         lower, upper = _compute_lee_bounds(
             y_treat, y_control, p_treat, p_control, trimming
         )
+        if trimming == "quantile" and p_treat != p_control:
+            from ..bounds.lee_manski import _warn_quantile_ties
+
+            _warn_quantile_ties(
+                "attrition_bounds",
+                y_treat if p_treat > p_control else y_control,
+                abs(p_treat - p_control) / max(p_treat, p_control),
+            )
 
     elif method == "manski":
         # Manski worst-case bounds

@@ -299,8 +299,9 @@ def fisher_exact(
     """
     Fisher's exact randomization test with enhanced features.
 
-    Computes a permutation-based p-value and Hodges-Lehmann confidence
-    interval for the treatment effect under the sharp null hypothesis.
+    Computes a permutation-based p-value under the sharp null hypothesis
+    and, for the difference in means, the confidence interval for a
+    constant effect obtained by inverting the test.
 
     Parameters
     ----------
@@ -315,6 +316,7 @@ def fisher_exact(
         - ``'ate'``: Average treatment effect (difference in means).
         - ``'ks'``: Kolmogorov-Smirnov statistic.
         - ``'rank_sum'``: Wilcoxon rank-sum statistic.
+        - ``'t'``: studentized difference in means (unequal variances).
     controls : list of str, optional
         Control variables for covariate-adjusted inference.
         When provided, the test statistic is computed on residuals
@@ -332,7 +334,7 @@ def fisher_exact(
     seed : int, optional
         Random seed for reproducibility.
     alpha : float, default 0.05
-        Significance level for the Hodges-Lehmann confidence interval.
+        Significance level for the test-inversion confidence interval.
 
     Returns
     -------
@@ -364,9 +366,18 @@ def fisher_exact(
     assignment is the only source of randomness. The p-value is the
     proportion of permuted statistics at least as extreme as observed.
 
-    The Hodges-Lehmann CI is constructed by inverting the permutation
-    test: find the set of tau_0 values for which the test of
-    Y - tau_0 * D does not reject at level alpha.
+    The confidence interval inverts the permutation test: it is the set of
+    tau_0 for which the test of ``Y - tau_0 * D`` does not reject at level
+    alpha. It is computed on the same assignments as the p-value (the
+    difference in means is linear in the outcome, so no new draws are
+    needed) and each end is found by bisection; with ``controls`` the
+    shifted outcome is residualized, as the null requires. An end is
+    infinite, with a warning, when no hypothesised effect is rejected,
+    which happens when the design has too few assignments for ``alpha``.
+    Through 1.38.0 the ends were read off a 101-point grid spanning six
+    standard deviations of the outcome, each point tested on its own 500
+    draws, and with ``controls`` the unresidualized ``tau_0 * D`` was
+    subtracted from the residualized outcome.
 
     For stratified experiments, treatment is permuted within strata.
     For cluster-randomized experiments, treatment is permuted at
@@ -393,12 +404,17 @@ def fisher_exact(
     n = len(Y)
     n_treated = int(D.sum())
 
-    # Covariate adjustment: residualize Y on controls
+    # Covariate adjustment: residualize Y on controls. Under the sharp null
+    # of a constant effect tau_0 the fixed quantity is Y - tau_0 * D, whose
+    # residual is resid(Y) - tau_0 * resid(D); the interval needs the second
+    # residual too.
+    D_shift = D
     if controls:
         X_ctrl = df[controls].values.astype(float)
         X_ctrl = np.column_stack([np.ones(n), X_ctrl])
         beta_ctrl = np.linalg.lstsq(X_ctrl, Y, rcond=None)[0]
         Y = Y - X_ctrl @ beta_ctrl
+        D_shift = D - X_ctrl @ np.linalg.lstsq(X_ctrl, D, rcond=None)[0]
 
     # Select test statistic function
     stat_fn = _get_stat_fn(statistic)
@@ -431,23 +447,44 @@ def fisher_exact(
         ),
         max_count=n_perm,
     )
+    # ``shift_stats`` is the same difference in means applied to ``D_shift``:
+    # with it the statistic of every assignment at any hypothesised effect is
+    # ``perm_stats - tau_0 * shift_stats``, so the interval is inverted on
+    # the very draws that gave the p-value.
+    want_ci = statistic == "ate"
     if assignments is not None:
         perm_stats = np.array([stat_fn(Y, a) for a in assignments])
+        shift_stats = (
+            np.array([stat_fn(D_shift, a) for a in assignments]) if want_ci else None
+        )
     else:
         perm_stats = np.zeros(n_perm)
+        shift_stats = np.zeros(n_perm) if want_ci else None
         for b in range(n_perm):
             D_perm = perm_fn()
             perm_stats[b] = stat_fn(Y, D_perm)
+            if shift_stats is not None:
+                shift_stats[b] = stat_fn(D_shift, D_perm)
 
     # P-values
     p_two_sided = _share_at_least(perm_stats, obs_stat, two_sided=True)
     p_one_sided = _share_at_least(perm_stats, obs_stat, two_sided=False)
 
-    # Hodges-Lehmann confidence interval (only for ATE)
-    if statistic == "ate":
-        ci = _hodges_lehmann_ci(
-            Y, D, stat_fn, perm_fn, n_perm, alpha, rng, assignments=assignments
+    # Confidence interval by test inversion (only for ATE)
+    if shift_stats is not None:
+        ci = _invert_constant_effect(
+            perm_stats, shift_stats, obs_stat, float(stat_fn(D_shift, D)), alpha
         )
+        if not np.all(np.isfinite(ci)):
+            warnings.warn(
+                "fisher_exact: the randomization test cannot reject at level "
+                f"{alpha:g} however large the hypothesised effect "
+                f"({perm_stats.size} assignments; the smallest attainable "
+                "two-sided p-value is above alpha), so the confidence "
+                "interval is unbounded.",
+                UserWarning,
+                stacklevel=2,
+            )
     else:
         # For non-ATE statistics, use percentile CI from permutation dist
         ci = (
@@ -528,7 +565,18 @@ def ri_test(
         Test statistic:
         - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0)
         - ``'ks'``: Kolmogorov-Smirnov statistic
-        - ``'t'``: t-statistic
+        - ``'t'``: the difference in means divided by its unequal-variance
+          (Neyman) standard error. Unlike ``'diff_means'``, the test based
+          on it also has the right size in large samples for the weak null
+          of a zero *average* effect when effects vary across units
+        - ``'rank_sum'``: Wilcoxon rank sum of the treated outcomes
+          (mid-ranks), centred at its null mean ``n_1 (n + 1) / 2``
+        - ``'lin'``: coefficient on the treatment in the regression of
+          ``y`` on the treatment, the centred ``covariates`` and their
+          interactions with the treatment (:func:`sp.lm_lin`)
+        - ``'lin_t'``: that coefficient divided by its HC2 standard error,
+          the covariate-adjusted statistic with the same large-sample
+          guarantee as ``'t'``
         - ``'ols'``: coefficient on the treatment in the OLS regression of
           ``y`` on the treatment, ``covariates`` and (with ``strata``)
           stratum fixed effects -- the regression-adjusted statistic of
@@ -553,7 +601,7 @@ def ri_test(
         assigned within them tests the wrong null distribution and loses
         power (UCT, QJE 2016: education p 0.70 unstratified against 0.17).
     covariates : list of str, optional
-        Controls for ``stat='ols'`` / ``'ols_t'``.
+        Controls for ``stat='ols'`` / ``'ols_t'`` / ``'lin'`` / ``'lin_t'``.
     absorb : str or list of str, optional
         Fixed effects for ``stat='ols'`` / ``'ols_t'``, as ``reghdfe``'s
         ``absorb()`` (column names, ``"a^b"`` for combinations; singletons
@@ -665,7 +713,11 @@ def ri_test(
     n = len(Y)
     st = df["_strata"].values if strata else None
     binary = bool(np.all(np.isin(D, (0.0, 1.0))))
-    if not binary and isinstance(stat, str) and stat in ("diff_means", "t", "ks"):
+    if (
+        not binary
+        and isinstance(stat, str)
+        and stat in ("diff_means", "t", "ks", "rank_sum", "lin", "lin_t")
+    ):
         raise MethodIncompatibility(
             f"stat={stat!r} compares treated and control units and needs a "
             f"binary 0/1 treatment; {treat!r} takes other values.",
@@ -686,10 +738,22 @@ def ri_test(
                 "interact='post'), or permute at the row level (no cluster=).",
                 diagnostics={"cluster": cluster},
             )
-    if covariates and not (isinstance(stat, str) and stat in ("ols", "ols_t")):
+    lin_stat = isinstance(stat, str) and stat in ("lin", "lin_t")
+    if covariates and not (regress_stat or lin_stat):
         raise MethodIncompatibility(
-            "covariates= is used by stat='ols' / 'ols_t' only.",
-            recovery_hint="Pass stat='ols' or 'ols_t' with covariates.",
+            "covariates= is used by stat='ols' / 'ols_t' / 'lin' / 'lin_t' only.",
+            recovery_hint="Pass one of those statistics with covariates.",
+        )
+    if lin_stat and not covariates:
+        raise MethodIncompatibility(
+            f"stat={stat!r} needs covariates=.",
+            recovery_hint="Without covariates use stat='diff_means' or 't'.",
+        )
+    if lin_stat and cluster:
+        raise MethodIncompatibility(
+            f"stat={stat!r} uses the HC2 variance of independently assigned "
+            "units and is not available with cluster=.",
+            recovery_hint="Use stat='ols_t' (CR1) with cluster=.",
         )
 
     # Select test statistic function
@@ -710,6 +774,12 @@ def ri_test(
             return float(stats.ks_2samp(y_[d_ == 1], y_[d_ == 0]).statistic)
 
         stat_fn = ks_stat
+    elif stat == "rank_sum":
+        stat_fn = _rank_sum_stat
+    elif stat in ("lin", "lin_t"):
+        stat_fn = _lin_stat_factory(
+            df[covariates].to_numpy(dtype=float), t_stat=stat == "lin_t"
+        )
     elif stat in ("ols", "ols_t") and (fe_terms or interact):
         stat_fn = _absorbed_ols_stat_factory(
             df,
@@ -731,8 +801,8 @@ def ri_test(
         )
     else:
         raise ValueError(
-            f"Unknown stat: '{stat}'. Use 'diff_means', 't', 'ks', 'ols', "
-            "'ols_t' or a callable."
+            f"Unknown stat: '{stat}'. Use 'diff_means', 't', 'ks', 'rank_sum', "
+            "'lin', 'lin_t', 'ols', 'ols_t' or a callable."
         )
 
     # Observed statistic
@@ -1010,6 +1080,34 @@ def _t_stat(y: np.ndarray, d: np.ndarray) -> float:
     return mean_diff / se if se > 0 else 0.0
 
 
+def _rank_sum_stat(y: np.ndarray, d: np.ndarray) -> float:
+    """Wilcoxon rank sum of the treated (mid-ranks) minus its null mean."""
+    ranks = stats.rankdata(y)
+    n1 = float(np.sum(d == 1))
+    return float(np.sum(ranks[d == 1]) - n1 * (len(y) + 1) / 2.0)
+
+
+def _lin_stat_factory(X: np.ndarray, t_stat: bool) -> StatFn:
+    """Lin's (2013) interacted-regression estimate, or its HC2 t-ratio."""
+    Xc = X - X.mean(axis=0)
+    n = Xc.shape[0]
+    ones = np.ones((n, 1))
+
+    def fn(y_: np.ndarray, d_: np.ndarray) -> float:
+        design = np.column_stack([ones, d_, Xc, Xc * d_[:, None]])
+        gram_inv = np.linalg.pinv(design.T @ design)
+        beta = gram_inv @ (design.T @ y_)
+        if not t_stat:
+            return float(beta[1])
+        resid = y_ - design @ beta
+        lev = np.einsum("ij,jk,ik->i", design, gram_inv, design)
+        w = resid**2 / np.clip(1.0 - lev, 1e-12, None)
+        var = float((gram_inv @ ((design.T * w) @ design) @ gram_inv)[1, 1])
+        return float(beta[1] / np.sqrt(var)) if var > 0 else 0.0
+
+    return fn
+
+
 def _get_stat_fn(statistic: str) -> StatFn:
     """Return the test statistic function by name."""
     if statistic == "ate":
@@ -1030,9 +1128,11 @@ def _get_stat_fn(statistic: str) -> StatFn:
             return float(stats.ranksums(y[d == 1], y[d == 0]).statistic)
 
         return rank_sum_stat
+    elif statistic == "t":
+        return _t_stat
     else:
         raise ValueError(
-            f"Unknown statistic: '{statistic}'. " f"Use 'ate', 'ks', or 'rank_sum'."
+            f"Unknown statistic: '{statistic}'. Use 'ate', 't', 'ks', or 'rank_sum'."
         )
 
 
@@ -1142,66 +1242,60 @@ def _make_stratified_permuter(
     return permute
 
 
-def _hodges_lehmann_ci(
-    Y: np.ndarray,
-    D: np.ndarray,
-    stat_fn: StatFn,
-    perm_fn: Permuter,
-    n_perm: int,
+def _invert_constant_effect(
+    perm_stats: np.ndarray,
+    shift_stats: np.ndarray,
+    obs_stat: float,
+    obs_shift: float,
     alpha: float,
-    rng: np.random.Generator,
-    n_grid: int = 101,
-    assignments: Optional[np.ndarray] = None,
 ) -> Tuple[float, float]:
+    """Confidence interval for a constant effect by inverting the test.
+
+    The sharp null ``Y_i(1) - Y_i(0) = tau_0`` is tested on ``Y - tau_0 D``.
+    The difference in means is linear in the outcome, so under assignment
+    ``b`` it equals ``perm_stats[b] - tau_0 * shift_stats[b]`` and the
+    observed one ``obs_stat - tau_0 * obs_shift``: the p-value at any
+    ``tau_0`` comes from the stored draws, with no new permutations. Each
+    end of the interval is bracketed by stepping away from the point
+    estimate and then bisected, so it is exact for the assignments used
+    (all of them when the design was enumerated) up to floating point.
+    An end is infinite when the test never rejects in that direction.
     """
-    Hodges-Lehmann confidence interval by inverting the permutation test.
+    perm = np.asarray(perm_stats, dtype=float)
+    shift = np.asarray(shift_stats, dtype=float)
 
-    For each candidate tau_0, test the sharp null Y_i(1) - Y_i(0) = tau_0
-    by computing the permutation test on Y - tau_0 * D. The CI is the
-    set of tau_0 values for which the test does not reject.
+    def pval(tau0: float) -> float:
+        return _share_at_least(
+            perm - tau0 * shift, obs_stat - tau0 * obs_shift, two_sided=True
+        )
 
-    Uses a coarse grid search followed by refinement.
-    """
-    # Observed ATE for centering the grid
-    ate_obs = float(np.mean(Y[D == 1]) - np.mean(Y[D == 0]))
-    y_std = float(np.std(Y)) if np.std(Y) > 0 else 1.0
+    if obs_shift == 0 or not np.isfinite(obs_stat):
+        return (float("nan"), float("nan"))
+    center = obs_stat / obs_shift  # the observed statistic is zero here
+    scale = float(np.std(perm)) / abs(obs_shift)
+    if not np.isfinite(scale) or scale <= 0:
+        scale = max(abs(center), 1.0)
 
-    # Coarse grid: search over a wide range
-    grid_half = max(3 * y_std, abs(ate_obs) * 3)
-    tau_grid = np.linspace(ate_obs - grid_half, ate_obs + grid_half, n_grid)
+    def end(sign: float) -> float:
+        inside, step = center, scale
+        for _ in range(200):
+            outside = inside + sign * step
+            if pval(outside) < alpha:
+                break
+            inside, step = outside, step * 2.0
+        else:
+            return sign * float("inf")
+        for _ in range(200):
+            mid = 0.5 * (inside + outside)
+            if mid == inside or mid == outside:
+                break
+            if pval(mid) < alpha:
+                outside = mid
+            else:
+                inside = mid
+        return float(inside)
 
-    # Use fewer permutations for the grid search
-    n_perm_grid = min(n_perm, 500)
-
-    p_values = np.zeros(n_grid)
-    for i, tau_0 in enumerate(tau_grid):
-        # Adjust outcome: Y_adj = Y - tau_0 * D
-        Y_adj = Y - tau_0 * D
-        obs_adj = float(stat_fn(Y_adj, D))
-
-        # Quick permutation test (exact over the enumerated assignments when
-        # the design was enumerated)
-        if assignments is not None:
-            # The interval is only built for the difference in means, which
-            # is linear in the assignment: evaluate every assignment at once.
-            n1 = assignments.sum(axis=1)
-            t_perm_all = (assignments @ Y_adj) / n1 - ((1.0 - assignments) @ Y_adj) / (
-                assignments.shape[1] - n1
-            )
-            p_values[i] = _share_at_least(t_perm_all, obs_adj, two_sided=True)
-            continue
-        t_perm_mc = np.empty(n_perm_grid)
-        for b in range(n_perm_grid):
-            t_perm_mc[b] = stat_fn(Y_adj, perm_fn())
-        p_values[i] = _share_at_least(t_perm_mc, obs_adj, two_sided=True)
-
-    # CI = set of tau_0 where p >= alpha
-    in_ci = tau_grid[p_values >= alpha]
-    if len(in_ci) == 0:
-        # If no values are in CI, return point estimate +/- small margin
-        return (ate_obs, ate_obs)
-
-    return (float(in_ci[0]), float(in_ci[-1]))
+    return (end(-1.0), end(1.0))
 
 
 # ======================================================================

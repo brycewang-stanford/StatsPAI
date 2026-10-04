@@ -18,6 +18,9 @@ Two flavours are implemented:
   bounds. Works for continuous outcomes.
 * ``method="sign"`` — Binomial / sign-test bounds. Works for binary
   or any paired data; simpler and distribution-free.
+* ``method="t"`` — the permutational t-test on the pair differences
+  [@rosenbaum2007sensitivity], the sensitivity analysis of the mean
+  difference.
 
 References
 ----------
@@ -184,9 +187,15 @@ def rosenbaum_bounds(
     data : pd.DataFrame, optional
         Long-format data. Must contain exactly two rows per ``pair_id``,
         one with ``treat=1`` and one with ``treat=0``.
-    method : {"wilcoxon", "sign"}, default "wilcoxon"
-        Wilcoxon signed-rank bound (continuous) or binomial sign test
-        (robust / binary).
+    method : {"wilcoxon", "sign", "t"}, default "wilcoxon"
+        Wilcoxon signed-rank bound (continuous), binomial sign test
+        (robust / binary), or ``"t"``, the permutational t-test: the
+        statistic is the sum of the positive pair differences, whose
+        null distribution under bias ``Gamma`` has mean
+        ``p * sum(|d|)`` and variance ``p (1 - p) * sum(d**2)`` with
+        ``p = Gamma / (1 + Gamma)``. It is the test of the mean difference
+        (R ``sensitivitymw::senmw(method="t")`` on pairs) and, unlike the
+        rank tests, is driven by the largest differences.
     alternative : {"greater", "less", "two-sided"}, default "greater"
         Direction of the alternative hypothesis for the treatment effect.
     gamma_grid : sequence of float, optional
@@ -230,8 +239,8 @@ def rosenbaum_bounds(
     >>> bool(np.all(bounds.pvalue_upper >= bounds.pvalue_lower))
     True
     """
-    if method not in {"wilcoxon", "sign"}:
-        raise ValueError("method must be 'wilcoxon' or 'sign'")
+    if method not in {"wilcoxon", "sign", "t"}:
+        raise ValueError("method must be 'wilcoxon', 'sign' or 't'")
     if zero_method not in {"pratt", "wilcox"}:
         raise MethodIncompatibility("zero_method must be 'pratt' or 'wilcox'")
     if alternative not in {"greater", "less", "two-sided"}:
@@ -290,6 +299,12 @@ def rosenbaum_bounds(
             ranks = _wilcoxon_ranks(d, zero_method)
             z = _wilcoxon_z(ranks, d > 0, p)
             return float(stats.norm.sf(z)), float(np.sum(ranks[d > 0]))
+        if method == "t":
+            # The signed-rank computation with the absolute differences
+            # themselves as scores: T = sum of the positive differences.
+            scores = np.abs(d)
+            z = _wilcoxon_z(scores, d > 0, p)
+            return float(stats.norm.sf(z)), float(np.sum(scores[d > 0]))
         nonzero = d[d != 0]
         t_plus = int(np.sum(nonzero > 0))
         return _sign_test_bound(t_plus, int(nonzero.size), p), float(t_plus)

@@ -107,7 +107,9 @@ def ice(
     confounder_cols : list[list[str]] | list[str]
         Confounders available at each time point. May be a flat list
         (same confounders at every time point) or a nested list
-        (time-specific confounders).
+        (time-specific confounders). The regression at each time uses the
+        whole history, so a column named again at a later time is counted
+        once.
     outcome_col : str
         Terminal outcome measured at the end of follow-up.
     treatment_strategy : list | callable
@@ -164,6 +166,14 @@ def ice(
         conf: list[list[str]] = [list(flat) for _ in range(K)]
     else:
         conf = [list(c) for c in confounder_cols]
+    # The regression at time k conditions on the whole history, so a column
+    # listed again at a later time (a baseline covariate, or every column of
+    # a flat list) is already there. Keeping the repeat makes the design
+    # collinear and the sandwich singular.
+    seen: set[str] = set()
+    for k_, cols_ in enumerate(conf):
+        conf[k_] = [c for c in dict.fromkeys(cols_) if c not in seen]
+        seen.update(conf[k_])
 
     strategy = _resolve_strategy(treatment_strategy, K)
 

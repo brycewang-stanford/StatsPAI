@@ -244,12 +244,14 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",
         "tests/reference_parity/test_teffects_probit_stata.py",
         "tests/reference_parity/test_tmle_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "aipw",
@@ -347,10 +349,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_anderson_rubin_parity.py",
+        "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "anderson_rubin_test",
@@ -4572,20 +4577,26 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_difference_in_means_estimatr.py",
+        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "difference_in_means",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_difference_in_means_estimatr.py",
-        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
+        "tests/external_parity/test_ding_first_course.py"
       ],
       "tolerance": ""
     },
@@ -5661,6 +5672,7 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_inference_sens_R_parity.py"
       ],
@@ -6283,6 +6295,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_fisher_exact_parity.py"
       ],
       "also_verified_by": [
@@ -6683,6 +6696,7 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_tmle_parity.py"
       ],
@@ -8301,7 +8315,9 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_whatif_nhefs.py",
+        "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",
         "tests/reference_parity/test_teffects_probit_stata.py"
       ],
@@ -8614,6 +8630,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_causalml_book.py",
+        "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_iv_first_stage_f_stata_parity.py",
         "tests/reference_parity/test_iv_parity.py",
@@ -9469,19 +9486,26 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_ding_first_course_parity.py",
+        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "lm_lin",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
+        "tests/external_parity/test_ding_first_course.py"
       ],
       "tolerance": ""
     },
@@ -10179,6 +10203,8 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
+        "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_match_fw_stata_parity.py",
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_nnmatch_teffects_parity.py",
@@ -10187,6 +10213,7 @@
         "tests/reference_parity/test_teffects_probit_stata.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "match",
@@ -10331,9 +10358,11 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -11292,9 +11321,11 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_mr_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "mr_egger",
@@ -11382,10 +11413,12 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_mr_ivw_parity.py",
         "tests/reference_parity/test_mr_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "mr_ivw",
@@ -13956,9 +13989,11 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
         "tests/reference_parity/test_principal_strat_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "principal_strat",
@@ -15585,6 +15620,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_causalml_book.py",
+        "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_closed_form_identities.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
@@ -15808,6 +15844,7 @@
         "tests/r_parity/55_hc2_hc3.py",
         "tests/r_parity/55_hc2_hc3.R",
         "tests/stata_parity/55_hc2_hc3.do",
+        "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_published_replications.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_assimilation_parity.py",
@@ -15999,11 +16036,14 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
+        "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_recovery_batch2_parity.py",
         "tests/reference_parity/test_ri_strata_R_parity.py",
         "tests/reference_parity/test_thornton_ri_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "ri_test",
@@ -16460,7 +16500,12 @@
       "tolerance": "neighbour sets exact; weights 1e-12 rel (observed 0)"
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_ding_first_course.py",
+        "tests/reference_parity/test_ding_first_course_parity.py"
+      ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "rosenbaum_bounds",
@@ -19465,20 +19510,26 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_difference_in_means_estimatr.py",
+        "tests/reference_parity/test_ttest_known_values.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "ttest",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_difference_in_means_estimatr.py",
-        "tests/reference_parity/test_ttest_known_values.py"
+        "tests/external_parity/test_ding_first_course.py"
       ],
       "tolerance": ""
     },

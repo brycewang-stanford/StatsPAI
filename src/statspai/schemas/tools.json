@@ -474,6 +474,18 @@
           "description": "Significance level.",
           "type": "number"
         },
+        "ar_vcov": {
+          "default": "classic",
+          "description": "Variance behind the AR statistic itself when ``cluster`` is not given. ``'classic'`` is the homoskedastic F of the regression of ``Y - b0 * D`` on the instruments (``ivmodel::AR.test``). The ``'HC*'`` choices make the test robust to heteroskedasticity: the statistic is the Wald test that the instruments have zero coefficients in that regression, with the Eicker-Huber-White covariance of the chosen type, divided by ``k_z`` and referred to ``F(k_z, n - k_w - k_z)``. With one instrument it is the square of the robust t-ratio of the instrument, the Fieller-Anderson-Rubin interval of randomized encouragement designs. Under heteroskedasticity the classic statistic is not size-correct even with strong instruments. ``'HC2'`` / ``'HC3'`` need the leverages and are not available with ``absorb``.",
+          "enum": [
+            "classic",
+            "HC0",
+            "HC1",
+            "HC2",
+            "HC3"
+          ],
+          "type": "string"
+        },
         "cluster": {
           "description": "Cluster the AR statistic. Switches from the homoskedastic F-form to the (multiway) cluster-robust quadratic form ``(Z'e)' Omega^-1 (Z'e)`` with ``Omega`` the cluster-sum variance of the moment vector, referred to ``F(k_z, G-1)``. Without this, a panel AR test over-rejects exactly as a homoskedastic t-test",
           "items": {
@@ -11522,7 +11534,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for the Hodges-Lehmann confidence interval.",
+          "description": "Significance level for the test-inversion confidence interval.",
           "type": "number"
         },
         "cluster": {
@@ -11553,11 +11565,12 @@
         },
         "statistic": {
           "default": "ate",
-          "description": "Test statistic to use: - ``'ate'``: Average treatment effect (difference in means). - ``'ks'``: Kolmogorov-Smirnov statistic. - ``'rank_sum'``: Wilcoxon rank-sum statistic.",
+          "description": "Test statistic to use: - ``'ate'``: Average treatment effect (difference in means). - ``'ks'``: Kolmogorov-Smirnov statistic. - ``'rank_sum'``: Wilcoxon rank-sum statistic. - ``'t'``: studentized difference in means (unequal variances).",
           "enum": [
             "ate",
             "ks",
-            "rank_sum"
+            "rank_sum",
+            "t"
           ],
           "type": "string"
         },
@@ -27938,7 +27951,7 @@
           "x-statspai-role": "column"
         },
         "covariates": {
-          "description": "Controls for ``stat='ols'`` / ``'ols_t'``.",
+          "description": "Controls for ``stat='ols'`` / ``'ols_t'`` / ``'lin'`` / ``'lin_t'``.",
           "items": {
             "type": "string"
           },
@@ -27960,7 +27973,7 @@
         },
         "stat": {
           "default": "diff_means",
-          "description": "Test statistic: - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0) - ``'ks'``: Kolmogorov-Smirnov statistic - ``'t'``: t-statistic - ``'ols'``: coefficient on the treatment in the OLS regression of ``y`` on the treatment, ``covariates`` and (with ``strata``) stratum fixed effects -- the regression-adjusted statistic of stratified experiments (R ``ri2::conduct_ri(y ~ Z + x + block)``) - ``'ols_t'``: its t-statistic (HC1, or CR1 by ``cluster``) - A callable ``f(Y, D) -> float`` for custom statistics.",
+          "description": "Test statistic: - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0) - ``'ks'``: Kolmogorov-Smirnov statistic - ``'t'``: the difference in means divided by its unequal-variance (Neyman) standard error. Unlike ``'diff_means'``, the test based on it also has the right size in large samples for the weak null of a zero *average* effect when effects vary across units - ``'rank_sum'``: Wilcoxon rank sum of the treated outcomes (mid-ranks), centred at its null mean ``n_1 (n + 1) / 2`` - ``'lin'``: coefficient on the treatment in the regression of ``y`` on the treatment, the centred ``covariates`` and their interactions with the treatment (:func:`sp.lm_lin`) - ``'lin_t'``: that coefficient divided by its HC2 standard error, the covariate-adjusted statistic with the same large-sample guarantee as ``'t'`` - ``'ols'``: coefficient on the treatment in the OLS regression of ``y`` on the treatment, ``covariates`` and (with ``strata``) stratum fixed effects -- the regression-adjusted statistic of stratified experiments (R ``ri2::conduct_ri(y ~ Z + x + block)``) - ``'ols_t'``: its t-statistic (HC1, or CR1 by ``cluster``) - A callable ``f(Y, D) -> float`` for custom statistics.",
           "type": "string"
         },
         "strata": {
@@ -28732,10 +28745,11 @@
         },
         "method": {
           "default": "wilcoxon",
-          "description": "Wilcoxon signed-rank bound (continuous) or binomial sign test (robust / binary).",
+          "description": "Wilcoxon signed-rank bound (continuous), binomial sign test (robust / binary), or ``\"t\"``, the permutational t-test: the statistic is the sum of the positive pair differences, whose null distribution under bias ``Gamma`` has mean ``p * sum(|d|)`` and variance ``p (1 - p) * sum(d**2)`` with ``p = Gamma / (1 + Gamma)``. It is the test of the mean difference (R ``sensitivitymw::senmw(method=\"t\")`` on pairs) and, unlike the rank tests, is driven by the largest differences.",
           "enum": [
             "wilcoxon",
-            "sign"
+            "sign",
+            "t"
           ],
           "type": "string"
         },

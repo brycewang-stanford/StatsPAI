@@ -418,6 +418,17 @@ def _fit_monotonicity(
         }
 
     point = _point(Y, D, S)
+    if trimming == "quantile" and point["pi_always"] > 1e-8:
+        from ..bounds.lee_manski import _warn_quantile_ties
+
+        _p11 = float(np.mean(S[D == 1])) if np.any(D == 1) else 0.0
+        if _p11 > 1e-8:
+            _warn_quantile_ties(
+                "principal_strat (SACE bounds)",
+                Y[(D == 1) & (S == 1)],
+                float(np.clip(1.0 - point["pi_always"] / _p11, 0.0, 1.0)),
+                stacklevel=4,
+            )
 
     # Bootstrap inference for the LATE (complier PCE) and bounds endpoints
     rng = np.random.default_rng(seed)
@@ -799,12 +810,20 @@ def _fit_principal_score(
         # p11(X) = P(S=1 | D=1, X)
         mask1 = D_ == 1
         mask0 = D_ == 0
-        p11_fit = _logit_safe(S_[mask1], X_[mask1])
-        p10_fit = _logit_safe(S_[mask0], X_[mask0])
+        # One-sided noncompliance (nobody in an arm takes up, or everybody
+        # does) makes the stratum variable constant in that arm: its
+        # probability is that constant for every x, there is nothing to
+        # fit, and a logit on it only reports perfect separation.
+        const1 = bool(mask1.any() and np.all(S_[mask1] == S_[mask1][0]))
+        const0 = bool(mask0.any() and np.all(S_[mask0] == S_[mask0][0]))
+        p11_fit = None if const1 else _logit_safe(S_[mask1], X_[mask1])
+        p10_fit = None if const0 else _logit_safe(S_[mask0], X_[mask0])
         # A failed principal-score logit silently reverts to the *unadjusted*
         # marginal P(S=1); track it so the caller can warn rather than report
         # a covariate-adjusted estimate that is not actually adjusted.
-        n_logit_fallback = int(p11_fit is None) + int(p10_fit is None)
+        n_logit_fallback = int(p11_fit is None and not const1) + int(
+            p10_fit is None and not const0
+        )
         p11 = _logit_predict(
             p11_fit, X_, fallback=float(np.mean(S_[mask1])) if mask1.any() else 0.5
         )
@@ -824,6 +843,11 @@ def _fit_principal_score(
         e_always = np.clip(p10, 1e-4, 1 - 1e-4)
         e_complier = np.clip(raw_complier, 1e-4, 1 - 1e-4)
         e_never = np.clip(1 - p11, 1e-4, 1 - 1e-4)
+        # A stratum that the design rules out is empty, not rare.
+        if const0 and S_[mask0][0] == 0:
+            e_always = np.zeros_like(e_always)
+        if const1 and S_[mask1][0] == 1:
+            e_never = np.zeros_like(e_never)
         # Normalize to sum to 1 (can drift from clipping)
         tot = e_always + e_complier + e_never
         e_always /= tot

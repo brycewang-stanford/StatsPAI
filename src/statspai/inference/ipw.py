@@ -77,7 +77,11 @@ def ipw(
         Crump et al. (2009) recommend dropping units with p outside [0.1, 0.9].
     normalize : bool, default True
         If True, use Hajek (normalised) weights. Generally recommended
-        for finite-sample stability.
+        for finite-sample stability, and the estimate does not change when
+        a constant is added to the outcome. ``False`` is Horvitz-Thompson:
+        the weighted sums are divided by the size of the target population
+        (``n`` for the ATE, the number of treated for the ATT, of controls
+        for the ATC).
     n_bootstrap : int, default 500
         Number of bootstrap iterations for standard error estimation.
     alpha : float, default 0.05
@@ -477,13 +481,48 @@ def _compute_weights(
 
     Sampling weights ``sw`` (mean one) multiply each unit's IPW weight.
     """
-    n = len(T)
     if sw is not None:
-        w1, w0 = _compute_weights(T, pscore, estimand, normalize=False)
-        w1, w0 = w1 * n * sw, w0 * n * sw
+        w1, w0 = _raw_weights(T, pscore, estimand)
+        w1, w0 = w1 * sw, w0 * sw
         if normalize:
             return w1 / w1.sum(), w0 / w0.sum()
-        return w1 / n, w0 / n
+        denom = _target_size(T, estimand, sw)
+        return w1 / denom, w0 / denom
+
+    w1, w0 = _raw_weights(T, pscore, estimand)
+    if normalize:
+        s1 = w1.sum()
+        s0 = w0.sum()
+        if s1 > 0:
+            w1 = w1 / s1
+        if s0 > 0:
+            w0 = w0 / s0
+    else:
+        # Horvitz-Thompson: divide by the size of the target population --
+        # n for the ATE, the number of treated for the ATT and of controls
+        # for the ATC. Dividing the ATT / ATC weights by n (as was done
+        # through 1.38.0) returned P(T=1) x ATT and P(T=0) x ATC.
+        denom = _target_size(T, estimand, None)
+        w1 = w1 / denom
+        w0 = w0 / denom
+
+    return w1, w0
+
+
+def _target_size(T: np.ndarray, estimand: str, sw: Optional[np.ndarray]) -> float:
+    """(Weighted) number of units in the population the estimand averages over."""
+    one = np.ones(len(T)) if sw is None else sw
+    if estimand == "ATT":
+        return float(np.sum(one * T))
+    if estimand == "ATC":
+        return float(np.sum(one * (1 - T)))
+    return float(np.sum(one))
+
+
+def _raw_weights(
+    T: np.ndarray, pscore: np.ndarray, estimand: str
+) -> tuple[np.ndarray, np.ndarray]:
+    """Unscaled IPW weights of the treated and control terms."""
 
     if estimand == "ATE":
         # Horvitz-Thompson: w1 = T/p, w0 = (1-T)/(1-p)
@@ -497,16 +536,4 @@ def _compute_weights(
         # ATC: controls get weight 1, treated get weight (1-p)/p
         w1 = T * (1 - pscore) / pscore
         w0 = (1 - T).copy()
-
-    if normalize:
-        s1 = w1.sum()
-        s0 = w0.sum()
-        if s1 > 0:
-            w1 = w1 / s1
-        if s0 > 0:
-            w0 = w0 / s0
-    else:
-        w1 = w1 / n
-        w0 = w0 / n
-
     return w1, w0

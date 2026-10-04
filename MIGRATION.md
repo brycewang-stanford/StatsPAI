@@ -7,6 +7,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="oct2026-causalml-textbook-fixes"></a>
 
+## 1.38.0 → next: ⚠️ `sp.ipw` Horvitz-Thompson ATT / ATC; the interval of `sp.fisher_exact`
+
+**`sp.ipw(estimand='ATT', normalize=False)`** divided the weighted sums by
+`n`. The effect on the treated needs the number of treated, so the result
+was `P(T=1)` times the ATT (and `P(T=0)` times the ATC for
+`estimand='ATC'`). Both are now divided by the size of their target group.
+If you reported an unnormalised ATT or ATC, rerun it; the old number
+divided by the treated (control) share is the new one. Nothing changes
+under the default `normalize=True`, for the ATE, or for
+`se_method='sandwich'`, which requires normalised weights.
+
+**`sp.fisher_exact(...).ci`** is now the exact inversion of the
+randomization test and is wider than before (on the LaLonde experiment
+[572, 3015] against [999, 2589]). The old interval came from a coarse grid with 500 draws per point
+and stopped at the last grid point inside. With `controls` the ends also
+move because the shifted outcome is now residualized. p-values and the
+statistic are unchanged. A design with too few assignments to reject at
+`alpha` now returns `(-inf, inf)` with a warning where it used to return
+the edges of the grid.
+
 ## 1.38.0 → next: ⚠️ `sp.dml` PLR / PLIV with a classifier nuisance
 
 **What changed.** With `model='plr'` or `model='pliv'`, a nuisance learner

@@ -48,6 +48,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Internal helpers
@@ -836,6 +837,7 @@ def anderson_rubin_test(
     vcov: str = "HC1",
     absorb: Optional[Union[str, List[str]]] = None,
     cluster: Optional[Union[str, List[str]]] = None,
+    ar_vcov: str = "classic",
 ) -> Dict[str, Any]:
     """
     Anderson-Rubin (1949) test — size-correct under weak instruments.
@@ -875,6 +877,20 @@ def anderson_rubin_test(
         a panel AR test over-rejects exactly as a homoskedastic t-test
         would: the AR set is *not* automatically robust to serial
         correlation just because it is robust to weak instruments.
+    ar_vcov : {'classic', 'HC0', 'HC1', 'HC2', 'HC3'}, default 'classic'
+        Variance behind the AR statistic itself when ``cluster`` is not
+        given. ``'classic'`` is the homoskedastic F of the regression of
+        ``Y - b0 * D`` on the instruments (``ivmodel::AR.test``). The
+        ``'HC*'`` choices make the test robust to heteroskedasticity: the
+        statistic is the Wald test that the instruments have zero
+        coefficients in that regression, with the Eicker-Huber-White
+        covariance of the chosen type, divided by ``k_z`` and referred to
+        ``F(k_z, n - k_w - k_z)``. With one instrument it is the square of
+        the robust t-ratio of the instrument, the Fieller-Anderson-Rubin
+        interval of randomized encouragement designs. Under
+        heteroskedasticity the classic statistic is not size-correct even
+        with strong instruments. ``'HC2'`` / ``'HC3'`` need the leverages
+        and are not available with ``absorb``.
 
     Returns
     -------
@@ -883,6 +899,8 @@ def anderson_rubin_test(
         ``'ar_df'`` : Degrees of freedom ``(k_z, n - k_w - k_z)``.
         ``'ar_pvalue'`` : P-value of AR test at ``h0``.
         ``'ar_ci'`` : ``(low, high)`` AR confidence set (grid-inverted).
+        ``'ar_vcov'`` : variance behind the AR statistic (``'classic'``,
+            an ``'HC*'`` type, or ``'cluster'``).
         ``'beta_2sls'`` : 2SLS point estimate.
         ``'first_stage_F'`` : Classical first-stage F.
         ``'effective_F'`` : Olea-Pflueger robust F_eff.
@@ -922,6 +940,26 @@ def anderson_rubin_test(
     """
     absorb_terms = _as_name_list(absorb)
     cluster_names = _as_name_list(cluster)
+    ar_key = str(ar_vcov).upper()
+    if ar_key in ("CLASSIC", "CLASSICAL", "IID", "NONROBUST"):
+        ar_key = "classic"
+    if ar_key not in ("classic", "HC0", "HC1", "HC2", "HC3"):
+        raise MethodIncompatibility(
+            f"ar_vcov must be 'classic', 'HC0', 'HC1', 'HC2' or 'HC3'; got "
+            f"{ar_vcov!r}."
+        )
+    if ar_key != "classic" and cluster_names:
+        raise MethodIncompatibility(
+            "ar_vcov and cluster are alternatives: the clustered AR statistic "
+            "is already robust to heteroskedasticity.",
+            recovery_hint="Drop ar_vcov, or drop cluster.",
+        )
+    if ar_key in ("HC2", "HC3") and absorb_terms:
+        raise MethodIncompatibility(
+            f"ar_vcov={ar_vcov!r} needs the leverages of the full design, "
+            "which are not available after absorbing fixed effects.",
+            recovery_hint="Use ar_vcov='HC1' with absorb.",
+        )
     Y, D, Z, W, n, cluster_frame, fe_dof = _prep_matrices_absorbed(
         data, y, endog, instruments, exog, absorb_terms, cluster_names
     )
@@ -968,9 +1006,31 @@ def anderson_rubin_test(
         # cluster-count-driven reference distribution.
         df2 = g_min - 1
 
+    if ar_key in ("HC2", "HC3"):
+        # leverage of the full design [W, Z] = that of W plus that of M_W Z
+        q_w = np.linalg.qr(W)[0]
+        lev = np.sum(q_w**2, axis=1) + np.einsum("ij,jk,ik->i", Z_t, ZtZt_inv, Z_t)
+        hc_scale = 1.0 / (1.0 - lev) if ar_key == "HC2" else 1.0 / (1.0 - lev) ** 2
+    elif ar_key == "HC1":
+        hc_scale = np.full(n, n / max(n - k_w - k_z - fe_dof, 1))
+    else:
+        hc_scale = np.ones(n)
+
     def _ar_f(b0: float) -> float:
         """AR statistic at candidate beta = b0, as an F-form."""
         Y_adj = Y_t - b0 * D_t
+        if ar_key != "classic":
+            # Heteroskedasticity-robust Wald form on the reduced-form
+            # coefficients: pi' V^-1 pi with V the EHW sandwich, which is
+            # (Z'y)' [Z' diag(w e^2) Z]^-1 (Z'y).
+            moment = Z_t.T @ Y_adj
+            e_rf = Y_adj - Z_t @ (ZtZt_inv @ moment)
+            omega = (Z_t * (hc_scale * e_rf**2)[:, None]).T @ Z_t
+            try:
+                stat = float(moment @ np.linalg.solve(omega, moment))
+            except np.linalg.LinAlgError:  # pragma: no cover - defensive
+                return np.nan
+            return stat / df1
         if cluster_frame is not None:
             # Wald form, as ivreg2 / ivreghdfe: the cluster meat is built
             # from the unrestricted reduced-form residual. Using Y_adj itself
@@ -1054,6 +1114,7 @@ def anderson_rubin_test(
         "ar_pvalue": ar_p,
         "ar_ci": ar_ci,
         "ar_ci_disjoint": ar_disjoint,
+        "ar_vcov": "cluster" if cluster_frame is not None else ar_key,
         "beta_2sls": beta_2sls,
         "first_stage_F": f_first,
         "first_stage_f": f_first,

@@ -188,7 +188,7 @@ PyPI 凭据在 `~/.pypirc`——**不要**提交仓库、不要写进 memory。�
 ## 8. 文档
 
 - MkDocs（[`mkdocs.yml`](mkdocs.yml)），源在 [`docs/`](docs/)，`mkdocs serve` 本地预览。
-- 当前 guide：`synth` / `choosing_did_estimator` / `choosing_iv_estimator` / `choosing_rd_estimator` / `choosing_matching_estimator` / `callaway_santanna` / `cs_report` / `honest_did` / `repeated_cross_sections` / `robustness_workflow` / `migration-from-r` / `mixtape_ch09_did` / `stock_watson_4e` / `design_based_econometrics`。相关估计器改动要同步对应 guide。
+- 当前 guide：`synth` / `choosing_did_estimator` / `choosing_iv_estimator` / `choosing_rd_estimator` / `choosing_matching_estimator` / `callaway_santanna` / `cs_report` / `honest_did` / `repeated_cross_sections` / `robustness_workflow` / `migration-from-r` / `mixtape_ch09_did` / `stock_watson_4e` / `design_based_econometrics` / `ding_first_course`。相关估计器改动要同步对应 guide。
 - JOSS 论文 [`paper.md`](paper.md) + [`paper.bib`](paper.bib)——对外 API 或项目范围变更时同步。
 
 ---

@@ -138,6 +138,10 @@ def lee_bounds(
         ``'exact'`` keeps exactly ``(1 - p) n`` units of mass by giving
         the observations tied at the quantile a fractional weight -- the
         branch ``leebounds`` is written to take at a tie (see Notes).
+        On a binary or coarsely discrete outcome use ``'exact'``: the
+        quantile rule keeps every observation tied at the quantile, so
+        it trims too little and the two bounds collapse (a warning says
+        so when that happens).
         ``'leebounds'`` reproduces Stata ``leebounds`` (Tauchmann) number
         for number, floating-point artefacts included -- use it to match a
         published ``leebounds`` table.
@@ -268,6 +272,10 @@ def lee_bounds(
             )
     else:
         lb, ub = _compute_lee_bounds(Y1, Y0, p1, p0, trimming)
+        if trimming == "quantile" and p1 != p0:
+            _warn_quantile_ties(
+                "lee_bounds", Y1 if p1 > p0 else Y0, abs(p1 - p0) / max(p1, p0)
+            )
 
     if se_method == "analytic" and tight is not None:
         se_lb, se_ub = float(np.sqrt(tight["var_lower"])), float(
@@ -466,6 +474,46 @@ def _lee_trimmed(y: np.ndarray, p_trim: float, top: bool, trimming: str) -> tupl
         w = np.concatenate([np.ones(n_beyond), np.full(int(at.sum()), frac)])
     mean = float(np.sum(vals * w) / np.sum(w))
     return mean, thr, vals, w
+
+
+def _quantile_ties_block_trimming(y: np.ndarray, p_trim: float) -> bool:
+    """Whether ties at the trimming quantile defeat the ``'quantile'`` rule.
+
+    The rule keeps every observation tied at the quantile. On a continuous
+    outcome that is one observation; on a binary or coarsely discrete one it
+    can be most of the arm, and then little or nothing is trimmed and the
+    two bounds collapse onto each other. True when, at either end, fewer
+    than half of the ``p_trim * n`` observations that should go are removed
+    (and at least two should).
+    """
+    y = np.asarray(y, dtype=float)
+    n = len(y)
+    if n == 0 or p_trim * n < 2:
+        return False
+    for top in (True, False):
+        kept = len(_lee_trimmed(y, p_trim, top=top, trimming="quantile")[2])
+        if n - kept < 0.5 * p_trim * n:
+            return True
+    return False
+
+
+def _warn_quantile_ties(
+    context: str, y_arm: np.ndarray, p_trim: float, stacklevel: int = 3
+) -> bool:
+    """Warn when ``trimming='quantile'`` cannot trim because of ties."""
+    if not _quantile_ties_block_trimming(y_arm, p_trim):
+        return False
+    warnings.warn(
+        f"{context}: the outcome is tied at the trimming quantile (binary or "
+        f"discrete outcome), so trimming='quantile' removes far less than the "
+        f"{p_trim:.1%} share it should and the bounds are too narrow -- on a "
+        "binary outcome they collapse to a single number. Use "
+        "trimming='exact', which splits the tied observations and gives the "
+        "sharp bounds.",
+        UserWarning,
+        stacklevel=stacklevel,
+    )
+    return True
 
 
 def _stata_local_macro(v: float) -> float:

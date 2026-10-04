@@ -30,8 +30,8 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 372 |
 | | aligned | 52 |
 | | **subtotal** | **424** |
-| **No external software reference** | analytical-only (T1) | 339 |
-| | external-replication (published numbers) | 6 |
+| **No external software reference** | analytical-only (T1) | 336 |
+| | external-replication (published numbers) | 9 |
 | | **subtotal** | **345** |
 | No numerical evidence yet | unverified | 536 |
 
@@ -533,7 +533,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 6 functions
+## external-replication — 9 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -543,10 +543,13 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `ardl` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
 | `best_linear_projection` | [`test_dml_irm_blp_parity.py`](../tests/external_parity/test_dml_irm_blp_parity.py) |
 | `cdlz_bunching` | [`test_cdlz_bunching_table1.py`](../tests/external_parity/test_cdlz_bunching_table1.py) |
+| `difference_in_means` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) |
+| `lm_lin` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
+| `ttest` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) |
 | `unitroot` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
 
-## analytical-only — 339 functions
+## analytical-only — 336 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -650,7 +653,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `did_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `did_summary` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `didregress` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) |
-| `difference_in_means` | [`test_difference_in_means_estimatr.py`](../tests/reference_parity/test_difference_in_means_estimatr.py) (+1) |
 | `discos_test` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `disparity_decompose` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `dist_iv` | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) (+1) |
@@ -719,7 +721,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `llm_annotator_correct` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) (+1) |
 | `llm_dag_validate` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `lm_forest` | [`test_grf_family_statistical_parity.py`](../tests/reference_parity/test_grf_family_statistical_parity.py) |
-| `lm_lin` | [`test_lm_lin_estimatr_parity.py`](../tests/reference_parity/test_lm_lin_estimatr_parity.py) |
 | `long_term_from_short` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
 | `longitudinal_analyze` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `longitudinal_contrast` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
@@ -871,7 +872,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `translog_design` | [`test_translog_design_parity.py`](../tests/reference_parity/test_translog_design_parity.py) |
 | `transport_generalize` | [`test_transport_parity.py`](../tests/reference_parity/test_transport_parity.py) |
 | `trimming` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
-| `ttest` | [`test_difference_in_means_estimatr.py`](../tests/reference_parity/test_difference_in_means_estimatr.py) (+1) |
 | `twfe_decomposition` | [`test_did_synth_R_parity.py`](../tests/reference_parity/test_did_synth_R_parity.py) (+1) |
 | `uniform_bands` | [`test_event_study_vcov_R_parity.py`](../tests/reference_parity/test_event_study_vcov_R_parity.py) (+1) |
 | `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+3) |

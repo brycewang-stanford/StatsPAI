@@ -6,6 +6,37 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.ipw(estimand='ATT' | 'ATC', normalize=False)` was scaled by the
+  share of the target group.** The Horvitz-Thompson sums were divided by
+  `n` for every estimand, so the ATT came back multiplied by `P(T=1)` and
+  the ATC by `P(T=0)`. They are now divided by the number of treated and
+  of controls. On the NHANES school-meal data of Ding (2024, chapter 13)
+  the ATT goes from -1.098 to -1.992, the value of the book's own code.
+  `normalize=True` (the default) and the ATE are unchanged. See
+  `MIGRATION.md`.
+- **The confidence interval of `sp.fisher_exact` was too short.** It was
+  read off a 101-point grid six outcome standard deviations wide, each
+  point tested on its own 500 draws, and with `controls` the shifted
+  outcome was not residualized. It is now the exact inversion of the
+  randomization test on the assignments that gave the p-value, each end
+  found by bisection. On the LaLonde experiment the 95% interval goes
+  from [999, 2589] to [572, 3015]; effects of 1000 and 2600 have
+  randomization p-values of 0.21 and 0.20 and belong in it. The interval
+  is infinite, with a warning, when the design has too few assignments to
+  reject at `alpha`. p-values are unchanged. See `MIGRATION.md`.
+- **`sp.gformula_ice_fn` raised `LinAlgError` on a flat confounder list.**
+  The documented shorthand for "the same confounders at every time", and
+  any covariate named at more than one time, entered the history twice and
+  made the default sandwich standard error singular. Repeated names are
+  now counted once. Point estimates are unchanged.
+- **Lee and Zhang-Rubin bounds warn when ties defeat the trimming.** On a
+  binary or coarsely discrete outcome `trimming='quantile'` keeps every
+  observation tied at the quantile, trims almost nothing, and the two
+  bounds collapse (both -0.045 where the sharp bounds are [-0.176,
+  -0.019] on the trial of Ding's chapter 26). `sp.lee_bounds`,
+  `sp.principal_strat`, `sp.survivor_average_causal_effect` and
+  `sp.attrition_bounds` now say so and point to `trimming='exact'`. The
+  default and its numbers are unchanged.
 - **`sp.survreg` ignored `robust=` and `cluster=`.** Both were accepted
   and written into `model_info`, and the standard errors were the
   observed-information ones whatever was asked. They are now the sandwich
@@ -143,6 +174,33 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   affected in its numbers. All three now warn and name the coefficient
   the likelihood is flat in (`tests/test_zeroinflated_separation.py`).
   Estimates on data without separation do not change.
+
+### What Ding's *A First Course in Causal Inference* found
+
+The 28 R programs of the book write every estimator out by hand. Each
+deterministic number was recomputed with the matching `sp.*` call
+(`tests/external_parity/test_ding_first_course.py`, 19 tests over 17
+chapters; review in `docs/dev/2026-10-05-ding-first-course-review.md`,
+guide in `docs/guides/ding_first_course.md`). The four corrections are
+listed above. What was added:
+
+- `sp.rosenbaum_bounds(method='t')`: Rosenbaum's sensitivity analysis for
+  the mean pair difference. Agrees with `sensitivitymw::senmw(method =
+  "t")` to 2e-14.
+- `sp.anderson_rubin_test(ar_vcov='HC0' | 'HC1' | 'HC2' | 'HC3')`: the
+  Anderson-Rubin test and interval with a heteroskedasticity-robust
+  variance (the Fieller-Anderson-Rubin interval of the book). The
+  statistic was the homoskedastic F unless `cluster=` was given, and
+  `vcov` only ever chose the effective F reported beside it. Agrees with
+  `sandwich::vcovHC` on the reduced form to 1e-9 for one and two
+  instruments. The default stays `'classic'`.
+- `sp.ri_test(stat='rank_sum' | 'lin' | 'lin_t')` and
+  `sp.fisher_exact(statistic='t')`. `'lin_t'` is Lin's estimate over its
+  HC2 standard error, the covariate-adjusted statistic whose
+  randomization test is also valid for the weak null.
+- `sp.principal_strat(method='principal_score')` recognises one-sided
+  noncompliance: the arm in which the stratum variable is constant is not
+  fitted and its empty stratum has share zero.
 
 ### A causal-ML textbook's notebooks, run against their references
 

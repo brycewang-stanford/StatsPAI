@@ -540,9 +540,9 @@
       "Stata parity module 02_iv",
       "Cross-language parity (bit-exact) vs AER::ivreg [AER 1.2.16, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 02_iv -- tests/r_parity/02_iv.py",
       "tests/external_parity/test_causalml_book.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_published_replications.py",
-      "tests/reference_parity/test_iv_first_stage_f_stata_parity.py",
-      "tests/reference_parity/test_iv_parity.py"
+      "tests/reference_parity/test_iv_first_stage_f_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -3522,9 +3522,9 @@
       "Stata parity module 06_rd",
       "Cross-language parity (bit-exact) vs rdrobust::rdrobust [R version 4.5.2 (2025-10-31), rdrobust 4.0.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 06_rd -- tests/r_parity/06_rd.py",
       "tests/external_parity/test_causalml_book.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_published_replications.py",
       "tests/reference_parity/test_closed_form_identities.py",
-      "tests/reference_parity/test_oct2026_fifth_pass.py",
       "Variant-level certification: the native default path (CCT three-stage bandwidth cascade and bias-corrected operator) matches rdrobust::rdrobust on Track A 06; weights= is pinned in tests/reference_parity/test_rd_weights_parity.py; bwselect='cct' delegates to the official port."
     ],
     "validation_status": "certified"
@@ -7810,10 +7810,10 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs MatchIt::matchit 4.7.2 (nearest, glm/logit distance); tolerance 1:1 and 2:1 PS matching without replacement: rel <= 1e-9. Mahalanobis metric pinned against MatchIt:::mahalanobis_dist (rel <= 1e-10); greedy m_order='data'/'closest' rel <= 1e-9. -- tests/reference_parity/test_matching_r_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_ding_first_course_parity.py",
       "tests/reference_parity/test_match_fw_stata_parity.py",
-      "tests/reference_parity/test_matching_parity.py",
-      "tests/reference_parity/test_nnmatch_teffects_parity.py",
-      "tests/reference_parity/test_psmatch2_llr_parity.py"
+      "tests/reference_parity/test_matching_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -10825,19 +10825,18 @@
     "cost_profile": "",
     "description": "Design-based difference in means for a randomized experiment (Neyman; R estimatr::difference_in_means). The variance follows the design: complete randomization (s1^2/n1 + s0^2/n0, Satterthwaite df), blocks (size-weighted block estimates, N - 2J df), matched pairs (J - 1 df), clusters (CR2 with Bell-McCaffrey df), blocks of clusters and matched pairs of clusters. estimand='ATT' weights blocks by their treated units. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_difference_in_means_estimatr.py",
-        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
+        "tests/external_parity/test_ding_first_course.py"
       ],
       "tolerance": ""
     },
@@ -10953,7 +10952,9 @@
     "stability": "stable",
     "typical_n_min": 20,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_difference_in_means_estimatr.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_difference_in_means_estimatr.py",
+      "tests/reference_parity/test_lm_lin_estimatr_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -10972,18 +10973,18 @@
     "cost_profile": "",
     "description": "Average treatment effect of a randomized experiment by regression on treatment, centred covariates and their interactions with treatment (Lin 2013; R estimatr::lm_lin). Consistent whatever the outcome model and asymptotically no less precise than the difference in means. HC2 by default, CR2 with Bell-McCaffrey df under cluster=. superpopulation=True adds the variance from estimating the covariate means. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
+        "tests/external_parity/test_ding_first_course.py"
       ],
       "tolerance": ""
     },
@@ -11108,7 +11109,9 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lm_lin_estimatr_parity.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_ding_first_course_parity.py",
+      "tests/reference_parity/test_lm_lin_estimatr_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -11807,9 +11810,10 @@
     "typical_n_min": 300,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs base R stats::glm(binomial) + hand-rolled Hajek weighted means; tolerance Hajek ATE/ATT estimate 1e-9 (observed <= 2e-15; SE not pinned) -- tests/reference_parity/test_ipw_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_whatif_nhefs.py",
+      "tests/reference_parity/test_ding_first_course_parity.py",
       "tests/reference_parity/test_teffects_design_stata_parity.py",
-      "tests/reference_parity/test_teffects_probit_stata.py",
       "API/unit contract evidence: tests/test_new_features.py"
     ],
     "validation_status": "certified"
@@ -12833,6 +12837,7 @@
     "typical_n_min": 300,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs base R stats::lm g-formula standardization (Robins 1986); tolerance psi 1e-8 (observed <= 7e-16; bootstrap SE pinned loosely +/-25%) -- tests/reference_parity/test_gformula_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_whatif_nhefs.py",
       "tests/reference_parity/test_tmle_parity.py",
       "API/unit contract evidence: tests/test_g_computation.py"
@@ -13658,6 +13663,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs AER::ivreg 1.2.16 (Wald LATE); SACE bounds via Stata leebounds [AER 1.2.16, R version 4.5.2 (2025-10-31)]; tolerance 1e-10 rel on the monotonicity complier LATE -- tests/reference_parity/test_teffects_R_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_principal_strat_parity.py",
       "API/unit contract evidence: tests/test_principal_strat.py"
     ],
@@ -13844,6 +13850,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=0.1; parity module 36_mediation -- tests/r_parity/36_mediation.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_mediate_potential_outcomes.py"
     ],
     "validation_status": "certified"
@@ -15927,7 +15934,7 @@
             "type": "integer"
           },
           "confounder_cols": {
-            "description": "Confounders available at each time point. May be a flat list (same confounders at every time point) or a nested list (time-specific confounders).",
+            "description": "Confounders available at each time point. May be a flat list (same confounders at every time point) or a nested list (time-specific confounders). The regression at each time uses the whole history, so a column named again at a later time is counted once.",
             "items": {
               "type": "string"
             },
@@ -41958,10 +41965,10 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 stratified_fit(k_split = 1) [AIPW 0.6.9.3, R version 4.5.2 (2025-10-31), Stata 18, SuperLearner 2.0.40]; tolerance 1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14) -- tests/reference_parity/test_teffects_R_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_paper_parity.py",
       "tests/reference_parity/test_teffects_design_stata_parity.py",
-      "tests/reference_parity/test_teffects_probit_stata.py",
-      "tests/reference_parity/test_tmle_parity.py"
+      "tests/reference_parity/test_teffects_probit_stata.py"
     ],
     "validation_status": "certified"
   },
@@ -65052,7 +65059,7 @@
     "reference": "",
     "returns": {
       "class": "dict",
-      "description": "dict: 'ar_stat' : AR F statistic at h0. 'ar_df' : Degrees of freedom (k_z, n - k_w - k_z). 'ar_pvalue' : P-value of AR test at h0. 'ar_ci' : (low, high) AR confidence set (grid-inverted). 'beta_2sls' : 2SLS point estimate.",
+      "description": "dict: 'ar_stat' : AR F statistic at h0. 'ar_df' : Degrees of freedom (k_z, n - k_w - k_z). 'ar_pvalue' : P-value of AR test at h0. 'ar_ci' : (low, high) AR confidence set (grid-inverted).",
       "fields": {}
     },
     "signature": {
@@ -65072,6 +65079,18 @@
             "default": 0.05,
             "description": "Significance level.",
             "type": "number"
+          },
+          "ar_vcov": {
+            "default": "classic",
+            "description": "Variance behind the AR statistic itself when ``cluster`` is not given. ``'classic'`` is the homoskedastic F of the regression of ``Y - b0 * D`` on the instruments (``ivmodel::AR.test``). The ``'HC*'`` choices make the test robust to heteroskedasticity: the statistic is the Wald test that the instruments have zero coefficients in that regression, with the Eicker-Huber-White covariance of the chosen type, divided by ``k_z`` and referred to ``F(k_z, n - k_w - k_z)``. With one instrument it is the square of the robust t-ratio of the instrument, the Fieller-Anderson-Rubin interval of randomized encouragement designs. Under heteroskedasticity the classic statistic is not size-correct even with strong instruments. ``'HC2'`` / ``'HC3'`` need the leverages and are not available with ``absorb``.",
+            "enum": [
+              "classic",
+              "HC0",
+              "HC1",
+              "HC2",
+              "HC3"
+            ],
+            "type": "string"
           },
           "cluster": {
             "description": "Cluster the AR statistic. Switches from the homoskedastic F-form to the (multiway) cluster-robust quadratic form ``(Z'e)' Omega^-1 (Z'e)`` with ``Omega`` the cluster-sum variance of the moment vector, referred to ``F(k_z, G-1)``. Without this, a panel AR test over-rejects exactly as a homoskedastic t-test",
@@ -65144,7 +65163,9 @@
     "typical_n_min": 100,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R ivmodel::AR.test [car 3.1.5, ivmodel 1.9.1, metafor 5.0.1]; tolerance Statistic 1.1e-15, p-value 1.2e-13, degrees of freedom exact, and the analytic AR confidence set 1.2e-14. -- tests/reference_parity/test_weakiv_meta_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_anderson_rubin_parity.py",
+      "tests/reference_parity/test_ding_first_course_parity.py",
       "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py"
     ],
     "validation_status": "certified"
@@ -65863,6 +65884,7 @@
       "R parity module 23_evalue",
       "Stata parity module 23_evalue",
       "Cross-language parity (bit-exact) vs EValue::evalues.RR [EValue 4.1.4, R version 4.2.3 (2023-03-15)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 23_evalue -- tests/r_parity/23_evalue.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_whatif_nhefs.py",
       "tests/reference_parity/test_inference_sens_R_parity.py"
     ],
@@ -66424,7 +66446,7 @@
             "x-statspai-role": "column"
           },
           "covariates": {
-            "description": "Controls for ``stat='ols'`` / ``'ols_t'``.",
+            "description": "Controls for ``stat='ols'`` / ``'ols_t'`` / ``'lin'`` / ``'lin_t'``.",
             "items": {
               "type": "string"
             },
@@ -66451,7 +66473,7 @@
           },
           "stat": {
             "default": "diff_means",
-            "description": "Test statistic: - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0) - ``'ks'``: Kolmogorov-Smirnov statistic - ``'t'``: t-statistic - ``'ols'``: coefficient on the treatment in the OLS regression of ``y`` on the treatment, ``covariates`` and (with ``strata``) stratum fixed effects -- the regression-adjusted statistic of stratified experiments (R ``ri2::conduct_ri(y ~ Z + x + block)``) - ``'ols_t'``: its t-statistic (HC1, or CR1 by ``cluster``) - A callable ``f(Y, D) -> float`` for custom statistics.",
+            "description": "Test statistic: - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0) - ``'ks'``: Kolmogorov-Smirnov statistic - ``'t'``: the difference in means divided by its unequal-variance (Neyman) standard error. Unlike ``'diff_means'``, the test based on it also has the right size in large samples for the weak null of a zero *average* effect when effects vary across units - ``'rank_sum'``: Wilcoxon rank sum of the treated outcomes (mid-ranks), centred at its null mean ``n_1 (n + 1) / 2`` - ``'lin'``: coefficient on the treatment in the regression of ``y`` on the treatment, the centred ``covariates`` and their interactions with the treatment (:func:`sp.lm_lin`) - ``'lin_t'``: that coefficient divided by its HC2 standard error, the covariate-adjusted statistic with the same large-sample guarantee as ``'t'`` - ``'ols'``: coefficient on the treatment in the OLS regression of ``y`` on the treatment, ``covariates`` and (with ``strata``) stratum fixed effects -- the regression-adjusted statistic of stratified experiments (R ``ri2::conduct_ri(y ~ Z + x + block)``) - ``'ols_t'``: its t-statistic (HC1, or CR1 by ``cluster``) - A callable ``f(Y, D) -> float`` for custom statistics.",
             "type": "string"
           },
           "strata": {
@@ -66482,9 +66504,10 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R ri2::conduct_ri (randomizr full enumeration); Stata ritest over the full assignment set [R version 4.5.2 (2025-10-31), Stata 18, ri2 0.5.0, ritest 1.1.7]; tolerance p exact (k / N_assignments); statistic 1e-12 rel vs R, 2^-23 vs Stata -- tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_ding_first_course_parity.py",
       "tests/reference_parity/test_recovery_batch2_parity.py",
-      "tests/reference_parity/test_ri_strata_R_parity.py",
-      "tests/reference_parity/test_thornton_ri_parity.py"
+      "tests/reference_parity/test_ri_strata_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -67056,7 +67079,7 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Significance level for the Hodges-Lehmann confidence interval.",
+            "description": "Significance level for the test-inversion confidence interval.",
             "type": "number"
           },
           "cluster": {
@@ -67092,11 +67115,12 @@
           },
           "statistic": {
             "default": "ate",
-            "description": "Test statistic to use: - ``'ate'``: Average treatment effect (difference in means). - ``'ks'``: Kolmogorov-Smirnov statistic. - ``'rank_sum'``: Wilcoxon rank-sum statistic.",
+            "description": "Test statistic to use: - ``'ate'``: Average treatment effect (difference in means). - ``'ks'``: Kolmogorov-Smirnov statistic. - ``'rank_sum'``: Wilcoxon rank-sum statistic. - ``'t'``: studentized difference in means (unequal variances).",
             "enum": [
               "ate",
               "ks",
-              "rank_sum"
+              "rank_sum",
+              "t"
             ],
             "type": "string"
           },
@@ -67131,6 +67155,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R ri2::conduct_ri (randomizr full enumeration); Stata ritest over the full assignment set [R version 4.5.2 (2025-10-31), Stata 18, ri2 0.5.0, ritest 1.1.7]; tolerance p exact (k / N_assignments); statistic 1e-12 rel vs R, 2^-23 vs Stata -- tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/reference_parity/test_ding_first_course_parity.py",
       "tests/reference_parity/test_fisher_exact_parity.py"
     ],
     "validation_status": "certified"
@@ -86318,6 +86343,7 @@
     "typical_n_min": 15,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_egger, TwoSampleMR::mr_egger_regression [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Slope, intercept and both SEs at 1e-10. -- tests/reference_parity/test_mr_R_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_mr_parity.py"
     ],
     "validation_status": "certified"
@@ -86480,6 +86506,7 @@
     "typical_n_min": 10,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_ivw (default / fixed / random), TwoSampleMR::mr_ivw [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Estimate, SE under all three models, RSE and Cochran's Q at 1e-10 (observed <= 1e-15). -- tests/reference_parity/test_mr_R_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_mr_ivw_parity.py",
       "tests/reference_parity/test_mr_parity.py"
     ],
@@ -121334,10 +121361,11 @@
           },
           "method": {
             "default": "wilcoxon",
-            "description": "Wilcoxon signed-rank bound (continuous) or binomial sign test (robust / binary).",
+            "description": "Wilcoxon signed-rank bound (continuous), binomial sign test (robust / binary), or ``\"t\"``, the permutational t-test: the statistic is the sum of the positive pair differences, whose null distribution under bias ``Gamma`` has mean ``p * sum(|d|)`` and variance ``p (1 - p) * sum(d**2)`` with ``p = Gamma / (1 + Gamma)``. It is the test of the mean difference (R ``sensitivitymw::senmw(method=\"t\")`` on pairs) and, unlike the rank tests, is driven by the largest differences.",
             "enum": [
               "wilcoxon",
-              "sign"
+              "sign",
+              "t"
             ],
             "type": "string"
           },
@@ -121379,7 +121407,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R DOS2::senWilcox (Rosenbaum); Stata rbounds; R stats::binom.test (sign test); R rbounds::psens (zero_method='wilcox', 4-dp) [DOS2 0.5.2, R version 4.5.2 (2025-10-31), Stata 18, rbounds 2.2, rbounds (Stata) 1.1.6]; tolerance bounding p-values 1e-12 rel (observed 4.6e-15); Stata sig- 1e-15 abs; psens at its own 4-dp rounding -- tests/reference_parity/test_inference_sens_R_parity.py"
+      "Cross-language parity (bit-exact) vs R DOS2::senWilcox (Rosenbaum); Stata rbounds; R stats::binom.test (sign test); R rbounds::psens (zero_method='wilcox', 4-dp) [DOS2 0.5.2, R version 4.5.2 (2025-10-31), Stata 18, rbounds 2.2, rbounds (Stata) 1.1.6]; tolerance bounding p-values 1e-12 rel (observed 4.6e-15); Stata sig- 1e-15 abs; psens at its own 4-dp rounding -- tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_ding_first_course_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -121502,10 +121532,11 @@
           },
           "method": {
             "default": "wilcoxon",
-            "description": "Wilcoxon signed-rank bound (continuous) or binomial sign test (robust / binary).",
+            "description": "Wilcoxon signed-rank bound (continuous), binomial sign test (robust / binary), or ``\"t\"``, the permutational t-test: the statistic is the sum of the positive pair differences, whose null distribution under bias ``Gamma`` has mean ``p * sum(|d|)`` and variance ``p (1 - p) * sum(d**2)`` with ``p = Gamma / (1 + Gamma)``. It is the test of the mean difference (R ``sensitivitymw::senmw(method=\"t\")`` on pairs) and, unlike the rank tests, is driven by the largest differences.",
             "enum": [
               "wilcoxon",
-              "sign"
+              "sign",
+              "t"
             ],
             "type": "string"
           },
