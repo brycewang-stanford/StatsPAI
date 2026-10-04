@@ -7015,6 +7015,34 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="bitest",
+            category="inference",
+            description=(
+                "Exact binomial test that a share equals p (Stata bitest / "
+                "bitesti, R binom.test). The two-sided p-value sums the "
+                "probabilities of every outcome no more likely than the one "
+                "observed. Takes a 0/1 column, or the number of trials and "
+                "successes. Returns both one-sided p-values, the two-sided "
+                "one and a Clopper-Pearson interval."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", False),
+                ParamSpec("y", "str", False, None, "0/1 column"),
+                ParamSpec("p", "float", False, 0.5, "Share under the null"),
+                ParamSpec("n", "int", False, None, "Trials (immediate form)"),
+                ParamSpec(
+                    "successes", "int", False, None, "Successes (immediate form)"
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="BiTestResult",
+            example="sp.bitest(n=41, successes=25, p=0.5)",
+            tags=["inference", "descriptive", "stata", "proportions"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="ttest",
             category="inference",
             description=(

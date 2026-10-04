@@ -2342,6 +2342,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "example": "sp.rdmc(df, y='score', x='running_var', cutoffs=[50, 70, 90])",
         "tags": ["causal"],
     },
+    "rdmcplot": {
+        "example": "sp.rdmcplot(df, y='y', x='score', cutoff_var='cutoff', p=1)",
+        "tags": ["causal", "plot"],
+    },
     "rdms": {
         "example": "sp.rdms(df, y='outcome', x1='dist_lat', x2='dist_lon')",
         "tags": ["causal"],

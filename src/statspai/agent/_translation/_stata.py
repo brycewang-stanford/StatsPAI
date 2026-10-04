@@ -3103,6 +3103,49 @@ def _h_dfuller(cmd: StataCommand) -> Dict[str, Any]:
 _TTEST_EQ = re.compile(r"([^\W\d]\w*)\s*={1,2}\s*(\S+)")
 
 
+def _stata_probability(text: str) -> Optional[float]:
+    """``0.3`` or ``1/2``, as Stata accepts for a probability."""
+    parts = text.split("/")
+    try:
+        value = float(parts[0]) / float(parts[1]) if len(parts) == 2 else float(text)
+    except (ValueError, ZeroDivisionError):
+        return None
+    return value if 0 < value < 1 else None
+
+
+def _h_bitest(cmd: StataCommand) -> Dict[str, Any]:
+    """``bitest z == 0.3`` -> ``sp.bitest(df, "z", p=0.3)``."""
+    eq = _TTEST_EQ.fullmatch(" ".join(cmd.varlist).strip())
+    prob = _stata_probability(eq.group(2)) if eq else None
+    if eq is None or prob is None:
+        return _emit_error(
+            "bitest: expected `bitest varname == #p` with 0 < #p < 1",
+            command="bitest",
+            suggestions=[],
+        )
+    args: Dict[str, Any] = {"y": eq.group(1), "p": prob}
+    return _emit("bitest", args, f"sp.bitest(df, {eq.group(1)!r}, p={prob!r})")
+
+
+def _h_bitesti(cmd: StataCommand) -> Dict[str, Any]:
+    """``bitesti 41 25 1/2`` -> ``sp.bitest(n=41, successes=25, p=0.5)``."""
+    tokens = list(cmd.varlist)
+    prob = _stata_probability(tokens[2]) if len(tokens) == 3 else None
+    try:
+        n, k = int(tokens[0]), int(tokens[1])
+    except (ValueError, IndexError):
+        prob = None
+        n = k = 0
+    if prob is None or not 0 <= k <= n or n < 1:
+        return _emit_error(
+            "bitesti: expected `bitesti #N #successes #p` with 0 < #p < 1",
+            command="bitesti",
+            suggestions=[],
+        )
+    args: Dict[str, Any] = {"n": n, "successes": k, "p": prob}
+    return _emit("bitest", args, f"sp.bitest(n={n}, successes={k}, p={prob!r})")
+
+
 def _h_ttest(cmd: StataCommand) -> Dict[str, Any]:
     """``ttest y == 5`` / ``ttest y, by(g) unequal`` / ``ttest y == x`` ->
     ``sp.ttest``."""
@@ -3220,6 +3263,8 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "correlate": _h_correlate,
     "pwcorr": _h_correlate,
     "ttest": _h_ttest,
+    "bitest": _h_bitest,
+    "bitesti": _h_bitesti,
     "dfuller": _h_dfuller,
     "newey": _h_newey,
 }

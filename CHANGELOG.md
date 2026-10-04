@@ -370,6 +370,28 @@ for each item below.
   `binom_pvalue`; `attrs['recommended_window']`.
 - `sp.rddensity`: `bino_w=`, `bino_wstep=`, `bino_n=`, `bino_nw=`,
   `bino_p=` for the binomial tests.
+- `sp.rdmcplot`: the RD plot for a design with several cutoffs, one
+  binned scatter and polynomial fit per cutoff on a shared axis
+  (`rdmulti::rdmcplot`). The numbers are `sp.rdplot`'s on each cutoff's
+  units and are returned in `fig.rdmcplot_data`.
+- `sp.bitest`: the exact binomial test of Stata's `bitest` / `bitesti`
+  and R's `binom.test`, from a 0/1 column or from counts. Agrees with
+  Stata 18 to 1e-12, including `r(k_opp)`. `sp.stata` runs both commands
+  and stores their `r()` results.
+- `sp.rdrandinf(interfci=)`: Rosenbaum's (2007) confidence interval under
+  interference between units, in `model_info['interf_ci']`.
+- `sp.rdwinselect(statistic='hotelling')`: one joint balance test of all
+  covariates per window (Hotelling's T-squared), with the F p-value under
+  `approx=True`; agrees with `rdlocrand` to 1e-9.
+- `sp.rdwinselect(wmasspoints=True)`: for a discrete score, window `k`
+  runs from the `k`-th support point below the cutoff to the `k`-th at or
+  above it. `rdlocrand` 2.0 pairs the `k`-th on the right with the
+  `(k-1)`-th on the left, so its first window is empty below the cutoff;
+  on the book's academic-probation data the first window here is the one
+  the book itself analyses (208 and 67 observations).
+- `sp.from_stata` / `sp.stata`: `rdms` (the boundary points are read from
+  the `cvar()` variables by `sp.stata`), `bitest`, `bitesti`, and the
+  `interfci()` and `wmasspoints` options.
 - `sp.rdms`: lists for `cutoff1=` / `cutoff2=` estimate several boundary
   points in one call and return one row per point; `xnorm=` adds the
   pooled estimate on the distance to the boundary. Both agree with

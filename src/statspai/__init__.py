@@ -251,6 +251,7 @@ from .exceptions import (
     StatsPAIWarning,
 )
 from .inference import (
+    BiTestResult,
     BootstrapResult,
     FisherResult,
     MetaAnalysisResult,
@@ -258,6 +259,7 @@ from .inference import (
     SuestResult,
     TTestResult,
     aipw,
+    bitest,
     bootstrap,
     cluster_robust_se,
     conley,
@@ -935,6 +937,7 @@ from .rd import (
     rd2d_bw,
     rd2d_plot,
     rdmc,
+    rdmcplot,
     rdms,
 )
 
@@ -1594,6 +1597,8 @@ __all__ = [
     "SuestResult",
     "ttest",
     "TTestResult",
+    "bitest",
+    "BiTestResult",
     "difference_in_means",
     "lm_lin",
     "aipw",
@@ -1929,6 +1934,7 @@ __all__ = [
     "mr_median",
     # Multi-Cutoff / Geographic RD
     "rdmc",
+    "rdmcplot",
     "rdms",
     "RDMultiResult",
     "multi_cutoff_rd",

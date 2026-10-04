@@ -87,23 +87,27 @@ large-sample p-value ignores `nulltau`; StatsPAI's tests the stated
 null. R's `rdwinselect(approx = TRUE, p = 1)` stops with an error on the
 Senate data, so that path has no reference rows. R's randomization
 p-value for the Kolmogorov-Smirnov statistic on a binary covariate was
-1.000 on all 60 seeds where the difference in means gives 0.147; not
-investigated further.
+1.000 on all 60 seeds, where the observed statistic is 0.215 and its own
+exact p-value is 0.150. With **`wmasspoints`** the reference's first window
+is empty below the cutoff (the left edge lags the right by one support
+point); StatsPAI pairs the k-th support point on each side.
 
 ## Left open
 
-- **`rdwinselect(wmasspoints)`**: windows at successive mass points. The
-  reference errored on the synthetic check, so its rule could not be
-  established. `sp.from_stata` reports the option as untranslated.
-- **`rdmcplot`**: no StatsPAI equivalent; `RDMultiResult.plot()` is a
-  forest plot of the estimates, not the binned scatter.
-- **`rdms` in `sp.from_stata`.** `sp.rdms` now takes several boundary
-  points and `xnorm=` (added after this review, matching `rdmulti::rdms`
-  to 1e-9), but Stata's `cvar(p1 p2)` names variables whose first rows
-  hold the points, which a one-line translation cannot read.
+Closed after the first pass, all on main: `sp.rdms` with several boundary
+points and `xnorm=`; `sp.rdmcplot`; `sp.rdwinselect(wmasspoints=True)`;
+`sp.rdwinselect(statistic='hotelling')`; `sp.rdrandinf(interfci=)`;
+`sp.bitest` with the `bitest` / `bitesti`
+translations; `rdms` in `sp.stata`; and `sp.rdrobust`'s density check
+(F8).
+
+Still open:
+
 - **`sp.rddensity` binomial table, default first window.** StatsPAI and
   Stata use the smallest window holding 20 observations in total; R uses
   20 on each side. Both references are by the same authors. Kept as is.
-- **`interfci`** (interval under interference) and `rdwinselect`'s
-  `hotelling` statistic are not implemented.
-- **`bitesti`** has no translation.
+- **`rdmcplot` and the single-score form of `rdms`** (cumulative cutoffs)
+  have no `sp.from_stata` translation; Stata passes their per-cutoff
+  options through variables.
+- **Upstream.** A report for the `rdlocrand` maintainers is drafted in
+  the materials folder (`run/upstream_report_draft.md`) and not sent.

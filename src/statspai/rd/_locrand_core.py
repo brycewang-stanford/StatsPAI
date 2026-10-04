@@ -291,3 +291,61 @@ def window_sequence(
         out.append((nxt_l, nxt_r))
         cur_l, cur_r = nxt_l, nxt_r
     return out
+
+
+def mass_point_windows(
+    x: np.ndarray, c: float, *, nwindows: int
+) -> List[Tuple[float, float]]:
+    """Windows at successive support points of a discrete score.
+
+    Window ``k`` reaches the ``k``-th distinct value below the cutoff and
+    the ``k``-th distinct value at or above it, as half-widths
+    ``(left, right)``. Stops when either side runs out of support points.
+    """
+    left = np.unique(c - x[x < c])
+    right = np.unique(x[x >= c] - c)
+    k = min(int(nwindows), left.shape[0], right.shape[0])
+    if k < 1:
+        raise DataInsufficient(
+            "Need observations on both sides of the cutoff to build "
+            "mass-point windows."
+        )
+    return [(float(left[i]), float(right[i])) for i in range(k)]
+
+
+def hotelling_t2(Z: np.ndarray, labels: np.ndarray) -> np.ndarray:
+    """Two-sample Hotelling T-squared for each row of ``labels``.
+
+    ``T2 = n1 n0 / n * d' S^{-1} d`` with ``d`` the difference in mean
+    vectors and ``S`` the pooled covariance. The pooled sums of squares are
+    the total ones minus the between-group part, so only ``d`` has to be
+    recomputed for a relabelling.
+    """
+    n, k = Z.shape
+    lab = np.atleast_2d(labels).astype(float)
+    n1 = lab.sum(axis=1)
+    n0 = n - n1
+    centred = Z - Z.mean(axis=0)
+    total = centred.T @ centred
+    with np.errstate(divide="ignore", invalid="ignore"):
+        d = (lab @ centred) / n1[:, None] - ((1.0 - lab) @ centred) / n0[:, None]
+        scale = n1 * n0 / n
+        pooled = (
+            total[None, :, :] - scale[:, None, None] * d[:, :, None] * d[:, None, :]
+        ) / (n - 2)
+        out = np.full(lab.shape[0], np.nan)
+        ok = (n1 > 0) & (n0 > 0)
+        try:
+            sol = np.linalg.solve(pooled[ok], d[ok][:, :, None])[:, :, 0]
+        except np.linalg.LinAlgError:
+            return out
+        out[ok] = scale[ok] * np.einsum("ij,ij->i", d[ok], sol)
+    return out
+
+
+def hotelling_pvalue_f(t2: float, n: int, k: int) -> float:
+    """Large-sample (F) p-value of a two-sample Hotelling T-squared."""
+    if not np.isfinite(t2) or n - k - 1 <= 0:
+        return float("nan")
+    f_stat = (n - k - 1) / ((n - 2) * k) * t2
+    return float(sp_stats.f.sf(f_stat, k, n - k - 1))

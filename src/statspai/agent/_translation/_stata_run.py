@@ -42,7 +42,7 @@ __all__ = ["stata", "StataSession"]
 #: replace the estimation result later post-estimation commands apply to.
 _DESCRIPTIVE_TOOLS = frozenset(
     {
-        "sumstats", "pwcorr", "ttest", "unitroot", "corrgram", "varsoc",
+        "sumstats", "pwcorr", "ttest", "bitest", "unitroot", "corrgram", "varsoc",
         "xtsum", "xtserial",
     }  # fmt: skip
 )
@@ -490,6 +490,13 @@ class StataSession:
         elif tool == "ttest":
             r = {"t": float(out.statistic), "df_t": float(out.df),
                  "p": float(out.pvalue), "se": float(out.se)}  # fmt: skip
+        elif tool == "bitest":
+            r = {"N": float(out.n_obs), "k": float(out.successes),
+                 "P_p": float(out.p_null), "p": float(out.pvalue),
+                 "p_l": float(out.pvalue_less),
+                 "p_u": float(out.pvalue_greater)}  # fmt: skip
+            if out.k_opposite is not None:
+                r["k_opp"] = float(out.k_opposite)
         self.stored["r"] = r
 
     @property
@@ -673,6 +680,7 @@ class StataSession:
                     diagnostics={"command": line},
                 ) from exc
         line = self._scalars_in_restriction(line)
+        line = self._boundary_points(line)
         key = (line, tuple(columns or ()), self.panel)
         out = self._translations.get(key)
         if out is None:
@@ -816,6 +824,10 @@ class StataSession:
                     arguments["data"] = self.last_data
             self.output = fn(self.last, **arguments)
             self._store_r(str(out["tool"]), arguments, None)
+        elif out["tool"] == "bitest" and "n" in arguments:
+            # the immediate form: counts on the command line, no data
+            self.output = fn(**arguments)
+            self._store_r("bitest", arguments, None)
         else:
             if run_data is None:
                 raise TypeError(f"sp.stata: {line!r} needs data=<DataFrame>.")
@@ -874,6 +886,29 @@ class StataSession:
                 rf"(?<![\w.]){re.escape(name)}(?![\w(\[])", repr(float(number)), line
             )
         return line
+
+    def _boundary_points(self, line: str) -> str:
+        """Write the boundary points of ``rdms`` into the command.
+
+        ``rdms y x1 x2 d, cvar(p1 p2)`` reads its points from the leading
+        non-missing values of ``p1`` and ``p2``. The translation has no
+        data, so they are appended here as ``cutoff1()`` / ``cutoff2()``.
+        Anything unexpected is left to the handler, which says what it
+        needs.
+        """
+        match = re.match(r"\s*rdms\b.*?\bcvar\(\s*(\w+)\s+(\w+)\s*\)", line)
+        data = self.data
+        if match is None or data is None or "cutoff1(" in line:
+            return line
+        first, second = match.group(1), match.group(2)
+        if first not in data.columns or second not in data.columns:
+            return line
+        both = data[[first, second]].dropna()
+        if both.empty:
+            return line
+        c1 = " ".join(repr(float(v)) for v in both[first])
+        c2 = " ".join(repr(float(v)) for v in both[second])
+        return f"{line} cutoff1({c1}) cutoff2({c2})"
 
     def _predict(self, line: str) -> bool:
         """``predict [type] newvar [if] [, xb | residuals | leverage | pr]``.

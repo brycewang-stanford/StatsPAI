@@ -334,6 +334,7 @@ def _randomization_test(
     nulltau: float,
     ci_grid: Optional[np.ndarray],
     alpha: float,
+    keep_draws: bool = False,
 ) -> Dict[str, Any]:
     """Observed statistics, randomization p-values and the inverted interval.
 
@@ -369,6 +370,7 @@ def _randomization_test(
 
     exceed = {s: 0 for s in stat_names}
     total = 0
+    kept: List[np.ndarray] = []
     grid = ci_grid
     grid_exceed = np.zeros(0 if grid is None else grid.shape[0])
     tau_hat = float(g @ y)
@@ -405,6 +407,8 @@ def _randomization_test(
             a = y[idx] @ g
             b = shift[idx] @ g
             total += size
+        if keep_draws:
+            kept.append(np.asarray(a, dtype=float))
         if "diffmeans" in stat_names:
             exceed["diffmeans"] += int(
                 np.sum(np.abs(a - nulltau * b) >= abs(obs["diffmeans"]) - 1e-14)
@@ -428,6 +432,7 @@ def _randomization_test(
         "n_draws": total,
         "ci": None,
         "ci_truncated": False,
+        "draws": np.concatenate(kept) if kept else None,
     }
     if grid is not None:
         keep = grid[(grid_exceed / total) > alpha]
@@ -482,6 +487,7 @@ def rdrandinf(
     dscale: float = 0.5,
     evall: Optional[float] = None,
     evalr: Optional[float] = None,
+    interfci: Optional[float] = None,
 ) -> CausalResult:
     """
     Randomization inference for regression discontinuity designs.
@@ -575,6 +581,14 @@ def rdrandinf(
     evall, evalr : float, optional
         Points on the running-variable scale at which the fitted
         polynomials are evaluated. Both default to the cutoff.
+    interfci : float, optional
+        Level (such as 0.05) of Rosenbaum's confidence interval under
+        arbitrary interference between units, reported in
+        ``model_info['interf_ci']``. It is the observed difference in
+        means minus the upper and lower quantiles of its randomization
+        distribution, and covers the difference between the statistic and
+        what it would have been had no unit been treated. Needs ``p=0``
+        and a sharp design.
 
     Returns
     -------
@@ -615,6 +629,7 @@ def rdrandinf(
     Randomization." *The Stata Journal*, 16(2), 331-367. [@cattaneo2016inference]
 
     [@cattaneo2015randomization] [@cattaneo2024extensions]
+    [@rosenbaum2007interference]
 
     Examples
     --------
@@ -665,6 +680,11 @@ def rdrandinf(
         raise MethodIncompatibility("bernoulli= needs p=0.")
     if adjusted and fuzzy is not None:
         raise MethodIncompatibility("fuzzy= needs p=0 and kernel='uniform'.")
+    if interfci is not None:
+        if not 0 < float(interfci) < 1:
+            raise MethodIncompatibility("interfci= is a level in (0, 1), such as 0.05.")
+        if p > 0 or fuzzy is not None:
+            raise MethodIncompatibility("interfci= needs p=0 and a sharp design.")
 
     # --- subset to window ---
     bern_col = bernoulli if isinstance(bernoulli, str) else None
@@ -756,6 +776,7 @@ def rdrandinf(
         nulltau=float(nulltau),
         ci_grid=grid,
         alpha=alpha,
+        keep_draws=interfci is not None,
     )
     y0 = yv - float(nulltau) * shift
     results = {}
@@ -824,6 +845,15 @@ def rdrandinf(
         ci_method = "large-sample"
     info["ci_method"] = ci_method
     info["ci_grid_truncated"] = bool(test["ci_truncated"])
+    if interfci is not None and test["draws"] is not None:
+        # Rosenbaum (2007): under interference the statistic minus its
+        # value in the uniformity trial is what can be bounded, and the
+        # uniformity-trial statistic has the randomization distribution.
+        hi_q, lo_q = np.quantile(
+            test["draws"], [1 - float(interfci) / 2, float(interfci) / 2]
+        )
+        info["interf_ci"] = (float(itt - hi_q), float(itt - lo_q))
+        info["interf_ci_level"] = float(interfci)
 
     if d_actual is not None:
         tau_iv, se_iv, first_stage = _tsls_wald(yv, d_actual, z)
@@ -897,7 +927,7 @@ def rdrandinf(
     )
 
 
-_WINSELECT_STATS = ("diffmeans", "ksmirnov", "ranksum")
+_WINSELECT_STATS = ("diffmeans", "ksmirnov", "ranksum", "hotelling")
 
 
 @accepts_aliases(covariates="covs")
@@ -921,6 +951,7 @@ def rdwinselect(
     n_perms: int = 1000,
     kernel: str = "uniform",
     dropmissing: bool = False,
+    wmasspoints: bool = False,
 ) -> pd.DataFrame:
     """
     Data-driven window selection for local randomization RD.
@@ -964,8 +995,10 @@ def rdwinselect(
     nwindows : int, default 10
         Number of windows to evaluate. Fewer come back if the data run out.
     statistic : str, default 'diffmeans'
-        Balance statistic: 'diffmeans' (alias 'ttest'), 'ksmirnov' or
-        'ranksum'.
+        Balance statistic: 'diffmeans' (alias 'ttest'), 'ksmirnov',
+        'ranksum', or 'hotelling'. The first three test each covariate and
+        report the smallest p-value; 'hotelling' is one joint test of all
+        covariates (Hotelling's T-squared), so ``variable`` is empty.
     p : int, default 0
         Polynomial order for the covariate adjustment model.
     seed : int, default 42
@@ -991,6 +1024,11 @@ def rdwinselect(
         Drop rows with a missing covariate before the windows are built.
         By default the windows are built on every row with an observed
         score and incomplete rows are dropped inside each window.
+    wmasspoints : bool, default False
+        For a discrete running variable: window ``k`` runs from the
+        ``k``-th mass point below the cutoff to the ``k``-th at or above
+        it, so each step adds one support point on each side. Cannot be
+        combined with ``obsmin``, ``wmin``, ``wobs`` or ``wstep``.
 
     Returns
     -------
@@ -1042,7 +1080,7 @@ def rdwinselect(
     if statistic not in _WINSELECT_STATS:
         raise MethodIncompatibility(
             f"Unknown statistic '{statistic}'. Choose from: 'diffmeans' "
-            "(alias 'ttest'), 'ksmirnov', 'ranksum'."
+            "(alias 'ttest'), 'ksmirnov', 'ranksum', 'hotelling'."
         )
     kernel = _lr.canonical_kernel(kernel)
     covs = list(covs) if covs else []
@@ -1061,16 +1099,24 @@ def rdwinselect(
         complete = np.isfinite(data[covs].to_numpy(dtype=float)).all(axis=1)
     cov_values = {cv: data[cv].to_numpy(dtype=float) for cv in covs}
 
-    windows = _lr.window_sequence(
-        xv,
-        c,
-        nwindows=int(nwindows),
-        obsmin=int(obsmin),
-        wmin=wmin,
-        wobs=wobs,
-        wstep=wstep,
-        wasymmetric=wasymmetric,
-    )
+    if wmasspoints:
+        if wmin is not None or wobs is not None or wstep is not None or obsmin != 10:
+            raise MethodIncompatibility(
+                "wmasspoints=True takes its windows from the support points "
+                "of the score; obsmin=, wmin=, wobs= and wstep= do not apply."
+            )
+        windows = _lr.mass_point_windows(xv, c, nwindows=int(nwindows))
+    else:
+        windows = _lr.window_sequence(
+            xv,
+            c,
+            nwindows=int(nwindows),
+            obsmin=int(obsmin),
+            wmin=wmin,
+            wobs=wobs,
+            wstep=wstep,
+            wasymmetric=wasymmetric,
+        )
 
     rows = []
     for half_l, half_r in windows:
@@ -1094,7 +1140,33 @@ def rdwinselect(
             ),
             "balanced": False,
         }
-        if covs and n_left >= 2 and n_right >= 2:
+        if covs and statistic == "hotelling" and n_left >= 2 and n_right >= 2:
+            if int(p) > 0 or kernel != "uniform":
+                raise MethodIncompatibility(
+                    "statistic='hotelling' needs p=0 and kernel='uniform'."
+                )
+            Z = np.column_stack([cov_values[cv][mask] for cv in covs])
+            keep = np.ptp(Z, axis=0) > 1e-14
+            Z = Z[:, keep]
+            k_cov = Z.shape[1]
+            if k_cov and Z.shape[0] - k_cov - 1 > 0:
+                t2 = float(_lr.hotelling_t2(Z, z[None, :])[0])
+                if approx:
+                    pval = _lr.hotelling_pvalue_f(t2, Z.shape[0], k_cov)
+                elif np.isfinite(t2):
+                    hits = total = 0
+                    for size in _lr.chunks(n_perms, Z.shape[0]):
+                        lab = z[_lr.permutation_indices(rng, size, Z.shape[0])]
+                        draws = _lr.hotelling_t2(Z, lab)
+                        hits += int(np.sum(draws >= t2 - 1e-12))
+                        total += size
+                    pval = hits / total
+                else:
+                    pval = float("nan")
+                if np.isfinite(pval):
+                    row["p_value"] = float(pval)
+                    row["balanced"] = bool(pval >= alpha)
+        elif covs and n_left >= 2 and n_right >= 2:
             best, best_name = np.inf, None
             for cv in covs:
                 vals = cov_values[cv][mask]

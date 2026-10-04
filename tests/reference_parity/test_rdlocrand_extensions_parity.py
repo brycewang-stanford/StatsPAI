@@ -534,3 +534,174 @@ def test_binomial_window_must_be_positive(senate):
 
     with pytest.raises(MethodIncompatibility):
         sp.rddensity(senate, x="margin", bino_w=-1.0)
+
+
+# ── interval under interference (Rosenbaum 2007) ────────────────────────
+
+
+def test_interference_interval_is_the_statistic_minus_its_null_quantiles(senate):
+    res = _fit(senate, wl=-5, wr=5, interfci=0.05, n_perms=4000, seed=2)
+    lo, hi = res.model_info["interf_ci"]
+    # Recompute from an independent set of label permutations.
+    m = senate["margin"].between(-5, 5) & senate["vote"].notna()
+    y = senate.loc[m, "vote"].to_numpy()
+    t = (senate.loc[m, "margin"].to_numpy() >= 0).astype(int)
+    rng = np.random.default_rng(99)
+    draws = []
+    for _ in range(4000):
+        tp = rng.permutation(t)
+        draws.append(y[tp == 1].mean() - y[tp == 0].mean())
+    q_hi, q_lo = np.quantile(draws, [0.975, 0.025])
+    # Each endpoint is a 2.5% quantile of 4000 draws on either side; their
+    # Monte Carlo SD is about 0.04 here, so 0.25 is a wide screen.
+    assert lo == pytest.approx(res.estimate - q_hi, abs=0.25)
+    assert hi == pytest.approx(res.estimate - q_lo, abs=0.25)
+    assert lo < res.estimate < hi
+
+
+def test_interference_interval_screen_against_r(rjson, senate):
+    """S: mean endpoints over 30 seeds against R's mean over its 30 seeds.
+
+    R's seed-to-seed SD of an endpoint is about 0.12 (stored in the
+    fixture), so a 30-seed mean has SD about 0.02 on each side; 0.15 is the
+    screen.
+    """
+    ends = np.array(
+        [
+            _fit(senate, wl=-5, wr=5, interfci=0.05, n_perms=1000, seed=s).model_info[
+                "interf_ci"
+            ]
+            for s in range(30)
+        ]
+    )
+    assert ends[:, 0].mean() == pytest.approx(rjson["interfci"]["lower"], abs=0.15)
+    assert ends[:, 1].mean() == pytest.approx(rjson["interfci"]["upper"], abs=0.15)
+
+
+def test_interference_interval_needs_an_unadjusted_sharp_design(senate):
+    with pytest.raises(ValueError, match="needs p=0"):
+        _fit(senate, wl=-5, wr=5, interfci=0.05, p=1)
+    with pytest.raises(ValueError, match="level in"):
+        _fit(senate, wl=-5, wr=5, interfci=5)
+
+
+# ── mass-point windows ──────────────────────────────────────────────────
+
+
+def _mass_point_frame():
+    x = np.r_[
+        np.repeat(-np.arange(1, 11, dtype=float), 3),
+        np.repeat(np.arange(10) + 0.5, 2),
+    ]
+    rng = np.random.default_rng(3)
+    return pd.DataFrame({"x": x, "z": rng.normal(size=x.size)})
+
+
+def test_mass_point_windows_take_one_support_point_per_side_per_step():
+    out = sp.rdwinselect(
+        _mass_point_frame(),
+        x="x",
+        covs=["z"],
+        wmasspoints=True,
+        nwindows=4,
+        approx=True,
+    )
+    assert out["window_left"].tolist() == [-1.0, -2.0, -3.0, -4.0]
+    assert out["window_right"].tolist() == [0.5, 1.5, 2.5, 3.5]
+    assert out["n_left"].tolist() == [3, 6, 9, 12]
+    assert out["n_right"].tolist() == [2, 4, 6, 8]
+
+
+def test_reference_first_mass_point_window_is_empty_on_the_left(rjson):
+    """Why the reference's sequence is not the target here.
+
+    rdlocrand 2.0 pairs the k-th support point on the right with the
+    (k-1)-th on the left, so its first window is [0.5, 0.5] with nothing
+    below the cutoff and no balance test can be run in it. From the second
+    window on its left edge is one support point behind.
+    """
+    ref = rjson["masspoints_toy"]
+    assert ref["Nl"][0] == 0 and ref["w_left"][0] == ref["w_right"][0]
+    assert ref["w_left"][1:] == [-1, -2, -3]
+    assert ref["w_right"][1:] == [1.5, 2.5, 3.5]
+
+
+def test_mass_point_windows_refuse_count_based_options():
+    with pytest.raises(ValueError, match="do not apply"):
+        sp.rdwinselect(_mass_point_frame(), x="x", wmasspoints=True, wobs=2)
+
+
+# ── Hotelling's T-squared ───────────────────────────────────────────────
+
+
+def test_hotelling_large_sample_pvalue_matches_r(rjson, senate):
+    ref = rjson["hotelling"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        out = sp.rdwinselect(
+            senate,
+            x="margin",
+            covs=_COVS,
+            wmin=1,
+            wstep=1,
+            nwindows=4,
+            statistic="hotelling",
+            approx=True,
+        )
+    np.testing.assert_allclose(out["p_value"], ref["p_value"], rtol=RTOL)
+    assert out["n_left"].tolist() == ref["Nl"]
+    assert out["n_right"].tolist() == ref["Nr"]
+    # one joint test: no single covariate attains it
+    assert out["variable"].isna().all()
+
+
+def test_hotelling_randomization_pvalue_screen(rjson, senate):
+    """S: 20-seed means against R's. Each p-value is a mean of 1000 draws,
+    so a 20-seed mean has Monte Carlo SD of at most 0.004 on each side."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ps = np.array(
+            [
+                sp.rdwinselect(
+                    senate,
+                    x="margin",
+                    covs=_COVS,
+                    wmin=1,
+                    wstep=1,
+                    nwindows=4,
+                    statistic="hotelling",
+                    seed=s,
+                )["p_value"].to_numpy()
+                for s in range(20)
+            ]
+        )
+    np.testing.assert_allclose(
+        ps.mean(axis=0), rjson["hotelling"]["seedmean"], atol=0.025
+    )
+
+
+def test_hotelling_is_the_textbook_statistic(senate):
+    from statspai.rd import _locrand_core as core
+
+    rng = np.random.default_rng(4)
+    Z = rng.normal(size=(60, 3))
+    lab = (np.arange(60) < 25).astype(int)
+    d = Z[lab == 1].mean(0) - Z[lab == 0].mean(0)
+    pooled = (
+        24 * np.cov(Z[lab == 1], rowvar=False) + 34 * np.cov(Z[lab == 0], rowvar=False)
+    ) / 58
+    want = 25 * 35 / 60 * d @ np.linalg.solve(pooled, d)
+    assert core.hotelling_t2(Z, lab[None, :])[0] == pytest.approx(want, rel=1e-12)
+
+
+def test_hotelling_refuses_an_adjusted_fit(senate):
+    with pytest.raises(ValueError, match="needs p=0"):
+        sp.rdwinselect(
+            senate,
+            x="margin",
+            covs=_COVS,
+            wmin=1,
+            nwindows=1,
+            statistic="hotelling",
+            p=1,
+        )

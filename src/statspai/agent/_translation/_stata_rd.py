@@ -113,7 +113,7 @@ def _h_rdrandinf(cmd: StataCommand) -> Dict[str, Any]:
     _choice(opts, "statistic", _STATISTICS, args, lost)
     _number(opts, "p", args, lost, integer=True)
     _choice(opts, "kernel", _KERNELS, args, lost)
-    for name in ("nulltau", "d", "dscale", "evall", "evalr"):
+    for name in ("nulltau", "d", "dscale", "evall", "evalr", "interfci"):
         _number(opts, name, args, lost)
     _number(opts, "reps", args, lost, key="n_perms", integer=True)
     if opts.get("seed") is not None:
@@ -173,12 +173,12 @@ def _h_rdwinselect(cmd: StataCommand) -> Dict[str, Any]:
     _number(opts, "wobs", args, lost, integer=True)
     _number(opts, "wstep", args, lost)
     _number(opts, "nwindows", args, lost, integer=True)
-    _choice(opts, "statistic", _STATISTICS - {"all"}, args, lost)
+    _choice(opts, "statistic", (_STATISTICS - {"all"}) | {"hotelling"}, args, lost)
     _number(opts, "p", args, lost, integer=True)
     _choice(opts, "kernel", _KERNELS, args, lost)
     _number(opts, "level", args, lost, key="alpha")
     _number(opts, "reps", args, lost, key="n_perms", integer=True)
-    for flag in ("approx", "wasymmetric", "dropmissing"):
+    for flag in ("approx", "wasymmetric", "dropmissing", "wmasspoints"):
         if flag in opts:
             args[flag] = True
     if opts.get("seed") is not None:
@@ -215,8 +215,59 @@ def _h_rdmc(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("rdmc", args, _call("rdmc", args))
 
 
+#: Marks a translation that needs values read from the data; ``sp.stata``
+#: fills them in (see ``_stata_run._boundary_points``).
+BOUNDARY_POINTS_NOTE = (
+    "cvar() names variables whose first rows hold the boundary points. "
+    "sp.stata reads them from the data; in a hand translation pass the "
+    "values as cutoff1=[...] and cutoff2=[...]."
+)
+
+
+def _h_rdms(cmd: StataCommand) -> Dict[str, Any]:
+    """``rdms y x1 x2 zvar, cvar(c1 c2) [xnorm(v)]`` -> ``sp.rdms``.
+
+    In Stata the boundary points are the leading values of the two
+    ``cvar()`` variables. A one-line translation has no data, so the values
+    arrive through ``cutoff1()`` / ``cutoff2()``, which ``sp.stata`` appends
+    after reading them.
+    """
+    if len(cmd.varlist) != 4:
+        return _emit_error(
+            "rdms with two scores needs outcome, both scores and the "
+            "treatment indicator: `rdms y x1 x2 treat, cvar(c1 c2)`. The "
+            "single-score form with cumulative cutoffs is not translated.",
+            command="rdms",
+        )
+    opts = cmd.options
+    cvar = (opts.get("cvar") or "").split()
+    if len(cvar) != 2:
+        return _emit_error(
+            "rdms needs `cvar(<var with first coordinates> <var with second "
+            "coordinates>)`.",
+            command="rdms",
+        )
+    y, x1, x2, treat = cmd.varlist
+    c1 = _float_numlist(opts.get("cutoff1") or "")
+    c2 = _float_numlist(opts.get("cutoff2") or "")
+    if c1 is None or c2 is None or len(c1) != len(c2):
+        return _emit_error(BOUNDARY_POINTS_NOTE, command="rdms")
+    args: Dict[str, Any] = {
+        "y": y,
+        "x1": x1,
+        "x2": x2,
+        "treat": treat,
+        "cutoff1": c1,
+        "cutoff2": c2,
+    }
+    if opts.get("xnorm") is not None:
+        args["xnorm"] = (opts.get("xnorm") or "").strip()
+    return _emit("rdms", args, _call("rdms", args))
+
+
 HANDLERS = {
     "rdrandinf": _h_rdrandinf,
     "rdwinselect": _h_rdwinselect,
     "rdmc": _h_rdmc,
+    "rdms": _h_rdms,
 }

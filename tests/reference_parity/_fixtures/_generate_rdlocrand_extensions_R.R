@@ -69,6 +69,33 @@ out$bino_asym <- list(Nl = b$LeftN, Nr = b$RightN, pval = b$pval)
 b <- q(rddensity(X, binoW = 0.75, binoNW = 4, binoP = 0.4))$bino
 out$bino_p04 <- list(Nl = b$LeftN, Nr = b$RightN, pval = b$pval)
 
+# ---- Rosenbaum's interval under interference: endpoints over 30 seeds ----
+ic <- sapply(1:30, function(s)
+  q(rdrandinf(Y, X, wl = -5, wr = 5, seed = s, interfci = 0.05))$interf.ci)
+out$interfci <- list(lower = mean(ic[1, ]), upper = mean(ic[2, ]),
+                     sd_lower = sd(ic[1, ]), sd_upper = sd(ic[2, ]))
+
+# ---- wmasspoints on a score with three units per support point below the
+# ---- cutoff and two above. Stored as evidence, not as a target: the first
+# ---- window rdlocrand 2.0 returns has no observation below the cutoff.
+Rm <- c(rep(-(1:10), each = 3), rep((0:9) + 0.5, each = 2))
+set.seed(3); Xm <- matrix(rnorm(50), 50, 1)
+r <- q(rdwinselect(Rm, Xm, wmasspoints = TRUE, nwindows = 4, approx = TRUE))
+out$masspoints_toy <- list(w_left = unname(r$results[, "w_left"]),
+                           w_right = unname(r$results[, "w_right"]),
+                           Nl = unname(r$results[, "Obs<c"]),
+                           Nr = unname(r$results[, "Obs>=c"]))
+
+# ---- Hotelling's T-squared: one joint balance test per window ------------
+r <- q(rdwinselect(X, covs, wmin = 1, wstep = 1, nwindows = 4,
+                   statistic = "hotelling", approx = TRUE))
+out$hotelling <- list(p_value = unname(r$results[, "p-value"]),
+                      Nl = unname(r$results[, "Obs<c"]),
+                      Nr = unname(r$results[, "Obs>=c"]))
+hs <- sapply(1:20, function(s) q(rdwinselect(X, covs, wmin = 1, wstep = 1,
+  nwindows = 4, statistic = "hotelling", seed = s))$results[, "p-value"])
+out$hotelling$seedmean <- unname(rowMeans(hs))
+
 out[["_meta"]] <- list(
   n = nrow(d),
   rdlocrand_version = as.character(packageVersion("rdlocrand")),

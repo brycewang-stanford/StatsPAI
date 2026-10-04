@@ -700,6 +700,22 @@ TIER2_ROUND_TRIPS = [
         {"x": "x", "covs": ["z1", "z2"], "wobs": 2, "approx": True},
     ),
     ("rdmc y x, c(cut)", "rdmc", {"y": "y", "x": "x", "cutoff_var": "cut"}),
+    ("bitest z == 0.3", "bitest", {"y": "z", "p": 0.3}),
+    ("bitesti 41 25 1/2", "bitest", {"n": 41, "successes": 25, "p": 0.5}),
+    # rdms: cutoff1() / cutoff2() are what sp.stata appends after reading
+    # the boundary points from the cvar() variables.
+    (
+        "rdms y a b tr, cvar(p1 p2) cutoff1(0 30) cutoff2(0 0)",
+        "rdms",
+        {
+            "y": "y",
+            "x1": "a",
+            "x2": "b",
+            "treat": "tr",
+            "cutoff1": [0.0, 30.0],
+            "cutoff2": [0.0, 0.0],
+        },
+    ),
     (
         "rdrobust y x, c(10) deriv(1) scalepar(-2)",
         "rdrobust",

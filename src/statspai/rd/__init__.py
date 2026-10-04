@@ -96,6 +96,7 @@ from .rd_discrete import rd_discrete
 # v1.15 RDD polish — recent literature
 from .rd_flex import rd_flex
 from .rdit import rdit
+from .rdmcplot import rdmcplot
 from .rdml import rd_boost, rd_cate_summary, rd_forest, rd_lasso
 from .rdmulti import RDMultiResult, rdmc, rdms
 from .rdpower import RDPowerResult, RDSampSiResult, rdpower, rdsampsi
@@ -490,6 +491,7 @@ __all__ = [
     "rd_honest",
     "rdit",
     "rdmc",
+    "rdmcplot",
     "rdms",
     "RDMultiResult",
     "rdpower",

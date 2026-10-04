@@ -243,6 +243,7 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "rdrandinf": (("cutoff", 1),),
     "rdwinselect": (("cutoff", 1),),
     "rdmc": (("cvar", 1),),
+    "rdms": (("cvar", 1),),
 }
 
 
@@ -313,6 +314,8 @@ _DISPLAY_BY_COMMAND = {
         # the binomial table is always in model_info['binomial_tests']
         "nobinomial",
     },
+    "bitest": {"detail"},
+    "bitesti": {"detail"},
     "rdwinselect": {"plot", "graph_options", "quietly"},
     "rdrandinf": {"quietly"},
     # sigf() / margin() / maxiter() tune Stata's optimiser, not the estimand

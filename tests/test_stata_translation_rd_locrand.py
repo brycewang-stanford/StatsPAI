@@ -77,8 +77,14 @@ def test_rdrandinf_bernoulli_and_options_keep_their_names():
 
 
 def test_rdrandinf_unknown_option_is_reported():
+    out = _t("rdrandinf Y X, wl(-1) wr(1) firststage")
+    assert out["untranslated_options"] == ["firststage"]
+
+
+def test_rdrandinf_interference_interval():
     out = _t("rdrandinf Y X, wl(-1) wr(1) interfci(0.05)")
-    assert out["untranslated_options"] == ["interfci"]
+    assert out["arguments"]["interfci"] == 0.05
+    assert out["untranslated_options"] == []
 
 
 def test_rdrandinf_without_a_window_is_refused():
@@ -111,8 +117,52 @@ def test_rdwinselect_flags_and_display_options():
     assert out["untranslated_options"] == []
 
 
-def test_rdwinselect_mass_point_windows_are_not_translated():
-    assert _t("rdwinselect X a, wmasspoints")["untranslated_options"] == ["wmasspoints"]
+def test_rdwinselect_mass_point_windows():
+    out = _t("rdwinselect X a, wmasspoints")
+    assert out["arguments"]["wmasspoints"] is True
+    assert out["untranslated_options"] == []
+    assert _t("rdwinselect X a, evalat(means)")["untranslated_options"] == ["evalat"]
+
+
+def test_rdms_needs_the_boundary_points_from_the_data():
+    """``cvar()`` names variables; one line of Stata does not hold the points."""
+    out = _t("rdms y a b tr, cvar(p1 p2)")
+    assert not out["ok"]
+    assert "sp.stata reads them from the data" in out["error"]
+    out = _t("rdms y a b tr, c(p1 p2) xnorm(xn) cutoff1(0 30 0) cutoff2(0 0 50)")
+    assert out["arguments"] == {
+        "y": "y",
+        "x1": "a",
+        "x2": "b",
+        "treat": "tr",
+        "cutoff1": [0.0, 30.0, 0.0],
+        "cutoff2": [0.0, 0.0, 50.0],
+        "xnorm": "xn",
+    }
+
+
+def test_sp_stata_reads_rdms_boundary_points_from_the_data():
+    rng = np.random.default_rng(5)
+    n = 3000
+    a, b = rng.uniform(-50, 80, n), rng.uniform(-60, 90, n)
+    tr = ((a >= 0) & (b >= 0)).astype(float)
+    df = pd.DataFrame(
+        {"a": a, "b": b, "tr": tr, "y": 1 + 0.6 * tr + rng.normal(0, 0.5, n)}
+    )
+    df["p1"] = np.nan
+    df["p2"] = np.nan
+    df.loc[[0, 1], "p1"] = [0.0, 30.0]
+    df.loc[[0, 1], "p2"] = [0.0, 0.0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.stata("rdms y a b tr, cvar(p1 p2)", data=df)
+        direct = sp.rdms(
+            df, y="y", x1="a", x2="b", treat="tr", cutoff1=[0, 30], cutoff2=[0, 0]
+        )
+    assert [cr["cutoff"] for cr in res.cutoff_results] == [(0.0, 0.0), (30.0, 0.0)]
+    assert [cr["estimate"] for cr in res.cutoff_results] == [
+        cr["estimate"] for cr in direct.cutoff_results
+    ]
 
 
 def test_rdmc_c_is_the_cutoff_variable():
@@ -145,7 +195,7 @@ def test_translated_commands_run():
         res = sp.stata("rdrandinf y x, c(1) wl(0.5) wr(1.5) seed(1)", data=df)
         win = sp.stata("rdwinselect x z, c(1) approx", data=df)
         with pytest.raises(MethodIncompatibility):
-            sp.stata("rdrandinf y x, wl(0.5) wr(1.5) interfci(0.05)", data=df)
+            sp.stata("rdrandinf y x, wl(0.5) wr(1.5) firststage", data=df)
     assert res.model_info["window"] == (0.5, 1.5)
     assert np.isnan(res.ci[0])
     assert {"variable", "binom_pvalue"} <= set(win.columns)

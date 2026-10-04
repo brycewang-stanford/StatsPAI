@@ -39,20 +39,20 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 50,730 | 68 | 96 |
+| `did` | 50,960 | 68 | 96 |
 | `synth` | 29,536 | 39 | 55 |
-| `agent` | 26,326 | 48 | 4 |
+| `agent` | 26,975 | 50 | 4 |
 | `regression` | 23,284 | 28 | 43 |
-| `rd` | 21,541 | 32 | 55 |
+| `rd` | 22,779 | 34 | 56 |
 | `smart` | 16,666 | 21 | 31 |
-| `forest` | 15,874 | 17 | 31 |
+| `forest` | 15,878 | 17 | 31 |
 | `output` | 13,980 | 22 | 42 |
 | `matching` | 11,508 | 17 | 25 |
 | `core` | 11,162 | 19 | 6 |
 | `panel` | 11,142 | 18 | 21 |
-| `inference` | 10,868 | 23 | 32 |
+| `inference` | 11,083 | 24 | 34 |
 | `decomposition` | 9,912 | 19 | 32 |
-| `diagnostics` | 9,543 | 17 | 28 |
+| `diagnostics` | 9,725 | 18 | 28 |
 | `dml` | 9,394 | 24 | 16 |
 | `iv` | 8,862 | 17 | 10 |
 | `timeseries` | 7,992 | 16 | 28 |
@@ -64,10 +64,10 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mendelian` | 5,187 | 13 | 41 |
 | `frontier` | 4,986 | 8 | 12 |
 | `utils` | 4,759 | 11 | 35 |
-| `metalearners` | 4,619 | 9 | 23 |
+| `metalearners` | 4,705 | 9 | 23 |
 | `workflow` | 4,512 | 5 | 3 |
+| `survival` | 4,284 | 6 | 15 |
 | `gmm` | 4,190 | 12 | 4 |
-| `survival` | 4,166 | 6 | 15 |
 | `qte` | 4,152 | 9 | 13 |
 | `causal_discovery` | 4,110 | 11 | 20 |
 | `dag` | 4,026 | 9 | 23 |
@@ -81,7 +81,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `causal_llm` | 3,026 | 10 | 15 |
 | `crossval` | 2,809 | 7 | 2 |
 | `postestimation` | 2,656 | 6 | 12 |
-| `rlasso` | 2,620 | 7 | 10 |
+| `rlasso` | 2,634 | 7 | 10 |
 | `conformal_causal` | 2,597 | 9 | 21 |
 | `epi` | 2,523 | 6 | 20 |
 | `interference` | 2,460 | 10 | 20 |
@@ -126,7 +126,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **510,944** | **887** | **1300** |
+| **Total** | **513,757** | **893** | **1303** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

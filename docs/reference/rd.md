@@ -47,6 +47,10 @@ one such that it and every window inside it reach `alpha` (0.15 by
 default). `wl` and `wr` are the window's endpoints, so a placebo cutoff at
 1 with half-width 0.75 is `c=1, wl=0.25, wr=1.75`.
 
+For a discrete score, `sp.rdwinselect(..., wmasspoints=True)` steps one
+support point per side. `sp.bitest(n=41, successes=25)` is the binomial
+test on its own.
+
 `sp.rdrandinf` reports the randomization p-value, the large-sample one
 (`model_info['pvalue_asymptotic']`), the power against `d`
 (`model_info['power']`) and an interval from inverting the test (`ci=`
@@ -60,6 +64,7 @@ from `rdlocrand`; the function's Notes give the reason.
 # Each unit has its own cutoff, in a column
 res = sp.rdmc(df, y='y', x='score', cutoff_var='cutoff')
 res.summary()          # per cutoff, weighted, and pooled on the normalized score
+sp.rdmcplot(df, y='y', x='score', cutoff_var='cutoff', p=1)
 
 # Two scores: several points on the boundary, plus the pooled estimate on
 # the signed perpendicular distance to it

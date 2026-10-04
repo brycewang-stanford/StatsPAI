@@ -387,6 +387,7 @@ FAMILY_CARDS: Dict[str, Dict[str, Any]] = {
             "rdwinselect",
             "rdplot",
             "rdplotdensity",
+            "rdmcplot",
             "rdpower",
             "rdsampsi",
             "rdsensitivity",

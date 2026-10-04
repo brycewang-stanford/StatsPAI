@@ -7,6 +7,7 @@ Provides robust inference methods for supported estimator results:
 """
 
 from .aipw import aipw
+from .bitest import BiTestResult, bitest
 from .bootstrap import BootstrapResult, bootstrap
 from .conley import conley
 from .difference_in_means import difference_in_means
@@ -61,6 +62,8 @@ __all__ = [
     "ppi_ols",
     "ttest",
     "TTestResult",
+    "bitest",
+    "BiTestResult",
     "difference_in_means",
     "lm_lin",
 ]

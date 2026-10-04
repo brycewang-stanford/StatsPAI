@@ -1353,6 +1353,23 @@
       "tolerance": "coef / rho 1e-6 abs (observed <= 2e-7); logLik 1e-6 rel"
     },
     {
+      "function": "bitest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bitest_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "evidence_grade": "T2",
       "function": "bjs",
       "headline": {
@@ -6474,6 +6491,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_bitest_stata_parity.py",
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_ivpoisson_stata_parity.py",
@@ -17893,6 +17911,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_bitest_stata_parity.py",
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",

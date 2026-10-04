@@ -51103,7 +51103,7 @@
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "@cattaneo2016inference; @cattaneo2015randomization; @cattaneo2024extensions",
+    "reference": "@cattaneo2016inference; @cattaneo2015randomization; @cattaneo2024extensions; @rosenbaum2007interference",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: estimate is the difference in means (or in fitted values at the cutoff when p > 0); pvalue is the randomization p-value of the first requested statistic; ci is the test-inversion interval.",
@@ -51190,6 +51190,10 @@
               "tsls"
             ],
             "type": "string"
+          },
+          "interfci": {
+            "description": "Level (such as 0.05) of Rosenbaum's confidence interval under arbitrary interference between units, reported in ``model_info['interf_ci']``. It is the observed difference in means minus the upper and lower quantiles of its randomization distribution, and covers the difference between the statistic and what it would have been had no unit been treated. Needs ``p=0`` and a sharp design.",
+            "type": "number"
           },
           "kernel": {
             "default": "uniform",
@@ -51429,12 +51433,17 @@
           },
           "statistic": {
             "default": "diffmeans",
-            "description": "Balance statistic: 'diffmeans' (alias 'ttest'), 'ksmirnov' or 'ranksum'.",
+            "description": "Balance statistic: 'diffmeans' (alias 'ttest'), 'ksmirnov', 'ranksum', or 'hotelling'. The first three test each covariate and report the smallest p-value; 'hotelling' is one joint test of all covariates (Hotelling's T-squared), so ``variable`` is empty.",
             "type": "string"
           },
           "wasymmetric": {
             "default": false,
             "description": "Let the two sides of the window grow separately.",
+            "type": "boolean"
+          },
+          "wmasspoints": {
+            "default": false,
+            "description": "For a discrete running variable: window ``k`` runs from the ``k``-th mass point below the cutoff to the ``k``-th at or above it, so each step adds one support point on each side. Cannot be combined with ``obsmin``, ``wmin``, ``wobs`` or ``wstep``.",
             "type": "boolean"
           },
           "wmin": {
@@ -86435,6 +86444,220 @@
       "Cross-language parity (bit-exact) vs rdmulti::rdmc 2.0.0 (Cattaneo, Titiunik, Vazquez-Bare & Keele) [R version 4.5.2 (2025-10-31), rdmulti 2.0.0]; tolerance per-cutoff coefficients, robust coefficients, robust SEs and the pooled weighted estimate 1e-9 rel; selected bandwidths 1e-5 rel -- tests/reference_parity/test_rdmulti_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "sp.rdrobust",
+      "sp.rdrandinf",
+      "sp.rddensity",
+      "rd_honest",
+      "rdrbounds",
+      "bounds"
+    ],
+    "assumptions": [
+      "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
+      "No manipulation of x at c (McCrary density test)",
+      "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
+      "Covariate balance at c (optional but recommended)"
+    ],
+    "category": "causal",
+    "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
+    "description": "RD plot with one binned scatter and polynomial fit per cutoff.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "fig, ax = sp.rdmcplot(df, y=\"y\", x=\"x\", cutoff_var=\"cut\", p=1)",
+    "failure_modes": [
+      {
+        "alternative": "sp.rdrobust",
+        "exception": "AssumptionViolation",
+        "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
+        "symptom": "McCrary density test p < 0.05"
+      },
+      {
+        "alternative": "",
+        "exception": "AssumptionViolation",
+        "remedy": "Include covariates as controls, narrow bandwidth, or report as caveat.",
+        "symptom": "Covariate imbalance at cutoff (sp.rdbalance rejects)"
+      },
+      {
+        "alternative": "sp.rd_honest",
+        "exception": "AssumptionWarning",
+        "remedy": "Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI).",
+        "symptom": "Effect unstable across bandwidth halvings"
+      },
+      {
+        "alternative": "sp.manski_bounds",
+        "exception": "AssumptionViolation",
+        "remedy": "The RD signal is noise; seek an alternative identification strategy.",
+        "symptom": "Placebo cutoffs show significant 'effects'"
+      }
+    ],
+    "inherits_from": "rdrobust",
+    "limitations": [],
+    "name": "rdmcplot",
+    "not_recommended_when": [
+      "the running variable has few distinct values (dates, integer scores) -- local polynomial asymptotics fail; use sp.rd_discrete or sp.rdit",
+      "treatment probability does not change at the cutoff -- there is no RD; consider sp.bunching or a DiD"
+    ],
+    "pre_conditions": [
+      "A continuous running variable with support on both sides of the cutoff; density plots and bandwidth selection need enough mass near c",
+      "running variable x is continuous with support on both sides of c",
+      "treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy)",
+      "sufficient mass of observations within the optimal bandwidth"
+    ],
+    "provenance": {
+      "alternatives": "family",
+      "assumptions": "family",
+      "cost_profile": "family",
+      "example": "docstring",
+      "failure_modes": "family",
+      "not_recommended_when": "family",
+      "pre_conditions": "family",
+      "reference": "docstring",
+      "returns": "docstring",
+      "typical_n_min": "family"
+    },
+    "reference": "@cattaneo2024extensions",
+    "returns": {
+      "class": "tuple",
+      "description": "(fig, ax): fig.rdmcplot_data maps each cutoff to the dict that fig.rdplot_data holds for a single-cutoff plot (bin means, polynomial fit, number of bins).",
+      "fields": {}
+    },
+    "signature": {
+      "description": "RD plot with one binned scatter and polynomial fit per cutoff.",
+      "name": "rdmcplot",
+      "parameters": {
+        "properties": {
+          "ax": {
+            "description": "ax parameter (Optional[Any]).",
+            "type": "string"
+          },
+          "binselect": {
+            "default": "esmv",
+            "description": "Bin selection rule, as in :func:`statspai.rdplot`.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "string"
+            ]
+          },
+          "ci_level": {
+            "default": 0.95,
+            "description": "ci_level parameter (float).",
+            "type": "number"
+          },
+          "cutoff_var": {
+            "description": "Column holding each unit's cutoff.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "cutoffs": {
+            "description": "Cutoffs to plot. Defaults to every value of ``cutoff_var``.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "figsize": {
+            "default": [
+              10,
+              7
+            ],
+            "description": "figsize parameter (Tuple[float, float]).",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "h": {
+            "description": "Bandwidth of the polynomial fit; the full support when omitted.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "hide_ci": {
+            "default": true,
+            "description": "Draw the binned means without their intervals. Several overlaid series are hard to read with them.",
+            "type": "boolean"
+          },
+          "kernel": {
+            "default": "uniform",
+            "description": "Kernel function used for weighting or smoothing.",
+            "type": "string"
+          },
+          "nbins": {
+            "description": "Bins on each side, the same for every cutoff or one per cutoff. Chosen by ``binselect`` when omitted.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "p": {
+            "default": 4,
+            "description": "Order of the global polynomial on each side. A sequence gives one order per cutoff.",
+            "items": {
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
+          },
+          "title": {
+            "description": "title parameter (Optional[str]).",
+            "type": "string"
+          },
+          "x": {
+            "description": "Running variable.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "x_label": {
+            "description": "x_label parameter (Optional[str]).",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome variable.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y_label": {
+            "description": "y_label parameter (Optional[str]).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x",
+          "cutoff_var"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 500,
+    "validation_notes": [],
+    "validation_status": "api_stable"
   },
   {
     "alias_of": null,
