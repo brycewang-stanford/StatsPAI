@@ -31,6 +31,21 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — call traces re-recorded after the weight diagnostic reached the fast and negative-binomial entry points
+
+Commit `d7b67583`. `sp.fast.feols`, `sp.fast.fepois` and `sp.nbreg` now
+record the Kish effective sizes of a weighted fit and warn when the
+weights are dispersed. The edits are in `core/_agent_summary.py`,
+`fast/feols.py`, `fast/fepois.py` and `regression/count.py`, which Track
+A modules 03, 14, 15, 37, 42, 47, 53, 58, 63 and 64 execute, so their
+source hashes in the trace changed.
+
+Effect on the paper: none. The ten modules were run on the source
+before and after the change and their result files are byte-identical;
+only the recorded source hashes move.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-05 — call traces re-recorded after the few-treated diagnostic reached the fixed-effects entry points
 
 Commit `5ad164e1`. `sp.panel`, `sp.hdfe_ols`, `sp.feols` and `sp.regress`
