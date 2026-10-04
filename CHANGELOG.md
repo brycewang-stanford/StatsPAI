@@ -392,6 +392,12 @@ for each item below.
 - `sp.from_stata` / `sp.stata`: `rdms` (the boundary points are read from
   the `cvar()` variables by `sp.stata`), `bitest`, `bitesti`, and the
   `interfci()` and `wmasspoints` options.
+- `sp.rdms` without `x2`: one score with cumulative cutoffs
+  (`rdmulti::rdms(Y, X, C)`), a sharp RD at each cutoff on the whole
+  sample or, with `ranges=`, on the units in each cutoff's interval.
+  Agrees with `rdmulti` to 1e-9. `sp.stata` runs `rdms y x, cvar(c)
+  range(lo hi)` and `rdmcplot y x, cvar(c) pvar() nbinsvar() ...`,
+  reading the per-cutoff values from the named variables.
 - `sp.rdms`: lists for `cutoff1=` / `cutoff2=` estimate several boundary
   points in one call and return one row per point; `xnorm=` adds the
   pooled estimate on the distance to the boundary. Both agree with

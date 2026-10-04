@@ -72,7 +72,13 @@ sp.rdms(df, y='y', x1='s1', x2='s2', treat='d',
         cutoff1=[0, 30, 0], cutoff2=[0, 0, 50], xnorm='dist')
 ```
 
-Both report the conventional point estimate with the robust
+```python
+# One score, cumulative cutoffs (a dose that steps up at 33 and at 66)
+sp.rdms(df, y='y', x1='score', cutoff1=[33, 66],
+        ranges=[(10, 50), (40, 90)])   # optional: each cutoff's own interval
+```
+
+All three report the conventional point estimate with the robust
 bias-corrected standard error, interval and p-value, as `rdmulti` does.
 
 ## Diagnostics

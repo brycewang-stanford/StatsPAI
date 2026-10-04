@@ -700,6 +700,11 @@ TIER2_ROUND_TRIPS = [
         {"x": "x", "covs": ["z1", "z2"], "wobs": 2, "approx": True},
     ),
     ("rdmc y x, c(cut)", "rdmc", {"y": "y", "x": "x", "cutoff_var": "cut"}),
+    (
+        "rdmcplot y x, c(cut) pvar(pv) pvec(1 2)",
+        "rdmcplot",
+        {"y": "y", "x": "x", "cutoff_var": "cut", "p": [1, 2]},
+    ),
     ("bitest z == 0.3", "bitest", {"y": "z", "p": 0.3}),
     ("bitesti 41 25 1/2", "bitest", {"n": 41, "successes": 25, "p": 0.5}),
     # rdms: cutoff1() / cutoff2() are what sp.stata appends after reading

@@ -144,3 +144,88 @@ def test_point_lists_must_pair_up(design):
 def test_several_points_need_the_treatment_indicator(design):
     with pytest.raises(ValueError, match="treat= is required"):
         sp.rdms(design, y="y", x1="x1", x2="x2", cutoff1=[0, 30], cutoff2=[0, 0])
+
+
+# ── one score, cumulative cutoffs ────────────────────────────────────────
+
+
+@pytest.fixture(scope="module")
+def cjson():
+    path = _FIX / "rdms_cumulative_R.json"
+    if not path.exists():  # pragma: no cover
+        pytest.skip("run _generate_rdms_cumulative_R.R to build the fixture")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def cumulative():
+    return pd.read_csv(_FIX / "rdms_cumulative_design.csv")
+
+
+def _check(res, ref):
+    for i, cr in enumerate(res.cutoff_results):
+        assert cr["estimate"] == pytest.approx(ref["coefs"][i], rel=RTOL)
+        assert cr["estimate_robust"] == pytest.approx(ref["coefs_rb"][i], rel=RTOL)
+        assert cr["se"] ** 2 == pytest.approx(ref["var_rb"][i], rel=RTOL)
+        assert cr["ci_lower"] == pytest.approx(ref["ci_lower"][i], rel=RTOL)
+        assert cr["ci_upper"] == pytest.approx(ref["ci_upper"][i], rel=RTOL)
+        assert cr["bandwidth"] == pytest.approx(ref["h"][i], rel=RTOL)
+        assert cr["n"] == int(ref["Nh"][i])
+
+
+def test_cumulative_cutoffs_match_r(cumulative, cjson):
+    """``rdms(Y, X, C)``: a sharp RD at each cutoff on the whole sample."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.rdms(cumulative, y="y", x1="x", cutoff1=cjson["cutoffs"])
+    assert [cr["cutoff"] for cr in res.cutoff_results] == cjson["cutoffs"]
+    _check(res, cjson["full"])
+    assert np.isnan(res.pooled_estimate)
+    assert "Pooled" not in res.summary()
+
+
+def test_cumulative_cutoffs_with_ranges_match_r(cumulative, cjson):
+    """``rangemat``: each cutoff is estimated on the units in its interval."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.rdms(
+            cumulative,
+            y="y",
+            x1="x",
+            cutoff1=cjson["cutoffs"],
+            ranges=[tuple(r) for r in cjson["ranges"]],
+        )
+    _check(res, cjson["restricted"])
+    assert res.cutoff_results[0]["range"] == (10.0, 50.0)
+
+
+def test_cumulative_cutoff_is_rdrobust_at_that_cutoff(cumulative):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.rdms(cumulative, y="y", x1="x", cutoff1=[33])
+        ref = sp.rdrobust(cumulative, y="y", x="x", c=33)
+    cr = res.cutoff_results[0]
+    assert (cr["ci_lower"], cr["ci_upper"]) == pytest.approx(ref.ci, rel=1e-14)
+
+
+def test_cumulative_ranges_are_checked(cumulative):
+    with pytest.raises(ValueError, match="does not contain cutoff"):
+        sp.rdms(
+            cumulative, y="y", x1="x", cutoff1=[33, 66], ranges=[(40, 50), (40, 90)]
+        )
+    with pytest.raises(ValueError, match="intervals for 2 cutoffs"):
+        sp.rdms(cumulative, y="y", x1="x", cutoff1=[33, 66], ranges=[(10, 50)])
+
+
+def test_ranges_need_the_cumulative_form(design):
+    with pytest.raises(ValueError, match="cumulative cutoffs"):
+        sp.rdms(
+            design,
+            y="y",
+            x1="x1",
+            x2="x2",
+            treat="tr",
+            cutoff1=[0],
+            cutoff2=[0],
+            ranges=[(-1, 1)],
+        )

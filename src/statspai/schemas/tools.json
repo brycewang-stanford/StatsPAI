@@ -26534,6 +26534,13 @@
           "description": "Kernel function used for weighting or smoothing.",
           "type": "string"
         },
+        "ranges": {
+          "description": "Cumulative cutoffs only: for each cutoff, the interval of the score whose units enter its estimate. Use it to keep a neighbouring cutoff out of a cutoff's estimation window. Default: all units.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
         "treat": {
           "description": "Column holding the 0/1 treatment indicator (R's ``zvar``). Strongly",
           "type": "string",
@@ -26544,7 +26551,7 @@
           "type": "string"
         },
         "x2": {
-          "description": "Second running variable (e.g., longitude distance to boundary).",
+          "description": "Second running variable (e.g., longitude distance to boundary). Omit it for one score with cumulative cutoffs.",
           "type": "string"
         },
         "xnorm": {
@@ -26559,7 +26566,6 @@
       },
       "required": [
         "x1",
-        "x2",
         "y"
       ],
       "type": "object"

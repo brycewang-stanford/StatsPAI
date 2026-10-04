@@ -244,6 +244,7 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "rdwinselect": (("cutoff", 1),),
     "rdmc": (("cvar", 1),),
     "rdms": (("cvar", 1),),
+    "rdmcplot": (("cvar", 1),),
 }
 
 
@@ -316,6 +317,7 @@ _DISPLAY_BY_COMMAND = {
     },
     "bitest": {"detail"},
     "bitesti": {"detail"},
+    "rdmcplot": {"nodraw", "noscatter", "nopoly"},
     "rdwinselect": {"plot", "graph_options", "quietly"},
     "rdrandinf": {"quietly"},
     # sigf() / margin() / maxiter() tune Stata's optimiser, not the estimand

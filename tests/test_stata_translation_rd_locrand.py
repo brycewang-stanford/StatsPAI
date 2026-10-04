@@ -199,3 +199,80 @@ def test_translated_commands_run():
     assert res.model_info["window"] == (0.5, 1.5)
     assert np.isnan(res.ci[0])
     assert {"variable", "binom_pvalue"} <= set(win.columns)
+
+
+def test_rdms_one_score_cumulative_cutoffs():
+    out = _t(
+        "rdms y x, cvar(c) range(lo hi) cutoff1(33 66) range1(10 40) range2(50 90)"
+    )
+    assert out["arguments"] == {
+        "y": "y",
+        "x1": "x",
+        "cutoff1": [33.0, 66.0],
+        "ranges": [(10.0, 50.0), (40.0, 90.0)],
+    }
+    assert not _t("rdms y x, cvar(c)")["ok"]
+    assert not _t("rdms y x z, cvar(c)")["ok"]
+
+
+def test_sp_stata_reads_cumulative_cutoffs_and_ranges_from_the_data():
+    rng = np.random.default_rng(7)
+    n = 2500
+    x = rng.uniform(0, 100, n)
+    y = 1 + 0.5 * (x >= 33) + 0.8 * (x >= 66) + rng.normal(0, 0.4, n)
+    df = pd.DataFrame({"y": y, "x": x})
+    for name, values in (("c", [33, 66]), ("lo", [10, 40]), ("hi", [50, 90])):
+        df[name] = np.nan
+        df.loc[[0, 1], name] = values
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.stata("rdms y x, cvar(c) range(lo hi)", data=df)
+        direct = sp.rdms(
+            df, y="y", x1="x", cutoff1=[33, 66], ranges=[(10, 50), (40, 90)]
+        )
+    assert [cr["estimate"] for cr in res.cutoff_results] == [
+        cr["estimate"] for cr in direct.cutoff_results
+    ]
+
+
+def test_rdmcplot_per_cutoff_options_come_from_the_data():
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    out = _t("rdmcplot y x, c(cut) pvar(p) nbinsvar(nl) nbinsrightvar(nr)")
+    assert out["untranslated_options"] == ["pvar", "nbinsvar", "nbinsrightvar"]
+    out = _t(
+        "rdmcplot y x, c(cut) pvar(p) nbinsvar(nl) nbinsrightvar(nr) "
+        "pvec(1 1) nbinsvec(6 7) nbinsrightvec(8 9) nodraw"
+    )
+    assert out["arguments"] == {
+        "y": "y",
+        "x": "x",
+        "cutoff_var": "cut",
+        "p": [1, 1],
+        "nbins": [(6, 8), (7, 9)],
+    }
+    assert out["ignored_display_options"] == ["nodraw"]
+
+    rng = np.random.default_rng(2)
+    n = 1200
+    cut = rng.choice([30.0, 60.0], size=n)
+    x = cut + rng.uniform(-20, 20, n)
+    df = pd.DataFrame(
+        {"y": 1 + 0.4 * (x >= cut) + rng.normal(0, 0.3, n), "x": x, "cut": cut}
+    )
+    for name, values in (("p", [1, 2]), ("nl", [6, 7]), ("nr", [8, 9])):
+        df[name] = np.nan
+        df.loc[[0, 1], name] = values
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fig, _ = sp.stata(
+            "rdmcplot y x, c(cut) pvar(p) nbinsvar(nl) nbinsrightvar(nr)", data=df
+        )
+        with pytest.raises(MethodIncompatibility):
+            sp.stata("rdmcplot y x, c(cut) genvars", data=df)
+    assert list(fig.rdmcplot_data[30.0]["J"]) == [6, 8]
+    assert list(fig.rdmcplot_data[60.0]["J"]) == [7, 9]
+    plt.close("all")

@@ -96,8 +96,8 @@ point); StatsPAI pairs the k-th support point on each side.
 
 Closed after the first pass, all on main: `sp.rdms` with several boundary
 points and `xnorm=`; `sp.rdmcplot`; `sp.rdwinselect(wmasspoints=True)`;
-`sp.rdwinselect(statistic='hotelling')`; `sp.rdrandinf(interfci=)`;
-`sp.bitest` with the `bitest` / `bitesti`
+`sp.rdwinselect(statistic='hotelling')`; `sp.rdrandinf(interfci=)`; `sp.rdms` with one score and cumulative
+cutoffs, and its translation with `rdmcplot`'s; `sp.bitest` with the `bitest` / `bitesti`
 translations; `rdms` in `sp.stata`; and `sp.rdrobust`'s density check
 (F8).
 
@@ -106,8 +106,8 @@ Still open:
 - **`sp.rddensity` binomial table, default first window.** StatsPAI and
   Stata use the smallest window holding 20 observations in total; R uses
   20 on each side. Both references are by the same authors. Kept as is.
-- **`rdmcplot` and the single-score form of `rdms`** (cumulative cutoffs)
-  have no `sp.from_stata` translation; Stata passes their per-cutoff
-  options through variables.
+- **`rdmcplot, genvars`** is refused by `sp.stata`: it creates variables
+  that the do-file then plots by hand. `fig.rdmcplot_data` holds the same
+  numbers.
 - **Upstream.** A report for the `rdlocrand` maintainers is drafted in
   the materials folder (`run/upstream_report_draft.md`) and not sent.

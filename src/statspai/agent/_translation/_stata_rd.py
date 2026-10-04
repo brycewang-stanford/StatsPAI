@@ -218,51 +218,118 @@ def _h_rdmc(cmd: StataCommand) -> Dict[str, Any]:
 #: Marks a translation that needs values read from the data; ``sp.stata``
 #: fills them in (see ``_stata_run._boundary_points``).
 BOUNDARY_POINTS_NOTE = (
-    "cvar() names variables whose first rows hold the boundary points. "
+    "cvar() (and range()) name variables whose first rows hold the cutoffs. "
     "sp.stata reads them from the data; in a hand translation pass the "
-    "values as cutoff1=[...] and cutoff2=[...]."
+    "values as cutoff1=[...] (and cutoff2=[...], ranges=[...])."
 )
 
 
 def _h_rdms(cmd: StataCommand) -> Dict[str, Any]:
-    """``rdms y x1 x2 zvar, cvar(c1 c2) [xnorm(v)]`` -> ``sp.rdms``.
+    """``rdms y x1 x2 zvar, cvar(c1 c2) [xnorm(v)]`` and ``rdms y x,
+    cvar(c) [range(lo hi)]`` -> ``sp.rdms``.
 
-    In Stata the boundary points are the leading values of the two
-    ``cvar()`` variables. A one-line translation has no data, so the values
-    arrive through ``cutoff1()`` / ``cutoff2()``, which ``sp.stata`` appends
-    after reading them.
+    In Stata the cutoffs are the leading values of the ``cvar()``
+    variables (and the ranges those of the ``range()`` variables). A
+    one-line translation has no data, so the values arrive through
+    ``cutoff1()`` / ``cutoff2()`` / ``range1()`` / ``range2()``, which
+    ``sp.stata`` appends after reading them.
     """
-    if len(cmd.varlist) != 4:
-        return _emit_error(
-            "rdms with two scores needs outcome, both scores and the "
-            "treatment indicator: `rdms y x1 x2 treat, cvar(c1 c2)`. The "
-            "single-score form with cumulative cutoffs is not translated.",
-            command="rdms",
-        )
     opts = cmd.options
     cvar = (opts.get("cvar") or "").split()
-    if len(cvar) != 2:
+    two_scores = len(cmd.varlist) == 4 and len(cvar) == 2
+    one_score = len(cmd.varlist) == 2 and len(cvar) == 1
+    if not (two_scores or one_score):
         return _emit_error(
-            "rdms needs `cvar(<var with first coordinates> <var with second "
-            "coordinates>)`.",
+            "rdms: expected `rdms y x1 x2 treat, cvar(c1 c2)` (two scores) or "
+            "`rdms y x, cvar(c)` (one score, cumulative cutoffs).",
             command="rdms",
         )
-    y, x1, x2, treat = cmd.varlist
     c1 = _float_numlist(opts.get("cutoff1") or "")
-    c2 = _float_numlist(opts.get("cutoff2") or "")
-    if c1 is None or c2 is None or len(c1) != len(c2):
+    if c1 is None:
         return _emit_error(BOUNDARY_POINTS_NOTE, command="rdms")
-    args: Dict[str, Any] = {
-        "y": y,
-        "x1": x1,
-        "x2": x2,
-        "treat": treat,
-        "cutoff1": c1,
-        "cutoff2": c2,
-    }
+    args: Dict[str, Any] = {"y": cmd.varlist[0], "x1": cmd.varlist[1]}
+    if two_scores:
+        c2 = _float_numlist(opts.get("cutoff2") or "")
+        if c2 is None or len(c1) != len(c2):
+            return _emit_error(BOUNDARY_POINTS_NOTE, command="rdms")
+        args.update(x2=cmd.varlist[2], treat=cmd.varlist[3], cutoff1=c1, cutoff2=c2)
+    else:
+        args["cutoff1"] = c1
+        if opts.get("range") is not None:
+            lo = _float_numlist(opts.get("range1") or "")
+            hi = _float_numlist(opts.get("range2") or "")
+            if lo is None or hi is None or not len(lo) == len(hi) == len(c1):
+                return _emit_error(BOUNDARY_POINTS_NOTE, command="rdms")
+            args["ranges"] = [(a, b) for a, b in zip(lo, hi)]
     if opts.get("xnorm") is not None:
         args["xnorm"] = (opts.get("xnorm") or "").strip()
     return _emit("rdms", args, _call("rdms", args))
+
+
+def _h_rdmcplot(cmd: StataCommand) -> Dict[str, Any]:
+    """``rdmcplot y x, cvar(c) [pvar() nbinsvar() nbinsrightvar()
+    binselectvar() hvar()]`` -> ``sp.rdmcplot``.
+
+    The ``*var()`` options name variables whose leading values are the
+    per-cutoff settings, in the order of the sorted cutoffs. ``sp.stata``
+    reads them and appends ``pvec()`` / ``nbinsvec()`` / ``nbinsrightvec()``
+    / ``binselectvec()`` / ``hvec()``; without them a ``*var()`` option is
+    reported as untranslated.
+    """
+    if len(cmd.varlist) != 2:
+        return _emit_error(
+            "rdmcplot requires an outcome and a running variable: "
+            "`rdmcplot y x, cvar(<cutoff variable>)`",
+            command="rdmcplot",
+        )
+    opts = cmd.options
+    cvar = (opts.get("cvar") or "").strip()
+    if not cvar:
+        return _emit_error(
+            "rdmcplot needs `cvar(<variable holding each unit's cutoff>)`.",
+            command="rdmcplot",
+        )
+    args: Dict[str, Any] = {
+        "y": cmd.varlist[0],
+        "x": cmd.varlist[1],
+        "cutoff_var": cvar,
+    }
+    lost: List[str] = []
+
+    def _vec(var_opt: str, vec_opt: str) -> Optional[List[float]]:
+        if opts.get(var_opt) is None:
+            return None
+        values = _float_numlist(opts.get(vec_opt) or "")
+        if values is None:
+            lost.append(var_opt)
+        return values
+
+    pvec = _vec("pvar", "pvec")
+    if pvec is not None:
+        args["p"] = [int(v) for v in pvec]
+    left, right = _vec("nbinsvar", "nbinsvec"), _vec("nbinsrightvar", "nbinsrightvec")
+    if left is not None and right is not None and len(left) == len(right):
+        args["nbins"] = [(int(a), int(b)) for a, b in zip(left, right)]
+    elif left is not None and opts.get("nbinsrightvar") is None:
+        args["nbins"] = [int(a) for a in left]
+    hvec = _vec("hvar", "hvec")
+    if hvec is not None:
+        args["h"] = hvec
+    if opts.get("binselectvar") is not None:
+        names = (opts.get("binselectvec") or "").split()
+        if names:
+            args["binselect"] = names
+        else:
+            lost.append("binselectvar")
+    if opts.get("ci") is not None:
+        try:
+            args["ci_level"] = float(opts.get("ci") or "") / 100.0
+            args["hide_ci"] = False
+        except ValueError:
+            lost.append("ci")
+    out = _emit("rdmcplot", args, _call("rdmcplot", args))
+    out["untranslated_options"] = lost
+    return out
 
 
 HANDLERS = {
@@ -270,4 +337,5 @@ HANDLERS = {
     "rdwinselect": _h_rdwinselect,
     "rdmc": _h_rdmc,
     "rdms": _h_rdms,
+    "rdmcplot": _h_rdmcplot,
 }

@@ -888,27 +888,66 @@ class StataSession:
         return line
 
     def _boundary_points(self, line: str) -> str:
-        """Write the boundary points of ``rdms`` into the command.
+        """Write values that ``rdms`` / ``rdmcplot`` keep in variables into
+        the command.
 
-        ``rdms y x1 x2 d, cvar(p1 p2)`` reads its points from the leading
-        non-missing values of ``p1`` and ``p2``. The translation has no
-        data, so they are appended here as ``cutoff1()`` / ``cutoff2()``.
-        Anything unexpected is left to the handler, which says what it
-        needs.
+        ``rdms y x1 x2 d, cvar(p1 p2)`` reads its boundary points from the
+        leading non-missing values of ``p1`` and ``p2``; ``rdms y x,
+        cvar(c) range(lo hi)`` its cutoffs and ranges the same way; and
+        ``rdmcplot``'s ``pvar()`` / ``nbinsvar()`` / ... hold one setting
+        per cutoff. The translation has no data, so the values are appended
+        here as ``cutoff1()``, ``range1()``, ``pvec()`` and so on. Anything
+        unexpected is left to the handler, which says what it needs.
         """
-        match = re.match(r"\s*rdms\b.*?\bcvar\(\s*(\w+)\s+(\w+)\s*\)", line)
         data = self.data
-        if match is None or data is None or "cutoff1(" in line:
+        head = re.match(r"\s*(rdms|rdmcplot)\b", line)
+        if head is None or data is None:
             return line
-        first, second = match.group(1), match.group(2)
-        if first not in data.columns or second not in data.columns:
-            return line
-        both = data[[first, second]].dropna()
-        if both.empty:
-            return line
-        c1 = " ".join(repr(float(v)) for v in both[first])
-        c2 = " ".join(repr(float(v)) for v in both[second])
-        return f"{line} cutoff1({c1}) cutoff2({c2})"
+
+        def leading(name: str, as_text: bool = False) -> Optional[str]:
+            if name not in data.columns:
+                return None
+            col = data[name].dropna()
+            if as_text:
+                col = col[col.astype(str).str.strip() != ""]
+                return " ".join(str(v).strip() for v in col) or None
+            try:
+                return " ".join(repr(float(v)) for v in col) or None
+            except (TypeError, ValueError):
+                return None
+
+        extra = []
+        if head.group(1) == "rdms":
+            cvar = re.search(r"\bc(?:var)?\(\s*(\w+)(?:\s+(\w+))?\s*\)", line)
+            if cvar is None or "cutoff1(" in line:
+                return line
+            for i, name in enumerate(g for g in cvar.groups() if g):
+                values = leading(name)
+                if values is None:
+                    return line
+                extra.append(f"cutoff{i + 1}({values})")
+            rng = re.search(r"\brange\(\s*(\w+)\s+(\w+)\s*\)", line)
+            if rng is not None:
+                for i, name in enumerate(rng.groups()):
+                    values = leading(name)
+                    if values is None:
+                        return line
+                    extra.append(f"range{i + 1}({values})")
+        else:
+            for var_opt, vec_opt, text in (
+                ("pvar", "pvec", False),
+                ("nbinsvar", "nbinsvec", False),
+                ("nbinsrightvar", "nbinsrightvec", False),
+                ("hvar", "hvec", False),
+                ("binselectvar", "binselectvec", True),
+            ):
+                named = re.search(rf"\b{var_opt}\(\s*(\w+)\s*\)", line)
+                if named is None or f"{vec_opt}(" in line:
+                    continue
+                values = leading(named.group(1), as_text=text)
+                if values is not None:
+                    extra.append(f"{vec_opt}({values})")
+        return f"{line} {' '.join(extra)}" if extra else line
 
     def _predict(self, line: str) -> bool:
         """``predict [type] newvar [if] [, xb | residuals | leverage | pr]``.
