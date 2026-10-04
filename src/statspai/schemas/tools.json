@@ -4497,6 +4497,38 @@
     "name": "cluster_robust_se"
   },
   {
+    "description": "Conditional moment tests (normality, heteroskedasticity, skewness, kurtosis) of a probit or tobit fit. Validation: certified parity evidence. Assumptions: Under the null the latent error is normal and homoskedastic. Pre-conditions: The fit comes from sp.probit or sp.tobit, without weights. Failure modes: result is not a probit or tobit fit -> Fit with sp.probit or sp.tobit first. Alternatives: sp.het_test, sp.reset_test, sp.estat. Typical minimum N: 100.",
+    "input_schema": {
+      "properties": {
+        "opg": {
+          "default": false,
+          "description": "Outer-product-of-gradient form (over-rejects in small samples)",
+          "type": "boolean"
+        },
+        "result": {
+          "description": "Fit returned by sp.probit or sp.tobit",
+          "type": "string"
+        },
+        "test": {
+          "default": "normality",
+          "description": "Which moment conditions to test",
+          "enum": [
+            "normality",
+            "heterosc",
+            "skewness",
+            "kurtosis"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "cmtest"
+  },
+  {
     "description": "Cohort-anchored event study. Instead of averaging across cohorts at each relative-time bin (which can contaminate leads / lags with other cohorts' dynamics), estimates separate event-study paths per cohort and then aggregates with cohort weights. Standard errors are cluster-robust and carry no protection against parallel-trends violations: this is the cohort-anchored estimator Liu (2025) starts from, NOT that paper's block-bias robust-inference procedure, which is not implemented. For parallel-trends sensitivity use sp.honest_did. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends hold within each treatment cohort relative to never-treated units (cohort-anchored, not pooled TWFE); No anticipation: outcomes in pre-event periods unaffected by future treatment; Treatment is an absorbing first-treatment event (staggered adoption, treat encodes first period, 0 = never-treated). Pre-conditions: Long-format balanced/unbalanced panel with id and time columns; treat column gives first-treatment period per unit (0 = never-treated), with at least one never-treated cohort; Enough pre/post periods to fill the req...",
     "input_schema": {
       "properties": {
@@ -15229,6 +15261,183 @@
     "name": "iv_forest"
   },
   {
+    "description": "Exponential-mean (Poisson) regression with endogenous regressors by GMM, additive or multiplicative errors, as Stata's ivpoisson gmm. Validation: certified parity evidence. Do NOT use when: Endogeneity comes from an omitted variable inside the exponential and errors='additive' is kept: that moment condition is not valid there; use errors='multiplicative'. Assumptions: Conditional mean is exp(x'b); Instruments are uncorrelated with the additive (or multiplicative) error and relevant. Pre-conditions: Outcome is non-negative; At least as many excluded instruments as endogenous regressors. Failure modes: GMM criterion did not converge -> Rescale regressors on a very large scale; try errors='additive'. Alternatives: sp.poisson, sp.ppmlhdfe, sp.ivreg. Typical minimum N: 200.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "endog": {
+          "description": "Endogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "errors": {
+          "default": "additive",
+          "description": "Moment condition: 'additive' E[z(y - exp(xb))] = 0 or 'multiplicative' E[z(y/exp(xb) - 1)] = 0 (Mullahy 1997)",
+          "enum": [
+            "additive",
+            "multiplicative"
+          ],
+          "type": "string"
+        },
+        "instruments": {
+          "description": "Excluded instruments, at least as many as endog",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "maxiter": {
+          "default": 200,
+          "description": "Maximum Gauss-Newton iterations per GMM step",
+          "type": "integer"
+        },
+        "method": {
+          "default": "twostep",
+          "description": "GMM weighting: 'onestep', 'twostep' or 'igmm' (iterated)",
+          "enum": [
+            "twostep",
+            "onestep",
+            "igmm"
+          ],
+          "type": "string"
+        },
+        "tol": {
+          "default": 1e-10,
+          "description": "Convergence tolerance on the parameter step",
+          "type": "number"
+        },
+        "vce": {
+          "default": "robust",
+          "description": "Moment covariance: 'robust', 'cluster' or 'unadjusted'",
+          "enum": [
+            "robust",
+            "cluster",
+            "unadjusted"
+          ],
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "wmatrix": {
+          "description": "Weight-matrix covariance when it should differ from vce",
+          "enum": [
+            "robust",
+            "cluster",
+            "unadjusted"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Exogenous regressors of the outcome equation",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Non-negative outcome (count or continuous)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "endog",
+        "instruments",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "ivpoisson"
+  },
+  {
+    "description": "Probit with continuous endogenous regressors: maximum likelihood or Newey's two-step, as Stata's ivprobit. Validation: certified parity evidence. Do NOT use when: The endogenous regressor is binary: the linear normal reduced form is wrong; use sp.biprobit; Comparing magnitudes across method='mle' and method='twostep': the two use different scale normalisations. Assumptions: Outcome error and reduced-form errors are jointly normal; Instruments are excluded from the outcome equation and relevant for every endogenous regressor; Endogenous regressors are continuous with a linear reduced form. Pre-conditions: Outcome is binary 0/1 with both values present; At least as many excluded instruments as endogenous regressors. Failure modes: rank condition fails / instruments collinear -> Drop redundant instruments or add one that moves the endogenous regressor. Alternatives: sp.biprobit, sp.ivreg, sp.probit. Typical minimum N: 200.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "endog": {
+          "description": "Endogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "instruments": {
+          "description": "Excluded instruments, at least as many as endog",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "method": {
+          "default": "mle",
+          "description": "'mle' (joint maximum likelihood) or 'twostep' (Newey's minimum chi-squared)",
+          "enum": [
+            "mle",
+            "twostep"
+          ],
+          "type": "string"
+        },
+        "vce": {
+          "description": "method='mle' only: None/'oim', 'robust' or 'cluster' (e.g. vce='cluster firm'); robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Exogenous regressors of the outcome equation",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Binary outcome (0/1)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "endog",
+        "instruments",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "ivprobit"
+  },
+  {
     "description": "Instrumental-variable quantile regression (Chernozhukov-Hansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function; Conditional mean independence: E[u|X] = 0; No perfect collinearity. Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.iv...",
     "input_schema": {
       "properties": {
@@ -15342,6 +15551,86 @@
       "type": "object"
     },
     "name": "ivreg"
+  },
+  {
+    "description": "Tobit with continuous endogenous regressors: maximum likelihood or Newey's two-step, as Stata's ivtobit. Validation: certified parity evidence. Assumptions: Outcome error and reduced-form errors are jointly normal and homoskedastic; Instruments are excluded from the outcome equation and relevant for every endogenous regressor; Censoring limits are known. Pre-conditions: At least one of ll / ul is set; At least as many excluded instruments as endogenous regressors. Failure modes: not enough uncensored observations -> Check the censoring limits; with nearly all observations at the limit the model is a probit. Alternatives: sp.tobit, sp.ivreg, sp.ivprobit. Typical minimum N: 200.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "endog": {
+          "description": "Endogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "instruments": {
+          "description": "Excluded instruments, at least as many as endog",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "ll": {
+          "default": 0.0,
+          "description": "Lower censoring limit (None for none)",
+          "type": "number"
+        },
+        "method": {
+          "default": "mle",
+          "description": "'mle' (joint maximum likelihood) or 'twostep' (Newey's minimum chi-squared)",
+          "enum": [
+            "mle",
+            "twostep"
+          ],
+          "type": "string"
+        },
+        "ul": {
+          "description": "Upper censoring limit (default: none)",
+          "type": "number"
+        },
+        "vce": {
+          "description": "method='mle' only: None/'oim', 'robust' or 'cluster' (e.g. vce='cluster firm'); robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Exogenous regressors of the outcome equation",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Censored outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "endog",
+        "instruments",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "ivtobit"
   },
   {
     "description": "Leave-one-cluster-out jackknife standard errors. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff. Assumptions: Errors are independent across clusters; any within-cluster dependence is unrestricted; Clusters are defined at (or above) the level at which treatment was assigned; Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs. Pre-conditions: A fitted regression result (or its design matrix and residuals) and a cluster column with no missing values; Two-way clustering needs both dimensions to have many clusters. Failure modes: Few clusters (G < 30) or one dominant cluster -> Report wild cluster bootstrap p-values / inverted CIs (sp.wild_cluster_boot, sp.wild_cluster_ci_inv) or CR3 jackknife; Very few treated clusters -> Cluster-robust SEs are unreliable; use sp.did_few_treated or randomization inference. Alternatives: sp.sp.wild_cluster_boot, sp.sp.cr2_se, sp.sp.conley.",

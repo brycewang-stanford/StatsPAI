@@ -1101,6 +1101,91 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "two-step also recovers delta on a known DGP."
         ),
     },
+    "ivprobit": {
+        "status": "bit-exact",
+        "reference": "Stata 18 MP official `ivprobit` (ML and Newey two-step)",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": (
+            "Every block at 1e-6. Observed: Newey two-step coefficients and "
+            "standard errors 3e-10 to 2e-8 with one and with two endogenous "
+            "regressors; maximum likelihood coefficients 9e-9 or better, "
+            "standard errors 4e-8 or better under vce(oim), vce(robust) and "
+            "vce(cluster), log-likelihood to 1e-8; the Wald test of "
+            "exogeneity and the model Wald chi2 at the same level. The "
+            "do-file tightens Stata's ml stopping rule (nrtolerance 1e-13): "
+            "at Stata's default the ML blocks differ by up to 3e-6, which "
+            "is the stopping rule and not the likelihood."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"],
+        "note": (
+            "Added with the estimator. Ancillary parameters are reported "
+            "under Stata's names (/athrho2_1, /lnsigma2, ...) by the delta "
+            "method from an unconstrained Cholesky parametrisation. "
+            "micsr::ivldv (Croissant 2025) was the textbook prompt; its "
+            "minimum chi-squared method errors out in micsr 0.1-5, so Stata "
+            "is the only reference."
+        ),
+    },
+    "ivtobit": {
+        "status": "bit-exact",
+        "reference": "Stata 18 MP official `ivtobit` (ML and Newey two-step)",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": (
+            "Every block at 1e-6. Observed: Newey two-step 4e-13 to 1e-11 "
+            "(left-censored, two-limit, two endogenous regressors); maximum "
+            "likelihood coefficients 8e-14 or better and standard errors "
+            "8e-8 or better under vce(oim), vce(robust) and vce(cluster), "
+            "log-likelihood to 1e-8; both Wald statistics at the same "
+            "level. Stata's ml stopping rule is tightened in the do-file "
+            "(see ivprobit)."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"],
+        "note": "Added with the estimator; shares its likelihood code with ivprobit.",
+    },
+    "ivpoisson": {
+        "status": "bit-exact",
+        "reference": "Stata 18 MP official `ivpoisson gmm`",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": (
+            "Every block at 1e-6 on coefficients, standard errors and "
+            "Hansen's J. Observed 5e-15 to 2e-7 across additive and "
+            "multiplicative errors, one-step, two-step and iterated GMM, "
+            "exact and over-identification, and robust, cluster and "
+            "unadjusted weight matrices, including wmatrix() set apart "
+            "from vce(). The residual is Stata's stopping rule for the GMM "
+            "criterion."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_ivpoisson_stata_parity.py"],
+        "note": (
+            "Added with the estimator. One-step J is divided by the error "
+            "variance as Stata does; it is chi-squared only under "
+            "homoskedastic moments and the result says so. "
+            "`ivpoisson cfunction` has no counterpart."
+        ),
+    },
+    "cmtest": {
+        "status": "bit-exact",
+        "reference": "R micsr 0.1-5 `cmtest` (Croissant 2025, Microeconometrics with R)",
+        "reference_versions": {"micsr": "0.1-5"},
+        "tolerance": (
+            "Tobit: normality, heteroskedasticity, skewness and kurtosis "
+            "statistics, Hessian form and outer-product form, at 1e-9 "
+            "(observed 4e-11 to 4e-16). Probit: 1e-6 (observed 8e-7 and "
+            "4e-8); micsr::binomreg stops 1e-8 short of the probit optimum "
+            "and the statistic inherits it, the coefficients of both sides "
+            "are compared in the same test."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_cmtest_micsr_parity.py"],
+        "note": (
+            "micsr is GPL and is run as a program; only its output is "
+            "stored. The size of the tests under the null is checked by "
+            "simulation in the same file."
+        ),
+    },
     "psmatch2": {
         "status": "bit-exact",
         "reference": (

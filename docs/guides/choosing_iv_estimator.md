@@ -118,6 +118,52 @@ Validate the LATE interpretation:
 sp.kitagawa_test(df, y='y', treatment='d', instrument='z')  # Imbens-Rubin test
 ```
 
+## 6b. Binary, censored and count outcomes
+
+2SLS on a binary, censored or count outcome estimates a linear
+approximation. When the model itself matters (predicted probabilities,
+effects on a censored mean, a multiplicative effect on a count), three
+estimators keep the nonlinear outcome equation and instrument a
+continuous endogenous regressor.
+
+| Outcome | Function | Stata |
+| --- | --- | --- |
+| Binary | `sp.ivprobit` | `ivprobit` |
+| Censored | `sp.ivtobit` | `ivtobit` |
+| Count / non-negative | `sp.ivpoisson` | `ivpoisson gmm` |
+
+```python
+res = sp.ivprobit(df, y="works", x=["age", "kids"],
+                  endog="other_income", instruments=["husband_educ"])
+res.model_info["exogeneity_pvalue"]     # Wald test of exogeneity
+
+sp.ivtobit(df, y="hours", x=["age", "kids"], endog="wage",
+           instruments=["experience"], ll=0)
+
+sp.ivpoisson(df, y="trips", x=["income"], endog="cost",
+             instruments=["distance"], errors="multiplicative")
+```
+
+Three things to know before reading the output.
+
+- `sp.ivprobit(method="twostep")` is Newey's minimum chi-squared
+  estimator. It normalises the variance of the error given the first
+  stage to one, while maximum likelihood normalises the unconditional
+  variance. The two coefficient vectors differ by `1 / sqrt(1 - rho^2)`
+  and are not comparable in magnitude.
+- These models assume a continuous endogenous regressor with a linear,
+  normal first stage. For a binary endogenous regressor use
+  `sp.biprobit`.
+- `sp.ivpoisson` defaults to additive errors, as Stata does. If the
+  endogeneity comes from an omitted variable inside the exponential, that
+  moment condition is not valid and `errors="multiplicative"` is the one
+  to use (Mullahy 1997).
+
+The probit and the tobit are consistent only under a normal,
+homoskedastic latent error. `sp.cmtest(fit, "normality")` and
+`sp.cmtest(fit, "heterosc")` test both on a fit from `sp.probit` or
+`sp.tobit`.
+
 ## 7. Shift-share / Bartik IV
 
 ```python

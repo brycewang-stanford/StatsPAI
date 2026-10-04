@@ -1,0 +1,58 @@
+{
+  "probit_coef": [0.184692141583257, 0.761009733107038, -0.653262468185867, 0.51979291202301],
+  "probit_normality": {
+    "statistic": 1.02454269967995,
+    "df": 2,
+    "pvalue": 0.599133191090709
+  },
+  "probit_heterosc": {
+    "statistic": 6.48282873703986,
+    "df": 3,
+    "pvalue": 0.0903421615330411
+  },
+  "tobit_coef": [0.14522616175299, 0.991800832774724, -0.809821348386116, 0.5826809964971, 1.33686152406918],
+  "tobit_normality": {
+    "statistic": 9.50793365240145,
+    "df": 2,
+    "pvalue": 0.00861744341227357
+  },
+  "tobit_normality_opg": {
+    "statistic": 10.5109293239294,
+    "df": 2,
+    "pvalue": 0.00521892069453738
+  },
+  "tobit_heterosc": {
+    "statistic": 11.1721666691529,
+    "df": 3,
+    "pvalue": 0.0108304188394812
+  },
+  "tobit_heterosc_opg": {
+    "statistic": 13.2373062948584,
+    "df": 3,
+    "pvalue": 0.00415053519996571
+  },
+  "tobit_skewness": {
+    "statistic": 2.89497147962472,
+    "df": {},
+    "pvalue": 0.00379192983226701
+  },
+  "tobit_skewness_opg": {
+    "statistic": 3.03139580651206,
+    "df": {},
+    "pvalue": 0.00243425918228321
+  },
+  "tobit_kurtosis": {
+    "statistic": 2.02194274963125,
+    "df": {},
+    "pvalue": 0.043182266665864
+  },
+  "tobit_kurtosis_opg": {
+    "statistic": 2.08337108360108,
+    "df": {},
+    "pvalue": 0.0372174119221564
+  },
+  "_meta": {
+    "R": "R version 4.5.2 (2025-10-31)",
+    "micsr": "0.1.5"
+  }
+}

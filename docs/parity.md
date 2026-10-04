@@ -27,9 +27,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 364 |
+| **Compared against R/Stata** (T2) | bit-exact | 368 |
 | | aligned | 53 |
-| | **subtotal** | **417** |
+| | **subtotal** | **421** |
 | **No external software reference** | analytical-only (T1) | 338 |
 | | external-replication (published numbers) | 5 |
 | | **subtotal** | **343** |
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 417 | 748 | 749 | 55.7% |
+| estimator callables | 421 | 752 | 753 | 55.9% |
 | infrastructure (parity N/A) | 0 | 9 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 325 | 0.0% |
-| **all registered** | 417 | 760 | 1294 | 32.2% |
+| **all registered** | 421 | 764 | 1298 | 32.4% |
 
 ### Coverage by estimator family
 
@@ -53,13 +53,13 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
 | causal | 149 | 327 | 327 |
-| regression | 32 | 37 | 37 |
+| regression | 35 | 40 | 40 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
 | inference | 18 | 27 | 27 |
+| diagnostics | 18 | 24 | 24 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
-| diagnostics | 17 | 23 | 23 |
 | mendelian | 18 | 20 | 20 |
 | timeseries | 11 | 17 | 17 |
 | epi | 16 | 17 | 17 |
@@ -95,7 +95,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 364 functions
+## bit-exact — 368 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -139,6 +139,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `closeness_centrality` | Wasserman-Faust closeness from R igraph::distances | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Exact (0.0) on a disconnected graph with three blocks and three isolates -- the case the correction exists for; the connected-graph values also match igraph::closeness(normalized = TRUE) to 1e-10. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `cluster_robust_se` | R sandwich::vcovCL (HC1, cadjust; HC0; two-way multi0=FALSE); Stata regress, vce(cluster) | R 4.5.2; sandwich 3.1.1; Stata 18 | SE 1e-10 rel (observed 2.1e-15 R, 9.8e-16 Stata) | — / — | [`test_inference_sens_R_parity.py`](../tests/reference_parity/test_inference_sens_R_parity.py) (+3) |
 | `clustering` | R igraph::transitivity(type = 'local', isolates = 'zero') | igraph 2.3.3 | Exact on karate and on a disconnected graph whose isolates and degree-1 nodes score 0 on both sides. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) (+1) |
+| `cmtest` | R micsr 0.1-5 `cmtest` (Croissant 2025, Microeconometrics with R) | micsr 0.1-5 | Tobit: normality, heteroskedasticity, skewness and kurtosis statistics, Hessian form and outer-product form, at 1e-9 (observed 4e-11 to 4e-16). Probit: 1e-6 (observed 8e-7 and 4e-8); micsr::binomreg stops 1e-8 short of the probit optimum and the statistic inherits it, the coefficients of both sides are compared in the same test. | — / — | [`test_cmtest_micsr_parity.py`](../tests/reference_parity/test_cmtest_micsr_parity.py) |
 | `cohen_kappa` | base-R closed form (Cohen's kappa point estimate) | R 4.5.2 | kappa + agreements 1e-12 abs (observed ~1e-16); SE not pinned | — / — | [`test_epi_extra_parity.py`](../tests/reference_parity/test_epi_extra_parity.py) (+1) |
 | `conformal_synth` | scinference (Chernozhukov-Wuthrich-Zhu authors' package, GitHub kwuthrich/scinference 567c688): estimation_method='sc', permutation_method='mb' | R 4.5.2; scinference 0.0.0.9000 567c6889ce0a1d269a62d415b88aa6baf723a3fe; limSolve 2.0.3; quadprog 1.5.8 | p-values exact (rank statistics); ATT 1e-9 rel (observed 9e-16); CI end points exact on the grid | — / — | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) (+1) |
 | `conley` | Stata acreg (Colella, Lalive, Sakalli & Thoenig) | Stata 18 MP; acreg 1.1.0 | SE 1e-9 rel (observed ~5e-15); absorbed-IV spatial 1e-10 | — / — | [`test_conley_acreg_spacetime_parity.py`](../tests/reference_parity/test_conley_acreg_spacetime_parity.py) (+1) |
@@ -242,7 +243,10 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `its` | lm + sandwich::NeweyWest 3.1.1; Stata 18 newey; itsa 1.0.0 (SSC) | R 4.5.2; sandwich 3.1.1; Stata 18; itsa 1.0.0 | coefficients and Newey-West SE 1e-10 rel (observed 7.9e-14); itsa 1e-6 (glm2 IRLS) | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
 | `iv` | AER::ivreg | R 4.5.2; AER 1.2.16 | rel_est<=1e-06, rel_se<=1e-06 | 1.1e-11 / 1.1e-11 | [`02_iv.py`](../tests/r_parity/02_iv.py) (+3) |
 | `iv_diag` | R ivDiag::ivDiag 1.0.6 (analytic block) | R 4.5.2; ivDiag 1.0.6; lfe 3.1.1 | 2SLS / OLS coefficients and SEs, classical first-stage F, effective F, tF critical value and interval: rel 1e-9 on 6 designs (observed <= 6e-12) | — / — | [`test_rd_iv_R_parity.py`](../tests/reference_parity/test_rd_iv_R_parity.py) (+1) |
+| `ivpoisson` | Stata 18 MP official `ivpoisson gmm` | Stata 18 MP | Every block at 1e-6 on coefficients, standard errors and Hansen's J. Observed 5e-15 to 2e-7 across additive and multiplicative errors, one-step, two-step and iterated GMM, exact and over-identification, and robust, cluster and unadjusted weight matrices, including wmatrix() set apart from vce(). The residual is Stata's stopping rule for the GMM criterion. | — / — | [`test_ivpoisson_stata_parity.py`](../tests/reference_parity/test_ivpoisson_stata_parity.py) |
+| `ivprobit` | Stata 18 MP official `ivprobit` (ML and Newey two-step) | Stata 18 MP | Every block at 1e-6. Observed: Newey two-step coefficients and standard errors 3e-10 to 2e-8 with one and with two endogenous regressors; maximum likelihood coefficients 9e-9 or better, standard errors 4e-8 or better under vce(oim), vce(robust) and vce(cluster), log-likelihood to 1e-8; the Wald test of exogeneity and the model Wald chi2 at the same level. The do-file tightens Stata's ml stopping rule (nrtolerance 1e-13): at Stata's default the ML blocks differ by up to 3e-6, which is the stopping rule and not the likelihood. | — / — | [`test_ivprobit_ivtobit_stata_parity.py`](../tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py) |
 | `ivreg` | AER::ivreg | R 4.5.2; AER 1.2.16 | rel_est<=1e-06, rel_se<=1e-06 | 1.1e-11 / 1.1e-11 | [`02_iv.py`](../tests/r_parity/02_iv.py) (+2) |
+| `ivtobit` | Stata 18 MP official `ivtobit` (ML and Newey two-step) | Stata 18 MP | Every block at 1e-6. Observed: Newey two-step 4e-13 to 1e-11 (left-censored, two-limit, two endogenous regressors); maximum likelihood coefficients 8e-14 or better and standard errors 8e-8 or better under vce(oim), vce(robust) and vce(cluster), log-likelihood to 1e-8; both Wald statistics at the same level. Stata's ml stopping rule is tightened in the do-file (see ivprobit). | — / — | [`test_ivprobit_ivtobit_stata_parity.py`](../tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py) |
 | `jackknife_se` | R sandwich::vcovJK(center='mean'); Stata regress, vce(jackknife, cluster() double) | R 4.5.2; sandwich 3.1.1; Stata 18 | SE / CI 1e-10 rel, p 1e-9 (observed SE 2.0e-15, p 1.4e-14, CI 9.2e-12) | — / — | [`test_inference_sens_R_parity.py`](../tests/reference_parity/test_inference_sens_R_parity.py) (+3) |
 | `jive` | Stata jive 1.0.2 (Stata Journal st0108) ujive1 / ujive2 | Stata 18 MP; jive 1.0.2 | coefficients and SEs (default and robust) rel 1e-9 (observed 3.0e-13 / 4.4e-13) | — / — | [`test_rd_iv_R_parity.py`](../tests/reference_parity/test_rd_iv_R_parity.py) (+1) |
 | `johansen` | urca::ca.jo 1.3.4; Stata 18 vecrank | R 4.5.2; urca 1.3.4; Stata 18 | eigenvalues, trace & max-eigenvalue statistics 1e-11 rel vs ca.jo, 1e-10 vs vecrank (observed 8.2e-14); Osterwald-Lenum table equal to Stata _vecgetcv cell by cell | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
@@ -671,7 +675,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `forest_policy_tree` | [`test_fe_forest_policy_recovery.py`](../tests/reference_parity/test_fe_forest_policy_recovery.py) |
 | `forest_support` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
-| `from_stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+2) |
+| `from_stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+4) |
 | `front_door` | [`test_front_door_parity.py`](../tests/reference_parity/test_front_door_parity.py) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |

@@ -1029,9 +1029,640 @@
       "R parity module 41_tobit",
       "Stata parity module 41_tobit",
       "Cross-language parity (bit-exact) vs censReg::censReg [R version 4.5.2 (2025-10-31), censReg 0.5.38]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 41_tobit -- tests/r_parity/41_tobit.py",
+      "tests/reference_parity/test_cmtest_micsr_parity.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_ldv_design_stata_parity.py",
       "API/unit contract evidence: tests/test_weakiv_tobit.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "biprobit",
+      "ivreg",
+      "probit"
+    ],
+    "assumptions": [
+      "Outcome error and reduced-form errors are jointly normal.",
+      "Instruments are excluded from the outcome equation and relevant for every endogenous regressor.",
+      "Endogenous regressors are continuous with a linear reduced form."
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Probit with continuous endogenous regressors: maximum likelihood or Newey's two-step, as Stata's ivprobit. Validation: certified parity evidence. Do NOT use when: The endogenous regressor is binary: the linear normal reduced form is wrong; use sp.biprobit; Comparing magnitudes across method='mle' and method='twostep': the two use different scale normalisations.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 MP official `ivprobit` (ML and Newey two-step)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"
+      ],
+      "tolerance": "Every block at 1e-6. Observed: Newey two-step coefficients and standard errors 3e-10 to 2e-8 with one and with two endogenous regressors; maximum likelihood coefficients 9e-9 or better, standard errors 4e-8 or better under vce(oim), vce(robust) and vce(cluster), log-likelihood to 1e-8; the Wald test of exogeneity and the model Wald chi2 at the same level. The do-file tightens Stata's ml stopping rule (nrtolerance 1e-13): at Stata's default the ML blocks differ by up to 3e-6, which is the stopping rule and not the likelihood."
+    },
+    "example": "sp.ivprobit(df, y=\"works\", x=[\"age\", \"kids\"], endog=\"other_income\", instruments=[\"husband_educ\"])",
+    "failure_modes": [
+      {
+        "alternative": "sp.probit",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop redundant instruments or add one that moves the endogenous regressor.",
+        "symptom": "rank condition fails / instruments collinear"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ivprobit",
+    "not_recommended_when": [
+      "The endogenous regressor is binary: the linear normal reduced form is wrong; use sp.biprobit.",
+      "Comparing magnitudes across method='mle' and method='twostep': the two use different scale normalisations."
+    ],
+    "pre_conditions": [
+      "Outcome is binary 0/1 with both values present.",
+      "At least as many excluded instruments as endogenous regressors."
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Newey (1987); Rivers and Vuong (1988)",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Probit with continuous endogenous regressors: maximum likelihood or Newey's two-step, as Stata's ivprobit. Validation: certified parity evidence. Do NOT use when: The endogenous regressor is binary: the linear normal reduced form is wrong; use sp.biprobit; Comparing magnitudes across method='mle' and method='twostep': the two use different scale normalisations.",
+      "name": "ivprobit",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster column (vce(cluster c))",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "endog": {
+            "description": "Endogenous regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "instruments": {
+            "description": "Excluded instruments, at least as many as endog",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "method": {
+            "default": "mle",
+            "description": "'mle' (joint maximum likelihood) or 'twostep' (Newey's minimum chi-squared)",
+            "enum": [
+              "mle",
+              "twostep"
+            ],
+            "type": "string"
+          },
+          "vce": {
+            "description": "method='mle' only: None/'oim', 'robust' or 'cluster' (e.g. vce='cluster firm'); robust= is an alias",
+            "type": "string",
+            "x-aliases": [
+              "robust"
+            ]
+          },
+          "x": {
+            "description": "Exogenous regressors of the outcome equation",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "y": {
+            "description": "Binary outcome (0/1)",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "endog",
+          "instruments"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP official `ivprobit` (ML and Newey two-step) [Stata 18 MP]; tolerance Every block at 1e-6. Observed: Newey two-step coefficients and standard errors 3e-10 to 2e-8 with one and with two endogenous regressors; maximum likelihood coefficients 9e-9 or better, standard errors 4e-8 or better under vce(oim), vce(robust) and vce(cluster), log-likelihood to 1e-8; the Wald test of exogeneity and the model Wald chi2 at the same level. The do-file tightens Stata's ml stopping rule (nrtolerance 1e-13): at Stata's default the ML blocks differ by up to 3e-6, which is the stopping rule and not the likelihood. -- tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "tobit",
+      "ivreg",
+      "ivprobit"
+    ],
+    "assumptions": [
+      "Outcome error and reduced-form errors are jointly normal and homoskedastic.",
+      "Instruments are excluded from the outcome equation and relevant for every endogenous regressor.",
+      "Censoring limits are known."
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Tobit with continuous endogenous regressors: maximum likelihood or Newey's two-step, as Stata's ivtobit. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 MP official `ivtobit` (ML and Newey two-step)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"
+      ],
+      "tolerance": "Every block at 1e-6. Observed: Newey two-step 4e-13 to 1e-11 (left-censored, two-limit, two endogenous regressors); maximum likelihood coefficients 8e-14 or better and standard errors 8e-8 or better under vce(oim), vce(robust) and vce(cluster), log-likelihood to 1e-8; both Wald statistics at the same level. Stata's ml stopping rule is tightened in the do-file (see ivprobit)."
+    },
+    "example": "sp.ivtobit(df, y=\"hours\", x=[\"age\", \"kids\"], endog=\"wage\", instruments=[\"experience\"], ll=0)",
+    "failure_modes": [
+      {
+        "alternative": "sp.ivprobit",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the censoring limits; with nearly all observations at the limit the model is a probit.",
+        "symptom": "not enough uncensored observations"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ivtobit",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "At least one of ll / ul is set.",
+      "At least as many excluded instruments as endogenous regressors."
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Newey (1987); Smith and Blundell (1986)",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Tobit with continuous endogenous regressors: maximum likelihood or Newey's two-step, as Stata's ivtobit. Validation: certified parity evidence.",
+      "name": "ivtobit",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster column (vce(cluster c))",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "endog": {
+            "description": "Endogenous regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "instruments": {
+            "description": "Excluded instruments, at least as many as endog",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "ll": {
+            "default": 0.0,
+            "description": "Lower censoring limit (None for none)",
+            "type": "number"
+          },
+          "method": {
+            "default": "mle",
+            "description": "'mle' (joint maximum likelihood) or 'twostep' (Newey's minimum chi-squared)",
+            "enum": [
+              "mle",
+              "twostep"
+            ],
+            "type": "string"
+          },
+          "ul": {
+            "description": "Upper censoring limit (default: none)",
+            "type": "number"
+          },
+          "vce": {
+            "description": "method='mle' only: None/'oim', 'robust' or 'cluster' (e.g. vce='cluster firm'); robust= is an alias",
+            "type": "string",
+            "x-aliases": [
+              "robust"
+            ]
+          },
+          "x": {
+            "description": "Exogenous regressors of the outcome equation",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "y": {
+            "description": "Censored outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "endog",
+          "instruments"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP official `ivtobit` (ML and Newey two-step) [Stata 18 MP]; tolerance Every block at 1e-6. Observed: Newey two-step 4e-13 to 1e-11 (left-censored, two-limit, two endogenous regressors); maximum likelihood coefficients 8e-14 or better and standard errors 8e-8 or better under vce(oim), vce(robust) and vce(cluster), log-likelihood to 1e-8; both Wald statistics at the same level. Stata's ml stopping rule is tightened in the do-file (see ivprobit). -- tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "poisson",
+      "ppmlhdfe",
+      "ivreg"
+    ],
+    "assumptions": [
+      "Conditional mean is exp(x'b).",
+      "Instruments are uncorrelated with the additive (or multiplicative) error and relevant."
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Exponential-mean (Poisson) regression with endogenous regressors by GMM, additive or multiplicative errors, as Stata's ivpoisson gmm. Validation: certified parity evidence. Do NOT use when: Endogeneity comes from an omitted variable inside the exponential and errors='additive' is kept: that moment condition is not valid there; use errors='multiplicative'.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 MP official `ivpoisson gmm`",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_ivpoisson_stata_parity.py"
+      ],
+      "tolerance": "Every block at 1e-6 on coefficients, standard errors and Hansen's J. Observed 5e-15 to 2e-7 across additive and multiplicative errors, one-step, two-step and iterated GMM, exact and over-identification, and robust, cluster and unadjusted weight matrices, including wmatrix() set apart from vce(). The residual is Stata's stopping rule for the GMM criterion."
+    },
+    "example": "sp.ivpoisson(df, y=\"trips\", x=[\"income\"], endog=\"cost\", instruments=[\"distance\", \"tolls\"], errors=\"multiplicative\")",
+    "failure_modes": [
+      {
+        "alternative": "sp.poisson",
+        "exception": "statspai.ConvergenceFailure",
+        "remedy": "Rescale regressors on a very large scale; try errors='additive'.",
+        "symptom": "GMM criterion did not converge"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ivpoisson",
+    "not_recommended_when": [
+      "Endogeneity comes from an omitted variable inside the exponential and errors='additive' is kept: that moment condition is not valid there; use errors='multiplicative'."
+    ],
+    "pre_conditions": [
+      "Outcome is non-negative.",
+      "At least as many excluded instruments as endogenous regressors."
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Mullahy (1997); Windmeijer and Santos Silva (1997)",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Exponential-mean (Poisson) regression with endogenous regressors by GMM, additive or multiplicative errors, as Stata's ivpoisson gmm. Validation: certified parity evidence. Do NOT use when: Endogeneity comes from an omitted variable inside the exponential and errors='additive' is kept: that moment condition is not valid there; use errors='multiplicative'.",
+      "name": "ivpoisson",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster column (vce(cluster c))",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "endog": {
+            "description": "Endogenous regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "errors": {
+            "default": "additive",
+            "description": "Moment condition: 'additive' E[z(y - exp(xb))] = 0 or 'multiplicative' E[z(y/exp(xb) - 1)] = 0 (Mullahy 1997)",
+            "enum": [
+              "additive",
+              "multiplicative"
+            ],
+            "type": "string"
+          },
+          "instruments": {
+            "description": "Excluded instruments, at least as many as endog",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "maxiter": {
+            "default": 200,
+            "description": "Maximum Gauss-Newton iterations per GMM step",
+            "type": "integer"
+          },
+          "method": {
+            "default": "twostep",
+            "description": "GMM weighting: 'onestep', 'twostep' or 'igmm' (iterated)",
+            "enum": [
+              "twostep",
+              "onestep",
+              "igmm"
+            ],
+            "type": "string"
+          },
+          "tol": {
+            "default": 1e-10,
+            "description": "Convergence tolerance on the parameter step",
+            "type": "number"
+          },
+          "vce": {
+            "default": "robust",
+            "description": "Moment covariance: 'robust', 'cluster' or 'unadjusted'",
+            "enum": [
+              "robust",
+              "cluster",
+              "unadjusted"
+            ],
+            "type": "string",
+            "x-aliases": [
+              "robust"
+            ]
+          },
+          "wmatrix": {
+            "description": "Weight-matrix covariance when it should differ from vce",
+            "enum": [
+              "robust",
+              "cluster",
+              "unadjusted"
+            ],
+            "type": "string"
+          },
+          "x": {
+            "description": "Exogenous regressors of the outcome equation",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "y": {
+            "description": "Non-negative outcome (count or continuous)",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "endog",
+          "instruments"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP official `ivpoisson gmm` [Stata 18 MP]; tolerance Every block at 1e-6 on coefficients, standard errors and Hansen's J. Observed 5e-15 to 2e-7 across additive and multiplicative errors, one-step, two-step and iterated GMM, exact and over-identification, and robust, cluster and unadjusted weight matrices, including wmatrix() set apart from vce(). The residual is Stata's stopping rule for the GMM criterion. -- tests/reference_parity/test_ivpoisson_stata_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "het_test",
+      "reset_test",
+      "estat"
+    ],
+    "assumptions": [
+      "Under the null the latent error is normal and homoskedastic."
+    ],
+    "category": "diagnostics",
+    "cost_profile": "",
+    "description": "Conditional moment tests (normality, heteroskedasticity, skewness, kurtosis) of a probit or tobit fit. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "R micsr 0.1-5 `cmtest` (Croissant 2025, Microeconometrics with R)",
+      "reference_versions": {
+        "micsr": "0.1-5"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_cmtest_micsr_parity.py"
+      ],
+      "tolerance": "Tobit: normality, heteroskedasticity, skewness and kurtosis statistics, Hessian form and outer-product form, at 1e-9 (observed 4e-11 to 4e-16). Probit: 1e-6 (observed 8e-7 and 4e-8); micsr::binomreg stops 1e-8 short of the probit optimum and the statistic inherits it, the coefficients of both sides are compared in the same test."
+    },
+    "example": "sp.cmtest(sp.tobit(df, y=\"hours\", x=[\"wage\"], ll=0), \"normality\")",
+    "failure_modes": [
+      {
+        "alternative": "sp.reset_test",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fit with sp.probit or sp.tobit first.",
+        "symptom": "result is not a probit or tobit fit"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "cmtest",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "The fit comes from sp.probit or sp.tobit, without weights."
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Newey (1985); Tauchen (1985); Skeels and Vella (1999)",
+    "returns": {
+      "class": "dict",
+      "description": "dict",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Conditional moment tests (normality, heteroskedasticity, skewness, kurtosis) of a probit or tobit fit. Validation: certified parity evidence.",
+      "name": "cmtest",
+      "parameters": {
+        "properties": {
+          "opg": {
+            "default": false,
+            "description": "Outer-product-of-gradient form (over-rejects in small samples)",
+            "type": "boolean"
+          },
+          "result": {
+            "description": "Fit returned by sp.probit or sp.tobit",
+            "type": "string"
+          },
+          "test": {
+            "default": "normality",
+            "description": "Which moment conditions to test",
+            "enum": [
+              "normality",
+              "heterosc",
+              "skewness",
+              "kurtosis"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 100,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs R micsr 0.1-5 `cmtest` (Croissant 2025, Microeconometrics with R) [micsr 0.1-5]; tolerance Tobit: normality, heteroskedasticity, skewness and kurtosis statistics, Hessian form and outer-product form, at 1e-9 (observed 4e-11 to 4e-16). Probit: 1e-6 (observed 8e-7 and 4e-8); micsr::binomreg stops 1e-8 short of the probit optimum and the statistic inherits it, the coefficients of both sides are compared in the same test. -- tests/reference_parity/test_cmtest_micsr_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -60992,10 +61623,10 @@
       "R parity module 57_logit",
       "Stata parity module 57_logit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"logit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 57_logit -- tests/r_parity/57_logit.py",
+      "tests/reference_parity/test_cmtest_micsr_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
       "tests/reference_parity/test_joint_wald_stata_parity.py",
-      "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py"
+      "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -61175,10 +61806,10 @@
       "R parity module 48_probit",
       "Stata parity module 48_probit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"probit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=0.01; parity module 48_probit -- tests/r_parity/48_probit.py",
+      "tests/reference_parity/test_cmtest_micsr_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py",
-      "tests/reference_parity/test_postestimation_stata_parity.py",
-      "tests/reference_parity/test_r2_postest_parity.py"
+      "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py",
+      "tests/reference_parity/test_margins_ext_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -61727,8 +62358,8 @@
       "Cross-language parity (bit-exact) vs stats::glm(family=poisson()) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 58_poisson -- tests/r_parity/58_poisson.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
-      "tests/reference_parity/test_joint_wald_stata_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py"
+      "tests/reference_parity/test_ivpoisson_stata_parity.py",
+      "tests/reference_parity/test_joint_wald_stata_parity.py"
     ],
     "validation_status": "certified"
   },

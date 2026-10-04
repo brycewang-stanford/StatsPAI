@@ -300,7 +300,7 @@ def tobit(
         "weights": weights,
     }
 
-    return LimitedDepResult(
+    fit = LimitedDepResult(
         method="Tobit (Censored Regression)",
         estimand=f"beta_{x[0]}",
         estimate=main_coef,
@@ -313,6 +313,18 @@ def tobit(
         model_info=model_info,
         _citation_key="tobit",
     )
+    if weights is None:
+        # What sp.cmtest needs to rebuild the likelihood and its moments.
+        fit._cm_design = {
+            "model": "tobit",
+            "y": Y,
+            "X": X,
+            "names": var_names,
+            "theta": theta_hat,
+            "ll": ll if np.isfinite(ll) else None,
+            "ul": ul if np.isfinite(ul) else None,
+        }
+    return fit
 
 
 # Citation

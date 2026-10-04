@@ -4,6 +4,54 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+Four functions from a pass over Croissant (2025), *Microeconometrics with
+R*, and its companion package `micsr`. The book's chapters on binary,
+count and censored outcomes use estimators StatsPAI did not have. Notes
+are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
+
+- **`sp.ivprobit` and `sp.ivtobit`** fit a probit and a tobit with
+  continuous endogenous regressors. Maximum likelihood is the default and
+  `method='twostep'` gives Newey's minimum chi-squared estimator, as in
+  Stata's `ivprobit` and `ivtobit`. Both report the Wald test of
+  exogeneity and take `vce='robust'` or `cluster=`. Coefficients,
+  standard errors, the log-likelihood and both Wald statistics agree with
+  Stata 18 to 1e-6 on 14 blocks, with one and two endogenous regressors
+  and with one and two censoring limits
+  (`tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py`).
+- **`sp.ivpoisson`** fits an exponential-mean model with endogenous
+  regressors by GMM, as Stata's `ivpoisson gmm`. `errors='multiplicative'`
+  is Mullahy's (1997) moment condition, the one that is valid when an
+  omitted variable enters the exponential. One-step, two-step and iterated
+  GMM, robust, clustered and unadjusted weight matrices, Hansen's J. It
+  agrees with Stata 18 to 1e-6 on 12 blocks
+  (`tests/reference_parity/test_ivpoisson_stata_parity.py`).
+- **`sp.cmtest`** runs the conditional moment tests of normality,
+  heteroskedasticity, skewness and kurtosis on a fit from `sp.probit` or
+  `sp.tobit`. Those models are inconsistent when the latent error is not
+  normal or not homoskedastic, and they leave no residual to inspect. The
+  statistics agree with R `micsr::cmtest` to 1e-9 for the tobit and 1e-6
+  for the probit, and reject 5% of the time under the null in simulation
+  (`tests/reference_parity/test_cmtest_micsr_parity.py`).
+- `sp.from_stata` and `sp.stata` translate `ivprobit`, `ivtobit` and
+  `ivpoisson gmm`. `ivtobit` without `ll()` is written as `ll=None`,
+  because `sp.ivtobit` censors at zero by default and Stata does not.
+  `ivpoisson cfunction` is refused.
+
+### Fixed
+
+- **`sp.zip_model` and `sp.zinb` returned NaN for every standard error
+  when one coefficient of the inflation equation was not identified.**
+  Under quasi-complete separation that coefficient runs off, the logistic
+  function overflowed inside the complex-step Hessian, and one NaN spread
+  to the whole matrix. On the `trips` data of the book, R
+  `pscl::zeroinfl` reports standard errors for the other 19 coefficients
+  and StatsPAI's are now within 0.5% of them. `sp.hurdle` was not
+  affected in its numbers. All three now warn and name the coefficient
+  the likelihood is flat in (`tests/test_zeroinflated_separation.py`).
+  Estimates on data without separation do not change.
+
 ### Reliability
 
 - **`sp.rdrobust` at polynomial orders 0, 3 and 4 now has reference

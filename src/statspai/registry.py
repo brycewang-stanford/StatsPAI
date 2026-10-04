@@ -1344,6 +1344,365 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="ivprobit",
+            category="regression",
+            description=(
+                "Probit with continuous endogenous regressors: maximum "
+                "likelihood or Newey's two-step, as Stata's ivprobit."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Binary outcome (0/1)"),
+                ParamSpec(
+                    "x",
+                    "list",
+                    False,
+                    None,
+                    "Exogenous regressors of the outcome equation",
+                ),
+                ParamSpec("endog", "list", True, description="Endogenous regressors"),
+                ParamSpec(
+                    "instruments",
+                    "list",
+                    True,
+                    description="Excluded instruments, at least as many as endog",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "mle",
+                    "'mle' (joint maximum likelihood) or 'twostep' "
+                    "(Newey's minimum chi-squared)",
+                    ["mle", "twostep"],
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "method='mle' only: None/'oim', 'robust' or 'cluster' "
+                    "(e.g. vce='cluster firm'); robust= is an alias",
+                ),
+                ParamSpec(
+                    "cluster", "str", False, None, "Cluster column (vce(cluster c))"
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.ivprobit(df, y="works", x=["age", "kids"], '
+                'endog="other_income", instruments=["husband_educ"])'
+            ),
+            tags=["iv", "probit", "endogeneity", "binary", "limited"],
+            reference="Newey (1987); Rivers and Vuong (1988)",
+            assumptions=[
+                "Outcome error and reduced-form errors are jointly normal.",
+                "Instruments are excluded from the outcome equation and "
+                "relevant for every endogenous regressor.",
+                "Endogenous regressors are continuous with a linear reduced form.",
+            ],
+            pre_conditions=[
+                "Outcome is binary 0/1 with both values present.",
+                "At least as many excluded instruments as endogenous regressors.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="rank condition fails / instruments collinear",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Drop redundant instruments or add one that "
+                    "moves the endogenous regressor.",
+                    alternative="sp.probit",
+                ),
+            ],
+            not_recommended_when=[
+                "The endogenous regressor is binary: the linear normal "
+                "reduced form is wrong; use sp.biprobit.",
+                "Comparing magnitudes across method='mle' and "
+                "method='twostep': the two use different scale normalisations.",
+            ],
+            alternatives=["biprobit", "ivreg", "probit"],
+            typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ivtobit",
+            category="regression",
+            description=(
+                "Tobit with continuous endogenous regressors: maximum "
+                "likelihood or Newey's two-step, as Stata's ivtobit."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Censored outcome"),
+                ParamSpec(
+                    "x",
+                    "list",
+                    False,
+                    None,
+                    "Exogenous regressors of the outcome equation",
+                ),
+                ParamSpec("endog", "list", True, description="Endogenous regressors"),
+                ParamSpec(
+                    "instruments",
+                    "list",
+                    True,
+                    description="Excluded instruments, at least as many as endog",
+                ),
+                ParamSpec(
+                    "ll", "float", False, 0.0, "Lower censoring limit (None for none)"
+                ),
+                ParamSpec(
+                    "ul", "float", False, None, "Upper censoring limit (default: none)"
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "mle",
+                    "'mle' (joint maximum likelihood) or 'twostep' "
+                    "(Newey's minimum chi-squared)",
+                    ["mle", "twostep"],
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "method='mle' only: None/'oim', 'robust' or 'cluster' "
+                    "(e.g. vce='cluster firm'); robust= is an alias",
+                ),
+                ParamSpec(
+                    "cluster", "str", False, None, "Cluster column (vce(cluster c))"
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.ivtobit(df, y="hours", x=["age", "kids"], endog="wage", '
+                'instruments=["experience"], ll=0)'
+            ),
+            tags=["iv", "tobit", "endogeneity", "censored", "limited"],
+            reference="Newey (1987); Smith and Blundell (1986)",
+            assumptions=[
+                "Outcome error and reduced-form errors are jointly normal "
+                "and homoskedastic.",
+                "Instruments are excluded from the outcome equation and "
+                "relevant for every endogenous regressor.",
+                "Censoring limits are known.",
+            ],
+            pre_conditions=[
+                "At least one of ll / ul is set.",
+                "At least as many excluded instruments as endogenous regressors.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="not enough uncensored observations",
+                    exception="statspai.DataInsufficient",
+                    remedy="Check the censoring limits; with nearly all "
+                    "observations at the limit the model is a probit.",
+                    alternative="sp.ivprobit",
+                ),
+            ],
+            alternatives=["tobit", "ivreg", "ivprobit"],
+            typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ivpoisson",
+            category="regression",
+            description=(
+                "Exponential-mean (Poisson) regression with endogenous "
+                "regressors by GMM, additive or multiplicative errors, as "
+                "Stata's ivpoisson gmm."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "y",
+                    "str",
+                    True,
+                    description="Non-negative outcome (count or continuous)",
+                ),
+                ParamSpec(
+                    "x",
+                    "list",
+                    False,
+                    None,
+                    "Exogenous regressors of the outcome equation",
+                ),
+                ParamSpec("endog", "list", True, description="Endogenous regressors"),
+                ParamSpec(
+                    "instruments",
+                    "list",
+                    True,
+                    description="Excluded instruments, at least as many as endog",
+                ),
+                ParamSpec(
+                    "errors",
+                    "str",
+                    False,
+                    "additive",
+                    "Moment condition: 'additive' E[z(y - exp(xb))] = 0 or "
+                    "'multiplicative' E[z(y/exp(xb) - 1)] = 0 (Mullahy 1997)",
+                    ["additive", "multiplicative"],
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "twostep",
+                    "GMM weighting: 'onestep', 'twostep' or 'igmm' (iterated)",
+                    ["twostep", "onestep", "igmm"],
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "robust",
+                    "Moment covariance: 'robust', 'cluster' or 'unadjusted'",
+                    ["robust", "cluster", "unadjusted"],
+                ),
+                ParamSpec(
+                    "cluster", "str", False, None, "Cluster column (vce(cluster c))"
+                ),
+                ParamSpec(
+                    "wmatrix",
+                    "str",
+                    False,
+                    None,
+                    "Weight-matrix covariance when it should differ from vce",
+                    ["robust", "cluster", "unadjusted"],
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+                ParamSpec(
+                    "maxiter",
+                    "int",
+                    False,
+                    200,
+                    "Maximum Gauss-Newton iterations per GMM step",
+                ),
+                ParamSpec(
+                    "tol",
+                    "float",
+                    False,
+                    1e-10,
+                    "Convergence tolerance on the parameter step",
+                ),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.ivpoisson(df, y="trips", x=["income"], endog="cost", '
+                'instruments=["distance", "tolls"], errors="multiplicative")'
+            ),
+            tags=["iv", "poisson", "count", "gmm", "endogeneity", "ppml"],
+            reference="Mullahy (1997); Windmeijer and Santos Silva (1997)",
+            assumptions=[
+                "Conditional mean is exp(x'b).",
+                "Instruments are uncorrelated with the additive (or "
+                "multiplicative) error and relevant.",
+            ],
+            pre_conditions=[
+                "Outcome is non-negative.",
+                "At least as many excluded instruments as endogenous regressors.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="GMM criterion did not converge",
+                    exception="statspai.ConvergenceFailure",
+                    remedy="Rescale regressors on a very large scale; "
+                    "try errors='additive'.",
+                    alternative="sp.poisson",
+                ),
+            ],
+            not_recommended_when=[
+                "Endogeneity comes from an omitted variable inside the "
+                "exponential and errors='additive' is kept: that moment "
+                "condition is not valid there; use errors='multiplicative'.",
+            ],
+            alternatives=["poisson", "ppmlhdfe", "ivreg"],
+            typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="cmtest",
+            category="diagnostics",
+            description=(
+                "Conditional moment tests (normality, heteroskedasticity, "
+                "skewness, kurtosis) of a probit or tobit fit."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "object",
+                    True,
+                    description="Fit returned by sp.probit or sp.tobit",
+                ),
+                ParamSpec(
+                    "test",
+                    "str",
+                    False,
+                    "normality",
+                    "Which moment conditions to test",
+                    ["normality", "heterosc", "skewness", "kurtosis"],
+                ),
+                ParamSpec(
+                    "opg",
+                    "bool",
+                    False,
+                    False,
+                    "Outer-product-of-gradient form (over-rejects in small samples)",
+                ),
+            ],
+            returns="dict",
+            example='sp.cmtest(sp.tobit(df, y="hours", x=["wage"], ll=0), "normality")',
+            tags=["diagnostics", "tobit", "probit", "normality", "specification"],
+            reference="Newey (1985); Tauchen (1985); Skeels and Vella (1999)",
+            assumptions=[
+                "Under the null the latent error is normal and homoskedastic.",
+            ],
+            pre_conditions=[
+                "The fit comes from sp.probit or sp.tobit, without weights.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="result is not a probit or tobit fit",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Fit with sp.probit or sp.tobit first.",
+                    alternative="sp.reset_test",
+                ),
+            ],
+            alternatives=["het_test", "reset_test", "estat"],
+            typical_n_min=100,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="nbreg",
             category="regression",
             description=(

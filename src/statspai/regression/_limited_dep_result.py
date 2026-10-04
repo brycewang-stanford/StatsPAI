@@ -22,7 +22,7 @@ the existing test contract (``result.estimate``, ``result.detail``,
 remains ``True``.
 """
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -40,6 +40,9 @@ class LimitedDepResult(CausalResult):
     """
 
     _COEF_COL = "coefficient"
+    # Design and estimate kept by the estimator for post-estimation tests
+    # (sp.cmtest); None when the fit cannot be rebuilt from them.
+    _cm_design: Optional[Dict[str, Any]] = None
 
     # ------------------------------------------------------------------
     # Internal helpers

@@ -625,6 +625,42 @@ TIER2_ROUND_TRIPS = [
         "tobit",
         {"y": "hours", "x": ["wage", "kids"], "ll": 0.0, "ul": 80.0},
     ),
+    # Limited outcomes with endogenous regressors
+    (
+        "ivprobit works age (income = heduc), twostep",
+        "ivprobit",
+        {
+            "y": "works",
+            "x": ["age"],
+            "endog": ["income"],
+            "instruments": ["heduc"],
+            "method": "twostep",
+        },
+    ),
+    (
+        "ivtobit hours age (wage = exper), ll(0) vce(cluster id)",
+        "ivtobit",
+        {
+            "y": "hours",
+            "x": ["age"],
+            "endog": ["wage"],
+            "instruments": ["exper"],
+            "ll": 0.0,
+            "ul": None,
+            "cluster": "id",
+        },
+    ),
+    (
+        "ivpoisson gmm trips income (cost = dist tolls), multiplicative",
+        "ivpoisson",
+        {
+            "y": "trips",
+            "x": ["income"],
+            "endog": ["cost"],
+            "instruments": ["dist", "tolls"],
+            "errors": "multiplicative",
+        },
+    ),
     # Selection
     (
         "heckman wage education, select(employed = age kids)",

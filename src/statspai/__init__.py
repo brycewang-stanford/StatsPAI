@@ -96,6 +96,7 @@ from .diagnostics import (
     WeakRobustResult,
     anderson_rubin_test,
     bias_factor,
+    cmtest,
     diagnose,
     diagnose_result,
     effective_f_test,
@@ -961,6 +962,8 @@ from .regression.glm import GLMEstimator, GLMRegression, glm
 
 # bayes — lazy-loaded (PyMC pulls heavy deps); see _LAZY_ATTRS below.
 from .regression.heckman import heckman
+from .regression.iv_count import ivpoisson
+from .regression.iv_limited import ivprobit, ivtobit
 from .regression.iv_quantile import ivqreg
 from .regression.logit_probit import cloglog, logit, probit
 from .regression.mixed_logit import mixlogit
@@ -1518,6 +1521,9 @@ __all__ = [
     "qreg",
     "sqreg",
     "tobit",
+    "ivprobit",
+    "ivtobit",
+    "ivpoisson",
     "logit",
     "probit",
     "cloglog",
@@ -1557,6 +1563,7 @@ __all__ = [
     "diagnose",
     "het_test",
     "reset_test",
+    "cmtest",
     "vif",
     "sensemakr",
     "rddensity",

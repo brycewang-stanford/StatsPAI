@@ -2749,6 +2749,29 @@
       "also_verified_by": [
         "reference_parity"
       ],
+      "function": "cmtest",
+      "notes": [
+        "micsr is GPL and is run as a program; only its output is stored. The size of the tests under the null is checked by simulation in the same file."
+      ],
+      "reference": "R micsr 0.1-5 `cmtest` (Croissant 2025, Microeconometrics with R)",
+      "reference_versions": {
+        "micsr": "0.1-5"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_cmtest_micsr_parity.py"
+      ],
+      "tolerance": "Tobit: normality, heteroskedasticity, skewness and kurtosis statistics, Hessian form and outer-product form, at 1e-9 (observed 4e-11 to 4e-16). Probit: 1e-6 (observed 8e-7 and 4e-8); micsr::binomreg stops 1e-8 short of the probit optimum and the statistic inherits it, the coefficients of both sides are compared in the same test."
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "cohen_kappa",
       "notes": [
         "Frozen-R fixture: unweighted Cohen's kappa + observed/expected agreement match base R exactly (SE convention-specific, not pinned). Regenerate via _generate_epi_extra_R.R."
@@ -6429,6 +6452,8 @@
       "test": [
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
+        "tests/reference_parity/test_ivpoisson_stata_parity.py",
+        "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py",
         "tests/reference_parity/test_sdid_optimized_covariates.py"
       ],
       "tolerance": ""
@@ -8449,6 +8474,52 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ivpoisson",
+      "notes": [
+        "Added with the estimator. One-step J is divided by the error variance as Stata does; it is chi-squared only under homoskedastic moments and the result says so. `ivpoisson cfunction` has no counterpart."
+      ],
+      "reference": "Stata 18 MP official `ivpoisson gmm`",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_ivpoisson_stata_parity.py"
+      ],
+      "tolerance": "Every block at 1e-6 on coefficients, standard errors and Hansen's J. Observed 5e-15 to 2e-7 across additive and multiplicative errors, one-step, two-step and iterated GMM, exact and over-identification, and robust, cluster and unadjusted weight matrices, including wmatrix() set apart from vce(). The residual is Stata's stopping rule for the GMM criterion."
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ivprobit",
+      "notes": [
+        "Added with the estimator. Ancillary parameters are reported under Stata's names (/athrho2_1, /lnsigma2, ...) by the delta method from an unconstrained Cholesky parametrisation. micsr::ivldv (Croissant 2025) was the textbook prompt; its minimum chi-squared method errors out in micsr 0.1-5, so Stata is the only reference."
+      ],
+      "reference": "Stata 18 MP official `ivprobit` (ML and Newey two-step)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"
+      ],
+      "tolerance": "Every block at 1e-6. Observed: Newey two-step coefficients and standard errors 3e-10 to 2e-8 with one and with two endogenous regressors; maximum likelihood coefficients 9e-9 or better, standard errors 4e-8 or better under vce(oim), vce(robust) and vce(cluster), log-likelihood to 1e-8; the Wald test of exogeneity and the model Wald chi2 at the same level. The do-file tightens Stata's ml stopping rule (nrtolerance 1e-13): at Stata's default the ML blocks differ by up to 3e-6, which is the stopping rule and not the likelihood."
+    },
+    {
       "function": "ivqreg",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -8539,6 +8610,29 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ivtobit",
+      "notes": [
+        "Added with the estimator; shares its likelihood code with ivprobit."
+      ],
+      "reference": "Stata 18 MP official `ivtobit` (ML and Newey two-step)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"
+      ],
+      "tolerance": "Every block at 1e-6. Observed: Newey two-step 4e-13 to 1e-11 (left-censored, two-limit, two endogenous regressors); maximum likelihood coefficients 8e-14 or better and standard errors 8e-8 or better under vce(oim), vce(robust) and vce(cluster), log-likelihood to 1e-8; both Wald statistics at the same level. Stata's ml stopping rule is tightened in the do-file (see ivprobit)."
     },
     {
       "additional_tests": [
@@ -9386,6 +9480,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_cmtest_micsr_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
@@ -12962,6 +13057,7 @@
       "additional_tests": [
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
+        "tests/reference_parity/test_ivpoisson_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
@@ -13778,7 +13874,9 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_cmtest_micsr_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
+        "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
@@ -19001,6 +19099,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_cmtest_micsr_parity.py",
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_ldv_design_stata_parity.py"
       ],

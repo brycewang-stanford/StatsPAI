@@ -1805,6 +1805,149 @@ def _h_tobit(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("tobit", args, python)
 
 
+def _h_ivprobit(cmd: StataCommand) -> Dict[str, Any]:
+    """``ivprobit y x (d = z)`` / ``ivtobit y x (d = z), ll(0)``.
+
+    Maximum likelihood unless ``twostep`` is given, as in Stata. ``ivtobit``
+    censors only on the sides named by ``ll()`` / ``ul()``, whereas
+    ``sp.ivtobit`` defaults to ``ll=0``, so both limits are always written out.
+    """
+    command = cmd.command or "ivprobit"
+    if not cmd.varlist:
+        return _emit_error(f"{command} requires an outcome variable", command=command)
+    parsed = _parse_iv_varlist(list(cmd.varlist), command)
+    if isinstance(parsed, dict):
+        return parsed
+    y, exog, endog, instruments = parsed
+    args: Dict[str, Any] = {
+        "y": y,
+        "x": list(exog),
+        "endog": list(endog),
+        "instruments": list(instruments),
+    }
+    lost: List[str] = []
+    notes: List[str] = []
+    if command == "ivtobit":
+        for name in ("ll", "ul"):
+            args[name] = None
+            if name not in cmd.options:
+                continue
+            raw = cmd.options.get(name)
+            try:
+                args[name] = float(raw)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                lost.append(name)
+                notes.append(
+                    f"`{name}` without a number censors at the sample "
+                    f"{'minimum' if name == 'll' else 'maximum'} of {y}; pass "
+                    f"that value as {name}= to sp.ivtobit."
+                )
+    cmd.options.get("mle")  # the default, spelled out
+    if "twostep" in cmd.options:
+        args["method"] = "twostep"
+    cluster = _vce_cluster(cmd)
+    if cluster:
+        args["cluster"] = cluster
+    elif _robust_kind(cmd) == "hc1":
+        args["vce"] = "robust"
+    code = ", ".join(["data=df"] + [f"{k}={v!r}" for k, v in args.items()])
+    out = _emit(command, args, f"sp.{command}({code})", notes)
+    if lost:
+        out["untranslated_options"] = lost
+    return out
+
+
+def _h_ivpoisson(cmd: StataCommand) -> Dict[str, Any]:
+    """``ivpoisson gmm y x (d = z), multiplicative`` → ``sp.ivpoisson``.
+
+    Only the GMM estimator has a counterpart; ``ivpoisson cfunction`` is a
+    different estimator and is refused rather than mapped to it.
+    """
+    tokens = list(cmd.varlist)
+    estimator = tokens[0].lower() if tokens else ""
+    if estimator not in ("gmm", "cfunction", "cfunc"):
+        return _emit_error(
+            "ivpoisson needs its estimator first: `ivpoisson gmm ...`",
+            command="ivpoisson",
+        )
+    if estimator != "gmm":
+        return _emit_error(
+            "`ivpoisson cfunction` (control function) has no sp counterpart; "
+            "sp.ivpoisson is the GMM estimator (`ivpoisson gmm`).",
+            command="ivpoisson",
+        )
+    parsed = _parse_iv_varlist(tokens[1:], "ivpoisson")
+    if isinstance(parsed, dict):
+        return parsed
+    y, exog, endog, instruments = parsed
+    args: Dict[str, Any] = {
+        "y": y,
+        "x": list(exog),
+        "endog": list(endog),
+        "instruments": list(instruments),
+    }
+    cmd.options.get("additive")  # the default, spelled out
+    if "multiplicative" in cmd.options:
+        args["errors"] = "multiplicative"
+    cmd.options.get("twostep")
+    for flag in ("onestep", "igmm"):
+        if flag in cmd.options:
+            args["method"] = flag
+    notes: List[str] = []
+    lost: List[str] = []
+    cluster = _vce_cluster(cmd)
+    vce_raw = (cmd.options.get("vce") or "").strip().lower()
+    known = vce_raw in ("", "r", "robust") or vce_raw.startswith("unadj")
+    if not cluster and not known:
+        lost.append("vce")
+        notes.append(
+            f"vce({vce_raw}) has no sp.ivpoisson counterpart; the call below "
+            "reports robust standard errors."
+        )
+    wmat = cmd.options.get("wmatrix")
+    wmat_raw = (wmat or "").strip().lower()
+    if cluster:
+        args["cluster"] = cluster
+    elif vce_raw.startswith("unadj"):
+        args["vce"] = "unadjusted"
+    # wmatrix() follows vce() unless given, in Stata and in sp.ivpoisson.
+    want_w = "cluster" if cluster else ("unadjusted" if "vce" in args else "robust")
+    got_w = (
+        want_w
+        if wmat is None
+        else (
+            "cluster"
+            if wmat_raw.startswith("cl")
+            else "unadjusted" if wmat_raw.startswith("unadj") else "robust"
+        )
+    )
+    if got_w != want_w:
+        if got_w == "cluster":
+            w_cluster = wmat_raw.split()[-1] if len(wmat_raw.split()) > 1 else ""
+            if cluster and w_cluster and w_cluster != cluster.lower():
+                lost.append("wmatrix")
+                notes.append(
+                    "wmatrix() and vce() cluster on different variables; "
+                    "sp.ivpoisson takes one cluster variable."
+                )
+            elif not cluster:
+                lost.append("wmatrix")
+                notes.append(
+                    "wmatrix(cluster ...) without vce(cluster ...) is not "
+                    "carried: sp.ivpoisson takes the cluster variable from "
+                    "cluster=."
+                )
+            else:
+                args["wmatrix"] = got_w
+        else:
+            args["wmatrix"] = got_w
+    code = ", ".join(["data=df"] + [f"{k}={v!r}" for k, v in args.items()])
+    out = _emit("ivpoisson", args, f"sp.ivpoisson({code})", notes)
+    if lost:
+        out["untranslated_options"] = lost
+    return out
+
+
 def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
     """``heckman y x, select(employed = age kids)`` →
     ``sp.heckman(y=..., x=[...], select=..., z=[...])``."""
@@ -2867,6 +3010,9 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "nbreg": _h_nbreg,
     "xtnbreg": _h_xtnbreg,
     "tobit": _h_tobit,
+    "ivprobit": _h_ivprobit,
+    "ivtobit": _h_ivprobit,
+    "ivpoisson": _h_ivpoisson,
     "heckman": _h_heckman,
     "rdplot": _h_rdplot,
     "rddensity": _h_rddensity,

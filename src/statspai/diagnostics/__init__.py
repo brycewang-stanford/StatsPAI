@@ -7,6 +7,7 @@ Provides:
 """
 
 from .battery import diagnose_result
+from .cmtest import cmtest
 from .estat import estat
 from .evalue import bias_factor, evalue, evalue_from_result, evalue_rd
 from .hausman import hausman, hausman_test
@@ -30,6 +31,7 @@ __all__ = [
     "diagnose",
     "het_test",
     "reset_test",
+    "cmtest",
     "vif",
     "sensemakr",
     "rddensity",

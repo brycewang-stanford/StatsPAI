@@ -392,6 +392,313 @@
     }
   },
   {
+    "description": "Probit with continuous endogenous regressors: maximum likelihood or Newey's two-step, as Stata's ivprobit. Validation: certified parity evidence. Do NOT use when: The endogenous regressor is binary: the linear normal reduced form is wrong; use sp.biprobit; Comparing magnitudes across method='mle' and method='twostep': the two use different scale normalisations.",
+    "name": "ivprobit",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "endog": {
+          "description": "Endogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "instruments": {
+          "description": "Excluded instruments, at least as many as endog",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "method": {
+          "default": "mle",
+          "description": "'mle' (joint maximum likelihood) or 'twostep' (Newey's minimum chi-squared)",
+          "enum": [
+            "mle",
+            "twostep"
+          ],
+          "type": "string"
+        },
+        "vce": {
+          "description": "method='mle' only: None/'oim', 'robust' or 'cluster' (e.g. vce='cluster firm'); robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Exogenous regressors of the outcome equation",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Binary outcome (0/1)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "endog",
+        "instruments"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Tobit with continuous endogenous regressors: maximum likelihood or Newey's two-step, as Stata's ivtobit. Validation: certified parity evidence.",
+    "name": "ivtobit",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "endog": {
+          "description": "Endogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "instruments": {
+          "description": "Excluded instruments, at least as many as endog",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "ll": {
+          "default": 0.0,
+          "description": "Lower censoring limit (None for none)",
+          "type": "number"
+        },
+        "method": {
+          "default": "mle",
+          "description": "'mle' (joint maximum likelihood) or 'twostep' (Newey's minimum chi-squared)",
+          "enum": [
+            "mle",
+            "twostep"
+          ],
+          "type": "string"
+        },
+        "ul": {
+          "description": "Upper censoring limit (default: none)",
+          "type": "number"
+        },
+        "vce": {
+          "description": "method='mle' only: None/'oim', 'robust' or 'cluster' (e.g. vce='cluster firm'); robust= is an alias",
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "x": {
+          "description": "Exogenous regressors of the outcome equation",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Censored outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "endog",
+        "instruments"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Exponential-mean (Poisson) regression with endogenous regressors by GMM, additive or multiplicative errors, as Stata's ivpoisson gmm. Validation: certified parity evidence. Do NOT use when: Endogeneity comes from an omitted variable inside the exponential and errors='additive' is kept: that moment condition is not valid there; use errors='multiplicative'.",
+    "name": "ivpoisson",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "endog": {
+          "description": "Endogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "errors": {
+          "default": "additive",
+          "description": "Moment condition: 'additive' E[z(y - exp(xb))] = 0 or 'multiplicative' E[z(y/exp(xb) - 1)] = 0 (Mullahy 1997)",
+          "enum": [
+            "additive",
+            "multiplicative"
+          ],
+          "type": "string"
+        },
+        "instruments": {
+          "description": "Excluded instruments, at least as many as endog",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "maxiter": {
+          "default": 200,
+          "description": "Maximum Gauss-Newton iterations per GMM step",
+          "type": "integer"
+        },
+        "method": {
+          "default": "twostep",
+          "description": "GMM weighting: 'onestep', 'twostep' or 'igmm' (iterated)",
+          "enum": [
+            "twostep",
+            "onestep",
+            "igmm"
+          ],
+          "type": "string"
+        },
+        "tol": {
+          "default": 1e-10,
+          "description": "Convergence tolerance on the parameter step",
+          "type": "number"
+        },
+        "vce": {
+          "default": "robust",
+          "description": "Moment covariance: 'robust', 'cluster' or 'unadjusted'",
+          "enum": [
+            "robust",
+            "cluster",
+            "unadjusted"
+          ],
+          "type": "string",
+          "x-aliases": [
+            "robust"
+          ]
+        },
+        "wmatrix": {
+          "description": "Weight-matrix covariance when it should differ from vce",
+          "enum": [
+            "robust",
+            "cluster",
+            "unadjusted"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Exogenous regressors of the outcome equation",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Non-negative outcome (count or continuous)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "endog",
+        "instruments"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Conditional moment tests (normality, heteroskedasticity, skewness, kurtosis) of a probit or tobit fit. Validation: certified parity evidence.",
+    "name": "cmtest",
+    "parameters": {
+      "properties": {
+        "opg": {
+          "default": false,
+          "description": "Outer-product-of-gradient form (over-rejects in small samples)",
+          "type": "boolean"
+        },
+        "result": {
+          "description": "Fit returned by sp.probit or sp.tobit",
+          "type": "string"
+        },
+        "test": {
+          "default": "normality",
+          "description": "Which moment conditions to test",
+          "enum": [
+            "normality",
+            "heterosc",
+            "skewness",
+            "kurtosis"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Negative-binomial count regression for overdispersed non-negative outcomes. Formula fixed effects such as 'y ~ x | id' are implemented with explicit dummies for moderate panels. Validation: certified parity evidence.",
     "name": "nbreg",
     "parameters": {
