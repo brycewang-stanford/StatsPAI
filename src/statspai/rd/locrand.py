@@ -21,14 +21,16 @@ Cattaneo, M.D., Titiunik, R. and Vazquez-Bare, G. (2016).
 """
 
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from scipy import special as sp_special
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
+from . import _locrand_core as _lr
 from ._core import _complete_cases
 
 
@@ -82,19 +84,31 @@ CausalResult._CITATIONS["rdlocrand"] = (
 # ======================================================================
 
 
-def _select_window(
-    data: pd.DataFrame, x: str, c: float, wl: Optional[float], wr: Optional[float]
-) -> np.ndarray:
-    """Return mask for observations within [c+wl, c+wr]."""
-    xv = data[x].values
+def _window_bounds(
+    c: float, wl: Optional[float], wr: Optional[float]
+) -> Tuple[float, float]:
+    """Validate the window endpoints, which are on the running-variable scale."""
     if wl is None or wr is None:
         raise ValueError(
             "Window bounds wl and wr must be specified. "
             "Use rdwinselect() to choose a data-driven window."
         )
-    left = c + wl  # wl is typically negative
-    right = c + wr
-    return np.asarray((xv >= left) & (xv <= right), dtype=bool)
+    wl_value, wr_value = float(wl), float(wr)
+    if not (wl_value <= c <= wr_value):
+        raise ValueError(
+            f"The window [wl, wr] = [{wl_value}, {wr_value}] does not contain "
+            f"the cutoff c = {c}. wl and wr are the window's endpoints on the "
+            "scale of the running variable, as in rdlocrand -- not offsets "
+            f"from the cutoff. For a window of half-width w use wl={c} - w, "
+            f"wr={c} + w."
+        )
+    return wl_value, wr_value
+
+
+def _select_window(data: pd.DataFrame, x: str, wl: float, wr: float) -> np.ndarray:
+    """Return mask for observations with the running variable in [wl, wr]."""
+    xv = data[x].values
+    return np.asarray((xv >= wl) & (xv <= wr), dtype=bool)
 
 
 def _polynomial_residuals(
@@ -254,7 +268,15 @@ def _asymptotic_pvalue(
         pval = 2 * sp_stats.norm.cdf(-abs(t))
         return float(diff), float(pval)
     elif stat_name == "ksmirnov":
-        stat, pval = sp_stats.ks_2samp(y[d == 1], y[d == 0])
+        y1, y0 = y[d == 1], y[d == 0]
+        n1, n0 = len(y1), len(y0)
+        # R's ks.test, which rdlocrand calls, uses the exact distribution
+        # while n1 * n0 < 10000 and Kolmogorov's limit beyond that.
+        if n1 * n0 < 10000:
+            stat, pval = sp_stats.ks_2samp(y1, y0, method="exact")
+        else:
+            stat = sp_stats.ks_2samp(y1, y0, method="asymp").statistic
+            pval = sp_special.kolmogorov(np.sqrt(n1 * n0 / (n1 + n0)) * stat)
         return float(stat), float(pval)
     elif stat_name == "ranksum":
         # The statistic is already standardised, so the asymptotic p-value
@@ -266,37 +288,165 @@ def _asymptotic_pvalue(
         raise ValueError(f"Unknown statistic: {stat_name}")  # pragma: no cover
 
 
-def _wald_iv(y: np.ndarray, d_actual: np.ndarray, z: np.ndarray) -> Tuple[float, float]:
+def _tsls_wald(
+    y: np.ndarray, d_actual: np.ndarray, z: np.ndarray
+) -> Tuple[float, float, float]:
+    """Wald / 2SLS estimate with one binary instrument.
+
+    Returns ``(estimate, se, first_stage)``. The standard error is the
+    heteroskedasticity-robust (HC1) 2SLS one, which is what ``rdlocrand``
+    refers to the normal for its ``tsls`` statistic.
     """
-    Wald (IV) estimator: tau = E[Y|Z=1]-E[Y|Z=0] / E[D|Z=1]-E[D|Z=0].
+    n = y.shape[0]
+    first_stage = float(d_actual[z == 1].mean() - d_actual[z == 0].mean())
+    if abs(first_stage) < 1e-12:
+        raise ValueError(
+            "Fuzzy RD: treatment take-up does not change at the cutoff inside "
+            "this window (first stage = 0), so the Wald ratio is undefined."
+        )
+    Z = np.column_stack([np.ones(n), z.astype(float)])
+    X = np.column_stack([np.ones(n), d_actual])
+    A = np.linalg.inv(Z.T @ X)
+    beta = A @ (Z.T @ y)
+    resid = y - X @ beta
+    meat = (Z * (resid**2)[:, None]).T @ Z
+    V = A @ meat @ A.T * n / (n - 2)
+    return float(beta[1]), float(np.sqrt(V[1, 1])), first_stage
 
-    Returns (estimate, se).
+
+def _randomization_test(
+    y: np.ndarray,
+    xc: np.ndarray,
+    z: np.ndarray,
+    *,
+    shift: np.ndarray,
+    stat_names: List[str],
+    p: int,
+    kernel: str,
+    bw: Tuple[float, float],
+    evals: Tuple[float, float],
+    n_perms: int,
+    rng: np.random.Generator,
+    prob: Optional[np.ndarray],
+    nulltau: float,
+    ci_grid: Optional[np.ndarray],
+    alpha: float,
+) -> Dict[str, Any]:
+    """Observed statistics, randomization p-values and the inverted interval.
+
+    ``shift`` is what a unit of treatment effect adds to the outcome: the
+    assignment indicator in a sharp design, the treatment actually received
+    in a fuzzy one. Under ``H0: tau = tau0`` the outcome ``y - tau0 * shift``
+    is fixed, which is what gets re-randomized.
+
+    Two randomization schemes, chosen by what the statistic needs:
+
+    * ``p = 0``: assignment labels are redrawn (fixed margins, or
+      independent Bernoulli draws when ``prob`` is given), each unit
+      keeping its kernel weight;
+    * ``p > 0``: outcomes are permuted against the (score, assignment)
+      pairs. Assignment is a function of the score, so re-randomizing
+      labels while holding scores fixed would compare a boundary
+      extrapolation with interior fits -- see the Notes of
+      :func:`rdrandinf`.
     """
-    y1 = y[z == 1].mean()
-    y0 = y[z == 0].mean()
-    d1 = d_actual[z == 1].mean()
-    d0 = d_actual[z == 0].mean()
-    first_stage = d1 - d0
-    if abs(first_stage) < 1e-14:
-        return np.nan, np.nan  # pragma: no cover
-    tau = (y1 - y0) / first_stage
+    n = y.shape[0]
+    w = _lr.kernel_weights(xc, z, bw[0], bw[1], kernel)
+    g, _ = _lr.linear_functional(xc, z, w, p, evals[0], evals[1])
+    se = _lr.hc2_se(y, xc, z, w, p, evals[0], evals[1])
+    labels_scheme = p == 0
+    y0 = y - nulltau * shift
 
-    # Delta method SE
-    n1 = int((z == 1).sum())
-    n0 = int((z == 0).sum())
-    var_y1 = y[z == 1].var(ddof=1) / n1 if n1 > 1 else 0
-    var_y0 = y[z == 0].var(ddof=1) / n0 if n0 > 1 else 0
-    var_d1 = d_actual[z == 1].var(ddof=1) / n1 if n1 > 1 else 0
-    var_d0 = d_actual[z == 0].var(ddof=1) / n0 if n0 > 1 else 0
+    obs = {"diffmeans": float(g @ y0)}
+    ranks = sp_stats.rankdata(y0)
+    if "ranksum" in stat_names:
+        obs["ranksum"] = float(_lr.ranksum_from_labels(ranks, z[None, :])[0])
+    if "ksmirnov" in stat_names:
+        obs["ksmirnov"] = float(_lr.ks_from_labels(y0, z[None, :])[0])
 
-    # Gradient of g(mu_y1, mu_y0, mu_d1, mu_d0) = (mu_y1-mu_y0)/(mu_d1-mu_d0)
-    num = y1 - y0
-    den = first_stage
-    # Var(tau) via delta method
-    var_num = var_y1 + var_y0
-    var_den = var_d1 + var_d0
-    se = np.sqrt(var_num / den**2 + num**2 * var_den / den**4)
-    return float(tau), float(se)
+    exceed = {s: 0 for s in stat_names}
+    total = 0
+    grid = ci_grid
+    grid_exceed = np.zeros(0 if grid is None else grid.shape[0])
+    tau_hat = float(g @ y)
+    g_shift = float(g @ shift)
+    for size in _lr.chunks(n_perms, n):
+        if labels_scheme:
+            if prob is None:
+                lab = z[_lr.permutation_indices(rng, size, n)].astype(float)
+            else:
+                lab = _lr.bernoulli_labels(rng, size, prob).astype(float)
+            if lab.shape[0] == 0:
+                continue
+            # Kernel weights belong to the unit (they depend on its
+            # distance from the cutoff), so they travel with its outcome.
+            w1 = lab @ w
+            w0 = w.sum() - w1
+            ok = (w1 > 0) & (w0 > 0)
+            if not ok.all():
+                lab, w1, w0 = lab[ok], w1[ok], w0[ok]
+            wy, ws = w * y, w * shift
+            a = (lab @ wy) / w1 - ((1.0 - lab) @ wy) / w0
+            b = (lab @ ws) / w1 - ((1.0 - lab) @ ws) / w0
+            if "ranksum" in stat_names:
+                rs = _lr.ranksum_from_labels(ranks, lab)
+                exceed["ranksum"] += int(
+                    np.sum(np.abs(rs) >= abs(obs["ranksum"]) - 1e-14)
+                )
+            if "ksmirnov" in stat_names:
+                ks = _lr.ks_from_labels(y0, lab)
+                exceed["ksmirnov"] += int(np.sum(ks >= obs["ksmirnov"] - 1e-14))
+            total += lab.shape[0]
+        else:
+            idx = _lr.permutation_indices(rng, size, n)
+            a = y[idx] @ g
+            b = shift[idx] @ g
+            total += size
+        if "diffmeans" in stat_names:
+            exceed["diffmeans"] += int(
+                np.sum(np.abs(a - nulltau * b) >= abs(obs["diffmeans"]) - 1e-14)
+            )
+        if grid is not None:
+            # H0: tau = t0. Observed g @ (y - t0 * shift); each draw is
+            # a - t0 * b, so the whole grid costs one outer product.
+            obs_grid = np.abs(tau_hat - grid * g_shift)
+            draws = np.abs(a[:, None] - b[:, None] * grid[None, :])
+            grid_exceed += np.sum(draws >= obs_grid[None, :] - 1e-14, axis=0)
+
+    if total == 0:
+        raise ValueError(
+            "No valid randomization draw: every Bernoulli draw left one arm "
+            "empty. Check the bernoulli= probabilities."
+        )
+    out: Dict[str, Any] = {
+        "observed": obs,
+        "se": se,
+        "pvalue": {s: exceed[s] / total for s in stat_names},
+        "n_draws": total,
+        "ci": None,
+        "ci_truncated": False,
+    }
+    if grid is not None:
+        keep = grid[(grid_exceed / total) > alpha]
+        if keep.size:
+            out["ci"] = (float(keep.min()), float(keep.max()))
+            out["ci_truncated"] = bool(
+                keep.min() <= grid.min() or keep.max() >= grid.max()
+            )
+    return out
+
+
+def _asymptotic_for(
+    stat: str, y0: np.ndarray, z: np.ndarray, observed: float, se: float
+) -> float:
+    """Large-sample p-value for one statistic on the null-adjusted outcome."""
+    if stat == "diffmeans":
+        if not np.isfinite(se):
+            return float("nan")
+        if se < 1e-14:
+            return 0.0 if abs(observed) > 1e-14 else 1.0
+        return float(2 * sp_stats.norm.cdf(-abs(observed / se)))
+    return _asymptotic_pvalue(y0, z, stat)[1]
 
 
 # ======================================================================
@@ -320,13 +470,39 @@ def rdrandinf(
     fuzzy: Optional[str] = None,
     alpha: float = 0.05,
     seed: int = 42,
+    *,
+    fuzzy_stat: str = "itt",
+    nulltau: float = 0.0,
+    bernoulli: Optional[Union[str, float]] = None,
+    ci: Union[bool, Sequence[float], None] = None,
+    d: Optional[float] = None,
+    dscale: float = 0.5,
+    evall: Optional[float] = None,
+    evalr: Optional[float] = None,
 ) -> CausalResult:
     """
     Randomization inference for regression discontinuity designs.
 
     Under the local randomization assumption, units within a small window
     around the cutoff are treated as if randomly assigned. Inference is
-    based on Fisher's randomization test.
+    based on Fisher's randomization test, with a large-sample approximation
+    reported alongside.
+
+    .. versionchanged:: 1.39.0
+       ⚠️ **Results changed in three cases. Re-run anything that used
+       them.** See MIGRATION.md.
+
+       * ``wl`` / ``wr`` are now the window's endpoints on the scale of the
+         running variable, as in ``rdlocrand``. They used to be offsets
+         from the cutoff, which is the same thing only when ``c = 0``.
+       * ``p > 0`` used to residualize the outcome on a polynomial pooled
+         across both sides, which absorbs the effect itself (the score is
+         collinear with treatment inside the window). It now fits a
+         polynomial on each side and reports the difference in intercepts.
+       * ``fuzzy=`` used to report a permutation p-value for the Wald
+         ratio, whose randomization distribution has no finite scale when
+         the permuted first stage passes through zero. The default is now
+         the Anderson-Rubin / intention-to-treat randomization test.
 
     Parameters
     ----------
@@ -338,50 +514,104 @@ def rdrandinf(
         Running variable name.
     c : float, default 0
         RD cutoff value.
-    wl : float, optional
-        Window left bound offset from cutoff (typically negative).
-        The left edge of the window is ``c + wl``.
-    wr : float, optional
-        Window right bound offset from cutoff (typically positive).
-        The right edge of the window is ``c + wr``.
+    wl, wr : float
+        Left and right endpoints of the window, on the scale of the running
+        variable (so ``wl <= c <= wr``). Use :func:`rdwinselect` to choose
+        a window from covariate balance.
     statistic : str, default 'diffmeans'
         Test statistic: 'diffmeans', 'ksmirnov', 'ranksum', or 'all'.
         ``'ttest'`` is accepted as an alias for ``'diffmeans'``, matching
-        rdlocrand, where both names select the same statistic.
+        rdlocrand, where both names select the same statistic. The rank
+        and Kolmogorov-Smirnov statistics need ``p=0`` and the uniform
+        kernel.
     p : int, default 0
-        Polynomial order for adjustment (0 = unadjusted).
+        Order of the polynomial in the score fitted on each side. The
+        statistic is then the difference in fitted values at the cutoff
+        (or at ``evall`` / ``evalr``).
     covs : list of str, optional
-        Covariate names to partial out before testing.
+        Covariate names to partial out of the outcome before testing.
     kernel : str, default 'uniform'
-        Kernel weighting (only 'uniform' currently supported for local
-        randomization).
+        'uniform', 'triangular' or 'epanechnikov' weights. The bandwidth on
+        each side is the distance from the cutoff to that side's window
+        edge.
     n_perms : int, default 1000
-        Number of permutations for Fisher randomization test.
+        Number of randomization draws.
     fuzzy : str, optional
-        Actual treatment variable for fuzzy RD. The Wald (IV) estimator
-        is computed within the window.
+        Column holding the treatment actually received (fuzzy RD). The
+        estimate is then the Wald ratio inside the window, with the
+        heteroskedasticity-robust 2SLS standard error.
     alpha : float, default 0.05
-        Significance level.
+        Significance level for the confidence interval and the power
+        calculation.
     seed : int, default 42
         Random seed for reproducibility.
+    fuzzy_stat : {'itt', 'tsls'}, default 'itt'
+        Which test backs ``pvalue`` in a fuzzy design. ``'itt'`` (alias
+        ``'ar'``) is the randomization test on the reduced form, valid in
+        finite samples: the effect on compliers is zero exactly when the
+        intention-to-treat effect is. ``'tsls'`` is the large-sample z-test
+        on the Wald ratio; no randomization p-value is reported for it.
+    nulltau : float, default 0
+        Treatment effect under the null hypothesis.
+    bernoulli : str or float, optional
+        Assignment probabilities when the mechanism is independent
+        Bernoulli trials rather than a fixed number of treated units: a
+        column name, or one probability for every unit. Needs ``p=0`` and
+        the uniform kernel.
+    ci : bool or sequence of float, optional
+        Confidence interval by inverting the randomization test of the
+        difference in means. ``None`` / ``True`` uses a grid of 201 points
+        over the estimate plus or minus five standard errors; a sequence is
+        used as the grid of effects to test; ``False`` skips it. The
+        interval is the range of grid values not rejected at ``alpha``, so
+        its resolution is the grid's.
+    d : float, optional
+        Effect size for the large-sample power calculation. Defaults to
+        ``dscale`` times the control group's outcome standard deviation.
+    dscale : float, default 0.5
+    evall, evalr : float, optional
+        Points on the running-variable scale at which the fitted
+        polynomials are evaluated. Both default to the cutoff.
 
     Returns
     -------
     CausalResult
-        Result with treatment effect estimate, permutation and asymptotic
-        p-values, and confidence interval.
+        ``estimate`` is the difference in means (or in fitted values at the
+        cutoff when ``p > 0``); ``pvalue`` is the randomization p-value of
+        the first requested statistic; ``ci`` is the test-inversion
+        interval. ``model_info`` carries the large-sample p-value, the
+        power against ``d``, per-side means and standard deviations, and,
+        for fuzzy designs, the intention-to-treat and first-stage
+        estimates.
 
     Notes
     -----
-    The confidence interval is obtained by test inversion when
-    ``statistic='diffmeans'``: the set of hypothesised effect values
-    tau_0 that are not rejected by the permutation test at level alpha.
+    **What is randomized when** ``p > 0``. Treatment is a function of the
+    score, so the randomization that local randomization posits is of
+    *scores* to units. For a difference in means, weighted or not, that
+    is the same as permuting treatment labels. With a polynomial it is
+    not: the statistic extrapolates each side's fit to the cutoff, and its
+    randomization distribution has to be built from the same
+    extrapolation. For ``p > 0`` this function therefore permutes outcomes
+    against (score, assignment) pairs. ``rdlocrand`` 2.0 produces
+    much smaller p-values for ``p > 0``; on a design with no effect, 40
+    observations and ``p = 1``, re-randomizing labels with the scores held
+    fixed rejects a true null 37% of the time at the 5% level, against 4.7%
+    here (``tests/reference_parity/test_rdlocrand_extensions_parity.py``).
+    The observed statistic and the large-sample p-value agree with
+    ``rdlocrand`` to 1e-13.
+
+    The large-sample p-value uses the HC2 variance of the side-specific
+    fits (Welch's standard error when ``p = 0``) and the normal
+    distribution.
 
     References
     ----------
     Cattaneo, M.D., Titiunik, R. and Vazquez-Bare, G. (2016).
     "Inference in Regression Discontinuity Designs under Local
     Randomization." *The Stata Journal*, 16(2), 331-367. [@cattaneo2016inference]
+
+    [@cattaneo2015randomization] [@cattaneo2024extensions]
 
     Examples
     --------
@@ -401,217 +631,266 @@ def rdrandinf(
     True
     """
     rng = np.random.default_rng(seed)
-    if wl is None or wr is None:
+    wl_value, wr_value = _window_bounds(c, wl, wr)
+    kernel = _lr.canonical_kernel(kernel)
+    p = int(p)
+    if p < 0:
+        raise ValueError("p must be a non-negative integer.")
+    fuzzy_stat = {"ar": "itt"}.get(str(fuzzy_stat).lower(), str(fuzzy_stat).lower())
+    if fuzzy_stat not in ("itt", "tsls"):
+        raise ValueError("fuzzy_stat must be 'itt' (alias 'ar') or 'tsls'.")
+
+    # rdlocrand accepts 'ttest' and 'diffmeans' as names for the same
+    # statistic, so an R script written with either must run unchanged.
+    if statistic == "ttest":
+        statistic = "diffmeans"
+    if statistic != "all" and statistic not in _STAT_FUNCS:
         raise ValueError(
-            "Window bounds wl and wr must be specified. "
-            "Use rdwinselect() to choose a data-driven window."
+            f"Unknown statistic '{statistic}'. "
+            f"Choose from: 'diffmeans' (alias 'ttest'), 'ksmirnov', "
+            f"'ranksum', 'all'."
         )
-    wl_value = float(wl)
-    wr_value = float(wr)
+    stat_names = list(_STAT_FUNCS.keys()) if statistic == "all" else [statistic]
+    adjusted = p > 0 or kernel != "uniform"
+    if adjusted and stat_names != ["diffmeans"]:
+        raise ValueError(
+            "statistic='ksmirnov' / 'ranksum' / 'all' compare the two "
+            "outcome distributions as they are; they are not defined for "
+            "p > 0 or a non-uniform kernel. Use statistic='diffmeans'."
+        )
+    if p > 0 and bernoulli is not None:
+        raise ValueError("bernoulli= needs p=0.")
+    if adjusted and fuzzy is not None:
+        raise ValueError("fuzzy= needs p=0 and kernel='uniform'.")
 
     # --- subset to window ---
-    mask = _select_window(data, x, c, wl_value, wr_value)
+    bern_col = bernoulli if isinstance(bernoulli, str) else None
+    mask = _select_window(data, x, wl_value, wr_value)
     df_w = data.loc[mask].copy()
-    df_w, _n_missing = _drop_incomplete(df_w, [y, x, covs, fuzzy], where="rdrandinf")
+    df_w, _n_missing = _drop_incomplete(
+        df_w, [y, x, covs, fuzzy, bern_col], where="rdrandinf"
+    )
     n_obs = len(df_w)
     if n_obs < 4:
-        raise ValueError(  # pragma: no cover
-            f"Only {n_obs} observations in window [{c + wl_value}, {c + wr_value}]. "
+        raise ValueError(
+            f"Only {n_obs} observations in window [{wl_value}, {wr_value}]. "
             "Widen the window or check your data."
         )
 
     yv = df_w[y].values.astype(float)
     xv = df_w[x].values.astype(float)
-    # Treatment: above cutoff
     z = (xv >= c).astype(int)
     n_right = int(z.sum())
     n_left = n_obs - n_right
     if n_left < 2 or n_right < 2:
-        raise ValueError(  # pragma: no cover
+        raise ValueError(
             f"Need >= 2 observations on each side of the cutoff; "
             f"got {n_left} left and {n_right} right."
         )
+    y_raw = yv.copy()
+    if covs is not None and len(covs) > 0:
+        yv = _polynomial_residuals(yv, xv - c, 0, df_w[covs].values.astype(float))
 
-    # --- polynomial / covariate adjustment ---
-    if p > 0 or (covs is not None and len(covs) > 0):
-        cov_mat = df_w[covs].values.astype(float) if covs else None
-        yv = _polynomial_residuals(yv, xv - c, p, cov_mat)
+    prob = None
+    if bernoulli is not None:
+        prob = (
+            df_w[bern_col].values.astype(float)
+            if bern_col is not None
+            else np.full(n_obs, float(bernoulli))  # type: ignore[arg-type]
+        )
+        if np.any((prob <= 0) | (prob >= 1)):
+            raise ValueError("bernoulli= probabilities must lie strictly in (0, 1).")
 
-    # --- fuzzy RD: Wald estimator ---
-    if fuzzy is not None:
-        d_actual = df_w[fuzzy].values.astype(float)
-        tau_iv, se_iv = _wald_iv(yv, d_actual, z)
+    d_actual = df_w[fuzzy].values.astype(float) if fuzzy is not None else None
+    shift = d_actual if d_actual is not None else z.astype(float)
+    bw = (c - wl_value, wr_value - c)
+    evals = (
+        0.0 if evall is None else float(evall) - c,
+        0.0 if evalr is None else float(evalr) - c,
+    )
 
-        # Permutation p-value for fuzzy: permute Z, recompute Wald
-        count = 0
-        for _ in range(n_perms):
-            z_perm = rng.permutation(z)
-            tau_perm, _ = _wald_iv(yv, d_actual, z_perm)
-            if not np.isnan(tau_perm) and abs(tau_perm) >= abs(tau_iv) - 1e-14:
-                count += 1
-        perm_pval = count / n_perms
+    # --- point estimate and its large-sample standard error ---
+    w_kern = _lr.kernel_weights(xv - c, z, bw[0], bw[1], kernel)
+    g, _ = _lr.linear_functional(xv - c, z, w_kern, p, evals[0], evals[1])
+    itt = float(g @ yv)
+    se_itt = _lr.hc2_se(yv, xv - c, z, w_kern, p, evals[0], evals[1])
 
-        # Asymptotic p-value
-        if se_iv > 0 and not np.isnan(se_iv):
-            t_stat = tau_iv / se_iv
-            asym_pval = 2 * sp_stats.norm.sf(abs(t_stat))
+    # --- interval grid ---
+    if ci is False:
+        grid = None
+    elif ci is None or ci is True:
+        if d_actual is not None or not np.isfinite(se_itt) or se_itt < 1e-14:
+            grid = None
         else:
-            asym_pval = np.nan  # pragma: no cover
+            grid = np.linspace(itt - 5 * se_itt, itt + 5 * se_itt, 201)
+    else:
+        grid = np.asarray(list(ci), dtype=float)  # type: ignore[arg-type]
+        if grid.ndim != 1 or grid.size < 2:
+            raise ValueError("ci= must be a sequence of at least two effects.")
+        if d_actual is not None and fuzzy_stat == "tsls":
+            raise ValueError(
+                "ci= inverts the randomization test; with fuzzy_stat='tsls' "
+                "the interval is the large-sample one."
+            )
 
-        z_crit = sp_stats.norm.ppf(1 - alpha / 2)
-        ci = (tau_iv - z_crit * se_iv, tau_iv + z_crit * se_iv)
+    test = _randomization_test(
+        yv,
+        xv - c,
+        z,
+        shift=shift,
+        stat_names=stat_names,
+        p=p,
+        kernel=kernel,
+        bw=bw,
+        evals=evals,
+        n_perms=n_perms,
+        rng=rng,
+        prob=prob,
+        nulltau=float(nulltau),
+        ci_grid=grid,
+        alpha=alpha,
+    )
+    y0 = yv - float(nulltau) * shift
+    results = {}
+    for sname in stat_names:
+        results[sname] = {
+            "observed_stat": test["observed"][sname],
+            "pvalue_permutation": test["pvalue"][sname],
+            "pvalue_asymptotic": _asymptotic_for(
+                sname, y0, z, test["observed"][sname], test["se"]
+            ),
+        }
+    primary = stat_names[0]
+    z_crit = sp_stats.norm.ppf(1 - alpha / 2)
 
+    sd_left = float(y_raw[z == 0].std(ddof=1))
+    power_d = float(d) if d is not None else float(dscale) * sd_left
+    info: Dict[str, Any] = {
+        "cutoff": c,
+        "window": (wl_value, wr_value),
+        "n_left": n_left,
+        "n_right": n_right,
+        "mean_left": float(y_raw[z == 0].mean()),
+        "mean_right": float(y_raw[z == 1].mean()),
+        "sd_left": sd_left,
+        "sd_right": float(y_raw[z == 1].std(ddof=1)),
+        "statistic": statistic,
+        "polynomial_order": p,
+        "kernel": kernel,
+        "n_perms": n_perms,
+        "n_draws": test["n_draws"],
+        "randomization": "bernoulli" if prob is not None else "fixed margins",
+        "nulltau": float(nulltau),
+        "covariates": covs,
+        "results_by_stat": results,
+        "pvalue_permutation": results[primary]["pvalue_permutation"],
+        "pvalue_asymptotic": results[primary]["pvalue_asymptotic"],
+        "power_d": power_d,
+        "power": _lr.asymptotic_power(power_d, se_itt, alpha),
+    }
+
+    if test["ci"] is not None:
+        ci_out, ci_method = test["ci"], "randomization test inversion"
+        if test["ci_truncated"]:
+            warnings.warn(
+                "rdrandinf: the confidence interval reaches the edge of the "
+                "grid of effects tested, so it is truncated. Pass a wider "
+                "grid through ci=.",
+                UserWarning,
+                stacklevel=2,
+            )
+    elif grid is not None:
+        # Every grid value was rejected: the grid missed the interval.
+        warnings.warn(
+            "rdrandinf: every effect on the ci= grid was rejected, so the "
+            "grid does not cover the confidence interval. Reporting the "
+            "large-sample interval instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        ci_out = (itt - z_crit * se_itt, itt + z_crit * se_itt)
+        ci_method = "large-sample (grid missed the interval)"
+    elif ci is False:
+        ci_out, ci_method = (float("nan"), float("nan")), "not requested"
+    else:
+        ci_out = (itt - z_crit * se_itt, itt + z_crit * se_itt)
+        ci_method = "large-sample"
+    info["ci_method"] = ci_method
+    info["ci_grid_truncated"] = bool(test["ci_truncated"])
+
+    if d_actual is not None:
+        tau_iv, se_iv, first_stage = _tsls_wald(yv, d_actual, z)
+        tsls_p = float(2 * sp_stats.norm.sf(abs((tau_iv - float(nulltau)) / se_iv)))
+        info.update(
+            {
+                "statistic": "itt" if fuzzy_stat == "itt" else "tsls",
+                "fuzzy_stat": fuzzy_stat,
+                "fuzzy_treatment": fuzzy,
+                "first_stage": first_stage,
+                "itt": itt,
+                "itt_se": se_itt,
+                "itt_ci": ci_out if test["ci"] is not None else None,
+                "pvalue_tsls": tsls_p,
+            }
+        )
+        if fuzzy_stat == "tsls":
+            # A large-sample statistic: there is no randomization p-value
+            # for it, and inventing one by permuting the ratio is what the
+            # previous version did.
+            info["pvalue_permutation"] = float("nan")
+            info["pvalue_asymptotic"] = tsls_p
+            pval_main = tsls_p
+        else:
+            pval_main = float(results[primary]["pvalue_permutation"])
+        if fuzzy_stat == "tsls" or test["ci"] is None:
+            ci_final = (tau_iv - z_crit * se_iv, tau_iv + z_crit * se_iv)
+            info["ci_method"] = "large-sample (2SLS)"
+        else:
+            # Anderson-Rubin: the grid was tested as y - tau0 * D.
+            ci_final = ci_out
         return CausalResult(
             method="RD Local Randomization (Fuzzy)",
             estimand="LATE",
             estimate=float(tau_iv),
             se=float(se_iv),
-            pvalue=float(perm_pval),
-            ci=ci,
+            pvalue=float(pval_main),
+            ci=ci_final,
             alpha=alpha,
             n_obs=n_obs,
-            model_info={
-                "cutoff": c,
-                "window": (c + wl_value, c + wr_value),
-                "n_left": n_left,
-                "n_right": n_right,
-                "statistic": "wald_iv",
-                "polynomial_order": p,
-                "n_perms": n_perms,
-                "pvalue_permutation": perm_pval,
-                "pvalue_asymptotic": asym_pval,
-                "first_stage": float(d_actual[z == 1].mean() - d_actual[z == 0].mean()),
-                "fuzzy_treatment": fuzzy,
-            },
+            model_info=info,
             _citation_key="rdlocrand",
         )
 
-    # --- sharp RD ---
-    # rdlocrand accepts 'ttest' and 'diffmeans' as names for the same
-    # statistic (they share one branch in rdrandinf.model), so an R script
-    # written with either must run unchanged.
-    if statistic == "ttest":
-        statistic = "diffmeans"
-    stat_names = list(_STAT_FUNCS.keys()) if statistic == "all" else [statistic]
-    if statistic != "all" and statistic not in _STAT_FUNCS:
-        raise ValueError(  # pragma: no cover
-            f"Unknown statistic '{statistic}'. "
-            f"Choose from: 'diffmeans' (alias 'ttest'), 'ksmirnov', "
-            f"'ranksum', 'all'."
-        )
-
-    results = {}
-    for sname in stat_names:
-        obs, perm_pval = _permutation_pvalue(yv, z, sname, n_perms, rng)
-        _, asym_pval = _asymptotic_pvalue(yv, z, sname)
-        results[sname] = {
-            "observed_stat": obs,
-            "pvalue_permutation": perm_pval,
-            "pvalue_asymptotic": asym_pval,
-        }
-
-    # Primary statistic for the CausalResult
-    primary = stat_names[0]
-    tau = _diffmeans(yv, z)
-    y1, y0 = yv[z == 1], yv[z == 0]
-    se = np.sqrt(y1.var(ddof=1) / n_right + y0.var(ddof=1) / n_left)
-
-    # Confidence interval by test inversion for diffmeans
-    ci = _ci_test_inversion(yv, z, n_perms, alpha, rng)
-
-    pval_main = results[primary]["pvalue_permutation"]
-
-    # Detail DataFrame if 'all'
     detail = None
     if statistic == "all":
-        rows = []
-        for sname, res in results.items():
-            rows.append(
+        detail = pd.DataFrame(
+            [
                 {
                     "statistic": sname,
                     "observed": res["observed_stat"],
                     "pvalue_perm": res["pvalue_permutation"],
                     "pvalue_asym": res["pvalue_asymptotic"],
                 }
-            )
-        detail = pd.DataFrame(rows)
+                for sname, res in results.items()
+            ]
+        )
 
     return CausalResult(
         method="RD Local Randomization",
         estimand="ATE (local)",
-        estimate=float(tau),
-        se=float(se),
-        pvalue=float(pval_main),
-        ci=ci,
+        estimate=float(itt),
+        se=float(se_itt),
+        pvalue=float(results[primary]["pvalue_permutation"]),
+        ci=ci_out,
         alpha=alpha,
         n_obs=n_obs,
         detail=detail,
-        model_info={
-            "cutoff": c,
-            "window": (c + wl_value, c + wr_value),
-            "n_left": n_left,
-            "n_right": n_right,
-            "statistic": statistic,
-            "polynomial_order": p,
-            "n_perms": n_perms,
-            "covariates": covs,
-            "results_by_stat": results,
-            "pvalue_permutation": pval_main,
-            "pvalue_asymptotic": results[primary]["pvalue_asymptotic"],
-        },
+        model_info=info,
         _citation_key="rdlocrand",
     )
 
 
-def _ci_test_inversion(
-    y: np.ndarray,
-    d: np.ndarray,
-    n_perms: int,
-    alpha: float,
-    rng: np.random.Generator,
-    n_grid: int = 101,
-) -> Tuple[float, float]:
-    """
-    Confidence interval by test inversion for difference-in-means.
-
-    Shift Y under each hypothesised tau_0 and check if the Fisher test
-    rejects. The CI is the range of non-rejected tau_0 values.
-    """
-    tau_hat = _diffmeans(y, d)
-    se_hat = np.sqrt(
-        y[d == 1].var(ddof=1) / (d == 1).sum() + y[d == 0].var(ddof=1) / (d == 0).sum()
-    )
-    if se_hat < 1e-14 or np.isnan(se_hat):
-        return (tau_hat, tau_hat)
-
-    # Search range: +/- 4 SE around point estimate
-    lo = tau_hat - 4 * se_hat
-    hi = tau_hat + 4 * se_hat
-    grid = np.linspace(lo, hi, n_grid)
-
-    not_rejected = []
-    for tau0 in grid:
-        # Under H0: tau = tau0, adjust treated outcomes
-        y_adj = y.copy()
-        y_adj[d == 1] = y[d == 1] - tau0
-        # Test stat under null: diff should be ~0
-        obs = abs(_diffmeans(y_adj, d))
-        count = 0
-        for _ in range(n_perms):
-            d_perm = rng.permutation(d)
-            perm_stat = abs(_diffmeans(y_adj, d_perm))
-            if perm_stat >= obs - 1e-14:
-                count += 1
-        pval = count / n_perms
-        if pval > alpha:
-            not_rejected.append(tau0)
-
-    if len(not_rejected) == 0:
-        # Fall back to normal approximation
-        z_crit = sp_stats.norm.ppf(1 - alpha / 2)
-        return (tau_hat - z_crit * se_hat, tau_hat + z_crit * se_hat)
-
-    return (float(min(not_rejected)), float(max(not_rejected)))
+_WINSELECT_STATS = ("diffmeans", "ksmirnov", "ranksum")
 
 
 @accepts_aliases(covariates="covs")
@@ -627,13 +906,36 @@ def rdwinselect(
     p: int = 0,
     seed: int = 42,
     alpha: float = 0.15,
+    *,
+    obsmin: int = 10,
+    wobs: Optional[int] = None,
+    wasymmetric: bool = False,
+    approx: bool = False,
+    n_perms: int = 1000,
+    kernel: str = "uniform",
+    dropmissing: bool = False,
 ) -> pd.DataFrame:
     """
     Data-driven window selection for local randomization RD.
 
-    Tests covariate balance at successively larger windows around the
-    cutoff. The recommended window is the largest for which all
-    covariates remain balanced (p > alpha).
+    Builds a sequence of nested windows around the cutoff and, in each,
+    tests the balance of every covariate and runs a binomial test on the
+    number of observations either side. The recommended window is the
+    largest one such that it and every window inside it have a minimum
+    balance p-value of at least ``alpha``.
+
+    .. versionchanged:: 1.39.0
+       ⚠️ **The window sequence and the p-values changed. Re-run anything
+       that used this function.** The default sequence used to start at a
+       fraction of the running variable's range and step to its full
+       extent, so on the U.S. Senate data it tested windows of 5, 15.6, ...,
+       100 points where the procedure is about windows holding ten, twelve,
+       fourteen observations a side. It now starts at the smallest window
+       with ``obsmin`` observations on each side and adds ``wobs`` per
+       side per step, as described by Cattaneo, Idrobo and Titiunik (2024).
+       Without covariates the function used to test made-up quantile
+       dummies of the score; it now reports the binomial test only. See
+       MIGRATION.md.
 
     Parameters
     ----------
@@ -644,30 +946,69 @@ def rdwinselect(
     c : float, default 0
         RD cutoff value.
     covs : list of str, optional
-        Covariate names to test balance for. If None, uses quantiles of
-        the running variable as pseudo-covariates.
+        Predetermined covariates to test balance for. Without them only
+        the binomial test is reported and no window is recommended.
     wmin : float, optional
-        Minimum half-window width. Defaults to the smallest gap between
-        adjacent observations near the cutoff.
+        Half-width of the smallest window. Defaults to the smallest
+        symmetric window with ``obsmin`` observations on each side.
     wstep : float, optional
-        Window increment. Defaults to ``(max_range - wmin) / nwindows``.
+        Increment in half-width. If omitted, each window adds at least
+        ``wobs`` observations on each side.
     nwindows : int, default 10
-        Number of windows to evaluate.
+        Number of windows to evaluate. Fewer come back if the data run out.
     statistic : str, default 'diffmeans'
-        Test statistic for balance testing.
+        Balance statistic: 'diffmeans' (alias 'ttest'), 'ksmirnov' or
+        'ranksum'.
     p : int, default 0
-        Polynomial order for adjustment.
+        Polynomial order for the covariate adjustment model.
     seed : int, default 42
         Random seed.
     alpha : float, default 0.15
-        Significance level for balance (lenient by default to be
-        conservative about window selection).
+        Smallest acceptable minimum p-value (``level`` in rdlocrand). It is
+        deliberately larger than 0.05: the concern is failing to detect
+        imbalance, not falsely detecting it.
+    obsmin : int, default 10
+        Minimum observations on each side in the smallest window.
+    wobs : int, optional
+        Observations added on each side per step (5 if neither ``wobs``
+        nor ``wstep`` is given).
+    wasymmetric : bool, default False
+        Let the two sides of the window grow separately.
+    approx : bool, default False
+        Use the large-sample p-values instead of randomization inference.
+        Deterministic and much faster.
+    n_perms : int, default 1000
+        Randomization draws per covariate and window.
+    kernel : str, default 'uniform'
+    dropmissing : bool, default False
+        Drop rows with a missing covariate before the windows are built.
+        By default the windows are built on every row with an observed
+        score and incomplete rows are dropped inside each window.
 
     Returns
     -------
     pd.DataFrame
-        Columns: window_left, window_right, n_left, n_right, p_value,
-        balanced. Rows sorted by window width.
+        One row per window: ``window_left``, ``window_right`` (endpoints on
+        the running-variable scale), ``n_left``, ``n_right``, ``p_value``
+        (smallest balance p-value across covariates), ``variable`` (the
+        covariate attaining it), ``binom_pvalue`` and ``balanced``.
+        ``attrs['recommended_window']`` holds ``(left, right)`` or
+        ``None``; ``attrs['recommended_n']`` the counts inside it.
+
+    Notes
+    -----
+    ``rdlocrand`` 2.0 starts its default sequence one observation short on
+    the left: on the Senate data its first window has 9 observations below
+    the cutoff with ``obsmin = 10``. Its documentation and the output
+    printed in Cattaneo, Idrobo and Titiunik (2024, Snippet 2.5), where the
+    first window has 10, describe the rule implemented here. Given the
+    same windows (``wmin=`` and ``wstep=``), counts, binomial p-values and
+    the large-sample balance p-values agree with ``rdlocrand`` to 1e-12.
+
+    References
+    ----------
+    [@cattaneo2016inference] [@cattaneo2015randomization]
+    [@cattaneo2024extensions]
 
     Examples
     --------
@@ -680,128 +1021,186 @@ def rdwinselect(
     >>> z1 = 0.2 * x + rng.normal(0, 1, n)
     >>> df = pd.DataFrame({"x": x, "z1": z1})
     >>> tab = sp.rdwinselect(df, x="x", c=0.0, covs=["z1"],
-    ...                      nwindows=5)
+    ...                      nwindows=5, approx=True)
     >>> tab.shape
-    (5, 6)
-    >>> list(tab.columns)
-    ['window_left', 'window_right', 'n_left', 'n_right', 'p_value', 'balanced']
-    >>> tab["n_left"].tolist()
-    [26, 74, 129, 193, 249]
+    (5, 8)
+    >>> list(tab.columns)[:5]
+    ['window_left', 'window_right', 'n_left', 'n_right', 'p_value']
+    >>> bool(tab["n_left"].iloc[0] >= 10 and tab["n_right"].iloc[0] >= 10)
+    True
     """
     rng = np.random.default_rng(seed)
-    # Cleaned once, before the window grid is derived: the grid is built
-    # from quantiles and gaps of the running variable, so dropping rows
-    # afterwards would leave the windows keyed to a sample that no longer
-    # exists. Warned once here rather than once per window.
-    data, _n_missing = _drop_incomplete(data, [x, covs], where="rdwinselect")
-    xv = data[x].values.astype(float)
-
-    # --- determine window grid ---
-    x_left = xv[xv < c]
-    x_right = xv[xv >= c]
-    if len(x_left) == 0 or len(x_right) == 0:
+    if statistic == "ttest":
+        statistic = "diffmeans"
+    if statistic not in _WINSELECT_STATS:
         raise ValueError(
-            "Need observations on both sides of the cutoff."
-        )  # pragma: no cover
-
-    # Max range: distance to closest boundary
-    max_left = c - x_left.min()
-    max_right = x_right.max() - c
-    max_range = min(max_left, max_right)
-
-    if wmin is None:
-        # Smallest gap near cutoff
-        sorted_x = np.sort(xv)
-        gaps = np.diff(sorted_x)
-        near_cutoff = (sorted_x[:-1] >= c - max_range / 2) & (
-            sorted_x[:-1] <= c + max_range / 2
+            f"Unknown statistic '{statistic}'. Choose from: 'diffmeans' "
+            "(alias 'ttest'), 'ksmirnov', 'ranksum'."
         )
-        if near_cutoff.any():
-            wmin = float(np.median(gaps[near_cutoff]))
-        else:
-            wmin = float(np.median(gaps[gaps > 0]))
-        wmin = max(wmin, max_range / (nwindows * 2))
+    kernel = _lr.canonical_kernel(kernel)
+    covs = list(covs) if covs else []
 
-    if wstep is None:
-        wstep = (max_range - wmin) / max(nwindows - 1, 1)
-        wstep = max(wstep, wmin)
+    # The windows are a property of the score, so by default only rows with
+    # a missing score are dropped up front; rows with a missing covariate
+    # are dropped inside each window, and the counts reported are of the
+    # rows the balance tests actually used.
+    up_front = [x, covs] if dropmissing else [x]
+    data, _n_missing = _drop_incomplete(data, up_front, where="rdwinselect")
+    xv = data[x].values.astype(float)
+    if (xv < c).sum() == 0 or (xv >= c).sum() == 0:
+        raise ValueError("Need observations on both sides of the cutoff.")
+    complete = np.ones(len(data), dtype=bool)
+    if covs:
+        complete = np.isfinite(data[covs].to_numpy(dtype=float)).all(axis=1)
+    cov_values = {cv: data[cv].to_numpy(dtype=float) for cv in covs}
 
-    # --- pseudo-covariates if none given ---
-    use_covs = covs
-    if use_covs is None or len(use_covs) == 0:
-        # Create quantile dummies of X as pseudo-covariates
-        qs = [0.25, 0.5, 0.75]
-        pseudo_names = []
-        for q in qs:
-            cname = f"_x_q{int(q * 100)}"
-            data = data.copy()
-            data[cname] = (data[x] <= np.quantile(xv, q)).astype(float)
-            pseudo_names.append(cname)
-        use_covs = pseudo_names
+    windows = _lr.window_sequence(
+        xv,
+        c,
+        nwindows=int(nwindows),
+        obsmin=int(obsmin),
+        wmin=wmin,
+        wobs=wobs,
+        wstep=wstep,
+        wasymmetric=wasymmetric,
+    )
 
-    # --- evaluate each window ---
     rows = []
-    for i in range(nwindows):
-        w = wmin + i * wstep
-        wl = -w
-        wr = w
-
-        mask = (xv >= c + wl) & (xv <= c + wr)
-        df_w = data.loc[mask]
-        xw = df_w[x].values.astype(float)
+    for half_l, half_r in windows:
+        lo, hi = c - half_l, c + half_r
+        mask = (xv >= lo) & (xv <= hi) & complete
+        xw = xv[mask]
         z = (xw >= c).astype(int)
-        n_left = int((z == 0).sum())
-        n_right = int((z == 1).sum())
-
-        if n_left < 2 or n_right < 2:
-            rows.append(
-                {
-                    "window_left": c + wl,
-                    "window_right": c + wr,
-                    "n_left": n_left,
-                    "n_right": n_right,
-                    "p_value": np.nan,
-                    "balanced": False,
-                }
-            )
-            continue  # pragma: no cover
-
-        # Test balance for each covariate, take minimum p-value
-        min_pval = 1.0
-        for cv in use_covs:
-            if cv not in df_w.columns:
-                continue  # pragma: no cover
-            cv_vals = df_w[cv].values.astype(float)
-            if np.std(cv_vals) < 1e-14:
-                continue  # pragma: no cover
-
-            # Polynomial adjustment
-            if p > 0:
-                cv_vals = _polynomial_residuals(cv_vals, xw - c, p)
-
-            _, perm_pval = _permutation_pvalue(cv_vals, z, statistic, 500, rng)
-            min_pval = min(min_pval, perm_pval)
-
-        rows.append(
-            {
-                "window_left": c + wl,
-                "window_right": c + wr,
-                "n_left": n_left,
-                "n_right": n_right,
-                "p_value": min_pval,
-                "balanced": min_pval > alpha,
-            }
-        )
+        n_right = int(z.sum())
+        n_left = int(z.shape[0] - n_right)
+        row: Dict[str, Any] = {
+            "window_left": lo,
+            "window_right": hi,
+            "n_left": n_left,
+            "n_right": n_right,
+            "p_value": np.nan,
+            "variable": None,
+            "binom_pvalue": (
+                float(sp_stats.binomtest(n_left, n_left + n_right, 0.5).pvalue)
+                if n_left + n_right > 0
+                else np.nan
+            ),
+            "balanced": False,
+        }
+        if covs and n_left >= 2 and n_right >= 2:
+            best, best_name = np.inf, None
+            for cv in covs:
+                vals = cov_values[cv][mask]
+                pval = _balance_pvalue(
+                    vals,
+                    xw - c,
+                    z,
+                    statistic=statistic,
+                    p=int(p),
+                    kernel=kernel,
+                    bw=(half_l, half_r),
+                    approx=approx,
+                    n_perms=n_perms,
+                    rng=rng,
+                )
+                if np.isfinite(pval) and pval < best:
+                    best, best_name = pval, cv
+            if best_name is not None:
+                row["p_value"] = float(best)
+                row["variable"] = best_name
+                row["balanced"] = bool(best >= alpha)
+        rows.append(row)
 
     result = pd.DataFrame(rows)
-
-    # Clean up pseudo-covariates
-    if covs is None:
-        for cname in pseudo_names:
-            if cname in data.columns:
-                data.drop(columns=[cname], inplace=True, errors="ignore")
-
+    recommended = None
+    recommended_n = None
+    if covs:
+        passed = result["balanced"].to_numpy(dtype=bool)
+        n_ok = int(np.argmin(passed)) if not passed.all() else len(passed)
+        if n_ok == 0:
+            warnings.warn(
+                "rdwinselect: the smallest window already fails the balance "
+                f"test (minimum p-value {result['p_value'].iloc[0]:.3f} < "
+                f"{alpha}), so no window is recommended. Try a smaller "
+                "obsmin= / wmin=, or reconsider local randomization here.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            best_row = result.iloc[n_ok - 1]
+            recommended = (
+                float(best_row["window_left"]),
+                float(best_row["window_right"]),
+            )
+            recommended_n = (int(best_row["n_left"]), int(best_row["n_right"]))
+            if n_ok == len(passed):
+                warnings.warn(
+                    "rdwinselect: every window tested passes the balance "
+                    "test, so the recommended window is just the largest "
+                    "one tried. Increase nwindows= to find where balance "
+                    "breaks down.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+    result.attrs["recommended_window"] = recommended
+    result.attrs["recommended_n"] = recommended_n
+    result.attrs["cutoff"] = c
+    result.attrs["level"] = alpha
+    result.attrs["approx"] = bool(approx)
     return result
+
+
+def _balance_pvalue(
+    vals: np.ndarray,
+    xc: np.ndarray,
+    z: np.ndarray,
+    *,
+    statistic: str,
+    p: int,
+    kernel: str,
+    bw: Tuple[float, float],
+    approx: bool,
+    n_perms: int,
+    rng: np.random.Generator,
+) -> float:
+    """Balance p-value for one covariate in one window; NaN if constant."""
+    if np.ptp(vals) < 1e-14:
+        return float("nan")
+    adjusted = p > 0 or kernel != "uniform"
+    if adjusted and statistic != "diffmeans":
+        raise ValueError(
+            "statistic='ksmirnov' / 'ranksum' need p=0 and kernel='uniform'."
+        )
+    try:
+        if approx:
+            w = _lr.kernel_weights(xc, z, bw[0], bw[1], kernel)
+            if statistic != "diffmeans":
+                return _asymptotic_pvalue(vals, z, statistic)[1]
+            g, _ = _lr.linear_functional(xc, z, w, p)
+            se = _lr.hc2_se(vals, xc, z, w, p)
+            return _asymptotic_for("diffmeans", vals, z, float(g @ vals), se)
+        test = _randomization_test(
+            vals,
+            xc,
+            z,
+            shift=z.astype(float),
+            stat_names=[statistic],
+            p=p,
+            kernel=kernel,
+            bw=bw,
+            evals=(0.0, 0.0),
+            n_perms=n_perms,
+            rng=rng,
+            prob=None,
+            nulltau=0.0,
+            ci_grid=None,
+            alpha=0.05,
+        )
+    except ValueError:
+        # The polynomial is not identified in this window for this
+        # covariate; it cannot speak to balance here.
+        return float("nan")
+    return float(test["pvalue"][statistic])
 
 
 def rdsensitivity(
@@ -897,9 +1296,9 @@ def rdsensitivity(
 
     rows = []
     for w in wlist:
-        wl = -w
-        wr = w
-        mask = (xv >= c + wl) & (xv <= c + wr)
+        wl = c - w
+        wr = c + w
+        mask = (xv >= wl) & (xv <= wr)
         z_in = (xv[mask] >= c).astype(int)
         n_left = int((z_in == 0).sum())
         n_right = int((z_in == 1).sum())
@@ -1115,7 +1514,7 @@ def rdrbounds(
     c : float, default 0
         RD cutoff value.
     wl, wr : float
-        Window ``[c + wl, c + wr]`` (``wl`` typically negative).
+        Window endpoints on the running-variable scale (``wl <= c <= wr``).
     gamma_list : list of float, optional
         Odds ratios. Defaults to ``[1, 1.5, 2, 2.5, 3, 4, 5]``.
     statistic : {'ranksum', 'diffmeans'}, default 'ranksum'
@@ -1174,7 +1573,8 @@ def rdrbounds(
         raise ValueError("statistic must be 'ranksum' or 'diffmeans'")
     if gamma_list is None:
         gamma_list = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
-    mask = _select_window(data, x, c, float(wl), float(wr))
+    wl_value, wr_value = _window_bounds(c, wl, wr)
+    mask = _select_window(data, x, wl_value, wr_value)
     df_w = data.loc[mask].copy()
     df_w, _n_missing = _drop_incomplete(df_w, [y, x], where="rdrbounds")
     yv = df_w[y].to_numpy(dtype=float)

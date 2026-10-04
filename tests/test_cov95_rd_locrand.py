@@ -6,10 +6,10 @@ rdwinselect, rdsensitivity, and rdrbounds (Rosenbaum bounds). Real synthetic
 RD data; permutation p-values in [0,1] and structural properties asserted.
 """
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
-import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -79,20 +79,24 @@ def test_rdwinselect():
     df = _make_sharp()
     out = sp.rdwinselect(df, x="x", c=0, covs=["z", "z2"], nwindows=6, seed=7)
     assert isinstance(out, pd.DataFrame)
-    assert len(out) >= 3
+    assert len(out) == 6
+    # The sequence starts at the smallest window with ten observations a
+    # side and adds at least five a side per step. It used to start at a
+    # fraction of the score's range (0.083, 0.266, 0.449 here, 98 to 449
+    # observations on the left), which is not the procedure.
     np.testing.assert_allclose(
-        out[["window_left", "window_right", "n_left", "n_right", "p_value"]]
-        .head(3)
-        .to_numpy(),
+        out[["window_left", "window_right", "n_left", "n_right"]].head(3).to_numpy(),
         np.array(
             [
-                [-0.083237, 0.083237, 98.0, 77.0, 0.394],
-                [-0.266358, 0.266358, 285.0, 250.0, 0.384],
-                [-0.449480, 0.449480, 449.0, 410.0, 0.680],
+                [-0.009583, 0.009583, 10.0, 10.0],
+                [-0.014585, 0.014585, 17.0, 15.0],
+                [-0.019661, 0.019661, 23.0, 20.0],
             ]
         ),
         atol=5e-7,
     )
+    assert out["p_value"].between(0, 1).all()
+    assert set(out["variable"]) <= {"z", "z2"}
 
 
 def test_rdsensitivity():

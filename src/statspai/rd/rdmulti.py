@@ -75,6 +75,10 @@ class RDMultiResult(ResultProtocolMixin):
         n_cutoffs: int,
         n_total: int,
         method: str,
+        pooled_pvalue: Optional[float] = None,
+        pooled_estimate_robust: Optional[float] = None,
+        normalized: Optional[Dict[str, Any]] = None,
+        inference: str = "conventional",
     ) -> None:
         self.cutoff_results = cutoff_results  # list of dicts
         self.pooled_estimate = pooled_estimate
@@ -83,6 +87,13 @@ class RDMultiResult(ResultProtocolMixin):
         self.n_cutoffs = n_cutoffs
         self.n_total = n_total
         self.method = method
+        # Unit-specific-cutoff path only: the weighted estimate's robust
+        # p-value and bias-corrected centre, and the estimate on the
+        # normalized score (rdmulti's "Pooled" row).
+        self.pooled_pvalue = pooled_pvalue
+        self.pooled_estimate_robust = pooled_estimate_robust
+        self.normalized = normalized
+        self.inference = inference
 
     def summary(self) -> str:
         lines = [
@@ -104,11 +115,31 @@ class RDMultiResult(ResultProtocolMixin):
 
         lines.append("-" * 65)
         ci_pooled = f"[{self.pooled_ci[0]:.4f}, {self.pooled_ci[1]:.4f}]"
-        lines.append(
-            f"{'Pooled':<10s} {self.n_total:>6d} {self.pooled_estimate:>10.4f} "
-            f"{self.pooled_se:>10.4f} {ci_pooled:>22s}"
+        label = "Weighted" if self.normalized is not None else "Pooled"
+        pooled_p = (
+            f" {self.pooled_pvalue:>10.4f}" if self.pooled_pvalue is not None else ""
         )
+        lines.append(
+            f"{label:<10s} {self.n_total:>6d} {self.pooled_estimate:>10.4f} "
+            f"{self.pooled_se:>10.4f} {ci_pooled:>22s}{pooled_p}"
+        )
+        if self.normalized is not None:
+            nz: Dict[str, Any] = self.normalized
+            ci_nz = f"[{nz['ci_lower']:.4f}, {nz['ci_upper']:.4f}]"
+            lines.append(
+                f"{'Pooled':<10s} {nz['n']:>6d} {nz['estimate']:>10.4f} "
+                f"{nz['se']:>10.4f} {ci_nz:>22s} {nz['p_value']:>10.4f}"
+            )
         lines.append("=" * 65)
+        if self.inference == "robust":
+            lines.append(
+                "Estimates are conventional; SE, CI and p-value are robust "
+                "bias-corrected."
+            )
+            lines.append(
+                "Weighted: effective-sample-size weights. Pooled: one RD on "
+                "the normalized score."
+            )
         return "\n".join(lines)
 
     def plot(self, ax: Optional[Any] = None, **kwargs: Any) -> Any:
@@ -373,8 +404,39 @@ def _rdmc_unit_cutoffs(
 
     cvals = data[cutoff_var].to_numpy()
     if cutoffs is None:
-        cutoffs = sorted(pd.unique(cvals).tolist())
+        cutoffs = sorted(pd.unique(cvals[pd.notna(cvals)]).tolist())
     z_crit = stats.norm.ppf(1 - alpha / 2)
+    kw: Dict[str, Any] = dict(rdrobust_kwargs)
+    if bandwidth is not None:
+        kw.setdefault("h", float(bandwidth))
+    # The per-cutoff fits are sub-samples of one design; the density check
+    # and its warning belong to the user's own call on the full sample.
+    kw.setdefault("manipulation_test", False)
+
+    def _row(fit: CausalResult, n_h: int, h: float) -> Dict[str, Any]:
+        # rdmulti reports the conventional point estimate with robust
+        # bias-corrected inference. A conventional interval at an
+        # MSE-optimal bandwidth ignores the smoothing bias and undercovers,
+        # which is the reason rdrobust exists.
+        detail = fit.detail
+        assert detail is not None
+        tau = float(detail["estimate"][0])
+        tau_bc = float(detail["estimate"][1])
+        se_conv = float(detail["se"][0])
+        se_rb = float(detail["se"][1])
+        return {
+            "estimate": tau,
+            "se": se_rb,
+            "ci_lower": tau_bc - z_crit * se_rb,
+            "ci_upper": tau_bc + z_crit * se_rb,
+            "p_value": float(2 * stats.norm.sf(abs(tau_bc / se_rb))),
+            "n": n_h,
+            "bandwidth": h,
+            "estimate_robust": tau_bc,
+            "se_robust": se_rb,
+            "se_conventional": se_conv,
+            "ci_conventional": (tau - z_crit * se_conv, tau + z_crit * se_conv),
+        }
 
     cutoff_results = []
     for c in cutoffs:
@@ -384,49 +446,54 @@ def _rdmc_unit_cutoffs(
                 f"cutoff {c} has only {len(sub)} units assigned by "
                 f"{cutoff_var!r}; too few to estimate an RD effect"
             )
-        kw = dict(rdrobust_kwargs)
-        if bandwidth is not None:
-            kw.setdefault("h", float(bandwidth))
         fit = _rdrobust(sub, y=y, x=x, c=float(c), kernel=kernel, **kw)
-        tau = float(fit.detail["estimate"][0])
-        se = float(fit.detail["se"][0])
-        mi = fit.model_info
-        h = float(np.ravel(mi["bandwidth_h"])[0])
-        xs = sub[x].to_numpy(dtype=float) - float(c)
-        n_h = int(np.sum(np.abs(xs) <= h))
-        cutoff_results.append(
-            {
-                "cutoff": float(c),
-                "estimate": tau,
-                "se": se,
-                "ci_lower": tau - z_crit * se,
-                "ci_upper": tau + z_crit * se,
-                "p_value": float(fit.detail["pvalue"][0]),
-                "n": n_h,
-                "bandwidth": h,
-                "estimate_robust": float(fit.detail["estimate"][1]),
-                "se_robust": float(fit.detail["se"][1]),
-            }
-        )
+        h = float(np.ravel(fit.model_info["bandwidth_h"])[0])
+        ok = sub[[y, x]].notna().all(axis=1).to_numpy()
+        xs = sub[x].to_numpy(dtype=float)[ok] - float(c)
+        row: Dict[str, Any] = {"cutoff": float(c)}
+        row.update(_row(fit, int(np.sum(np.abs(xs) <= h)), h))
+        cutoff_results.append(row)
 
     # rdmulti weights by effective sample size, not inverse variance.
     nh = np.array([cr["n"] for cr in cutoff_results], dtype=float)
     w = nh / nh.sum()
     pooled = float(np.sum(w * np.array([cr["estimate"] for cr in cutoff_results])))
+    pooled_bc = float(
+        np.sum(w * np.array([cr["estimate_robust"] for cr in cutoff_results]))
+    )
     pooled_se = float(
-        np.sqrt(np.sum(w**2 * np.array([cr["se"] ** 2 for cr in cutoff_results])))
+        np.sqrt(
+            np.sum(w**2 * np.array([cr["se_robust"] ** 2 for cr in cutoff_results]))
+        )
     )
     for cr, wi in zip(cutoff_results, w):
         cr["weight"] = float(wi)
+
+    # rdmulti's "Pooled" row: every unit's score measured from its own
+    # cutoff, then one RD at zero. It weights cutoffs by how much data each
+    # has near its threshold, implicitly.
+    norm_frame = data.assign(
+        **{"__xnorm": data[x].to_numpy(dtype=float) - cvals.astype(float)}
+    )
+    norm_frame = norm_frame.loc[np.isin(cvals, cutoffs)]
+    nfit = _rdrobust(norm_frame, y=y, x="__xnorm", c=0.0, kernel=kernel, **kw)
+    nh_norm = float(np.ravel(nfit.model_info["bandwidth_h"])[0])
+    nok = norm_frame[[y, "__xnorm"]].notna().all(axis=1).to_numpy()
+    nx = norm_frame["__xnorm"].to_numpy(dtype=float)[nok]
+    normalized = _row(nfit, int(np.sum(np.abs(nx) <= nh_norm)), nh_norm)
 
     return RDMultiResult(
         cutoff_results=cutoff_results,
         pooled_estimate=pooled,
         pooled_se=pooled_se,
-        pooled_ci=(pooled - z_crit * pooled_se, pooled + z_crit * pooled_se),
+        pooled_ci=(pooled_bc - z_crit * pooled_se, pooled_bc + z_crit * pooled_se),
         n_cutoffs=len(cutoffs),
         n_total=len(data),
         method="Multi-Cutoff RD (rdmc, unit-specific cutoffs)",
+        pooled_pvalue=float(2 * stats.norm.sf(abs(pooled_bc / pooled_se))),
+        pooled_estimate_robust=pooled_bc,
+        normalized=normalized,
+        inference="robust",
     )
 
 

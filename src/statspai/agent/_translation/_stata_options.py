@@ -235,6 +235,11 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "vec": (("rank", 1), ("lags", 1), ("trend", 1)),
     "vecrank": (("lags", 1), ("trend", 1), ("max", 1)),
     "wntestq": (("lags", 1),),
+    # rdlocrand / rdmulti: the authors' replication files write c() for
+    # cutoff() and for cvar().
+    "rdrandinf": (("cutoff", 1),),
+    "rdwinselect": (("cutoff", 1),),
+    "rdmc": (("cvar", 1),),
 }
 
 
@@ -296,7 +301,17 @@ _DISPLAY_BY_COMMAND = {
     "rdplot": {"graph_options"},
     # `all` also prints the conventional statistic; the robust one, which
     # is the test, is unchanged.
-    "rddensity": {"plot", "plot_range", "hist_range", "graph_opt", "all"},
+    "rddensity": {
+        "plot",
+        "plot_range",
+        "hist_range",
+        "graph_opt",
+        "all",
+        # the binomial table is always in model_info['binomial_tests']
+        "nobinomial",
+    },
+    "rdwinselect": {"plot", "graph_options", "quietly"},
+    "rdrandinf": {"quietly"},
     # sigf() / margin() / maxiter() tune Stata's optimiser, not the estimand
     "synth": {"figure", "keep", "sigf", "margin", "maxiter", "replace"},
     "sdid": {"graph", "g1on", "g1_opt", "g2_opt", "graph_export", "msize"},

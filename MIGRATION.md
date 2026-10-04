@@ -131,6 +131,113 @@ zero-inflated model and its plain counterpart are nested on a boundary,
 and the statistic is not standard normal under that null (Wilson 2015,
 doi:10.1016/j.econlet.2014.12.029).
 
+## 1.38.0 → next: ⚠️ `sp.rdrandinf` / `sp.rdrbounds` take the window's endpoints, not offsets
+
+**What changed.** `wl` and `wr` are the left and right ends of the window
+on the scale of the running variable, as in R / Stata `rdrandinf`. They
+used to be added to the cutoff.
+
+**Who is affected.** Calls with `c != 0`. With `c = 0` nothing changes.
+
+**What to do.** For a window of half-width `w` around cutoff `c`, pass
+`wl=c - w, wr=c + w`. A window that does not contain the cutoff now raises
+`ValueError`, so an offset-style call with a cutoff far from zero fails
+loudly. The case that changes silently is a cutoff smaller in magnitude
+than the window (`c=0.5, wl=-1, wr=1` was `[-0.5, 1.5]` and is now
+`[-1, 1]`); check any such call. `model_info['window']` holds the window
+actually used.
+
+## 1.38.0 → next: ⚠️ `sp.rdrandinf(p > 0)` is the difference in side-specific fits
+
+**What changed.** With `p > 0` the outcome used to be residualized on one
+polynomial in the score fitted across both sides, and the difference in
+means of the residuals was reported. Inside the window the score is
+collinear with treatment, so that polynomial absorbed most of the effect.
+The statistic is now the difference between the two sides' fitted values
+at the cutoff, each side with its own polynomial, which is what
+`rdlocrand` computes. On the U.S. Senate data in a ±2.5 window: 2.90
+before, 13.26 now and in R.
+
+The randomization p-value for `p > 0` permutes outcomes against (score,
+assignment) pairs. This is not what `rdlocrand` does, and its p-values for
+`p > 0` are much smaller; see the function's Notes for the reason and the
+size simulation behind the choice. The large-sample p-value
+(`model_info['pvalue_asymptotic']`) agrees with R.
+
+**Who is affected.** Every call with `p >= 1`. Estimates were biased
+toward zero.
+
+**What to do.** Re-run. `statistic='ksmirnov'`, `'ranksum'` and `'all'`
+with `p > 0` or a non-uniform kernel now raise instead of running on
+residuals.
+
+## 1.38.0 → next: ⚠️ `sp.rdrandinf(fuzzy=)` tests the reduced form
+
+**What changed.** `pvalue` used to come from permuting the instrument and
+recomputing the Wald ratio. Most permuted first stages are near zero, so
+the reference distribution was dominated by exploded ratios and the
+p-value was close to uninformative (0.863 on an example where the 2SLS
+p-value is 0.038). Now:
+
+- `fuzzy_stat='itt'` (default): `pvalue` is the randomization p-value of
+  the intention-to-treat effect, the Anderson-Rubin logic. It is a valid
+  finite-sample test that the effect on compliers is zero.
+- `fuzzy_stat='tsls'`: `pvalue` is the large-sample z-test of the Wald
+  ratio, and `model_info['pvalue_permutation']` is NaN.
+
+`estimate` is still the Wald ratio. `se` is now the heteroskedasticity-
+robust 2SLS standard error (it was a delta-method approximation), and the
+interval is `estimate ± z * se` unless a grid is passed through `ci=`.
+The reduced-form estimate is in `model_info['itt']`.
+
+**Who is affected.** Every call with `fuzzy=`. Conclusions drawn from the
+old p-value should be revisited. `p > 0` or a kernel with `fuzzy=` now
+raises.
+
+## 1.38.0 → next: ⚠️ `sp.rdwinselect` builds the windows the procedure describes
+
+**What changed.** The default window sequence, the p-values and the
+columns.
+
+- Windows: the first is the smallest symmetric window with `obsmin=10`
+  observations on each side; each later one adds at least `wobs=5` on
+  each side (or `wstep=` in score units). The old default started at a
+  fraction of the score's range and ended at its full extent.
+- `p_value` is the smallest balance p-value across the covariates, from
+  1,000 randomization draws (it was 500), and `variable` names the
+  covariate. `binom_pvalue` is the binomial test of the split. Without
+  covariates `p_value` is NaN; it used to be computed on quantile dummies
+  of the score.
+- `balanced` is `p_value >= alpha` (it was `>`), and the recommended
+  window, in `attrs['recommended_window']`, is the largest window such
+  that it and every smaller one are balanced.
+- Rows with a missing covariate are dropped inside each window, not
+  before the windows are built; pass `dropmissing=True` for the old
+  order. The counts are of the rows the tests used.
+
+**Who is affected.** Every call that relied on the default sequence. A
+call with both `wmin=` and `wstep=` keeps its windows and counts.
+
+**What to do.** Re-run. For reproducible, fast p-values pass
+`approx=True`.
+
+## 1.38.0 → next: ⚠️ `sp.rdmc(cutoff_var=)` reports robust inference
+
+**What changed.** For each cutoff, `se`, `ci_lower`, `ci_upper` and
+`p_value` are now the robust bias-corrected ones that `rdmulti::rdmc`
+prints; `estimate` is still the conventional point estimate. The interval
+is centred on `estimate_robust`, so it is not symmetric around `estimate`.
+`pooled_se` and `pooled_ci` change the same way. The old numbers are in
+`se_conventional` and `ci_conventional`.
+
+**Who is affected.** Anything that read intervals or p-values from
+`cutoff_results` or `pooled_ci` on the `cutoff_var=` path. They were too
+narrow. The `cutoffs=` path (one shared running variable) is unchanged.
+
+**What to do.** Re-run. `result.normalized` holds the estimate on the
+normalized score, `rdmulti`'s "Pooled" row; `pooled_estimate` remains the
+effective-sample-size-weighted average of the cutoffs.
+
 ## 1.37.0 → 1.38.0: `sp.write_data` folds `<var>__miss` columns back into `<var>` in a .dta file
 
 **What changed.** A frame read with `sp.read_data(path,
@@ -1098,7 +1205,6 @@ loaded frame (different rows, shuffled order).
 
 ---
 
-
 <a id="qreg-default-se"></a>
 
 ## 1.32.0 — ⚠️ `sp.qreg` default standard errors follow Stata's `qreg`
@@ -2056,7 +2162,6 @@ for the overall ATT now accounts for the cross-horizon covariance
 Roth panel of `tests/test_did_event_study_conventions.py`).
 
 ---
-
 
 <a id="synth-placebo-pvalue"></a>
 

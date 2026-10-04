@@ -128,6 +128,12 @@ def rddensity(
     h: Optional[Union[float, Sequence[float]]] = None,
     alpha: float = 0.05,
     backend: str = "native",
+    *,
+    bino_w: Optional[Union[float, Sequence[float]]] = None,
+    bino_wstep: Optional[Union[float, Sequence[float]]] = None,
+    bino_n: int = 20,
+    bino_nw: int = 10,
+    bino_p: float = 0.5,
 ) -> CausalResult:
     """
     CJM (2020) density discontinuity test for RD manipulation.
@@ -155,6 +161,19 @@ def rddensity(
         ``"r"`` delegates to ``rddensity::rddensity`` through
         ``Rscript`` when the R package is installed, matching the
         reference package's selector and test statistic.
+    bino_w : float or length-2 sequence, optional
+        Half-width of the first window of the binomial tests (two values:
+        below and above the cutoff). By default it is the smallest
+        half-width holding ``bino_n`` observations.
+    bino_wstep : float or length-2 sequence, optional
+        Increment in half-width between windows. Defaults to the first
+        window's half-width.
+    bino_n : int, default 20
+        Observations in the first window when ``bino_w`` is not given.
+    bino_nw : int, default 10
+        Number of windows.
+    bino_p : float, default 0.5
+        Probability of falling below the cutoff under the null.
 
     Returns
     -------
@@ -248,7 +267,14 @@ def rddensity(
         "se_left": float(np.sqrt(fV[0, 1])),
         "se_right": float(np.sqrt(fV[1, 1])),
         "conventional": conventional,
-        "binomial_tests": _binomial_tests(X_c),
+        "binomial_tests": _binomial_tests(
+            X_c,
+            n_first=int(bino_n),
+            n_windows=int(bino_nw),
+            w=bino_w,
+            wstep=bino_wstep,
+            prob=float(bino_p),
+        ),
         "bandwidth_left": h_l,
         "bandwidth_right": h_r,
         "bandwidth_source": h_source,
@@ -779,29 +805,60 @@ def _rddensity_default_bandwidths(
 
 
 def _binomial_tests(
-    x_centered: np.ndarray, n_first: int = 20, n_windows: int = 10
+    x_centered: np.ndarray,
+    n_first: int = 20,
+    n_windows: int = 10,
+    *,
+    w: Optional[Union[float, Sequence[float]]] = None,
+    wstep: Optional[Union[float, Sequence[float]]] = None,
+    prob: float = 0.5,
 ) -> pd.DataFrame:
-    """Exact binomial tests of equal counts in symmetric windows.
+    """Exact binomial tests of the split of observations around the cutoff.
 
-    The table ``rddensity`` prints under its density test. The first
-    half-width is the smallest that holds ``n_first`` observations (the
-    ``n_first``-th smallest distance to the cutoff) and window ``k`` is
-    ``k`` times as wide. In each, the count below the cutoff is tested
-    against a fair split.
+    The table ``rddensity`` prints under its density test. By default the
+    first half-width is the smallest that holds ``n_first`` observations
+    (the ``n_first``-th smallest distance to the cutoff) and window ``k``
+    is ``k`` times as wide, which is Stata ``rddensity``'s rule. ``w``
+    fixes the first half-width instead (two values: below and above the
+    cutoff) and ``wstep`` the increment, which defaults to ``w``. In each
+    window the count below the cutoff is tested against ``prob``.
     """
-    distance = np.sort(np.abs(x_centered))
     columns = ["half_width", "n_left", "n_right", "pvalue"]
-    if distance.size < n_first:
-        return pd.DataFrame(columns=columns, dtype=float)
-    first = float(distance[n_first - 1])
-    rows = []
-    for k in range(1, n_windows + 1):
-        half = k * first
-        n_left = int(np.sum((x_centered < 0) & (x_centered >= -half)))
-        n_right = int(np.sum((x_centered >= 0) & (x_centered <= half)))
+
+    def _pair(value: Union[float, Sequence[float]], name: str) -> Tuple[float, float]:
+        arr = np.atleast_1d(np.asarray(value, dtype=float))
+        if arr.size not in (1, 2) or not np.all(np.isfinite(arr)) or np.any(arr <= 0):
+            raise MethodIncompatibility(
+                f"{name} must be one positive half-width, or two "
+                "(below and above the cutoff).",
+                recovery_hint=f"Pass {name}=0.5 or {name}=(0.5, 1.0).",
+                diagnostics={name: value},
+            )
+        return float(arr[0]), float(arr[-1])
+
+    if w is None:
+        distance = np.sort(np.abs(x_centered))
+        if distance.size < n_first:
+            return pd.DataFrame(columns=columns, dtype=float)
+        first = (float(distance[n_first - 1]),) * 2
+    else:
+        first = _pair(w, "bino_w")
+    step = first if wstep is None else _pair(wstep, "bino_wstep")
+    asymmetric = first[0] != first[1] or step[0] != step[1]
+    if asymmetric:
+        columns = ["half_width", "half_width_right", "n_left", "n_right", "pvalue"]
+    rows: list = []
+    for k in range(n_windows):
+        half_l = first[0] + k * step[0]
+        half_r = first[1] + k * step[1]
+        n_left = int(np.sum((x_centered < 0) & (x_centered >= -half_l)))
+        n_right = int(np.sum((x_centered >= 0) & (x_centered <= half_r)))
         total = n_left + n_right
-        pvalue = float(stats.binomtest(n_left, total, 0.5).pvalue) if total else np.nan
-        rows.append((half, n_left, n_right, pvalue))
+        pvalue = float(stats.binomtest(n_left, total, prob).pvalue) if total else np.nan
+        if asymmetric:
+            rows.append((half_l, half_r, n_left, n_right, pvalue))
+        else:
+            rows.append((half_l, n_left, n_right, pvalue))
     return pd.DataFrame(rows, columns=columns)
 
 

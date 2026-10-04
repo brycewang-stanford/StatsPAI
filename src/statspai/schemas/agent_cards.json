@@ -51069,10 +51069,10 @@
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "@cattaneo2016inference",
+    "reference": "@cattaneo2016inference; @cattaneo2015randomization; @cattaneo2024extensions",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: Result with treatment effect estimate, permutation and asymptotic p-values, and confidence interval.",
+      "description": "CausalResult: estimate is the difference in means (or in fitted values at the cutoff when p > 0); pvalue is the randomization p-value of the first requested statistic; ci is the test-inversion interval.",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -51094,7 +51094,11 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Significance level.",
+            "description": "Significance level for the confidence interval and the power calculation.",
+            "type": "number"
+          },
+          "bernoulli": {
+            "description": "Assignment probabilities when the mechanism is independent Bernoulli trials rather than a fixed number of treated units: a column name, or one probability for every unit. Needs ``p=0`` and the uniform kernel.",
             "type": "number"
           },
           "c": {
@@ -51102,8 +51106,12 @@
             "description": "RD cutoff value.",
             "type": "number"
           },
+          "ci": {
+            "description": "Confidence interval by inverting the randomization test of the difference in means. ``None`` / ``True`` uses a grid of 201 points over the estimate plus or minus five standard errors; a sequence is used as the grid of effects to test; ``False`` skips it. The interval is the range of grid values not rejected at ``alpha``, so its resolution is the grid's.",
+            "type": "boolean"
+          },
           "covs": {
-            "description": "Covariate names to partial out before testing.",
+            "description": "Covariate names to partial out of the outcome before testing.",
             "items": {
               "type": "string"
             },
@@ -51114,28 +51122,59 @@
             "x-canonical": "covariates",
             "x-statspai-role": "columns"
           },
+          "d": {
+            "description": "Effect size for the large-sample power calculation. Defaults to ``dscale`` times the control group's outcome standard deviation.",
+            "type": "number"
+          },
           "data": {
             "description": "Input dataset.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "dscale": {
+            "default": 0.5,
+            "description": "dscale parameter (float).",
+            "type": "number"
+          },
+          "evall": {
+            "description": "Points on the running-variable scale at which the fitted polynomials are evaluated. Both default to the cutoff.",
+            "type": "number"
+          },
+          "evalr": {
+            "description": "Points on the running-variable scale at which the fitted polynomials are evaluated. Both default to the cutoff.",
+            "type": "number"
+          },
           "fuzzy": {
-            "description": "Actual treatment variable for fuzzy RD. The Wald (IV) estimator is computed within the window.",
+            "description": "Column holding the treatment actually received (fuzzy RD). The estimate is then the Wald ratio inside the window, with the heteroskedasticity-robust 2SLS standard error.",
+            "type": "string"
+          },
+          "fuzzy_stat": {
+            "default": "itt",
+            "description": "Which test backs ``pvalue`` in a fuzzy design. ``'itt'`` (alias ``'ar'``) is the randomization test on the reduced form, valid in finite samples: the effect on compliers is zero exactly when the intention-to-treat effect is. ``'tsls'`` is the large-sample z-test on the Wald ratio; no randomization p-value is reported for it.",
+            "enum": [
+              "itt",
+              "tsls"
+            ],
             "type": "string"
           },
           "kernel": {
             "default": "uniform",
-            "description": "Kernel weighting (only 'uniform' currently supported for local randomization).",
+            "description": "'uniform', 'triangular' or 'epanechnikov' weights. The bandwidth on each side is the distance from the cutoff to that side's window edge.",
             "type": "string"
           },
           "n_perms": {
             "default": 1000,
-            "description": "Number of permutations for Fisher randomization test.",
+            "description": "Number of randomization draws.",
             "type": "integer"
+          },
+          "nulltau": {
+            "default": 0.0,
+            "description": "Treatment effect under the null hypothesis.",
+            "type": "number"
           },
           "p": {
             "default": 0,
-            "description": "Polynomial order for adjustment (0 = unadjusted).",
+            "description": "Order of the polynomial in the score fitted on each side. The statistic is then the difference in fitted values at the cutoff (or at ``evall`` / ``evalr``).",
             "type": "integer"
           },
           "seed": {
@@ -51145,15 +51184,15 @@
           },
           "statistic": {
             "default": "diffmeans",
-            "description": "Test statistic: 'diffmeans', 'ksmirnov', 'ranksum', or 'all'. ``'ttest'`` is accepted as an alias for ``'diffmeans'``, matching rdlocrand, where both names select the same statistic.",
+            "description": "Test statistic: 'diffmeans', 'ksmirnov', 'ranksum', or 'all'. ``'ttest'`` is accepted as an alias for ``'diffmeans'``, matching rdlocrand, where both names select the same statistic. The rank and Kolmogorov-Smirnov statistics need ``p=0`` and the uniform kernel.",
             "type": "string"
           },
           "wl": {
-            "description": "Window left bound offset from cutoff (typically negative). The left edge of the window is ``c + wl``.",
+            "description": "Left and right endpoints of the window, on the scale of the running variable (so ``wl <= c <= wr``). Use :func:`rdwinselect` to choose a window from covariate balance.",
             "type": "number"
           },
           "wr": {
-            "description": "Window right bound offset from cutoff (typically positive). The right edge of the window is ``c + wr``.",
+            "description": "Left and right endpoints of the window, on the scale of the running variable (so ``wl <= c <= wr``). Use :func:`rdwinselect` to choose a window from covariate balance.",
             "type": "number"
           },
           "x": {
@@ -51223,7 +51262,7 @@
       ],
       "tolerance": "window grid 1e-12 rel (observed 0); per-window counts Nl / Nr asserted as exact integer equality"
     },
-    "example": "tab = sp.rdwinselect(df, x=\"x\", c=0.0, covs=[\"z1\"],\n nwindows=5)",
+    "example": "tab = sp.rdwinselect(df, x=\"x\", c=0.0, covs=[\"z1\"],\n nwindows=5, approx=True)",
     "failure_modes": [
       {
         "alternative": "sp.rdrobust",
@@ -51271,13 +51310,14 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "@cattaneo2016inference; @cattaneo2015randomization; @cattaneo2024extensions",
     "returns": {
       "class": "DataFrame",
-      "description": "pd.DataFrame: Columns: window_left, window_right, n_left, n_right, p_value, balanced. Rows sorted by window width.",
+      "description": "pd.DataFrame: One row per window: window_left, window_right (endpoints on the running-variable scale), n_left, n_right, p_value (smallest balance p-value across covariates), variable (the covariate attaining it), binom_pvalue and balanced.",
       "fields": {}
     },
     "signature": {
@@ -51287,8 +51327,13 @@
         "properties": {
           "alpha": {
             "default": 0.15,
-            "description": "Significance level for balance (lenient by default to be conservative about window selection).",
+            "description": "Smallest acceptable minimum p-value (``level`` in rdlocrand). It is deliberately larger than 0.05: the concern is failing to detect imbalance, not falsely detecting it.",
             "type": "number"
+          },
+          "approx": {
+            "default": false,
+            "description": "Use the large-sample p-values instead of randomization inference. Deterministic and much faster.",
+            "type": "boolean"
           },
           "c": {
             "default": 0,
@@ -51296,7 +51341,7 @@
             "type": "number"
           },
           "covs": {
-            "description": "Covariate names to test balance for. If None, uses quantiles of the running variable as pseudo-covariates.",
+            "description": "Predetermined covariates to test balance for. Without them only the binomial test is reported and no window is recommended.",
             "items": {
               "type": "string"
             },
@@ -51312,14 +51357,34 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "dropmissing": {
+            "default": false,
+            "description": "Drop rows with a missing covariate before the windows are built. By default the windows are built on every row with an observed score and incomplete rows are dropped inside each window.",
+            "type": "boolean"
+          },
+          "kernel": {
+            "default": "uniform",
+            "description": "Kernel function used for weighting or smoothing.",
+            "type": "string"
+          },
+          "n_perms": {
+            "default": 1000,
+            "description": "Randomization draws per covariate and window.",
+            "type": "integer"
+          },
           "nwindows": {
             "default": 10,
-            "description": "Number of windows to evaluate.",
+            "description": "Number of windows to evaluate. Fewer come back if the data run out.",
+            "type": "integer"
+          },
+          "obsmin": {
+            "default": 10,
+            "description": "Minimum observations on each side in the smallest window.",
             "type": "integer"
           },
           "p": {
             "default": 0,
-            "description": "Polynomial order for adjustment.",
+            "description": "Polynomial order for the covariate adjustment model.",
             "type": "integer"
           },
           "seed": {
@@ -51329,15 +51394,24 @@
           },
           "statistic": {
             "default": "diffmeans",
-            "description": "Test statistic for balance testing.",
+            "description": "Balance statistic: 'diffmeans' (alias 'ttest'), 'ksmirnov' or 'ranksum'.",
             "type": "string"
           },
+          "wasymmetric": {
+            "default": false,
+            "description": "Let the two sides of the window grow separately.",
+            "type": "boolean"
+          },
           "wmin": {
-            "description": "Minimum half-window width. Defaults to the smallest gap between adjacent observations near the cutoff.",
+            "description": "Half-width of the smallest window. Defaults to the smallest symmetric window with ``obsmin`` observations on each side.",
             "type": "number"
           },
+          "wobs": {
+            "description": "Observations added on each side per step (5 if neither ``wobs`` nor ``wstep`` is given).",
+            "type": "integer"
+          },
           "wstep": {
-            "description": "Window increment. Defaults to ``(max_range - wmin) / nwindows``.",
+            "description": "Increment in half-width. If omitted, each window adds at least ``wobs`` observations on each side.",
             "type": "number"
           },
           "x": {
@@ -51679,11 +51753,11 @@
             "type": "string"
           },
           "wl": {
-            "description": "Window ``[c + wl, c + wr]`` (``wl`` typically negative).",
+            "description": "Window endpoints on the running-variable scale (``wl <= c <= wr``).",
             "type": "number"
           },
           "wr": {
-            "description": "Window ``[c + wl, c + wr]`` (``wl`` typically negative).",
+            "description": "Window endpoints on the running-variable scale (``wl <= c <= wr``).",
             "type": "number"
           },
           "x": {
@@ -64274,6 +64348,35 @@
               "r"
             ],
             "type": "string"
+          },
+          "bino_n": {
+            "default": 20,
+            "description": "Observations in the first window when ``bino_w`` is not given.",
+            "type": "integer"
+          },
+          "bino_nw": {
+            "default": 10,
+            "description": "Number of windows.",
+            "type": "integer"
+          },
+          "bino_p": {
+            "default": 0.5,
+            "description": "Probability of falling below the cutoff under the null.",
+            "type": "number"
+          },
+          "bino_w": {
+            "description": "Half-width of the first window of the binomial tests (two values: below and above the cutoff). By default it is the smallest half-width holding ``bino_n`` observations.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "bino_wstep": {
+            "description": "Increment in half-width between windows. Defaults to the first window's half-width.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
           },
           "c": {
             "default": 0,
@@ -86201,11 +86304,15 @@
       "description": "RDMultiResult",
       "fields": {
         "cutoff_results": "List[Dict[str, Any]]",
+        "inference": "str",
         "method": "str",
         "n_cutoffs": "int",
         "n_total": "int",
+        "normalized": "Optional[Dict[str, Any]]",
         "pooled_ci": "Tuple[float, float]",
         "pooled_estimate": "float",
+        "pooled_estimate_robust": "Optional[float]",
+        "pooled_pvalue": "Optional[float]",
         "pooled_se": "float"
       }
     },
@@ -86512,11 +86619,15 @@
       "description": "",
       "fields": {
         "cutoff_results": "List[Dict[str, Any]]",
+        "inference": "str",
         "method": "str",
         "n_cutoffs": "int",
         "n_total": "int",
+        "normalized": "Optional[Dict[str, Any]]",
         "pooled_ci": "Tuple[float, float]",
         "pooled_estimate": "float",
+        "pooled_estimate_robust": "Optional[float]",
+        "pooled_pvalue": "Optional[float]",
         "pooled_se": "float"
       }
     },

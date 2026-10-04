@@ -33,10 +33,26 @@ r = sp.rdit(df, y='y', time='date', cutoff='2020-03-01')
 sp.rd_honest(df, y='y', x='x', c=0, M=0.1, kernel='triangular')
 
 # Local randomisation (Cattaneo-Titiunik-Vazquez-Bare)
-sp.rdrandinf(df, y='y', x='x', c=0, wl=-2, wr=2)
-sp.rdwinselect(df, x='x', c=0, covs=['z1'])  # window selection
+win = sp.rdwinselect(df, x='x', c=0, covs=['z1', 'z2'], wobs=2)
+wl, wr = win.attrs['recommended_window']   # endpoints on the score's scale
+sp.rdrandinf(df, y='y', x='x', c=0, wl=wl, wr=wr)
+sp.rdrandinf(df, y='y', x='x', c=0, wl=wl, wr=wr, fuzzy='d')  # ITT test
 sp.rdsensitivity(df, y='y', x='x', c=0)    # sensitivity to window
 ```
+
+`sp.rdwinselect` returns one row per nested window: the smallest balance
+p-value across the covariates, the covariate attaining it, and a binomial
+test of the split around the cutoff. The recommended window is the largest
+one such that it and every window inside it reach `alpha` (0.15 by
+default). `wl` and `wr` are the window's endpoints, so a placebo cutoff at
+1 with half-width 0.75 is `c=1, wl=0.25, wr=1.75`.
+
+`sp.rdrandinf` reports the randomization p-value, the large-sample one
+(`model_info['pvalue_asymptotic']`), the power against `d`
+(`model_info['power']`) and an interval from inverting the test (`ci=`
+takes the grid of effects to test). With `p > 0` the randomization
+p-value is built by permuting outcomes against the scores, which differs
+from `rdlocrand`; the function's Notes give the reason.
 
 ## Diagnostics
 

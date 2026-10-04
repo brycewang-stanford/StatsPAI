@@ -249,6 +249,78 @@ difference in differences) were run in Stata 18 and replayed through
   delimiter detection and lower-cased names) and `input` blocks, and
   compares `sdid`, `boottest` and `psmatch2` output.
 
+### ⚠️ Correctness: local randomization and multi-cutoff RD
+
+Found by running the replication files of Cattaneo, Idrobo and Titiunik
+(2024), *A Practical Introduction to Regression Discontinuity Designs:
+Extensions*, through StatsPAI and comparing every number with R
+`rdlocrand` 2.0, `rdmulti` 2.0 and `rddensity` 2.6. `sp.rdrobust` (20
+calls, including clustered, fuzzy and mass-point cases) and the
+`sp.rddensity` test agreed to 1e-11 and are unchanged. See MIGRATION.md
+for each item below.
+
+- **`sp.rdrandinf(p=1)` estimated the wrong quantity.** It residualized
+  the outcome on one polynomial pooled across the cutoff. The score is
+  collinear with treatment inside the window, so the trend absorbed the
+  effect: 2.90 (p = 0.107) on the Senate data in a ±2.5 window, where the
+  difference in intercepts is 13.26. It now fits each side separately and
+  matches `rdlocrand` to 1e-13 in the statistic and the large-sample
+  p-value, for every kernel, order and evaluation point tried.
+- **`sp.rdrandinf(fuzzy=)` reported a p-value that meant nothing.** It
+  permuted the instrument and recomputed the Wald ratio, so most draws
+  divided by a first stage near zero. On the book's fuzzy example it
+  returned p = 0.863 for an effect whose 2SLS p-value is 0.038. The
+  default is now the randomization test on the reduced form
+  (`fuzzy_stat='itt'`); `fuzzy_stat='tsls'` gives the large-sample test.
+- **`sp.rdrandinf` / `sp.rdrbounds`: `wl` and `wr` are the window's
+  endpoints**, as in `rdlocrand`, not offsets from the cutoff. The two
+  agree only at `c = 0`; the book's placebo-cutoff example (`c=1,
+  wl=0.2348, wr=1.7652`) raised an error. A window that does not contain
+  the cutoff is now refused with a message that says why.
+- **`sp.rdwinselect` did not run the window-selection procedure.** Its
+  default sequence started at a fraction of the score's range (5, 15.6,
+  ..., 100 points on the Senate data) instead of at the smallest window
+  with ten observations a side, had no binomial test, did not say which
+  covariate was least balanced, and without covariates tested quantile
+  dummies of the score and returned p = 1. It now reproduces Snippet 2.5
+  of the book: the ten windows, their counts, the binomial p-values and
+  the recommended window [-0.7652, 0.7652].
+- **`sp.rdmc(cutoff_var=)` reported conventional intervals.** The point
+  estimates matched `rdmulti::rdmc`; the interval and p-value were the
+  conventional ones, which ignore smoothing bias. On the book's example
+  the third cutoff went from [0.017, 0.401], p = 0.033 to the robust
+  [-0.042, 0.408], p = 0.112. The estimate on the normalized score
+  (`rdmulti`'s "Pooled" row) is now reported as `result.normalized`.
+
+### Added
+
+- `sp.rdrandinf`: `kernel=` (it was accepted and ignored), `nulltau=`,
+  `bernoulli=`, `ci=` (a grid of effects for the test-inversion
+  interval), `d=` / `dscale=` (large-sample power, in
+  `model_info['power']`), `evall=` / `evalr=`, `fuzzy_stat=`.
+- `sp.rdwinselect`: `obsmin=`, `wobs=`, `wasymmetric=`, `approx=`,
+  `n_perms=`, `kernel=`, `dropmissing=`; columns `variable` and
+  `binom_pvalue`; `attrs['recommended_window']`.
+- `sp.rddensity`: `bino_w=`, `bino_wstep=`, `bino_n=`, `bino_nw=`,
+  `bino_p=` for the binomial tests.
+
+### Where StatsPAI departs from `rdlocrand`, and why
+
+- **Randomization p-values with `p > 0`.** `rdlocrand` re-randomizes
+  treatment labels with the scores held fixed. The observed statistic
+  extrapolates each side's fit to the cutoff; a relabelled sample fits
+  through the interior, with about a quarter of the variance. On data
+  with no effect, 40 observations and `p = 1`, that test rejects a true
+  null 37% of the time at the 5% level. `sp.rdrandinf` permutes outcomes
+  against (score, assignment) pairs and rejects 4.7% (3,000 replications)
+  (`tests/reference_parity/test_rdlocrand_extensions_parity.py`). For
+  `p = 0`, with or without a kernel, the two schemes coincide and the
+  60-seed mean p-values agree with R's.
+- **The first window of `sp.rdwinselect`.** `rdlocrand` 2.0 starts one
+  observation short on the left of the cutoff (9 with `obsmin = 10` on
+  the Senate data). Its documentation and the book's printed output
+  describe the rule implemented here.
+
 ### Reliability
 
 - **`sp.rdrobust` at polynomial orders 0, 3 and 4 now has reference
@@ -483,7 +555,6 @@ were skipped. See the new guide `docs/guides/stata_labels.md`.
   the output for data without value labels. `tabulate` inside `sp.stata`
   does the same and honours `nolabel`.
 - `sp.describe` has a sixth column, `value_labels` (`0=No, 1=Yes`).
-
 
 ### `sp.ssc` without pyfixest
 
@@ -7499,7 +7570,6 @@ Stata. Not fixed in this release: `src/statspai/postestimation/` is being rework
   `cmprsk` code is copied, and `cmprsk` is used only to generate test
   reference values.
 
-
 ### Added
 
 - **Opt-in IRM ATE OOF audit records.** `sp.dml`, `sp.DoubleML.fit`, and
@@ -8235,7 +8305,6 @@ reference sides re-derive with zero drift (R 89/89, Stata 85/85, Python 89/89).
   (Montana 0.84 / Nevada 0.16, ATT -13.09). It now shows what the code prints
   (ATT -19.76, p = 3/39, six donors led by Utah 0.377), explains the rank-based
   p-value, and points to `covariates=` for an ADH-style specification.
-
 
 ### ⚠️ Evidence-grade corrections
 
@@ -9029,7 +9098,6 @@ two maintained by the methods' authors or their groups).
   test, joined by `test_wooldridge_did_recovers_known_cohort_atts`, which
   checks the per-cohort ATTs against the fixture's own `tau` column.
 
-
 - **`sp.rdsensitivity` no longer hangs.** It built a matplotlib figure
   unconditionally and ended with `plt.show()`, which under an interactive
   backend blocks until a human closes the window — so the call never
@@ -9430,7 +9498,6 @@ estimates are unchanged throughout; standard errors move as described.
   script no longer needs `ssc(fixef.K = "none")`. SEs move by 0.28% on
   that fixture.
 
-
 First full CI matrix run after v1.23.0 (13 legs: Linux / macOS / Windows ×
 Python 3.9–3.13) came back 12 red. Triaging it turned up three defects that
 were real, not runner noise: two estimators whose answer depended on which
@@ -9697,7 +9764,6 @@ via Crossref and the published PDF.
   row never joined and the 18% gap sat in the archive uncompared by
   construction, documented as "SE rows are side-specific". All three now
   emit `se_att` and the comparison is live.
-
 
 - **`sp.did_imputation` pre-treatment event-study coefficients were the
   `fect`/`did2s` in-sample residual averages, not the BJS ones the
@@ -9991,7 +10057,6 @@ via Crossref and the published PDF.
 
   Object coverage moves from 26 pinned / 35 unpinned to **30 / 31**.
 
-
 - **Parity module 84: the BJS pre-treatment lead vector.** Module 16 pins
   the pooled ATT; this pins the object the v1.23.0 correctness fix
   actually lived in. The three leads reproduce Stata `did_imputation,
@@ -10086,7 +10151,6 @@ via Crossref and the published PDF.
   bare `t` before `tau`. Horizon rows were crediting coverage the
   archive did not have. Object coverage is now 61 reported / 26 with a
   reference value / 35 without.
-
 
 - **R-style covariate formulas on `sp.callaway_santanna` and
   `sp.drdid`.** `x=` / `covariates=` now accept a one-sided formula as
@@ -10673,7 +10737,6 @@ via Crossref and the published PDF.
 
 ### ⚠️ Correctness
 
-
 - **`sp.cardinality_match` violated its own SMD tolerance.** The estimator
   maximises the number matched *subject to* a standardised-mean-difference
   bound on every covariate — the bound is the whole point. It relaxed the
@@ -10717,7 +10780,6 @@ via Crossref and the published PDF.
   estimate or standard error changes. Zero total weight now returns `nan`
   instead of dividing by zero. See
   [`MIGRATION.md`](MIGRATION.md#weighted-ks-exact).
-
 
 - **`sp.aggte` and `sp.callaway_santanna` standard errors were too small.**
   The Callaway–Sant'Anna aggregation weights are *estimated* cohort shares
@@ -10777,7 +10839,6 @@ via Crossref and the published PDF.
   decimal ceiling escapes to scientific notation rather than displaying a
   nonzero estimate as an exact zero. Values at or above `0.001` are
   unaffected.
-
 
 - **`sp.regress` / `sp.ivreg` silently ignored `vcov=`, returning
   unclustered standard errors.** The pyfixest spelling a user carries
@@ -10915,7 +10976,6 @@ via Crossref and the published PDF.
 
 ### Added
 
-
 - **DiD option depth vs Stata — one campaign, six estimators.** Audited
   against the installed `.ado` help files rather than a summary, which
   overturned two commonly-repeated claims: `csdid`'s `asinr` is a
@@ -10959,8 +11019,6 @@ via Crossref and the published PDF.
   All new paths are pinned against Stata 18 MP with reproducible
   do-files under `tests/stata_parity/` (82-85).
 
-
-
 - **One precision vocabulary across every exporter**, borrowed from the
   spellings Stata and R users already type. `sp.regtable`, `sp.esttab`,
   `sp.modelsummary`, `sp.sumstats`, `sp.mean_comparison`, `sp.outreg2`,
@@ -10998,8 +11056,6 @@ via Crossref and the published PDF.
   omitted precision entirely, so agents had no way to discover the knob.
 
 ### Changed
-
-
 
 - **`sp.regtable` defaults to `fmt="auto"`** (was `"%.3f"`), and
   `sp.esttab` / `sp.modelsummary` follow it (both were `"%.4f"`). For
@@ -11127,7 +11183,6 @@ via Crossref and the published PDF.
   observation. `tests/panel/test_demean_parity_within.py` encoded the same
   inconsistency (it hard-coded the R index under a comment claiming it was
   the Python one) and now checks the observation all three sides share.
-
 
 - **Every remaining `STATA_SKIP_REASON` re-measured.** Three reasons
   asserted that a package was "not installed in the verified local
@@ -11264,7 +11319,6 @@ via Crossref and the published PDF.
   random-assignment baselines. Accepts raw arrays, CATE-bearing
   results, or fitted forests.
 
-
 - **Event-study rows lost their event time in `tidy()`.** Every row of
   a dynamic `sp.aggte(..., type="dynamic")` result was labelled
   `att(g=,t=)` — the group-time template applied to a frame that has
@@ -11305,7 +11359,6 @@ via Crossref and the published PDF.
   `model_info` keys such as `_pscore` no longer leak into the footer.
 
 ### Fixed
-
 
 - **128 registry entries hid parameters from `sp.function_schema()`.**
   The agent-facing schema is built from hand-written `params=` lists that
@@ -11363,7 +11416,6 @@ via Crossref and the published PDF.
   errors plus linear-algebra failures respectively). **No behaviour change
   on paths that already worked** — an unexpected exception now surfaces
   instead of being miscounted.
-
 
 - **`sp.ri_test` dropped rows with missing values silently.** Passing
   `cluster=` where the cluster id is itself missing shrank the sample
@@ -11523,8 +11575,6 @@ via Crossref and the published PDF.
   with a binary treatment every control already shares the baseline of zero.
   This closes the `[待核验]` marker on switch-off; the paper's own variance
   formula is what remains.
-
-
 
 - **All eight bool-typed `robust=` sites now reject the string form; seven
   of them used to accept it silently.** `sp.interactive_fe` and
@@ -13074,7 +13124,6 @@ via Crossref and the published PDF.
   the remaining gap. New guard:
   `tests/reference_parity/test_honest_did_backend_parity.py`.
   See [MIGRATION](MIGRATION.md#honest-did-flci).
-
 
 - **⚠️ `sp.callaway_santanna(panel=False, estimator='reg')` with covariates
   changed estimator.** It previously residualised the outcome on the

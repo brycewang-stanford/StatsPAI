@@ -527,14 +527,14 @@ _RD = Family(
         Route(
             when={"running": "multiple_cutoffs"},
             call="rdmc",
-            example="sp.rdmc(df, y='y', x='running', c='cutoff_col')",
+            example="sp.rdmc(df, y='y', x='running', cutoff_var='cutoff_col')",
             why="Multiple cutoffs are pooled with cutoff-specific normalisation.",
             read_more="3. Decision tree for method variants",
         ),
         Route(
             when={"inference": "local_randomization"},
             call="rdrandinf",
-            example="sp.rdrandinf(df, y='y', x='running', c=0.0, window=(-w, w))",
+            example="sp.rdrandinf(df, y='y', x='running', c=0.0, wl=-w, wr=w)",
             why=(
                 "Local randomization treats units in a window as an experiment; choose "
                 "the window with sp.rdwinselect."

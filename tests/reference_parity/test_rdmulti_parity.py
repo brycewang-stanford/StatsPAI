@@ -210,3 +210,59 @@ def test_multi_cutoff_rd_is_rdmc_on_the_r_fixture(design, fit, rjson):
             rjson["coefs"][i], rel=RTOL
         )
     assert alias.pooled_estimate == pytest.approx(rjson["weighted_coef"], rel=RTOL)
+
+
+# ── inference: robust, as the reference reports it ─────────────────────── #
+
+
+@pytest.mark.parametrize("i", [0, 1, 2])
+def test_reported_interval_and_pvalue_are_robust(fit, rjson, i):
+    """Conventional point estimate, robust bias-corrected interval.
+
+    The per-cutoff interval used to be the conventional one. At an
+    MSE-optimal bandwidth that ignores the smoothing bias, which is the
+    reason rdrobust exists; rdmulti prints the robust interval and p-value.
+    """
+    cr = fit.cutoff_results[i]
+    z = 1.959963984540054
+    se = np.sqrt(rjson["var_rb"][i])
+    assert cr["se"] == pytest.approx(se, rel=RTOL)
+    assert cr["ci_lower"] == pytest.approx(rjson["coefs_rb"][i] - z * se, rel=RTOL)
+    assert cr["ci_upper"] == pytest.approx(rjson["coefs_rb"][i] + z * se, rel=RTOL)
+    assert cr["p_value"] == pytest.approx(rjson["pvalues"][i], rel=1e-6, abs=1e-300)
+    # The interval is centred on the bias-corrected estimate, not on the
+    # reported one, so it is not symmetric around `estimate`.
+    centre = (cr["ci_lower"] + cr["ci_upper"]) / 2
+    assert centre == pytest.approx(cr["estimate_robust"], rel=1e-12)
+    lo, hi = cr["ci_conventional"]
+    assert (hi - lo) < (cr["ci_upper"] - cr["ci_lower"])
+
+
+def test_weighted_inference_is_robust(fit, rjson):
+    z = 1.959963984540054
+    se = np.sqrt(rjson["weighted_var_rb"])
+    assert fit.pooled_se == pytest.approx(se, rel=RTOL)
+    assert fit.pooled_estimate_robust == pytest.approx(
+        rjson["weighted_coef_rb"], rel=RTOL
+    )
+    assert fit.pooled_ci[0] == pytest.approx(
+        rjson["weighted_coef_rb"] - z * se, rel=RTOL
+    )
+    assert fit.pooled_ci[1] == pytest.approx(
+        rjson["weighted_coef_rb"] + z * se, rel=RTOL
+    )
+
+
+def test_normalized_score_estimate_matches_r(fit, rjson):
+    """rdmulti's "Pooled" row: one RD on the score measured from each
+    unit's own cutoff."""
+    nz = fit.normalized
+    assert nz["estimate"] == pytest.approx(rjson["pooled_coef"], rel=RTOL)
+    assert nz["se"] == pytest.approx(rjson["pooled_se_rb"], rel=RTOL)
+    assert nz["bandwidth"] == pytest.approx(rjson["pooled_h"], rel=RTOL)
+
+
+def test_summary_names_both_combined_estimates(fit):
+    text = fit.summary()
+    assert "Weighted" in text and "Pooled" in text
+    assert "robust bias-corrected" in text

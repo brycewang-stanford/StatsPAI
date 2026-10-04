@@ -2073,6 +2073,19 @@ def _h_rddensity(cmd: StataCommand) -> Dict[str, Any]:
             lost.append("h")
         else:
             args["h"] = val
+    for name in ("bino_w", "bino_wstep"):
+        if opts.get(name) is not None:
+            val = _rd_numbers(opts.get(name))
+            if val is None:
+                lost.append(name)
+            else:
+                args[name] = val
+    for name, cast in (("bino_n", int), ("bino_nw", int), ("bino_p", float)):
+        if opts.get(name) is not None:
+            try:
+                args[name] = cast(opts.get(name) or "")
+            except ValueError:
+                lost.append(name)
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
     out = _emit("rddensity", args, f"sp.rddensity(data=df, {kw})")
     out["untranslated_options"] = lost
@@ -3691,12 +3704,14 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
 from . import _stata_design as _design  # noqa: E402
 from . import _stata_panel as _panel  # noqa: E402
 from . import _stata_postest as _postest  # noqa: E402
+from . import _stata_rd as _rd  # noqa: E402
 from . import _stata_ts as _ts  # noqa: E402
 
 STATA_COMMAND_MAP.update(_postest.HANDLERS)
 STATA_COMMAND_MAP.update(_ts.HANDLERS)
 STATA_COMMAND_MAP.update(_panel.HANDLERS)
 STATA_COMMAND_MAP.update(_design.HANDLERS)
+STATA_COMMAND_MAP.update(_rd.HANDLERS)
 
 _POSTEST_HANDLERS = frozenset(
     {
