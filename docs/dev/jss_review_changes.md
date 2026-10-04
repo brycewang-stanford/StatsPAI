@@ -110,6 +110,19 @@ only the recorded source hashes move.
 - `tests/r_parity/results/parity_table_3way.md`
 - `tests/r_parity/results/parity_table_3way.tex`
 - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+
+### 2026-10-04 — call traces re-recorded after `sp.rdrobust`'s density check moved to `sp.rddensity`
+
+Commit `6ed3bca1`. The manipulation check that `sp.rdrobust` runs beside
+the estimate now calls `sp.rddensity` instead of McCrary's binned test,
+and the violation message in `core/_agent_summary.py` names the test.
+`rd/rdrobust.py` is on the path of Track A modules 06 and 89 and of the
+original-data module 05; `core/_agent_summary.py` on that of module 14.
+
+Effect on the paper: none. The four modules were re-run and their result
+files are byte-identical; the check sits beside the estimate and does not
+enter it. Only the recorded source hashes move.
+
 - `tests/r_parity/results/_implementation_trace.json`
 - `tests/orig_parity/results/_implementation_trace.json`
 
