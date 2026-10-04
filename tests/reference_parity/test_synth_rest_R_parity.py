@@ -8,8 +8,9 @@ Conventions each number depends on
 ----------------------------------
 * SCM sensitivity tools (``synth_loo`` / ``synth_time_placebo`` /
   ``synth_donor_sensitivity`` / ``synth_rmspe_filter``). Each fit is the
-  no-covariate SCM. StatsPAI range-scales each pre-period row and uses
-  equal V. ``Synth::synth`` sd-scales the rows, so the generator passes
+  no-covariate SCM with ``standardize_predictors=True``: StatsPAI then
+  range-scales each pre-period row and uses equal V (the default up to
+  1.38.0; the default now fits the raw rows). ``Synth::synth`` sd-scales the rows, so the generator passes
   ``custom.v = var_k / range_k^2`` to make the two QPs identical. The weights
   come from the same strictly convex QP, solved exactly by
   ``quadprog::solve.QP``. ``Synth``'s own ipop solve is also recorded and
@@ -67,6 +68,10 @@ def scm():
 
 
 BASE = dict(outcome="y", unit="unit", time="time", treated_unit=1, treatment_time=15)
+# The R references for the sensitivity tools were built for the range-scaled
+# no-covariate fit (see the module docstring). Since 1.39.0 that is no longer
+# the default, so the convention the fixture pins is asked for by name.
+SCALED = {**BASE, "standardize_predictors": True}
 
 
 # --------------------------------------------------------------------------
@@ -74,7 +79,7 @@ BASE = dict(outcome="y", unit="unit", time="time", treated_unit=1, treatment_tim
 # --------------------------------------------------------------------------
 def test_treated_fit_matches_synth(scm):
     ref = R["sensitivity"]["treated"]
-    fit = _fit_scm_core(scm, **BASE)
+    fit = _fit_scm_core(scm, **SCALED)
     np.testing.assert_allclose(fit["weights"], ref["weights"], rtol=0, atol=1e-10)
     np.testing.assert_allclose(fit["att"], ref["att"], rtol=RTOL)
     np.testing.assert_allclose(fit["pre_rmse"], ref["pre_rmse"], rtol=RTOL)
@@ -84,7 +89,7 @@ def test_treated_fit_matches_synth(scm):
 
 def test_synth_loo_matches_synth(scm):
     ref = R["sensitivity"]["loo"]
-    out = sp.synth_loo(scm, **BASE)
+    out = sp.synth_loo(scm, **SCALED)
     assert out["dropped_unit"].tolist() == [r["dropped_unit"] for r in ref]
     np.testing.assert_allclose(out["att"], [r["att"] for r in ref], rtol=RTOL)
     np.testing.assert_allclose(out["pre_rmse"], [r["pre_rmse"] for r in ref], rtol=RTOL)
@@ -93,7 +98,7 @@ def test_synth_loo_matches_synth(scm):
 
 def test_synth_time_placebo_matches_synth(scm):
     ref = R["sensitivity"]["time_placebo"]
-    out = sp.synth_time_placebo(scm, **BASE)
+    out = sp.synth_time_placebo(scm, **SCALED)
     assert out["placebo_time"].tolist() == [r["placebo_time"] for r in ref]
     ident = [r["identified"] for r in ref]
     assert sum(ident) == 5
@@ -108,7 +113,7 @@ def test_synth_time_placebo_matches_synth(scm):
 
 def test_synth_donor_sensitivity_matches_synth(scm):
     ref = R["sensitivity"]["donor_subsets"]
-    out = sp.synth_donor_sensitivity(scm, **BASE, k=6, n_samples=5, seed=7)
+    out = sp.synth_donor_sensitivity(scm, **SCALED, k=6, n_samples=5, seed=7)
     # the numpy replay in the data generator reproduces the function's draws
     assert out["donors_used"].tolist() == [r["donors"] for r in ref]
     np.testing.assert_allclose(out["att"], [r["att"] for r in ref], rtol=RTOL)
@@ -120,7 +125,7 @@ def test_synth_rmspe_filter_matches_sctools(scm, pool):
     ref = R["sensitivity"][f"placebo_{pool}"]
     out = sp.synth_rmspe_filter(
         scm,
-        **BASE,
+        **SCALED,
         thresholds=[2.0, 5.0, 20.0, np.inf],
         metric="mspe",
         placebo_pool=pool,

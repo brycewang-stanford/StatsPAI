@@ -423,21 +423,21 @@ Result:
   Synthetic Control Method
 ==============================================================================
 
-  ATT:      -19.8 *
-  Std. Error:  (11.2)
-  [95% CI]:    [-41.8,  2.3]
+  ATT:      -19.5 *
+  Std. Error:  (10.8)
+  [95% CI]:    [-40.7,  1.6]
   P-value:     0.077
 
 ------------------------------------------------------------------------------
   Detailed Estimates
 ------------------------------------------------------------------------------
          unit  weight
-         Utah  0.3768
-      Montana  0.2831
-       Nevada  0.1881
-  Connecticut  0.0690
-New Hampshire  0.0439
-     Colorado  0.0391
+         Utah  0.3939
+      Montana  0.2318
+       Nevada  0.2049
+  Connecticut  0.1091
+New Hampshire  0.0454
+     Colorado  0.0148
 ...
 ```
 
@@ -456,7 +456,7 @@ classical SCM weights are often not uniquely identified on empirical data, and
 different correct solvers can land on different donor weights. StatsPAI's
 native solver is certified on uniquely identified designs and labelled
 identification-dependent elsewhere. On this specification R `Synth` reaches an
-ATT of about `-19.59` rather than `-19.76`; pass `backend="synth"` (needs a
+ATT of about `-19.59` rather than `-19.51`; pass `backend="synth"` (needs a
 local R with the `Synth` package; outcome-lag specification only) when you need
 R's exact numbers.
 

@@ -55,6 +55,7 @@ def _fit_scm_core(
     covariates: Optional[List[str]] = None,
     special_predictors: Optional[List[Any]] = None,
     v_method: Optional[str] = None,
+    standardize_predictors: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Lightweight SCM fit returning raw diagnostics (no placebo).
@@ -99,6 +100,7 @@ def _fit_scm_core(
         penalization=penalization,
         covariates=covariates,
         special_predictors=special_predictors,
+        standardize_predictors=standardize_predictors,
         **({} if v_method is None else {"v_method": v_method}),
     )
 
@@ -209,6 +211,7 @@ def synth_loo(
     covariates: Optional[List[str]] = None,
     special_predictors: Optional[List[Any]] = None,
     v_method: Optional[str] = None,
+    standardize_predictors: Optional[bool] = None,
 ) -> pd.DataFrame:
     """
     Leave-one-out donor sensitivity for Synthetic Control.
@@ -235,7 +238,7 @@ def synth_loo(
     alpha : float, default 0.05
         Accepted for API symmetry with :func:`synth_sensitivity`; it does
         not affect any returned column.
-    covariates, special_predictors, v_method : optional
+    covariates, special_predictors, v_method, standardize_predictors : optional
         The predictor specification of the estimate being checked, as in
         :func:`statspai.synth` (``covariates`` averaged over the
         pre-period, ``special_predictors`` as ``(variable, periods, 'mean')``
@@ -285,6 +288,7 @@ def synth_loo(
                 covariates=covariates,
                 special_predictors=special_predictors,
                 v_method=v_method,
+                standardize_predictors=standardize_predictors,
             )
             pval = _naive_z_pvalue(res["att"], res["se"])
             records.append(
@@ -323,6 +327,7 @@ def synth_time_placebo(
     covariates: Optional[List[str]] = None,
     special_predictors: Optional[List[Any]] = None,
     v_method: Optional[str] = None,
+    standardize_predictors: Optional[bool] = None,
 ) -> pd.DataFrame:
     """
     Time-placebo ("backdating") test for Synthetic Control.
@@ -356,7 +361,7 @@ def synth_time_placebo(
     alpha : float, default 0.05
         Accepted for API symmetry with :func:`synth_sensitivity`; it does
         not affect any returned column.
-    covariates, special_predictors, v_method : optional
+    covariates, special_predictors, v_method, standardize_predictors : optional
         The predictor specification of the estimate being checked, as in
         :func:`statspai.synth` (``covariates`` averaged over the
         pre-period, ``special_predictors`` as ``(variable, periods, 'mean')``
@@ -414,6 +419,7 @@ def synth_time_placebo(
                 covariates=covariates,
                 special_predictors=_predictors_before(special_predictors, pt),
                 v_method=v_method,
+                standardize_predictors=standardize_predictors,
             )
             pval = _naive_z_pvalue(res["att"], res["se"])
             records.append(
@@ -452,6 +458,7 @@ def synth_donor_sensitivity(
     covariates: Optional[List[str]] = None,
     special_predictors: Optional[List[Any]] = None,
     v_method: Optional[str] = None,
+    standardize_predictors: Optional[bool] = None,
 ) -> pd.DataFrame:
     """
     Donor-pool bootstrap sensitivity for Synthetic Control.
@@ -484,7 +491,7 @@ def synth_donor_sensitivity(
     seed : int, optional
         Random seed for reproducibility.
 
-    covariates, special_predictors, v_method : optional
+    covariates, special_predictors, v_method, standardize_predictors : optional
         The predictor specification of the estimate being checked, as in
         :func:`statspai.synth`. Without them the fit matches on the
         pre-treatment outcomes only.
@@ -530,6 +537,7 @@ def synth_donor_sensitivity(
                 covariates=covariates,
                 special_predictors=special_predictors,
                 v_method=v_method,
+                standardize_predictors=standardize_predictors,
             )
             records.append(
                 {
@@ -567,6 +575,7 @@ def synth_rmspe_filter(
     covariates: Optional[List[str]] = None,
     special_predictors: Optional[List[Any]] = None,
     v_method: Optional[str] = None,
+    standardize_predictors: Optional[bool] = None,
 ) -> pd.DataFrame:
     """
     Pre-fit-filtered placebo p-values (Abadie et al. 2010).
@@ -612,7 +621,7 @@ def synth_rmspe_filter(
         the treated unit from every placebo's donor pool, as R
         ``SCtools::generate.placebos`` and Stata ``synth_runner`` do.
 
-    covariates, special_predictors, v_method : optional
+    covariates, special_predictors, v_method, standardize_predictors : optional
         The predictor specification of the estimate being checked, as in
         :func:`statspai.synth`. Without them the fit matches on the
         pre-treatment outcomes only.
@@ -663,6 +672,7 @@ def synth_rmspe_filter(
         covariates=covariates,
         special_predictors=special_predictors,
         v_method=v_method,
+        standardize_predictors=standardize_predictors,
     )
     treated_pre_rmspe = treated_res["pre_rmse"]
     gap_post_treated = treated_res["gap"][treated_res["post_mask"]]
@@ -697,6 +707,7 @@ def synth_rmspe_filter(
                 covariates=covariates,
                 special_predictors=special_predictors,
                 v_method=v_method,
+                standardize_predictors=standardize_predictors,
             )
         except (ValueError, np.linalg.LinAlgError) as exc:  # pragma: no cover
             failed.append({"what": f"placebo {d!r}", "error": repr(exc)})
@@ -760,6 +771,7 @@ def synth_sensitivity(
     n_donor_samples: int = 100,
     seed: Optional[int] = None,
     alpha: float = 0.05,
+    standardize_predictors: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Run all SCM sensitivity diagnostics in a single call.
@@ -789,6 +801,8 @@ def synth_sensitivity(
         Random seed.
     alpha : float, default 0.05
         Significance level.
+    standardize_predictors : bool, optional
+        As in :func:`statspai.synth`; forwarded to every fit.
 
     Returns
     -------
@@ -821,6 +835,7 @@ def synth_sensitivity(
         treated_unit,
         treatment_time,
         penalization=penalization,
+        standardize_predictors=standardize_predictors,
         alpha=alpha,
     )
 
@@ -833,6 +848,7 @@ def synth_sensitivity(
         treated_unit,
         treatment_time,
         penalization=penalization,
+        standardize_predictors=standardize_predictors,
         alpha=alpha,
     )
 
@@ -846,6 +862,7 @@ def synth_sensitivity(
         treatment_time,
         n_samples=n_donor_samples,
         penalization=penalization,
+        standardize_predictors=standardize_predictors,
         seed=seed,
     )
 
@@ -858,6 +875,7 @@ def synth_sensitivity(
         treated_unit,
         treatment_time,
         penalization=penalization,
+        standardize_predictors=standardize_predictors,
     )
 
     # --- Build summary ---
@@ -877,6 +895,7 @@ def synth_sensitivity(
         treated_unit,
         treatment_time,
         penalization=penalization,
+        standardize_predictors=standardize_predictors,
     )
     lines.append(f"  Baseline ATT:  {base['att']:.4f}")
     lines.append(f"  Pre-RMSE:      {base['pre_rmse']:.6f}")

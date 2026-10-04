@@ -324,6 +324,21 @@ raises `MethodIncompatibility` instead of returning numbers.
 The numbers such calls returned were not estimates of anything.
 *What to do.* Request the number of leads the message names.
 
+**`sp.synth(method='classic')` without predictors.**
+*What changed.* `standardize_predictors` defaults to `None` instead of
+`True`. With `covariates=` or `special_predictors=` that still means
+rescaling. Without them the pre-treatment outcomes are no longer rescaled
+period by period, and the weights minimise the pre-treatment squared
+error.
+*Who is affected.* Classic SCM fitted with neither `covariates=` nor
+`special_predictors=`, and `sp.synth_loo`, `sp.synth_time_placebo`,
+`sp.synth_donor_sensitivity`, `sp.synth_rmspe_filter` and
+`sp.synth_sensitivity` on such a fit. Donor weights, the synthetic path,
+the gaps and the placebo ratios can move. On Proposition 99 the ATT goes
+from -19.76 to -19.51 and the pre-treatment RMSE from 1.72 to 1.66.
+*What to do.* Re-run. For the earlier numbers pass
+`standardize_predictors=True`.
+
 **`sp.stata` / `sp.from_stata`: `csdid`, `collapse (first)`.**
 *What changed.* A translated `csdid` line carries `pscore_trim=1.0`,
 `csdid`'s default, where it used to leave StatsPAI's 0.995 in force. In

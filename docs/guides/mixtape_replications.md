@@ -55,7 +55,7 @@ which leaves the predictor-weight matrix V weakly identified (Kaul et al.
 StatsPAI reaches the *lower* pre-treatment RMSE and returns the identical
 optimum at 4 and 40 random starts, so neither is wrong on its own
 objective. Across five routes — including outcome-only classic SCM
-(21,482) and synthdid (19,479) — every estimate is a large positive
+(21,013) and synthdid (19,479) — every estimate is a large positive
 effect within a ~30% band, on entirely disjoint donor sets.
 
 **The effect is identified far more robustly than the weights are.**

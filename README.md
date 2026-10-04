@@ -328,21 +328,21 @@ print(sc.summary())
   Synthetic Control Method
 ==============================================================================
 
-  ATT:      -19.8 *
-  Std. Error:  (11.2)
-  [95% CI]:    [-41.8,  2.3]
+  ATT:      -19.5 *
+  Std. Error:  (10.8)
+  [95% CI]:    [-40.7,  1.6]
   P-value:     0.077
 
 ------------------------------------------------------------------------------
   Detailed Estimates
 ------------------------------------------------------------------------------
          unit  weight
-         Utah  0.3768
-      Montana  0.2831
-       Nevada  0.1881
-  Connecticut  0.0690
-New Hampshire  0.0439
-     Colorado  0.0391
+         Utah  0.3939
+      Montana  0.2318
+       Nevada  0.2049
+  Connecticut  0.1091
+New Hampshire  0.0454
+     Colorado  0.0148
 ...
 ```
 
@@ -352,7 +352,7 @@ California 的 post/pre RMSPE 比值在 39 个州里排第 3，所以 p = 3/39 �
 `covariates=`（例如 `["lnincome", "retprice", "age15to24", "beer"]`）。
 这条路径会对每个 placebo 州重新求解嵌套 V-W 问题，明显更慢：可传 `n_jobs=-1` 并行拟合 placebo（结果逐位一致），调试设定时也可先用 `placebo=False`。
 
-读这个数字时要带上它的前提（完整 summary 里也会打印）：在真实数据上，经典 SCM 的权重往往不是唯一识别的，不同的正确求解器可能落在不同的 donor 权重上。StatsPAI 的原生求解器在唯一识别的设计上经过认证，其他情形标注为"依赖识别"。在这个设定上，R `Synth` 得到的 ATT 约为 `-19.59` 而不是 `-19.76`；需要 R 的精确数字时，传 `backend="synth"`（需要本机装有 R 和 `Synth` 包，只支持结果滞后项设定）。
+读这个数字时要带上它的前提（完整 summary 里也会打印）：在真实数据上，经典 SCM 的权重往往不是唯一识别的，不同的正确求解器可能落在不同的 donor 权重上。StatsPAI 的原生求解器在唯一识别的设计上经过认证，其他情形标注为"依赖识别"。在这个设定上，R `Synth` 得到的 ATT 约为 `-19.59` 而不是 `-19.51`；需要 R 的精确数字时，传 `backend="synth"`（需要本机装有 R 和 `Synth` 包，只支持结果滞后项设定）。
 
 ### 6. Logit、聚类标准误与估计后命令：替代 Stata 的 `logit` + `margins`
 

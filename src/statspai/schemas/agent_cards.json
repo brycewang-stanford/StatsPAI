@@ -53937,7 +53937,7 @@
         "penalization": "float",
         "perfect_fit": "str",
         "special_predictors": "Optional[List[Tuple[str, Any, str]]]",
-        "standardize_predictors": "bool",
+        "standardize_predictors": "Optional[bool]",
         "time": "str",
         "treated_unit": "Any",
         "treatment_time": "Any",
@@ -54005,8 +54005,7 @@
             "type": "array"
           },
           "standardize_predictors": {
-            "default": true,
-            "description": "Rescale predictors to unit range before the V optimization. Without ``covariates`` / ``special_predictors`` the predictors are the pre-treatment outcomes and each period is rescaled; pass ``False`` for the simplex least-squares fit to the raw pre-treatment path.",
+            "description": "Rescale each predictor to unit range before the V optimization. ``None`` (default) rescales ``covariates`` and ``special_predictors``, which come in different units, and leaves the pre-treatment outcomes alone when they are the only predictors: they are one variable in one unit, and rescaling each period by its range across units would weight the periods unequally. ``True`` / ``False`` force the choice either way. .. versionchanged:: 1.39.0 WARNING The default used to be ``True`` in every case, so a fit without predictors did not minimise the pre-treatment squared error. Pass ``standardize_predictors=True`` for those numbers.",
             "type": "boolean"
           },
           "time": {
@@ -54029,7 +54028,7 @@
           },
           "v_method": {
             "default": "auto",
-            "description": "``'auto'`` -> nested V-W when covariates / special predictors are supplied, equal V otherwise. ``'nested'`` forces the outer V optimisation even when only Y lags are used (note: the outer problem is then under-identified, per Kaul et al. 2022). With equal V and no predictors each pre-treatment period is a predictor and, under the default ``standardize_predictors=True``, is rescaled by its range across units, so the periods are weighted by the inverse of their squared ranges. That is the convention the R ``Synth`` parity fixture reproduces. The weights that minimise the plain pre-treatment squared error, which ``augsynth(progfunc = \"None\")`` returns, are ``standardize_predictors=False`` (or ``v_method='nested'``). ``'regression'`` is the default of Stata ``synth`` (without its ``nested`` option): V comes from regressing the pre-treatment outcomes on the predictors, with no search, so the fit is deterministic and instant, and the donor weights reproduce Stata's (its pre-treatment RMSPE to 3e-9 on the Proposition 99 data). It needs ``covariates`` or ``special_predictors``.",
+            "description": "``'auto'`` -> nested V-W when covariates / special predictors are supplied, equal V otherwise. ``'nested'`` forces the outer V optimisation even when only Y lags are used (note: the outer problem is then under-identified, per Kaul et al. 2022). With equal V and no predictors the weights are the simplex-constrained least-squares fit to the pre-treatment outcomes, which is what ``augsynth(progfunc = \"None\")`` returns and what a nested V on the outcome lags converges to. ``'regression'`` is the default of Stata ``synth`` (without its ``nested`` option): V comes from regressing the pre-treatment outcomes on the predictors, with no search, so the fit is deterministic and instant, and the donor weights reproduce Stata's (its pre-treatment RMSPE to 3e-9 on the Proposition 99 data). It needs ``covariates`` or ``special_predictors``.",
             "enum": [
               "auto",
               "nested",
@@ -95346,6 +95345,10 @@
             },
             "type": "array"
           },
+          "standardize_predictors": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples, ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+            "type": "boolean"
+          },
           "time": {
             "description": "Time column.",
             "type": "string",
@@ -95543,6 +95546,10 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "standardize_predictors": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples (for each placebo date only the periods before it are used; a predictor left with none is dropped), ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+            "type": "boolean"
           },
           "time": {
             "description": "Time column.",
@@ -95745,6 +95752,10 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "standardize_predictors": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+            "type": "boolean"
           },
           "time": {
             "description": "Time column.",
@@ -95954,6 +95965,10 @@
             },
             "type": "array"
           },
+          "standardize_predictors": {
+            "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+            "type": "boolean"
+          },
           "thresholds": {
             "description": "Cut-off multiples of the treated unit's pre-treatment fit; a placebo is kept when its fit is ``<= threshold x`` the treated unit's. Default ``[1, 2, 5, 10, 20, np.inf]``.",
             "items": {
@@ -96134,6 +96149,10 @@
           "seed": {
             "description": "Random seed.",
             "type": "integer"
+          },
+          "standardize_predictors": {
+            "description": "As in :func:`statspai.synth`; forwarded to every fit.",
+            "type": "boolean"
           },
           "time": {
             "description": "Time column.",

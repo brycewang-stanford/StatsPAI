@@ -1,15 +1,16 @@
-"""Classic SCM without predictors: which problem each setting solves.
+"""Classic SCM without predictors is simplex-constrained least squares on the
+pre-treatment outcomes.
 
-By default every pre-treatment period is a predictor, rescaled by its range
-across units, with an equal V; that convention is pinned against R ``Synth``
-in ``tests/reference_parity/test_synth_rest_R_parity.py``.
-``standardize_predictors=False`` fits the raw pre-treatment path, the
-simplex-constrained least squares that ``augsynth(progfunc = "None",
-scm = TRUE)`` returns. On the suicide-rate panel of the Remix workshop
-project those weights agree with augsynth's to between 3e-8 and 1e-5, and
-the default differs from them (for Ireland: pre-treatment sum of squares
-51.55 against 45.14). The docstring used to call the default the
-least-squares estimator.
+That is what ``augsynth(progfunc = "None", scm = TRUE)`` and ``synthdid``'s
+``sc`` compute and what a nested V on the outcome lags converges to. Up to
+1.38.0 the default rescaled each pre-treatment period by its range across
+units, the step meant for predictors in different units, so the periods were
+weighted unequally. On the suicide-rate panel of the Remix workshop project
+the Irish synthetic control had a pre-treatment sum of squares of 51.55
+against 45.14 at the optimum; the default now agrees with augsynth's weights
+to between 3e-8 and 1e-5. ``standardize_predictors=True`` is the earlier
+convention, which ``tests/reference_parity/test_synth_rest_R_parity.py`` pins
+against R ``Synth``.
 """
 
 from __future__ import annotations
@@ -72,36 +73,56 @@ def _weights(result, donors) -> np.ndarray:
     return table.reindex(donors).fillna(0.0).to_numpy()
 
 
-def test_unstandardised_fit_is_simplex_least_squares(prop99):
+def test_default_is_simplex_least_squares(prop99):
     y, X, donors = _pre(prop99)
-    w = _weights(_fit(prop99, standardize_predictors=False), donors)
+    w = _weights(_fit(prop99), donors)
     best = _simplex_least_squares(y, X)
     sse = lambda v: float(np.sum((y - X @ v) ** 2))  # noqa: E731
     assert sse(w) <= sse(best) * (1 + 1e-6)
     # the minimiser is unique here, so the weights themselves agree
     np.testing.assert_allclose(w, best, atol=2e-4)
+    off = _weights(_fit(prop99, standardize_predictors=False), donors)
+    np.testing.assert_allclose(w, off, atol=1e-12)
 
 
-def test_default_solves_the_range_scaled_problem(prop99):
-    """The default minimises the squared error of the range-scaled periods,
-    so it does at least as well on that criterion and no better on the raw
-    one."""
+def test_the_earlier_convention_is_one_argument_away(prop99):
+    """``standardize_predictors=True`` minimises the squared error of the
+    range-scaled periods: better on that criterion, worse on the raw one."""
     y, X, donors = _pre(prop99)
     default = _weights(_fit(prop99), donors)
-    raw = _weights(_fit(prop99, standardize_predictors=False), donors)
+    scaled_fit = _weights(_fit(prop99, standardize_predictors=True), donors)
     block = np.column_stack([y, X])
     scale = block.max(axis=1) - block.min(axis=1)
     scaled = lambda v: float(np.sum(((y - X @ v) / scale) ** 2))  # noqa: E731
     plain = lambda v: float(np.sum((y - X @ v) ** 2))  # noqa: E731
-    assert scaled(default) <= scaled(raw) * (1 + 1e-6)
-    assert plain(raw) <= plain(default) * (1 + 1e-6)
+    assert np.max(np.abs(default - scaled_fit)) > 1e-3
+    assert scaled(scaled_fit) < scaled(default)
+    assert plain(default) < plain(scaled_fit)
 
 
-def test_nested_v_on_the_outcome_lags_reaches_the_least_squares_weights(prop99):
+def test_nested_v_on_the_outcome_lags_reaches_the_same_weights(prop99):
     _, _, donors = _pre(prop99)
-    raw = _weights(_fit(prop99, standardize_predictors=False), donors)
+    default = _weights(_fit(prop99), donors)
     nested = _weights(_fit(prop99, v_method="nested"), donors)
-    np.testing.assert_allclose(raw, nested, atol=5e-3)
+    np.testing.assert_allclose(default, nested, atol=5e-3)
+
+
+def test_sensitivity_tools_follow_the_default(prop99):
+    """A robustness check runs on the specification it is checking."""
+    kw = dict(
+        outcome="packspercapita",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        default = sp.synth_loo(prop99, **kw)
+        raw = sp.synth_loo(prop99, **kw, standardize_predictors=False)
+        scaled = sp.synth_loo(prop99, **kw, standardize_predictors=True)
+    np.testing.assert_allclose(default["att"], raw["att"], atol=1e-10)
+    assert np.max(np.abs(default["att"] - scaled["att"])) > 1e-3
 
 
 def test_predictors_are_still_standardised(prop99):

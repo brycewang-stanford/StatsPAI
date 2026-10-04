@@ -220,7 +220,7 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
             "golden_numbers": [
                 (
                     "Average post-1989 ATT (packs/capita)",
-                    -19.7605,
+                    -19.5136,
                     -19.0,
                     "ADH (2010) Figure 2 (qualitative ≈ -19)",
                 ),
@@ -549,13 +549,14 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
                 ),
                 (
                     "Outcome-only classic ATT",
-                    21482.1,
-                    "V fixed to identity -> convex in W -> unique solution",
+                    21013.2,
+                    "least squares on the pre-treatment path: convex in W, "
+                    "unique solution",
                 ),
                 (
                     "Outcome-only donor weights",
-                    0.476,
-                    "New York .476, Illinois .340, Florida .184 (reproducible)",
+                    0.3725,
+                    "Florida .372, New York .356, Illinois .272 (reproducible)",
                 ),
             ],
         },

@@ -613,7 +613,7 @@ def _dispatch_synth_impl(
         # ``standardize=`` used to be dropped here (it is not the parameter's
         # name), so standardize=False silently standardized anyway.
         standardize_predictors = kwargs.pop(
-            "standardize_predictors", kwargs.pop("standardize", True)
+            "standardize_predictors", kwargs.pop("standardize", None)
         )
         n_random_starts = kwargs.pop("n_random_starts", 4)
         n_jobs = kwargs.pop("n_jobs", 1)
@@ -1281,25 +1281,29 @@ class SyntheticControl:
         supplied, equal V otherwise. ``'nested'`` forces the outer V
         optimisation even when only Y lags are used (note: the outer
         problem is then under-identified, per Kaul et al. 2022). With
-        equal V and no predictors each pre-treatment period is a predictor
-        and, under the default ``standardize_predictors=True``, is rescaled
-        by its range across units, so the periods are weighted by the
-        inverse of their squared ranges. That is the convention the R
-        ``Synth`` parity fixture reproduces. The weights that minimise the
-        plain pre-treatment squared error, which
-        ``augsynth(progfunc = "None")`` returns, are
-        ``standardize_predictors=False`` (or ``v_method='nested'``).
+        equal V and no predictors the weights are the simplex-constrained
+        least-squares fit to the pre-treatment outcomes, which is what
+        ``augsynth(progfunc = "None")`` returns and what a nested V on
+        the outcome lags converges to.
         ``'regression'`` is the default of Stata ``synth`` (without its
         ``nested`` option): V comes from regressing the pre-treatment
         outcomes on the predictors, with no search, so the fit is
         deterministic and instant, and the donor weights reproduce Stata's
         (its pre-treatment RMSPE to 3e-9 on the Proposition 99 data).
         It needs ``covariates`` or ``special_predictors``.
-    standardize_predictors : bool, default True
-        Rescale predictors to unit range before the V optimization. Without
-        ``covariates`` / ``special_predictors`` the predictors are the
-        pre-treatment outcomes and each period is rescaled; pass ``False``
-        for the simplex least-squares fit to the raw pre-treatment path.
+    standardize_predictors : bool, optional
+        Rescale each predictor to unit range before the V optimization.
+        ``None`` (default) rescales ``covariates`` and
+        ``special_predictors``, which come in different units, and leaves
+        the pre-treatment outcomes alone when they are the only predictors:
+        they are one variable in one unit, and rescaling each period by its
+        range across units would weight the periods unequally. ``True`` /
+        ``False`` force the choice either way.
+
+        .. versionchanged:: 1.39.0
+           ⚠️ The default used to be ``True`` in every case, so a fit
+           without predictors did not minimise the pre-treatment squared
+           error. Pass ``standardize_predictors=True`` for those numbers.
     n_random_starts : int, default 4
         Additional random Dirichlet starts for the outer V optimiser.
     penalization : float, default 0.0
@@ -1367,7 +1371,7 @@ class SyntheticControl:
         covariates: Optional[List[str]] = None,
         special_predictors: Optional[List[SpecialPredictor]] = None,
         v_method: str = "auto",
-        standardize_predictors: bool = True,
+        standardize_predictors: Optional[bool] = None,
         n_random_starts: int = 4,
         penalization: float = 0.0,
         alpha: float = 0.05,
@@ -1397,11 +1401,18 @@ class SyntheticControl:
                 "v_method must be one of 'auto', 'equal', 'nested' or 'regression'.",
                 diagnostics={"v_method": v_method},
             )
-        if not isinstance(standardize_predictors, (bool, np.bool_)):
+        if standardize_predictors is not None and not isinstance(
+            standardize_predictors, (bool, np.bool_)
+        ):
             raise MethodIncompatibility(
-                "standardize_predictors must be True or False.",
+                "standardize_predictors must be True, False or None.",
                 diagnostics={"standardize_predictors": repr(standardize_predictors)},
             )
+        # None is resolved once the predictors are built: rescale covariates
+        # and special predictors, leave pre-treatment outcomes as they are.
+        self._standardize_requested = (
+            None if standardize_predictors is None else bool(standardize_predictors)
+        )
         self.standardize_predictors = bool(standardize_predictors)
         self.n_random_starts = _require_int_at_least(
             n_random_starts, "n_random_starts", 0
@@ -1567,6 +1578,8 @@ class SyntheticControl:
             self.X_treated = X_full[:, 0]  # (K,)
             self.X_donors = X_full[:, 1:]  # (K, J)
             self._has_predictors = True
+            if self._standardize_requested is None:
+                self.standardize_predictors = True
         else:
             # No covariates / special predictors → use pre-period Y
             # as predictors.  V optimisation is under-identified here
@@ -1577,6 +1590,11 @@ class SyntheticControl:
                 f"{self.outcome}[{t}]" for t in self.times[self.pre_mask]
             ]
             self._has_predictors = False
+            if self._standardize_requested is None:
+                # one variable in one unit: nothing to put on a common
+                # scale, and rescaling each period by its range would weight
+                # the periods unequally
+                self.standardize_predictors = False
 
     def _resolve_period_spec(self, period_spec: Any) -> List[Any]:
         """Expand scalar / list / slice specs into a concrete year list."""

@@ -599,19 +599,36 @@ Added on the way:
   first line to the last. Macros that read the data, and loops, are
   still refused.
 
+- ⚠️ **`sp.synth(method='classic')` without predictors now fits the raw
+  pre-treatment path.** The default used to rescale each pre-treatment
+  period by its range across units before solving for the weights, a
+  step meant for predictors in different units, so the periods were
+  weighted unequally and the weights did not minimise the pre-treatment
+  squared error. `standardize_predictors` now defaults to `None`:
+  covariates and special predictors are rescaled as before, the
+  pre-treatment outcomes are not. The result is the simplex least-squares
+  fit that `augsynth(progfunc = "None")` and `synthdid`'s `sc` return and
+  that a nested V on the outcome lags converges to. Numbers that move:
+  the README's Proposition 99 example from -19.76 (11.23) to -19.51
+  (10.80), same placebo rank 3 of 39, pre-treatment RMSE 1.72 to 1.66;
+  the outcome-only Texas fit of the Mixtape replication from 21,482 to
+  21,013, on the same three donors. Fits with `covariates=` or
+  `special_predictors=` do not move, nor do Track A modules 07 and 52.
+  `standardize_predictors=True` gives the earlier numbers, and the R
+  `Synth` references for the sensitivity tools, which were built for
+  that convention, now ask for it by name. `sp.synth_loo`,
+  `sp.synth_time_placebo`, `sp.synth_donor_sensitivity`,
+  `sp.synth_rmspe_filter` and `sp.synth_sensitivity` take the same
+  argument and follow the same default.
 - **The Remix workshop's worked project as a reference.** The tour
   includes a complete staggered-adoption analysis with its R outputs
   committed (16 countries, 1994 to 2010). StatsPAI reproduces them: Bacon
   decomposition, BJS with a covariate, Callaway-Sant'Anna with a
   time-varying covariate in four configurations (a second confirmation
   of the fix above), Sun-Abraham under `aggregation='fixest_att'`,
-  synthetic DiD and ridge-augmented SCM. One row differs by convention:
-  `sp.synth(method='classic')` without predictors rescales each
-  pre-treatment period before solving, as the R `Synth` parity fixture
-  pins, while `augsynth(progfunc = "None")` fits the raw path.
-  `standardize_predictors=False` gives `augsynth`'s weights to 1e-5. The
-  docstring said the default was the least-squares fit; it now says what
-  is computed and how to get the other.
+  synthetic DiD, ridge-augmented SCM, and, with the change above,
+  outcome-only SCM (weights within 1e-5 of `augsynth`'s for the four
+  treated countries; before it one weight was off by 0.13).
 
 Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
 

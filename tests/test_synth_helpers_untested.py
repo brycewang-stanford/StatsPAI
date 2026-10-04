@@ -140,7 +140,8 @@ def test_donor_sensitivity_frame(base_kwargs):
 
 
 def test_rmspe_filter_pvalues_are_probabilities(base_kwargs):
-    out = sp.synth_rmspe_filter(**base_kwargs)
+    # pinned for the range-scaled no-covariate fit
+    out = sp.synth_rmspe_filter(**base_kwargs, standardize_predictors=True)
     assert {"threshold", "n_placebos", "pvalue"} <= set(out.columns)
     assert ((out["pvalue"] >= 0) & (out["pvalue"] <= 1)).all()
     assert (out["n_placebos"] >= 0).all()

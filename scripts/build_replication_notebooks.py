@@ -193,8 +193,8 @@ def _abadie_cells():
         code(
             "# --- DRIFT GUARD ---\n"
             "# SCM is sensitive to the predictor recipe; we pin the outcome-only\n"
-            "# recovery to within 0.5 of the StatsPAI reference (-19.76).\n"
-            "assert abs(att - (-19.7605)) < 0.5, att\n"
+            "# recovery to within 0.5 of the StatsPAI reference (-19.51).\n"
+            "assert abs(att - (-19.5136)) < 0.5, att\n"
             "# Scientific check: a sizeable negative (smoking fell) gap.\n"
             "assert att < -10\n"
             "print(f'OK: ADH (2010) reproduced (ATT={att:.2f}, paper ~ -19).')"

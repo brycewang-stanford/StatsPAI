@@ -218,7 +218,7 @@ class TestReplicateAbadie2010:
 
     @pytest.mark.filterwarnings("ignore")
     def test_classic_outcome_only_att_pinned(self):
-        """Outcome-only SCM on real ADH data should land near -19.76."""
+        """Outcome-only SCM on real ADH data should land near -19.51."""
         data, _ = sp.replicate("abadie_2010")
         sc = sp.synth(
             data=data,
@@ -232,7 +232,7 @@ class TestReplicateAbadie2010:
         )
         # Pinned to the StatsPAI value on the bundled real data; the
         # paper headline is a qualitative ≈ -19 from Figure 2.
-        assert float(sc.estimate) == pytest.approx(-19.7605, abs=0.5)
+        assert float(sc.estimate) == pytest.approx(-19.5136, abs=0.5)
 
 
 class TestReplicateLalonde:

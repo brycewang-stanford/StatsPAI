@@ -500,6 +500,8 @@ class TestSensitivity:
             time="time",
             treated_unit="unit_0",
             treatment_time=11,
+            # the pins below are for the range-scaled no-covariate fit
+            standardize_predictors=True,
         )
 
         assert isinstance(loo, pd.DataFrame)
@@ -527,6 +529,8 @@ class TestSensitivity:
             time="time",
             treated_unit="unit_0",
             treatment_time=11,
+            # the pins below are for the range-scaled no-covariate fit
+            standardize_predictors=True,
         )
 
         assert isinstance(tp, pd.DataFrame)
@@ -558,6 +562,8 @@ class TestSensitivity:
             time="time",
             treated_unit="unit_0",
             treatment_time=11,
+            # the pins below are for the range-scaled no-covariate fit
+            standardize_predictors=True,
         )
 
         # All placebo ATTs should be smaller than the real treatment
@@ -577,6 +583,8 @@ class TestSensitivity:
             treatment_time=11,
             n_donor_samples=20,
             seed=42,
+            # the pins below are for the range-scaled no-covariate fit
+            standardize_predictors=True,
         )
 
         assert isinstance(sens, dict)
@@ -607,6 +615,8 @@ class TestSensitivity:
             time="time",
             treated_unit="unit_0",
             treatment_time=11,
+            # the pins below are for the range-scaled no-covariate fit
+            standardize_predictors=True,
         )
 
         atts = loo["att"].values

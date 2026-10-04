@@ -45123,6 +45123,10 @@
           },
           "type": "array"
         },
+        "standardize_predictors": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples, ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+          "type": "boolean"
+        },
         "time": {
           "description": "Time column.",
           "type": "string",
@@ -45208,6 +45212,10 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "standardize_predictors": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth` (``covariates`` averaged over the pre-period, ``special_predictors`` as ``(variable, periods, 'mean')`` tuples (for each placebo date only the periods before it are used; a predictor left with none is dropped), ``v_method`` = ``'nested'`` / ``'regression'`` / ``'equal'``). Without them the fit matches on the pre-treatment outcomes only.",
+          "type": "boolean"
         },
         "time": {
           "description": "Time column.",
@@ -45298,6 +45306,10 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "standardize_predictors": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+          "type": "boolean"
         },
         "time": {
           "description": "Time column.",
@@ -45394,6 +45406,10 @@
           },
           "type": "array"
         },
+        "standardize_predictors": {
+          "description": "The predictor specification of the estimate being checked, as in :func:`statspai.synth`. Without them the fit matches on the pre-treatment outcomes only.",
+          "type": "boolean"
+        },
         "thresholds": {
           "description": "Cut-off multiples of the treated unit's pre-treatment fit; a placebo is kept when its fit is ``<= threshold x`` the treated unit's. Default ``[1, 2, 5, 10, 20, np.inf]``.",
           "items": {
@@ -45476,6 +45492,10 @@
         "seed": {
           "description": "Random seed.",
           "type": "integer"
+        },
+        "standardize_predictors": {
+          "description": "As in :func:`statspai.synth`; forwarded to every fit.",
+          "type": "boolean"
         },
         "time": {
           "description": "Time column.",

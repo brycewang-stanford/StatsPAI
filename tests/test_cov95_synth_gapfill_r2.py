@@ -90,7 +90,7 @@ COMMON = dict(
         (dict(n_random_starts="x"), "integer >= 0"),
         (dict(n_random_starts=1.5), "integer >= 0"),
         (dict(v_method="bogus"), "v_method must be one of"),
-        (dict(standardize_predictors="yes"), "must be True or False"),
+        (dict(standardize_predictors="yes"), "must be True, False or None"),
     ],
 )
 def test_synth_argument_validation(kwargs, match):

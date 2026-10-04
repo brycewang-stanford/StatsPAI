@@ -151,36 +151,37 @@ panel.
 | Sun-Abraham | `fixest::sunab` | `aggregation='fixest_att'` exact (3.0340, 1.3802); event-time estimates to 4e-9 |
 | Synthetic DiD by timing group | `synthdid` | the three ATTs to the printed digit; placebo SEs differ by resampling |
 | Ridge-augmented SCM, four treated units | `augsynth` | ATT to 3e-5, weights to 1e-5 |
-| Outcome-only SCM, four treated units | `augsynth(progfunc = "None")` | weights to 1e-5 with `standardize_predictors=False`; the default differs by convention, see below |
+| Outcome-only SCM, four treated units | `augsynth(progfunc = "None")` | weights to 1e-5 after the default changed, see below |
 
 The Callaway-Sant'Anna rows are a second, independent confirmation of the
 time-varying covariate fix above: unemployment changes every year, and
 before the fix these numbers did not match.
 
-**Outcome-only classic SCM: a convention, not a bug.**
-`sp.synth(method='classic')` with no predictors treats each pre-treatment
-period as a predictor, rescales it by its range across units and uses an
-equal V. `augsynth`'s SCM fits the raw pre-treatment path. For Ireland the
-default has a pre-treatment sum of squares of 51.55 against 45.14 for the
-least-squares weights, and one donor weight differs by 0.13.
+**Outcome-only classic SCM: the default changed.**
+`sp.synth(method='classic')` with no predictors treated each
+pre-treatment period as a predictor, rescaled it by its range across
+units and used an equal V. `augsynth`'s SCM fits the raw pre-treatment
+path. For Ireland the old default had a pre-treatment sum of squares of
+51.55 against 45.14 for the least-squares weights, and one donor weight
+differed by 0.13.
 
-The first reading was that the default was wrong, since the docstring
-called it the simplex least-squares estimator, and the rescaling was
-removed. Fourteen tests failed, among them
+The rescaling was removed, fourteen tests failed, and the change was
+withdrawn: among the failures was
 `tests/reference_parity/test_synth_rest_R_parity.py`, whose fixture was
-built to reproduce exactly this convention against R `Synth` (with
-`custom.v` chosen to make the two problems identical), the pinned Texas
-numbers of the replication guide, and the README's. The rescaling is a
-decision with evidence behind it, so the change was withdrawn. What was
-wrong was the sentence in the docstring; it now states what is computed
-and that `standardize_predictors=False` (or `v_method='nested'`) gives the
-least-squares weights, which match `augsynth` to between 3e-8 and 1e-5.
+built to reproduce the rescaled fit against R `Synth` (with `custom.v`
+chosen to make the two problems identical), so the old default was a
+convention with evidence behind it and not a slip. Only the docstring,
+which called it the least-squares estimator, was corrected.
 
-Whether the default should be the raw least-squares fit is a fair
-question: it is what `augsynth` and `synthdid`'s `sc` return and what a
-nested V converges to. Changing it moves the README, the Texas guide and
-the sensitivity tools' reference numbers, so it is a decision for a
-release with a migration note, not for a textbook pass.
+Bryce then decided the default should be the least-squares fit, since it
+is what `augsynth` and `synthdid`'s `sc` return and what a nested V
+converges to. It was done as its own change with a migration note:
+`standardize_predictors=None` rescales covariates and special predictors
+and leaves pre-treatment outcomes alone; `True` is the earlier
+convention, and the R `Synth` fixture now asks for it by name, so that
+evidence still stands for that option. The README's Proposition 99
+example moved from -19.76 to -19.51 and the outcome-only Texas fit from
+21,482 to 21,013.
 
 Two defaults worth knowing when porting such a project, both documented
 and neither changed: `sp.sun_abraham`'s overall estimate is the

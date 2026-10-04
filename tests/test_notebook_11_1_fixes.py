@@ -193,7 +193,7 @@ class TestSummaryFooter:
             treated_unit="California",
             treatment_time=1989,
         )
-        assert scm.estimate == pytest.approx(-19.760529, rel=1e-5)
+        assert scm.estimate == pytest.approx(-19.513630, rel=1e-5)
 
 
 # ----------------------------------------------------------------------

@@ -84,10 +84,11 @@ def test_scm_pvalue_is_treated_rank_over_units(readme_fit):
 
 def test_scm_readme_numbers(readme_fit):
     """Pins the numbers printed in README.md / README_EN.md."""
-    # The README prints two decimals. The finer digits are the exact simplex
-    # minimiser; SLSQP stopped at -19.760529 / 11.233914.
-    assert readme_fit.estimate == pytest.approx(-19.760541, abs=5e-7)
-    assert readme_fit.se == pytest.approx(11.233848, abs=5e-7)
+    # The fit is simplex least squares on the pre-treatment path (no
+    # rescaling of the periods since 1.39.0; with it the numbers were
+    # -19.760541, 11.233848 and Utah 0.3768).
+    assert readme_fit.estimate == pytest.approx(-19.513630, abs=5e-7)
+    assert readme_fit.se == pytest.approx(10.795235, abs=5e-7)
     w = dict(
         zip(
             readme_fit.model_info["weights"]["unit"],
@@ -95,12 +96,12 @@ def test_scm_readme_numbers(readme_fit):
         )
     )
     expected = {
-        "Utah": 0.3768,
-        "Montana": 0.2831,
-        "Nevada": 0.1881,
-        "Connecticut": 0.0690,
-        "New Hampshire": 0.0439,
-        "Colorado": 0.0391,
+        "Utah": 0.3939,
+        "Montana": 0.2318,
+        "Nevada": 0.2049,
+        "Connecticut": 0.1091,
+        "New Hampshire": 0.0454,
+        "Colorado": 0.0148,
     }
     assert set(w) == set(expected)
     for unit, weight in expected.items():
