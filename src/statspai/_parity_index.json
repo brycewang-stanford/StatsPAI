@@ -15151,7 +15151,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_rddensity_all_stata.py",
-        "tests/reference_parity/test_rddensity_parity.py"
+        "tests/reference_parity/test_rddensity_parity.py",
+        "tests/reference_parity/test_rdlocrand_extensions_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -15443,6 +15444,9 @@
       "tolerance": "robust bias-corrected SE & power 1e-8 rel (observed 4.2e-14)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rdlocrand_extensions_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -15635,6 +15639,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rdlocrand_extensions_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

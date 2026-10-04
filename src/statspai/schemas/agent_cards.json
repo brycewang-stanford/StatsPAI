@@ -51217,7 +51217,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs rdlocrand::rdrandinf 2.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdlocrand 2.0]; tolerance observed statistic & asymptotic p-value 1e-8 rel (observed 2.3e-15) -- tests/reference_parity/test_rdlocrand_parity.py"
+      "Cross-language parity (bit-exact) vs rdlocrand::rdrandinf 2.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdlocrand 2.0]; tolerance observed statistic & asymptotic p-value 1e-8 rel (observed 2.3e-15) -- tests/reference_parity/test_rdlocrand_parity.py",
+      "tests/reference_parity/test_rdlocrand_extensions_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -51430,7 +51431,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs rdlocrand::rdwinselect 2.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdlocrand 2.0]; tolerance window grid 1e-12 rel (observed 0); per-window counts Nl / Nr asserted as exact integer equality -- tests/reference_parity/test_rdlocrand_parity.py"
+      "Cross-language parity (bit-exact) vs rdlocrand::rdwinselect 2.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdlocrand 2.0]; tolerance window grid 1e-12 rel (observed 0); per-window counts Nl / Nr asserted as exact integer equality -- tests/reference_parity/test_rdlocrand_parity.py",
+      "tests/reference_parity/test_rdlocrand_extensions_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -64427,6 +64429,7 @@
       "Cross-language parity (bit-exact) vs rddensity::rddensity [R version 4.5.2 (2025-10-31), rddensity 2.6]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 09_rddensity -- tests/r_parity/09_rddensity.py",
       "tests/reference_parity/test_rddensity_all_stata.py",
       "tests/reference_parity/test_rddensity_parity.py",
+      "tests/reference_parity/test_rdlocrand_extensions_parity.py",
       "Track A rddensity module 09 is native Python reference parity: StatsPAI ports rdbwdensity combination bandwidths, mass-point ECDF handling, and jackknife CJM local-polynomial density inference, matching rddensity::rddensity on the same CSV bytes."
     ],
     "validation_status": "certified"
