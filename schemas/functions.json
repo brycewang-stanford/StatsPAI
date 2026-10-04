@@ -278,15 +278,16 @@
         },
         "method": {
           "default": "twostep",
-          "description": "'twostep' (Heckman 1979 probit + OLS with IMR) or 'ml' (full-information ML, Stata's default heckman)",
+          "description": "'twostep' (Heckman 1979 probit + OLS with IMR) or 'ml' (full-information ML, Stata's default heckman; 'mle' is accepted)",
           "enum": [
             "twostep",
-            "ml"
+            "ml",
+            "mle"
           ],
           "type": "string"
         },
         "select": {
-          "description": "Binary selection indicator (1 = observed, 0 = not)",
+          "description": "Binary selection indicator (1 = observed, 0 = not); omitted, selected means y is not missing",
           "type": "string"
         },
         "vce": {
@@ -325,7 +326,6 @@
         "data",
         "y",
         "x",
-        "select",
         "z"
       ],
       "type": "object"
@@ -4785,13 +4785,13 @@
     }
   },
   {
-    "description": "Unit-root test for one time series: augmented Dickey-Fuller or DF-GLS (Elliott-Rothenberg-Stock), with a constant or a constant and trend, a fixed lag order or one chosen by AIC / BIC. H0 is a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order. Not rejecting is not evidence of a unit root. Stata dfuller / dfgls, R urca. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unit-root test for one time series: augmented Dickey-Fuller, DF-GLS (Elliott-Rothenberg-Stock), Phillips-Perron or KPSS, with a constant or a constant and trend. For ADF, DF-GLS and Phillips-Perron H0 is a unit root; for KPSS H0 is stationarity, so there rejecting is evidence of a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order; Phillips-Perron and KPSS correct for serial correlation with a Newey-West long-run variance. Not rejecting a unit root is not evidence of one. Stata dfuller / dfgls / pperron / kpss, R urca. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "unitroot",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10)",
+          "description": "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10; KPSS also 0.025)",
           "type": "number"
         },
         "data": {
@@ -4801,7 +4801,7 @@
         },
         "lags": {
           "default": "aic",
-          "description": "Lagged differences: an integer, or 'aic' / 'bic' to search 0..max_lags. Stata dfuller defaults to 0",
+          "description": "Lagged differences: an integer, or 'aic' / 'bic' to search 0..max_lags. Stata dfuller defaults to 0. For 'pp' / 'kpss': the Newey-West truncation lag (any string selects the default rule)",
           "type": [
             "integer",
             "string"
@@ -4813,10 +4813,12 @@
         },
         "test": {
           "default": "adf",
-          "description": "Which test",
+          "description": "Which test; 'kpss' has stationarity as its null",
           "enum": [
             "adf",
-            "dfgls"
+            "dfgls",
+            "pp",
+            "kpss"
           ],
           "type": "string"
         },
@@ -5315,6 +5317,188 @@
         "data",
         "y"
       ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Nonlinear combination of coefficients with a delta-method standard error (Stata nlcom, R car::deltaMethod): ratios, long-run effects b/(1-c), turning points, exp(b)-1. The expression is parsed, not evaluated as code; coefficient names or _b[name], + - * / **, and exp / ln / sqrt / abs / normal / normalden / invlogit. Returns estimate, se, z, p-value, confidence interval and the gradient. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The expression is linear in the coefficients -- use sp.lincom, whose inference needs no approximation; A ratio whose denominator is not clearly different from zero -- the delta-method interval is unreliable; use a Fieller interval or the bootstrap.",
+    "name": "nlcom",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "expression": {
+          "description": "Function of the coefficients, e.g. 'x1 / (1 - x2)'",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fitted model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "expression"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Structural VAR on a fitted sp.var: short-run restrictions in the AB model A e = B u (Stata svar aeq() beq()), long-run restrictions on the cumulative impact matrix (Blanchard-Quah; Stata svar lreq()), or sign restrictions on impulse responses (a set of admissible models). Maximum likelihood with standard errors and a likelihood-ratio test of over-identifying restrictions; the result gives structural impulse responses and the forecast-error variance decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Long-run restrictions on a VAR with a unit root in levels -- I - A_1 - ... - A_p is singular; difference the integrated variables first; Sign-restricted bands are read as confidence intervals -- they are the spread of the identified set at the estimated reduced form and carry no sampling uncertainty.",
+    "name": "svar",
+    "parameters": {
+      "properties": {
+        "A": {
+          "description": "Short-run: restrictions on A; np.nan marks a free element",
+          "type": "string"
+        },
+        "B": {
+          "description": "Short-run: restrictions on B; np.nan marks a free element",
+          "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Band level (sign)",
+          "type": "number"
+        },
+        "long_run": {
+          "description": "Long-run: restrictions on C = (I - A_1 - ... - A_p)^-1 P",
+          "type": "string"
+        },
+        "max_tries": {
+          "default": 200000,
+          "description": "Rotations tried at most",
+          "type": "integer"
+        },
+        "n_draws": {
+          "default": 1000,
+          "description": "Admissible rotations kept",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Seed of the rotation draws",
+          "type": "integer"
+        },
+        "sign": {
+          "description": "Sign restrictions: {shock: {variable: '+' or '-'}}",
+          "type": "object"
+        },
+        "sign_horizon": {
+          "default": 0,
+          "description": "Signs hold at periods 0 .. sign_horizon",
+          "type": "integer"
+        },
+        "var_result": {
+          "description": "Fit of sp.var",
+          "type": "string"
+        }
+      },
+      "required": [
+        "var_result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Test on the variance of a normal population (Stata sdtest / sdtesti, R var.test). One sample: (n-1)s^2/sd0^2 against chi-squared(n-1). Two samples (by= or other=): s1^2/s2^2 against F(n1-1, n2-1). Takes data or summary statistics (n=, sd=). Returns the statistic, degrees of freedom, the two-sided (twice the smaller tail) and both one-sided p-values, and a confidence interval for the standard deviation or the ratio. Exact under normality, not robust to heavy tails. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The data are skewed or heavy-tailed -- the chi-squared and F tests then reject a true null far more often than alpha; compare spreads with a robust test or the bootstrap.",
+    "name": "sdtest",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping column with exactly two values; the ratio is sd(lower group) / sd(higher group)",
+          "type": "string"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "mean": {
+          "description": "Sample mean, reported only",
+          "type": "number"
+        },
+        "n": {
+          "description": "Observations (summary form)",
+          "type": "integer"
+        },
+        "other": {
+          "description": "Second variable",
+          "type": "string"
+        },
+        "sd": {
+          "description": "Sample standard deviation (summary form)",
+          "type": "number"
+        },
+        "sd0": {
+          "description": "One sample: standard deviation under the null",
+          "type": "number"
+        },
+        "y": {
+          "description": "Variable to test",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "z test on a mean or on a difference of two means when the population standard deviation is known (Stata ztest / ztesti). Takes data or summary statistics (n=, mean=). Returns the estimate, its standard error, z, the two-sided and both one-sided p-values and the confidence interval. Use sp.ttest when the standard deviation is estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: sd is the sample standard deviation -- use sp.ttest, which accounts for estimating it.",
+    "name": "ztest",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping column with exactly two values; the estimate is mean(lower group) - mean(higher group)",
+          "type": "string"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "mean": {
+          "description": "Sample mean (summary form)",
+          "type": "number"
+        },
+        "mu": {
+          "default": 0.0,
+          "description": "Null value",
+          "type": "number"
+        },
+        "n": {
+          "description": "Observations (summary form)",
+          "type": "integer"
+        },
+        "other": {
+          "description": "Second, independent variable",
+          "type": "string"
+        },
+        "sd": {
+          "default": 1.0,
+          "description": "Known population standard deviation, or one per sample",
+          "type": "number"
+        },
+        "y": {
+          "description": "Variable whose mean is tested",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
       "type": "object"
     }
   },
@@ -30424,7 +30608,7 @@
     "parameters": {
       "properties": {
         "hypothesis": {
-          "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it.",
+          "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``).",
           "items": {
             "type": "string"
           },
@@ -50390,8 +50574,13 @@
           "description": "If True, select (p, d, q) by AICc grid search (ignores ``order``).",
           "type": "boolean"
         },
+        "data": {
+          "description": "Frame holding ``y`` (and ``exog``), in time order. Rows before the first and after the last non-missing ``y`` are dropped, so a differenced column can be passed as it is.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
         "exog": {
-          "description": "Exogenous regressors (ARIMAX).",
+          "description": "Exogenous regressors (ARIMAX); column names when ``data`` is given.",
           "type": "string"
         },
         "max_d": {
@@ -50438,8 +50627,16 @@
           },
           "type": "array"
         },
+        "trend": {
+          "description": "Deterministic term. ``'c'`` estimates a constant: the mean of the series when it is not differenced (``const``), the mean of the differenced series -- a drift in the level -- when ``d + D = 1`` (``drift``). ``'n'`` estimates neither. The default follows R's ``stats::arima`` and statsmodels' ``ARIMA``: a constant without differencing, none with it. Stata's ``arima`` always includes the constant; pass ``trend='c'`` to reproduce it on a differenced series. A constant with ``d + D > 1`` is a polynomial trend and is refused.",
+          "enum": [
+            "c",
+            "n"
+          ],
+          "type": "string"
+        },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "The series; a column name when ``data`` is given.",
           "type": "string"
         }
       },
@@ -50505,6 +50702,11 @@
     "name": "garch",
     "parameters": {
       "properties": {
+        "data": {
+          "description": "Frame holding the column ``y``, in time order. Leading and trailing missing values (the first row of a differenced series) are dropped.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
         "mean": {
           "default": true,
           "description": "Estimate a constant mean mu; if False, mu = 0.",
@@ -50540,7 +50742,7 @@
           "type": "string"
         },
         "y": {
-          "description": "Return series (or log-return, etc.).",
+          "description": "Return series (or log-return, etc.); a column name when ``data`` is given.",
           "type": "string",
           "x-statspai-role": "column"
         }

@@ -188,7 +188,12 @@ def test_heckman_twostep_default_refuses_robust_and_weights() -> None:
         with pytest.raises(MethodIncompatibility, match="method='ml'"):
             sp.heckman(_data(), **kw, **bad)
     with pytest.raises(MethodIncompatibility, match="twostep' or 'ml'"):
-        sp.heckman(_data(), **kw, method="mle")
+        sp.heckman(_data(), **kw, method="fiml")
+    # 'mle', the spelling of sp.etregress and sp.tobit, is 'ml'
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        alias = sp.heckman(_data(), **kw, method="mle")
+    assert alias.model_info["method"] == "Heckman ML"
 
 
 # --------------------------------------------------------------------------

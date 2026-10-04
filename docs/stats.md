@@ -39,27 +39,27 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 52,712 | 70 | 97 |
-| `agent` | 30,104 | 55 | 4 |
-| `synth` | 29,718 | 39 | 55 |
-| `regression` | 24,319 | 30 | 45 |
-| `rd` | 23,007 | 34 | 56 |
-| `smart` | 16,667 | 21 | 31 |
+| `did` | 52,743 | 70 | 97 |
+| `agent` | 31,699 | 58 | 4 |
+| `synth` | 29,808 | 39 | 55 |
+| `regression` | 24,551 | 30 | 45 |
+| `rd` | 23,024 | 34 | 56 |
+| `smart` | 16,690 | 21 | 31 |
 | `forest` | 15,886 | 17 | 31 |
 | `output` | 13,980 | 22 | 42 |
-| `matching` | 11,719 | 17 | 25 |
-| `inference` | 11,690 | 25 | 34 |
-| `core` | 11,274 | 19 | 6 |
-| `panel` | 11,197 | 18 | 21 |
+| `matching` | 11,893 | 17 | 25 |
+| `inference` | 12,284 | 26 | 37 |
+| `core` | 11,647 | 19 | 6 |
+| `panel` | 11,401 | 18 | 21 |
 | `decomposition` | 9,912 | 19 | 32 |
-| `diagnostics` | 9,823 | 18 | 28 |
+| `diagnostics` | 10,050 | 18 | 28 |
 | `dml` | 9,394 | 24 | 16 |
 | `iv` | 8,862 | 17 | 10 |
-| `timeseries` | 7,992 | 16 | 28 |
+| `timeseries` | 9,170 | 18 | 30 |
 | `fast` | 7,871 | 16 | 0 |
-| `spatial` | 7,855 | 30 | 38 |
+| `spatial` | 7,860 | 30 | 38 |
 | `plots` | 6,015 | 7 | 8 |
-| `multilevel` | 5,283 | 9 | 11 |
+| `multilevel` | 5,384 | 9 | 11 |
 | `bayes` | 5,244 | 12 | 20 |
 | `mendelian` | 5,187 | 13 | 41 |
 | `frontier` | 4,986 | 8 | 12 |
@@ -81,13 +81,13 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `causal_llm` | 3,026 | 10 | 15 |
 | `rlasso` | 2,840 | 7 | 10 |
 | `crossval` | 2,809 | 7 | 2 |
-| `postestimation` | 2,656 | 6 | 12 |
+| `postestimation` | 3,037 | 7 | 13 |
 | `conformal_causal` | 2,597 | 9 | 21 |
 | `epi` | 2,523 | 6 | 20 |
 | `interference` | 2,460 | 10 | 20 |
 | `datasets` | 2,420 | 4 | 3 |
 | `mediation` | 2,188 | 5 | 6 |
-| `fixest` | 2,139 | 3 | 4 |
+| `fixest` | 2,149 | 3 | 4 |
 | `question` | 2,102 | 3 | 6 |
 | `policy_learning` | 2,072 | 5 | 8 |
 | `proximal` | 2,052 | 8 | 13 |
@@ -97,7 +97,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `power` | 1,517 | 3 | 12 |
 | `fairness` | 1,489 | 3 | 9 |
 | `target_trial` | 1,475 | 7 | 9 |
-| `survey` | 1,462 | 4 | 7 |
+| `survey` | 1,464 | 4 | 7 |
 | `bunching` | 1,445 | 5 | 8 |
 | `bridge` | 1,345 | 8 | 2 |
 | `experimental` | 1,246 | 4 | 9 |
@@ -126,7 +126,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **522,654** | **903** | **1306** |
+| **Total** | **528,304** | **910** | **1312** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

@@ -25,6 +25,7 @@ from .multiway_cluster import (
 from .pate import PATEEstimator, pate
 from .ppi import ppi_mean, ppi_ols
 from .randomization import FisherResult, fisher_exact, ri_test
+from .sdtest import SDTestResult, sdtest, ztest
 from .suest import SuestResult, suest
 from .ttest import TTestResult, ttest
 from .twoway_cluster import twoway_cluster
@@ -61,6 +62,9 @@ __all__ = [
     "ppi_mean",
     "ppi_ols",
     "ttest",
+    "sdtest",
+    "ztest",
+    "SDTestResult",
     "TTestResult",
     "bitest",
     "BiTestResult",

@@ -253,6 +253,32 @@ def _garch_filter(
     return s2, eps, ll_t, scores
 
 
+def _series_argument(y: object, data: Optional[pd.DataFrame], who: str) -> np.ndarray:
+    """``y`` as a float vector; a column of ``data`` when one is given, with
+    the missing values at either end trimmed."""
+    if data is None:
+        if isinstance(y, str):
+            raise MethodIncompatibility(
+                f"{who}: y={y!r} names a column; pass data= as well.",
+                recovery_hint=f"sp.{who}({y!r}, data=df) or sp.{who}(df[{y!r}]).",
+            )
+        return np.asarray(y, dtype=float).ravel()
+    if not isinstance(y, str) or y not in data.columns:
+        raise MethodIncompatibility(
+            f"{who}: with data=, y must be the name of one of its columns.",
+            recovery_hint="Check the column name.",
+            diagnostics={"columns": [str(c) for c in data.columns][:20]},
+        )
+    values = data[y].to_numpy(dtype=float)
+    keep = np.flatnonzero(~np.isnan(values))
+    if keep.size == 0:
+        raise MethodIncompatibility(
+            f"{who}: column {y!r} has no non-missing values.",
+            recovery_hint="Check the column.",
+        )
+    return np.asarray(values[keep[0] : keep[-1] + 1], dtype=float)
+
+
 def garch(
     y: object,
     p: int = 1,
@@ -260,13 +286,19 @@ def garch(
     mean: bool = True,
     presample: str = "stata",
     vce: str = "oim",
+    *,
+    data: Optional[pd.DataFrame] = None,
 ) -> GARCHResult:
     """Fit GARCH(p,q) by conditional Gaussian MLE.
 
     Parameters
     ----------
-    y : array-like
-        Return series (or log-return, etc.).
+    y : array-like or str
+        Return series (or log-return, etc.); a column name when ``data`` is
+        given.
+    data : pandas.DataFrame, optional
+        Frame holding the column ``y``, in time order. Leading and trailing
+        missing values (the first row of a differenced series) are dropped.
     p : int, default 1
         Number of GARCH (lagged σ²) terms (Stata ``garch(p)``).
     q : int, default 1
@@ -318,8 +350,21 @@ def garch(
     True
     >>> print(res.summary())  # doctest: +SKIP
     """
-    y = np.asarray(y, dtype=float).ravel()
+    y = _series_argument(y, data, "garch")
     T = len(y)
+    if p < 0 or q < 0 or (p == 0 and q == 0):
+        raise MethodIncompatibility(
+            "garch: p and q are non-negative lag counts, not both zero.",
+            recovery_hint="GARCH(1,1) is p=1, q=1; ARCH(1) is p=0, q=1.",
+        )
+    if q == 0:
+        raise MethodIncompatibility(
+            "garch: with no ARCH term (q=0) the lagged-variance coefficients "
+            "are not identified: the variance never responds to the data, so "
+            "every beta gives the same constant variance.",
+            recovery_hint="Use q >= 1; ARCH(1) is p=0, q=1 (note that p "
+            "counts the lagged variances, q the lagged squared errors).",
+        )
     if T < max(p, q) + 10:
         raise ValueError("Time series too short for GARCH estimation.")
     if presample not in ("stata", "rugarch"):

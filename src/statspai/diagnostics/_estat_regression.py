@@ -463,6 +463,10 @@ def durbinalt(
     ``estat durbinalt`` with and without ``small``). Unlike the
     Durbin-Watson statistic it stays valid when the regressors are not
     strictly exogenous, for example with a lagged dependent variable.
+
+    References
+    ----------
+    [@durbin1970testing]
     """
     f_form = bgodfrey(result, lags=lags, fill="zero", version="fstat", alpha=alpha)
     version = str(version).lower()
@@ -506,6 +510,10 @@ def archlm(
     degrees of freedom under the null of no ARCH (Stata ``estat archlm``),
     or with ``version='fstat'`` the F statistic of that regression. The
     rows must be in time order.
+
+    References
+    ----------
+    [@engle1982autoregressive]
     """
     _, _, e, _ = _arrays(result)
     n = e.shape[0]

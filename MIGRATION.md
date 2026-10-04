@@ -5,6 +5,42 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.arima` estimates a constant when the series is not differenced
+<a id="oct2026-syllabus-fixes"></a>
+
+**What changed.** `sp.arima(y, order=(p, 0, q))` with the default
+`method='statespace'` used to fit a zero-mean model. It now estimates the
+mean (`const` in `params`), as R's `stats::arima`, statsmodels' `ARIMA`
+and Stata's `arima` do. A new `trend=` argument controls it: `None` (the
+default) is a constant without differencing and none with it, `'c'` asks
+for the constant (a `drift` once the series is differenced), `'n'` for
+none. `method='innovations_mle'` already estimated the constant.
+
+**Who is affected.** Anyone who fitted an undifferenced series whose mean
+is not zero with the default method. The autoregressive coefficients were
+biased towards one (0.763 against 0.619 on the differenced log wholesale
+price index). Series that were demeaned first, and every model with
+`d >= 1`, give the same numbers as before; they gain no parameter.
+
+**What to do.** Re-run. `sp.arima(y, order, trend='n')` reproduces the old
+fit. `params` has one more entry (`const`) in the affected case, so code
+that indexes it by position should index by name.
+
+## 1.38.0 → next: ⚠️ two-step `sp.heckman` standard errors; `sp.garch(q=0)`
+
+**What changed.**
+
+- `sp.heckman(method='twostep')` standard errors change in the fourth
+  digit. The first-step probit now enters through its observed
+  information, as in Stata and R `sampleSelection`.
+- `sp.garch(p, q=0)` raises `MethodIncompatibility`. The model is not
+  identified and the numbers it returned were arbitrary.
+
+**Who is affected.** Two-step Heckman standard errors quoted to four
+digits; any GARCH fit with `q=0`.
+
+**What to do.** Re-run. An ARCH(1) model is `sp.garch(y, p=0, q=1)`.
+
 ## 1.38.0 → next: ⚠️ Stata translation of `ivregress gmm`
 
 `sp.stata("ivregress gmm y x (d = z1 z2)", data=df)` and the code

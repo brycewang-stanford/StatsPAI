@@ -95,6 +95,14 @@ committed JSONs and tightening each to ≈3× that gap (floored at the
 is left at `1e-5`. No value was loosened; the harness contract test
 and the offline render both pass at the new budgets.
 
+*2026-10:* `43_heckman` `rel_se` `5e-4` → `1e-6`. The `8.6e-5` gap the
+budget covered was not optimiser noise. The two-step variance used the
+expected information of the first-step probit, while R `sampleSelection`
+and Stata `heckman, twostep` use the observed information. With the
+observed information the worst gap is `5.6e-11` against R and `4.3e-9`
+against Stata. This is the decision tree's step 1: a gap that had been
+given a tolerance was bisected and turned out to be on our side.
+
 *1.32:* `40_qreg` `rel_se` `0.10` → `1e-6` (removed from the ≥ `5e-2`
 table). The old row was graded A as "different sparsity estimators by
 construction": StatsPAI's only SE was a Silverman-bandwidth Gaussian-kernel

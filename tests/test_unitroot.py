@@ -273,7 +273,7 @@ def test_refusals(series):
     with pytest.raises(MethodIncompatibility, match="no trend='n'"):
         sp.unitroot(y, test="dfgls", trend="n")
     with pytest.raises(MethodIncompatibility, match="unknown test"):
-        sp.unitroot(y, test="kpss")
+        sp.unitroot(y, test="za")
     with pytest.raises(MethodIncompatibility, match="unknown trend"):
         sp.unitroot(y, trend="ctt")
     with pytest.raises(MethodIncompatibility, match="1%, 5%"):

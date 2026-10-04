@@ -55,6 +55,11 @@ def test(
         - ``"(x1 = 0) (x2 + x3 = 1)"`` — grouped restrictions
         - ``"x1 - 2*x2 = 0"`` — linear restriction; ``_cons`` names the
           intercept whatever the estimator calls it.
+        - ``"2.race = 3.race"``, ``"1.union#c.grade"`` — Stata's
+          factor-variable names for the coefficients the formula engine
+          calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``"i.race"``
+          on its own tests every level of the factor jointly (Stata's
+          ``testparm i.race``).
 
     Returns
     -------
@@ -258,6 +263,69 @@ def _df_out(df: float) -> Any:
     return int(df) if float(df).is_integer() else float(df)
 
 
+#: One factor of a Stata factor-variable coefficient name: ``2.race``,
+#: ``1b.union`` (a level), ``c.grade`` (continuous), ``i.race`` (every level).
+_FV_LEVEL = re.compile(r"(-?\d+(?:\.\d+)?)(?:bn|b|o|n)?\.([^\W\d]\w*)")
+_FV_OTHER = re.compile(r"(?:([ci])\.)?([^\W\d]\w*)")
+#: The same level as the formula engine names it: ``C(race)[T.2]``.
+_PATSY_LEVEL = re.compile(
+    r"C\(\s*([^\W\d]\w*)\s*(?:,[^()]*(?:\([^()]*\))?[^()]*)?\)\[T\.(.+)\]"
+)
+
+
+def _same_level(stata: str, patsy: str) -> bool:
+    try:
+        return float(stata) == float(patsy)
+    except ValueError:
+        return stata == patsy
+
+
+def _factor_matches(name: str, names: List[str]) -> List[int]:
+    """Coefficients a Stata factor-variable name refers to.
+
+    ``2.race`` is ``C(race)[T.2]``; ``1.union#c.grade`` is the interaction
+    of that level with ``grade``, in whichever order the design wrote it;
+    ``i.race`` is every level of ``race``. Returns positions in ``names``.
+    """
+    wanted = []
+    for part in name.split("#"):
+        level = _FV_LEVEL.fullmatch(part)
+        if level is not None:
+            wanted.append(("level", level.group(2), level.group(1)))
+            continue
+        other = _FV_OTHER.fullmatch(part)
+        if other is None:
+            return []
+        kind = "any" if other.group(1) == "i" else "plain"
+        wanted.append((kind, other.group(2), ""))
+    if all(kind == "plain" for kind, _, _ in wanted) and "#" not in name:
+        if not name.startswith("c."):
+            return []  # an ordinary name: not factor-variable notation
+    hits = []
+    for pos, candidate in enumerate(names):
+        pieces = [piece.strip() for piece in str(candidate).split(":")]
+        if len(pieces) != len(wanted):
+            continue
+        left = list(pieces)
+        for kind, var, lev in wanted:
+            found = None
+            for piece in left:
+                m = _PATSY_LEVEL.fullmatch(piece)
+                if kind == "plain" and piece == var:
+                    found = piece
+                elif kind != "plain" and m is not None and m.group(1) == var:
+                    if kind == "any" or _same_level(lev, m.group(2)):
+                        found = piece
+                if found is not None:
+                    break
+            if found is None:
+                break
+            left.remove(found)
+        else:
+            hits.append(pos)
+    return hits
+
+
 def _resolve_name(name: str, params: pd.Series, expression: str) -> int:
     names = list(params.index)
     if name in names:
@@ -269,7 +337,18 @@ def _resolve_name(name: str, params: pd.Series, expression: str) -> int:
         for alias in _INTERCEPT_NAMES:
             if alias in names:
                 return names.index(alias)
-    shown = params.attrs.get("display", names)
+    shown = [str(n) for n in params.attrs.get("display", names)]
+    hits = _factor_matches(name, shown)
+    if len(hits) == 1:
+        return hits[0]
+    if len(hits) > 1:
+        raise MethodIncompatibility(
+            f"{name!r} in {expression!r} names {len(hits)} coefficients "
+            f"({[shown[h] for h in hits]}); a restriction with '=' or an "
+            "arithmetic expression needs one.",
+            recovery_hint="Name one level (2.race), or list the factor on "
+            "its own for a joint test (sp.test(result, 'i.race')).",
+        )
     for token, real in zip(names, shown):
         expression = expression.replace(token, real)
         name = name.replace(token, real)
@@ -429,10 +508,16 @@ def _parse_hypothesis(
             # Stata's `test x1 x2`: every listed coefficient equals zero.
             g_rows, g_values = [], []
             for name in group.replace(",", " ").split():
-                row = np.zeros(len(params), dtype=float)
-                row[_resolve_name(name, params, hypothesis)] = 1.0
-                g_rows.append(row)
-                g_values.append(0.0)
+                # `i.race` (Stata's testparm): every level of the factor
+                shown = params.attrs.get("display", list(params.index))
+                several = _factor_matches(name, [str(n) for n in shown])
+                if len(several) < 2 or name in params.index:
+                    several = [_resolve_name(name, params, hypothesis)]
+                for position in several:
+                    row = np.zeros(len(params), dtype=float)
+                    row[position] = 1.0
+                    g_rows.append(row)
+                    g_values.append(0.0)
         rows.extend(g_rows)
         values.extend(g_values)
     if not rows:

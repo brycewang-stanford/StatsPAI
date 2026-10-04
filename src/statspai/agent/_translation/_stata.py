@@ -2370,8 +2370,8 @@ def _h_streg(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
-    """``heckman y x, select(employed = age kids)`` →
-    ``sp.heckman(y=..., x=[...], select=..., z=[...])``."""
+    """``heckman y x, select([employed =] age kids) [twostep vce()]`` →
+    ``sp.heckman(y=..., x=[...], select=..., z=[...], method=...)``."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
         return _emit_error("heckman requires an outcome variable", command="heckman")
@@ -2383,33 +2383,29 @@ def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
     # Stata syntax: ``select(d = z1 z2)``
     import re
 
-    m = re.match(r"^\s*(\S+)\s*=\s*(.+)$", select)
-    if not m:
+    # ``select(z1 z2)`` without a selection variable: selected where the
+    # outcome is observed (sp.heckman's select=None)
+    head, eq, tail = select.partition("=")
+    if eq and len(head.split()) != 1:
         return _emit_error(
-            "heckman select() must be `selectvar = covariates`", command="heckman"
+            "heckman select() must be `[selectvar =] covariates`", command="heckman"
         )
-    select_var = m.group(1)
-    z_vars = [v for v in m.group(2).split() if v]
+    select_var = head.strip() if eq else None
+    z_vars = (tail if eq else head).split()
+    if not z_vars:
+        return _emit_error("heckman select() names no covariates", command="heckman")
     # Stata's heckman is maximum likelihood unless `twostep` is given;
     # sp.heckman's own default is the two-step estimator, so the method is
     # always written out.
     method = "twostep" if "twostep" in cmd.options else "ml"
     # sp.heckman takes y / x / select / z explicitly — matching its signature.
-    args: Dict[str, Any] = {
-        "y": y,
-        "x": list(xs),
-        "select": select_var,
-        "z": z_vars,
-        "method": method,
-    }
-    code_pairs = [
-        "data=df",
-        f"y={y!r}",
-        f"x={list(xs)!r}",
-        f"select={select_var!r}",
-        f"z={z_vars!r}",
-        f"method={method!r}",
-    ]
+    args: Dict[str, Any] = {"y": y, "x": list(xs)}
+    code_pairs = ["data=df", f"y={y!r}", f"x={list(xs)!r}"]
+    if select_var is not None:
+        args["select"] = select_var
+        code_pairs.append(f"select={select_var!r}")
+    args.update(z=z_vars, method=method)
+    code_pairs += [f"z={z_vars!r}", f"method={method!r}"]
     cluster = _vce_cluster(cmd)
     if cluster:
         args["cluster"] = cluster
@@ -3279,6 +3275,64 @@ def _h_lincom(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("lincom", args, f"sp.lincom({', '.join(pairs)})", notes)
 
 
+def _h_testparm(cmd: StataCommand) -> Dict[str, Any]:
+    """``testparm i.race x1`` → ``sp.test(result, 'i.race x1')``: every
+    coefficient the varlist names is zero."""
+    if not cmd.varlist:
+        return _emit_error("testparm requires a varlist", command="testparm")
+    if cmd.options:
+        return _emit_error(
+            f"testparm options {sorted(cmd.options)} are not translated; call "
+            "sp.test(result, hypothesis) directly.",
+            command="testparm",
+        )
+    if any(ch in tok for tok in cmd.varlist for ch in "*?-"):
+        return _emit_error(
+            "testparm: wildcards and ranges in the varlist are not translated; "
+            "list the variables.",
+            command="testparm",
+        )
+    args: Dict[str, Any] = {"hypothesis": " ".join(cmd.varlist)}
+    return _emit("test", args, f"sp.test(result, hypothesis={args['hypothesis']!r})")
+
+
+_B_OPERATOR = re.compile(r"_b\[\s*([^\]]+?)\s*\]")
+
+
+def _h_nlcom(cmd: StataCommand) -> Dict[str, Any]:
+    """``nlcom _b[x1]/_b[x2]`` → ``sp.nlcom(result, '_b[x1]/_b[x2]')``."""
+    text = " ".join(cmd.varlist).strip()
+    if text.startswith("(") and text.endswith(")") and text.count("(") == 1:
+        text = text[1:-1].strip()
+    name, colon, body = text.partition(":")
+    if colon and re.fullmatch(r"[^\W\d]\w*", name.strip()):
+        text = body.strip()  # `nlcom ratio: _b[x1]/_b[x2]`: a display label
+    if not text or text.startswith("("):
+        return _emit_error(
+            "nlcom: one expression per call is translated, e.g. "
+            "`nlcom _b[x1]/_b[x2]`",
+            command="nlcom",
+        )
+    if "_se[" in text or re.search(r"\[[^\]]*\]_b\[", text):
+        return _emit_error(
+            "nlcom: _se[] and equation-qualified [eq]_b[] references are not "
+            "translated",
+            command="nlcom",
+        )
+    args: Dict[str, Any] = {"expression": text}
+    level = cmd.options.pop("level", None) if cmd.options else None
+    if cmd.options:
+        return _emit_error(
+            f"nlcom options {sorted(cmd.options)} are not translated; call "
+            "sp.nlcom(result, expression) directly.",
+            command="nlcom",
+        )
+    if level is not None:
+        args["alpha"] = round(1 - float(level) / 100, 10)
+    pairs = ["result"] + [f"{k}={v!r}" for k, v in args.items()]
+    return _emit("nlcom", args, f"sp.nlcom({', '.join(pairs)})")
+
+
 def _h_xtset(cmd: StataCommand) -> Dict[str, Any]:
     """``xtset id year`` / ``tsset`` — Stata panel declaration. No sp
     equivalent: pass ``entity=`` / ``time=`` (or id/time kwargs) to
@@ -3823,6 +3877,8 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "marginsplot": _h_marginsplot,
     "contrast": _h_contrast,
     "test": _h_test,
+    "testparm": _h_testparm,
+    "nlcom": _h_nlcom,
     "lincom": _h_lincom,
     "xtset": _h_xtset,
     "tsset": _h_xtset,
@@ -4461,6 +4517,7 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
 
 # Handlers kept in their own modules register here. They import the helpers
 # above, so the import has to come after them.
+from . import _stata_basics as _basics  # noqa: E402
 from . import _stata_design as _design  # noqa: E402
 from . import _stata_did as _did  # noqa: E402
 from . import _stata_panel as _panel  # noqa: E402
@@ -4475,6 +4532,7 @@ STATA_COMMAND_MAP.update(_panel.HANDLERS)
 STATA_COMMAND_MAP.update(_design.HANDLERS)
 STATA_COMMAND_MAP.update(_rd.HANDLERS)
 STATA_COMMAND_MAP.update(_did.HANDLERS)
+STATA_COMMAND_MAP.update(_basics.HANDLERS)
 STATA_COMMAND_MAP.update(_sensitivity.HANDLERS)
 
 _POSTEST_HANDLERS = frozenset(
@@ -4483,7 +4541,9 @@ _POSTEST_HANDLERS = frozenset(
         _h_marginsplot,
         _h_contrast,
         _h_test,
+        _h_testparm,
         _h_lincom,
+        _h_nlcom,
         _h_xtset,
         _h_boottest,
         _h_ttest,

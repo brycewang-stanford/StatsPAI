@@ -1,6 +1,7 @@
-"""Unit-root tests for a single time series: augmented Dickey-Fuller and DF-GLS.
+"""Unit-root tests for a single time series: augmented Dickey-Fuller, DF-GLS,
+Phillips-Perron and KPSS.
 
-Both test ``H0: the series has a unit root`` against stationarity (around a
+ADF and DF-GLS test ``H0: the series has a unit root`` against stationarity (around a
 constant or a linear trend) with the t statistic on ``y[t-1]`` in
 
     dy[t] = rho * y[t-1] + sum_j b_j * dy[t-j] + deterministics + e[t]
@@ -18,6 +19,11 @@ constant or a linear trend) with the t statistic on ``y[t-1]`` in
   are too lenient in the samples macro data come in (with a constant the 5%
   point is -1.95 asymptotically and about -2.27 at 50 observations).
 
+* **Phillips-Perron** and **KPSS** handle serial correlation with a
+  Newey-West long-run variance instead of lagged differences
+  (:mod:`._unit_root_pp_kpss`). KPSS reverses the hypotheses: its null is
+  stationarity.
+
 The panel counterparts are in :mod:`statspai.panel.unit_root`.
 """
 
@@ -33,6 +39,7 @@ from .._result_serialize import ResultProtocolMixin
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 from ..panel.unit_root import _adf_unit, mackinnon1994_pvalue
 from ._critvals import DFGLS_MIN_T, dfgls_cv, mackinnon_cv
+from ._unit_root_pp_kpss import KPSS_CV, kpss_statistic, pp_statistics
 
 __all__ = ["unitroot", "UnitRootResult"]
 
@@ -47,22 +54,29 @@ class UnitRootResult(ResultProtocolMixin):
     Attributes
     ----------
     test : str
-        ``"ADF"`` or ``"DF-GLS"``.
+        ``"ADF"``, ``"DF-GLS"``, ``"Phillips-Perron"`` or ``"KPSS"``.
     statistic : float
-        The t statistic on the lagged level.
+        The t statistic on the lagged level (ADF, DF-GLS), the adjusted
+        ``Z(t)`` (Phillips-Perron), or the KPSS statistic.
     pvalue : float or None
-        MacKinnon (1994) approximate p-value for ADF. ``None`` for DF-GLS,
-        whose finite-sample null distribution is only tabulated at the 1%,
-        5% and 10% points.
+        MacKinnon (1994) approximate p-value for ADF and Phillips-Perron.
+        ``None`` for DF-GLS and KPSS, whose null distributions are only
+        tabulated at a few points.
+    null : str
+        ``"unit root"``, or ``"stationarity"`` for KPSS -- there ``reject``
+        is evidence *of* a unit root.
+    z_rho : float or None
+        Phillips-Perron only: the adjusted ``n (rho - 1)`` statistic.
     critical_values : dict
         ``{"1%": ..., "5%": ..., "10%": ...}`` for this sample size (and,
         for DF-GLS, this lag order).
     reject : bool
-        Whether the unit root is rejected at ``alpha``.
+        Whether the null is rejected at ``alpha``.
     lags : int
-        Lagged differences in the test regression.
+        Lagged differences in the test regression; for Phillips-Perron and
+        KPSS, the Newey-West truncation lag.
     lag_selection : str
-        ``"fixed"`` or the information criterion that chose ``lags``.
+        ``"fixed"`` or the rule that chose ``lags``.
     n_obs : int
         Observations in the test regression.
     rho, se : float
@@ -106,6 +120,8 @@ class UnitRootResult(ResultProtocolMixin):
         se: float,
         trend: str,
         ic_table: Optional[pd.DataFrame] = None,
+        null: str = "unit root",
+        z_rho: Optional[float] = None,
     ) -> None:
         self.test = test
         self.method = f"{test} unit-root test"
@@ -121,25 +137,41 @@ class UnitRootResult(ResultProtocolMixin):
         self.se = se
         self.trend = trend
         self.ic_table = ic_table
+        self.null = null
+        self.z_rho = z_rho
 
     def summary(self) -> str:
-        head = f"{self.test} test for a unit root"
+        long_run = self.test in ("Phillips-Perron", "KPSS")
+        head = f"{self.test} test for " + (
+            "stationarity" if self.null == "stationarity" else "a unit root"
+        )
         cv = "   ".join(f"{k}: {v:.3f}" for k, v in self.critical_values.items())
         lines = [
             head,
             "=" * len(head),
-            "H0: the series has a unit root",
+            (
+                "H0: the series is stationary"
+                if self.null == "stationarity"
+                else "H0: the series has a unit root"
+            ),
             f"Deterministic terms : {_TREND_LABEL[self.trend]}",
-            f"Lagged differences  : {self.lags} ({self.lag_selection})",
+            (
+                f"Newey-West lags     : {self.lags} ({self.lag_selection})"
+                if long_run
+                else f"Lagged differences  : {self.lags} ({self.lag_selection})"
+            ),
             f"Observations        : {self.n_obs}",
             "",
             f"Test statistic      : {self.statistic:.4f}",
             f"Critical values     : {cv}",
         ]
+        if self.z_rho is not None:
+            lines.insert(-1, f"Z(rho)              : {self.z_rho:.4f}")
         if self.pvalue is not None:
             lines.append(f"MacKinnon p-value   : {self.pvalue:.4f}")
         verdict = "rejected" if self.reject else "not rejected"
-        lines.append(f"Unit root {verdict} at the {100 * self.alpha:g}% level.")
+        what = "Stationarity" if self.null == "stationarity" else "Unit root"
+        lines.append(f"{what} {verdict} at the {100 * self.alpha:g}% level.")
         return "\n".join(lines)
 
     def __repr__(self) -> str:
@@ -244,10 +276,11 @@ def unitroot(
     time: Optional[str] = None,
     alpha: float = 0.05,
 ) -> UnitRootResult:
-    """Augmented Dickey-Fuller or DF-GLS test for a unit root in one series.
+    """Unit-root test for one series: ADF, DF-GLS, Phillips-Perron or KPSS.
 
-    Equivalent to Stata's ``dfuller`` / ``dfgls``, R's ``urca::ur.df`` /
-    ``urca::ur.ers`` and ``statsmodels.tsa.stattools.adfuller``.
+    Equivalent to Stata's ``dfuller`` / ``dfgls`` / ``pperron`` / ``kpss``,
+    R's ``urca::ur.df`` / ``urca::ur.ers`` / ``urca::ur.pp`` /
+    ``urca::ur.kpss`` and ``statsmodels.tsa.stattools.adfuller`` / ``kpss``.
 
     Parameters
     ----------
@@ -256,9 +289,15 @@ def unitroot(
         missing values are trimmed; a gap inside the series is an error.
     y : str, optional
         Column to test when ``data`` is a DataFrame.
-    test : {"adf", "dfgls"}, default "adf"
+    test : {"adf", "dfgls", "pp", "kpss"}, default "adf"
         ``"dfgls"`` is the Elliott-Rothenberg-Stock test, more powerful when
-        the largest root is near one.
+        the largest root is near one. ``"pp"`` is the Phillips-Perron test:
+        the Dickey-Fuller regression without lagged differences, corrected
+        for serial correlation by a Newey-West long-run variance.
+        ``"kpss"`` is the Kwiatkowski-Phillips-Schmidt-Shin test, whose
+        **null is stationarity** (around a constant with ``trend="c"``,
+        around a linear trend with ``"ct"``): there ``reject=True`` is
+        evidence of a unit root.
     trend : {"c", "ct", "n"}, default "c"
         Deterministic terms under the alternative: a constant, a constant
         and a linear trend, or nothing (``"n"``, ADF only). Use ``"ct"``
@@ -267,14 +306,20 @@ def unitroot(
         Lagged differences in the test regression. An information criterion
         searches ``0 .. max_lags`` on the common sample those regressions
         share, then the test is run on every observation the chosen order
-        allows. Stata's ``dfuller`` default is ``lags=0``.
+        allows. Stata's ``dfuller`` default is ``lags=0``. For ``"pp"``
+        and ``"kpss"`` this is the Newey-West truncation lag instead, and
+        any string selects the default rule: ``floor(4 (T/100)^(2/9))`` for
+        Phillips-Perron (Stata's ``pperron``), ``floor(4 (T/100)^(1/4))``
+        for KPSS (the ``l4`` rule of the original paper and of R's
+        ``tseries::kpss.test``).
     max_lags : int, optional
         Upper end of the search. Default: Schwert's (1989) rule
         ``floor(12 * (T / 100) ** 0.25)``.
     time : str, optional
         Column to sort a DataFrame by first.
     alpha : float, default 0.05
-        Level for ``result.reject``. DF-GLS supports 0.01, 0.05 and 0.10.
+        Level for ``result.reject``. DF-GLS supports 0.01, 0.05 and 0.10;
+        KPSS also 0.025.
 
     Returns
     -------
@@ -322,13 +367,16 @@ def unitroot(
     [@said1984testing],
     [@elliott1996efficient],
     [@mackinnon1994approximate],
-    [@schwert1989tests]
+    [@schwert1989tests],
+    [@phillips1988testing],
+    [@kwiatkowski1992testing]
     """
     test_key = str(test).lower().replace("-", "").replace("_", "")
-    if test_key not in ("adf", "dfgls"):
+    test_key = {"pperron": "pp", "phillipsperron": "pp"}.get(test_key, test_key)
+    if test_key not in ("adf", "dfgls", "pp", "kpss"):
         raise MethodIncompatibility(
             f"unitroot: unknown test {test!r}.",
-            recovery_hint="Use test='adf' or test='dfgls'.",
+            recovery_hint="Use test='adf', 'dfgls', 'pp' or 'kpss'.",
         )
     if trend not in ("n", "c", "ct"):
         raise MethodIncompatibility(
@@ -358,6 +406,8 @@ def unitroot(
 
     series = _series(data, y, time)
     T = series.size
+    if test_key in ("pp", "kpss"):
+        return _long_run_test(test_key, series, trend, lags, alpha, tabulated, level)
     if test_key == "dfgls":
         series = _gls_detrend(series, trend)
         reg_trend = "n"
@@ -423,3 +473,64 @@ def unitroot(
         trend=trend,
         ic_table=ic_table,
     )
+
+
+def _long_run_test(
+    test_key: str,
+    series: np.ndarray,
+    trend: str,
+    lags: Union[int, str],
+    alpha: float,
+    tabulated: bool,
+    level: int,
+) -> UnitRootResult:
+    """Phillips-Perron and KPSS: the two tests built on a long-run variance."""
+    T = series.size
+    name = "Phillips-Perron" if test_key == "pp" else "KPSS"
+    if test_key == "kpss" and trend == "n":
+        raise MethodIncompatibility(
+            "unitroot: KPSS tests stationarity around a constant or a trend; "
+            "there is no trend='n' version.",
+            recovery_hint="Use trend='c' or trend='ct'.",
+        )
+    if isinstance(lags, str):
+        power = 2.0 / 9.0 if test_key == "pp" else 0.25
+        chosen = int(np.floor(4.0 * (T / 100.0) ** power))
+        selection = "Newey-West rule" if test_key == "pp" else "l4 rule"
+    else:
+        chosen, selection = int(lags), "fixed"
+    if chosen < 0 or chosen >= T - 3:
+        raise DataInsufficient(
+            f"unitroot: {name} with {chosen} Newey-West lags is not defined "
+            f"on {T} observations.",
+            recovery_hint="Use fewer lags or a longer series.",
+            diagnostics={"n_obs": int(T), "lags": int(chosen)},
+        )
+    if test_key == "pp":
+        fit = pp_statistics(series, chosen, trend)
+        stat, n = fit["z_t"], fit["n"]
+        case = {"n": "nc", "c": "c", "ct": "ct"}[trend]
+        cvs = {f"{lv}%": float(mackinnon_cv(case, 1, lv, n)) for lv in _LEVELS}
+        pp_p = float(mackinnon1994_pvalue(stat, trend))
+        reject = bool(stat < cvs[f"{level}%"]) if tabulated else bool(pp_p < alpha)
+        return UnitRootResult(
+            test=name, statistic=stat, pvalue=pp_p, critical_values=cvs,
+            reject=reject, alpha=float(alpha), lags=chosen,
+            lag_selection=selection, n_obs=n, rho=fit["rho"], se=fit["se"],
+            trend=trend, z_rho=fit["z_rho"],
+        )  # fmt: skip
+    cvs = dict(KPSS_CV[trend])
+    key = f"{100 * alpha:g}%"
+    if key not in cvs:
+        raise MethodIncompatibility(
+            "unitroot: KPSS critical values are tabulated at the 1%, 2.5%, "
+            f"5% and 10% levels only, not alpha={alpha!r}.",
+            recovery_hint="Use alpha=0.01, 0.025, 0.05 or 0.10.",
+        )
+    out = kpss_statistic(series, chosen, trend)
+    return UnitRootResult(
+        test=name, statistic=out["stat"], pvalue=None, critical_values=cvs,
+        reject=bool(out["stat"] > cvs[key]), alpha=float(alpha), lags=chosen,
+        lag_selection=selection, n_obs=out["n"], rho=float("nan"),
+        se=float("nan"), trend=trend, null="stationarity",
+    )  # fmt: skip

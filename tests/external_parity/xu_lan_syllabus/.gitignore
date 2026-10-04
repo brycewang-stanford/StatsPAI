@@ -1,0 +1,5 @@
+*.dta
+*.log
+*.smcl
+*.irf
+_ado/

@@ -397,6 +397,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "evidence_grade": "T2",
       "function": "arima",
       "headline": {
@@ -5516,7 +5522,8 @@
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/reference_parity/test_textbook_methods_stata_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -6135,7 +6142,8 @@
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_sasp_within_parity.py",
-        "tests/reference_parity/test_ssc_presets_Stata_parity.py"
+        "tests/reference_parity/test_ssc_presets_Stata_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_in_modules": [
         "15_hdfe_cluster"
@@ -6552,7 +6560,8 @@
         "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py",
         "tests/reference_parity/test_sdid_optimized_covariates.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
-        "tests/reference_parity/test_survreg_streg_stata_parity.py"
+        "tests/reference_parity/test_survreg_streg_stata_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -6796,6 +6805,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"
       ],
       "also_verified_by": [
@@ -7586,7 +7596,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_heckman_se_parity.py",
-        "tests/reference_parity/test_ldv_design_stata_parity.py"
+        "tests/reference_parity/test_ldv_design_stata_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -7619,8 +7630,8 @@
         "sampleSelection": "1.2.14"
       },
       "se_rel": {
-        "R": 3.794356273548446e-06,
-        "Stata": 3.790072038537039e-06
+        "R": 5.557538471289291e-11,
+        "Stata": 4.33982665233356e-09
       },
       "sides": [
         "py",
@@ -7635,7 +7646,7 @@
         "tests/stata_parity/43_heckman.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.0005"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -8438,6 +8449,7 @@
         "tests/reference_parity/test_regress_weights_iv_robust_parity.py",
         "tests/reference_parity/test_rotemberg_summary_Stata_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_validation_entry_points.py",
         "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py"
       ],
@@ -9347,7 +9359,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_panel_ssc_stata_parity.py",
-        "tests/reference_parity/test_postestimation_parity.py"
+        "tests/reference_parity/test_postestimation_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -10980,7 +10993,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_icc_parity.py",
-        "tests/reference_parity/test_lrtest_parity.py"
+        "tests/reference_parity/test_lrtest_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -12298,6 +12312,23 @@
       "tolerance": ""
     },
     {
+      "function": "nlcom",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "also_verified_by": [
         "reference_parity"
       ],
@@ -12870,7 +12901,8 @@
         "tests/reference_parity/test_panel_bias_reduced_parity.py",
         "tests/reference_parity/test_panel_parity.py",
         "tests/reference_parity/test_panel_ssc_stata_parity.py",
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/reference_parity/test_textbook_methods_stata_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -15901,6 +15933,7 @@
         "tests/reference_parity/test_sasp_within_parity.py",
         "tests/reference_parity/test_spdep_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_the_effect_stata_parity.py",
         "tests/reference_parity/test_thornton_ri_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py",
@@ -17080,6 +17113,23 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "function": "sdtest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "select_pci_proxies",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -18053,6 +18103,7 @@
         "tests/reference_parity/test_mediate_potential_outcomes.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_survreg_streg_stata_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
       "tolerance": ""
@@ -18489,6 +18540,23 @@
         "tests/reference_parity/_fixtures/aft_R.json"
       ],
       "tolerance": "Stata: every block at 1e-6; observed 3e-10 or better on coefficients, standard errors and the frailty variance, 5e-12 on the log-likelihood, with ml's stopping rule tightened in the do-file. R: coefficients and log-scale 5e-5 abs against a frozen fixture."
+    },
+    {
+      "function": "svar",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -19199,7 +19267,8 @@
         "tests/reference_parity/test_dml_multi_treatment_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
-        "tests/reference_parity/test_r2_postest_parity.py"
+        "tests/reference_parity/test_r2_postest_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -19494,6 +19563,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_truncreg_vce_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],
@@ -19716,6 +19786,12 @@
       "tolerance": "equivalence margin +/-0.005 on the critical value, 20 seeds, 90% interval of the mean inside the margin; band = beta +/- c se with se from the bit-exact event_study_vcov"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "unitroot",
       "notes": [
         "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
@@ -19755,6 +19831,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_timeseries_R_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"
       ],
@@ -20683,6 +20760,23 @@
         "tests/reference_parity/_fixtures/r2_frontier_stata.json"
       ],
       "tolerance": "estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4)"
+    },
+    {
+      "function": "ztest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "tolerance": ""
     }
   ],
   "schema_version": 1,

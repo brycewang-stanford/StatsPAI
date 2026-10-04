@@ -118,6 +118,7 @@ nav:
       - "Randomised rollouts (design-based DiD)": guides/randomized_rollout.md
       - "Stock & Watson 4th edition: run the do-files, check the numbers, what to add": guides/stock_watson_4e.md
       - "陈强《计量经济学及Stata应用》第2版：运行 do 文件、核对数字、今天该补什么": guides/chen_qiang_2e.md
+      - "徐小君、蓝嘉俊《因果推断计量经济学》：逐章对应的 StatsPAI 调用": guides/xu_lan_causal_econometrics.md
       - "Design-Based Econometrics (Zhao, 2nd edition): the Stata do-files, chapter by chapter": guides/design_based_econometrics.md
       - "Ding, A First Course in Causal Inference: every chapter's estimator as one call": guides/ding_first_course.md
       - "Applied Causal Inference Powered by ML and AI: the notebooks, chapter by chapter": guides/applied_causal_ml.md

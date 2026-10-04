@@ -35,8 +35,8 @@ def heckman(
     data: pd.DataFrame,
     y: str,
     x: List[str],
-    select: str,
-    z: List[str],
+    select: Optional[str] = None,
+    z: Optional[List[str]] = None,
     alpha: float = 0.05,
     method: str = "twostep",
     vce: Optional[str] = None,
@@ -55,8 +55,10 @@ def heckman(
         Outcome variable (observed only when ``select=1``).
     x : list of str
         Regressors in the outcome equation.
-    select : str
-        Binary selection indicator (1 = observed, 0 = not observed).
+    select : str, optional
+        Binary selection indicator (1 = observed, 0 = not observed). When
+        omitted, an observation is selected when ``y`` is not missing, as
+        in Stata's ``heckman y x, select(z1 z2)``.
     z : list of str
         Variables in the selection equation (should include exclusion
         restrictions — variables in z but not in x).
@@ -64,7 +66,9 @@ def heckman(
     method : {'twostep', 'ml'}, default 'twostep'
         ``'twostep'`` is Heckman's (1979) probit + OLS-with-IMR estimator
         with the Heckman / Greene analytical variance (Stata
-        ``heckman ..., twostep``). ``'ml'`` is full-information maximum
+        ``heckman ..., twostep``); the first-step probit enters it through
+        the inverse of its observed information, as in Stata. ``'mle'`` is
+        accepted for ``'ml'``. ``'ml'`` is full-information maximum
         likelihood -- Stata's default ``heckman`` -- parameterised as
         ``(beta, gamma, atanh rho, ln sigma)``; the result's ``detail`` also
         carries the selection equation and ``rho`` / ``sigma`` / ``lambda``.
@@ -123,6 +127,8 @@ def heckman(
 
     See Heckman (1979, *Econometrica*), Section 2.
     """
+    if method == "mle":  # the spelling sp.etregress / sp.tobit use
+        method = "ml"
     if method not in ("twostep", "ml"):
         raise MethodIncompatibility(
             f"heckman: method must be 'twostep' or 'ml', got {method!r}."
@@ -145,6 +151,22 @@ def heckman(
     if weights is not None and se_kind == "nonrobust":
         se_kind = "robust"  # Stata: pweights imply vce(robust)
 
+    if not z:
+        raise MethodIncompatibility(
+            "heckman: z= lists the variables of the selection equation.",
+            recovery_hint="Pass z=[...]; include at least one variable that "
+            "is not in x (an exclusion restriction).",
+        )
+    if select is None:
+        if y not in data.columns:
+            raise MethodIncompatibility(
+                f"heckman: column {y!r} is not in data.",
+                recovery_hint="Check the outcome column name.",
+            )
+        select = "_selected"
+        while select in data.columns:
+            select = "_" + select
+        data = data.assign(**{select: data[y].notna().astype(float)})
     df = data.copy()
 
     for col in [y, select] + x + z + [c for c in (cluster, weights) if c]:
@@ -403,10 +425,9 @@ def _probit_fit(
     gamma : (q,) ndarray
         Maximum-likelihood estimate of the probit coefficient vector.
     V_gamma : (q, q) ndarray
-        Asymptotic variance-covariance matrix of γ̂, computed as
-        ``(Z' diag(w) Z)^{-1}`` with expected-information weights
-        ``w_i = φ(Z_iγ̂)² / [Φ(Z_iγ̂)(1 − Φ(Z_iγ̂))]``. Required by
-        the Heckman (1979) two-step SE correction.
+        Asymptotic variance-covariance matrix of γ̂: the inverse of the
+        observed information (negative Hessian) at γ̂. Required by the
+        Heckman (1979) two-step SE correction.
     """
     n, k = Z.shape
     gamma = np.zeros(k)
@@ -433,11 +454,19 @@ def _probit_fit(
         if np.max(np.abs(delta)) < 1e-8:
             break
 
-    # V(γ̂) = (Z' diag(w) Z)^{-1} = (−H)^{-1} at convergence.
+    # V(γ̂) is the inverse of the observed information, as Stata's
+    # ``probit`` (and so ``heckman, twostep``) reports it. With
+    # q_i = 2 D_i − 1 and λ_i = q_i φ(q_i Z_iγ̂) / Φ(q_i Z_iγ̂) the Hessian
+    # weight is λ_i (λ_i + Z_iγ̂); the Fisher-scoring weight ``w`` used in
+    # the iterations is its expectation.
+    Zg = Z @ gamma
+    q = 2.0 * D - 1.0
+    lam = q * np.exp(stats.norm.logpdf(q * Zg) - stats.norm.logcdf(q * Zg))
+    w_obs = lam * (lam + Zg)
     try:
-        V_gamma = np.linalg.inv(Z.T @ (w[:, None] * Z))
+        V_gamma = np.linalg.inv(Z.T @ (w_obs[:, None] * Z))
     except np.linalg.LinAlgError:
-        V_gamma = np.linalg.pinv(Z.T @ (w[:, None] * Z))
+        V_gamma = np.linalg.pinv(Z.T @ (w_obs[:, None] * Z))
     return gamma, V_gamma
 
 

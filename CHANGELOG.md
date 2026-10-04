@@ -326,6 +326,107 @@ are in `docs/dev/2026-10-04-croissant-microeconometrics-review.md`.
   because `sp.ivtobit` censors at zero by default and Stata does not.
   `ivpoisson cfunction` is refused.
 
+### What the syllabus of Xu and Lan's *Causal-Inference Econometrics* found
+
+徐小君、蓝嘉俊《因果推断计量经济学》(清华大学出版社, 2025) publishes no data
+and no code, only a sample chapter and the table of contents. The twelve
+chapters were therefore used as a syllabus. One Stata do-file per chapter
+runs the commands those methods are taught with, on datasets that ship with
+Stata, and each log was replayed through `sp.stata` number by number
+(`tests/external_parity/xu_lan_syllabus/`). About 1,200 printed numbers
+were reproduced at the start and two blocks were not. 85 commands were
+refused, and several of the functions behind them had never been compared
+with Stata. Three of the findings were made by other passes the same
+night and fixed on main first: `ivregress gmm` translating to 2SLS,
+`heckman` translating to the two-step estimator, and the missing
+`estat durbinalt` / `estat archlm`. Those fixes are theirs (see the
+entries above); this pass keeps a second set of Stata numbers for each.
+Notes are in
+`docs/dev/2026-10-05-xu-lan-causal-econometrics-review.md`; the numbers
+below are pinned on committed synthetic data in
+`tests/reference_parity/test_textbook_syllabus_stata_parity.py` (40 tests).
+
+**⚠️ Correctness**
+
+- **`sp.arima` fitted a zero-mean model to a series that has a mean.** The
+  default (`method='statespace'`) estimated no constant, so an AR(1) on a
+  series with a non-zero mean pushed the autoregressive coefficient towards
+  one. On the first difference of the log U.S. wholesale price index the
+  coefficient was 0.763; with the mean estimated it is 0.619 (Stata: 0.615
+  by exact likelihood). `sp.arima` now has `trend=`. The default estimates
+  a constant when the series is not differenced and none when it is, as R's
+  `stats::arima` and statsmodels' `ARIMA` do; `trend='c'` on a differenced
+  series estimates the drift Stata's `arima` always includes; `trend='n'`
+  gives the old fit. `method='innovations_mle'` already estimated the
+  constant and is unchanged. See `MIGRATION.md`.
+- **Two-step standard errors of `sp.heckman` now use the observed
+  information of the first-step probit.** They used the expected
+  information. The difference is in the fourth digit (0.60627 to 0.60654
+  for the inverse Mills ratio on Stata's `womenwk`), and it was the whole of
+  the gap that Track A module 43 carried as a tolerance. The worst relative
+  gap in a standard error against R `sampleSelection` and Stata goes from
+  8.6e-5 to 4e-9, and the module's budget is now the default 1e-6.
+- **`sp.garch(p >= 1, q=0)` returned numbers for a model that is not
+  identified.** With no ARCH term the variance never responds to the data
+  and every value of the GARCH coefficient gives the same likelihood. The
+  call is now refused. (`p` counts lagged variances and `q` lagged squared
+  innovations; ARCH(1) is `p=0, q=1`.)
+
+**Added**
+
+- **`sp.sdtest` and `sp.ztest`.** The chi-squared test that a standard
+  deviation equals a value, the F test that two are equal, and the z test
+  on a mean or a difference of means when the standard deviation is known.
+  These are the two worked examples of the book's first chapter. Both take
+  data or summary statistics (`sp.sdtest(n=10, sd=1.14, sd0=2)`), as
+  Stata's `sdtest` / `sdtesti` and `ztest` / `ztesti`.
+- **`sp.nlcom`.** A nonlinear function of the coefficients with a
+  delta-method standard error: ratios, the long-run effect `b / (1 - c)` of
+  a partial-adjustment model, turning points. The expression is parsed into
+  a syntax tree and differentiated node by node; nothing is passed to
+  `eval`.
+- **`sp.svar`.** Structural VAR on a fitted `sp.var`: short-run
+  restrictions in the AB model (`A=`, `B=`), long-run restrictions
+  (`long_run=`), or sign restrictions on the impulse responses (`sign=`).
+  Coefficients, standard errors, the log-likelihood, the test of
+  over-identifying restrictions, structural impulse responses and variance
+  decompositions agree with Stata 18 `svar` to 1e-6 in all three
+  likelihood cases. Sign restrictions return the set of admissible
+  rotations, and the documentation says what its bands are not: they carry
+  no sampling uncertainty. `VARResult.fevd()` gives the Cholesky variance
+  decomposition.
+- **`sp.unitroot(test='pp' | 'kpss')`.** Phillips-Perron `Z(t)` and
+  `Z(rho)` and the KPSS statistic, equal to Stata's `pperron` and `kpss` to
+  1e-9. KPSS has stationarity as its null; the result says so in `null`.
+- **Stata's factor-variable names in `sp.test` and `sp.lincom`.**
+  `"2.race = 3.race"` and `"x + 1.union#c.x"` find the coefficients the
+  formula engine calls `C(race)[T.2]` and `x:C(union)[T.1]`. `"i.race"` on
+  its own tests every level jointly.
+- **`sp.heckman(select=None)`** selects where the outcome is observed
+  (Stata's `heckman y x, select(z1 z2)`, which `sp.stata` now runs), and
+  `method='mle'` is accepted for `'ml'`. `sp.arima` and `sp.garch` take
+  `data=` with a column name.
+- **`sp.stata` runs** `sdtest`, `sdtesti`, `ztest`, `ztesti`, `etregress`,
+  `pperron`, `kpss`, `arima`, `arch`, `testparm` and `nlcom`.
+
+**Fixed**
+
+- **`xtreg y x i.year, fe` through `sp.stata` failed on a panel with fewer
+  units than regressors.** The fixed-effects statistics went through the
+  between regression of the random-effects variance components, which does
+  not exist there.
+- **`sp.panel(method='mle')` took minutes on a few thousand panels.** It
+  called the general mixed-model optimiser. The likelihood of the
+  random-intercept model is now concentrated in one variance ratio. On the
+  NLS panel (4,134 women, 19,007 rows) the fit goes from more than 150
+  seconds to 0.3, with the same estimates to 1e-8.
+- **`sp.regress` with thousands of dummy columns spent minutes checking
+  for collinearity.** The scan took one dot product per pair of columns
+  and regrew its Cholesky factor one row at a time. It now works on blocks
+  of the cross-product. With about 4,100 dummy columns the two checks go
+  from more than 400 seconds to about 40; the omitted columns are the
+  same.
+
 ### What Gaillac and L'Hour's *Machine Learning for Econometrics* found
 
 A pass over the companion code of Gaillac and L'Hour (2025, OUP): notebooks

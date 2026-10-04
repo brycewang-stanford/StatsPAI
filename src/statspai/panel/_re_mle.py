@@ -2,7 +2,11 @@
 
 ``y_it = x_it'b + u_i + e_it`` with ``u_i ~ N(0, sigma_u^2)`` and ``e_it ~
 N(0, sigma_e^2)``. The point estimates are those of the random-intercept
-mixed model (:func:`statspai.mixed` with ``method='ml'``). The standard
+mixed model (:func:`statspai.mixed` with ``method='ml'``), found here by
+maximising the likelihood concentrated in the one ratio ``sigma_u^2 /
+sigma_e^2``: given the ratio, ``b`` is a GLS fit on panel sums and
+``sigma_e^2`` a mean square, so the cost does not grow with the number of
+panels the way a general mixed-model fit does. The standard
 errors come from the observed information of the full likelihood in ``(b,
 sigma_u^2, sigma_e^2)``, which is what Stata's ``xtreg, mle`` reports; they
 differ slightly from the GLS standard errors ``(X'V^{-1}X)^{-1}`` of the
@@ -15,7 +19,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats
+from scipy import optimize, stats
 
 from ..exceptions import DataInsufficient
 
@@ -88,6 +92,48 @@ def re_information(
     return -H
 
 
+def _concentrated_fit(
+    y: np.ndarray, X: np.ndarray, codes: np.ndarray
+) -> Tuple[np.ndarray, float, float]:
+    """Maximum-likelihood ``(beta, sigma_u^2, sigma_e^2)``.
+
+    With ``r = sigma_u^2 / sigma_e^2`` the inverse covariance of panel ``i``
+    is ``(I - a_i 11') / sigma_e^2``, ``a_i = r / (1 + T_i r)``, so the GLS
+    normal equations need only ``X'X``, ``X'y`` and the panel sums.
+    """
+    n = int(codes.max()) + 1
+    N, k = X.shape
+    T = np.bincount(codes, minlength=n).astype(float)
+    xsum = np.zeros((n, k))
+    np.add.at(xsum, codes, X)
+    ysum = np.zeros(n)
+    np.add.at(ysum, codes, y)
+    xtx, xty, yty = X.T @ X, X.T @ y, float(y @ y)
+
+    def at(r: float) -> Tuple[np.ndarray, float]:
+        a = r / (1.0 + T * r)
+        A = xtx - (xsum * a[:, None]).T @ xsum
+        b = xty - xsum.T @ (a * ysum)
+        beta = np.linalg.solve(A, b)
+        q = yty - float(a @ ysum**2) - float(beta @ b)
+        return beta, max(q, np.finfo(float).tiny) / N
+
+    def neg_profile(log_r: float) -> float:
+        r = float(np.exp(log_r))
+        _, s2e = at(r)
+        return float(0.5 * (N * np.log(s2e) + np.log1p(T * r).sum()))
+
+    best = optimize.minimize_scalar(
+        neg_profile, bounds=(-30.0, 30.0), method="bounded", options={"xatol": 1e-13}
+    )
+    r = float(np.exp(best.x))
+    _, s2e_pooled = at(0.0)
+    if 0.5 * N * np.log(s2e_pooled) <= best.fun:
+        r = 0.0  # the likelihood is highest on the boundary sigma_u = 0
+    beta, s2e = at(r)
+    return beta, r * s2e, s2e
+
+
 def fit_re_mle(
     data: pd.DataFrame,
     dep_var: str,
@@ -96,24 +142,19 @@ def fit_re_mle(
     alpha: float,
 ) -> Dict[str, Any]:
     """Estimates and the pieces a result is assembled from."""
-    from ..multilevel.lmm import mixed
-
     frame = data[[entity, dep_var] + list(indep_vars)].dropna()
     if frame[entity].nunique() < 2:
         raise DataInsufficient(
             "sp.panel(method='mle') needs at least two panels.",
             recovery_hint="Check the entity column.",
         )
-    fit = mixed(frame, dep_var, list(indep_vars), group=entity, method="ml")
     y = frame[dep_var].to_numpy(dtype=float)
     X = np.column_stack(
         [np.ones(len(frame)), frame[list(indep_vars)].to_numpy(dtype=float)]
     )
     codes, _ = pd.factorize(frame[entity], sort=True)
     names = ["const"] + list(indep_vars)
-    beta = np.array([fit.params["_cons"]] + [fit.params[v] for v in indep_vars])
-    s2u = float(fit.variance_components["var(_cons)"])
-    s2e = float(fit.variance_components["var(Residual)"])
+    beta, s2u, s2e = _concentrated_fit(y, X, codes)
     k = len(names)
     ll = re_loglik(y, X, codes, beta, s2u, s2e)
     cov_full = np.linalg.inv(re_information(y, X, codes, beta, s2u, s2e))
@@ -129,8 +170,8 @@ def fit_re_mle(
     ll_ols = (
         -0.5 * n_obs * (np.log(2.0 * np.pi * (resid_ols @ resid_ols) / n_obs) + 1.0)
     )
-    null = mixed(frame.assign(_one_=0.0), dep_var, [], group=entity, method="ml")
-    ll_null = float(null.log_likelihood)
+    ones = X[:, :1]
+    ll_null = re_loglik(y, ones, codes, *_concentrated_fit(y, ones, codes))
     lr_model = 2.0 * (ll - ll_null)
     lr_sigma_u = max(2.0 * (ll - ll_ols), 0.0)
     return {

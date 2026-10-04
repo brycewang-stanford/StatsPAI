@@ -99,6 +99,8 @@ class TTestResult(ResultProtocolMixin):
         self.alpha = alpha
         self.n_obs = n_obs
         self.groups = groups
+        #: "t", or "z" when the result comes from :func:`ztest`
+        self.statistic_name = "t"
 
     def summary(self) -> str:
         level = 100 * (1 - self.alpha)
@@ -118,7 +120,11 @@ class TTestResult(ResultProtocolMixin):
             table.to_string(float_format=lambda v: f"{v:.6g}"),
             "",
             f"{self.estimand} = {self.estimate:.6g}   (se {self.se:.6g})",
-            f"t = {self.statistic:.4f},  degrees of freedom = {self.df:.6g}",
+            (
+                f"z = {self.statistic:.4f}"
+                if self.statistic_name == "z"
+                else f"t = {self.statistic:.4f},  degrees of freedom = {self.df:.6g}"
+            ),
             f"H0: {self.estimand} = {self.null:g}",
             f"  Ha: <  p = {self.pvalue_less:.4f}",
             f"  Ha: != p = {self.pvalue:.4f}",
@@ -129,7 +135,8 @@ class TTestResult(ResultProtocolMixin):
     def __repr__(self) -> str:
         return (
             f"TTestResult({self.method}: estimate={self.estimate:.6g}, "
-            f"t={self.statistic:.4f}, df={self.df:.6g}, p={self.pvalue:.4g})"
+            f"{self.statistic_name}={self.statistic:.4f}, df={self.df:.6g}, "
+            f"p={self.pvalue:.4g})"
         )
 
 

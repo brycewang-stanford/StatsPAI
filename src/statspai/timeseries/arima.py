@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 
 @dataclass
@@ -208,16 +209,24 @@ def arima(
     max_q: int = 5,
     max_d: int = 2,
     method: str = "statespace",
+    trend: Optional[str] = None,
+    *,
+    data: Optional[pd.DataFrame] = None,
 ) -> ARIMAResult:
     """Fit ARIMA(p,d,q) or SARIMAX.
 
     Parameters
     ----------
-    y : array-like or pd.Series
+    y : array-like, pd.Series or str
+        The series; a column name when ``data`` is given.
     order : (p, d, q)
     seasonal_order : (P, D, Q, s), optional
-    exog : array-like, optional
-        Exogenous regressors (ARIMAX).
+    exog : array-like or list of str, optional
+        Exogenous regressors (ARIMAX); column names when ``data`` is given.
+    data : pandas.DataFrame, optional
+        Frame holding ``y`` (and ``exog``), in time order. Rows before the
+        first and after the last non-missing ``y`` are dropped, so a
+        differenced column can be passed as it is.
     auto : bool, default False
         If True, select (p, d, q) by AICc grid search (ignores ``order``).
     max_p, max_q, max_d : int
@@ -229,6 +238,17 @@ def arima(
         statsmodels' stationary/invertible exact-MLE parameterization, matching
         ``stats::arima(method='ML')`` and tightly converged Stata
         ``arima`` coefficient conventions for pure ARMA models.
+
+    trend : {None, 'c', 'n'}, optional
+        Deterministic term. ``'c'`` estimates a constant: the mean of the
+        series when it is not differenced (``const``), the mean of the
+        differenced series -- a drift in the level -- when ``d + D = 1``
+        (``drift``). ``'n'`` estimates neither. The default follows R's
+        ``stats::arima`` and statsmodels' ``ARIMA``: a constant without
+        differencing, none with it. Stata's ``arima`` always includes the
+        constant; pass ``trend='c'`` to reproduce it on a differenced
+        series. A constant with ``d + D > 1`` is a polynomial trend and is
+        refused.
 
     Returns
     -------
@@ -265,6 +285,29 @@ def arima(
             "Install with `pip install statsmodels`."
         ) from e
 
+    if data is not None:
+        if not isinstance(y, str) or y not in data.columns:
+            raise MethodIncompatibility(
+                "arima: with data=, y must be the name of one of its columns.",
+                recovery_hint="Check the column name.",
+            )
+        col = data[y].to_numpy(dtype=float)
+        keep = np.flatnonzero(~np.isnan(col))
+        if keep.size == 0:
+            raise MethodIncompatibility(
+                f"arima: column {y!r} has no non-missing values.",
+                recovery_hint="Check the column.",
+            )
+        rows = slice(keep[0], keep[-1] + 1)
+        if exog is not None:
+            names = [exog] if isinstance(exog, str) else list(exog)
+            exog = data[names].to_numpy(dtype=float)[rows]
+        y = col[rows]
+    elif isinstance(y, str):
+        raise MethodIncompatibility(
+            f"arima: y={y!r} names a column; pass data= as well.",
+            recovery_hint=f"sp.arima({y!r}, data=df) or sp.arima(df[{y!r}]).",
+        )
     y = np.asarray(y, dtype=float).ravel()
     n = len(y)
     method_norm = method.lower().replace("-", "_")
@@ -275,29 +318,70 @@ def arima(
     if method_norm not in {"statespace", "innovations_mle"}:
         raise ValueError("method must be 'statespace', 'css_ml', or 'innovations_mle'")
 
+    if trend is not None and trend not in ("c", "n"):
+        raise MethodIncompatibility(
+            f"arima: trend must be None, 'c' or 'n', got {trend!r}.",
+            recovery_hint="'c' estimates a constant (a drift once differenced).",
+        )
+    seasonal_d = int(seasonal_order[1]) if seasonal_order else 0
+
+    def _trend_for(order_: Tuple[int, int, int]) -> Tuple[str, Optional[str]]:
+        """statsmodels' trend code and the name of the parameter it adds."""
+        n_diff = int(order_[1]) + seasonal_d
+        want = trend if trend is not None else ("c" if n_diff == 0 else "n")
+        if want == "n":
+            return "n", None
+        if n_diff == 0:
+            return "c", "const"
+        if n_diff == 1:
+            # a constant in the differenced series is a linear trend in the
+            # level, which is how statsmodels parameterises it
+            return "t", "drift"
+        raise MethodIncompatibility(
+            "arima: a constant with d + D > 1 is a polynomial trend in the "
+            "level; it is not estimated.",
+            recovery_hint="Use trend='n', or difference the series once less.",
+        )
+
     def _fit(
         order_: Tuple[int, int, int],
         maxiter: Optional[int] = None,
     ) -> Any:
+        sm_trend, _ = _trend_for(order_)
         if method_norm == "statespace":
-            model = SARIMAX(
+            if sm_trend == "n":
+                model = SARIMAX(
+                    y,
+                    order=order_,
+                    seasonal_order=seasonal_order or (0, 0, 0, 0),
+                    exog=exog,
+                    enforce_stationarity=False,
+                    enforce_invertibility=False,
+                )
+                kwargs: dict[str, Any] = {"disp": False}
+                if maxiter is not None:
+                    kwargs["maxiter"] = maxiter
+                return model.fit(**kwargs)
+            model = SMARIMA(
                 y,
                 order=order_,
                 seasonal_order=seasonal_order or (0, 0, 0, 0),
                 exog=exog,
+                trend=sm_trend,
                 enforce_stationarity=False,
                 enforce_invertibility=False,
             )
-            kwargs: dict[str, Any] = {"disp": False}
+            method_kwargs: dict[str, Any] = {"disp": False}
             if maxiter is not None:
-                kwargs["maxiter"] = maxiter
-            return model.fit(**kwargs)
+                method_kwargs["maxiter"] = maxiter
+            return model.fit(method_kwargs=method_kwargs)
 
         model = SMARIMA(
             y,
             order=order_,
             seasonal_order=seasonal_order or (0, 0, 0, 0),
             exog=exog,
+            trend=sm_trend,
             enforce_stationarity=True,
             enforce_invertibility=True,
         )
@@ -327,7 +411,11 @@ def arima(
     k = len(np.asarray(res.params))
     aicc = res.aic + 2 * k * (k + 1) / max(n - k - 1, 1)
 
-    _param_index = res.param_names if hasattr(res, "param_names") else None
+    _param_index = list(res.param_names) if hasattr(res, "param_names") else None
+    _, _trend_name = _trend_for(order)
+    if _param_index is not None and _trend_name is not None:
+        # statsmodels puts the deterministic term first ("const" / "x1")
+        _param_index[0] = _trend_name
     _params = pd.Series(res.params, index=_param_index)
     # statsmodels computes the asymptotic SEs (sqrt of the diagonal of the
     # covariance of the MLE) but we never surfaced them before; expose them.
@@ -365,6 +453,7 @@ def arima(
                 "max_q": max_q,
                 "max_d": max_d,
                 "method": method,
+                "trend": trend,
             },
             data=None,
             overwrite=False,

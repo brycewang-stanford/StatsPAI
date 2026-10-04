@@ -97,7 +97,14 @@ def _hand_heckman_variance(df):
         gamma -= delta_g
         if np.max(np.abs(delta_g)) < 1e-10:
             break
-    V_gamma = np.linalg.inv(Z.T @ (w[:, None] * Z))  # asymptotic V(γ̂)
+    # V(γ̂) from the observed information of the probit, as Stata's
+    # ``heckman, twostep`` and R ``sampleSelection::heckit`` take it (the
+    # Fisher-scoring weight ``w`` above is its expectation; the two differ
+    # in the fourth digit of the standard errors).
+    Zg = Z @ gamma
+    q = 2.0 * D - 1.0
+    lam = q * stats.norm.pdf(q * Zg) / stats.norm.cdf(q * Zg)
+    V_gamma = np.linalg.inv(Z.T @ ((lam * (lam + Zg))[:, None] * Z))
 
     # IMR for all obs; restrict to selected for second stage.
     Zg_all = Z @ gamma

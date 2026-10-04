@@ -1,5 +1,5 @@
 {
-  "aggregate_sha256": "0af0ea92d66ac7f68bf53dd4b622ff2e3052a7293417f40311c6e500e80ecce6",
+  "aggregate_sha256": "82787a64e52d7747dcf444e555904758ac12f681f8cc2567aebaad714dcac64d",
   "counts": {
     "files": 637,
     "input_csvs": 88,
@@ -938,9 +938,9 @@
       "sha256": "ac58c5186daa282abcafe45dc6b6ca334a1993ed71b26759fd4de308c1087683"
     },
     {
-      "bytes": 112450,
+      "bytes": 112588,
       "path": "tests/r_parity/compare.py",
-      "sha256": "286368414fb5d85bb51ef62747dea36f27b5633de4ac474ec063f979a87b37f6"
+      "sha256": "61fbe8f4db3c7bca51a6fb8f14c88d5216dadfd111ba7298512a2f761dd60cd4"
     },
     {
       "bytes": 104713,
@@ -1813,9 +1813,9 @@
       "sha256": "1f7d57bbf69be025c10e3e1645ddc5f4a7a158cca4d767fa66e698dc254f2758"
     },
     {
-      "bytes": 865,
+      "bytes": 866,
       "path": "tests/r_parity/results/43_heckman_py.json",
-      "sha256": "b0fce34fd4bcc90c611c4c253c97c09b824703c7ef5b6ea3e097609313645535"
+      "sha256": "6b8f8134e984718f89686b5578dd33bddbf2cc34b3333ea1df524bb28baf1ac8"
     },
     {
       "bytes": 1953,
@@ -2285,7 +2285,7 @@
     {
       "bytes": 133202,
       "path": "tests/r_parity/results/parity_table.md",
-      "sha256": "2a4c9f64ff87058910766d311065b90f6fe63633f13f14d6213f55cab6cafed0"
+      "sha256": "7a686ec647fa54a1c949d762001a294ee0303fbca3092bc2d5cbd6d53c148223"
     },
     {
       "bytes": 15056,
@@ -2293,9 +2293,9 @@
       "sha256": "945e86c74bff4bbe2de9febc224148f14449b38c4d57c540b088912142f95675"
     },
     {
-      "bytes": 174758,
+      "bytes": 174755,
       "path": "tests/r_parity/results/parity_table_3way.md",
-      "sha256": "7c17adafcf72d306554c3b7c5d2868202ab6ff90b453c00245ce328493c81629"
+      "sha256": "86c452d07d4f39dcf8e2bf0d0699559f9a32f02646be0bde290f40c9bade2a09"
     },
     {
       "bytes": 18073,

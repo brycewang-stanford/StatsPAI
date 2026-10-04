@@ -47,7 +47,7 @@ __all__ = ["stata", "StataSession"]
 _DESCRIPTIVE_TOOLS = frozenset(
     {
         "sumstats", "pwcorr", "ttest", "bitest", "unitroot", "corrgram", "varsoc",
-        "xtsum", "xtserial",
+        "xtsum", "xtserial", "sdtest", "ztest",
     }  # fmt: skip
 )
 
@@ -1094,10 +1094,10 @@ class StataSession:
                     arguments["data"] = self.last_data
             self.output = fn(self.last, **arguments)
             self._store_r(str(out["tool"]), arguments, None)
-        elif out["tool"] == "bitest" and "n" in arguments:
+        elif out["tool"] in ("bitest", "sdtest", "ztest") and "n" in arguments:
             # the immediate form: counts on the command line, no data
             self.output = fn(**arguments)
-            self._store_r("bitest", arguments, None)
+            self._store_r(str(out["tool"]), arguments, None)
         else:
             if run_data is None:
                 raise TypeError(f"sp.stata: {line!r} needs data=<DataFrame>.")

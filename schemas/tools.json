@@ -646,7 +646,7 @@
           "type": "boolean"
         },
         "exog": {
-          "description": "Exogenous regressors (ARIMAX).",
+          "description": "Exogenous regressors (ARIMAX); column names when ``data`` is given.",
           "type": "string"
         },
         "max_d": {
@@ -693,8 +693,16 @@
           },
           "type": "array"
         },
+        "trend": {
+          "description": "Deterministic term. ``'c'`` estimates a constant: the mean of the series when it is not differenced (``const``), the mean of the differenced series -- a drift in the level -- when ``d + D = 1`` (``drift``). ``'n'`` estimates neither. The default follows R's ``stats::arima`` and statsmodels' ``ARIMA``: a constant without differencing, none with it. Stata's ``arima`` always includes the constant; pass ``trend='c'`` to reproduce it on a differenced series. A constant with ``d + D > 1`` is a polynomial trend and is refused.",
+          "enum": [
+            "c",
+            "n"
+          ],
+          "type": "string"
+        },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "The series; a column name when ``data`` is given.",
           "type": "string"
         }
       },
@@ -12483,7 +12491,7 @@
           "type": "string"
         },
         "y": {
-          "description": "Return series (or log-return, etc.).",
+          "description": "Return series (or log-return, etc.); a column name when ``data`` is given.",
           "type": "string",
           "x-statspai-role": "column"
         }
@@ -13785,15 +13793,16 @@
         },
         "method": {
           "default": "twostep",
-          "description": "'twostep' (Heckman 1979 probit + OLS with IMR) or 'ml' (full-information ML, Stata's default heckman)",
+          "description": "'twostep' (Heckman 1979 probit + OLS with IMR) or 'ml' (full-information ML, Stata's default heckman; 'mle' is accepted)",
           "enum": [
             "twostep",
-            "ml"
+            "ml",
+            "mle"
           ],
           "type": "string"
         },
         "select": {
-          "description": "Binary selection indicator (1 = observed, 0 = not)",
+          "description": "Binary selection indicator (1 = observed, 0 = not); omitted, selected means y is not missing",
           "type": "string"
         },
         "vce": {
@@ -13829,7 +13838,6 @@
         }
       },
       "required": [
-        "select",
         "x",
         "y",
         "z"
@@ -20035,6 +20043,32 @@
       "type": "object"
     },
     "name": "network_exposure"
+  },
+  {
+    "description": "Nonlinear combination of coefficients with a delta-method standard error (Stata nlcom, R car::deltaMethod): ratios, long-run effects b/(1-c), turning points, exp(b)-1. The expression is parsed, not evaluated as code; coefficient names or _b[name], + - * / **, and exp / ln / sqrt / abs / normal / normalden / invlogit. Returns estimate, se, z, p-value, confidence interval and the gradient. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The expression is linear in the coefficients -- use sp.lincom, whose inference needs no approximation; A ratio whose denominator is not clearly different from zero -- the delta-method interval is unreliable; use a Fieller interval or the bootstrap. Assumptions: The coefficient estimates are asymptotically normal with the reported covariance matrix; The function is smooth at the true coefficients, with a non-zero gradient. Alternatives: sp.lincom, sp.test, sp.bootstrap.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "expression": {
+          "description": "Function of the coefficients, e.g. 'x1 / (1 - x2)'",
+          "type": "string"
+        },
+        "result": {
+          "description": "Fitted model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expression",
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "nlcom"
   },
   {
     "description": "Nested logit (random-utility consistent) on long-format choice data, as Stata's nlogit and R's mlogit(nests=). Validation: certified parity evidence. Assumptions: Unobserved utilities are generalised extreme value with the given nesting structure; Independence of irrelevant alternatives holds within a nest, not across nests. Pre-conditions: Long format with every alternative present in every choice situation and exactly one chosen. Failure modes: dissimilarity parameter outside (0, 1] -> Reconsider the nesting structure; the fit is not consistent with random utility. Alternatives: sp.clogit, sp.mixlogit, sp.mlogit. Typical minimum N: 500.",
@@ -29487,6 +29521,50 @@
     "name": "sdid"
   },
   {
+    "description": "Test on the variance of a normal population (Stata sdtest / sdtesti, R var.test). One sample: (n-1)s^2/sd0^2 against chi-squared(n-1). Two samples (by= or other=): s1^2/s2^2 against F(n1-1, n2-1). Takes data or summary statistics (n=, sd=). Returns the statistic, degrees of freedom, the two-sided (twice the smaller tail) and both one-sided p-values, and a confidence interval for the standard deviation or the ratio. Exact under normality, not robust to heavy tails. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The data are skewed or heavy-tailed -- the chi-squared and F tests then reject a true null far more often than alpha; compare spreads with a robust test or the bootstrap. Assumptions: Each sample is an independent draw from a normal population; Two samples: the samples are independent of each other.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping column with exactly two values; the ratio is sd(lower group) / sd(higher group)",
+          "type": "string"
+        },
+        "mean": {
+          "description": "Sample mean, reported only",
+          "type": "number"
+        },
+        "n": {
+          "description": "Observations (summary form)",
+          "type": "integer"
+        },
+        "other": {
+          "description": "Second variable",
+          "type": "string"
+        },
+        "sd": {
+          "description": "Sample standard deviation (summary form)",
+          "type": "number"
+        },
+        "sd0": {
+          "description": "One sample: standard deviation under the null",
+          "type": "number"
+        },
+        "y": {
+          "description": "Variable to test",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "sdtest"
+  },
+  {
     "description": "Search the StatsPAI function registry by task keywords or a short natural-language phrase (e.g. 'staggered adoption event study', 'weak instrument robust CI', 'regression discontinuity density test'). Returns ranked matches with one-line descriptions, category and validation tier. Use this first when no listed tool fits; then call describe_function for the full parameter schema and call_function to run it.",
     "input_schema": {
       "properties": {
@@ -31794,6 +31872,62 @@
     "name": "survreg"
   },
   {
+    "description": "Structural VAR on a fitted sp.var: short-run restrictions in the AB model A e = B u (Stata svar aeq() beq()), long-run restrictions on the cumulative impact matrix (Blanchard-Quah; Stata svar lreq()), or sign restrictions on impulse responses (a set of admissible models). Maximum likelihood with standard errors and a likelihood-ratio test of over-identifying restrictions; the result gives structural impulse responses and the forecast-error variance decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Long-run restrictions on a VAR with a unit root in levels -- I - A_1 - ... - A_p is singular; difference the integrated variables first; Sign-restricted bands are read as confidence intervals -- they are the spread of the identified set at the estimated reduced form and carry no sampling uncertainty. Assumptions: The reduced-form VAR is correctly specified and stable (stationary, enough lags for white-noise innovations); The structural shocks are mutually uncorrelated; The restrictions are true: zeros on contemporaneous effects (short-run), on cumulative effects (long-run), or the stated signs of the re...",
+    "input_schema": {
+      "properties": {
+        "A": {
+          "description": "Short-run: restrictions on A; np.nan marks a free element",
+          "type": "string"
+        },
+        "B": {
+          "description": "Short-run: restrictions on B; np.nan marks a free element",
+          "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Band level (sign)",
+          "type": "number"
+        },
+        "long_run": {
+          "description": "Long-run: restrictions on C = (I - A_1 - ... - A_p)^-1 P",
+          "type": "string"
+        },
+        "max_tries": {
+          "default": 200000,
+          "description": "Rotations tried at most",
+          "type": "integer"
+        },
+        "n_draws": {
+          "default": 1000,
+          "description": "Admissible rotations kept",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Seed of the rotation draws",
+          "type": "integer"
+        },
+        "sign": {
+          "description": "Sign restrictions: {shock: {variable: '+' or '-'}}",
+          "type": "object"
+        },
+        "sign_horizon": {
+          "default": 0,
+          "description": "Signs hold at periods 0 .. sign_horizon",
+          "type": "integer"
+        },
+        "var_result": {
+          "description": "Fit of sp.var",
+          "type": "string"
+        }
+      },
+      "required": [
+        "var_result"
+      ],
+      "type": "object"
+    },
+    "name": "svar"
+  },
+  {
     "description": "Unified synthetic control estimator. method= selects variant: 'classic', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', 'augmented', 'sdid', 'gsynth', 'staggered'. inference= selects: 'placebo', 'conformal', 'bootstrap', 'jackknife'. Validation: certified evidence with scoped limitations. Known limitations: Classical SCM certification is specification-specific: ADH/Synth parity requires passing the same special_predictors recipe; the default outcome-only V=I path is a documented Kaul-style convention; Default native classical SCM can differ from Synth on Basque-style panels by a documented local-optimum convention (the outer V optimisation has multiple near-equivalent minima); use backend='synth' or canonical special_predictors when exact R parity is required. Do NOT use when: many units are treated at once -- classic SCM is built for one (or few) treated units; use sp.gsynth, sp.sdid or sp.callaway_santanna; the pre-treatment window is short (fewer than ~10 periods) -- the donor weights overfit noise and pre-period fit stops being evidence; the treated unit's pre-period outcome lies outside the convex hull of the donors -- no non-negative weighting can match it; check t...",
     "input_schema": {
       "properties": {
@@ -33263,7 +33397,7 @@
     "input_schema": {
       "properties": {
         "hypothesis": {
-          "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it.",
+          "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``).",
           "items": {
             "type": "string"
           },
@@ -33991,17 +34125,17 @@
     "name": "uniform_bands"
   },
   {
-    "description": "Unit-root test for one time series: augmented Dickey-Fuller or DF-GLS (Elliott-Rothenberg-Stock), with a constant or a constant and trend, a fixed lag order or one chosen by AIC / BIC. H0 is a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order. Not rejecting is not evidence of a unit root. Stata dfuller / dfgls, R urca. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unit-root test for one time series: augmented Dickey-Fuller, DF-GLS (Elliott-Rothenberg-Stock), Phillips-Perron or KPSS, with a constant or a constant and trend. For ADF, DF-GLS and Phillips-Perron H0 is a unit root; for KPSS H0 is stationarity, so there rejecting is evidence of a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order; Phillips-Perron and KPSS correct for serial correlation with a Newey-West long-run variance. Not rejecting a unit root is not evidence of one. Stata dfuller / dfgls / pperron / kpss, R urca. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10)",
+          "description": "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10; KPSS also 0.025)",
           "type": "number"
         },
         "lags": {
           "default": "aic",
-          "description": "Lagged differences: an integer, or 'aic' / 'bic' to search 0..max_lags. Stata dfuller defaults to 0",
+          "description": "Lagged differences: an integer, or 'aic' / 'bic' to search 0..max_lags. Stata dfuller defaults to 0. For 'pp' / 'kpss': the Newey-West truncation lag (any string selects the default rule)",
           "type": [
             "integer",
             "string"
@@ -34013,10 +34147,12 @@
         },
         "test": {
           "default": "adf",
-          "description": "Which test",
+          "description": "Which test; 'kpss' has stationarity as its null",
           "enum": [
             "adf",
-            "dfgls"
+            "dfgls",
+            "pp",
+            "kpss"
           ],
           "type": "string"
         },
@@ -35547,5 +35683,51 @@
       "type": "object"
     },
     "name": "zip_model"
+  },
+  {
+    "description": "z test on a mean or on a difference of two means when the population standard deviation is known (Stata ztest / ztesti). Takes data or summary statistics (n=, mean=). Returns the estimate, its standard error, z, the two-sided and both one-sided p-values and the confidence interval. Use sp.ttest when the standard deviation is estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: sd is the sample standard deviation -- use sp.ttest, which accounts for estimating it. Assumptions: The population standard deviation is known, not estimated from the sample being tested; Independent observations; a normal population, or a sample large enough for the mean to be approximately normal. Alternatives: sp.ttest.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping column with exactly two values; the estimate is mean(lower group) - mean(higher group)",
+          "type": "string"
+        },
+        "mean": {
+          "description": "Sample mean (summary form)",
+          "type": "number"
+        },
+        "mu": {
+          "default": 0.0,
+          "description": "Null value",
+          "type": "number"
+        },
+        "n": {
+          "description": "Observations (summary form)",
+          "type": "integer"
+        },
+        "other": {
+          "description": "Second, independent variable",
+          "type": "string"
+        },
+        "sd": {
+          "default": 1.0,
+          "description": "Known population standard deviation, or one per sample",
+          "type": "number"
+        },
+        "y": {
+          "description": "Variable whose mean is tested",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "ztest"
   }
 ]

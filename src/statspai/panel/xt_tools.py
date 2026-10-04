@@ -311,13 +311,21 @@ def _complete(data: pd.DataFrame, y: str, xs: List[str], id: str) -> tuple:
     )
 
 
-def _swamy_arora(y: np.ndarray, X: np.ndarray, codes: np.ndarray, n: int) -> dict:
+def _swamy_arora(
+    y: np.ndarray, X: np.ndarray, codes: np.ndarray, n: int, components: bool = True
+) -> dict:
     N, K = X.shape
     Ti = np.bincount(codes, minlength=n).astype(float)
     yb, Xb = _group_mean(y, codes, n), _group_mean(X, codes, n)
     yw, Xw = y - yb[codes], X - Xb[codes]
     bw = np.linalg.lstsq(Xw, yw, rcond=None)[0]
     ew = yw - Xw @ bw
+    if not components:
+        # the fixed-effects statistics need the two transforms only; the
+        # between regression behind sigma_u of the random-effects model
+        # does not exist with more regressors than panels (year dummies
+        # on a short list of firms)
+        return {"Ti": Ti, "yb": yb, "Xb": Xb, "yw": yw, "Xw": Xw, "bw": bw, "ew": ew}
     if N - n - K <= 0 or n - K - 1 <= 0:
         raise DataInsufficient(
             "Too few panels or periods for the variance components.",
@@ -375,7 +383,7 @@ def xt_statistics(
     xs = _columns(data, x, "xt_statistics")
     yv, X, codes, n = _complete(data, y, xs, id)
     b = np.array([float(dict(params)[name]) for name in xs])
-    parts = _swamy_arora(yv, X, codes, n)
+    parts = _swamy_arora(yv, X, codes, n, components=method != "fe")
     out: Dict[str, Any] = {
         "r2_within": _corr2(parts["Xw"] @ b, parts["yw"]),
         "r2_between": _corr2(parts["Xb"] @ b, parts["yb"]),

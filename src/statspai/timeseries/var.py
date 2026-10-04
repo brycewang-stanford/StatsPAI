@@ -149,6 +149,34 @@ class VARResult(ResultProtocolMixin):
             **kwargs,
         )
 
+    def fevd(self, periods: int = 20) -> pd.DataFrame:
+        """Forecast-error variance decomposition under the Cholesky
+        ordering of the variables.
+
+        One row per shock, response and period: the share of the
+        ``period``-step forecast-error variance of ``response`` due to the
+        orthogonalised innovation of ``shock`` (zero at ``period = 0``, as
+        in Stata's ``irf table fevd``). The orthogonalisation uses the same
+        residual covariance as :meth:`irf`.
+        """
+        from .svar import fevd_shares
+
+        names = self.var_names
+        paths = self.irf(periods=periods, orthogonal=True)["irf"]
+        theta = np.zeros((periods + 1, len(names), len(names)))
+        for j, shock in enumerate(names):
+            for i, response in enumerate(names):
+                theta[:, i, j] = paths[f"{shock} -> {response}"]
+        shares = fevd_shares(theta)
+        rows = [
+            {"shock": shock, "response": response, "period": s,
+             "fevd": float(shares[s, i, j])}
+            for j, shock in enumerate(names)
+            for i, response in enumerate(names)
+            for s in range(periods + 1)
+        ]  # fmt: skip
+        return pd.DataFrame(rows)
+
     def granger_test(self, caused: str, causing: str) -> Dict[str, Any]:
         """Test Granger causality."""
         return granger_causality(self, caused=caused, causing=causing)

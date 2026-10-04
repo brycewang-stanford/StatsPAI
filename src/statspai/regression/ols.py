@@ -215,27 +215,40 @@ def _detect_perfect_collinearity(X: np.ndarray, var_names: List[str]) -> None:
     #    the hot ``sp.regress`` path, so compute only the small k x k Gram
     #    matrix needed for this structural check.
     if k >= 2 and n >= 3:
-        centered = X - X.mean(axis=0)
+        centered = np.asfortranarray(X - X.mean(axis=0))
         norms = np.sqrt(np.sum(centered * centered, axis=0))
-        for i in range(k):
-            if norms[i] == 0:
-                continue
-            for j in range(i + 1, k):
-                if norms[j] == 0:
-                    continue
-                c = float(centered[:, i] @ centered[:, j]) / (norms[i] * norms[j])
-                if np.isfinite(c) and abs(c) >= 1.0 - 1e-8:
-                    raise NumericalInstability(
-                        f"Regressors '{names[i]}' and '{names[j]}' are "
-                        f"perfectly collinear (|correlation| = {abs(c):.10f}); "
-                        f"the design matrix is rank-deficient and their "
-                        f"coefficients are not separately identified.",
-                        recovery_hint=(f"Drop one of '{names[i]}' or '{names[j]}'."),
-                        diagnostics={
-                            "collinear_pair": [names[i], names[j]],
-                            "abs_correlation": float(abs(c)),
-                        },
-                    )
+        # The first collinear pair in (i, j) order, found from the Gram
+        # matrix one block of columns at a time: with thousands of dummy
+        # columns a dot product per pair takes minutes.
+        first: Optional[Tuple[int, int, float]] = None
+        block = 256
+        for lo in range(1, k, block):
+            hi = min(k, lo + block)
+            with np.errstate(invalid="ignore", divide="ignore"):
+                corr = (centered[:, :hi].T @ centered[:, lo:hi]) / (
+                    norms[:hi, None] * norms[None, lo:hi]
+                )
+            hit = np.isfinite(corr) & (np.abs(corr) >= 1.0 - 1e-8)
+            hit &= np.arange(hi)[:, None] < np.arange(lo, hi)[None, :]
+            if hit.any():
+                rows, cols = np.nonzero(hit)
+                pick = np.lexsort((cols, rows))[0]
+                cand = (int(rows[pick]), int(cols[pick]) + lo)
+                if first is None or cand < first[:2]:
+                    first = (*cand, float(corr[rows[pick], cols[pick]]))
+        if first is not None:
+            i, j, c = first
+            raise NumericalInstability(
+                f"Regressors '{names[i]}' and '{names[j]}' are "
+                f"perfectly collinear (|correlation| = {abs(c):.10f}); "
+                f"the design matrix is rank-deficient and their "
+                f"coefficients are not separately identified.",
+                recovery_hint=(f"Drop one of '{names[i]}' or '{names[j]}'."),
+                diagnostics={
+                    "collinear_pair": [names[i], names[j]],
+                    "abs_correlation": float(abs(c)),
+                },
+            )
 
 
 def _written_column_order(
@@ -307,13 +320,50 @@ def _collinear_omissions(X: np.ndarray, var_names: List[str]) -> List[Tuple[int,
     kept: List[int] = []
     const_kept: Optional[int] = None
     # Discrete sweep state: kept discrete columns and the Cholesky factor of
-    # their cross-product (grown one column at a time).
-    disc_kept: List[int] = []
+    # their cross-product (grown one column at a time inside ``L``).
+    disc_kept = np.zeros(k, dtype=np.intp)
+    n_disc = 0
     L = np.zeros((0, 0))
-    centered = X - X.mean(axis=0) if has_const else X
+    centered = np.asfortranarray(X - X.mean(axis=0)) if has_const else None
+    raw = np.asfortranarray(X)
+    if centered is None:
+        centered = raw
     norms = np.sqrt(np.sum(centered * centered, axis=0))
+    # Columns a later one is compared with for proportionality.
+    pair_kept = np.zeros(k, dtype=np.intp)
+    n_pair = 0
+    # Cross-products with the columns to the left, one block of columns at a
+    # time: a dummy-variable design with thousands of columns (``C(firm)``)
+    # is scanned with a few matrix products instead of millions of dot
+    # products.
+    block = 256
+    lo = hi = 0
+    cross_c = cross_x = np.zeros((0, 0))
+    # Left-looking Cholesky by blocks: ``V`` is the part of the block's
+    # columns explained by the discrete columns kept before the block,
+    # ``S`` what is left of the block's own cross-product, swept as columns
+    # are accepted; ``swept`` holds (row of L, sweep vector) of this block.
+    m0 = 0
+    V = S = np.zeros((0, 0))
+    swept: List[Tuple[int, np.ndarray]] = []
 
     for j in range(k):
+        if j >= hi:
+            lo, hi = j, min(k, j + block)
+            cross_c = centered[:, :hi].T @ centered[:, lo:hi]
+            cross_x = cross_c if centered is raw else raw[:, :hi].T @ raw[:, lo:hi]
+            m0, swept = n_disc, []
+            S = np.array(cross_x[lo:hi, :])
+            if m0:
+                V = solve_triangular(
+                    np.ascontiguousarray(L[:m0, :m0]),
+                    cross_x[disc_kept[:m0], :],
+                    lower=True,
+                    check_finite=False,
+                )
+                S -= V.T @ V
+            else:
+                V = np.zeros((0, hi - lo))
         col = X[:, j]
         scale = max(1.0, float(np.max(np.abs(col))))
         if not np.any(col):
@@ -325,17 +375,13 @@ def _collinear_omissions(X: np.ndarray, var_names: List[str]) -> List[Tuple[int,
                 omitted.append((j, f"constant, collinear with '{names[const_kept]}'"))
                 continue
             const_kept = j
-        else:
-            dup = None
-            for i in kept:
-                if i == const_kept or norms[i] == 0 or norms[j] == 0:
-                    continue
-                c = float(centered[:, i] @ centered[:, j]) / (norms[i] * norms[j])
-                if np.isfinite(c) and abs(c) >= 1.0 - 1e-8:
-                    dup = i
-                    break
-            if dup is not None:
-                omitted.append((j, f"collinear with '{names[dup]}'"))
+        elif n_pair and norms[j] != 0:
+            idx = pair_kept[:n_pair]
+            with np.errstate(invalid="ignore", divide="ignore"):
+                c = cross_c[idx, j - lo] / (norms[idx] * norms[j])
+            hit = np.flatnonzero(np.isfinite(c) & (np.abs(c) >= 1.0 - 1e-8))
+            if hit.size:
+                omitted.append((j, f"collinear with '{names[int(idx[hit[0]])]}'"))
                 continue
 
         is_discrete = bool(
@@ -344,21 +390,30 @@ def _collinear_omissions(X: np.ndarray, var_names: List[str]) -> List[Tuple[int,
             and float(np.max(np.abs(col))) <= 1e6
         )
         if is_discrete:
-            g = X[:, disc_kept].T @ col if disc_kept else np.zeros(0)
-            gjj = float(col @ col)
-            v = solve_triangular(L, g, lower=True) if disc_kept else np.zeros(0)
-            d = gjj - float(v @ v)
+            m, t = n_disc, j - lo
+            gjj = float(cross_x[j, t])
+            d = float(S[t, t])
             if d <= 1e-9 * gjj:
                 omitted.append((j, "collinear with earlier discrete regressors"))
                 continue
-            m = len(disc_kept)
-            L_new = np.zeros((m + 1, m + 1))
-            L_new[:m, :m] = L
-            L_new[m, :m] = v
-            L_new[m, m] = np.sqrt(d)
-            L = L_new
-            disc_kept.append(j)
+            if m >= L.shape[0]:
+                grown = np.zeros((max(8, 2 * m), max(8, 2 * m)))
+                grown[:m, :m] = L[:m, :m]
+                L = grown
+            root = np.sqrt(d)
+            sweep = S[t, :] / root
+            L[m, :m0] = V[:, t]
+            for row, earlier in swept:
+                L[m, row] = earlier[t]
+            L[m, m] = root
+            S[t + 1 :, t + 1 :] -= np.outer(sweep[t + 1 :], sweep[t + 1 :])
+            swept.append((m, sweep))
+            disc_kept[m] = j
+            n_disc += 1
         kept.append(j)
+        if not is_const and norms[j] != 0:
+            pair_kept[n_pair] = j
+            n_pair += 1
     return omitted
 
 

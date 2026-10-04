@@ -786,8 +786,10 @@ TOLERANCES: dict[str, dict[str, float]] = {
     },  # obs worst 1.4e-3, 3x margin (2026-06 tighten)
     "43_heckman": {
         "rel_est": 1e-6,
-        "rel_se": 5e-4,
-    },  # obs worst 8.6e-5, ~6x margin (2026-06 tighten)
+        "rel_se": 1e-6,
+    },  # obs worst 4.3e-9 since the two-step variance takes the probit's
+    # observed information (2026-10); the 8.6e-5 gap carried before was the
+    # expected-information matrix, not noise
     "44_mlogit": {
         "rel_est": 1e-6,
         "rel_se": 5e-5,

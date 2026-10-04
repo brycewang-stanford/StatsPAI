@@ -1270,8 +1270,10 @@ def _build_registry() -> None:
                 ParamSpec(
                     "select",
                     "str",
-                    True,
-                    description="Binary selection indicator (1 = observed, 0 = not)",
+                    False,
+                    None,
+                    "Binary selection indicator (1 = observed, 0 = not); "
+                    "omitted, selected means y is not missing",
                 ),
                 ParamSpec(
                     "z",
@@ -1295,8 +1297,9 @@ def _build_registry() -> None:
                     False,
                     "twostep",
                     "'twostep' (Heckman 1979 probit + OLS with IMR) or 'ml' "
-                    "(full-information ML, Stata's default heckman)",
-                    ["twostep", "ml"],
+                    "(full-information ML, Stata's default heckman; 'mle' "
+                    "is accepted)",
+                    ["twostep", "ml", "mle"],
                 ),
                 ParamSpec(
                     "vce",
@@ -7076,15 +7079,19 @@ def _build_registry() -> None:
             name="unitroot",
             category="timeseries",
             description=(
-                "Unit-root test for one time series: augmented Dickey-Fuller "
-                "or DF-GLS (Elliott-Rothenberg-Stock), with a constant or a "
-                "constant and trend, a fixed lag order or one chosen by "
-                "AIC / BIC. H0 is a unit root. ADF reports MacKinnon "
-                "p-values and critical values (same statistic, p-value and "
-                "lag choice as statsmodels adfuller); DF-GLS has more power "
-                "near a unit root and uses finite-sample critical values in "
-                "the sample size and lag order. Not rejecting is not "
-                "evidence of a unit root. Stata dfuller / dfgls, R urca."
+                "Unit-root test for one time series: augmented Dickey-Fuller, "
+                "DF-GLS (Elliott-Rothenberg-Stock), Phillips-Perron or KPSS, "
+                "with a constant or a constant and trend. For ADF, DF-GLS "
+                "and Phillips-Perron H0 is a unit root; for KPSS H0 is "
+                "stationarity, so there rejecting is evidence of a unit "
+                "root. ADF reports MacKinnon p-values and critical values "
+                "(same statistic, p-value and lag choice as statsmodels "
+                "adfuller); DF-GLS has more power near a unit root and uses "
+                "finite-sample critical values in the sample size and lag "
+                "order; Phillips-Perron and KPSS correct for serial "
+                "correlation with a Newey-West long-run variance. Not "
+                "rejecting a unit root is not evidence of one. Stata "
+                "dfuller / dfgls / pperron / kpss, R urca."
             ),
             params=[
                 ParamSpec(
@@ -7095,7 +7102,14 @@ def _build_registry() -> None:
                     "The series, in time order",
                 ),
                 ParamSpec("y", "str", False, None, "Column, when data is a DataFrame"),
-                ParamSpec("test", "str", False, "adf", "Which test", ["adf", "dfgls"]),
+                ParamSpec(
+                    "test",
+                    "str",
+                    False,
+                    "adf",
+                    "Which test; 'kpss' has stationarity as its null",
+                    ["adf", "dfgls", "pp", "kpss"],
+                ),
                 ParamSpec(
                     "trend",
                     "str",
@@ -7111,7 +7125,9 @@ def _build_registry() -> None:
                     False,
                     "aic",
                     "Lagged differences: an integer, or 'aic' / 'bic' to "
-                    "search 0..max_lags. Stata dfuller defaults to 0",
+                    "search 0..max_lags. Stata dfuller defaults to 0. For "
+                    "'pp' / 'kpss': the Newey-West truncation lag (any "
+                    "string selects the default rule)",
                 ),
                 ParamSpec(
                     "max_lags",
@@ -7126,7 +7142,8 @@ def _build_registry() -> None:
                     "float",
                     False,
                     0.05,
-                    "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10)",
+                    "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10; "
+                    "KPSS also 0.025)",
                 ),
             ],
             returns="UnitRootResult",
@@ -7584,6 +7601,256 @@ def _build_registry() -> None:
             returns="TTestResult",
             example='sp.ttest(df, "wage", by="female", unequal=True)',
             tags=["inference", "descriptive", "stata", "means"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="nlcom",
+            category="postestimation",
+            description=(
+                "Nonlinear combination of coefficients with a delta-method "
+                "standard error (Stata nlcom, R car::deltaMethod): ratios, "
+                "long-run effects b/(1-c), turning points, exp(b)-1. The "
+                "expression is parsed, not evaluated as code; coefficient "
+                "names or _b[name], + - * / **, and exp / ln / sqrt / abs / "
+                "normal / normalden / invlogit. Returns estimate, se, z, "
+                "p-value, confidence interval and the gradient."
+            ),
+            params=[
+                ParamSpec("result", "result", True, None, "Fitted model"),
+                ParamSpec(
+                    "expression",
+                    "str",
+                    True,
+                    None,
+                    "Function of the coefficients, e.g. 'x1 / (1 - x2)'",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="dict",
+            example='sp.nlcom(result, "x1 / x2")',
+            tags=["postestimation", "inference", "stata", "delta-method"],
+            assumptions=[
+                "The coefficient estimates are asymptotically normal with "
+                "the reported covariance matrix",
+                "The function is smooth at the true coefficients, with a "
+                "non-zero gradient",
+            ],
+            not_recommended_when=[
+                "The expression is linear in the coefficients — use "
+                "sp.lincom, whose inference needs no approximation",
+                "A ratio whose denominator is not clearly different from "
+                "zero — the delta-method interval is unreliable; use a "
+                "Fieller interval or the bootstrap",
+            ],
+            alternatives=["lincom", "test", "bootstrap"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="svar",
+            category="timeseries",
+            description=(
+                "Structural VAR on a fitted sp.var: short-run restrictions "
+                "in the AB model A e = B u (Stata svar aeq() beq()), "
+                "long-run restrictions on the cumulative impact matrix "
+                "(Blanchard-Quah; Stata svar lreq()), or sign restrictions "
+                "on impulse responses (a set of admissible models). "
+                "Maximum likelihood with standard errors and a likelihood-"
+                "ratio test of over-identifying restrictions; the result "
+                "gives structural impulse responses and the forecast-error "
+                "variance decomposition."
+            ),
+            params=[
+                ParamSpec("var_result", "VARResult", True, None, "Fit of sp.var"),
+                ParamSpec(
+                    "A",
+                    "K x K array",
+                    False,
+                    None,
+                    "Short-run: restrictions on A; np.nan marks a free element",
+                ),
+                ParamSpec(
+                    "B",
+                    "K x K array",
+                    False,
+                    None,
+                    "Short-run: restrictions on B; np.nan marks a free element",
+                ),
+                ParamSpec(
+                    "long_run",
+                    "K x K array",
+                    False,
+                    None,
+                    "Long-run: restrictions on C = (I - A_1 - ... - A_p)^-1 P",
+                ),
+                ParamSpec(
+                    "sign",
+                    "dict",
+                    False,
+                    None,
+                    "Sign restrictions: {shock: {variable: '+' or '-'}}",
+                ),
+                ParamSpec(
+                    "sign_horizon",
+                    "int",
+                    False,
+                    0,
+                    "Signs hold at periods 0 .. sign_horizon",
+                ),
+                ParamSpec("n_draws", "int", False, 1000, "Admissible rotations kept"),
+                ParamSpec("max_tries", "int", False, 200000, "Rotations tried at most"),
+                ParamSpec("seed", "int", False, None, "Seed of the rotation draws"),
+                ParamSpec("alpha", "float", False, 0.05, "Band level (sign)"),
+            ],
+            returns="SVARResult",
+            example="sp.svar(fit, B=np.tril(np.full((3, 3), np.nan)))",
+            tags=["timeseries", "var", "svar", "identification", "stata"],
+            reference="lutkepohl2005new",
+            assumptions=[
+                "The reduced-form VAR is correctly specified and stable "
+                "(stationary, enough lags for white-noise innovations)",
+                "The structural shocks are mutually uncorrelated",
+                "The restrictions are true: zeros on contemporaneous "
+                "effects (short-run), on cumulative effects (long-run), or "
+                "the stated signs of the responses",
+            ],
+            pre_conditions=[
+                "A VARResult from sp.var",
+                "At most K(K+1)/2 free parameters in A and B (order condition)",
+            ],
+            not_recommended_when=[
+                "Long-run restrictions on a VAR with a unit root in levels "
+                "— I - A_1 - ... - A_p is singular; difference the "
+                "integrated variables first",
+                "Sign-restricted bands are read as confidence intervals — "
+                "they are the spread of the identified set at the estimated "
+                "reduced form and carry no sampling uncertainty",
+            ],
+            alternatives=["var", "irf", "local_projections", "bvar"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="sdtest",
+            category="inference",
+            description=(
+                "Test on the variance of a normal population (Stata sdtest / "
+                "sdtesti, R var.test). One sample: (n-1)s^2/sd0^2 against "
+                "chi-squared(n-1). Two samples (by= or other=): s1^2/s2^2 "
+                "against F(n1-1, n2-1). Takes data or summary statistics "
+                "(n=, sd=). Returns the statistic, degrees of freedom, the "
+                "two-sided (twice the smaller tail) and both one-sided "
+                "p-values, and a confidence interval for the standard "
+                "deviation or the ratio. Exact under normality, not robust "
+                "to heavy tails."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", False),
+                ParamSpec("y", "str", False, None, "Variable to test"),
+                ParamSpec(
+                    "by",
+                    "str",
+                    False,
+                    None,
+                    "Grouping column with exactly two values; the ratio is "
+                    "sd(lower group) / sd(higher group)",
+                ),
+                ParamSpec("other", "str", False, None, "Second variable"),
+                ParamSpec(
+                    "sd0",
+                    "float",
+                    False,
+                    None,
+                    "One sample: standard deviation under the null",
+                ),
+                ParamSpec(
+                    "n", "int | pair", False, None, "Observations (summary form)"
+                ),
+                ParamSpec(
+                    "mean", "float | pair", False, None, "Sample mean, reported only"
+                ),
+                ParamSpec(
+                    "sd",
+                    "float | pair",
+                    False,
+                    None,
+                    "Sample standard deviation (summary form)",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="SDTestResult",
+            example='sp.sdtest(df, "wage", by="female")',
+            tags=["inference", "descriptive", "stata", "variance"],
+            assumptions=[
+                "Each sample is an independent draw from a normal population",
+                "Two samples: the samples are independent of each other",
+            ],
+            not_recommended_when=[
+                "The data are skewed or heavy-tailed — the chi-squared and F "
+                "tests then reject a true null far more often than alpha; "
+                "compare spreads with a robust test or the bootstrap",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ztest",
+            category="inference",
+            description=(
+                "z test on a mean or on a difference of two means when the "
+                "population standard deviation is known (Stata ztest / "
+                "ztesti). Takes data or summary statistics (n=, mean=). "
+                "Returns the estimate, its standard error, z, the two-sided "
+                "and both one-sided p-values and the confidence interval. "
+                "Use sp.ttest when the standard deviation is estimated."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", False),
+                ParamSpec("y", "str", False, None, "Variable whose mean is tested"),
+                ParamSpec(
+                    "by",
+                    "str",
+                    False,
+                    None,
+                    "Grouping column with exactly two values; the estimate is "
+                    "mean(lower group) - mean(higher group)",
+                ),
+                ParamSpec("other", "str", False, None, "Second, independent variable"),
+                ParamSpec("mu", "float", False, 0.0, "Null value"),
+                ParamSpec(
+                    "sd",
+                    "float | pair",
+                    False,
+                    1.0,
+                    "Known population standard deviation, or one per sample",
+                ),
+                ParamSpec(
+                    "n", "int | pair", False, None, "Observations (summary form)"
+                ),
+                ParamSpec(
+                    "mean", "float | pair", False, None, "Sample mean (summary form)"
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="TTestResult",
+            example='sp.ztest(df, "score", mu=85, sd=2)',
+            tags=["inference", "descriptive", "stata", "means"],
+            assumptions=[
+                "The population standard deviation is known, not estimated "
+                "from the sample being tested",
+                "Independent observations; a normal population, or a sample "
+                "large enough for the mean to be approximately normal",
+            ],
+            not_recommended_when=[
+                "sd is the sample standard deviation — use sp.ttest, which "
+                "accounts for estimating it",
+            ],
+            alternatives=["ttest"],
         )
     )
 

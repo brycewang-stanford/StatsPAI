@@ -960,6 +960,42 @@ TIER2_ROUND_TRIPS = [
 
 
 TIER3_ROUND_TRIPS = [
+    # An introductory course's tests and models (numbers against Stata:
+    # tests/reference_parity/test_textbook_syllabus_stata_parity.py)
+    ("testparm i.race x1", "test", {"hypothesis": "i.race x1"}),
+    ("nlcom _b[x1]/_b[x2]", "nlcom", {"expression": "_b[x1]/_b[x2]"}),
+    ("sdtest y == 5", "sdtest", {"y": "y", "sd0": 5.0}),
+    ("sdtesti 10 . 1.14 2", "sdtest", {"n": 10, "sd": 1.14, "sd0": 2.0}),
+    ("ztest y, by(g) sd(6)", "ztest", {"y": "y", "by": "g", "sd": 6.0}),
+    (
+        "ztesti 10 88 0.71 85",
+        "ztest",
+        {"n": 10, "mean": 88.0, "sd": 0.71, "mu": 85.0},
+    ),
+    (
+        "truncreg y x1 x2, ll(0)",
+        "truncreg",
+        {"y": "y", "x": ["x1", "x2"], "ll": 0.0},
+    ),
+    (
+        "etregress y x1, treat(d = z1 z2) twostep",
+        "etregress",
+        {
+            "y": "y",
+            "x": ["x1"],
+            "treatment": "d",
+            "z": ["z1", "z2"],
+            "method": "twostep",
+        },
+    ),
+    ("pperron y, lags(4) trend", "unitroot", {"test": "pp", "lags": 4, "trend": "ct"}),
+    ("kpss y, maxlag(4)", "unitroot", {"test": "kpss", "lags": 4, "trend": "ct"}),
+    (
+        "arima y, ar(1/2) ma(1)",
+        "arima",
+        {"y": "y", "trend": "c", "method": "innovations_mle"},
+    ),
+    ("arch y, arch(1) garch(1)", "garch", {"y": "y", "p": 1, "q": 1, "vce": "opg"}),
     # User-written DiD commands (numbers against Stata:
     # tests/reference_parity/test_stata_did_commands_parity.py)
     (
@@ -1236,9 +1272,17 @@ class TestTier2EdgeCases:
         assert out["ok"] is False
         assert "select" in out["error"]
 
-    def test_heckman_malformed_select(self):
-        # No `=` in select() — must be `select(d = z)`
+    def test_heckman_select_without_a_selection_variable(self):
+        # `select(z1 z2)`: selected where the outcome is observed
         out = from_stata("heckman y x, select(z1 z2)")
+        assert out["ok"] is True
+        assert "select" not in out["arguments"]
+        assert out["arguments"]["z"] == ["z1", "z2"]
+        # Stata's heckman is maximum likelihood unless `twostep` is given
+        assert out["arguments"]["method"] == "ml"
+
+    def test_heckman_malformed_select(self):
+        out = from_stata("heckman y x, select(a b = z1 z2)")
         assert out["ok"] is False
         assert "selectvar" in out["error"]
 
@@ -1384,6 +1428,7 @@ _NON_EXECUTABLE_TOOLS = frozenset(
         "contrast",
         "test",
         "lincom",
+        "nlcom",
         "wild_cluster_boot",
         "mi_estimate",
         "estat",
@@ -1782,6 +1827,7 @@ def test_python_code_and_arguments_describe_the_same_call(command, channel):
         "contrast",
         "test",
         "lincom",
+        "nlcom",
         "wild_cluster_boot",
         "estat",
         "mi_estimate",
@@ -1818,6 +1864,7 @@ POSTEST_TOOLS = {
     "contrast",
     "test",
     "lincom",
+    "nlcom",
     "wild_cluster_boot",
     "mi_estimate",
     "estat",
@@ -2113,12 +2160,16 @@ class TestStataIVTranslationRuns:
             assert out["tool"] == "iv" and out["arguments"]["small"] is False, line
             assert not any("sqrt(N/(N-K))" in n for n in out["notes"]), line
             assert out["untranslated_options"] == [], line
-        # GMM: only the robust VCE has one (HC0); the others say so.
+        # GMM has one too since sp.iv(method='gmm') takes small=False
+        # (numbers: tests/reference_parity/test_iv_gmm_stata_parity.py).
         gmm_robust = from_stata("ivregress gmm y (d = z) x, vce(robust)")
-        assert gmm_robust["arguments"]["robust"] == "hc0"
-        assert not any("sqrt(N/(N-K))" in n for n in gmm_robust["notes"])
+        assert gmm_robust["arguments"]["robust"] == "hc1"
+        assert gmm_robust["arguments"]["small"] is False
         gmm_cluster = from_stata("ivregress gmm y (d = z) x, vce(cluster g)")
-        assert any("sqrt(N/(N-K))" in n for n in gmm_cluster["notes"])
+        assert gmm_cluster["arguments"]["small"] is False
+        for out in (gmm_robust, gmm_cluster):
+            assert not any("sqrt(N/(N-K))" in n for n in out["notes"])
+            assert out["untranslated_options"] == []
         for line in (
             "ivregress 2sls y (d = z) x, vce(robust) small",
             "ivregress 2sls y (d = z) x, small",
