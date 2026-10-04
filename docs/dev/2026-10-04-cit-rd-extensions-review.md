@@ -72,7 +72,9 @@ labels with scores fixed. On a covariate with no discontinuity its
 against (score, assignment) pairs gives 4.7% (3,000 replications; the
 large-sample test gives 6.9%). StatsPAI does the latter. Tests:
 `test_rdrandinf_p1_holds_its_level`,
-`test_label_permutation_overrejects_with_p1`. Worth reporting upstream.
+`test_label_permutation_overrejects_with_p1`. Run on `rdlocrand` itself
+(400 replications, `reps = 200`): 4.75% at `p = 0`, 34.75% at `p = 1`,
+with its own large-sample test at 6%. Worth reporting upstream.
 
 **D2. First window of `rdwinselect`.** `rdlocrand` 2.0 starts with 9
 observations on the left for `obsmin = 10`; its help text and the book's
