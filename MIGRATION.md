@@ -149,6 +149,22 @@ zero-inflated model and its plain counterpart are nested on a boundary,
 and the statistic is not standard normal under that null (Wilson 2015,
 doi:10.1016/j.econlet.2014.12.029).
 
+## 1.38.0 → next: ⚠️ `sp.rdrandinf(statistic='ksmirnov')` large-sample p-value with tied outcomes
+
+**What changed.** `model_info['pvalue_asymptotic']` for the
+Kolmogorov-Smirnov statistic is now the exact conditional p-value given
+the ties in the data (below 10,000 treated-control pairs; Kolmogorov's
+limit above), which is what R's `ks.test` and therefore `rdlocrand`
+report. It used to come from a formula that assumes a continuous outcome.
+
+**Who is affected.** Calls with `statistic='ksmirnov'` or `'all'` on an
+outcome or covariate with tied values, binary variables above all. On a
+binary covariate of the Senate data the old value was 0.965 and the new
+one is 0.356. Without ties nothing changes, and the randomization p-value
+(`pvalue`) was never affected.
+
+**What to do.** Re-run if you reported that number.
+
 ## 1.38.0 → next: `sp.rdrobust` checks for manipulation with `sp.rddensity`
 
 **What changed.** The density check that `sp.rdrobust` runs by default

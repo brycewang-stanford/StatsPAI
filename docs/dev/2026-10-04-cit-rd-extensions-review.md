@@ -76,11 +76,27 @@ large-sample test gives 6.9%). StatsPAI does the latter. Tests:
 (400 replications, `reps = 200`): 4.75% at `p = 0`, 34.75% at `p = 1`,
 with its own large-sample test at 6%. Worth reporting upstream.
 
-**D2. First window of `rdwinselect`.** `rdlocrand` 2.0 starts with 9
-observations on the left for `obsmin = 10`; its help text and the book's
-printed output (10 on the left) give the rule StatsPAI implements. The
-default sequences therefore differ from current R and agree with the
-book. With `wmin=` and `wstep=` they agree with R.
+**D2. Default windows of `rdwinselect`: a regression in the reference,
+not a divergence.** `rdlocrand` 2.0 starts with 9 observations on the
+left for `obsmin = 10`. Four CRAN releases were installed side by side
+and given the same checks:
+
+| | 0.9 | 1.0 | 1.1 | 2.0 |
+| --- | --- | --- | --- | --- |
+| `p = 1` randomization test, rejection of a true null at 5% | 42% | 42% | 42% | 36% |
+| default first window holds `obsmin` on each side | yes | yes | no | no |
+| `wmasspoints`: k-th support point on each side | yes | yes | no | no |
+| KS randomization p-value on a binary variable | ok | ok | ok | stuck at 1 |
+| `rdwinselect(approx, p = 1)` | error | error | error | error |
+| large-sample p-value honours `nulltau` when `p = 1` | no | no | no | no |
+
+`sp.rdwinselect` matches release 1.0 to 1e-9 in windows, counts,
+binomial tests, balance p-values and the covariate named, for the default
+sequence, `wobs`, `obsmin` and mass-point windows
+(`tests/reference_parity/test_rdlocrand_v1_parity.py`). The mass-point
+regression was reported by a user on the read-only CRAN mirror
+(`cran/rdlocrand` issue 1, 2025-08-12) and closed there without reaching
+the maintainers; `rdpackages/rdlocrand` has no issues at all.
 
 **D3. Smaller items.** With `p > 0` and a non-zero `nulltau`, R's
 large-sample p-value ignores `nulltau`; StatsPAI's tests the stated
@@ -88,9 +104,11 @@ null. R's `rdwinselect(approx = TRUE, p = 1)` stops with an error on the
 Senate data, so that path has no reference rows. R's randomization
 p-value for the Kolmogorov-Smirnov statistic on a binary covariate was
 1.000 on all 60 seeds, where the observed statistic is 0.215 and its own
-exact p-value is 0.150. With **`wmasspoints`** the reference's first window
-is empty below the cutoff (the left edge lags the right by one support
-point); StatsPAI pairs the k-th support point on each side.
+exact p-value is 0.150. That is new in 2.0: in a wider window where 1.0
+averages 0.358 over 40 seeds, StatsPAI averages 0.358 and 2.0 gives 1.
+Checking against 1.0 also showed that StatsPAI's own
+large-sample KS p-value was wrong with ties (0.965 against 0.356): it is
+now the exact conditional p-value, as in R.
 
 ## Left open
 
@@ -110,4 +128,5 @@ Still open:
   that the do-file then plots by hand. `fig.rdmcplot_data` holds the same
   numbers.
 - **Upstream.** A report for the `rdlocrand` maintainers is drafted in
-  the materials folder (`run/upstream_report_draft.md`) and not sent.
+  the materials folder (`run/upstream_report_draft.md`) and not sent. It
+  carries the four-release table and reproductions (`run/versions.R`).

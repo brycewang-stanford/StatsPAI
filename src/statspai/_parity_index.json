@@ -15530,7 +15530,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_rdlocrand_extensions_parity.py"
+        "tests/reference_parity/test_rdlocrand_extensions_parity.py",
+        "tests/reference_parity/test_rdlocrand_v1_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -15726,7 +15727,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_rdlocrand_extensions_parity.py"
+        "tests/reference_parity/test_rdlocrand_extensions_parity.py",
+        "tests/reference_parity/test_rdlocrand_v1_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"

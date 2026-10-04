@@ -51602,7 +51602,8 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs rdlocrand::rdrandinf 2.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdlocrand 2.0]; tolerance observed statistic & asymptotic p-value 1e-8 rel (observed 2.3e-15) -- tests/reference_parity/test_rdlocrand_parity.py",
-      "tests/reference_parity/test_rdlocrand_extensions_parity.py"
+      "tests/reference_parity/test_rdlocrand_extensions_parity.py",
+      "tests/reference_parity/test_rdlocrand_v1_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -51821,7 +51822,8 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs rdlocrand::rdwinselect 2.0 (Cattaneo, Titiunik & Vazquez-Bare) [R version 4.5.2 (2025-10-31), rdlocrand 2.0]; tolerance window grid 1e-12 rel (observed 0); per-window counts Nl / Nr asserted as exact integer equality -- tests/reference_parity/test_rdlocrand_parity.py",
-      "tests/reference_parity/test_rdlocrand_extensions_parity.py"
+      "tests/reference_parity/test_rdlocrand_extensions_parity.py",
+      "tests/reference_parity/test_rdlocrand_v1_parity.py"
     ],
     "validation_status": "certified"
   },

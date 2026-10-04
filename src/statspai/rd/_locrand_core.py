@@ -349,3 +349,41 @@ def hotelling_pvalue_f(t2: float, n: int, k: int) -> float:
         return float("nan")
     f_stat = (n - k - 1) / ((n - 2) * k) * t2
     return float(sp_stats.f.sf(f_stat, k, n - k - 1))
+
+
+def ks_exact_pvalue(y1: np.ndarray, y0: np.ndarray, stat: float) -> float:
+    """Exact two-sided p-value of the two-sample Kolmogorov-Smirnov statistic,
+    valid with ties.
+
+    Conditional on the pooled sample, every assignment of ``len(y1)`` of the
+    observations to the first group is equally likely under the null. Each
+    is a lattice path from (0, 0) to (m, n); the two empirical distribution
+    functions can only be compared where a block of tied values ends, so a
+    path stays "inside" if ``|i / m - j / n| < stat`` at those points
+    (Schroer and Trenkler's algorithm). Without ties every point is such a
+    point and this is the classical exact distribution.
+    """
+    m, n = len(y1), len(y0)
+    pooled = np.sort(np.concatenate([y1, y0]))
+    # check[k] is True when the k-th pooled observation (1-based) closes a
+    # block of tied values.
+    check = np.r_[False, pooled[1:] != pooled[:-1], True]
+    # The statistic is a multiple of 1 / (m n); compare against the grid
+    # point just below it so that rounding cannot move a boundary path.
+    q = (0.5 + np.floor(stat * m * n - 1e-7)) / (m * n)
+    row = np.zeros(n + 1)
+    j = np.arange(n + 1)
+    for i in range(m + 1):
+        new = np.zeros(n + 1)
+        outside = check[i + j] & (np.abs(i / m - j / n) >= q)
+        for jj in range(n + 1):
+            if i == 0 and jj == 0:
+                value = 1.0
+            else:
+                value = (row[jj] if i > 0 else 0.0) + (new[jj - 1] if jj > 0 else 0.0)
+            new[jj] = 0.0 if outside[jj] else value
+        row = new
+    from scipy.special import comb
+
+    total = comb(m + n, m, exact=False)
+    return float(min(1.0, max(0.0, 1.0 - row[n] / total)))

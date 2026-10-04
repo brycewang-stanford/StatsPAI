@@ -24,11 +24,13 @@ Evidence, by kind
      while permuting outcomes against (score, assignment) pairs holds it
      (``test_rdrandinf_p1_holds_its_level``). The statistic and the
      large-sample p-value still agree with R to 1e-9.
-  2. *The first window of* ``rdwinselect``. ``rdlocrand`` 2.0 starts one
-     observation short on the left of the cutoff. Its documentation, and
-     the output printed in the book (Snippet 2.5), describe the rule
-     implemented here (``test_first_window_holds_obsmin_on_each_side``).
-     With the windows given, everything else agrees to 1e-9.
+  2. *The default windows of* ``rdwinselect``. ``rdlocrand`` 1.1 and 2.0
+     start one observation short on the left of the cutoff, and shift the
+     left edge of mass-point windows by one support point. Release 1.0
+     does what the documentation and the book (Snippet 2.5) describe, and
+     ``sp.rdwinselect`` matches it to 1e-9: that evidence is T2 and lives
+     in ``test_rdlocrand_v1_parity.py``. In this file, written against
+     2.0, the windows are given explicitly.
 """
 
 from __future__ import annotations

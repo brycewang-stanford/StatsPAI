@@ -424,10 +424,11 @@ for each item below.
   `approx=True`; agrees with `rdlocrand` to 1e-9.
 - `sp.rdwinselect(wmasspoints=True)`: for a discrete score, window `k`
   runs from the `k`-th support point below the cutoff to the `k`-th at or
-  above it. `rdlocrand` 2.0 pairs the `k`-th on the right with the
-  `(k-1)`-th on the left, so its first window is empty below the cutoff;
-  on the book's academic-probation data the first window here is the one
-  the book itself analyses (208 and 67 observations).
+  above it, as in `rdlocrand` 1.0 (same windows, counts and p-values).
+  Releases 1.1 and 2.0 pair the `k`-th on the right with the `(k-1)`-th
+  on the left, so their first window is empty below the cutoff; on the
+  book's academic-probation data the first window here is the one the
+  book itself analyses (208 and 67 observations).
 - `sp.from_stata` / `sp.stata`: `rdms` (the boundary points are read from
   the `cvar()` variables by `sp.stata`), `bitest`, `bitesti`, and the
   `interfci()` and `wmasspoints` options.
@@ -455,10 +456,19 @@ for each item below.
   (`tests/reference_parity/test_rdlocrand_extensions_parity.py`). For
   `p = 0`, with or without a kernel, the two schemes coincide and the
   60-seed mean p-values agree with R's.
-- **The first window of `sp.rdwinselect`.** `rdlocrand` 2.0 starts one
-  observation short on the left of the cutoff (9 with `obsmin = 10` on
-  the Senate data). Its documentation and the book's printed output
-  describe the rule implemented here.
+- **The default windows of `sp.rdwinselect`** are those of `rdlocrand`
+  1.0, to 1e-9 in every column (`test_rdlocrand_v1_parity.py`). Releases
+  1.1 and 2.0 start one observation short on the left of the cutoff (9
+  with `obsmin = 10` on the Senate data); the documentation and the
+  book's printed output describe what 1.0 does. Four releases were run
+  side by side: this and the mass-point shift appear in 1.1, and a
+  Kolmogorov-Smirnov randomization p-value stuck at 1 on binary variables
+  appears in 2.0.
+- **Kolmogorov-Smirnov p-value with ties.** `sp.rdrandinf(statistic=
+  'ksmirnov')` now reports the exact conditional p-value, which is what R
+  does below 10,000 pairs. With tied outcomes the previous value assumed
+  a continuous distribution: 0.965 where R gives 0.356 on a binary
+  covariate. The randomization p-value was not affected.
 
 ### What the labs of Cunningham's *Causal Inference: The Remix* found
 

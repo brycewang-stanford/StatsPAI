@@ -188,8 +188,9 @@ def _h_rdwinselect(cmd: StataCommand) -> Dict[str, Any]:
     if "wmin" not in args:
         notes.append(
             "Without wmin(), the first window is the smallest with obsmin "
-            "observations on each side; rdlocrand 2.0 starts one observation "
-            "short on the left, so its default sequence can differ."
+            "observations on each side, as in rdlocrand 1.0; releases 1.1 and "
+            "2.0 start one observation short on the left, so their default "
+            "sequence can differ."
         )
     out = _emit("rdwinselect", args, _call("rdwinselect", args), notes)
     out["untranslated_options"] = lost

@@ -271,14 +271,15 @@ def _asymptotic_pvalue(
     elif stat_name == "ksmirnov":
         y1, y0 = y[d == 1], y[d == 0]
         n1, n0 = len(y1), len(y0)
-        # R's ks.test, which rdlocrand calls, uses the exact distribution
-        # while n1 * n0 < 10000 and Kolmogorov's limit beyond that.
+        stat = float(_lr.ks_from_labels(y, np.asarray(d)[None, :])[0])
+        # R's ks.test, which rdlocrand calls, uses the exact conditional
+        # distribution (ties included) while n1 * n0 < 10000 and
+        # Kolmogorov's limit beyond that.
         if n1 * n0 < 10000:
-            stat, pval = sp_stats.ks_2samp(y1, y0, method="exact")
+            pval = _lr.ks_exact_pvalue(y1, y0, stat)
         else:
-            stat = sp_stats.ks_2samp(y1, y0, method="asymp").statistic
-            pval = sp_special.kolmogorov(np.sqrt(n1 * n0 / (n1 + n0)) * stat)
-        return float(stat), float(pval)
+            pval = float(sp_special.kolmogorov(np.sqrt(n1 * n0 / (n1 + n0)) * stat))
+        return stat, float(pval)
     elif stat_name == "ranksum":
         # The statistic is already standardised, so the asymptotic p-value
         # is the normal tail -- same as rdlocrand. scipy's mannwhitneyu
@@ -1042,13 +1043,14 @@ def rdwinselect(
 
     Notes
     -----
-    ``rdlocrand`` 2.0 starts its default sequence one observation short on
-    the left: on the Senate data its first window has 9 observations below
-    the cutoff with ``obsmin = 10``. Its documentation and the output
-    printed in Cattaneo, Idrobo and Titiunik (2024, Snippet 2.5), where the
-    first window has 10, describe the rule implemented here. Given the
-    same windows (``wmin=`` and ``wstep=``), counts, binomial p-values and
-    the large-sample balance p-values agree with ``rdlocrand`` to 1e-12.
+    The window sequences, counts, binomial p-values and large-sample
+    balance p-values agree with ``rdlocrand`` 1.0 to 1e-9, mass-point
+    windows included (``tests/reference_parity/test_rdlocrand_v1_parity.py``).
+    Releases 1.1 and 2.0 start the default sequence one observation short
+    below the cutoff (9 with ``obsmin = 10`` on the Senate data) and shift
+    the left edge of mass-point windows by one support point; the help page
+    and Cattaneo, Idrobo and Titiunik (2024, Snippet 2.5) describe what 1.0
+    does. With ``wmin=`` and ``wstep=`` all releases agree.
 
     References
     ----------
