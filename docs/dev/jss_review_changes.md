@@ -31,6 +31,22 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded for the second round of the Clarke textbook pass
+
+Commit `a4a892ff`. `matching/match.py` and `matching/_ai2016.py` (module
+11) gained the Abadie-Imbens (2016) standard error for the ATE, a new
+function and a new branch that module 11, which estimates the ATT, does
+not execute. `inference/jackknife.py` (module 53) gained
+`sp.wild_cluster_boot(confidence_set=)`, off by default. The traces of
+modules 11 and 53 were re-recorded.
+
+**Effect on the paper.** None. Only the recorded source hashes move; the
+result files of both modules are untouched and no module's implementation
+classification changed.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call traces re-recorded for the general form of `sp.gardner_did` and `sp.drdid(est_method='all')`
 
 Commit `87fd76ad`. Two source files on the estimation path of Track A
