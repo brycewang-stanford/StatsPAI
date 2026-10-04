@@ -1595,5 +1595,53 @@ only the recorded source hashes move.
   differ. No estimate, standard error or table cell is read from these
   files.
 - **Paths.**
+
+### 2026-10-05 — module 43 (Heckman) standard errors, its budget, and the traces after the syllabus pass (Xu and Lan)
+
+- **Commits.** `aab5c0ff` changed `tests/r_parity/results/43_heckman_py.json`
+  (the three standard errors), `tests/r_parity/compare.py` (the
+  `43_heckman` `rel_se` budget, `5e-4` to `1e-6`), the rendered
+  `tests/r_parity/results/parity_table.md` and
+  `tests/r_parity/results/parity_table_3way.md`, and
+  `tests/r_parity/TIER_A_FIXTURE_LOCK.json`. It re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (the entries of
+  these Track A modules differ from the previous commit:
+  01 03 13 14 15 24 25 26 27 33 39 43 51 53 54 55 56 65 66)
+  and `tests/orig_parity/results/_implementation_trace.json` (all 12
+  modules). The sources that staled the traces are in the same commit:
+  `src/statspai/regression/ols.py` (the collinearity scan works on blocks
+  of the cross-product), `src/statspai/regression/heckman.py`,
+  `src/statspai/timeseries/arima.py`, `src/statspai/timeseries/var.py`
+  and `src/statspai/__init__.py` (six new exports and an import line
+  re-sorted by the pre-commit hook).
+- **Reason.** A syllabus audit of 徐小君、蓝嘉俊《因果推断计量经济学》
+  against Stata 18
+  (`docs/dev/2026-10-05-xu-lan-causal-econometrics-review.md`). The
+  two-step Heckman variance took the expected information of the
+  first-step probit; R `sampleSelection::heckit` and Stata
+  `heckman, twostep` take the observed information. That was the whole of
+  the gap module 43 carried inside its tolerance.
+- **Effect on the paper.** Module 43 only. Its Python standard errors move
+  in the sixth digit: intercept 0.14540320 to 0.14540375, slope
+  0.05678104 to 0.05678103, inverse Mills ratio 0.21715296 to 0.21717166.
+  The worst relative standard-error gap of the module, computed from the
+  three committed result files, goes from 1.9e-5 (R) / 8.6e-5 (Stata) to
+  7.9e-11 / 4.3e-9, so any table or sentence that quotes the module's SE
+  gap or its `5e-4` budget is stale; the module now sits in the default
+  `1e-6` tier. Point estimates, the headline metric (`rel_est`) and the
+  PASS verdict are unchanged. No other module's numbers changed:
+  `python tests/r_parity/verify_reproduce_py.py --no-report` on 01, 02,
+  03, 14, 15, 33, 35, 39, 43, 51, 53, 54, 55, 56 and 59 reported 15
+  reproduce, 0 drift. In both trace files only `exercised_sources`
+  digests, `seconds` and module 43's result digest differ; no
+  implementation classification moved. The registry census the paper
+  quotes also moved with this commit: 1,306 to 1,312 registered
+  functions.
+- **Paths.**
+  - `tests/r_parity/results/43_heckman_py.json`
+  - `tests/r_parity/compare.py`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
