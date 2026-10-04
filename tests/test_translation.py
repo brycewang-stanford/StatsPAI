@@ -554,6 +554,12 @@ class TestRpcSurface:
 # ----------------------------------------------------------------------
 
 TIER2_ROUND_TRIPS = [
+    # table (Stata 17+) with one row variable and one statistic -> sp.sumstats
+    (
+        "table g, statistic(mean y x)",
+        "sumstats",
+        {"stats": ["mean"], "output": "numeric", "vars": ["y", "x"], "by": "g"},
+    ),
     # sensemakr -> sp.sensemakr: the treatment is listed among the
     # regressors, the group benchmark becomes a labelled dict
     (

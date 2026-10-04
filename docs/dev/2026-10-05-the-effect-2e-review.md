@@ -22,7 +22,7 @@ compared with Stata's stored results.
 | | reproduced | differ | not run |
 | --- | --- | --- | --- |
 | first replay | 148 | 37 | 56 |
-| after this pass | 836 | 5 | 20 |
+| after this pass | 836 | 5 | 7 |
 
 The five that still differ are explained below. Twenty-two more numbers come
 from `rnormal()` and cannot be compared draw for draw.
@@ -88,7 +88,8 @@ from `rnormal()` and cannot be compared draw for draw.
 - `sp.rdrobust` names a string covariate. It used to stop with
   `could not convert string to float: 'New Jersey'`.
 - In `sp.stata`:
-  - commands `xi`, `ebalance`, `cem`, `sensemakr`;
+  - commands `xi`, `ebalance`, `cem`, `sensemakr`, and
+    `table g, statistic(mean x)`;
   - `encode x, g(new)`, `date(s, "YMD")` and the other orderings,
     `egen cut(x), group(#)`, `margins, at(x = 100)` with blanks,
     `collapse (sd) s = x` with blanks;
@@ -189,8 +190,11 @@ places, with what StatsPAI offers.
 
 ## Left out on purpose
 
-- `table x, stat(mean y)` (Stata 17 syntax). `tabstat y, by(x)` is
-  translated and gives the same means.
+- `table` beyond one row variable and one `statistic()`. That form is
+  translated to `sp.sumstats(by=)` and reproduces the book's two tables
+  (3.583539 and 5.343309 by college attendance). `sp.sumstats` labels the
+  two levels of any binary `by` variable "Control" and "Treated", which
+  reads oddly for a variable that is not a treatment; left as it is.
 - `lasso linear ..., sel(cv)` and `lassocoef`. Cross-validation folds come
   from Stata's random-number generator. `sp.lasso_select` and `sp.rlasso`
   exist for direct use.

@@ -145,7 +145,8 @@ for chapters 4 and 13 to 21 was run in Stata 18 and replayed through
   Stata `sensemakr` to 1e-12.
 - `sp.rdrobust` names a covariate, outcome or running variable that is not
   numeric instead of failing inside numpy.
-- `sp.stata` runs `xi`, `ebalance`, `cem` and `sensemakr`; `encode, g()`;
+- `sp.stata` runs `xi`, `ebalance`, `cem`, `sensemakr` and
+  `table g, statistic(mean x)`; `encode, g()`;
   `date()`; `egen cut(), group()`; `reghdfe` with `d##ib3.t` and squares;
   `_b[1.d#3.t]`; abbreviated variable names; weights that are missing or
   zero (the observation is dropped, as in Stata); `[iw = w]` in `regress`

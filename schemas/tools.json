@@ -29605,7 +29605,7 @@
           "type": "number"
         },
         "benchmark": {
-          "description": "Covariates to benchmark confounding strength against",
+          "description": "Covariates to benchmark confounding strength against; a dict {label: [controls]} benchmarks a group jointly",
           "items": {
             "type": "string"
           },

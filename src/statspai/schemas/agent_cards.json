@@ -11446,7 +11446,7 @@
             "type": "number"
           },
           "benchmark": {
-            "description": "Covariates to benchmark confounding strength against",
+            "description": "Covariates to benchmark confounding strength against; a dict {label: [controls]} benchmarks a group jointly",
             "items": {
               "type": "string"
             },
@@ -11505,7 +11505,8 @@
       "Stata parity module 22_sensemakr",
       "Cross-language parity (bit-exact) vs sensemakr::sensemakr [R version 4.5.2 (2025-10-31), sensemakr 0.1.6]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 22_sensemakr -- tests/r_parity/22_sensemakr.py",
       "tests/reference_parity/test_sensemakr_factor_parity.py",
-      "tests/reference_parity/test_sensemakr_parity.py"
+      "tests/reference_parity/test_sensemakr_parity.py",
+      "tests/reference_parity/test_the_effect_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -56162,10 +56163,21 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "dof_adjust": {
+            "default": false,
+            "description": "How a second or third moment is matched. By default the raw moments of the controls are set to those of the treated, which is what R ``ebal`` and ``WeightIt`` do when handed ``x**2``. Stata's ``ebalance`` instead matches the *sample* variance: it scales the centred moment ``(x - mean_treated)**p`` by ``(n / (n - 1))**(p/2)`` within each group, so the reweighted controls reproduce the treated variance with its ``n - 1`` divisor. ``dof_adjust=True`` follows Stata; with ``moments=1`` the two agree. The factor differs from one by ``O(1/n)`` and does not enter the first-order variance, so the standard error is computed the same way.",
+            "type": "boolean"
+          },
           "moments": {
             "default": 1,
-            "description": "Number of moments to balance: - 1: means only - 2: means and variances - 3: means, variances, and skewness",
-            "type": "integer"
+            "description": "Number of moments to balance: - 1: means only - 2: means and variances - 3: means, variances, and skewness A sequence gives the order covariate by covariate, in the order of ``covariates`` (Stata ``ebalance ..., targets(2 2 1)``). A moment that repeats another one in the sample is balanced by it and is left out of the problem: the square of a 0/1 indicator is the indicator, so asking for its variance adds nothing. Such moments are listed in ``model_info['redundant_moments']``.",
+            "items": {
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
           },
           "treat": {
             "description": "Binary treatment indicator (0/1).",
@@ -56202,7 +56214,8 @@
       "Cross-language parity (bit-exact) vs ebal::ebalance 0.2.1 (Hainmueller 2012); tolerance ATT rel <= 1e-5 (observed 3.2e-7); moment gap <= 1e-10 -- tests/reference_parity/test_matching_r_parity.py",
       "tests/reference_parity/test_ebalance_weightit_parity.py",
       "tests/reference_parity/test_matching_parity.py",
-      "tests/reference_parity/test_paper_parity.py"
+      "tests/reference_parity/test_paper_parity.py",
+      "tests/reference_parity/test_the_effect_stata_parity.py"
     ],
     "validation_status": "certified"
   },

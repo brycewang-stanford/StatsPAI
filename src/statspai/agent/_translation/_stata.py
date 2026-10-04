@@ -635,6 +635,43 @@ def _h_tabstat(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("sumstats", args, f"sp.sumstats(df, {kw})", semantics=semantics)
 
 
+def _h_table(cmd: StataCommand) -> Dict[str, Any]:
+    """``table g, statistic(mean x y)`` (Stata 17 and later) ->
+    ``sp.sumstats(by=g)``: one statistic of one or more variables by the
+    levels of one row variable. Column and layer dimensions, several
+    ``statistic()`` options and ``command()`` are not translated."""
+    spec = None
+    for key in list(cmd.options):
+        if key and len(key) >= 4 and "statistic".startswith(key):
+            spec = cmd.options.get(key)
+    words = (spec or "").split()
+    rows = [v for v in cmd.varlist if v not in ("(", ")")]
+    stat = _SUM_STATS.get(words[0].lower()) if words else None
+    if len(rows) != 1 or stat is None or len(words) < 2:
+        return _emit_error(
+            "only `table rowvar, statistic(stat varlist)` is translated "
+            "(one row variable, one statistic); use sp.sumstats(df, by=...) "
+            "or df.groupby(...).agg(...) for other layouts.",
+            command="table",
+            suggestions=[],
+        )
+    args: Dict[str, Any] = {"stats": [stat], "output": "numeric"}
+    if stat.startswith("p") or stat in ("median", "iqr"):
+        args["percentile_method"] = "stata"
+    args["vars"] = words[1:]
+    args["by"] = rows[0]
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit(
+        "sumstats",
+        args,
+        f"sp.sumstats(df, {kw})",
+        semantics=[
+            "table also prints a Total row; sp.sumstats(by=) returns the "
+            "groups only."
+        ],
+    )
+
+
 def _h_correlate(cmd: StataCommand) -> Dict[str, Any]:
     """``correlate x y z`` / ``pwcorr x y z, obs`` -> ``sp.pwcorr``.
 
@@ -3593,6 +3630,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "rddensity": _h_rddensity,
     "teffects": _h_teffects,
     "psmatch2": _h_psmatch2,
+    "table": _h_table,
     "margins": _h_margins,
     "marginsplot": _h_marginsplot,
     "contrast": _h_contrast,

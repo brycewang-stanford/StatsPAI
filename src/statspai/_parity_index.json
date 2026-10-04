@@ -5325,7 +5325,8 @@
       "additional_tests": [
         "tests/reference_parity/test_ebalance_weightit_parity.py",
         "tests/reference_parity/test_matching_parity.py",
-        "tests/reference_parity/test_paper_parity.py"
+        "tests/reference_parity/test_paper_parity.py",
+        "tests/reference_parity/test_the_effect_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -10212,7 +10213,8 @@
         "tests/reference_parity/test_nnmatch_teffects_parity.py",
         "tests/reference_parity/test_psmatch2_llr_parity.py",
         "tests/reference_parity/test_psmatch2_parity.py",
-        "tests/reference_parity/test_teffects_probit_stata.py"
+        "tests/reference_parity/test_teffects_probit_stata.py",
+        "tests/reference_parity/test_the_effect_stata_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -15882,6 +15884,7 @@
         "tests/reference_parity/test_sasp_within_parity.py",
         "tests/reference_parity/test_spdep_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
+        "tests/reference_parity/test_the_effect_stata_parity.py",
         "tests/reference_parity/test_thornton_ri_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
@@ -17208,7 +17211,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_sensemakr_factor_parity.py",
-        "tests/reference_parity/test_sensemakr_parity.py"
+        "tests/reference_parity/test_sensemakr_parity.py",
+        "tests/reference_parity/test_the_effect_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"

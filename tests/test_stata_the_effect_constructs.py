@@ -238,3 +238,48 @@ def test_rdrobust_names_a_covariate_that_is_not_numeric():
     data["state"] = np.where(data["x"] > 0, "New Jersey", "Ohio")
     with pytest.raises(MethodIncompatibility, match="covariate 'state' is not numeric"):
         sp.rdrobust(data, y="y", x="x", covs=["state"])
+
+
+# ------------------------------------------------------------------- table
+def test_table_statistic_by_one_row_variable():
+    out = sp.from_stata("table wc, stat(mean earn)")
+    assert out["tool"] == "sumstats"
+    assert out["arguments"] == {
+        "stats": ["mean"],
+        "output": "numeric",
+        "vars": ["earn"],
+        "by": "wc",
+    }
+    assert out["untranslated_options"] == []
+    # two dimensions, or no statistic, are other tables
+    assert not sp.from_stata("table wc hc, stat(mean earn)")["ok"]
+    assert not sp.from_stata("table wc")["ok"]
+
+
+# ---------------------------------------------------------------- programs
+PROGRAM = """
+capture program drop inner
+program def inner, rclass
+quietly{
+    summarize x
+    local m = r(mean)
+    local shifted = `m' - 1
+}
+return scalar diff = `shifted'
+end
+
+program define outer, rclass
+    inner
+    return scalar diff = r(diff)
+end
+
+outer
+display r(diff)
+"""
+
+
+def test_program_def_returns_a_local_and_may_call_another_program():
+    data = pd.DataFrame({"x": np.arange(10.0)})
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert sp.stata(PROGRAM, data=data) == 3.5
