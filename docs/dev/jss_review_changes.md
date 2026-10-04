@@ -31,6 +31,25 @@ Rules:
 
 ## Entries
 
+### 2026-10-04 — call traces re-recorded after `sp.survreg` was rewritten
+
+Commit `dbad2724`. `survival/models.py` is on the estimation path of
+Track A module 24 (`sp.cox`). Only `sp.survreg` in that file changed (it
+now honours `robust=` and `cluster=`, iterates to the optimum and supports
+gamma frailty); `sp.cox` was not touched. The trace of module 24 was
+re-recorded. The original-data trace was re-recorded in the same run
+because the gate reported it stale; none of its modules has
+`survival/models.py` on its path, so only digests moved there.
+
+**Effect on the paper.** None. Module 24 was re-run with
+`tests/r_parity/verify_reproduce_py.py` and is byte-identical to its
+committed file. No module calls `sp.survreg`, so no parity row changes.
+No module's implementation classification moved.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-04 — call trace re-recorded after `sp.rdms` gained several boundary points
 
 Commit `7f700ff5`. `sp.rdms` accepts lists for `cutoff1=` / `cutoff2=`
