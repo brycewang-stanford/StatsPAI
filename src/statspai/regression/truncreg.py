@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
-from .._aliases import accepts_aliases
+from .._aliases import accepts_aliases, accepts_formula_first
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
@@ -29,6 +29,7 @@ def _as_float_array(value: Any) -> np.ndarray:
     return np.asarray(value, dtype=float)
 
 
+@accepts_formula_first()
 @accepts_aliases(vce="robust")
 @markout_clusters
 def truncreg(
@@ -42,6 +43,8 @@ def truncreg(
     maxiter: int = 200,
     tol: float = 1e-8,
     alpha: float = 0.05,
+    *,
+    formula: Optional[str] = None,
 ) -> EconometricResults:
     """
     Truncated regression (MLE).
@@ -68,6 +71,10 @@ def truncreg(
     cluster : str, optional
     maxiter : int, default 200
     alpha : float, default 0.05
+    formula : str, optional
+        ``"y ~ x1 + I(x1**2) + C(g)"`` in place of ``y=`` and ``x=``.
+        Transformed, factor and interaction terms are built as columns
+        and named as ``sp.regress`` names them.
 
     Returns
     -------
@@ -93,6 +100,12 @@ def truncreg(
     """
     if data is None:
         raise ValueError("'data' must be provided.")
+    if formula is not None:
+        if y is not None or x is not None:
+            raise ValueError("Pass a formula or 'y' and 'x', not both.")
+        from ..core.utils import formula_to_columns
+
+        data, y, x = formula_to_columns(formula, data)
     if y is None or x is None:
         raise ValueError("Both 'y' and 'x' must be provided.")
     if ll is not None and ul is not None and ll >= ul:

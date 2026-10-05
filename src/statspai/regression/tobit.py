@@ -24,18 +24,19 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, special, stats
 
-from .._aliases import accepts_aliases
+from .._aliases import accepts_aliases, accepts_formula_first
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._limited_dep_result import LimitedDepResult
 from ._optim_helpers import robust_convergence
 
 
+@accepts_formula_first()
 @accepts_aliases(robust="vce", covariates="x")
 def tobit(
     data: pd.DataFrame,
-    y: str,
-    x: List[str],
+    y: Optional[str] = None,
+    x: Optional[List[str]] = None,
     ll: Optional[float] = 0,
     ul: Optional[float] = None,
     alpha: float = 0.05,
@@ -43,6 +44,8 @@ def tobit(
     cluster: Optional[str] = None,
     weights: Optional[str] = None,
     method: str = "mle",
+    *,
+    formula: Optional[str] = None,
 ) -> CausalResult:
     """
     Tobit (Type I) censored regression via MLE.
@@ -84,6 +87,10 @@ def tobit(
     weights : str, optional
         Sampling-weight column (Stata ``[pw=]``): the log-likelihood is
         weighted and, as in Stata, the standard errors are robust.
+    formula : str, optional
+        ``"y ~ x1 + I(x1**2) + C(g)"`` in place of ``y=`` and ``x=``.
+        Transformed, factor and interaction terms are built as columns
+        and named as ``sp.regress`` names them.
 
     Returns
     -------
@@ -144,6 +151,20 @@ def tobit(
         # Stata: pweights imply vce(robust); the OIM variance is not valid
         # for a pseudo-likelihood.
         se_kind = "robust"
+    if formula is not None:
+        if y is not None or x is not None:
+            raise MethodIncompatibility(
+                "tobit: pass a formula or y= and x=, not both.",
+                diagnostics={"formula": formula},
+            )
+        from ..core.utils import formula_to_columns
+
+        data, y, x = formula_to_columns(formula, data)
+    if y is None or x is None:
+        raise MethodIncompatibility(
+            "tobit: the outcome and the regressors are needed.",
+            recovery_hint="Pass formula='y ~ x1 + x2', or y= and x=.",
+        )
     extra = [c for c in (cluster, weights) if isinstance(c, str)]
     missing_cols = [c for c in [y] + list(x) + extra if c not in data]
     if missing_cols:

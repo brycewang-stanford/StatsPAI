@@ -462,3 +462,61 @@ def test_translated_glm_runs(cross):
     ref = smf.glm("c ~ w + x", cross, family=sm.families.Poisson()).fit(scale="X2")
     fit = sp.stata("glm c w x, family(poisson) scale(x2)", data=cross)
     np.testing.assert_allclose(fit.std_errors, ref.bse, rtol=1e-7)
+
+
+# ------------------------------------------------------- second round items
+def test_tobit_and_truncreg_take_a_formula(cross):
+    built = cross.assign(lx=np.log(cross["x"]), w2=cross["w"] ** 2)
+    built = built.rename(columns={"lx": "log(x)", "w2": "I(w ** 2)"})
+    censored = built.assign(yc=built["y"].clip(lower=1.5))
+    ref = sp.tobit(censored, "yc", ["log(x)", "I(w ** 2)"], ll=1.5)
+    fit = sp.tobit(
+        cross.assign(yc=censored["yc"]), formula="yc ~ log(x) + I(w**2)", ll=1.5
+    )
+    np.testing.assert_allclose(fit.params.values, ref.params.values, rtol=1e-10)
+    np.testing.assert_allclose(fit.std_errors.values, ref.std_errors.values, rtol=1e-10)
+    first = sp.tobit("yc ~ log(x) + I(w**2)", cross.assign(yc=censored["yc"]), ll=1.5)
+    np.testing.assert_allclose(first.params.values, ref.params.values, rtol=1e-10)
+
+    kept = built[built["y"] > 1.2]
+    ref_t = sp.truncreg(kept, y="y", x=["log(x)", "I(w ** 2)"], ll=1.2)
+    fit_t = sp.truncreg(cross[cross["y"] > 1.2], formula="y ~ log(x) + I(w**2)", ll=1.2)
+    np.testing.assert_allclose(fit_t.params.values, ref_t.params.values, rtol=1e-8)
+
+    with pytest.raises(MethodIncompatibility, match="not both"):
+        sp.tobit(cross, "y", ["x"], formula="y ~ x")
+    with pytest.raises(MethodIncompatibility, match="needed"):
+        sp.tobit(cross)
+    with pytest.raises(ValueError, match="not both"):
+        sp.truncreg(cross, y="y", x=["x"], formula="y ~ x")
+
+
+def test_survreg_takes_the_data_first(cross):
+    data = cross.assign(t=cross["y"], dead=cross["d"])
+    ref = sp.survreg("t ~ w + z", data=data, event="dead", dist="lognormal")
+    for fit in (
+        sp.survreg(data, duration="t", event="dead", x=["w", "z"], dist="lognormal"),
+        sp.survreg(data, "t ~ w + z", event="dead", dist="lognormal"),
+    ):
+        np.testing.assert_allclose(fit.params.values, ref.params.values, rtol=1e-10)
+
+
+def test_standardized_coefficients(cross):
+    # the regression of the standardized outcome on the standardized
+    # regressors has the betas as its slopes
+    cols = ["y", "x", "w", "z"]
+    z = (cross[cols] - cross[cols].mean()) / cross[cols].std()
+    ref = smf.ols("y ~ 0 + x + w + z", z).fit().params
+    fit = sp.regress("y ~ x + w + z", cross)
+    out = sp.estat(fit, "beta", print_results=False)
+    assert list(out["beta_table"]["variable"]) == ["x", "w", "z"]
+    np.testing.assert_allclose(
+        [out["beta"][name] for name in ("x", "w", "z")], ref.values, rtol=1e-10
+    )
+    np.testing.assert_allclose(
+        out["beta_table"]["coef"].values, fit.params[["x", "w", "z"]].values
+    )
+    sp.estat(fit, "beta")  # prints
+    weighted = sp.regress("y ~ x", cross, weights="pop")
+    with pytest.raises(MethodIncompatibility, match="weighted"):
+        sp.estat(weighted, "beta", print_results=False)

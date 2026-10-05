@@ -309,3 +309,33 @@ def test_lad_regression_with_a_transformed_regressor():
         [1.6207403735869, 0.0186947707445, 0.1182513264859],
         rtol=1e-8,
     )
+
+
+def test_section_6_1_standardized_coefficients():
+    # regress price nox crime rooms dist stratio, beta ; matrix list e(beta)
+    fit = sp.regress("price ~ nox + crime + rooms + dist + stratio", woo("hprice2"))
+    out = sp.estat(fit, "beta", print_results=False)
+    np.testing.assert_allclose(
+        [out["beta"][v] for v in ("nox", "crime", "rooms", "dist", "stratio")],
+        [-0.3404460142, -0.1432827522, 0.5138878326, -0.2348385285, -0.2702798870],
+        rtol=RTOL,
+    )
+
+
+def test_example_17_2_tobit_from_a_formula():
+    # gen expersq2 = exper^2 ; tobit hours ... expersq2 ..., ll(0)
+    fit = sp.tobit(
+        woo("mroz"),
+        formula="hours ~ nwifeinc + educ + exper + I(exper**2) + age + kidslt6"
+        " + kidsge6",
+    )
+    np.testing.assert_allclose(
+        [
+            fit.params["I(exper ** 2)"],
+            fit.std_errors["I(exper ** 2)"],
+            fit.model_info["log_likelihood"],
+        ],
+        # Stata stores the generated square in single precision
+        [-1.86415339, 0.53766062, -3819.094559],
+        rtol=1e-5,
+    )

@@ -115,7 +115,8 @@ def estat(
         ``'imtest'`` (White's test with the skewness and kurtosis parts),
         ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'durbinalt'`` (Durbin's
         alternative test), ``'archlm'`` (Engle's LM test for ARCH effects),
-        ``'dwatson'``, ``'vif'``,
+        ``'dwatson'``, ``'vif'``, ``'beta'`` (standardized coefficients, Stata
+        ``regress, beta``),
         ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``,
         ``'endogenous'``, ``'overid'``, ``'firststage'``,
         ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``.
@@ -259,6 +260,7 @@ def estat(
             version="fstat" if version == "fstat" else "iid",
             alpha=alpha,
         ),
+        "beta": lambda: _reg.beta(result),
         "durbinalt": lambda: _reg.durbinalt(
             result,
             lags=lags,
@@ -1063,7 +1065,12 @@ def _print_result(out: Dict[str, Any]) -> None:
         return
 
     # VIF table
-    if "vif_table" in out:
+    if "beta_table" in out:
+        table = out["beta_table"]
+        print(table.to_string(index=False, float_format=lambda v: f"{v:.6f}"))
+        print()
+
+    elif "vif_table" in out:
         vif_df = out["vif_table"]
         print(vif_df.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
         print(f"\n  Mean VIF = {out.get('mean_vif', 0):.2f}")

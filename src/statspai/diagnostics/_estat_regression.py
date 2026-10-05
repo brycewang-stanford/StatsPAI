@@ -451,6 +451,50 @@ def bgodfrey(
     }
 
 
+def beta(result: Any) -> Dict[str, Any]:
+    """Standardized (beta) coefficients of a linear regression.
+
+    Each slope times the sample standard deviation of its regressor over
+    that of the outcome: the change in the outcome, in standard deviations,
+    that goes with one standard deviation of the regressor (Stata
+    ``regress, beta``). The constant has none.
+    """
+    X, y, _, names = _arrays(result)
+    info = getattr(result, "data_info", None) or {}
+    if any(info.get(key) is not None for key in ("analytic_weights", "weights")):
+        raise MethodIncompatibility(
+            "sp.estat beta: standardized coefficients are not computed "
+            "after a weighted fit.",
+            recovery_hint="Standardize the variables with the weighted "
+            "moments you intend and refit.",
+        )
+    const = _constant_column(X)
+    coefs = np.asarray(result.params, dtype=float)
+    sd_y = float(np.std(y, ddof=1))
+    rows = []
+    for j, name in enumerate(names):
+        if j == const:
+            continue
+        sd_x = float(np.std(X[:, j], ddof=1))
+        rows.append(
+            {
+                "variable": name,
+                "coef": float(coefs[j]),
+                "beta": float(coefs[j] * sd_x / sd_y) if sd_y > 0 else np.nan,
+            }
+        )
+    table = pd.DataFrame(rows, columns=["variable", "coef", "beta"])
+    return {
+        "test": "Standardized (beta) coefficients",
+        "beta_table": table,
+        "beta": dict(zip(table["variable"], table["beta"])),
+        "interpretation": (
+            "A beta is the change in the outcome, in standard deviations, "
+            "for a one standard deviation change in the regressor."
+        ),
+    }
+
+
 def durbinalt(
     result: Any, *, lags: int = 1, version: str = "iid", alpha: float = 0.05
 ) -> Dict[str, Any]:

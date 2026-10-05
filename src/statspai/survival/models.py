@@ -1366,6 +1366,9 @@ def survreg(
     """
     Parametric survival model (AFT parameterization).
 
+    The data may also come first: ``sp.survreg(df, duration=..., event=...,
+    x=[...])`` and ``sp.survreg(df, "t ~ x1 + x2", event=...)``.
+
     Parameters
     ----------
     formula : str, optional
@@ -1435,6 +1438,9 @@ def survreg(
         se_from_vcov,
     )
 
+    if isinstance(formula, pd.DataFrame):
+        # data first, as in sp.tobit and sp.qreg
+        formula, data = (data if isinstance(data, str) else None), formula
     if formula is not None:
         dur_name, x_names = _parse_formula(formula)
         if duration is None:

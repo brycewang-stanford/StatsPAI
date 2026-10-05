@@ -90729,6 +90729,11 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "formula": {
+            "description": "``\"y ~ x1 + I(x1**2) + C(g)\"`` in place of ``y=`` and ``x=``. Transformed, factor and interaction terms are built as columns and named as ``sp.regress`` names them.",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
           "ll": {
             "description": "Lower truncation point. None = no lower truncation.",
             "type": "number"

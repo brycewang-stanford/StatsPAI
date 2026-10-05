@@ -76,6 +76,11 @@ or R on the book's datasets. Most of it agreed to 1e-12. The notes are in
   alternative test), `'bgodfrey'` with `version='fstat'`, and `'white'`
   with `variables='fitted'` (the form of the test on the fitted values and
   their squares). `'leverage'` also returns `rstudent` and `rstandard`.
+  `'beta'` returns the standardized coefficients of Stata's
+  `regress, beta`.
+- **`sp.tobit(formula=)` and `sp.truncreg(formula=)`**, with transformed,
+  factor and interaction terms; the formula may also come first.
+  `sp.survreg` accepts the data first.
 - **`sp.glm(scale=)`**: `'x2'`, `'dev'` or a number, the factor on the
   model-based covariance. `family='poisson', scale='x2'` is the
   quasi-Poisson covariance and matches Stata `glm, scale(x2)`.

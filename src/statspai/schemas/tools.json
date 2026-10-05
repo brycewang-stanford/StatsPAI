@@ -10047,7 +10047,7 @@
         },
         "test": {
           "default": "all",
-          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'durbinalt'`` (Durbin's alternative test), ``'archlm'`` (Engle's LM test for ARCH effects), ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``. After ``sp.didregress``: ``'ptrends'`` and ``'granger'``. After ``sp.callaway_santanna`` or ``sp.jwdid`` / ``sp.etwfe``: ``'simple'``, ``'group'``, ``'calendar'`` and ``'event'``, the aggregations of Stata's ``csdid`` / ``jwdid`` ``estat``. These return the aggregated result (``sp.aggte`` / ``sp.etwfe_emfx``), not a test dictionary.",
+          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'durbinalt'`` (Durbin's alternative test), ``'archlm'`` (Engle's LM test for ARCH effects), ``'dwatson'``, ``'vif'``, ``'beta'`` (standardized coefficients, Stata ``regress, beta``), ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``. After ``sp.didregress``: ``'ptrends'`` and ``'granger'``. After ``sp.callaway_santanna`` or ``sp.jwdid`` / ``sp.etwfe``: ``'simple'``, ``'group'``, ``'calendar'`` and ``'event'``, the aggregations of Stata's ``csdid`` / ``jwdid`` ``estat``. These return the aggregated result (``sp.aggte`` / ``sp.etwfe_emfx``), not a test dictionary.",
           "enum": [
             "hettest",
             "white",
@@ -10059,6 +10059,7 @@
             "archlm",
             "dwatson",
             "vif",
+            "beta",
             "ic",
             "linktest",
             "normality",
@@ -33752,6 +33753,11 @@
           "description": "Cluster identifier column for clustered standard errors.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "formula": {
+          "description": "``\"y ~ x1 + I(x1**2) + C(g)\"`` in place of ``y=`` and ``x=``. Transformed, factor and interaction terms are built as columns and named as ``sp.regress`` names them.",
+          "type": "string",
+          "x-statspai-role": "formula"
         },
         "ll": {
           "description": "Lower truncation point. None = no lower truncation.",

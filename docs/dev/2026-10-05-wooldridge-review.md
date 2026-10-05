@@ -68,6 +68,9 @@ on `barium`; StatsPAI and Stata `prais, corc` get 0.2934.
 | 16 | The special form of White's test, on the fitted values and their squares (Example 8.5) | missing option | `sp.estat(result, 'white', variables='fitted')` |
 | 17 | The quasi-Poisson standard errors of Example 17.3 | missing option | `sp.glm(..., scale='x2')` |
 | 18 | `estat archlm`, `estat durbinalt`, `truncreg`, `glm` were not translated from Stata | coverage | translated |
+| 19 | Standardized coefficients (`regress, beta`, section 6.1) were not available | missing option | `sp.estat(result, 'beta')` |
+| 20 | `sp.tobit` and `sp.truncreg` took `y=` and `x=` lists only, so the square of Example 17.2 had to be a column | coverage | `formula=` |
+| 21 | `sp.survreg(data, ...)` with the data first failed with `AttributeError` | bad failure | fixed |
 
 Items 1 to 4 change numbers or text that StatsPAI used to return. They are
 in `CHANGELOG.md` under Correctness and in `MIGRATION.md`.
@@ -124,15 +127,11 @@ the docstring of the function.
 
 ## Left open
 
-- **Standardized coefficients.** `regress, beta` (section 6.1) has no
-  counterpart. `sp.from_stata` treats `beta` as a display option, which is
-  what it is in Stata, but nothing prints the betas.
 - **Tests of non-nested models.** The Davidson-MacKinnon J test and the
   encompassing F test of section 9.1 have to be assembled from `sp.regress`
   and `sp.test`.
-- **Formulas in the limited dependent variable estimators.** `sp.tobit`,
-  `sp.truncreg` and `sp.heckman` take `y=` and `x=` lists, so a square has
-  to be created as a column first.
+- **A formula for `sp.heckman`.** It has two equations and takes `x=` and
+  `z=` lists; `sp.tobit` and `sp.truncreg` now take a formula.
 - **Names of built terms.** `sp.regress` names a term `I(exper ** 2)`;
   `sp.ivreg` and `sp.panel` name the same term `I[exper ** 2]`, and a factor
   level `year[1981.0]` where `sp.regress` has `C(year)[T.1981.0]`. The
@@ -143,8 +142,6 @@ the docstring of the function.
   the levels named by the coefficients. When the new rows lack the reference
   level and every other level too, the coding cannot be recovered and the
   call is refused with a message.
-- **`sp.survreg(data, ...)` with the data first** fails with an
-  `AttributeError`. `data=` as a keyword works.
 - **Stata translations not attempted.** `hausman fe re` (needs stored
   estimates), `reg3` and `sureg` (multi-equation syntax), `cnreg` and
   `intreg`, `arch`.
