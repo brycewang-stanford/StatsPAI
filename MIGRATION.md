@@ -278,8 +278,10 @@ earlier number.
 effect is estimable at every requested horizon. It kept those merely
 observed there. (2) `aggregation='switchers'` divides by the treatment
 changes in place at each horizon. (3) `controls=` fits its regression on
-the never-switchers too and no longer uses a change across a hole in the
-panel as a one-period change. (4) With `se_method='analytic'` the joint
+the never-switchers too, weighted when `weights=` is given and within
+`trends_nonparam` cells, no longer uses a change across a hole in the
+panel as a one-period change, and its analytic variance accounts for the
+estimation of the slopes. (4) With `se_method='analytic'` the joint
 tests are computed from the analytic covariance and `n_boot` is ignored;
 `joint_effects_test` is new. (5) A non-binary treatment is estimated
 instead of refused.
@@ -287,8 +289,10 @@ instead of refused.
 **Who is affected.** (1) Panels where some switchers have no control at
 the longest horizon, which includes every staggered panel without
 never-treated groups. (2) Treatments that return to their starting value
-within the horizons. (3) Panels with never-switchers, or with missing
-periods. (4) Analytic fits that read `joint_placebo_test`,
+within the horizons. (3) Every fit with `controls=`: the analytic
+standard errors move by a few tenths of a percent, and the estimates move
+on panels with never-switchers, missing periods, weights or
+`trends_nonparam`. (4) Analytic fits that read `joint_placebo_test`,
 `joint_overall_test` or `effects_equal_test`: the p-values now come from
 the same variance as the standard errors, and an analytic fit with
 `n_boot=0`, which used to return `None` for them, returns the test.

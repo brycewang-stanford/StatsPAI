@@ -630,10 +630,13 @@ still open are in `docs/dev/2026-10-05-dcdh-did-textbook-review.md`.
   regression behind the option was fitted without the groups that never
   switch, whose outcomes were then left unadjusted, and on a panel with
   holes a change between two rows several periods apart was used as a
-  one-period change. Estimates now agree with Stata on panels with
-  never-switchers and with holes. The analytic standard errors under
-  `controls=` still treat the covariate slopes as known and differ from
-  Stata's by a few tenths of a percent (open).
+  one-period change. The regression also ignored `weights=` and
+  `trends_nonparam=`. And the analytic variance treated the fitted slopes
+  as known; it now has the term for their estimation (it was 0.1 to 0.6%
+  off). Estimates and standard errors agree with Stata to 5e-7 in six
+  configurations: plain, weighted and clustered, within
+  `trends_nonparam` cells, normalized, one switch direction, and on an
+  unbalanced panel.
 - ⚠️ **`regress y x, vce(hc2 clustvar, dfadjust)` through `sp.stata` /
   `sp.from_stata`** came back as `sp.regress(robust='hc2')`: the cluster
   variable and the degrees-of-freedom adjustment were dropped without a
@@ -670,6 +673,14 @@ still open are in `docs/dev/2026-10-05-dcdh-did-textbook-review.md`.
   `vce='cr2'` / `'cr3'`, whose full covariance is stored.
 - **Translations**: `twowayfeweights`, `did_multiplegt_dyn`, `did_had`
   and `did_multiplegt_old` run through `sp.stata`.
+- **A sup-t test in `sp.uniform_bands`**, and `terms=`. The result's
+  `attrs` now carry `max_t` and `supt_pvalue`, the test that every covered
+  coefficient is zero. It is the test the textbook recommends when many
+  correlated pre-trend estimates make the Wald test's covariance nearly
+  singular. `terms=[...]` covers named coefficients of any regression, for
+  an event study written by hand with lead and lag dummies. On the book's
+  two examples the p-values are 0.068 and 0.608, against 0.068 and 0.607
+  from Stata `sotable`.
 - **`sp.fect` on large panels.** The initial two-way fit built one dummy
   column per unit, so a panel of 7,248 units and 40 periods needed a 17 GB
   matrix and did not finish. Above 50 million design cells the same

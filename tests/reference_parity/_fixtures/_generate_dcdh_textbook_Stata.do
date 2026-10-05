@@ -65,6 +65,21 @@ put_dyn wcl 2 1
 did_multiplegt_dyn y g year d, effects(2) switchers(in) controls(x) graph_off
 put_dyn inx 2 0
 
+* controls(): estimates, and the variance with its slope-estimation term
+did_multiplegt_dyn y g year d, effects(2) placebo(2) controls(x) graph_off
+put_dyn ctl 2 2
+did_multiplegt_dyn y g year d, effects(2) placebo(1) controls(x) weight(wt) cluster(state) graph_off
+put_dyn ctlw 2 1
+did_multiplegt_dyn y g year d, effects(2) controls(x) normalized graph_off
+put_dyn ctln 2 0
+did_multiplegt_dyn y g year d, effects(2) controls(x) trends_nonparam(cohort) graph_off
+put_dyn ctlt 2 0
+preserve
+drop if missing(y2)
+did_multiplegt_dyn y2 g t d2, effects(2) placebo(1) controls(x) graph_off
+put_dyn ctlb 2 1
+restore
+
 * by_path leaves the last path in e(); run one path at a time
 did_multiplegt_dyn y g year d, effects(2) by_path(1) graph_off
 put_dyn path1 2 0

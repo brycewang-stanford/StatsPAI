@@ -146,9 +146,13 @@ the first effect instead of 1,119, and the effect is 0.014548 against
 0.014424. Removing that county from the input reproduces the reference on
 every effect, placebo, standard error and test.
 
-With ``controls=`` the point estimates are the reference's but the analytic
-standard errors treat the covariate slopes as known, and differ from the
-reference's by a few tenths of a percent.
+With ``controls=`` the covariate slopes are estimated, and the analytic
+variance carries the term for that (``U^{var,X}`` of the companion paper):
+each group's influence loses ``M_d' b_g``, with ``M_d`` the derivative of
+the effect with respect to the slopes of period-one treatment ``d`` and
+``b_g`` the group's contribution to their estimation error. Estimates and
+standard errors agree with the reference weighted and clustered, within
+``trends_nonparam`` cells, normalized and on unbalanced panels.
 
 Not implemented
 ---------------
@@ -374,17 +378,24 @@ def did_multiplegt_dyn(
         of the baseline treatment. The resulting estimators are unbiased
         under differential trends that a linear model in covariate changes
         explains. To adjust for a time-invariant covariate, interact it
-        with the time variable first. The analytic standard errors treat
-        the fitted slopes as known (module docstring).
+        with the time variable first. The regression uses ``weights=``
+        and is fitted within ``trends_nonparam`` cells when both are
+        given, and the analytic standard errors account for the
+        estimation of its slopes, as the reference's do.
 
         .. versionchanged:: 1.39.0
-           ⚠️ Two fixes. The regression is now fitted on the groups that
-           never switch as well; it used only the pre-switch periods of
-           the groups that do, and left the never-switchers' outcomes
+           ⚠️ The regression is now fitted on the groups that never
+           switch as well; it used only the pre-switch periods of the
+           groups that do, and left the never-switchers' outcomes
            unadjusted. On a panel with holes a covariate change between
            two rows that are not consecutive periods is no longer used as
-           a one-period change. Panels where every group switches and
-           no period is missing are unaffected.
+           a one-period change. The regression is weighted when
+           ``weights=`` is given and fitted within ``trends_nonparam``
+           cells, and the analytic variance has the slope-estimation
+           term (it was 0.1 to 0.6% off without it). Unweighted panels
+           where every group switches and no period is missing keep
+           their estimates; every analytic standard error with
+           ``controls=`` changes slightly.
 
         .. versionadded:: 1.31.0
     trends_nonparam : list of str, optional
@@ -629,15 +640,22 @@ def did_multiplegt_dyn(
         df, y_work = _residualise_on_baseline_polynomial(
             df, y=y_work, group=group, time=time, degree=int(continuous)
         )
+    controls_info: Optional[Dict[float, Dict[str, Any]]] = None
     if controls:
-        df, y_work = _residualise_on_controls(
+        df, y_work, controls_info = _residualise_on_controls(
             df,
             y=y,
             group=group,
             time=time,
             treatment=treatment,
             controls=controls,
+            weights=weights,
+            cluster=cluster_var,
         )
+        if continuous is not None:
+            # the polynomial in the period-one treatment replaces the
+            # baseline match; the slope-estimation term is not derived there
+            controls_info = None
     # Horizons list: placebo (negative) + dynamic (0..H).
     horizons = list(range(-placebo, dynamic + 1))
     # l = -1 is a genuine placebo, not a mechanical zero: it is
@@ -659,6 +677,8 @@ def did_multiplegt_dyn(
         cluster=cluster_var,
         normalized=normalized,
         match_baseline=continuous is None,
+        controls=controls,
+        controls_info=controls_info,
     )
 
     if not any(c["n_events"] for c in main["cell_estimates"]):
@@ -1035,6 +1055,8 @@ def did_multiplegt_dyn(
                     normalized=normalized,
                     match_baseline=True,
                     eligible=on_path,
+                    controls=controls,
+                    controls_info=controls_info,
                 )
                 by_path_out.append(
                     _path_result(path_fit, row.path, effect_h, alpha, aggregation)
@@ -1110,9 +1132,7 @@ def did_multiplegt_dyn(
                 "controls=, trends_nonparam=, normalized= and continuous= "
                 "are available and pinned to DIDmultiplegtDYN; trends_lin, "
                 "predict_het and the heteroskedastic-weights variant are "
-                "not. With controls= the analytic standard errors treat "
-                "the covariate slopes as known. See "
-                "docs/rfc/multiplegt_dyn.md."
+                "not. See docs/rfc/multiplegt_dyn.md."
             ),
         },
         _citation_key="dechaisemartin2024difference",
@@ -1346,24 +1366,37 @@ def _residualise_on_controls(
     time: str,
     treatment: str,
     controls: List[str],
-) -> Tuple[pd.DataFrame, str]:
-    """Replace the outcome by the cumulative residual of its first difference.
+    weights: Optional[str] = None,
+    cluster: Optional[str] = None,
+) -> Tuple[pd.DataFrame, str, Dict[float, Dict[str, Any]]]:
+    """Adjust the outcome for the controls, and keep what the variance needs.
 
     dCDH's ``controls`` option does not add covariates to a regression. It
     replaces the first difference of the outcome with the residual from a
     regression of that first difference on the first differences of the
-    controls and time fixed effects, fitted on the *control* (g, t)s --
+    controls and period fixed effects (period by ``trends_nonparam`` cell
+    when that option is on), weighted, fitted on the *control* (g, t)s --
     those whose treatment has not changed yet -- and separately for each
-    value of the baseline treatment. Estimators built on those residuals
+    value of the period-one treatment. Estimators built on those residuals
     are unbiased even under differential trends, as long as the differential
     trend is a linear function of the covariate changes.
 
-    Working with the cumulative sum of the residuals lets the rest of the
-    estimator stay exactly as it is: the long difference it takes,
-    ``Ytilde_{F+l} - Ytilde_{F-1}``, is the sum of the residualised first
-    differences over the horizon, which is what the option asks for.
+    The adjusted outcome is written in levels, ``Y - X theta_d - sum of the
+    period effects so far``, so that every long difference the estimator
+    takes is the long difference of the residualised first differences,
+    whatever happens to the group in between.
+
+    The third value returned holds, per period-one treatment ``d``: the
+    slopes ``theta``; ``T``, the last period with a control; and ``b``, one
+    row per group, the reference's term in brackets -- the group's
+    contribution to the estimation error of ``theta_d`` (zero outside
+    baseline ``d``) minus ``theta_d``. The variance of an effect subtracts
+    ``M_d' b_g`` from each group's influence, with ``M_d`` the effect's
+    derivative with respect to ``theta_d`` (``U^{var,X}`` of the companion
+    paper, as coded in the authors' command).
     """
     work = df.sort_values([group, time]).copy()
+    n_x = len(controls)
     cols = [y] + list(controls)
     diffs = work.groupby(group)[cols].diff()
     # A first difference is a change between two CONSECUTIVE periods. On a
@@ -1373,60 +1406,129 @@ def _residualise_on_controls(
     consecutive = (work.groupby(group)[time].diff() == 1).to_numpy()
     dy = diffs[y].to_numpy(dtype=float)
     dx = diffs[list(controls)].to_numpy(dtype=float)
+    levels_y = work[y].to_numpy(dtype=float)
+    levels_x = work[list(controls)].to_numpy(dtype=float)
+    d_now = work[treatment].to_numpy(dtype=float)
+    n_gt = (
+        np.ones(len(work))
+        if weights is None
+        else work[weights].astype(float).fillna(0.0).to_numpy()
+    )
+    n_gt = np.where(np.isfinite(levels_y) & np.isfinite(d_now), n_gt, 0.0)
 
     # Control (g, t): the treatment has not changed by t. `_F` is the first
     # switch period, NaN for never-switchers.
-    not_yet = work["_F"].isna() | (work[time] < work["_F"])
-    usable = consecutive & np.isfinite(dy) & np.all(np.isfinite(dx), axis=1)
+    f_of = work["_F"].to_numpy(dtype=float)
+    t_now = work[time].to_numpy(dtype=float)
+    not_yet = np.isnan(f_of) | (t_now < f_of)
+    dy_ok = consecutive & np.isfinite(dy)
+    usable = dy_ok & np.all(np.isfinite(dx), axis=1)
 
     period_codes, periods = pd.factorize(work[time], sort=True)
-    n_x = dx.shape[1]
-    levels_y = work[y].to_numpy(dtype=float)
-    levels_x = work[list(controls)].to_numpy(dtype=float)
+    n_periods = len(periods)
+    if "_tcell" in work.columns:
+        tc_codes = pd.factorize(work["_tcell"], sort=True)[0]
+    else:
+        tc_codes = np.zeros(len(work), dtype=np.int64)
+    n_tc = int(tc_codes.max()) + 1 if len(work) else 1
+    cell = tc_codes * n_periods + period_codes
+    n_cells = n_tc * n_periods
+
+    units = pd.Index(sorted(work[group].unique()))
+    g_codes = units.get_indexer(work[group])
+    cl_col = cluster if cluster is not None else group
+    cl_codes = pd.factorize(work[cl_col])[0]
+    t_max = float(work[time].max())
+    f_or_end = np.where(np.isnan(f_of), t_max + 1.0, f_of)
+
     adjusted = np.full(len(work), np.nan)
+    info: Dict[float, Dict[str, Any]] = {}
     # Period-one treatment of EVERY group. `_base` is only filled for the
     # groups that switch, and the never-switchers are the bulk of the
-    # control (g, t)s the regression is fitted on: without them the slopes
-    # come from the switchers' pre-periods alone and the never-switchers'
-    # outcomes are left unadjusted.
+    # control (g, t)s the regression is fitted on.
     base_all = (
         work[treatment]
         .astype(float)
         .groupby(work[group])
         .transform(lambda v: v.dropna().iloc[0] if v.notna().any() else np.nan)
-    )
-    for base in sorted(base_all.dropna().unique()):
-        in_base = (base_all == base).to_numpy()
-        fit_rows = in_base & not_yet.to_numpy() & usable
-        if fit_rows.sum() <= n_x + 1:
-            # Too few control (g, t)s at this baseline to identify the
-            # covariate slopes; leaving the first differences unadjusted
-            # would silently mix adjusted and unadjusted cells.
+    ).to_numpy()
+    for base in sorted(pd.unique(base_all[np.isfinite(base_all)])):
+        in_base = base_all == base
+        if np.unique(f_or_end[in_base]).size < 2:
+            # every group with this period-one treatment switches at the
+            # same date, or none does: nothing is estimated there
+            adjusted[in_base] = levels_y[in_base]
+            continue
+        fit = in_base & not_yet & usable & (n_gt > 0)
+        if fit.sum() <= n_x + 1:
             raise DataInsufficient(
                 "controls=: too few not-yet-switched observations at "
                 f"baseline treatment {base!r} to fit the first-difference "
                 "regression the option is defined by.",
-                diagnostics={"baseline": float(base), "n_rows": int(fit_rows.sum())},
+                diagnostics={"baseline": float(base), "n_rows": int(fit.sum())},
             )
-        d_fit = np.column_stack(
-            [dx[fit_rows], np.eye(len(periods))[period_codes[fit_rows]]]
+        w_fit = np.bincount(cell[fit], weights=n_gt[fit], minlength=n_cells)
+        has = w_fit > 0
+        safe = np.where(has, w_fit, 1.0)
+        avg_dx = np.column_stack(
+            [
+                np.bincount(
+                    cell[fit], weights=n_gt[fit] * dx[fit, k], minlength=n_cells
+                )
+                / safe
+                for k in range(n_x)
+            ]
         )
-        coef, *_ = np.linalg.lstsq(d_fit, dy[fit_rows], rcond=None)
-        theta, lam = coef[:n_x], coef[n_x:]
-        # The long difference of the residualised first differences between
-        # two periods is (Y - X theta) at the later one minus the same at
-        # the earlier one, minus the period effects in between. Writing the
-        # adjusted outcome in levels gives every long difference from its
-        # two end points, whatever happens to the group in between.
-        cum_lam = np.cumsum(lam)
+        avg_dy = np.bincount(cell[fit], weights=n_gt[fit] * dy[fit], minlength=n_cells)
+        avg_dy = avg_dy / safe
+        x_dot = dx - avg_dx[cell]
+        xtx = (x_dot[fit] * n_gt[fit, None]).T @ x_dot[fit]
+        xty = (x_dot[fit] * n_gt[fit, None]).T @ (dy[fit] - avg_dy[cell[fit]])
+        xtx_inv = np.linalg.pinv(xtx)
+        theta = xtx_inv @ xty
+        lam = np.where(has, avg_dy - avg_dx @ theta, 0.0)
+        cum_lam = np.cumsum(lam.reshape(n_tc, n_periods), axis=1).ravel()
         adjusted[in_base] = (
-            levels_y[in_base]
-            - levels_x[in_base] @ theta
-            - cum_lam[period_codes[in_base]]
+            levels_y[in_base] - levels_x[in_base] @ theta - cum_lam[cell[in_base]]
         )
 
+        # --- what the variance needs
+        ctrl_rows = in_base & not_yet & dy_ok
+        denom = np.zeros(n_periods)
+        if ctrl_rows.any():
+            pairs = pd.DataFrame(
+                {"t": period_codes[ctrl_rows], "c": cl_codes[ctrl_rows]}
+            ).drop_duplicates()
+            denom = np.bincount(pairs["t"], minlength=n_periods).astype(float)
+        den_row = denom[period_codes]
+        dof = np.where(den_row >= 2, np.sqrt(den_row / np.maximum(den_row - 1, 1)), 1.0)
+        fitted = np.where(den_row >= 2, lam[cell] + dx @ theta, 0.0)
+        fitted = np.where(has[cell], fitted, np.nan)
+        rows = in_base & not_yet & usable & np.isfinite(fitted)
+        n_c = float(n_gt[ctrl_rows].sum())
+        in_sum = np.zeros((len(units), n_x))
+        if n_c > 0:
+            term = (
+                (n_gt[rows] * dof[rows] * (dy[rows] - fitted[rows]))[:, None]
+                * x_dot[rows]
+                / n_c
+            )
+            np.add.at(in_sum, g_codes[rows], term)
+        inv_denom = xtx_inv * float(n_gt[fit].sum()) * len(units)
+        unit_base = pd.Series(base_all, index=work[group].to_numpy())
+        unit_base = unit_base[~unit_base.index.duplicated()].reindex(units)
+        unit_f = pd.Series(f_or_end, index=work[group].to_numpy())
+        unit_f = unit_f[~unit_f.index.duplicated()].reindex(units)
+        member = ((unit_base == base) & (unit_f >= 3)).to_numpy(dtype=float)
+        b = member[:, None] * (in_sum @ inv_denom.T) - theta[None, :]
+        info[float(base)] = {
+            "theta": theta,
+            "b": pd.DataFrame(b, index=units),
+            "T": float(f_or_end[in_base].max() - 1.0),
+        }
+
     work["_yadj"] = adjusted
-    return work, "_yadj"
+    return work, "_yadj", info
 
 
 def _estimate_all_horizons(
@@ -1445,6 +1547,8 @@ def _estimate_all_horizons(
     normalized: bool = False,
     match_baseline: bool = True,
     eligible: Optional[set] = None,
+    controls: Optional[List[str]] = None,
+    controls_info: Optional[Dict[float, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Compute δ_l for each horizon h using long-difference event-study.
 
@@ -1565,6 +1669,9 @@ def _estimate_all_horizons(
         sum_wdose = 0.0
         sum_wdose_now = 0.0
         lag_dose = np.zeros(max(h, 0) + 1)
+        # derivative of the effect with respect to the covariate slopes of
+        # each period-one treatment (the reference's M_d), unscaled
+        slope_grad: Dict[float, np.ndarray] = {}
         w_total = 0.0
         n_sw = 0
         n_events = 0
@@ -1595,12 +1702,20 @@ def _estimate_all_horizons(
                         trends_cell=trends_cell,
                         match_baseline=match_baseline,
                         base=base,
+                        controls=controls if controls_info else None,
                     )
                     if _cell is None:
                         continue
                     sum_wdelta += _cell["delta"] * _cell["w_sw"]
                     sum_wdose += _cell["dose"] * _cell["w_sw"]
                     lag_dose += _cell["lag_dose"]
+                    if controls_info and base is not None:
+                        d_info = controls_info.get(float(base))
+                        ell = h + 1 if h >= 0 else -h
+                        if d_info is not None and ell <= d_info["T"] - 2:
+                            slope_grad[float(base)] = (
+                                slope_grad.get(float(base), 0.0) + _cell["m_x"]
+                            )
                     if np.isfinite(_cell["dose_now"]):
                         sum_wdose_now += _cell["dose_now"] * _cell["w_sw"]
                     w_total += _cell["w_sw"]
@@ -1616,6 +1731,12 @@ def _estimate_all_horizons(
             delta_raw = delta_l
             # Reference scaling: U_Gg = (G / N_l) × Σ_t contribution_gt.
             psi = np.asarray(psi * (n_panel / w_total), dtype=float)
+            if controls_info:
+                # the covariate slopes are estimated: U^{var,X} of the
+                # companion paper
+                for d_key, grad in slope_grad.items():
+                    b = controls_info[d_key]["b"].reindex(all_units).to_numpy()
+                    psi = psi - b @ (np.asarray(grad, dtype=float) / w_total)
             psi_raw = psi
             if normalized:
                 # Effect per unit of treatment: divide by the average
@@ -1702,6 +1823,7 @@ def _one_event(
     trends_cell: Any = None,
     match_baseline: bool = True,
     base: Optional[float] = None,
+    controls: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     """One (switch period, direction, baseline) event at horizon ``h``.
 
@@ -1819,6 +1941,20 @@ def _one_event(
     psi[unit_pos.reindex(c_ids).to_numpy()] -= (w_s / w_c) * c_w * dof_c * (c_dy - e_c)
     psi *= scale
 
+    m_x = np.zeros(len(controls) if controls else 0)
+    if controls:
+        # the same weighted difference in differences, taken on each
+        # control's long difference instead of the outcome's
+        for k, col in enumerate(controls):
+            x_pre = _unit_values(df, group, time, col, sw_ids.append(c_ids), t_pre)
+            x_post = _unit_values(df, group, time, col, sw_ids.append(c_ids), t_post)
+            x_diff = (x_post - x_pre).reindex(sw_ids.append(c_ids))
+            xs = x_diff.loc[sw_ids].to_numpy(dtype=float)
+            xc = x_diff.loc[c_ids].to_numpy(dtype=float)
+            m_x[k] = scale * (
+                float(np.sum(sw_w * xs)) - (w_s / w_c) * float(np.sum(c_w * xc))
+            )
+
     dose = _event_dose(
         df,
         group=group,
@@ -1866,6 +2002,7 @@ def _one_event(
         "dose": dose,
         "dose_now": dose_now,
         "lag_dose": lag_dose,
+        "m_x": m_x,
         # Each switcher's own effect: the contrast behind delta with this
         # group's outcome change in place of the switcher mean. predict_het
         # regresses these on group-level covariates.

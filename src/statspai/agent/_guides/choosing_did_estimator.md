@@ -449,8 +449,7 @@ reports the same distinction as `validation_status`.
 > DGPs, different in identification, control construction and inference.
 
 > **`sp.did_multiplegt_dyn` is still labelled `experimental`**: `trends_lin`
-> and `predict_het` are not implemented, and with `controls=` the analytic
-> standard errors treat the covariate slopes as known. Everything else the
+> and `predict_het` are not implemented. Everything else the
 > authors' textbook uses is there and checked against their Stata command:
 > both switch directions, non-binary treatments, `normalized`, `controls`,
 > `trends_nonparam`, `continuous`, `same_switchers`, `design`, `by_path`,

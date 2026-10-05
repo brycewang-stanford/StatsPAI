@@ -118,18 +118,63 @@ def test_dyn_weights_and_cluster(df, ref):
     _check_dyn(r, ref, "wcl", 2, 1, weighted=True)
 
 
-def test_dyn_switchers_in_with_controls(df, ref):
-    """Point estimates with controls; the standard errors are a known gap.
+CONTROLS_CASES = {
+    # tag: (outcome, time, treatment, effects, placebos, weighted, options)
+    "ctl": ("y", "year", "d", 2, 2, False, {}),
+    "ctlw": ("y", "year", "d", 2, 1, True, {"weights": "wt", "cluster": "state"}),
+    "ctln": ("y", "year", "d", 2, 0, False, {"normalized": True}),
+    "ctlt": ("y", "year", "d", 2, 0, False, {"trends_nonparam": ["cohort"]}),
+    "inx": ("y", "year", "d", 2, 0, False, {"switchers": "in"}),
+    "ctlb": ("y2", "t", "d2", 2, 1, False, {}),
+}
 
-    The command's variance carries a term for the estimation of the
-    covariate slopes; the analytic variance here treats them as known and
-    is within 0.6% of the command's on this panel, above or below. That is
-    a missing term, not a convention, so the bound below only says "close"
-    and the item is open in
-    docs/dev/2026-10-05-dcdh-did-textbook-review.md.
+
+@pytest.mark.parametrize("tag", sorted(CONTROLS_CASES))
+def test_dyn_with_controls(df, ref, tag):
+    """Estimates and the variance with its slope-estimation term.
+
+    The covariate slopes are estimated, per period-one treatment, on the
+    not-yet-switched cells; the command's variance carries the term for
+    that (``U^{var,X}`` of the companion paper) and so does the analytic
+    variance here. Weighted and clustered, within ``trends_nonparam``
+    cells, normalized, one direction only, and on an unbalanced panel.
     """
-    r = _dyn(df, dynamic=1, switchers="in", controls=["x"])
-    _check_dyn(r, ref, "inx", 2, 0, joint=False, se_rtol=1e-2)
+    y, time, treat, effects, placebos, weighted, options = CONTROLS_CASES[tag]
+    data = df.dropna(subset=[y])
+    r = sp.did_multiplegt_dyn(
+        data,
+        y,
+        group="g",
+        time=time,
+        treatment=treat,
+        dynamic=effects - 1,
+        placebo=placebos,
+        controls=["x"],
+        se_method="analytic",
+        aggregation="switchers",
+        **options,
+    )
+    _check_dyn(r, ref, tag, effects, placebos, weighted=weighted)
+
+
+def test_controls_variance_term_matters(df, ref):
+    """Without the slope-estimation term the SE is visibly off."""
+    module = __import__("sys").modules["statspai.did.did_multiplegt_dyn"]
+    original = module._residualise_on_controls
+
+    def no_term(*args, **kwargs):
+        work, name, _ = original(*args, **kwargs)
+        return work, name, {}
+
+    kwargs = dict(group="g", time="year", treatment="d", dynamic=1, controls=["x"])
+    module._residualise_on_controls = no_term
+    try:
+        naive = sp.did_multiplegt_dyn(df, "y", se_method="analytic", **kwargs)
+    finally:
+        module._residualise_on_controls = original
+    es = naive.model_info["event_study"].set_index("relative_time")
+    assert es.loc[0, "att"] == pytest.approx(ref["ctl_effect_1"], rel=RTOL)
+    assert abs(es.loc[0, "se"] / ref["ctl_se_effect_1"] - 1) > 1e-3
 
 
 def test_dyn_controls_on_a_panel_with_holes(df):

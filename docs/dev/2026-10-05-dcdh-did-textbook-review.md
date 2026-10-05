@@ -168,14 +168,14 @@ sample. Worth reporting to the authors; a draft is at the end of this note.
   `sp.did_multiplegt` reproduces, but its WAS (0.0057148) is a different
   weighting of the same comparisons than DID_M (0.0057791), and its
   standard errors are analytic. A new estimator, not a translation.
-- **`sdtest`** (variance-ratio test, used for the bound on the variance of
-  the effects). No counterpart, and the translator refuses it. Three lines
-  of numpy reproduce the book's numbers.
-- **`sotable`**, the sup-t test on TWFE event-study leads. The line fails
-  in Stata today. `sp.uniform_bands` gives sup-t critical values for every
-  event-study estimator (2.596 on the Wolfers placebos against the 2.606
-  `sotable` printed before failing), but it does not take the hand-built
-  dummies of an `sp.regress` fit.
+- ~~`sdtest`.~~ `sp.sdtest` and its translation landed on main from
+  another line the same day; the book's line reproduces (f = 0.7764,
+  p = 0.0008).
+- ~~`sotable`.~~ Second round: `sp.uniform_bands` reports the sup-t test
+  (`attrs['supt_pvalue']`) and takes `terms=`, the hand-built dummies of
+  an `sp.regress` fit. Moser and Voena's 18 leads: p = 0.068, critical
+  value 2.748 (`sotable`: 0.068 and 2.742 before it stops on an option
+  error). Wolfers' 13 placebos: p = 0.608 (`sotable`: 0.607).
 - **`csdid [weight=stpop]`** with a weight that varies over time.
   `sp.callaway_santanna` refuses such a weight, on purpose: the weight
   defines the unit's share of the target population. `csdid` runs. What it
@@ -191,11 +191,13 @@ sample. Worth reporting to the authors; a draft is at the end of this note.
 
 ## Open
 
-- **Standard errors of `did_multiplegt_dyn` with `controls=`.** The point
-  estimates are the command's. The analytic variance treats the covariate
-  slopes as known; the command adds a term for their estimation. On the
-  test panel the two differ by 0.1 to 0.6%, in either direction. A missing
-  term, not a convention.
+- ~~Standard errors of `did_multiplegt_dyn` with `controls=`.~~ Closed in
+  a second round the same day. The analytic variance now has the term for
+  the estimation of the covariate slopes (`U^{var,X}` of the companion
+  paper), and the regression behind the option is weighted and fitted
+  within `trends_nonparam` cells as the command's is. Six configurations
+  agree with Stata to 5e-7 on estimates, standard errors, placebos and
+  `Av_tot_eff`.
 - **`design=` totals.** Path counts are the command's for the frequent
   paths; the command also counts switchers with an observed path and no
   estimable effect, so its total is larger (1,067 against 1,054) and its

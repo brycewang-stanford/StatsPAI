@@ -434,3 +434,91 @@ def test_event_study_plot_warns_when_no_band_is_available():
     )
     with pytest.warns(UserWarning, match="no simultaneous band"):
         sp.enhanced_event_study_plot(res, uniform_band=True)
+
+
+# --------------------------------------------------------------------------
+# terms=: a hand-written event study, and the sup-t test
+# --------------------------------------------------------------------------
+
+
+def _hand_event_study(seed=0, n=300, pretrend=0.0):
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n):
+        treated = i < n // 3
+        a = rng.normal()
+        for t in range(1, 9):
+            e = t - 5
+            y = a + 0.1 * t + rng.normal(scale=0.5)
+            if treated:
+                y += pretrend * e + (1.0 if e >= 0 else 0.0)
+            row = {"i": i, "t": t, "y": y, "tr": int(treated)}
+            for k in (-4, -3, -2, 0, 1, 2, 3):
+                name = f"lead{-k}" if k < 0 else f"lag{k}"
+                row[name] = int(treated and e == k)
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
+LEADS = ["lead4", "lead3", "lead2"]
+LAGS = ["lag0", "lag1", "lag2", "lag3"]
+
+
+def _hand_fit(df):
+    rhs = " + ".join(LEADS + LAGS)
+    return sp.regress(f"y ~ C(t) + tr + {rhs}", data=df, cluster="i")
+
+
+def test_uniform_bands_terms_on_a_regression():
+    fit = _hand_fit(_hand_event_study())
+    band = sp.uniform_bands(fit, terms=LEADS)
+    assert list(band["term"]) == LEADS
+    np.testing.assert_allclose(band["estimate"], fit.params[LEADS], rtol=0, atol=0)
+    np.testing.assert_allclose(band["se"], fit.std_errors[LEADS], rtol=1e-10)
+    a = band.attrs
+    assert a["crit_uniform"] > a["crit_pointwise"]
+    # three coefficients: between the pointwise and the Bonferroni value
+    from scipy import stats
+
+    assert a["crit_uniform"] < stats.norm.ppf(1 - 0.05 / 6) + 0.02
+    assert a["max_t"] == pytest.approx(
+        float(np.max(np.abs(fit.params[LEADS] / fit.std_errors[LEADS])))
+    )
+    assert 0.0 <= a["supt_pvalue"] <= 1.0
+    # the band rejects exactly when the sup-t p-value is below alpha
+    outside = (band["cband_lower"] > 0) | (band["cband_upper"] < 0)
+    assert bool(outside.any()) == (a["supt_pvalue"] < 0.05)
+
+
+def test_supt_test_size_and_power():
+    """Flat pre-trends: rejects about 5% of the time; a trend: nearly always."""
+    rejections = 0
+    reps = 120
+    for seed in range(reps):
+        band = sp.uniform_bands(
+            _hand_fit(_hand_event_study(seed=seed, n=150)), terms=LEADS, n_draws=4000
+        )
+        rejections += band.attrs["supt_pvalue"] < 0.05
+    # binomial(120, 0.05): 3 sd above the mean is 13
+    assert rejections <= 13
+    trending = _hand_fit(_hand_event_study(seed=1, pretrend=0.15))
+    assert sp.uniform_bands(trending, terms=LEADS).attrs["supt_pvalue"] < 0.01
+
+
+def test_supt_pvalue_on_an_event_study_result():
+    df = sp.datasets.mpdta()
+    fit = sp.sun_abraham(df, y="lemp", g="first_treat", t="year", i="countyreal")
+    band = sp.uniform_bands(fit, which="pre")
+    t_stats = np.abs(band["att"] / band["se"])
+    assert band.attrs["max_t"] == pytest.approx(float(t_stats.max()))
+    assert (band.attrs["supt_pvalue"] < 0.05) == bool(
+        t_stats.max() > band.attrs["crit_uniform"]
+    )
+
+
+def test_uniform_bands_terms_refusals():
+    fit = _hand_fit(_hand_event_study())
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="not among"):
+        sp.uniform_bands(fit, terms=["lead9"])
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="do not apply"):
+        sp.uniform_bands(fit, terms=LEADS, which="pre")

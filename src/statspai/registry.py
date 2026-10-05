@@ -18167,9 +18167,7 @@ def _build_registry() -> None:
                 "treatments; weights, controls, trends_nonparam, normalized, "
                 "continuous, design and by_path are supported, and with "
                 "se_method='analytic' the joint tests need no bootstrap. "
-                "**MVP caveats**: no trends_lin or predict_het; with "
-                "controls= the analytic standard errors treat the covariate "
-                "slopes as known."
+                "**MVP caveats**: no trends_lin or predict_het."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -20021,6 +20019,17 @@ def _build_registry() -> None:
                     "Gaussian draws for the critical value",
                 ),
                 ParamSpec("seed", "int", False, 0, "Seed for the draws"),
+                ParamSpec(
+                    "terms",
+                    "list",
+                    False,
+                    None,
+                    "Coefficient names to cover, for an event study written "
+                    "by hand as a regression on lead and lag dummies (any fit "
+                    "with params and their covariance, e.g. sp.regress). "
+                    "attrs['supt_pvalue'] is the sup-t test that all of them "
+                    "are zero",
+                ),
             ],
             returns="DataFrame with pointwise ci_* and simultaneous cband_*; "
             "attrs carry crit values",
