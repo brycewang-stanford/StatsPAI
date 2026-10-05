@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 1.07,
+   "seconds": 1.06,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -58,7 +58,7 @@
     "src/statspai/core/_numba_kernels.py": "fc5ee0d755b2815c8e703ca9dea440717a79d7c6192e173f45c2e88022f973fd",
     "src/statspai/core/_vcov_spec.py": "e722b8dd7944749aa4e227052c2c1a7a4b0526bb967c8f61535b0a8075cffc88",
     "src/statspai/core/base.py": "1d413e7a7cbd17013556e9ed6f25f5d2b70528cc522be6842f5904c84cd04e5e",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/core/utils.py": "34a1254bbf3d0083e584016e23a7623d699b678edd5731e68dd622aee6ace8fa",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
@@ -76,7 +76,7 @@
    "result_sha256": "0770f9a37e8bc72e9f338d602037715ba70cb032401b8582095eebed942621b2"
   },
   "02_mpdta_original": {
-   "seconds": 0.7,
+   "seconds": 0.69,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -96,7 +96,7 @@
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/_covariates.py": "fd24fed93e39e53273dc7aad0a85e04085658b947d2f5f073b861438235fece6",
     "src/statspai/core/_validate.py": "463564501619d6007d806ac00f014f43ea337aee481f62662fbefbc82f34b9b3",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/did/_core.py": "dadaf949b97fbdf847f6d367b845c8d69e21418025a4b5ed0ff3d5aa9bb67b0f",
     "src/statspai/did/aggte.py": "49cdc97734176881827702e5510aaca5b390b15f2d2ac016375e20cb134e4887",
     "src/statspai/did/callaway_santanna.py": "30dd4874fc8d1a7e83db6e735e24910d9071060a8b77b4cddae7c7a8cafa1609",
@@ -133,7 +133,7 @@
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/_param_aliases.py": "0de437e9b4a7ecd40c51831d0f933017f4a52c8db2bdce838ecc94b3d8500535",
     "src/statspai/core/_vcov_spec.py": "e722b8dd7944749aa4e227052c2c1a7a4b0526bb967c8f61535b0a8075cffc88",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/synth/_classic_report.py": "849c1715a8c1b66c85a0830745cbef4a31788bf3eac91efd9a1fd783e396c6af",
@@ -150,7 +150,7 @@
    "result_sha256": "b98ff256c9dcee03be2b3479563e8cbd510a91941ab95af8ecc62b07e5eab05a"
   },
   "04_lalonde_original": {
-   "seconds": 1.1,
+   "seconds": 1.09,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -172,7 +172,7 @@
     "src/statspai/core/_numba_kernels.py": "fc5ee0d755b2815c8e703ca9dea440717a79d7c6192e173f45c2e88022f973fd",
     "src/statspai/core/_vcov_spec.py": "e722b8dd7944749aa4e227052c2c1a7a4b0526bb967c8f61535b0a8075cffc88",
     "src/statspai/core/base.py": "1d413e7a7cbd17013556e9ed6f25f5d2b70528cc522be6842f5904c84cd04e5e",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/core/utils.py": "34a1254bbf3d0083e584016e23a7623d699b678edd5731e68dd622aee6ace8fa",
     "src/statspai/matching/_matched_frame.py": "bd4a234d276f68d5c98dd00beac3e0ef417bd777a9fdca14b052f7016b1206d3",
     "src/statspai/matching/match.py": "e941fc324f73280b1a48c69ee8b8f4efad681f3f649c8f8922917e52c898d157",
@@ -191,7 +191,7 @@
    "result_sha256": "72faf6409882746759800c5b2cc43aedbdfbe1f1be31d82e7bd518894a55017b"
   },
   "04b_nsw_psid_original": {
-   "seconds": 1.14,
+   "seconds": 1.13,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -213,7 +213,7 @@
     "src/statspai/core/_numba_kernels.py": "fc5ee0d755b2815c8e703ca9dea440717a79d7c6192e173f45c2e88022f973fd",
     "src/statspai/core/_vcov_spec.py": "e722b8dd7944749aa4e227052c2c1a7a4b0526bb967c8f61535b0a8075cffc88",
     "src/statspai/core/base.py": "1d413e7a7cbd17013556e9ed6f25f5d2b70528cc522be6842f5904c84cd04e5e",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/core/utils.py": "34a1254bbf3d0083e584016e23a7623d699b678edd5731e68dd622aee6ace8fa",
     "src/statspai/matching/_matched_frame.py": "bd4a234d276f68d5c98dd00beac3e0ef417bd777a9fdca14b052f7016b1206d3",
     "src/statspai/matching/match.py": "e941fc324f73280b1a48c69ee8b8f4efad681f3f649c8f8922917e52c898d157",
@@ -232,7 +232,7 @@
    "result_sha256": "6fd62314f0a1aa5901fe52cc6df41bca5d1fa970b7ea52807b12af3099bbd001"
   },
   "05_lee_original": {
-   "seconds": 0.75,
+   "seconds": 0.74,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -250,7 +250,7 @@
    "exercised_sources": {
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/diagnostics/rddensity.py": "47b3b4a4001aa0058044792cec195864197b704fbcdaa54654acb1ae1eef6d6e",
     "src/statspai/exceptions.py": "f08449b52d42502943e06847ace55f0b97c35f61c9e3b7e8c70fd11c46a0a859",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
@@ -269,7 +269,7 @@
    "result_sha256": "3eef9a448bc3efcf1ec7188d67a396cda48aad673999bda6a4f8a95581f6a58b"
   },
   "06_nhefs_ch12_ipw": {
-   "seconds": 2.67,
+   "seconds": 2.57,
    "error": null,
    "boundary_calls": [
     {
@@ -327,7 +327,7 @@
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/_covariates.py": "fd24fed93e39e53273dc7aad0a85e04085658b947d2f5f073b861438235fece6",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
     "src/statspai/inference/ipw.py": "ca1a50e3a24487d3046ee0311e84dce43c6f62a0dcc53215e60f89e248eee5ea",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
@@ -344,7 +344,7 @@
    "result_sha256": "19385647d1d7cb264a1e4c5352088ecdee3af7d4519c8cb93c01c71f646cb1e9"
   },
   "07_nhefs_ch13_gformula": {
-   "seconds": 34.71,
+   "seconds": 29.32,
    "error": null,
    "boundary_calls": [
     {
@@ -438,7 +438,7 @@
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/_covariates.py": "fd24fed93e39e53273dc7aad0a85e04085658b947d2f5f073b861438235fece6",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
     "src/statspai/inference/aipw.py": "25178be80b5901ae53e64e68c6ef00984e68f73451661083ca3c553d18c04f40",
     "src/statspai/inference/g_computation.py": "b38adc7bf96dcd3bf6b16f80bdbae9a197f832f208b095126d8ed58922faf830",
@@ -456,17 +456,17 @@
    "result_sha256": "7195a81581bfaa5e290c8d2f00d759b67ba8a4561d9a70172710d57f9d452a00"
   },
   "08_nhefs_ch14_gestimation": {
-   "seconds": 1.3,
+   "seconds": 1.22,
    "error": null,
    "boundary_calls": [],
    "packages": [],
    "rscript_launches": 0,
    "subprocesses": [],
    "exercised_sources": {
-    "src/statspai/__init__.py": "cadf59c9e06350ecb11846984c5880c93dba41af99513a7e936c7b61d16082e6",
+    "src/statspai/__init__.py": "72084ddc9d35fcfc5776635ed3e1607272d9646a631a818bee91be6bdf5a1f14",
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/_result_serialize.py": "380cb2d8b5ed65cad656dd0cb2f0721f45e6b3977dd4a0d87568dff9a87b312b",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
     "src/statspai/dtr/__init__.py": "a5730f094c38b6c4bde2ef425cf9970aba5ab602e23970e8cf5fe07aaeead48c",
     "src/statspai/dtr/a_learning.py": "da657c37ad2a83aad3a4a87cfa060c78277475a1ae7fb64ac041c513c01651e7",
@@ -485,7 +485,7 @@
    "result_sha256": "7bdbc6b5bdde259d3ac58e2b9658a8d92a60faf8e4b8712ba1723da8e8bf4fc2"
   },
   "09_nhefs_ch15_outcome": {
-   "seconds": 1.97,
+   "seconds": 1.89,
    "error": null,
    "boundary_calls": [
     {
@@ -540,7 +540,7 @@
     "src/statspai/core/_numba_kernels.py": "fc5ee0d755b2815c8e703ca9dea440717a79d7c6192e173f45c2e88022f973fd",
     "src/statspai/core/_vcov_spec.py": "e722b8dd7944749aa4e227052c2c1a7a4b0526bb967c8f61535b0a8075cffc88",
     "src/statspai/core/base.py": "1d413e7a7cbd17013556e9ed6f25f5d2b70528cc522be6842f5904c84cd04e5e",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/core/utils.py": "34a1254bbf3d0083e584016e23a7623d699b678edd5731e68dd622aee6ace8fa",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
     "src/statspai/inference/g_computation.py": "b38adc7bf96dcd3bf6b16f80bdbae9a197f832f208b095126d8ed58922faf830",
@@ -560,7 +560,7 @@
    "result_sha256": "462bfbeb1e2d111c25a597e311a484d7e2efc75c968d1e6cc4361de50c63c960"
   },
   "10_nhefs_ch17_survival": {
-   "seconds": 2.75,
+   "seconds": 2.63,
    "error": null,
    "boundary_calls": [
     {
@@ -618,7 +618,7 @@
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/_covariates.py": "fd24fed93e39e53273dc7aad0a85e04085658b947d2f5f073b861438235fece6",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
     "src/statspai/inference/ipw.py": "ca1a50e3a24487d3046ee0311e84dce43c6f62a0dcc53215e60f89e248eee5ea",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
@@ -635,7 +635,7 @@
    "result_sha256": "e62cb21d80f4866599ff4ad6fca3fdc2943693a612292779f9a415ea2e986c7e"
   },
   "11_nhefs_evalue": {
-   "seconds": 5.78,
+   "seconds": 5.74,
    "error": null,
    "boundary_calls": [
     {
@@ -693,7 +693,7 @@
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/_covariates.py": "fd24fed93e39e53273dc7aad0a85e04085658b947d2f5f073b861438235fece6",
-    "src/statspai/core/results.py": "5c0481a1541e5ab986334af267020a1b7d9b131d1e87222fbc28038c3f5892fe",
+    "src/statspai/core/results.py": "158bf4d25938c6c015cb3a845e87497a9695415f3341c759687f99d8cc3f22d0",
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
     "src/statspai/diagnostics/evalue.py": "46ada28fab652e40a2bc844adc8e97741a7692776406c002ecfad6d18caa4786",
     "src/statspai/inference/ipw.py": "ca1a50e3a24487d3046ee0311e84dce43c6f62a0dcc53215e60f89e248eee5ea",

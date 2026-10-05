@@ -392,15 +392,18 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
+        "tests/external_parity/test_dogan_python_econometrics.py",
         "tests/external_parity/test_stock_watson_4e_ch15.py"
       ],
       "tolerance": ""
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_dogan_python_econometrics.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -8960,6 +8963,7 @@
       "additional_tests": [
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_ding_first_course.py",
+        "tests/external_parity/test_dogan_python_econometrics.py",
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_iv_first_stage_f_stata_parity.py",
         "tests/reference_parity/test_iv_parity.py",
@@ -16286,6 +16290,7 @@
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_ding_linear_model.py",
+        "tests/external_parity/test_dogan_python_econometrics.py",
         "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/external_parity/test_published_replications.py",
         "tests/external_parity/test_whatif_nhefs.py",
@@ -17970,6 +17975,23 @@
         "tests/reference_parity/_fixtures/did_synth_shiftshare_stata.json"
       ],
       "tolerance": "1e-9 rel on beta and the AKM / AKM0 / EHW / Homoscedastic SEs; observed <= 6e-14"
+    },
+    {
+      "function": "shrinkage",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_dogan_python_econometrics.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "sktest",
@@ -19764,6 +19786,7 @@
       "additional_tests": [
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/external_parity/test_ding_linear_model.py",
+        "tests/external_parity/test_dogan_python_econometrics.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_dml_multi_treatment_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",

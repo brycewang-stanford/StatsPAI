@@ -313,6 +313,43 @@ def _event_study_with_ci(es: pd.DataFrame, alpha: float) -> pd.DataFrame:
     return out
 
 
+#: Names a statsmodels / linearmodels result uses, and where the same thing
+#: is on :class:`EconometricResults`. Read by ``__getattr__`` to say so.
+_FOREIGN_RESULT_NAMES: Dict[str, str] = {
+    "bse": "standard errors are `.std_errors`",
+    "HC0_se": "refit with robust='hc0' and read `.std_errors`",
+    "HC1_se": "refit with robust='hc1' and read `.std_errors`",
+    "HC2_se": "refit with robust='hc2' and read `.std_errors`",
+    "HC3_se": "refit with robust='hc3' and read `.std_errors`",
+    "get_robustcov_results": "refit with robust= / cluster= instead",
+    "rsquared": "R-squared is `.r2`",
+    "rsquared_adj": "adjusted R-squared is `.r2_adj`",
+    "prsquared": "it is `.diagnostics['Pseudo R-squared']`",
+    "resid": "residuals are `.residuals()`",
+    "resids": "residuals are `.residuals()`",
+    "fittedvalues": "fitted values are `.fitted_values()`",
+    "fitted": "fitted values are `.fitted_values()`",
+    "llf": "it is `.diagnostics['Log-Likelihood']`; see `.glance()`",
+    "loglik": "it is `.diagnostics['Log-Likelihood']`; see `.glance()`",
+    "aic": "it is `.diagnostics['AIC']`; see `.glance()`",
+    "bic": "it is `.diagnostics['BIC']`; see `.glance()`",
+    "fvalue": "it is `.diagnostics['F-statistic']`",
+    "f_pvalue": "it is `.diagnostics['Prob (F-statistic)']`",
+    "f_statistic": "it is `.diagnostics['F-statistic']`",
+    "df_resid": "it is `.data_info['df_resid']`",
+    "mse_resid": "it is `.data_info['rss'] / .data_info['df_resid']`",
+    "scale": "it is `.data_info['rss'] / .data_info['df_resid']`",
+    "ssr": "it is `.data_info['rss']`",
+    "f_test": "use `.test('x1 = 0, x2 = 0')` or `sp.test(result, ...)`",
+    "wald_test": "use `.test('x1 = 0, x2 = 0')` or `sp.test(result, ...)`",
+    "t_test": "use `.lincom('x1 - x2')` or `sp.lincom(result, ...)`",
+    "get_margeff": "use `sp.margins(result, data, method='ame')`",
+    "get_prediction": "use `.predict(data, what='confidence')`",
+    "summary2": "use `.summary()` or `sp.regtable(result)`",
+    "cov": "the covariance matrix is `.vcov()`",
+}
+
+
 class EconometricResults:
     """
     Unified results class for econometric models
@@ -338,6 +375,17 @@ class EconometricResults:
     #: Fit-time significance level; class default keeps results that were
     #: pickled before the attribute existed (or built via ``__new__``) valid.
     alpha: float = 0.05
+
+    def __getattr__(self, name: str) -> Any:
+        # Reached only when normal lookup fails. A name statsmodels or
+        # linearmodels uses for something this result does hold is answered
+        # with where it lives here; the attribute stays absent, so
+        # ``hasattr`` checks read as before.
+        hint = None if name.startswith("_") else _FOREIGN_RESULT_NAMES.get(name)
+        message = f"{type(self).__name__!r} object has no attribute {name!r}"
+        if hint is not None:
+            message += f"; {hint}"
+        raise AttributeError(message)
 
     @property
     def nobs(self) -> Optional[int]:

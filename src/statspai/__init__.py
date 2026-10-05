@@ -1044,7 +1044,14 @@ from .rlasso import (  # noqa: E402
     rlassologit_effect,
     rlassologit_effects,
 )
-from .selection import SelectionResult, best_subset, lasso_select, stepwise
+from .selection import (
+    SelectionResult,
+    ShrinkageResult,
+    best_subset,
+    lasso_select,
+    shrinkage,
+    stepwise,
+)
 
 # === Smart Workflow Engine ===
 from .smart import (
@@ -1865,6 +1872,8 @@ __all__ = [
     "RidgeResult",
     "boxcox",
     "BoxCoxResult",
+    "shrinkage",
+    "ShrinkageResult",
     "SelectionResult",
     # Quantile Treatment Effects
     "qdid",

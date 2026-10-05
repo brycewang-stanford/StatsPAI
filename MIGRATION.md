@@ -5,6 +5,30 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.arima` default estimates and `auto=True` order selection
+
+**What changed.** `sp.arima(y, order=...)` with the default
+`method='statespace'` now maximises the exact Gaussian likelihood of every
+observation. It used to start the state from a diffuse prior, which drops
+the first `max(p, q + 1)` observations from the likelihood. Coefficients,
+standard errors, the log-likelihood, AIC, BIC and AICc all move. On 223
+observations of U.S. GDP growth the AR(1) constant goes from 2.942 to
+2.980 and the log-likelihood from -562.07 to -565.00, the numbers Stata,
+R and statsmodels' `ARIMA` report.
+
+`sp.arima(auto=True)` chooses `d` by KPSS tests first, then `(p, q)` by
+AICc with `(0, d, 0)` among the candidates. It used to skip `(0, d, 0)`
+and compare AICc across values of `d`. Selected orders will often be
+smaller.
+
+`method='css'` and `method='conditional'` raise instead of returning exact
+maximum likelihood estimates under another name.
+
+**Who is affected.** Anyone who reported numbers from `sp.arima` without
+`method='innovations_mle'`, or an order chosen by `auto=True`.
+
+**What to do.** Re-run. There is no switch for the earlier numbers; they
+were not the estimates of any documented estimator.
 ## 1.38.0 → next: ⚠️ the base level of `C(g)`, `sp.hausman` with factors, RESET on the regressors
 
 **What changed.**

@@ -9111,6 +9111,88 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="shrinkage",
+            category="regression",
+            description=(
+                "Prediction with many regressors: ridge, lasso, principal "
+                "components regression or OLS, with the penalty / number of "
+                "components chosen by m-fold cross-validation and the "
+                "cross-validated root mean squared prediction error "
+                "reported. Predictors are standardised and the outcome "
+                "demeaned, on each training fold separately. Penalties "
+                "multiply the sum of squared residuals as it stands: "
+                "ridge = sklearn Ridge(alpha=penalty), lasso = sklearn "
+                "Lasso(alpha=penalty / (2 n)). For prediction, not for "
+                "inference: no standard errors are reported."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Estimation sample"),
+                ParamSpec("y", "str", True, None, "Outcome"),
+                ParamSpec("x", "list[str]", True, None, "Predictors"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "ridge",
+                    "Estimator",
+                    ["ridge", "lasso", "pcr", "ols"],
+                ),
+                ParamSpec(
+                    "penalty",
+                    "float | list[float]",
+                    False,
+                    None,
+                    "Ridge / lasso penalty: one value, candidates for "
+                    "cross-validation, or None for a default grid",
+                ),
+                ParamSpec(
+                    "n_components",
+                    "int | list[int]",
+                    False,
+                    None,
+                    "pcr: number of principal components, or candidates",
+                ),
+                ParamSpec("n_folds", "int", False, 10, "Cross-validation folds"),
+                ParamSpec(
+                    "shuffle",
+                    "bool",
+                    False,
+                    False,
+                    "Random folds instead of consecutive blocks of rows",
+                ),
+                ParamSpec("seed", "int", False, None, "Seed for shuffle=True"),
+                ParamSpec(
+                    "standardize",
+                    "bool",
+                    False,
+                    True,
+                    "Scale predictors to unit standard deviation",
+                ),
+            ],
+            returns="ShrinkageResult",
+            example=(
+                'fit = sp.shrinkage(train, "testscore", predictors, '
+                'method="ridge"); fit.rmspe(holdout)'
+            ),
+            tags=["prediction", "ridge", "lasso", "pca", "cross-validation"],
+            assumptions=[
+                "The observations to be predicted are drawn from the same "
+                "population as the estimation sample",
+            ],
+            not_recommended_when=[
+                "The goal is a causal effect or a confidence interval for a "
+                "coefficient — shrinkage biases coefficients by design; use "
+                "sp.dml or sp.rlasso_effect",
+                "Observations are serially dependent — consecutive or random "
+                "folds then leak information; use a pseudo out-of-sample "
+                "scheme (sp.ardl(...).poos())",
+            ],
+            alternatives=["ridge", "lasso_select", "rlasso", "dml"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="difference_in_means",
             category="inference",
             description=(

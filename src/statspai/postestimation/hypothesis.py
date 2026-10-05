@@ -53,6 +53,8 @@ def test(
         - ``"x1 = x2 = 0"`` — joint: beta_x1 = beta_x2 and beta_x2 = 0
         - ``"x1 x2"`` — joint: beta_x1 = 0 and beta_x2 = 0
         - ``"(x1 = 0) (x2 + x3 = 1)"`` — grouped restrictions
+        - ``"x1 = 0, x2 + x3 = 1"`` — the same, in the comma-separated
+          spelling of statsmodels' ``f_test``
         - ``"x1 - 2*x2 = 0"`` — linear restriction; ``_cons`` names the
           intercept whatever the estimator calls it.
         - ``"2.race = 3.race"``, ``"1.union#c.grade"`` — Stata's
@@ -448,9 +450,18 @@ def _shield_names(text: str, params: pd.Series) -> Tuple[str, pd.Series]:
         key=lambda i: -len(names[i]),
     )
     for i in order:
-        if names[i] in text:
-            tokens[i] = f"spcoef{i}zz"
-            text = text.replace(names[i], tokens[i])
+        # ``I(x**2)`` names the coefficient the design calls ``I(x ** 2)``:
+        # blanks between the pieces of a name do not distinguish names.
+        pieces = re.findall(r"\w+|[^\w\s]", names[i])
+        pattern = r"\s*".join(re.escape(piece) for piece in pieces)
+        if not pieces or pieces[0][0].isalnum() or pieces[0][0] == "_":
+            pattern = r"(?<![\w.])" + pattern
+        if pieces and (pieces[-1][-1].isalnum() or pieces[-1][-1] == "_"):
+            pattern += r"(?!\w)"
+        token = f"spcoef{i}zz"
+        text, hits = re.subn(pattern, token, text)
+        if hits:
+            tokens[i] = token
     shielded = pd.Series(np.asarray(params, dtype=float), index=tokens)
     shielded.attrs["display"] = names
     return text, shielded
@@ -495,6 +506,11 @@ def _parse_hypothesis(
     if text.startswith("("):
         groups = re.findall(r"\(([^()]*)\)", text)
         if not groups or re.sub(r"\(([^()]*)\)", "", text).strip():
+            raise MethodIncompatibility(f"Cannot parse hypothesis {hypothesis!r}.")
+    elif "=" in text and "," in text:
+        # statsmodels / patsy spelling: "x1 = 0, x2 = x3" is a joint test.
+        groups = [g.strip() for g in text.split(",")]
+        if any(not g for g in groups):
             raise MethodIncompatibility(f"Cannot parse hypothesis {hypothesis!r}.")
     else:
         groups = [text]

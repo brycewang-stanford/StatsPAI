@@ -4,6 +4,64 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### What a Python econometrics textbook found
+
+Dogan's *Introduction to Econometrics with Python* follows Stock & Watson
+with every example written for statsmodels, linearmodels, scikit-learn and
+`arch`. Each computation was rerun with StatsPAI on the book's data and
+compared with those libraries and with Stata 18. Notes are in
+`docs/dev/2026-10-05-dogan-python-econometrics-review.md`; the user-facing
+map is `docs/guides/migration-from-statsmodels.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.arima` now reports the exact maximum likelihood estimates.** The
+  default method started the Kalman filter from a diffuse prior and left
+  the first `max(p, q + 1)` observations out of the likelihood. On 223
+  quarters of U.S. GDP growth an AR(1) gave a constant of 2.942 and a
+  log-likelihood of -562.07. Stata's `arima`, R's `arima(method="ML")` and
+  statsmodels' `ARIMA` give 2.980 and -565.00, and so does `sp.arima` now
+  (coefficients to five digits, log-likelihood to 1e-5 against Stata). An
+  AR(1) check against the likelihood written in closed form is in
+  `tests/test_arima_exact_likelihood.py`. `method='innovations_mle'` was
+  already exact and is unchanged.
+- **`sp.arima(auto=True)` could not select white noise or a random walk,
+  and favoured large models.** `(0, d, 0)` was skipped by the search, and
+  models with more states were scored on fewer observations, so AICc
+  rewarded them for nothing. On white noise with 100 observations the
+  search returned a nonzero order 150 times out of 150. It also chose `d`
+  by comparing AICc across differently differenced series, which describe
+  different data. Now `d` is chosen first by KPSS tests (the rule of R's
+  `forecast::auto.arima`) and `(p, q)` by AICc on a common sample,
+  `(0, d, 0)` included. The same experiment returns `(0, 0, 0)` 54% of the
+  time, and `(0, 1, 0)` 56% of the time on a random walk.
+- `sp.arima(method='css')` and `method='conditional'` raise. They were
+  silently mapped to exact maximum likelihood, which is a different
+  estimator from conditional sum of squares.
+
+#### Added
+
+- **`sp.shrinkage`**: ridge, lasso and principal-components prediction
+  with the penalty or the number of components chosen by m-fold
+  cross-validation, and the cross-validated root mean squared prediction
+  error. `fit.predict(data)` and `fit.rmspe(holdout)` score new data.
+  Means and standard deviations are recomputed on each training fold.
+  Ridge and principal components agree with scikit-learn to 1e-12 on the
+  book's 816-predictor school data; the lasso agrees to solver tolerance.
+  This closes the chapter 14 item left open by the Stock & Watson review.
+- `sp.test(result, "x1 = 0, x2 = 0")`: comma-separated restrictions are a
+  joint test, as in statsmodels' `f_test`.
+
+#### Changed
+
+- `sp.test` and `sp.lincom` match coefficient names without regard to
+  blanks inside them. `I(inc**2)` names the coefficient the design calls
+  `I(inc ** 2)`; it was "Cannot parse term".
+- Asking a regression result for a statsmodels attribute (`bse`,
+  `rsquared`, `resid`, `f_test`, `get_margeff`, ...) still raises
+  `AttributeError`, and the message now says where the same thing lives
+  (`std_errors`, `r2`, `residuals()`, `test()`, `sp.margins`).
+
 ### What an introductory Stata text found: Kohler, Kreuter and Haensch (2026)
 
 *Data Analysis Using Stata* (4th ed.) teaches what comes before the first

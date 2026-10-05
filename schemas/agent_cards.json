@@ -565,8 +565,8 @@
       "Cross-language parity (bit-exact) vs AER::ivreg [AER 1.2.16, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 02_iv -- tests/r_parity/02_iv.py",
       "tests/external_parity/test_causalml_book.py",
       "tests/external_parity/test_ding_first_course.py",
-      "tests/external_parity/test_published_replications.py",
-      "tests/reference_parity/test_iv_first_stage_f_stata_parity.py"
+      "tests/external_parity/test_dogan_python_econometrics.py",
+      "tests/external_parity/test_published_replications.py"
     ],
     "validation_status": "certified"
   },
@@ -13935,6 +13935,157 @@
     "typical_n_min": null,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "ridge",
+      "lasso_select",
+      "rlasso",
+      "dml"
+    ],
+    "assumptions": [
+      "The observations to be predicted are drawn from the same population as the estimation sample"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Prediction with many regressors: ridge, lasso, principal components regression or OLS, with the penalty / number of components chosen by m-fold cross-validation and the cross-validated root mean squared prediction error reported. Predictors are standardised and the outcome demeaned, on each training fold separately. Penalties multiply the sum of squared residuals as it stands: ridge = sklearn Ridge(alpha=penalty), lasso = sklearn Lasso(alpha=penalty / (2 n)). For prediction, not for inference: no standard errors are reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The goal is a causal effect or a confidence interval for a coefficient -- shrinkage biases coefficients by design; use sp.dml or sp.rlasso_effect; Observations are serially dependent -- consecutive or random folds then leak information; use a pseudo out-of-sample scheme (sp.ardl(...).poos()).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_dogan_python_econometrics.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "fit = sp.shrinkage(train, \"testscore\", predictors, method=\"ridge\"); fit.rmspe(holdout)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "shrinkage",
+    "not_recommended_when": [
+      "The goal is a causal effect or a confidence interval for a coefficient -- shrinkage biases coefficients by design; use sp.dml or sp.rlasso_effect",
+      "Observations are serially dependent -- consecutive or random folds then leak information; use a pseudo out-of-sample scheme (sp.ardl(...).poos())"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "ShrinkageResult",
+      "description": "ShrinkageResult",
+      "fields": {
+        "cv": "Optional[pd.DataFrame]",
+        "cv_rmspe": "Optional[float]",
+        "intercept": "float",
+        "method": "str",
+        "n_components": "Optional[int]",
+        "n_folds": "Optional[int]",
+        "n_nonzero": "int",
+        "n_obs": "int",
+        "n_predictors": "int",
+        "params": "pd.Series",
+        "penalty": "Optional[float]",
+        "rmspe_in": "float",
+        "selected_by_cv": "bool",
+        "x": "List[str]",
+        "y": "str"
+      }
+    },
+    "signature": {
+      "description": "Prediction with many regressors: ridge, lasso, principal components regression or OLS, with the penalty / number of components chosen by m-fold cross-validation and the cross-validated root mean squared prediction error reported. Predictors are standardised and the outcome demeaned, on each training fold separately. Penalties multiply the sum of squared residuals as it stands: ridge = sklearn Ridge(alpha=penalty), lasso = sklearn Lasso(alpha=penalty / (2 n)). For prediction, not for inference: no standard errors are reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The goal is a causal effect or a confidence interval for a coefficient -- shrinkage biases coefficients by design; use sp.dml or sp.rlasso_effect; Observations are serially dependent -- consecutive or random folds then leak information; use a pseudo out-of-sample scheme (sp.ardl(...).poos()).",
+      "name": "shrinkage",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Estimation sample",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "method": {
+            "default": "ridge",
+            "description": "Estimator",
+            "enum": [
+              "ridge",
+              "lasso",
+              "pcr",
+              "ols"
+            ],
+            "type": "string"
+          },
+          "n_components": {
+            "description": "pcr: number of principal components, or candidates",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "n_folds": {
+            "default": 10,
+            "description": "Cross-validation folds",
+            "type": "integer"
+          },
+          "penalty": {
+            "description": "Ridge / lasso penalty: one value, candidates for cross-validation, or None for a default grid",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "seed": {
+            "description": "Seed for shuffle=True",
+            "type": "integer"
+          },
+          "shuffle": {
+            "default": false,
+            "description": "Random folds instead of consecutive blocks of rows",
+            "type": "boolean"
+          },
+          "standardize": {
+            "default": true,
+            "description": "Scale predictors to unit standard deviation",
+            "type": "boolean"
+          },
+          "x": {
+            "description": "Predictors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_dogan_python_econometrics.py"
     ],
     "validation_status": "validated"
   },
@@ -67328,7 +67479,7 @@
       "parameters": {
         "properties": {
           "hypothesis": {
-            "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``).",
+            "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 = 0, x2 + x3 = 1\"`` -- the same, in the comma-separated spelling of statsmodels' ``f_test`` - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``).",
             "items": {
               "type": "string"
             },
@@ -67352,8 +67503,8 @@
       "Cross-language parity (aligned) vs Stata 18 test (after regress / ivregress / logit / poisson) [Stata 18]; tolerance 1e-6 rel (observed <= 2.3e-15 on linear fits, <= 8e-10 on ML fits, far-tail p <= 4.7e-8) -- tests/reference_parity/test_postestimation_stata_parity.py",
       "tests/external_parity/test_dcdh_did_textbook.py",
       "tests/external_parity/test_ding_linear_model.py",
-      "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
-      "tests/reference_parity/test_dml_multi_treatment_parity.py"
+      "tests/external_parity/test_dogan_python_econometrics.py",
+      "tests/reference_parity/test_dcdh_textbook_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -110070,7 +110221,7 @@
         "properties": {
           "auto": {
             "default": false,
-            "description": "If True, select (p, d, q) by AICc grid search (ignores ``order``).",
+            "description": "If True, select the order and ignore ``order``. ``d`` is chosen first, as the number of differences after which a KPSS test no longer rejects level stationarity at 5% (at most ``max_d``); then ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``, ``(0, d, 0)`` included.",
             "type": "boolean"
           },
           "data": {
@@ -110099,7 +110250,7 @@
           },
           "method": {
             "default": "statespace",
-            "description": "Estimation convention. ``'statespace'`` keeps the default exact Kalman/SARIMAX likelihood. ``'css_ml'`` is retained as a compatibility alias for ``'innovations_mle'``. The innovations-MLE path uses statsmodels' stationary/invertible exact-MLE parameterization, matching ``stats::arima(method='ML')`` and tightly converged Stata ``arima`` coefficient conventions for pure ARMA models.",
+            "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations.",
             "enum": [
               "statespace",
               "css_ml",
@@ -110151,6 +110302,7 @@
       "R parity module 39_arima",
       "Stata parity module 39_arima",
       "Cross-language parity (bit-exact) vs stats::arima [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 39_arima; implementation: third party python -- tests/r_parity/39_arima.py",
+      "tests/external_parity/test_dogan_python_econometrics.py",
       "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
     ],
     "validation_status": "certified"

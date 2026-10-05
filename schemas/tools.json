@@ -651,7 +651,7 @@
       "properties": {
         "auto": {
           "default": false,
-          "description": "If True, select (p, d, q) by AICc grid search (ignores ``order``).",
+          "description": "If True, select the order and ignore ``order``. ``d`` is chosen first, as the number of differences after which a KPSS test no longer rejects level stationarity at 5% (at most ``max_d``); then ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``, ``(0, d, 0)`` included.",
           "type": "boolean"
         },
         "exog": {
@@ -675,7 +675,7 @@
         },
         "method": {
           "default": "statespace",
-          "description": "Estimation convention. ``'statespace'`` keeps the default exact Kalman/SARIMAX likelihood. ``'css_ml'`` is retained as a compatibility alias for ``'innovations_mle'``. The innovations-MLE path uses statsmodels' stationary/invertible exact-MLE parameterization, matching ``stats::arima(method='ML')`` and tightly converged Stata ``arima`` coefficient conventions for pure ARMA models.",
+          "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations.",
           "enum": [
             "statespace",
             "css_ml",
@@ -31049,6 +31049,75 @@
     "name": "shapley_inequality"
   },
   {
+    "description": "Prediction with many regressors: ridge, lasso, principal components regression or OLS, with the penalty / number of components chosen by m-fold cross-validation and the cross-validated root mean squared prediction error reported. Predictors are standardised and the outcome demeaned, on each training fold separately. Penalties multiply the sum of squared residuals as it stands: ridge = sklearn Ridge(alpha=penalty), lasso = sklearn Lasso(alpha=penalty / (2 n)). For prediction, not for inference: no standard errors are reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The goal is a causal effect or a confidence interval for a coefficient -- shrinkage biases coefficients by design; use sp.dml or sp.rlasso_effect; Observations are serially dependent -- consecutive or random folds then leak information; use a pseudo out-of-sample scheme (sp.ardl(...).poos()). Assumptions: The observations to be predicted are drawn from the same population as the estimation sample. Alternatives: sp.ridge, sp.lasso_select, sp.rlasso, sp.dml.",
+    "input_schema": {
+      "properties": {
+        "method": {
+          "default": "ridge",
+          "description": "Estimator",
+          "enum": [
+            "ridge",
+            "lasso",
+            "pcr",
+            "ols"
+          ],
+          "type": "string"
+        },
+        "n_components": {
+          "description": "pcr: number of principal components, or candidates",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "n_folds": {
+          "default": 10,
+          "description": "Cross-validation folds",
+          "type": "integer"
+        },
+        "penalty": {
+          "description": "Ridge / lasso penalty: one value, candidates for cross-validation, or None for a default grid",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "Seed for shuffle=True",
+          "type": "integer"
+        },
+        "shuffle": {
+          "default": false,
+          "description": "Random folds instead of consecutive blocks of rows",
+          "type": "boolean"
+        },
+        "standardize": {
+          "default": true,
+          "description": "Scale predictors to unit standard deviation",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "Predictors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "shrinkage"
+  },
+  {
     "description": "Wilcoxon matched-pairs signed-rank test (Stata signrank). Ranks the absolute differences y - other (or y - value), zeros and ties included, and tests that their distribution is symmetric about zero; the variance is adjusted for ties and for zero differences. Alternatives: sp.ttest, sp.ranksum.",
     "input_schema": {
       "properties": {
@@ -34492,7 +34561,7 @@
     "input_schema": {
       "properties": {
         "hypothesis": {
-          "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``).",
+          "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 = 0, x2 + x3 = 1\"`` -- the same, in the comma-separated spelling of statsmodels' ``f_test`` - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``).",
           "items": {
             "type": "string"
           },

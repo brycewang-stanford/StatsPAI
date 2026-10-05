@@ -199,6 +199,43 @@ class ARIMAResult(ResultProtocolMixin):
         return self.summary()
 
 
+#: 5% critical value of the KPSS level-stationarity statistic.
+_KPSS_CRIT_5 = 0.463
+
+
+def _kpss_stat(x: np.ndarray) -> float:
+    """KPSS level-stationarity statistic, Bartlett kernel with
+    ``trunc(3 * sqrt(n) / 13)`` lags (``nan`` when it is not defined)."""
+    n = len(x)
+    e = x - x.mean()
+    partial = np.cumsum(e)
+    lags = int(3 * np.sqrt(n) / 13)
+    lrv = float(e @ e) / n
+    for h in range(1, lags + 1):
+        lrv += 2.0 * (1.0 - h / (lags + 1.0)) * float(e[h:] @ e[:-h]) / n
+    if lrv <= 0:
+        return float("nan")
+    return float(partial @ partial) / (n * n * lrv)
+
+
+def _kpss_ndiffs(y: np.ndarray, max_d: int) -> int:
+    """Number of differences after which KPSS no longer rejects level
+    stationarity at 5%, capped at ``max_d``.
+
+    The lag truncation is the choice of R's
+    ``forecast::ndiffs(test="kpss")``.
+    """
+    x = np.asarray(y, dtype=float)
+    d = 0
+    while d < max_d and len(x) >= 8 and np.ptp(x) > 0:
+        stat = _kpss_stat(x)
+        if not stat > _KPSS_CRIT_5:
+            break
+        x = np.diff(x)
+        d += 1
+    return d
+
+
 def arima(
     y: Any,
     order: Tuple[int, int, int] = (1, 0, 0),
@@ -228,16 +265,29 @@ def arima(
         first and after the last non-missing ``y`` are dropped, so a
         differenced column can be passed as it is.
     auto : bool, default False
-        If True, select (p, d, q) by AICc grid search (ignores ``order``).
+        If True, select the order and ignore ``order``. ``d`` is chosen
+        first, as the number of differences after which a KPSS test no
+        longer rejects level stationarity at 5% (at most ``max_d``); then
+        ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``,
+        ``(0, d, 0)`` included.
     max_p, max_q, max_d : int
         Bounds for the auto search.
     method : {'statespace', 'css_ml', 'innovations_mle'}, default 'statespace'
-        Estimation convention. ``'statespace'`` keeps the default exact
-        Kalman/SARIMAX likelihood. ``'css_ml'`` is retained as a compatibility
-        alias for ``'innovations_mle'``. The innovations-MLE path uses
-        statsmodels' stationary/invertible exact-MLE parameterization, matching
-        ``stats::arima(method='ML')`` and tightly converged Stata
-        ``arima`` coefficient conventions for pure ARMA models.
+        How the exact Gaussian likelihood is maximised. Both conventions
+        maximise the same likelihood, of every observation, with the ARMA
+        part started from its stationary distribution; they agree with
+        Stata's ``arima``, R's ``stats::arima(method="ML")`` and
+        statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'``
+        runs a quasi-Newton search on the Kalman-filter likelihood and
+        handles seasonal terms and regressors. ``'innovations_mle'``
+        (alias ``'css_ml'``) uses the innovations algorithm, which is
+        tighter for pure ARMA models and is what the cross-language parity
+        rows run.
+
+        Releases through 1.38.0 started ``'statespace'`` from a diffuse prior
+        and left the first ``max(p, q + 1)`` observations out of the
+        likelihood. The estimates were not the exact MLE, and ``auto=True``
+        compared models scored on different numbers of observations.
 
     trend : {None, 'c', 'n'}, optional
         Deterministic term. ``'c'`` estimates a constant: the mean of the
@@ -313,8 +363,16 @@ def arima(
     method_norm = method.lower().replace("-", "_")
     if method_norm in {"kalman", "exact", "mle"}:
         method_norm = "statespace"
-    elif method_norm in {"css", "css_ml", "conditional", "conditional_mle"}:
+    elif method_norm == "css_ml":
         method_norm = "innovations_mle"
+    elif method_norm in {"css", "conditional", "conditional_mle"}:
+        raise MethodIncompatibility(
+            f"arima: method={method!r} asks for conditional sum of squares, "
+            "which is not implemented; every method here is exact maximum "
+            "likelihood.",
+            recovery_hint="Use method='statespace' or 'innovations_mle'.",
+            diagnostics={"method": method},
+        )
     if method_norm not in {"statespace", "innovations_mle"}:
         raise ValueError("method must be 'statespace', 'css_ml', or 'innovations_mle'")
 
@@ -349,14 +407,20 @@ def arima(
     ) -> Any:
         sm_trend, _ = _trend_for(order_)
         if method_norm == "statespace":
+            # Stationary initialisation: the likelihood of every observation.
+            # With enforce_stationarity=False statsmodels starts the state
+            # from an approximate diffuse prior and leaves the first
+            # k_states terms out of the log-likelihood, so the estimates
+            # are not the exact MLE and models with more states are scored
+            # on fewer observations (AIC then favours them for free).
             if sm_trend == "n":
                 model = SARIMAX(
                     y,
                     order=order_,
                     seasonal_order=seasonal_order or (0, 0, 0, 0),
                     exog=exog,
-                    enforce_stationarity=False,
-                    enforce_invertibility=False,
+                    enforce_stationarity=True,
+                    enforce_invertibility=True,
                 )
                 kwargs: dict[str, Any] = {"disp": False}
                 if maxiter is not None:
@@ -368,8 +432,8 @@ def arima(
                 seasonal_order=seasonal_order or (0, 0, 0, 0),
                 exog=exog,
                 trend=sm_trend,
-                enforce_stationarity=False,
-                enforce_invertibility=False,
+                enforce_stationarity=True,
+                enforce_invertibility=True,
             )
             method_kwargs: dict[str, Any] = {"disp": False}
             if maxiter is not None:
@@ -388,28 +452,40 @@ def arima(
         return model.fit(method="innovations_mle")
 
     if auto:
+        # The order of differencing is settled first, by KPSS tests on the
+        # successively differenced series (the rule of R's
+        # forecast::auto.arima). Likelihoods of differently differenced
+        # series describe different data and cannot be ranked by AICc.
+        d = _kpss_ndiffs(y, max_d)
         best_aicc = np.inf
-        best_order = order
-        for d in range(max_d + 1):
-            for p in range(max_p + 1):
-                for q in range(max_q + 1):
-                    if p == 0 and q == 0:
-                        continue
-                    try:
-                        res = _fit((p, d, q), maxiter=50)
-                        k = len(np.asarray(res.params))
-                        aicc = res.aic + 2 * k * (k + 1) / max(n - k - 1, 1)
-                        if aicc < best_aicc:
-                            best_aicc = aicc
-                            best_order = (p, d, q)
-                    except Exception:
-                        continue
+        best_order = (0, d, 0)
+        n_failed = 0
+        for p in range(max_p + 1):
+            for q in range(max_q + 1):
+                # (0, d, 0) is a candidate: white noise, or a random walk.
+                try:
+                    res = _fit((p, d, q), maxiter=50)
+                except Exception:
+                    n_failed += 1
+                    continue
+                k = len(np.asarray(res.params))
+                n_eff = n - d
+                aicc = res.aic + 2 * k * (k + 1) / max(n_eff - k - 1, 1)
+                if aicc < best_aicc:
+                    best_aicc = aicc
+                    best_order = (p, d, q)
+        if not np.isfinite(best_aicc):
+            raise MethodIncompatibility(
+                "arima(auto=True): no candidate order could be fitted.",
+                recovery_hint="Check the series for constants or missing values.",
+                diagnostics={"n_failed": n_failed},
+            )
         order = best_order
 
     res = _fit(order)
 
     k = len(np.asarray(res.params))
-    aicc = res.aic + 2 * k * (k + 1) / max(n - k - 1, 1)
+    aicc = res.aic + 2 * k * (k + 1) / max(n - int(order[1]) - k - 1, 1)
 
     _param_index = list(res.param_names) if hasattr(res, "param_names") else None
     _, _trend_name = _trend_for(order)

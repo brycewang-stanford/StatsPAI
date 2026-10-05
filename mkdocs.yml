@@ -142,6 +142,7 @@ nav:
       - "Panel data — FE / RE / Hausman / HDFE / dynamic GMM": guides/panel_data.md
       - "Social network analysis (centrality / community / QAP / ERGM)": guides/social_network_analysis.md
       - "Migrating from R to StatsPAI": guides/migration-from-r.md
+      - "Coming from statsmodels and linearmodels": guides/migration-from-statsmodels.md
       - "Reproducing Stata defaults": guides/stata_defaults.md
       - "Variable labels and value labels (.dta files)": guides/stata_labels.md
       - "sp.dml and the DoubleML reference implementation": guides/sp_dml_vs_doubleml.md
