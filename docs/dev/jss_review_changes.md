@@ -2300,3 +2300,28 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the dynamic panel fix (Hansen, Table 17.3)
+
+- **Commits.** `9705f342` re-recorded the entry of Track A module 50 in
+  `tests/r_parity/results/_implementation_trace.json` and rewrote
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled module 50 is in `1879dce1`:
+  `src/statspai/gmm/_dynpanel/_estimate.py`,
+  `src/statspai/gmm/_dynpanel/_fit.py` and
+  `src/statspai/gmm/arellano_bond.py`.
+- **Reason.** Audit in `docs/dev/2026-10-05-hansen-econometrics-review.md`
+  (findings 15 to 18). Three changes to dynamic panel GMM: which period
+  dummies `time_dummies=True` keeps, a rank check before the weight matrix
+  is inverted, and the generalized inverse used when it is singular. Each
+  one acts only on a fit that has period dummies or a rank-deficient
+  weight. Module 50 has neither.
+- **Effect on the paper.** None. No committed result file changed; module
+  50 rerun on the new code returns its two coefficients and standard
+  errors unchanged to the sixteenth digit. In the Track A trace only the
+  three `exercised_sources` digests of module 50 and its `seconds`
+  differ. In the original-data trace only `seconds` differ. No
+  implementation classification moved.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
