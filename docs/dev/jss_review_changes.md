@@ -1836,3 +1836,34 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the Facure notebooks pass
+
+- **Commits.** `0a2a5124` re-recorded the entries of Track A modules 02 03
+  04 05 07 08 11 13 15 16 17 24 25 26 27 35 36 38 50 52 53 59 65 66 70 71
+  72 78 79 83 84 85 in
+  `tests/r_parity/results/_implementation_trace.json` and all 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The sources
+  that staled them are in the same commit: the categorical-covariate
+  wrapper (`src/statspai/core/_covariates.py`) on `sp.ipw`, `sp.aipw`,
+  `sp.match`, `sp.dml`, `sp.tmle`, `sp.g_computation`, `sp.drdid` and
+  `sp.callaway_santanna`; the date-typed time wrapper in
+  `src/statspai/did/_core.py` on the four staggered estimators; the
+  repeated-row check in `src/statspai/did/callaway_santanna.py`; the
+  `inference=` validation in `src/statspai/synth/scm.py`; the bracket
+  block in `src/statspai/regression/iv.py`; and five new exports in
+  `src/statspai/__init__.py`.
+- **Reason.** The pass over Facure's *Causal Inference in Python*
+  (`docs/dev/2026-10-05-facure-causal-inference-in-python-review.md`).
+  Both wrappers pass a call with numeric covariates and numeric time
+  straight through.
+  `python tests/r_parity/verify_reproduce_py.py --no-report` on the 32
+  Track A modules reported 32 reproduce, 0 drift.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ, and no implementation classification moved. The
+  registry census the paper quotes moves from 1,322 to 1,327 registered
+  functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
