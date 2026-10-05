@@ -32,11 +32,13 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, MethodIncompatibility
 
 
 @accepts_aliases(_strict=True, controls="covariates")
+@_expands_categorical("covariates")
 def aipw(
     data: pd.DataFrame,
     y: str,

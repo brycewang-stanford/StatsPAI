@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from sklearn.base import BaseEstimator
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from .super_learner import SuperLearner
@@ -54,6 +55,7 @@ from .super_learner import SuperLearner
 
 
 @accepts_aliases(_strict=True, controls="covariates")
+@_expands_categorical("covariates")
 def tmle(
     data: pd.DataFrame,
     y: str,

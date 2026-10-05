@@ -1799,10 +1799,10 @@
           "description": "SCM variant: classic/demeaned/detrended/unconstrained/elastic_net/augmented/sdid/gsynth/staggered",
           "enum": [
             "classic",
-            "ridge",
             "classic_adh",
             "adh",
             "penalized",
+            "ridge",
             "demeaned",
             "detrended",
             "unconstrained",
@@ -3521,7 +3521,7 @@
           "x-statspai-role": "column"
         },
         "covariates": {
-          "description": "Covariate / effect modifier variables.",
+          "description": "Covariate / effect modifier variables. A text or ``category`` column is expanded to indicator columns.",
           "items": {
             "type": "string"
           },
@@ -25441,6 +25441,74 @@
     }
   },
   {
+    "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu).",
+    "name": "synth_ttest",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the confidence interval.",
+          "type": "number"
+        },
+        "data": {
+          "description": "Long-format panel, one row per unit and period.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "n_folds": {
+          "default": 3,
+          "description": "Number of blocks ``K`` (at least 2). The interval uses ``K - 1`` degrees of freedom, so ``K = 2`` (the default of ``scinference``) gives a Cauchy reference distribution and very wide intervals; a larger ``K`` leaves fewer pre-periods per block.",
+          "type": "integer"
+        },
+        "outcome": {
+          "description": "Outcome column.",
+          "type": "string",
+          "x-aliases": [
+            "y"
+          ],
+          "x-canonical": "y",
+          "x-statspai-role": "column"
+        },
+        "penalization": {
+          "default": 0.0,
+          "description": "Ridge penalty on the weights.",
+          "type": "number"
+        },
+        "time": {
+          "description": "Time period column.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treated_unit": {
+          "description": "Identifier of the treated unit.",
+          "type": "string"
+        },
+        "treatment_time": {
+          "description": "First treated period.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit identifier column.",
+          "type": "string",
+          "x-aliases": [
+            "id"
+          ],
+          "x-canonical": "id",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "outcome",
+        "unit",
+        "time",
+        "treated_unit",
+        "treatment_time"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Synthetic Difference-in-Differences estimator (and SC / DID variants). Validation: certified parity evidence. Do NOT use when: the parallel-trends estimand with unit weights is wanted -- sdid re-weights both units and periods and its estimand differs from CS; there is no clean pre-treatment block for every unit -- the unit and time weights are fit on the pre-period grid. Cost: Placebo / bootstrap standard errors refit the full weighting problem n_reps times; the point estimate alone is cheap. Lower n_reps while iterating.",
     "name": "sdid",
     "parameters": {
@@ -28286,7 +28354,7 @@
     }
   },
   {
-    "description": "Generate a balance table comparing treated and control groups.",
+    "description": "Generate a balance table comparing treated and control groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "balance_table",
     "parameters": {
       "properties": {
@@ -36020,7 +36088,7 @@
           "type": "string"
         },
         "effect_size": {
-          "description": "Standardised effect size. Pass *None* to solve for MDE (use :func:`mde` for a cleaner interface).",
+          "description": "Effect size, standardised unless ``sigma=`` is passed with it (then in the units of the outcome). Pass *None* to solve for MDE (use :func:`mde` for a cleaner interface).",
           "type": "string"
         },
         "n": {
@@ -36049,7 +36117,7 @@
           "type": "number"
         },
         "effect_size": {
-          "description": "Standardised effect size (delta / sigma).",
+          "description": "Effect in the units of the outcome. With the default ``sigma=1`` this is the standardised effect (effect / standard deviation).",
           "type": "string"
         },
         "n": {
@@ -36063,7 +36131,7 @@
         },
         "sigma": {
           "default": 1.0,
-          "description": "Outcome standard deviation (default 1 for standardised effect).",
+          "description": "Outcome standard deviation, in the units of ``effect_size``. Power depends on ``effect_size / sigma``.",
           "type": "number"
         }
       },
@@ -36085,7 +36153,7 @@
           "type": "number"
         },
         "effect_size": {
-          "description": "Effect in units of ``sigma``.",
+          "description": "Effect in the units of the outcome. With the default ``sigma=1`` this is the standardised effect (effect / standard deviation).",
           "type": "string"
         },
         "n": {
@@ -36145,7 +36213,7 @@
           "type": "number"
         },
         "effect_size": {
-          "description": "Effect at the cutoff in units of ``sigma``.",
+          "description": "Effect at the cutoff in the units of the outcome. With the default ``sigma=1`` this is the standardised effect.",
           "type": "string"
         },
         "kernel": {
@@ -36186,7 +36254,7 @@
           "type": "number"
         },
         "effect_size": {
-          "description": "Effect of a one-standard-deviation change in the endogenous variable, in units of ``sigma``.",
+          "description": "Effect of a one-standard-deviation change in the endogenous variable, in the units of the outcome (standardised when ``sigma=1``).",
           "type": "string"
         },
         "first_stage_f": {
@@ -36229,7 +36297,7 @@
           "type": "number"
         },
         "effect_size": {
-          "description": "Standardised effect size.",
+          "description": "Effect in the units of the outcome. With the default ``sigma=1`` this is the standardised effect (effect / standard deviation).",
           "type": "string"
         },
         "icc": {
@@ -36266,7 +36334,7 @@
           "type": "number"
         },
         "effect_size": {
-          "description": "Standardised effect of the variable of interest.",
+          "description": "Effect of the variable of interest in the units of the outcome (standardised when ``sigma=1``).",
           "type": "string"
         },
         "n": {
@@ -40700,6 +40768,124 @@
         }
       },
       "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Design-based analysis of a switchback experiment. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "switchback",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the confidence interval.",
+          "type": "number"
+        },
+        "data": {
+          "description": "One row per period, in time order (or sortable by ``time``).",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "design": {
+          "default": "optimal",
+          "description": "The design the assignment was drawn from: a design name or block length as in :func:`switchback_design`, a boolean vector, or the name of a boolean column of ``data`` marking the randomization points. This must be the design that was actually run; the estimator's weights are its probabilities.",
+          "items": {
+            "enum": [
+              "optimal",
+              "every"
+            ],
+            "type": "integer"
+          },
+          "type": [
+            "array",
+            "string"
+          ]
+        },
+        "m": {
+          "default": 0,
+          "description": "Order of the carryover effect assumed in the analysis.",
+          "type": "integer"
+        },
+        "n_draws": {
+          "default": 10000,
+          "description": "Assignment paths drawn for the randomization test. ``0`` skips it.",
+          "type": "integer"
+        },
+        "p": {
+          "default": 0.5,
+          "description": "Probability of treatment at each coin flip.",
+          "type": "number"
+        },
+        "seed": {
+          "description": "Seed for the randomization test.",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Column to sort by. Default: the row order of ``data``.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "Assignment column (0/1), constant between randomization points.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Randomization points and an assignment path for a switchback experiment.",
+    "name": "switchback_design",
+    "parameters": {
+      "properties": {
+        "design": {
+          "default": "optimal",
+          "description": "Where the coin is flipped. ``'optimal'`` is the minimax design of Bojinov, Simchi-Levi and Zhao (2023, Theorem 2): every period when ``m = 0``; periods ``1, 2m+1, 3m+1, ..., (n-2)m+1`` when ``m > 0`` and ``n_periods = n m`` with ``n >= 4``. ``'every'`` flips in every period, an integer ``b`` flips every ``b`` periods, and a boolean vector marks the periods directly.",
+          "items": {
+            "enum": [
+              "optimal",
+              "every"
+            ],
+            "type": "integer"
+          },
+          "type": [
+            "array",
+            "string"
+          ]
+        },
+        "m": {
+          "default": 0,
+          "description": "Order of the carryover effect: a treatment may affect the outcome of its own period and of the next ``m``.",
+          "type": "integer"
+        },
+        "n_periods": {
+          "description": "Number of periods ``T`` in the experiment.",
+          "type": "integer"
+        },
+        "p": {
+          "default": 0.5,
+          "description": "Probability of treatment at each flip. The optimal design uses a fair coin (their Theorem 1).",
+          "type": "number"
+        },
+        "seed": {
+          "description": "Seed for the assignment draw.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "n_periods"
+      ],
       "type": "object"
     }
   },
@@ -54713,6 +54899,60 @@
         "cate",
         "Y",
         "T"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "cate_gain_curve",
+    "parameters": {
+      "properties": {
+        "ascending": {
+          "default": false,
+          "description": "Rank the smallest predictions first (for an effect where lower is better).",
+          "type": "boolean"
+        },
+        "cate": {
+          "description": "Predicted effects (or any score that ranks units by effect): a column name or one value per row of ``data``.",
+          "type": "string"
+        },
+        "data": {
+          "description": "Evaluation data in which ``treat`` was randomized. It should not be the data the predictions were fitted on.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "n_quantiles": {
+          "default": 10,
+          "description": "Number of groups in the effect-by-quantile table.",
+          "type": "integer"
+        },
+        "n_steps": {
+          "default": 100,
+          "description": "Number of points on the curve.",
+          "type": "integer"
+        },
+        "normalize": {
+          "default": true,
+          "description": "Subtract the random-ranking line from the gain curve.",
+          "type": "boolean"
+        },
+        "treat": {
+          "description": "Treatment column, binary or continuous.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "cate",
+        "y",
+        "treat"
       ],
       "type": "object"
     }

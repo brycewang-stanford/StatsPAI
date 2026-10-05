@@ -5,6 +5,55 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-facure-textbook-fixes"></a>
+
+## 1.38.0 → next: ⚠️ `sp.did` with repeated unit-period rows; categorical covariates; `sigma=` in power
+
+**`sp.did` and `sp.callaway_santanna` with several rows per unit and
+period.** The Callaway-Sant'Anna reshape used the first row of each (unit,
+period) cell and ignored the others. Typical input: daily data with
+`time='post'`.
+
+```python
+sp.did(df, y="y", treat="treated", time="post", id="unit")
+# before: Callaway-Sant'Anna on the first pre day and the first post day
+# now:    the 2x2 regression on every row, clustered on unit
+sp.callaway_santanna(df, y="y", g="treated", t="post", i="unit")
+# before: the same silent subset; now: MethodIncompatibility
+```
+
+If you ran either call on such data, rerun it. To keep Callaway-Sant'Anna,
+pass the date as `t` and the first treated date as `g`, or average the
+outcome within unit and period first. Panels with one row per unit and
+period are unchanged.
+
+**Categorical covariates.** A covariate of dtype `category`, a text column
+or a `C(col)` entry is now expanded to indicator columns in the estimators
+listed in the changelog. Only the `category` case changes a number that was
+returned before: a `category` column with numeric levels used to enter as
+one linear term.
+
+```python
+df["role"] = df["role"].astype("category")       # levels 1..5
+sp.aipw(df, y="y", treat="d", covariates=["x", "role"])
+# before: role as a number; now: four indicator columns
+sp.aipw(df.astype({"role": int}), y="y", treat="d", covariates=["x", "role"])
+# the old number
+```
+
+**`sigma=` in the power calculators.** `effect_size` is in the units of
+the outcome and `sigma` is the outcome's standard deviation. Before,
+`sigma` cancelled out of the formula, so a call with `sigma != 1` returned
+the power of the standardised effect `effect_size` whatever `sigma` was.
+
+```python
+sp.power("rct", effect_size=0.08, sigma=0.2, power_target=0.8).n
+# before: 4906 (the n for a standardised effect of 0.08); now: 197
+```
+
+Calls that leave `sigma` at 1 are unchanged. If you passed a standardised
+effect together with `sigma`, drop `sigma`.
+
 <a id="oct2026-barrett-textbook-fixes"></a>
 
 ## 1.38.0 → next: ⚠️ Crump trimming, weighted balance statistics, minimal adjustment sets

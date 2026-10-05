@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import pandas as pd
 
 from ._aliases import accepts_aliases
+from .core._covariates import expands_categorical_covariates as _expands_categorical
 from .core.results import CausalResult
 from .dml.oof import OOFPredictions
 from .exceptions import MethodIncompatibility
@@ -1090,6 +1091,7 @@ def policy_tree(
 
 
 @accepts_aliases(_strict=True, controls="covariates", weights="sample_weight")
+@_expands_categorical("covariates", "X")
 def dml(
     data: pd.DataFrame,
     y: str,

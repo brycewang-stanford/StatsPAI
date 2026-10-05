@@ -44,8 +44,10 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
 from ._etwfe_glm_design import normalise_hettype as _normalise_hettype
@@ -710,6 +712,7 @@ def _etwfe_glm(
 
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@_calendar_time_aware(time="time", cohort="first_treat")
 def etwfe(
     data: pd.DataFrame,
     y: str,
@@ -2386,6 +2389,7 @@ def _drdid_all(data: pd.DataFrame, **common: Any) -> CausalResult:
 
 
 @accepts_aliases(_strict=True, unit="id", treat="group", controls="covariates")
+@_expands_categorical("covariates")
 def drdid(
     data: pd.DataFrame,
     y: str,

@@ -4,6 +4,116 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### What the notebooks of Facure's *Causal Inference in Python* found
+
+The eleven chapter notebooks of the book (O'Reilly, 2023) keep their
+printed outputs, so each analysis was rerun with StatsPAI on the book's
+data and compared with the stored number. The data look like product data:
+daily dates, text categories, a `treated` flag beside a `post` flag,
+several treated units. Most of what follows is about inputs of that shape.
+The notes are in `docs/dev/2026-10-05-facure-causal-inference-in-python-review.md`,
+the guide in `docs/guides/facure_causal_inference_in_python.md`, and the
+tests in `tests/test_facure_textbook_pass.py` (simulated data) and
+`tests/external_parity/test_facure_causal_inference_in_python.py` (the
+book's data, skipped without it). References verified via Crossref,
+OpenAlex and arXiv.
+
+#### ⚠️ Correctness
+
+- **`sp.did` on a block design with a `post` column could return the wrong
+  sign.** `sp.did(df, y=, treat='treated', time='post', id='unit')` on data
+  with several rows per unit and period went to Callaway-Sant'Anna, whose
+  reshape kept the first row of each (unit, period) cell and dropped the
+  rest. On the book's chapter 8 data the result was -0.659; the difference
+  of the four cell means is 0.692. `sp.callaway_santanna` now refuses
+  repeated (unit, period) rows on a panel, and `sp.did(method='auto')`
+  estimates a 0/1 group flag with a 0/1 time and repeated rows as the 2×2
+  design, clustered on `id`. A 0/1 `treat` that never changes within a unit,
+  next to a time variable with more than two values, now warns that it is
+  read as "first treated in period 1". See `MIGRATION.md`.
+- **A `category` covariate with numeric levels was used as a number.** In
+  `sp.ipw`, `sp.aipw`, `sp.match`, `sp.ebalance`, `sp.overlap_weights`,
+  `sp.cbps`, `sp.tmle`, `sp.g_computation`, `sp.dml`, `sp.metalearner`,
+  `sp.dose_response`, `sp.drdid`, `sp.callaway_santanna` and the
+  propensity-score diagnostics, a covariate of dtype `category` was cast to
+  its level values and entered as one linear term. It is now expanded to
+  indicator columns, as are text columns (which failed in numpy) and
+  `C(col)` / `i.col` entries (which failed as missing columns). A plain
+  integer column is still a number. The expansion is recorded in
+  `model_info['covariate_expansion']`, and `sp.predict_cate` rebuilds it on
+  new rows. See `MIGRATION.md`.
+- **`sigma=` had no effect in `sp.power_rct`, `power_did`, `power_rd`,
+  `power_iv`, `power_cluster_rct` and `power_ols`.** The effect was
+  multiplied by `sigma` and divided by a standard error proportional to
+  it. `effect_size` is now in the units of the outcome and power depends on
+  `effect_size / sigma`; with the default `sigma=1` nothing changes. A call
+  that passed a raw effect with `sigma` got the power of an effect `sigma`
+  times too small or too large. See `MIGRATION.md`.
+- **`sp.dag_recommend_estimator` never recommended an instrument.** It
+  tested exogeneity by conditioning on the exposure in the original graph,
+  which opens the collider at the exposure and rejects every instrument
+  when there is unobserved confounding. The test is now made in the graph
+  with the arrows into the exposure removed, and a conditional instrument
+  is returned with its conditioning set.
+- **The same function recommended the front door when it does not hold.**
+  A direct edge from the exposure to the outcome, or a confounder declared
+  with `latent=[...]`, was not checked. It now uses `DAG.frontdoor_sets`.
+- **`sp.cate_eval` accepted a treatment that is not 0/1** and returned a
+  RATE computed from AIPW scores that do not exist for a dose. It raises.
+- **`sp.balance_table` and `sp.balance_check` returned a table of NaN for a
+  treatment with other codes** (three arms, text labels). They raise, and
+  `sp.balance_table` no longer skips a covariate that is not in the data.
+- **`sp.synth(inference=)` ignored values it did not know.**
+  `inference='jackknife'` on the classic method returned placebo inference.
+  Unknown values, and `'bootstrap'` / `'jackknife'` outside
+  `method='sdid'`, are errors.
+
+#### Added
+
+- **`sp.switchback_design` and `sp.switchback`**: regular switchback
+  experiments after Bojinov, Simchi-Levi and Zhao (2023). The design gives
+  the minimax-optimal randomization points for a carryover of order `m`.
+  The analysis is the Horvitz-Thompson estimator of the average lag-`m`
+  effect, the exact randomization test of the sharp null, and under the
+  optimal design the paper's conservative standard error. Evidence:
+  enumeration of every assignment path of a 12-period design reproduces
+  unbiasedness and the paper's variance formula to machine precision; the
+  book's two examples agree to 1e-12.
+- **`sp.synth_ttest`, and `sp.synth(..., inference='ttest')`**: the
+  debiased K-fold synthetic control estimator and t-test of Chernozhukov,
+  Wüthrich and Zhu (2026). Equal to the authors' R package `scinference` to
+  1e-15 on the estimate and the standard error for `K` = 2, 3, 4.
+- **`sp.metalearner(learner='r')` takes a continuous treatment.** The CATE
+  is the effect of one more unit of the treatment; `estimate` is the
+  partially linear coefficient with its influence-function standard error
+  (`estimand='APE'`), equal to `sp.dml(model='plr')` on the same folds and
+  learners. The CATE equals `econml.dml.NonParamDML`'s exactly under the
+  same folds and learners. The other learners still require 0/1.
+- **`sp.cate_gain_curve`**: effect by quantile of a predicted effect,
+  cumulative effect and gain curves and their area, for a randomized
+  treatment of any type.
+- **Dates as time and cohort columns** in `sp.callaway_santanna`,
+  `sp.sun_abraham`, `sp.did_imputation`, `sp.etwfe` and through `sp.did`.
+  `datetime64` and `Period` columns are numbered in the order observed; a
+  missing cohort date or one after the last period means never treated. The
+  numbering is in `model_info['calendar_time']`, and unevenly spaced dates
+  warn.
+- `sp.iv` and `sp.ivreg` read the linearmodels block
+  `y ~ 1 + [endog ~ instruments] + exog`.
+
+#### Changed
+
+- Every `sp_call` string of `sp.dag_recommend_estimator` now runs as
+  written (`sp.ipw`, `sp.front_door`, `sp.identify` and `sp.iv` were called
+  with arguments they do not have).
+- `sp.synth` with a list of treated units on a single-unit method says
+  which functions take several (`sp.geolift`, `method='sdid'`); it failed
+  in numpy with a shape error. A list of one is unwrapped.
+- `sp.margins` on a fit with factor or transformed terms and no `data=`
+  says to pass the data.
+- `repr()` of the result of `sp.synth_experimental_design` is one line; it
+  printed every weight vector.
+
 ### What *Causal Inference in R* found
 
 Barrett, D'Agostino McGowan and Gerke's book (<https://www.r-causal.org>)

@@ -165,3 +165,39 @@ def validate_fold_indices(
                     },
                 )
     return codes
+
+
+def require_binary_treatment(
+    values: Any, *, function: str, argument: str = "treat"
+) -> None:
+    """Refuse a treatment column that is not coded 0/1.
+
+    The two-group estimators and tables select ``== 1`` and ``== 0``. A
+    column with other codes (arm labels, a dose, three arms) used to leave
+    both groups empty or partly filled, and the output was a table of NaN
+    or an estimate for a subset, with nothing said.
+    """
+    import pandas as pd
+
+    observed = pd.unique(pd.Series(values).dropna())
+    try:
+        ok = len(observed) > 0 and all(v in (0, 1) for v in observed)
+    except TypeError:  # unhashable or uncomparable codes
+        ok = False
+    if ok:
+        return
+    shown = sorted(observed, key=repr)[:6]
+    raise MethodIncompatibility(
+        f"{function}: {argument} must be coded 0/1; found "
+        f"{len(observed)} distinct values, e.g. {shown}.",
+        recovery_hint=(
+            "For several arms, compare one arm with the control at a time on "
+            "the rows of those two arms, with the arm recoded to 1 and the "
+            "control to 0. For a dose, use an estimator for continuous "
+            "treatments."
+        ),
+        diagnostics={
+            "n_values": int(len(observed)),
+            "values": [repr(v) for v in shown],
+        },
+    )

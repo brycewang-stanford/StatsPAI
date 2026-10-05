@@ -86,6 +86,12 @@ def _simple_part(part: str) -> bool:
     )
 
 
+_NEEDS_DATA_HINT = (
+    "A formula with factor, transformed or interaction terms is rebuilt from "
+    "the original columns: pass data=<the frame the model was fitted on>."
+)
+
+
 class _TermDesign:
     """Design from coefficient names (plain / C()-dummy / interaction terms)."""
 
@@ -129,10 +135,16 @@ class _TermDesign:
         if m is not None:
             base, level = m.group(1), m.group(2)
             if base not in frame.columns:
-                raise MethodIncompatibility(f"margins: {base!r} is not in the data.")
+                raise MethodIncompatibility(
+                    f"margins: {base!r} is not in the data.",
+                    recovery_hint=_NEEDS_DATA_HINT,
+                )
             return np.array([factor_value(level, v) for v in frame[base]], dtype=float)
         if part not in frame.columns:
-            raise MethodIncompatibility(f"margins: {part!r} is not in the data.")
+            raise MethodIncompatibility(
+                f"margins: {part!r} is not in the data.",
+                recovery_hint=_NEEDS_DATA_HINT,
+            )
         out: np.ndarray = frame[part].to_numpy(dtype=float)
         return out
 

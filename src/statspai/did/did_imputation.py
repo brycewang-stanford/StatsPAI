@@ -33,6 +33,7 @@ from ._bjs_pretrends import (
     symmetric_pretrend_scale,
 )
 from ._bjs_variance import bjs_se_for_target as _bjs_se
+from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import normalize_se_method as _normalize_se_method
 
@@ -94,6 +95,7 @@ def _didimp_cluster_bootstrap(
 
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@_calendar_time_aware(time="time", cohort="first_treat")
 def did_imputation(
     data: pd.DataFrame,
     y: str,

@@ -16,7 +16,8 @@ Rules (checked in priority order):
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Sequence, Set
+from itertools import combinations
+from typing import Any, List, Optional, Sequence, Set, Tuple
 
 from .._aliases import accepts_aliases
 
@@ -121,7 +122,7 @@ def recommend_estimator(
             estimator="regress",
             sp_call=(
                 f"sp.regress('{outcome} ~ {exposure} + {s_str}', data=df)"
-                f"  # or sp.ipw(df, treat='{exposure}', outcome='{outcome}', "
+                f"  # or sp.ipw(df, y='{outcome}', treat='{exposure}', "
                 f"covariates={sorted(s)!r})"
             ),
             identification=(
@@ -132,7 +133,7 @@ def recommend_estimator(
             adjustment_set=set(s),
             mediators=mediators,
             alternatives=[
-                f"sp.ipw(treat='{exposure}', outcome='{outcome}', "
+                f"sp.ipw(df, y='{outcome}', treat='{exposure}', "
                 f"covariates={sorted(s)!r})",
                 ("sp.aipw(...): doubly-robust combination of IPW + " "outcome model"),
                 (
@@ -144,22 +145,29 @@ def recommend_estimator(
         )
 
     # No adjustment set found — try IV
-    iv_candidate = _find_instrument(
+    iv_found = _find_instrument(
         dag,
         exposure,
         outcome,
         candidate_instruments,
     )
-    if iv_candidate is not None:
+    if iv_found is not None:
+        iv_candidate, iv_controls = iv_found
+        controls_str = "".join(f"{c} + " for c in sorted(iv_controls))
+        given = f" given {sorted(iv_controls)}" if iv_controls else ""
         return EstimatorRecommendation(
             estimator="iv",
-            sp_call=(f"sp.iv('{outcome} ~ [{exposure} ~ {iv_candidate}]', " "data=df)"),
+            sp_call=(
+                f"sp.iv('{outcome} ~ {controls_str}"
+                f"({exposure} ~ {iv_candidate})', data=df)"
+            ),
             identification=(
                 f"Unobserved confounding blocks backdoor adjustment, but "
-                f"{iv_candidate} satisfies the exclusion restriction "
-                f"(associates with {exposure}, no direct path to {outcome})."
+                f"{iv_candidate} is an instrument{given}: it is associated "
+                f"with {exposure}, and every path from it to {outcome} runs "
+                f"through {exposure}."
             ),
-            adjustment_set=None,
+            adjustment_set=set(iv_controls) if iv_controls else None,
             instrument=iv_candidate,
             mediators=mediators,
             alternatives=[
@@ -174,23 +182,33 @@ def recommend_estimator(
         )
 
     # Fall back to front-door if available
-    fd_set = _frontdoor_set(dag, exposure, outcome, mediators)
+    fd_set = _frontdoor_set(dag, exposure, outcome)
     if fd_set:
+        fd_sorted = sorted(fd_set)
+        fd_warnings: List[str] = []
+        if len(fd_sorted) > 1:
+            fd_warnings.append(
+                "sp.front_door takes one mediator; the front-door set "
+                f"{fd_sorted} has {len(fd_sorted)}, so the call below uses "
+                f"{fd_sorted[0]!r} only and does not identify the effect on "
+                "its own."
+            )
         return EstimatorRecommendation(
             estimator="front_door",
             sp_call=(
-                f"sp.front_door(df, exposure='{exposure}', "
-                f"outcome='{outcome}', "
-                f"mediators={sorted(fd_set)!r})"
+                f"sp.front_door(df, y='{outcome}', treat='{exposure}', "
+                f"mediator='{fd_sorted[0]}')"
             ),
             identification=(
-                f"Front-door criterion: mediators {sorted(fd_set)} capture "
-                "the full causal pathway and have no open backdoor to "
-                f"{outcome}."
+                f"Front-door criterion: mediators {fd_sorted} intercept "
+                f"every directed path from {exposure} to {outcome}, have no "
+                f"open backdoor from {exposure}, and their backdoor paths to "
+                f"{outcome} are blocked by {exposure}."
             ),
             adjustment_set=None,
-            mediators=list(fd_set),
+            mediators=fd_sorted,
             alternatives=alternatives,
+            warnings=fd_warnings,
         )
 
     warnings.append(
@@ -200,7 +218,7 @@ def recommend_estimator(
     )
     return EstimatorRecommendation(
         estimator="identify",
-        sp_call=(f"sp.dag.identify(dag, '{exposure}', '{outcome}')  # to see why"),
+        sp_call=(f"sp.identify(dag, '{exposure}', '{outcome}')  # to see why"),
         identification="Not identifiable under the declared DAG.",
         adjustment_set=None,
         mediators=mediators,
@@ -232,55 +250,51 @@ def _find_instrument(
     exposure: str,
     outcome: str,
     candidates: Optional[Sequence[str]],
-) -> Optional[str]:
-    """Search for a node Z that:
-      - has a directed path to ``exposure``,
-      - has no directed path to ``outcome`` other than through ``exposure``,
-      - is d-separated from ``outcome`` given ``exposure`` and the
-        unconfounded set.
+    max_conditioning: int = 2,
+) -> Optional[Tuple[str, Set[str]]]:
+    """Search for an instrument ``Z`` and a conditioning set ``S``.
 
-    This is a heuristic IV finder — not a full identification check.
+    ``Z`` qualifies given ``S`` when, with ``S`` made of observed variables
+    that the exposure does not affect,
+
+    - ``Z`` and the exposure are d-connected given ``S`` (relevance), and
+    - ``Z`` and the outcome are d-separated given ``S`` in the graph with
+      every arrow into the exposure removed (exclusion and exogeneity: any
+      remaining open path from ``Z`` to the outcome bypasses the exposure).
+
+    The second condition is checked in the mutilated graph on purpose.
+    Conditioning on the exposure in the original graph opens the collider
+    ``Z -> exposure <- U`` and would reject every instrument in exactly the
+    confounded graphs an instrument is for.
+
+    Returns ``(Z, S)`` for the first candidate that qualifies with the
+    smallest ``S`` (at most ``max_conditioning`` variables), or ``None``.
     """
-    if candidates is None:
-        candidates = [n for n in dag.observed_nodes if n not in (exposure, outcome)]
-
     desc_x = dag.descendants(exposure)
+    observed = [n for n in sorted(dag.observed_nodes) if n not in (exposure, outcome)]
+    if candidates is None:
+        candidates = observed
+    mutilated = dag.do(exposure)
     for z in candidates:
-        # relevance
-        if exposure not in dag.descendants(z):
+        if z in desc_x or z not in dag.nodes or z in (exposure, outcome):
             continue
-        # exclusion: no descendant of Z reaches Y except through X
-        desc_z = dag.descendants(z)
-        if outcome in desc_z - (desc_x | {exposure}):
-            # Z has a path to Y that doesn't go through X
-            continue
-        # exogeneity: d-separated from Y given X
-        if dag.d_separated(z, outcome, {exposure}):
-            return z
+        pool = [n for n in observed if n != z and n not in desc_x]
+        for size in range(0, min(max_conditioning, len(pool)) + 1):
+            for combo in combinations(pool, size):
+                cond = set(combo)
+                if dag.d_separated(z, exposure, cond):
+                    continue
+                if mutilated.d_separated(z, outcome, cond):
+                    return z, cond
     return None
 
 
-def _frontdoor_set(
-    dag: Any,
-    x: str,
-    y: str,
-    mediators: Sequence[str],
-) -> Set[str]:
-    """Identify a frontdoor set: mediators such that
-    - all directed paths X -> Y pass through them,
-    - they have no unblocked backdoor to Y,
-    - no backdoor from X to them.
+def _frontdoor_set(dag: Any, x: str, y: str) -> Set[str]:
+    """A minimal set meeting Pearl's front-door criterion, or the empty set.
+
+    Delegates to :meth:`DAG.frontdoor_sets`, which checks the three
+    conditions path by path. A direct edge ``x -> y`` therefore rules the
+    front door out, as does a latent parent shared with a mediator.
     """
-    if not mediators:
-        return set()
-    # Very simple heuristic: accept the full mediator set if there are
-    # no latent parents of X among the mediators' parents or children.
-    fd = set(mediators)
-    # Reject if any latent has both X and a mediator as children
-    for p, children in dag._edges.items():
-        if p.startswith("_L_"):
-            if x in children and any(m in children for m in fd):
-                return set()
-            if y in children and any(m in children for m in fd):
-                return set()
-    return fd
+    sets = dag.frontdoor_sets(x, y)
+    return set(sets[0]) if sets else set()

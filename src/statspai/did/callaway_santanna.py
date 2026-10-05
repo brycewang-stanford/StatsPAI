@@ -32,6 +32,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import (
     AssumptionWarning,
@@ -39,6 +40,7 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
+from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import cohort_share_context as _cohort_share_context
 from ._core import covariates_from_formula as _covariates_from_formula
 from ._core import drop_unusable_rows as _drop_unusable_rows
@@ -220,6 +222,8 @@ def _require_columns(
     # R did::att_gt's spelling and stays the parameter name.
     cluster="clustervars",
 )
+@_calendar_time_aware(time="t", cohort="g")
+@_expands_categorical("x")
 def callaway_santanna(
     data: pd.DataFrame,
     y: str,
@@ -766,6 +770,28 @@ def callaway_santanna(
             boot_weight_type=boot_weight_type,
             random_state=random_state,
             exclude_cohorts=excluded_cohorts,
+        )
+
+    # A panel has one row per unit and period. Repeated (unit, period) rows
+    # used to be collapsed to the first one by the reshape below, so the
+    # estimate came from an arbitrary subset of the data without a word.
+    _dup = data.duplicated(subset=[i, t], keep=False)
+    if _dup.any():
+        raise MethodIncompatibility(
+            f"callaway_santanna: {int(_dup.sum())} rows share a (unit, period) "
+            f"pair ({i!r}, {t!r}); a panel needs one row per unit and period.",
+            recovery_hint=(
+                f"If {t!r} is a pre/post flag over several dates, pass the "
+                "date column as `t` (and the first treated date as `g`), or "
+                "average the outcome within unit and period first. If the "
+                "rows are different individuals sampled in each period, pass "
+                "panel=False."
+            ),
+            diagnostics={
+                "function": "callaway_santanna",
+                "n_duplicated_rows": int(_dup.sum()),
+                "n_periods": int(data[t].nunique()),
+            },
         )
 
     # 1. Prepare panel data

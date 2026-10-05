@@ -305,13 +305,15 @@ def power_rct(
     n : int or array-like
         Total sample size (treatment + control).
     effect_size : float or array-like
-        Standardised effect size (delta / sigma).
+        Effect in the units of the outcome. With the default ``sigma=1``
+        this is the standardised effect (effect / standard deviation).
     alpha : float
         Significance level (two-sided).
     ratio : float
         Treatment / control allocation ratio (1 = equal allocation).
     sigma : float
-        Outcome standard deviation (default 1 for standardised effect).
+        Outcome standard deviation, in the units of ``effect_size``. Power
+        depends on ``effect_size / sigma``.
 
     Returns
     -------
@@ -331,7 +333,7 @@ def power_rct(
     # Proportion treated
     p = ratio / (1 + ratio)
     se = sigma / np.sqrt(n_arr * p * (1 - p))
-    pwr = norm.cdf(np.abs(es_arr) * sigma / se - z_alpha)
+    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -377,7 +379,8 @@ def power_did(
     n : int or array-like
         Total number of units (treated + control).
     effect_size : float or array-like
-        Effect in units of ``sigma``.
+        Effect in the units of the outcome. With the default ``sigma=1``
+        this is the standardised effect (effect / standard deviation).
     n_periods : int
         Total number of time periods.
     n_treated_periods : int
@@ -439,7 +442,7 @@ def power_did(
     lags = np.abs(np.subtract.outer(np.arange(T), np.arange(T)))
     change_var = float(c @ (float(rho) ** lags) @ c)
     se = sigma * np.sqrt(change_var / (prop_treat * (1.0 - prop_treat) * n_arr))
-    pwr = norm.cdf(np.abs(es_arr) * sigma / se - z_alpha)
+    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -500,7 +503,8 @@ def power_rd(
     n : int or array-like
         Total sample size in the data.
     effect_size : float or array-like
-        Effect at the cutoff in units of ``sigma``.
+        Effect at the cutoff in the units of the outcome. With the default
+        ``sigma=1`` this is the standardised effect.
     bandwidth : float or None
         Bandwidth on each side of the cutoff, in units of the running
         variable. If *None*, defaults to 0.5 (the whole support of a
@@ -552,7 +556,7 @@ def power_rd(
     # Expected observations within the bandwidth on one side of the cutoff.
     n_side = np.maximum(n_arr * bandwidth * density_at_cutoff, 1.0)
     se = sigma * np.sqrt(2.0 * c_k / n_side)
-    pwr = norm.cdf(np.abs(es_arr) * sigma / se - z_alpha)
+    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -593,7 +597,8 @@ def power_iv(
         Sample size.
     effect_size : float or array-like
         Effect of a one-standard-deviation change in the endogenous
-        variable, in units of ``sigma``.
+        variable, in the units of the outcome (standardised when
+        ``sigma=1``).
     first_stage_f : float or None
         First-stage F-statistic of a single instrument, converted with
         ``R2_z = F / (F + n)``. With several instruments pass ``r2_z``.
@@ -652,7 +657,7 @@ def power_iv(
         r2 = 1.0  # no first-stage information: the OLS benchmark
 
     se = sigma / np.sqrt(n_arr * r2)
-    pwr = norm.cdf(np.abs(es_arr) * sigma / se - z_alpha)
+    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -687,7 +692,8 @@ def power_cluster_rct(
     cluster_size : int or float
         Average number of individuals per cluster.
     effect_size : float or array-like
-        Standardised effect size.
+        Effect in the units of the outcome. With the default ``sigma=1``
+        this is the standardised effect (effect / standard deviation).
     icc : float
         Intra-cluster correlation coefficient.
     alpha : float
@@ -718,7 +724,7 @@ def power_cluster_rct(
 
     # Equal allocation: p = 0.5
     se = sigma / np.sqrt(n_eff * 0.25)
-    pwr = norm.cdf(np.abs(es_arr) * sigma / se - z_alpha)
+    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -751,7 +757,8 @@ def power_ols(
     n : int or array-like
         Sample size.
     effect_size : float or array-like
-        Standardised effect of the variable of interest.
+        Effect of the variable of interest in the units of the outcome
+        (standardised when ``sigma=1``).
     n_covariates : int
         Number of other covariates in the model.
     r2_other : float
@@ -783,7 +790,7 @@ def power_ols(
     df_adj = np.maximum(n_arr - n_covariates - 1, 1)
     se = sigma * residual_factor / np.sqrt(df_adj)
 
-    pwr = norm.cdf(np.abs(es_arr) * sigma / se - z_alpha)
+    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -841,7 +848,8 @@ def power(
         Pass *None* to solve for the minimum n that achieves
         *power_target*.
     effect_size : float, array-like, or None
-        Standardised effect size.  Pass *None* to solve for MDE
+        Effect size, standardised unless ``sigma=`` is passed with it (then
+        in the units of the outcome).  Pass *None* to solve for MDE
         (use :func:`mde` for a cleaner interface).
     power_target : float or None
         Target power (e.g. 0.80).  When *n* is None, the function

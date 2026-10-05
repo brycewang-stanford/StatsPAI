@@ -359,6 +359,11 @@ def cate_eval(
     n = len(cate)
     if not (len(Y) == n and len(T) == n):
         raise ValueError("cate, Y, T must all have length n.")
+    # The scores are AIPW scores of a 0/1 treatment. A dose or several arms
+    # went through the same formulas and came back as a RATE of nothing.
+    from ..core._validate import require_binary_treatment
+
+    require_binary_treatment(T, function="cate_eval", argument="T")
 
     # m_hat only enters the score when the arm-specific means are missing.
     if m_hat is None and mu1_hat is not None and mu0_hat is not None:

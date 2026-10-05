@@ -564,6 +564,11 @@ def balance_check(
     >>> bool(isinstance(bal.summary(), str))
     True
     """
+    from ..core._validate import require_binary_treatment
+
+    require_binary_treatment(
+        data[treatment], function="balance_check", argument="treatment"
+    )
     treat = data[data[treatment] == 1]
     control = data[data[treatment] == 0]
     n_t, n_c = len(treat), len(control)

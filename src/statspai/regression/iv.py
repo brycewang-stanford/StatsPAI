@@ -2430,6 +2430,9 @@ def _safe_term_name(name: str) -> str:
     )
 
 
+_IV_BRACKET_BLOCK = re.compile(r"\[([^\[\]]*~[^\[\]]*)\]")
+
+
 def _materialise_formula_terms(
     formula: str, data: pd.DataFrame
 ) -> Tuple[str, pd.DataFrame]:
@@ -2442,8 +2445,12 @@ def _materialise_formula_terms(
     the same rules ``sp.regress`` uses (treatment coding, the lowest level
     omitted), the columns are added to a copy of the data, and the formula
     is rewritten in terms of them. A formula of plain names is returned
-    untouched, with the data it came with.
+    untouched, with the data it came with. The linearmodels block
+    ``[endog ~ instruments]`` is accepted as ``(endog ~ instruments)``.
     """
+    # ``y ~ 1 + [endog ~ z] + exog`` is the linearmodels spelling of the
+    # same model; read the bracketed block as the parenthesised one.
+    formula = _IV_BRACKET_BLOCK.sub(r"(\1)", formula)
     if "|" in formula or "~" not in formula:
         return formula, data
     dep, rhs = formula.split("~", 1)

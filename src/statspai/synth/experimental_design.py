@@ -46,7 +46,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(repr=False)
 class SynthExperimentalDesignResult(ResultProtocolMixin):
     """Structured output of :func:`synth_experimental_design`.
 
@@ -102,6 +102,15 @@ class SynthExperimentalDesignResult(ResultProtocolMixin):
     # ------------------------------------------------------------------
     # Convenience API
     # ------------------------------------------------------------------
+    def __repr__(self) -> str:
+        # The dataclass repr prints every weight vector and the full ranking.
+        return (
+            f"SynthExperimentalDesignResult(selected={list(self.selected)!r}, "
+            f"n_candidates={len(self.ranking)}, "
+            f"expected_variance={self.expected_variance:.6g}, "
+            f"baseline_variance={self.baseline_variance:.6g})"
+        )
+
     def summary(self) -> str:
         n = len(self.ranking)
         k = len(self.selected)

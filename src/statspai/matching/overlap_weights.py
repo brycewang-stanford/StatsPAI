@@ -36,10 +36,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from .ps_diagnostics import balance_diagnostics
 
 
+@_expands_categorical("covariates")
 def overlap_weights(
     data: pd.DataFrame,
     y: str,

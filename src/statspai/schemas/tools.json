@@ -3238,6 +3238,54 @@
     "name": "cate_eval"
   },
   {
+    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "ascending": {
+          "default": false,
+          "description": "Rank the smallest predictions first (for an effect where lower is better).",
+          "type": "boolean"
+        },
+        "cate": {
+          "description": "Predicted effects (or any score that ranks units by effect): a column name or one value per row of ``data``.",
+          "type": "string"
+        },
+        "n_quantiles": {
+          "default": 10,
+          "description": "Number of groups in the effect-by-quantile table.",
+          "type": "integer"
+        },
+        "n_steps": {
+          "default": 100,
+          "description": "Number of points on the curve.",
+          "type": "integer"
+        },
+        "normalize": {
+          "default": true,
+          "description": "Subtract the random-ranking line from the gain curve.",
+          "type": "boolean"
+        },
+        "treat": {
+          "description": "Treatment column, binary or continuous.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "cate",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "cate_gain_curve"
+  },
+  {
     "description": "Plot group-level CATEs with confidence intervals.",
     "input_schema": {
       "properties": {
@@ -19155,7 +19203,7 @@
           "x-statspai-role": "column"
         },
         "covariates": {
-          "description": "Covariate / effect modifier variables.",
+          "description": "Covariate / effect modifier variables. A text or ``category`` column is expanded to indicator columns.",
           "items": {
             "type": "string"
           },
@@ -32420,10 +32468,10 @@
           "description": "SCM variant: classic/demeaned/detrended/unconstrained/elastic_net/augmented/sdid/gsynth/staggered",
           "enum": [
             "classic",
-            "ridge",
             "classic_adh",
             "adh",
             "penalized",
+            "ridge",
             "demeaned",
             "detrended",
             "unconstrained",
@@ -33581,6 +33629,68 @@
       "type": "object"
     },
     "name": "synth_to_markdown"
+  },
+  {
+    "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu). Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the confidence interval.",
+          "type": "number"
+        },
+        "n_folds": {
+          "default": 3,
+          "description": "Number of blocks ``K`` (at least 2). The interval uses ``K - 1`` degrees of freedom, so ``K = 2`` (the default of ``scinference``) gives a Cauchy reference distribution and very wide intervals; a larger ``K`` leaves fewer pre-periods per block.",
+          "type": "integer"
+        },
+        "outcome": {
+          "description": "Outcome column.",
+          "type": "string",
+          "x-aliases": [
+            "y"
+          ],
+          "x-canonical": "y",
+          "x-statspai-role": "column"
+        },
+        "penalization": {
+          "default": 0.0,
+          "description": "Ridge penalty on the weights.",
+          "type": "number"
+        },
+        "time": {
+          "description": "Time period column.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treated_unit": {
+          "description": "Identifier of the treated unit.",
+          "type": "string"
+        },
+        "treatment_time": {
+          "description": "First treated period.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit identifier column.",
+          "type": "string",
+          "x-aliases": [
+            "id"
+          ],
+          "x-canonical": "id",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "outcome",
+        "time",
+        "treated_unit",
+        "treatment_time",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "name": "synth_ttest"
   },
   {
     "description": "Placebo estimates for a synthetic difference-in-differences fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit. Assumptions: Control units are exchangeable with the treated unit, so the distribution of placebo estimates approximates the null distribution. Pre-conditions: Same inputs as sp.sdid; enough control units for a placebo distribution. Alternatives: sp.sp.sdid, sp.sp.synth.",

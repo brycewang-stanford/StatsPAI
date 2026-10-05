@@ -355,7 +355,10 @@ def did(
         Covariate names for conditional parallel trends / controls.
     method : str, default 'auto'
         - ``'auto'`` — 2×2 if ``id`` is None and treatment is binary,
-          else Callaway-Sant'Anna.
+          else Callaway-Sant'Anna. One exception: a 0/1 group flag with a
+          0/1 ``time`` and several rows per unit and period (daily data
+          with a ``post`` column) is the 2×2 design too, and is estimated
+          as such with standard errors clustered on ``id``.
         - ``'2x2'`` — classic two-period, two-group DID.
         - ``'ddd'`` — triple differences (requires ``subgroup``).
         - ``'callaway_santanna'`` or ``'cs'`` — staggered DID.
@@ -589,6 +592,31 @@ def did(
                     data = data.copy()
                     data["_statspai_cohort"] = derived
                     treat = "_statspai_cohort"
+                elif treat_vals & {1, True}:
+                    time_vals = set(data[time].dropna().unique())
+                    if time_vals <= {0, 1, True, False}:
+                        # Group flag x pre/post flag: the 2x2 design, whatever
+                        # the number of rows behind each cell. With repeated
+                        # rows per unit and period there is no panel to hand
+                        # to Callaway-Sant'Anna; run the 2x2 regression and
+                        # cluster on the unit, which is what repeats.
+                        if data.duplicated(subset=[id, time]).any():
+                            method = "2x2"
+                            if cluster is None and vce is None:
+                                cluster = id
+                    else:
+                        warnings.warn(
+                            f"sp.did: {treat!r} is a 0/1 column that never "
+                            f"changes within {id!r}, and {time!r} has "
+                            f"{len(time_vals)} periods. It is read as the "
+                            "cohort column, so the units with 1 count as "
+                            f"first treated in period {time!r} == 1. If it is "
+                            "a treated-group flag, pass the first treated "
+                            "period instead (0 for never-treated units); see "
+                            "the `treat` entry of the docstring.",
+                            AssumptionWarning,
+                            stacklevel=2,
+                        )
         else:
             treat_vals = set(data[treat].dropna().unique())
             if treat_vals <= {0, 1, True, False}:

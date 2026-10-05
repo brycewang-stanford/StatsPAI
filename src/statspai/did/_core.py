@@ -29,8 +29,10 @@ Public helpers
 
 from __future__ import annotations
 
+import functools
+import inspect
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar, cast
 
 import numpy as np
 import pandas as pd
@@ -470,6 +472,113 @@ def joint_wald(
 def sorted_periods(time: pd.Series) -> List[Any]:
     """Sorted unique period values; hoisted so estimators share one idiom."""
     return sorted(pd.Series(time).dropna().unique())
+
+
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
+def _is_calendar(col: pd.Series) -> bool:
+    return bool(
+        pd.api.types.is_datetime64_any_dtype(col.dtype)
+        or isinstance(col.dtype, pd.PeriodDtype)
+    )
+
+
+def index_calendar_time(
+    data: pd.DataFrame,
+    time: str,
+    cohort: Optional[str] = None,
+    *,
+    function: str,
+) -> Tuple[pd.DataFrame, Optional[Dict[str, Any]]]:
+    """Replace a date-typed time column (and cohort column) by period numbers.
+
+    The staggered estimators count periods: event time is ``t - g`` and a
+    never-treated unit has ``g = 0``. A ``datetime64`` or ``Period`` column
+    has neither property, and daily or weekly panels keep their dates in
+    exactly that form. When ``time`` is date-typed the observed dates are
+    numbered ``1, ..., P`` in order, and a date-typed ``cohort`` becomes the
+    number of the first observed period on or after it. A missing cohort
+    date, or one after the last observed period (the ``2100-01-01`` habit),
+    is never treated in the sample and becomes ``0``.
+
+    A numeric ``time`` is returned untouched with ``info = None``, so the
+    numeric code paths do not change.
+
+    Returns
+    -------
+    data : pd.DataFrame
+        The input frame, or a copy with the two columns replaced.
+    info : dict or None
+        ``{'periods': [...], 'time': name, 'cohort': name, 'regular': bool}``;
+        ``periods[k - 1]`` is the date of period ``k``.
+    """
+    if time not in data.columns or not _is_calendar(data[time]):
+        if (
+            cohort is not None
+            and cohort in data.columns
+            and time in data.columns
+            and _is_calendar(data[cohort])
+        ):
+            raise MethodIncompatibility(
+                f"{function}: {cohort!r} holds dates but {time!r} does not, so "
+                "the two cannot be compared.",
+                recovery_hint=(
+                    f"Give {time!r} and {cohort!r} the same type: both dates, "
+                    "or both period numbers."
+                ),
+            )
+        return data, None
+
+    periods = pd.Index(sorted(data[time].dropna().unique()))
+    out = data.copy()
+    t_idx = pd.Series(periods.get_indexer(out[time]) + 1, index=out.index)
+    out[time] = t_idx.where(out[time].notna())
+
+    if cohort is not None and cohort in out.columns:
+        g_raw = out[cohort]
+        if not _is_calendar(g_raw):
+            if pd.api.types.is_numeric_dtype(g_raw.dtype) and bool(
+                (g_raw.fillna(0) == 0).all()
+            ):
+                out[cohort] = 0
+            else:
+                raise MethodIncompatibility(
+                    f"{function}: {time!r} holds dates but {cohort!r} does "
+                    "not, so the two cannot be compared.",
+                    recovery_hint=(
+                        f"Store the first treated date in {cohort!r} (missing "
+                        "for never-treated units)."
+                    ),
+                )
+        else:
+            g_pos = np.searchsorted(periods.values, g_raw.values, side="left") + 1
+            never = g_raw.isna().to_numpy() | (g_pos > len(periods))
+            out[cohort] = np.where(never, 0, g_pos).astype(int)
+
+    regular = True
+    if len(periods) > 2:
+        steps = np.diff(periods.values.astype("datetime64[ns]").astype("int64"))
+        if isinstance(data[time].dtype, pd.PeriodDtype):
+            steps = np.diff(np.asarray([p.ordinal for p in periods]))
+        # Calendar months and quarters differ in length by a few days; a gap
+        # is a step at least half again as long as the usual one.
+        regular = bool(steps.max() < 1.5 * np.median(steps))
+    if not regular:
+        warnings.warn(
+            f"{function}: the dates in {time!r} are not evenly spaced. "
+            "Periods are numbered in the order they are observed, so event "
+            "time counts observed periods, not calendar time.",
+            UserWarning,
+            stacklevel=3,
+        )
+    info = {
+        "periods": list(periods),
+        "time": time,
+        "cohort": cohort,
+        "regular": regular,
+    }
+    return out, info
 
 
 def long_difference(
@@ -1082,3 +1191,50 @@ def covariates_from_formula(
             diagnostics={"formula": formula, "clashes": clashes},
         )
     return out, cols
+
+
+def calendar_time_aware(
+    *, time: str, cohort: Optional[str] = None
+) -> Callable[[_F], _F]:
+    """Let an estimator take date-typed time and cohort columns.
+
+    ``time`` and ``cohort`` name the estimator's parameters that hold the
+    two column names. When the time column is date-typed the call is made
+    on the period-numbered copy from :func:`index_calendar_time`, and the
+    numbering is stored in ``result.model_info['calendar_time']``. Any other
+    call passes straight through.
+    """
+
+    def decorate(fn: _F) -> _F:
+        sig = inspect.signature(fn)
+
+        @functools.wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                bound = sig.bind(*args, **kwargs)
+            except TypeError:
+                return fn(*args, **kwargs)
+            a = bound.arguments
+            data = a.get("data")
+            t_col = a.get(time)
+            g_col = a.get(cohort) if cohort is not None else None
+            if not isinstance(data, pd.DataFrame) or not isinstance(t_col, str):
+                return fn(*args, **kwargs)
+            cols = [c for c in (t_col, g_col) if isinstance(c, str)]
+            if not any(c in data.columns and _is_calendar(data[c]) for c in cols):
+                return fn(*args, **kwargs)
+            a["data"], info = index_calendar_time(
+                data,
+                t_col,
+                g_col if isinstance(g_col, str) else None,
+                function=fn.__name__,
+            )
+            result = fn(*bound.args, **bound.kwargs)
+            model_info = getattr(result, "model_info", None)
+            if info is not None and isinstance(model_info, dict):
+                model_info["calendar_time"] = info
+            return result
+
+        return cast(_F, wrapper)
+
+    return decorate

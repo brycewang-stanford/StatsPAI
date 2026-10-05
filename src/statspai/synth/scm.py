@@ -428,8 +428,11 @@ def _dispatch_synth_impl(
     alpha : float, default 0.05
         Significance level.
     inference : str, optional
-        Override default inference: ``'placebo'``, ``'conformal'``,
-        ``'bootstrap'``, ``'jackknife'``.
+        Override default inference. ``'placebo'`` is the default.
+        ``'conformal'`` runs :func:`conformal_synth` and ``'ttest'`` runs
+        :func:`synth_ttest`, both for any ``method``; ``'bootstrap'`` and
+        ``'jackknife'`` are ``method='sdid'`` only. Any other value is an
+        error.
     treatment : str, optional
         Binary treatment column (required for ``method='staggered'``).
     **kwargs
@@ -552,6 +555,69 @@ def _dispatch_synth_impl(
     alpha = _require_open_unit_float(alpha, "alpha")
     if inference is not None:
         inference = _require_string_option(inference, "inference")
+        # ``inference=`` is read by the conformal override, by the t-test
+        # override, and by method='sdid' (its se_method). Any other value
+        # used to be accepted and dropped, so inference='jackknife' on the
+        # classic method returned placebo inference under that name.
+        _sdid_only = {"bootstrap", "jackknife"}
+        _everywhere = {"placebo", "conformal", "ttest"}
+        if inference not in _everywhere | _sdid_only or (
+            inference in _sdid_only and method != "sdid"
+        ):
+            raise MethodIncompatibility(
+                f"synth: inference={inference!r} is not available for "
+                f"method={method!r}.",
+                recovery_hint=(
+                    "Use inference='placebo', 'conformal' or 'ttest'; "
+                    "'bootstrap' and 'jackknife' belong to method='sdid'."
+                ),
+                diagnostics={"inference": inference, "method": method},
+            )
+    # A list of treated units on the single-unit methods reached numpy as a
+    # shape mismatch. Several treated units have more than one synthetic
+    # control estimator; name the ones that take them.
+    if (
+        isinstance(treated_unit, (list, tuple, set, np.ndarray, pd.Index))
+        and method != "sdid"
+        and treatment is None
+    ):
+        _treated_list = list(treated_unit)
+        if len(_treated_list) == 1:
+            treated_unit = _treated_list[0]
+        elif method in ("classic", "classic_adh", "adh", "penalized", "ridge"):
+            raise MethodIncompatibility(
+                f"synth(method={method!r}) takes one treated unit; got "
+                f"{len(_treated_list)}.",
+                recovery_hint=(
+                    "sp.geolift(...) fits one synthetic control to the "
+                    "average (or sum) of the treated units; "
+                    "sp.synth(..., method='sdid') takes the list as is."
+                ),
+                diagnostics={"n_treated_units": len(_treated_list)},
+                alternative_functions=["sp.geolift", "sp.sdid"],
+            )
+
+    # --- t-test override (debiased K-fold synthetic control) ---
+    if inference == "ttest":
+        from .ttest import synth_ttest
+
+        if covariates:
+            raise MethodIncompatibility(
+                "synth(inference='ttest') fits the weights on pre-period "
+                "outcomes only; covariates= is not used by it.",
+                recovery_hint="Drop covariates=, or use inference='placebo'.",
+            )
+        return synth_ttest(
+            data=data,
+            outcome=outcome,
+            unit=unit,
+            time=time,
+            treated_unit=treated_unit,
+            treatment_time=treatment_time,
+            penalization=penalization,
+            alpha=alpha,
+            **kwargs,
+        )
 
     # --- Conformal inference override ---
     if inference == "conformal":

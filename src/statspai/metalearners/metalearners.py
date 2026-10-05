@@ -29,6 +29,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -327,6 +328,11 @@ def _cross_fit_aipw_phi(
     return np.asarray(phi, dtype=float), diag
 
 
+def _is_binary(D: np.ndarray) -> bool:
+    """True when the treatment takes the two values 0 and 1 only."""
+    return bool(set(np.unique(D)) <= {0.0, 1.0})
+
+
 def _resolve_learner_folds(
     learner: Any, n: int, D: np.ndarray, context: str
 ) -> Optional[np.ndarray]:
@@ -337,7 +343,11 @@ def _resolve_learner_folds(
     from ..core._validate import validate_fold_indices
 
     return validate_fold_indices(
-        raw, n, context=context, n_folds=learner.n_folds, binary_target=D
+        raw,
+        n,
+        context=context,
+        n_folds=learner.n_folds,
+        binary_target=D if _is_binary(D) else None,
     )
 
 
@@ -609,12 +619,21 @@ class RLearner:
 
     Achieves quasi-oracle rates under mild conditions.
 
+    The decomposition does not need a binary treatment. With a continuous
+    ``D`` the same loss is minimised with ``e(X) = E[D|X]`` fitted by a
+    regressor, and ``tau(X)`` is the effect of one more unit of ``D`` at
+    ``X`` under an outcome that is linear in ``D`` given ``X``: the
+    conditional version of the partially linear model of double machine
+    learning.
+
     Parameters
     ----------
     outcome_model : sklearn estimator, optional
         Model for m(X) = E[Y|X].
     propensity_model : sklearn estimator, optional
-        Model for e(X) = P(D=1|X).
+        Model for e(X) = E[D|X]: a classifier for a 0/1 treatment (default
+        gradient-boosted classifier), a regressor for a continuous one
+        (default: the outcome model's default regressor).
     cate_model : sklearn estimator, optional
         Model for tau(X). Fit on pseudo-outcome.
     n_folds : int, default 5
@@ -655,11 +674,8 @@ class RLearner:
         self.outcome_model = (
             outcome_model if outcome_model is not None else _default_outcome_model()
         )
-        self.propensity_model = (
-            propensity_model
-            if propensity_model is not None
-            else _default_propensity_model()
-        )
+        # Resolved in fit(): the default depends on the treatment's type.
+        self.propensity_model = propensity_model
         self.cate_model = (
             cate_model if cate_model is not None else _default_cate_model()
         )
@@ -668,28 +684,55 @@ class RLearner:
         self._fitted = False
 
     def fit(self, X: Any, Y: Any, D: Any) -> "RLearner":
-        from sklearn.base import clone
+        from sklearn.base import clone, is_classifier
 
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
+        D = D.astype(float)
         folds = _resolve_learner_folds(self, len(Y), D, "RLearner.fit()")
+        binary = _is_binary(D)
 
         # Cross-fit nuisance
         m_hat = _cross_fit_predict(
             self.outcome_model, X, Y, self.n_folds, fold_indices=folds
         )
-        e_hat = _cross_fit_predict(
-            self.propensity_model,
-            X,
-            D,
-            self.n_folds,
-            method="predict_proba",
-            fold_indices=folds,
-        )
-        e_hat = np.asarray(np.clip(e_hat, 0.01, 0.99), dtype=float)
+        if binary:
+            prop = (
+                self.propensity_model
+                if self.propensity_model is not None
+                else _default_propensity_model()
+            )
+            e_hat = _cross_fit_predict(
+                prop,
+                X,
+                D,
+                self.n_folds,
+                method=(
+                    "predict_proba" if hasattr(prop, "predict_proba") else "predict"
+                ),
+                fold_indices=folds,
+            )
+            e_hat = np.asarray(np.clip(e_hat, 0.01, 0.99), dtype=float)
+        else:
+            prop = (
+                self.propensity_model
+                if self.propensity_model is not None
+                else _default_outcome_model()
+            )
+            if is_classifier(prop):
+                raise MethodIncompatibility(
+                    "RLearner: the treatment is not 0/1, so E[D|X] needs a "
+                    f"regressor; propensity_model is {type(prop).__name__}.",
+                    recovery_hint=(
+                        "Pass a regressor as propensity_model, or leave it " "unset."
+                    ),
+                )
+            e_hat = _cross_fit_predict(prop, X, D, self.n_folds, fold_indices=folds)
 
         # Residuals
         Y_res = Y - m_hat
         D_res = D - e_hat
+        self._residuals = (np.asarray(Y_res, float), np.asarray(D_res, float))
+        self._binary_treatment = binary
 
         # R-learner pseudo-outcome: Y_res / D_res
         # Weighted regression: minimise sum (Y_res - tau(X)*D_res)^2
@@ -866,6 +909,7 @@ class DRLearner:
 
 
 @accepts_aliases(_strict=True, controls="covariates")
+@_expands_categorical("covariates", "x")
 def metalearner(
     data: pd.DataFrame,
     y: str,
@@ -894,9 +938,11 @@ def metalearner(
     y : str
         Outcome variable.
     treat : str
-        Binary treatment variable (0/1).
+        Binary treatment variable (0/1). ``learner='r'`` also takes a
+        continuous treatment; see Notes.
     covariates : list of str
-        Covariate / effect modifier variables.
+        Covariate / effect modifier variables. A text or ``category``
+        column is expanded to indicator columns.
     learner : str, default 'dr'
         Meta-learner type: 's', 't', 'x', 'r', or 'dr'.
     outcome_model : sklearn estimator, optional
@@ -988,6 +1034,20 @@ def metalearner(
     compare ``cate_mean`` across calls and bootstrap the whole procedure
     for its uncertainty.
 
+    **Continuous treatment (``learner='r'``).** The R-loss
+    :math:`\\sum_i [(Y_i - \\hat m(X_i)) - \\tau(X_i)(D_i - \\hat e(X_i))]^2`
+    is defined for any real-valued treatment, with
+    :math:`\\hat e(X) = \\hat E[D \\mid X]` fitted by a regressor
+    (``propensity_model``, default the outcome model's default). Then
+    ``model_info['cate']`` is the effect of one more unit of the treatment
+    at each ``X``, under an outcome linear in the treatment given ``X``.
+    ``estimate`` is the partially linear coefficient
+    :math:`\\sum_i \\tilde D_i \\tilde Y_i / \\sum_i \\tilde D_i^2` on the
+    cross-fitted residuals (``estimand='APE'``): the average of
+    :math:`\\tau(X)` weighted by the conditional variance of the treatment,
+    with the standard error of its influence function. There are no
+    propensity scores to clip, so the overlap diagnostics are empty.
+
     References
     ----------
     Künzel, S. R., Sekhon, J. S., Bickel, P. J. and Yu, B. (2019).
@@ -1064,12 +1124,29 @@ def metalearner(
                 f"cannot fill n_folds={n_folds} cluster-level folds."
             )
 
-    # Validate binary treatment
+    # A 0/1 treatment for every learner; the R-learner also takes a
+    # continuous one (its loss is the same residual-on-residual regression).
     unique_d = np.unique(D)
-    if not (len(unique_d) == 2 and set(unique_d) == {0.0, 1.0}):
-        raise ValueError(
-            f"Treatment must be binary (0/1), got unique values: {unique_d}"
-        )
+    binary_treatment = len(unique_d) == 2 and set(unique_d) == {0.0, 1.0}
+    if not binary_treatment:
+        if str(learner).lower() != "r" or len(unique_d) < 3:
+            raise ValueError(
+                f"Treatment must be binary (0/1), got unique values: "
+                f"{unique_d[:10]}. A continuous treatment is supported by "
+                "learner='r' only."
+            )
+        if propensity_model is not None:
+            from sklearn.base import is_classifier
+
+            if is_classifier(propensity_model):
+                from ..exceptions import MethodIncompatibility
+
+                raise MethodIncompatibility(
+                    "metalearner(learner='r'): the treatment is not 0/1, so "
+                    "E[D|X] needs a regressor; propensity_model is "
+                    f"{type(propensity_model).__name__}.",
+                    recovery_hint="Pass a regressor, or leave it unset.",
+                )
 
     folds: Optional[np.ndarray] = None
     if fold_indices is not None:
@@ -1081,7 +1158,7 @@ def metalearner(
             context="sp.metalearner",
             keep=data[[y, treat] + list(covariates)].notna().all(axis=1).to_numpy(),
             n_folds=n_folds,
-            binary_target=D,
+            binary_target=D if binary_treatment else None,
         )
 
     if cl_codes is not None:
@@ -1159,9 +1236,23 @@ def metalearner(
     # under-estimates the SE.  We now reuse DR-Learner's own pseudo
     # outcomes when available (avoids a second cross-fit) and otherwise
     # build them via :func:`_cross_fit_aipw_phi`.
-    if learner == "dr" and hasattr(est, "_pseudo_outcomes") and sw is None:
+    aipw_diag: dict[str, Any]
+    if not binary_treatment:
+        # Continuous treatment: the average is the partially linear
+        # coefficient, sum(D~ Y~) / sum(D~^2) on the cross-fitted residuals,
+        # i.e. the average of tau(X) weighted by the conditional variance of
+        # the treatment. Its influence function is the PLR score, and `phi`
+        # below is built so that mean(phi) and sd(phi) / sqrt(n) (or their
+        # weighted / clustered versions) are that estimate and its SE.
+        y_res, d_res = est._residuals
+        om_c = np.ones(n) if sw is None else sw
+        j0 = float(np.mean(om_c * d_res**2))
+        theta = float(np.mean(om_c * d_res * y_res) / j0)
+        phi = theta + d_res * (y_res - theta * d_res) / j0
+        aipw_diag = {}
+    elif learner == "dr" and hasattr(est, "_pseudo_outcomes") and sw is None:
         phi = np.asarray(est._pseudo_outcomes, dtype=float)
-        aipw_diag: dict[str, Any] = getattr(est, "_pseudo_diag", {}) or {}
+        aipw_diag = getattr(est, "_pseudo_diag", {}) or {}
     else:
         # Use the user-supplied or default outcome / propensity models
         # for a clean, learner-independent AIPW fit.  Without explicit
@@ -1255,11 +1346,19 @@ def metalearner(
         # ``ate_method`` note in the docstring + the v1.11.x migration
         # guide.
         "se_method": (
-            "aipw_influence_function"
-            if cl_codes is None
-            else "cluster_aipw_influence_function"
+            ("" if cl_codes is None else "cluster_")
+            + (
+                "aipw_influence_function"
+                if binary_treatment
+                else "plr_influence_function"
+            )
         ),
-        "ate_method": "aipw_dr_pseudo_outcome",
+        "ate_method": (
+            "aipw_dr_pseudo_outcome"
+            if binary_treatment
+            else "partially_linear_residual_regression"
+        ),
+        "treatment_type": "binary" if binary_treatment else "continuous",
         "weights": weights,
         "cluster": cluster,
         "n_clusters": None if cl_codes is None else int(cl_codes.max()) + 1,
@@ -1268,7 +1367,11 @@ def metalearner(
         # the fitted effect function and ships no standard error.  Stated
         # here so a caller (or an agent reading the result) cannot pair the
         # two by accident.
-        "se_refers_to": "estimate (AIPW average), not cate_mean",
+        "se_refers_to": (
+            "estimate (AIPW average), not cate_mean"
+            if binary_treatment
+            else "estimate (partially linear coefficient), not cate_mean"
+        ),
         "cate_mean_se": None,
         "covariates": covariates,
         "_estimator": est,
@@ -1278,8 +1381,8 @@ def metalearner(
         "cate_std": float(np.std(cate)),
         "cate_q25": float(np.percentile(cate, 25)),
         "cate_q75": float(np.percentile(cate, 75)),
-        "n_treated": int(np.sum(D == 1)),
-        "n_control": int(np.sum(D == 0)),
+        "n_treated": int(np.sum(D == 1)) if binary_treatment else None,
+        "n_control": int(np.sum(D == 0)) if binary_treatment else None,
         "aipw_diagnostics": {
             "n_clipped_below": n_clip_lo,
             "n_clipped_above": n_clip_hi,
@@ -1290,7 +1393,7 @@ def metalearner(
 
     _result = CausalResult(
         method=f"Meta-Learner ({learner_names[learner]})",
-        estimand="ATE",
+        estimand="ATE" if binary_treatment else "APE",
         estimate=ate,
         se=se,
         pvalue=pvalue,

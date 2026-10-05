@@ -299,6 +299,8 @@ from .deepiv.deep_iv import DeepIV as DeepIV
 from .deepiv.deep_iv import deepiv as deepiv
 from .diagnostics.battery import diagnose_result as diagnose_result
 from .diagnostics.cmtest import cmtest as cmtest
+from .diagnostics.confounder_bias import confounder_adjust as confounder_adjust
+from .diagnostics.confounder_bias import confounder_tip as confounder_tip
 from .diagnostics.estat import estat as estat
 from .diagnostics.evalue import bias_factor as bias_factor
 from .diagnostics.evalue import evalue as evalue
@@ -427,6 +429,7 @@ from .did.sun_abraham import sun_abraham as sun_abraham
 from .did.timevarying_covariates import (
     did_timevarying_covariates as did_timevarying_covariates,
 )
+from .did.twowayfeweights import twowayfeweights as twowayfeweights
 from .did.wooldridge_did import drdid as drdid
 from .did.wooldridge_did import etwfe as etwfe
 from .did.wooldridge_did import etwfe_emfx as etwfe_emfx
@@ -503,6 +506,8 @@ from .experimental.design import balance_check as balance_check
 from .experimental.design import randomize as randomize
 from .experimental.optimal import OptimalDesignResult as OptimalDesignResult
 from .experimental.optimal import optimal_design as optimal_design
+from .experimental.switchback import switchback as switchback
+from .experimental.switchback import switchback_design as switchback_design
 from .fairness.core import FairnessAudit as FairnessAudit
 from .fairness.core import FairnessResult as FairnessResult
 from .fairness.core import counterfactual_fairness as counterfactual_fairness
@@ -583,6 +588,10 @@ from .imputation.mice import MICEResult as MICEResult
 from .imputation.mice import mi_estimate as mi_estimate
 from .imputation.mice import mice as mice
 from .inference.aipw import aipw as aipw
+from .inference.basic_tests import ci as ci
+from .inference.basic_tests import prtest as prtest
+from .inference.basic_tests import sktest as sktest
+from .inference.basic_tests import swilk as swilk
 from .inference.bitest import BiTestResult as BiTestResult
 from .inference.bitest import bitest as bitest
 from .inference.bootstrap import BootstrapResult as BootstrapResult
@@ -608,6 +617,9 @@ from .inference.ppi import ppi_ols as ppi_ols
 from .inference.randomization import FisherResult as FisherResult
 from .inference.randomization import fisher_exact as fisher_exact
 from .inference.randomization import ri_test as ri_test
+from .inference.sdtest import SDTestResult as SDTestResult
+from .inference.sdtest import sdtest as sdtest
+from .inference.sdtest import ztest as ztest
 from .inference.suest import SuestResult as SuestResult
 from .inference.suest import suest as suest
 from .inference.ttest import TTestResult as TTestResult
@@ -689,6 +701,10 @@ from .matching.ps_diagnostics import overlap_plot as overlap_plot
 from .matching.ps_diagnostics import propensity_score as propensity_score
 from .matching.ps_diagnostics import ps_balance as ps_balance
 from .matching.ps_diagnostics import trimming as trimming
+from .matching.ps_weights import energy_distance as energy_distance
+from .matching.ps_weights import ess as ess
+from .matching.ps_weights import implied_weights as implied_weights
+from .matching.ps_weights import ps_weights as ps_weights
 from .matching.psmatch2 import PSMatch2Result as PSMatch2Result
 from .matching.psmatch2 import psmatch2 as psmatch2
 from .matching.sbw import SBWResult as SBWResult
@@ -745,6 +761,8 @@ from .mendelian.multivariable import mr_multivariable as mr_multivariable
 from .metalearners.auto_cate import AutoCATEResult as AutoCATEResult
 from .metalearners.auto_cate import auto_cate as auto_cate
 from .metalearners.auto_cate_tuned import auto_cate_tuned as auto_cate_tuned
+from .metalearners.cate_curves import CATEGainCurveResult as CATEGainCurveResult
+from .metalearners.cate_curves import cate_gain_curve as cate_gain_curve
 from .metalearners.cate_eval import CATEEvalResult as CATEEvalResult
 from .metalearners.cate_eval import cate_eval as cate_eval
 from .metalearners.cluster_cate import ClusterCATEResult as ClusterCATEResult
@@ -958,6 +976,7 @@ from .postestimation.margins import margins_at_plot as margins_at_plot
 from .postestimation.margins import margins_table as margins_table
 from .postestimation.margins import marginsplot as marginsplot
 from .postestimation.margins import pwcompare as pwcompare
+from .postestimation.nlcom import nlcom as nlcom
 from .power.power import PowerResult as PowerResult
 from .power.power import mde as mde
 from .power.power import power as power
@@ -1091,6 +1110,7 @@ from .regression.count import nbreg as nbreg
 from .regression.count import poisson as poisson
 from .regression.count import ppmlhdfe as ppmlhdfe
 from .regression.count import xtnbreg as xtnbreg
+from .regression.et_count import etpoisson as etpoisson
 from .regression.fracreg import betareg as betareg
 from .regression.fracreg import fracreg as fracreg
 from .regression.glm import GLMEstimator as GLMEstimator
@@ -1113,6 +1133,7 @@ from .regression.multinomial import clogit as clogit
 from .regression.multinomial import mlogit as mlogit
 from .regression.multinomial import ologit as ologit
 from .regression.multinomial import oprobit as oprobit
+from .regression.nested_logit import nlogit as nlogit
 from .regression.ols import regress as regress
 from .regression.prais import prais as prais
 from .regression.quantile import qreg as qreg
@@ -1329,6 +1350,7 @@ from .synth.sequential_sdid import sequential_sdid as sequential_sdid
 from .synth.staggered import staggered_synth as staggered_synth
 from .synth.survival import SyntheticSurvivalResult as SyntheticSurvivalResult
 from .synth.survival import synth_survival as synth_survival
+from .synth.ttest import synth_ttest as synth_ttest
 from .target_trial import emulate as target_trial_emulate
 from .target_trial import protocol as target_trial_protocol
 from .target_trial import target_checklist as target_trial_checklist
@@ -1359,6 +1381,8 @@ from .timeseries.local_projections import local_projections as local_projections
 from .timeseries.structural_break import StructuralBreakResult as StructuralBreakResult
 from .timeseries.structural_break import cusum_test as cusum_test
 from .timeseries.structural_break import structural_break as structural_break
+from .timeseries.svar import SVARResult as SVARResult
+from .timeseries.svar import svar as svar
 from .timeseries.unit_root import UnitRootResult as UnitRootResult
 from .timeseries.unit_root import unitroot as unitroot
 from .timeseries.var import VARResult as VARResult

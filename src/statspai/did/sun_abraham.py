@@ -52,6 +52,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
+from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
 
@@ -281,6 +282,7 @@ def _resolve_control_cohort(
     cohort="g",
     controls="covariates",
 )
+@_calendar_time_aware(time="t", cohort="g")
 def sun_abraham(
     data: pd.DataFrame,
     y: str,

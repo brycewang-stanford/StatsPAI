@@ -863,6 +863,23 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "function": "balance_table",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "balke_pearl",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -2007,10 +2024,12 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/reference_parity/test_cate_eval_toc_bands.py",
         "tests/reference_parity/test_ml_causal_recovery_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "cate_eval",
@@ -2033,6 +2052,23 @@
         "tests/reference_parity/_fixtures/ml_causal_R.json"
       ],
       "tolerance": "Point estimate (AUTOC, QINI) and TOC curve on q = 0.1..1 exact at 1e-10 rel (observed 4.6e-15), including a 30-group tied-priority case against rank_average_treatment_effect.fit. SE is T3: the analytic rank-corrected influence-function SE is compared with grf's half-sample bootstrap (R = 2000) at 6% rel (observed 2.6% AUTOC, 1.7% QINI)."
+    },
+    {
+      "function": "cate_gain_curve",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "cate_pretrend_test",
@@ -8588,6 +8624,7 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
         "tests/reference_parity/test_hdfe_iv_paths_agree.py",
         "tests/reference_parity/test_iv_card_aer_parity.py",
@@ -8606,6 +8643,7 @@
         "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -10300,12 +10338,14 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "margins",
@@ -13672,19 +13712,25 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "power",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_oct2026_second_pass.py"
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
       ],
       "tolerance": ""
     },
@@ -16104,6 +16150,7 @@
         "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/external_parity/test_ding_first_course.py",
+        "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/external_parity/test_published_replications.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_assimilation_parity.py",
@@ -18926,10 +18973,28 @@
       "tolerance": ""
     },
     {
+      "function": "switchback",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/r_parity/07_scm.py",
         "tests/r_parity/07_scm.R",
         "tests/stata_parity/07_scm.do",
+        "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_scm_recovery.py",
@@ -19906,7 +19971,8 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
-        "tests/external_parity/test_ding_first_course.py"
+        "tests/external_parity/test_ding_first_course.py",
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
       ],
       "tolerance": ""
     },

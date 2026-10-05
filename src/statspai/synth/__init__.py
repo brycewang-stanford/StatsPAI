@@ -137,6 +137,7 @@ from .staggered import staggered_synth
 
 # Synthetic control on survival curves (cloglog scale; not the Han & Shah SSC estimator)
 from .survival import SyntheticSurvivalResult, synth_survival
+from .ttest import synth_ttest
 
 __all__ = [
     # Unified entry point
@@ -149,6 +150,7 @@ __all__ = [
     "fect",
     "staggered_synth",
     "conformal_synth",
+    "synth_ttest",
     "augsynth",
     "mc_synth",
     "multi_outcome_synth",

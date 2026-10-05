@@ -17,33 +17,27 @@ Kennedy (2023). Towards optimal doubly robust estimation of heterogeneous
 causal effects. Electronic Journal of Statistics, 17(2), 3008-3049. [@kennedy2023towards]
 """
 
-from .metalearners import (
-    metalearner,
-    SLearner,
-    TLearner,
-    XLearner,
-    RLearner,
-    DRLearner,
-)
-from .diagnostics import (
-    cate_summary,
-    cate_by_group,
-    cate_plot,
-    cate_group_plot,
-    predict_cate,
-    compare_metalearners,
-    gate_test,
-    blp_test,
-)
-from .auto_cate import auto_cate, AutoCATEResult
+from .auto_cate import AutoCATEResult, auto_cate
 from .auto_cate_tuned import auto_cate_tuned
-
-# v0.10 meta-learner frontier
-from .focal import focal_cate, FunctionalCATEResult
-from .cluster_cate import cluster_cate, ClusterCATEResult
+from .cate_curves import CATEGainCurveResult, cate_gain_curve
 
 # v1.13 backbone-agnostic CATE evaluation (Yadlowsky 2025 RATE)
-from .cate_eval import cate_eval, CATEEvalResult
+from .cate_eval import CATEEvalResult, cate_eval
+from .cluster_cate import ClusterCATEResult, cluster_cate
+from .diagnostics import (
+    blp_test,
+    cate_by_group,
+    cate_group_plot,
+    cate_plot,
+    cate_summary,
+    compare_metalearners,
+    gate_test,
+    predict_cate,
+)
+
+# v0.10 meta-learner frontier
+from .focal import FunctionalCATEResult, focal_cate
+from .metalearners import DRLearner, RLearner, SLearner, TLearner, XLearner, metalearner
 
 __all__ = [
     "metalearner",
@@ -69,4 +63,6 @@ __all__ = [
     "ClusterCATEResult",
     "cate_eval",
     "CATEEvalResult",
+    "cate_gain_curve",
+    "CATEGainCurveResult",
 ]

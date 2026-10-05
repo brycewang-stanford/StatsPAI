@@ -34,6 +34,7 @@ from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import MethodIncompatibility
 
 # ======================================================================
@@ -42,6 +43,7 @@ from ..exceptions import MethodIncompatibility
 
 
 @accepts_aliases(treat="treatment")
+@_expands_categorical("covariates")
 def propensity_score(
     data: pd.DataFrame,
     treatment: str,
@@ -251,6 +253,7 @@ def _crump_alpha(ps: np.ndarray) -> float:
 
 
 @accepts_aliases(treat="treatment")
+@_expands_categorical("covariates")
 def trimming(
     data: pd.DataFrame,
     treatment: str,
@@ -599,6 +602,7 @@ def table_to_string(df: pd.DataFrame) -> str:
 
 
 @accepts_aliases(treat="treatment")
+@_expands_categorical("covariates")
 def ps_balance(
     data: pd.DataFrame,
     treatment: str,
@@ -944,6 +948,7 @@ def _require_matplotlib() -> Any:
 
 
 @accepts_aliases(treat="treatment")
+@_expands_categorical("covariates")
 def overlap_plot(
     data: pd.DataFrame,
     treatment: str,

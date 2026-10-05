@@ -383,10 +383,10 @@
     "typical_n_min": 100,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs AER::ivreg [AER 1.2.16, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 02_iv -- tests/r_parity/02_iv.py",
+      "tests/external_parity/test_facure_causal_inference_in_python.py",
       "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
       "tests/reference_parity/test_hdfe_iv_paths_agree.py",
-      "tests/reference_parity/test_iv_card_aer_parity.py",
-      "tests/reference_parity/test_iv_gmm_stata_parity.py"
+      "tests/reference_parity/test_iv_card_aer_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -4053,10 +4053,10 @@
             "description": "SCM variant: classic/demeaned/detrended/unconstrained/elastic_net/augmented/sdid/gsynth/staggered",
             "enum": [
               "classic",
-              "ridge",
               "classic_adh",
               "adh",
               "penalized",
+              "ridge",
               "demeaned",
               "detrended",
               "unconstrained",
@@ -4150,7 +4150,7 @@
       "tests/r_parity/07_scm.py",
       "tests/r_parity/07_scm.R",
       "tests/stata_parity/07_scm.do",
-      "tests/external_parity/test_published_replications.py",
+      "tests/external_parity/test_facure_causal_inference_in_python.py",
       "SCM certification is variant-level; exact ADH parity is obtained with the canonical special_predictors recipe or backend='synth'; SDID, augmented SCM, and generalized SCM have native parity rows with optional R bridge backends; remaining native-default differences stay documented."
     ],
     "validation_status": "certified"
@@ -7536,7 +7536,7 @@
             "x-statspai-role": "column"
           },
           "covariates": {
-            "description": "Covariate / effect modifier variables.",
+            "description": "Covariate / effect modifier variables. A text or ``category`` column is expanded to indicator columns.",
             "items": {
               "type": "string"
             },
@@ -56652,6 +56652,179 @@
   {
     "alias_of": null,
     "alternatives": [
+      "sdid",
+      "did",
+      "matrix_completion",
+      "causal_impact"
+    ],
+    "assumptions": [
+      "Treatment effect on the treated is identified by the counterfactual implicit in the donor weights",
+      "No spillover from treated unit to donors (SUTVA)",
+      "Donor pool contains units whose outcomes plausibly track the treated counterfactual",
+      "Pre-treatment fit (RMSPE) is small relative to post-treatment effect for placebo inference"
+    ],
+    "category": "causal",
+    "cost_profile": "One constrained optimisation over the donor simplex per fit. placebo=True / inference re-runs the whole fit once per donor, so runtime is roughly (donors + 1) x a single fit -- the usual reason a synth call feels slow.",
+    "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu).",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "res = sp.synth_ttest(df, outcome='packspercapita', unit='state',\n time='year', treated_unit='California',\n treatment_time=1989)",
+    "failure_modes": [
+      {
+        "alternative": "sp.synth",
+        "exception": "AssumptionWarning",
+        "remedy": "Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool.",
+        "symptom": "Pre-treatment RMSPE > post-treatment effect"
+      },
+      {
+        "alternative": "sp.synth",
+        "exception": "AssumptionWarning",
+        "remedy": "Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic.",
+        "symptom": "Placebo p-value >= 0.1 despite visible gap"
+      },
+      {
+        "alternative": "sp.synth",
+        "exception": "AssumptionWarning",
+        "remedy": "Interpolation bias risk -- check method='elastic_net' or augmented SCM.",
+        "symptom": "All weight concentrated on one donor"
+      },
+      {
+        "alternative": "sp.synth",
+        "exception": "IdentificationFailure",
+        "remedy": "Extrapolation needed -- use method='unconstrained' or 'augmented'.",
+        "symptom": "Treated unit outside donor convex hull"
+      }
+    ],
+    "inherits_from": "synth",
+    "limitations": [],
+    "name": "synth_ttest",
+    "not_recommended_when": [
+      "many units are treated at once -- classic SCM is built for one (or few) treated units; use sp.gsynth, sp.sdid or sp.callaway_santanna",
+      "the pre-treatment window is short (fewer than ~10 periods) -- the donor weights overfit noise and pre-period fit stops being evidence",
+      "the treated unit's pre-period outcome lies outside the convex hull of the donors -- no non-negative weighting can match it; check the pre-period RMSPE and consider sp.augsynth"
+    ],
+    "pre_conditions": [
+      "panel data in long form (unit x time x outcome)",
+      "single treated unit (classic) or a treatment-timing column (staggered)",
+      ">= 10 donor (untreated) units with similar pre-treatment trajectories",
+      ">= 10 pre-treatment periods (fewer -> large weight on any one year)"
+    ],
+    "provenance": {
+      "alternatives": "family",
+      "assumptions": "family",
+      "cost_profile": "family",
+      "example": "docstring",
+      "failure_modes": "family",
+      "not_recommended_when": "family",
+      "pre_conditions": "family",
+      "reference": "docstring",
+      "returns": "docstring",
+      "typical_n_min": "family"
+    },
+    "reference": "chernozhukov2026debiasing",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult: estimate is the debiased average effect on the treated unit over the post-period, with its se, t-based ci and pvalue.",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Debiased synthetic control ATT with a t-test (Chernozhukov, Wuthrich & Zhu).",
+      "name": "synth_ttest",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the confidence interval.",
+            "type": "number"
+          },
+          "data": {
+            "description": "Long-format panel, one row per unit and period.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "n_folds": {
+            "default": 3,
+            "description": "Number of blocks ``K`` (at least 2). The interval uses ``K - 1`` degrees of freedom, so ``K = 2`` (the default of ``scinference``) gives a Cauchy reference distribution and very wide intervals; a larger ``K`` leaves fewer pre-periods per block.",
+            "type": "integer"
+          },
+          "outcome": {
+            "description": "Outcome column.",
+            "type": "string",
+            "x-aliases": [
+              "y"
+            ],
+            "x-canonical": "y",
+            "x-statspai-role": "column"
+          },
+          "penalization": {
+            "default": 0.0,
+            "description": "Ridge penalty on the weights.",
+            "type": "number"
+          },
+          "time": {
+            "description": "Time period column.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treated_unit": {
+            "description": "Identifier of the treated unit.",
+            "type": "string"
+          },
+          "treatment_time": {
+            "description": "First treated period.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Unit identifier column.",
+            "type": "string",
+            "x-aliases": [
+              "id"
+            ],
+            "x-canonical": "id",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "outcome",
+          "unit",
+          "time",
+          "treated_unit",
+          "treatment_time"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 10,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "synth",
       "augsynth",
       "callaway_santanna",
@@ -65163,10 +65336,10 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (aligned) vs Stata 18 margins, dydx(*) [Stata 18]; tolerance 1e-6 rel (observed 2.7e-7 AME / 7.5e-8 SE on probit and logit-with-interaction; <= 1e-10 otherwise) -- tests/reference_parity/test_postestimation_stata_parity.py",
+      "tests/external_parity/test_facure_causal_inference_in_python.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py",
-      "tests/reference_parity/test_postestimation_parity.py",
-      "tests/reference_parity/test_r2_postest_parity.py"
+      "tests/reference_parity/test_postestimation_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -70791,7 +70964,7 @@
             "type": "string"
           },
           "propensity_model": {
-            "description": "Model for e(X) = P(D=1|X).",
+            "description": "Model for e(X) = E[D|X]: a classifier for a 0/1 treatment (default gradient-boosted classifier), a regressor for a continuous one (default: the outcome model's default regressor).",
             "type": "string"
           }
         },
@@ -77477,18 +77650,18 @@
     "cost_profile": "",
     "description": "Compute statistical power (or solve for sample size) for a causal Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_oct2026_second_pass.py"
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
       ],
       "tolerance": ""
     },
@@ -77553,7 +77726,7 @@
             "type": "string"
           },
           "effect_size": {
-            "description": "Standardised effect size. Pass *None* to solve for MDE (use :func:`mde` for a cleaner interface).",
+            "description": "Effect size, standardised unless ``sigma=`` is passed with it (then in the units of the outcome). Pass *None* to solve for MDE (use :func:`mde` for a cleaner interface).",
             "type": "string"
           },
           "n": {
@@ -77574,7 +77747,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_facure_causal_inference_in_python.py",
+      "tests/reference_parity/test_oct2026_second_pass.py"
     ],
     "validation_status": "validated"
   },
@@ -77667,7 +77841,7 @@
             "type": "number"
           },
           "effect_size": {
-            "description": "Standardised effect size (delta / sigma).",
+            "description": "Effect in the units of the outcome. With the default ``sigma=1`` this is the standardised effect (effect / standard deviation).",
             "type": "string"
           },
           "n": {
@@ -77681,7 +77855,7 @@
           },
           "sigma": {
             "default": 1.0,
-            "description": "Outcome standard deviation (default 1 for standardised effect).",
+            "description": "Outcome standard deviation, in the units of ``effect_size``. Power depends on ``effect_size / sigma``.",
             "type": "number"
           }
         },
@@ -77814,7 +77988,7 @@
             "type": "number"
           },
           "effect_size": {
-            "description": "Effect in units of ``sigma``.",
+            "description": "Effect in the units of the outcome. With the default ``sigma=1`` this is the standardised effect (effect / standard deviation).",
             "type": "string"
           },
           "n": {
@@ -77976,7 +78150,7 @@
             "type": "number"
           },
           "effect_size": {
-            "description": "Effect at the cutoff in units of ``sigma``.",
+            "description": "Effect at the cutoff in the units of the outcome. With the default ``sigma=1`` this is the standardised effect.",
             "type": "string"
           },
           "kernel": {
@@ -78118,7 +78292,7 @@
             "type": "number"
           },
           "effect_size": {
-            "description": "Effect of a one-standard-deviation change in the endogenous variable, in units of ``sigma``.",
+            "description": "Effect of a one-standard-deviation change in the endogenous variable, in the units of the outcome (standardised when ``sigma=1``).",
             "type": "string"
           },
           "first_stage_f": {
@@ -78240,7 +78414,7 @@
             "type": "number"
           },
           "effect_size": {
-            "description": "Standardised effect size.",
+            "description": "Effect in the units of the outcome. With the default ``sigma=1`` this is the standardised effect (effect / standard deviation).",
             "type": "string"
           },
           "icc": {
@@ -78353,7 +78527,7 @@
             "type": "number"
           },
           "effect_size": {
-            "description": "Standardised effect of the variable of interest.",
+            "description": "Effect of the variable of interest in the units of the outcome (standardised when ``sigma=1``).",
             "type": "string"
           },
           "n": {
@@ -116365,6 +116539,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (aligned) vs grf::rank_average_treatment_effect 2.6.1 (AUTOC, QINI, TOC), fed grf's nuisances; shares sp.rate's operator [R version 4.5.2 (2025-10-31), grf 2.6.1]; tolerance Point estimate (AUTOC, QINI) and TOC curve on q = 0.1..1 exact at 1e-10 rel (observed 4.6e-15), including a 30-group tied-priority case against rank_average_treatment_effect.fit. SE is T3: the analytic rank-corrected influence-function SE is compared with grf's half-sample bootstrap (R = 2000) at 6% rel (observed 2.6% AUTOC, 1.7% QINI). -- tests/reference_parity/test_ml_causal_R_parity.py",
+      "tests/external_parity/test_facure_causal_inference_in_python.py",
       "tests/reference_parity/test_cate_eval_toc_bands.py",
       "tests/reference_parity/test_ml_causal_recovery_parity.py"
     ],

@@ -925,6 +925,13 @@ def predict_cate(
     if covariates is None:
         raise ValueError("Result does not contain covariate names.")
     covariate_names = list(covariates)
+    # A categorical covariate was fitted as indicator columns; rebuild them
+    # on the new rows with the levels seen at fit time.
+    from ..core._covariates import apply_covariate_expansion
+
+    new_data = apply_covariate_expansion(
+        new_data, result.model_info.get("covariate_expansion")
+    )
     for c in covariate_names:
         if c not in new_data.columns:
             raise ValueError(f"Column '{c}' not found in new_data")

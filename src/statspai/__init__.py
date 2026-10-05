@@ -531,6 +531,7 @@ from .synth import (
     synth_to_excel,
     synth_to_latex,
     synth_to_markdown,
+    synth_ttest,
     synthdid_estimate,
     synthdid_placebo,
     synthdid_plot,
@@ -801,6 +802,7 @@ from .matrix_completion import MCPanel, mc_panel
 from .metalearners import (
     AutoCATEResult,
     CATEEvalResult,
+    CATEGainCurveResult,
     ClusterCATEResult,
     DRLearner,
     FunctionalCATEResult,
@@ -813,6 +815,7 @@ from .metalearners import (
     blp_test,
     cate_by_group,
     cate_eval,
+    cate_gain_curve,
     cate_group_plot,
     cate_plot,
     cate_summary,
@@ -1349,6 +1352,7 @@ __all__ = [
     "fect",
     "staggered_synth",
     "conformal_synth",
+    "synth_ttest",
     "sdid",
     "synthdid_estimate",
     "sc_estimate",
@@ -1958,6 +1962,8 @@ __all__ = [
     "AttritionResult",
     "optimal_design",
     "OptimalDesignResult",
+    "switchback",
+    "switchback_design",
     # Missing Data
     "mice",
     "MICEResult",
@@ -2503,6 +2509,8 @@ __all__ = [
     # v1.13 backbone-agnostic CATE evaluation (RATE / AUTOC / Qini)
     "cate_eval",
     "CATEEvalResult",
+    "cate_gain_curve",
+    "CATEGainCurveResult",
     # Bunching frontier
     "general_bunching",
     "GeneralBunchingResult",
@@ -3284,6 +3292,8 @@ _register_lazy(
     "AttritionResult",
     "optimal_design",
     "OptimalDesignResult",
+    "switchback",
+    "switchback_design",
 )
 _register_lazy(
     "imputation",

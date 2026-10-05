@@ -38,6 +38,7 @@ from scipy import stats as sp_stats
 if TYPE_CHECKING:
     from sklearn.base import BaseEstimator
 
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 
 # ======================================================================
@@ -45,6 +46,7 @@ from ..core.results import CausalResult
 # ======================================================================
 
 
+@_expands_categorical("covariates")
 def dose_response(
     data: pd.DataFrame,
     y: str,

@@ -24,10 +24,12 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 
 
 @accepts_aliases(_strict=True, controls="covariates")
+@_expands_categorical("covariates")
 def ebalance(
     data: pd.DataFrame,
     y: str,

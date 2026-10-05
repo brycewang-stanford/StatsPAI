@@ -39,10 +39,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 
 
+@_expands_categorical("covariates")
 def g_computation(
     data: pd.DataFrame,
     y: str,

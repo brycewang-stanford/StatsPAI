@@ -41,7 +41,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | ------------------- | -----: | ----: | ----------------------------: |
 | `did` | 52,988 | 70 | 97 |
 | `agent` | 32,171 | 58 | 4 |
-| `synth` | 29,833 | 39 | 55 |
+| `synth` | 30,162 | 40 | 56 |
 | `regression` | 24,666 | 30 | 45 |
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
@@ -64,7 +64,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mendelian` | 5,187 | 13 | 41 |
 | `frontier` | 4,986 | 8 | 12 |
 | `utils` | 4,759 | 11 | 35 |
-| `metalearners` | 4,705 | 9 | 23 |
+| `metalearners` | 5,095 | 10 | 25 |
 | `workflow` | 4,512 | 5 | 3 |
 | `survival` | 4,290 | 6 | 15 |
 | `gmm` | 4,190 | 12 | 4 |
@@ -100,7 +100,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `survey` | 1,464 | 4 | 7 |
 | `bunching` | 1,445 | 5 | 8 |
 | `bridge` | 1,345 | 8 | 2 |
-| `experimental` | 1,332 | 4 | 9 |
+| `experimental` | 1,809 | 5 | 11 |
 | `principal_strat` | 1,238 | 2 | 3 |
 | `causal_rl` | 1,092 | 5 | 12 |
 | `dtr` | 1,084 | 5 | 8 |

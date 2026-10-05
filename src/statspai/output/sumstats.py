@@ -317,6 +317,15 @@ def balance_table(
     """
     from scipy import stats as sp_stats
 
+    from ..core._validate import require_binary_treatment
+
+    missing = [c for c in [treat, *covariates] if c not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"balance_table: columns not found in data: {missing}",
+            diagnostics={"missing": missing},
+        )
+    require_binary_treatment(data[treat], function="balance_table")
     T = data[treat].values
     treated = data[T == 1]
     control = data[T == 0]
@@ -325,8 +334,6 @@ def balance_table(
 
     rows = []
     for var in covariates:
-        if var not in data.columns:
-            continue
         display = labels.get(var, var) if labels else var
 
         t_vals = treated[var].dropna()
