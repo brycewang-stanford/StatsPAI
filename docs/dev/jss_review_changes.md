@@ -1667,3 +1667,33 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded for every module: the SCM interval and `summary()` of infinite bounds
+
+- **Commits.** `7b279680` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (all 89 Track A
+  modules) and `tests/orig_parity/results/_implementation_trace.json`
+  (all 12). The sources that staled them are in the same commit:
+  `src/statspai/core/results.py` (`CausalResult.summary()` prints an
+  infinite interval end, a file on every estimation path),
+  `src/statspai/synth/scm.py` (the `ci` of `sp.synth(method='classic')`
+  is now the inversion of the placebo rank test) and
+  `src/statspai/datasets/_canonical.py` / `src/statspai/datasets/__init__.py`
+  (`nsw_dw(simulated=False)`).
+- **Reason.** Decisions left open by the pass over Gaillac and L'Hour's
+  *Machine Learning for Econometrics*
+  (`docs/dev/2026-10-05-gaillac-lhour-ml4econometrics-review.md`).
+- **Effect on the paper.** None on any frozen number: Track A modules
+  07 and 52 compare weights, the estimate and fit statistics, not the
+  interval, and `python tests/r_parity/verify_reproduce_py.py --no-report
+  07_scm 52_scm_unique` reports 2 reproduce, 0 drift. Checked field by
+  field against the previous traces: only `exercised_sources` digests and
+  `seconds` differ in the 89 + 12 modules; no `packages`, boundary-call
+  package set, `rscript_launches` or `error` changed. One thing to carry
+  into the next revision of the manuscript: if the text describes the
+  confidence interval that classic SCM prints, it is now the
+  constant-effect inversion of the placebo test (Firpo and Possebom
+  2018), not a normal interval around the placebo spread.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
