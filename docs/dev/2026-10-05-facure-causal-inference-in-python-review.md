@@ -205,11 +205,45 @@ The open items of the first round were decided and closed as follows.
   optimal design only. Other regular designs keep the exact randomization
   p-value and no interval.
 
+## Third round (same day)
+
+The three items left open by the second round were decided as follows.
+
+- **Forests and categorical covariates: done.** The family's shared input
+  parser (`forest/_grf_family.py::one_hot_covariates`) and the formula
+  interface of `sp.causal_forest` build one indicator per level. A tree
+  needs no reference category, and with all levels present `predict` can
+  tell an unseen level from an omitted one and refuse it.
+- **The mixed-integer optimum of the design problem: not added, the search
+  was made exact where it can be.** A mixed-integer quadratic solver would
+  be a new dependency (the authors' code uses Gurobi). With at most
+  `n_search` treated sets all of them are tried and the result is the
+  optimum, checked in the tests against brute force. Beyond that the best
+  random set is improved by single exchanges. On the book's data two of
+  three seeds end at the same set (loss 6,953) and the third at 7,001.
+- **An interval for switchback designs other than the optimal one: done,
+  with a different tool than first planned.** The paper's closed form for
+  the worst-case risk of a regular design (its expression 14) was the
+  obvious candidate. Enumerating every assignment path showed that it
+  equals the exact worst-case variance when randomization points are at
+  least `m` apart and exceeds it when they are closer (every period with
+  `m = 2`, T = 12: 36.72 against 33.12). The paper's own simulation for
+  that design (33.67 at T = 120) agrees with the exact value and not with
+  its formula (33.96). So the closed form was derived again from the
+  covariance of the window indicators: two windows that share `s` coins
+  contribute `p^-s + (1-p)^-s`. It matches enumeration on every design
+  tried, for fair and biased coins. `outcome_bound=B` turns it into a
+  standard error, and Chebyshev's inequality into an interval that needs
+  no limit theorem. It is wide: on the book's every-period data with
+  `B = 14` the 95% interval is [-43.8, 28.9] around -7.4. Centring the
+  outcome at a value fixed in advance halves `B` and the interval.
+
 ## Open items
 
-- `sp.causal_forest` and the other forests need numeric covariates.
-- The population design is a random search, not the mixed-integer optimum.
-- `sp.switchback` has no interval outside the optimal design.
+- The population design beyond `n_search` sets is a local optimum.
+- The switchback interval outside the optimal design is a worst-case one;
+  a variance estimator from the data for those designs is not in the paper
+  and was not attempted.
 
 ## Rerun
 

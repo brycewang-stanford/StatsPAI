@@ -230,6 +230,37 @@ def _conservative_variance(
     return float(total / (n_periods - m) ** 2)
 
 
+def _worst_case_variance(points: np.ndarray, m: int, p: float, bound: float) -> float:
+    """Largest variance of the estimator over outcomes bounded by ``bound``.
+
+    With every potential outcome equal to ``bound`` (the dominating case of
+    Lemma 1 of the paper) the estimator is ``bound / (T - m)`` times the sum
+    over periods of ``Z_t = 1{window all treated} / p^c_t - 1{window all
+    control} / (1 - p)^c_t``, with ``c_t`` the number of coins behind window
+    ``t``. ``E[Z_t] = 0``, two windows with no coin in common are
+    independent, and two windows that share ``s`` coins have
+    ``E[Z_t Z_u] = p^-s + (1 - p)^-s``. The variance is the sum of those
+    terms. It holds for any regular design and any ``p``, and agrees with
+    full enumeration of the assignment paths.
+    """
+    n_periods = points.shape[0]
+    block = np.cumsum(points) - 1
+    lo = block[: n_periods - m]  # coin that set period t - m
+    hi = block[m:]  # coin that set period t
+    total = 0.0
+    q = 1.0 - p
+    for start in range(0, lo.shape[0], 2000):  # bounded memory for long horizons
+        sl = slice(start, start + 2000)
+        shared = (
+            np.minimum(hi[sl, None], hi[None, :])
+            - np.maximum(lo[sl, None], lo[None, :])
+            + 1
+        )
+        s_pos = shared[shared > 0].astype(float)
+        total += float(np.sum(p**-s_pos + q**-s_pos))
+    return float(bound**2 * total / (n_periods - m) ** 2)
+
+
 def switchback(
     data: pd.DataFrame,
     y: str,
@@ -241,6 +272,7 @@ def switchback(
     n_draws: int = 10_000,
     alpha: float = 0.05,
     seed: Optional[int] = None,
+    outcome_bound: Optional[float] = None,
 ) -> CausalResult:
     r"""Design-based analysis of a switchback experiment.
 
@@ -285,6 +317,14 @@ def switchback(
         Level of the confidence interval.
     seed : int, optional
         Seed for the randomization test.
+    outcome_bound : float, optional
+        A number ``B`` that no outcome can exceed in absolute value under
+        any assignment (it must be at least the largest observed
+        ``|y|``). With it, a design other than the optimal one gets a
+        standard error and an interval; see Returns. The estimand does not
+        change when a constant is subtracted from the outcome, so centring
+        the outcome at a value chosen before the experiment makes ``B``,
+        and the interval, smaller.
 
     Returns
     -------
@@ -295,8 +335,17 @@ def switchback(
           the normal interval and the two-sided normal p-value built on it
           (their Theorem 3). The interval is conservative: the estimator is
           of an upper bound of the variance. For any other design the paper
-          gives no variance estimator; ``se`` and ``ci`` are NaN and
-          ``pvalue`` is the randomization p-value.
+          gives no variance estimator. Without ``outcome_bound``, ``se``
+          and ``ci`` are NaN and ``pvalue`` is the randomization p-value.
+          With ``outcome_bound``, ``se`` is the square root of the largest
+          variance the estimator can have under that design when outcomes
+          are bounded by ``B`` (the paper's Lemma 1 shows which outcomes
+          attain it), and ``ci`` is the Chebyshev interval
+          ``estimate +/- se / sqrt(alpha)``. It is valid in finite samples
+          and makes no distributional assumption, which is also why it is
+          wide; ``pvalue`` stays the randomization p-value.
+        * ``model_info['worst_case_se']`` -- that worst-case standard error,
+          whenever ``outcome_bound`` is given.
         * ``model_info['randomization_pvalue']`` -- exact test of the sharp
           null of no effect of any assignment on any outcome (their
           Algorithm 1): the share of re-drawn assignment paths whose
@@ -413,12 +462,33 @@ def switchback(
         and n_periods // m >= 4
         and np.array_equal(points, _optimal_points(n_periods, m))
     )
+    worst_case_se: Optional[float] = None
+    if outcome_bound is not None:
+        bound = float(outcome_bound)
+        largest = float(np.max(np.abs(y_arr)))
+        if not np.isfinite(bound) or bound < largest:
+            raise MethodIncompatibility(
+                f"switchback: outcome_bound={outcome_bound} is below the "
+                f"largest observed |{y}| ({largest:.6g}); it must bound every "
+                "outcome under every assignment.",
+                recovery_hint="Pass a bound that the outcome cannot exceed.",
+            )
+        worst_case_se = float(np.sqrt(_worst_case_variance(points, m, p, bound)))
     if is_optimal:
         se = float(np.sqrt(_conservative_variance(y_arr, d_arr, n_periods, m)))
         z = stats.norm.ppf(1 - alpha / 2)
         ci = (estimate - z * se, estimate + z * se)
         pvalue = float(2 * stats.norm.sf(abs(estimate) / se)) if se > 0 else np.nan
         inference = "conservative normal (Corollary 1, Theorem 3)"
+    elif worst_case_se is not None:
+        se = worst_case_se
+        half = se / np.sqrt(alpha)
+        ci = (estimate - half, estimate + half)
+        pvalue = randomization_p
+        inference = (
+            "worst-case variance under bounded outcomes, Chebyshev interval; "
+            "p-value from the randomization test"
+        )
     else:
         se = float("nan")
         ci = (float("nan"), float("nan"))
@@ -436,6 +506,8 @@ def switchback(
         "n_windows_treated": n_treated_windows,
         "n_windows_control": n_control_windows,
         "randomization_pvalue": randomization_p,
+        "worst_case_se": worst_case_se,
+        "outcome_bound": outcome_bound,
         "n_draws": int(n_draws or 0),
         "inference": inference,
     }

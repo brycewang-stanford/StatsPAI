@@ -250,8 +250,10 @@ def test_fit_rejects_invalid_controls_before_sklearn():
 
 def test_fit_rejects_bad_numeric_inputs_with_taxonomy():
     data = _small_cf_data()
+    # A text outcome is refused. A text effect modifier is a categorical
+    # covariate and is expanded to one indicator per level (2026-10-05).
     bad = data.copy()
-    bad["score"] = ["bad"] * len(bad)
+    bad["Y"] = ["bad"] * len(bad)
 
     with pytest.raises(MethodIncompatibility, match="numeric"):
         CausalForest().fit("Y ~ T | age + score", data=bad)

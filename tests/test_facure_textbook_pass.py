@@ -965,3 +965,205 @@ def test_population_design_recovers_a_representative_set():
         sp.synth_experimental_design(
             df, unit="unit", time="t", outcome="y", k=3, population_weights="pop"
         )
+
+
+# --------------------------------------------------------------------- #
+#  Third round: forests, the design search, switchback under any design
+# --------------------------------------------------------------------- #
+
+
+def test_forests_take_categorical_covariates():
+    rng = np.random.default_rng(0)
+    n = 1200
+    g = rng.integers(0, 3, n)
+    x = rng.normal(size=n)
+    d = (rng.random(n) < 0.5).astype(int)
+    df = pd.DataFrame(
+        {
+            "y": x + (1 + g) * d + rng.normal(size=n),
+            "d": d,
+            "x": x,
+            "g": np.array(["a", "b", "c"])[g],
+        }
+    )
+    hot = df.assign(**{f"g[{lv}]": (df["g"] == lv).astype(float) for lv in "abc"})
+    cols = ["x", "g[a]", "g[b]", "g[c]"]
+
+    cf = _quiet(
+        sp.causal_forest, "y ~ d | x + g", data=df, n_estimators=200, random_state=1
+    )
+    tau = cf.effect(hot[cols].to_numpy())
+    for k in range(3):  # true effect 1 + g
+        assert tau[g == k].mean() == pytest.approx(1 + k, abs=0.35)
+
+    rf = _quiet(
+        sp.regression_forest,
+        df,
+        y="y",
+        covariates=["x", "g"],
+        n_estimators=100,
+        random_state=1,
+    )
+    ref = _quiet(
+        sp.regression_forest,
+        hot,
+        y="y",
+        covariates=cols,
+        n_estimators=100,
+        random_state=1,
+    )
+    assert list(rf.feature_names) == cols
+    new = pd.DataFrame({"x": [0.0, 0.5], "g": ["c", "a"]})
+    new_hot = pd.DataFrame(
+        {"x": [0.0, 0.5], "g[a]": [0.0, 1.0], "g[b]": [0.0, 0.0], "g[c]": [1.0, 0.0]}
+    )
+    np.testing.assert_allclose(
+        np.asarray(rf.predict(new), float),
+        np.asarray(ref.predict(new_hot), float),
+        rtol=1e-12,
+    )
+    with pytest.raises(MethodIncompatibility, match="not in the fitted data"):
+        rf.predict(pd.DataFrame({"x": [0.0], "g": ["z"]}))
+    with pytest.raises(MethodIncompatibility, match="must be numeric"):
+        sp.regression_forest(
+            df.assign(ys=df["g"]), y="ys", covariates=["x"], n_estimators=10
+        )
+
+
+def test_population_design_search_modes():
+    rng = np.random.default_rng(3)
+    T, n_units, k = 30, 9, 3
+    factors = rng.normal(size=(T, 3)).cumsum(axis=0)
+    load = rng.uniform(0, 1, (n_units, 3))
+    Y = factors @ load.T + rng.normal(scale=0.1, size=(T, n_units))
+    df = pd.DataFrame(
+        [
+            {"unit": f"u{j}", "t": t, "y": Y[t, j]}
+            for j in range(n_units)
+            for t in range(T)
+        ]
+    )
+    call = dict(unit="unit", time="t", outcome="y", k=k, criterion="population")
+    full = sp.synth_experimental_design(df, n_search=1000, random_state=0, **call)
+    assert full.diagnostics["global_optimum"]
+    assert full.diagnostics["n_search"] == 84  # C(9, 3)
+
+    # brute force with an independent solver of the same two problems
+    from statspai.synth._core import solve_simplex_weights
+
+    target = Y.mean(axis=1)
+    best = np.inf
+    for treated in itertools.combinations(range(n_units), k):
+        rest = [j for j in range(n_units) if j not in treated]
+        loss = 0.0
+        for cols in (list(treated), rest):
+            w = solve_simplex_weights(target, Y[:, cols])
+            loss += float(np.mean((target - Y[:, cols] @ w) ** 2))
+        best = min(best, loss)
+    assert full.expected_variance == pytest.approx(best, rel=1e-9)
+
+    local = sp.synth_experimental_design(df, n_search=5, random_state=0, **call)
+    assert not local.diagnostics["global_optimum"]
+    assert local.diagnostics["search"] == "random + exchange"
+    assert local.expected_variance >= full.expected_variance * (1 - 1e-9)
+    assert local.expected_variance <= local.baseline_variance
+
+
+def test_switchback_worst_case_variance_is_exact_and_dominates():
+    """Closed form against enumeration of every assignment path."""
+    from statspai.experimental.switchback import _ht_estimates, _worst_case_variance
+
+    def moments(points, m, p, outcome):
+        nb = int(points.sum())
+        coins = np.array(list(itertools.product([0, 1], repeat=nb)))
+        paths = coins[:, np.cumsum(points) - 1]
+        prob = np.prod(np.where(coins == 1, p, 1 - p), axis=1)
+        est = np.array(
+            [
+                _ht_estimates(paths[i : i + 1], outcome(paths[i]), points, m, p)[0]
+                for i in range(len(paths))
+            ]
+        )
+        mean = float(prob @ est)
+        return float(prob @ (est - mean) ** 2)
+
+    rng = np.random.default_rng(0)
+    bound = 3.0
+    for T, m in [(12, 2), (12, 1), (10, 3), (9, 0)]:
+        for trial in range(3):
+            points = np.zeros(T, bool)
+            points[0] = True
+            if trial == 0:
+                points[:] = True
+            else:
+                extra = rng.choice(
+                    np.arange(1, T), size=rng.integers(1, 6), replace=False
+                )
+                points[extra] = True
+            for p in (0.5, 0.3):
+                worst = _worst_case_variance(points, m, p, bound)
+                at_bound = moments(points, m, p, lambda path: np.full(T, bound))
+                assert worst == pytest.approx(at_bound, rel=1e-10)
+                base = rng.uniform(-bound, bound, T)
+                coef = rng.uniform(-1, 1, m + 1)
+
+                def bounded(path, base=base, coef=coef, m=m, T=T):
+                    lag = [
+                        sum(
+                            coef[j] * (path[t - j] if t - j >= 0 else 0)
+                            for j in range(m + 1)
+                        )
+                        for t in range(T)
+                    ]
+                    return np.clip(base + np.array(lag), -bound, bound)
+
+                assert moments(points, m, p, bounded) <= worst * (1 + 1e-12)
+
+
+def test_switchback_interval_outside_the_optimal_design():
+    from statspai.experimental.switchback import _optimal_points, _worst_case_variance
+
+    # Bojinov, Simchi-Levi and Zhao (2023), Table 2: T = 120, m = 2, B = 10.
+    # Their simulated risks are 26.78 (optimal), 33.67 (every period) and
+    # 27.85 (every three periods).
+    T = 120
+    assert _worst_case_variance(_optimal_points(T, 2), 2, 0.5, 10.0) == pytest.approx(
+        26.78, rel=1e-2
+    )
+    assert _worst_case_variance(np.ones(T, bool), 2, 0.5, 10.0) == pytest.approx(
+        33.67, rel=1e-3
+    )
+    assert _worst_case_variance(np.arange(T) % 3 == 0, 2, 0.5, 10.0) == pytest.approx(
+        27.85, rel=1e-2
+    )
+
+    plan = sp.switchback_design(60, m=1, design="every", seed=2)
+    rng = np.random.default_rng(2)
+    d = plan["treat"].to_numpy()
+    plan["y"] = np.clip(
+        1.0 * (d + np.r_[0, d[:-1]]) + rng.normal(scale=0.5, size=60), -4, 4
+    )
+    plain = sp.switchback(plan, y="y", treat="treat", m=1, design="every", seed=0)
+    assert np.isnan(plain.se) and plain.model_info["worst_case_se"] is None
+    res = sp.switchback(
+        plan,
+        y="y",
+        treat="treat",
+        m=1,
+        design="every",
+        seed=0,
+        outcome_bound=4.0,
+        alpha=0.1,
+    )
+    assert res.estimate == plain.estimate and res.pvalue == plain.pvalue
+    assert res.se == pytest.approx(res.model_info["worst_case_se"])
+    half = res.se / np.sqrt(0.1)
+    assert res.ci == pytest.approx((res.estimate - half, res.estimate + half))
+    wider = sp.switchback(
+        plan, y="y", treat="treat", m=1, design="every", seed=0, outcome_bound=8.0
+    )
+    assert wider.se == pytest.approx(2 * res.se)
+    with pytest.raises(MethodIncompatibility, match="below the largest observed"):
+        sp.switchback(
+            plan, y="y", treat="treat", m=1, design="every", outcome_bound=1.0
+        )

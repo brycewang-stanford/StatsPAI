@@ -210,6 +210,19 @@ The design you pass must be the one that generated the assignment. If the
 assignment changes at a period that is not a randomization point of that
 design, the function stops.
 
+The first data set flips the coin every period, which is not the optimal
+design for `m = 2`, and the paper has no variance estimator for it. If you
+can bound the outcome, `outcome_bound=` gives the largest standard error
+the estimator can have under that design and a Chebyshev interval:
+
+```python
+sp.switchback(every, y="delivery_time", treat="d", m=2, design="every",
+              outcome_bound=14).ci        # (-43.8, 28.9): valid, and wide
+```
+
+That is the price of flipping too often. The optimal design exists to
+avoid it.
+
 ### Choosing which cities to treat
 
 The first half of chapter 10 asks which cities to treat so that the
@@ -230,9 +243,12 @@ design.weights["treated"]    # their weights; design.weights["control"] for the 
 print(design.summary())
 ```
 
-It is a random search, so a larger `n_search` can only improve the set.
-The weights have no intercept; with units of very different size, use a
-per-capita outcome.
+With few enough candidate sets (at most `n_search`) all of them are tried
+and the answer is the optimum; `design.diagnostics['global_optimum']` says
+which case you are in. Otherwise the best random set is improved by
+exchanging one city at a time, and different seeds can end at different
+sets of similar quality. The weights have no intercept; with units of very
+different size, use a per-capita outcome.
 
 ## Where the numbers differ from the book
 

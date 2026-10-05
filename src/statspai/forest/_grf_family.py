@@ -24,6 +24,7 @@ averages the same way ``sp.causal_forest`` does.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple
 
@@ -138,6 +139,82 @@ class ForestOptions:
 # --------------------------------------------------------------------------- #
 
 
+_ONE_HOT_NAME = re.compile(r"^(?P<col>.+)\[(?P<level>.*)\]$")
+
+
+def one_hot_covariates(
+    data: pd.DataFrame, cols: List[str], context: str
+) -> Tuple[pd.DataFrame, List[str]]:
+    """Covariate block with categorical columns as indicator columns.
+
+    A text or ``category`` column, or an entry written ``C(col)``, becomes
+    one 0/1 column per level, named ``col[level]``. Every level gets a
+    column: a tree needs no reference category, and keeping all of them lets
+    prediction tell an unseen level from the omitted one. Numeric columns
+    pass through, and a frame with none to expand is returned as it is.
+    """
+    from ..core._covariates import _factor_column, _is_categorical, _levels
+
+    out: Dict[str, Any] = {}
+    names: List[str] = []
+    expanded = False
+    for entry in cols:
+        named = _factor_column(entry)
+        col = named if named is not None else entry
+        if col not in data.columns:
+            raise MethodIncompatibility(
+                f"{context}: Missing columns: {[col]}",
+                recovery_hint="Pass column names present in the input DataFrame.",
+                diagnostics={"missing_columns": [col]},
+            )
+        series = data[col]
+        if named is None and not _is_categorical(series):
+            out[col] = series
+            names.append(col)
+            continue
+        expanded = True
+        missing = series.isna()
+        for level in _levels(series):
+            name = f"{col}[{level}]"
+            out[name] = (series == level).astype(float).where(~missing)
+            names.append(name)
+    if not expanded:
+        return data[cols], list(cols)
+    return pd.DataFrame(out, index=data.index), names
+
+
+def one_hot_newdata(newdata: pd.DataFrame, feature_names: List[str]) -> pd.DataFrame:
+    """Rebuild the indicator columns of :func:`one_hot_covariates` on new rows.
+
+    A feature ``col[level]`` that is not a column of ``newdata`` is computed
+    from ``newdata[col]``. A value of ``col`` that matches none of the
+    fitted levels is an error.
+    """
+    wanted: Dict[str, List[Tuple[str, str]]] = {}
+    for name in feature_names:
+        if name in newdata.columns:
+            continue
+        m = _ONE_HOT_NAME.match(name)
+        if m is not None and m.group("col") in newdata.columns:
+            wanted.setdefault(m.group("col"), []).append((name, m.group("level")))
+    if not wanted:
+        return newdata
+    out = newdata.copy()
+    for col, pairs in wanted.items():
+        text = out[col].astype(object).map(lambda v: None if pd.isna(v) else str(v))
+        known = {level for _, level in pairs}
+        unseen = sorted({v for v in text.dropna().unique() if v not in known})
+        if unseen:
+            raise MethodIncompatibility(
+                f"newdata column {col!r} has levels that were not in the "
+                f"fitted data: {unseen[:5]}.",
+                diagnostics={"column": col},
+            )
+        for name, level in pairs:
+            out[name] = (text == level).astype(float).where(text.notna())
+    return out
+
+
 def _column_block(
     data: Optional[pd.DataFrame], spec: Any, name: str, context: str
 ) -> Tuple[np.ndarray, List[str]]:
@@ -165,6 +242,9 @@ def _column_block(
                 diagnostics={"missing_columns": missing},
             )
         block = data[cols]
+        if name == "covariates":
+            # Covariates may be categorical; outcomes and treatments may not.
+            block, cols = one_hot_covariates(data, cols, context)
         try:
             arr = block.to_numpy(dtype=float)
         except (TypeError, ValueError) as exc:
@@ -556,6 +636,7 @@ class GRFFamilyForest(ResultProtocolMixin):
         if newdata is None:
             return self._X
         if isinstance(newdata, pd.DataFrame):
+            newdata = one_hot_newdata(newdata, list(self.feature_names))
             missing = [c for c in self.feature_names if c not in newdata.columns]
             if missing:
                 raise MethodIncompatibility(

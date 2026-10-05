@@ -41517,6 +41517,10 @@
           "description": "Assignment paths drawn for the randomization test. ``0`` skips it.",
           "type": "integer"
         },
+        "outcome_bound": {
+          "description": "A number ``B`` that no outcome can exceed in absolute value under any assignment (it must be at least the largest observed ``|y|``). With it, a design other than the optimal one gets a standard error and an interval; see Returns. The estimand does not change when a constant is subtracted from the outcome, so centring the outcome at a value chosen before the experiment makes ``B``, and the interval, smaller.",
+          "type": "number"
+        },
         "p": {
           "default": 0.5,
           "description": "Probability of treatment at each coin flip.",

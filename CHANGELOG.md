@@ -281,6 +281,31 @@ OpenAlex and arXiv.
   `sp.gardner_did`, `sp.stacked_did`, `sp.lp_did`, `sp.did_multiplegt`,
   `sp.did_few_treated`, `sp.overlap_weighted_did` and `sp.continuous_did`.
 
+#### Added in the third round
+
+- **`sp.switchback(outcome_bound=B)`: a standard error and an interval
+  under any regular design.** With every outcome bounded by `B` in absolute
+  value, the variance of the estimator is largest when all potential
+  outcomes equal `B` (Lemma 1 of the paper). That variance has a closed
+  form for any set of randomization points and any coin, checked here
+  against enumeration of every assignment path on 24 designs. `se` is its
+  square root and `ci` the Chebyshev interval `estimate +/- se /
+  sqrt(alpha)`: valid in finite samples, assumption-free and wide. For
+  T = 120, m = 2, B = 10 it gives 26.66, 33.67 and 27.81 for the optimal,
+  every-period and every-three-periods designs; the paper's simulations
+  give 26.78, 33.67 and 27.85. The optimal design keeps the paper's
+  tighter estimator.
+- **Categorical covariates in the forests.** `sp.causal_forest` (formula
+  interface), `sp.regression_forest`, `sp.iv_forest`, `sp.multi_arm_forest`,
+  `sp.lm_forest`, `sp.causal_survival_forest` and the other forests of the
+  family turn a text or `category` covariate into one 0/1 column per
+  level, named `col[level]`. Every level gets a column, so `predict` on a
+  frame with the original column can refuse a level it never saw.
+- `sp.synth_experimental_design(criterion='population')` enumerates every
+  treated set when there are at most `n_search` of them and returns the
+  optimum (`diagnostics['global_optimum']`); otherwise the best random set
+  is improved by single exchanges until none helps.
+
 #### Changed
 
 - Every `sp_call` string of `sp.dag_recommend_estimator` now runs as

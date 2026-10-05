@@ -983,10 +983,17 @@ class CausalForest(BaseModel):
         try:
             Y = data[y_name].values
             T = data[t_name].values
-            X = data[x_names].values
             W = data[w_names].values if w_names else None
         except KeyError as e:
             raise ValueError(f"Variable {e} not found in data")
+        # Effect modifiers may be categorical: one 0/1 column per level.
+        from ._grf_family import one_hot_covariates
+
+        try:
+            x_block, x_names = one_hot_covariates(data, x_names, "CausalForest.fit()")
+        except MethodIncompatibility as e:
+            raise ValueError(f"Variable {e} not found in data") from e
+        X = x_block.values
 
         # Store feature names for later use
         self._feature_names = x_names

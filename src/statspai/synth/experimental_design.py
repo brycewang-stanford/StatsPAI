@@ -23,6 +23,8 @@ concentrated donor weights, and pick the ``k`` best-fitted candidates.
 
 from __future__ import annotations
 
+import itertools
+import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -142,7 +144,12 @@ class SynthExperimentalDesignResult(ResultProtocolMixin):
                     f"  Loss (sum of MSPEs)    : {self.expected_variance:.6g}",
                     f"  Mean loss, random sets : {self.baseline_variance:.6g}",
                     f"  Sets searched          : {d.get('n_search')}"
-                    "  (random search, not a global optimum)",
+                    + (
+                        "  (all of them: the optimum)"
+                        if d.get("global_optimum")
+                        else f"  (random, then {d.get('n_exchanges')} exchanges; "
+                        "a local optimum)"
+                    ),
                 ]
             )
         lines = [
@@ -275,14 +282,48 @@ def _population_design(
 
     rng = np.random.default_rng(random_state)
     best: Optional[Tuple[float, np.ndarray, np.ndarray, np.ndarray, float]] = None
-    losses = np.empty(n_search)
-    for b in range(n_search):
-        treated = np.sort(rng.choice(cand_pos, size=k, replace=False))
+    n_sets = math.comb(len(cand_pos), k)
+    exhaustive = n_sets <= n_search
+    if exhaustive:
+        # Few enough sets to try them all: the result is the optimum.
+        trial_sets: Any = (
+            np.array(c) for c in itertools.combinations(sorted(cand_pos), k)
+        )
+        n_trials = n_sets
+    else:
+        trial_sets = (
+            np.sort(rng.choice(cand_pos, size=k, replace=False))
+            for _ in range(n_search)
+        )
+        n_trials = n_search
+    losses = np.empty(n_trials)
+    for b, treated in enumerate(trial_sets):
         loss, w, v, mse_t = evaluate(treated)
         losses[b] = loss
         if best is None or loss < best[0]:
             best = (loss, treated, w, v, mse_t)
     assert best is not None
+    n_swaps = 0
+    if not exhaustive:
+        # Local improvement: exchange one treated unit for one untreated
+        # candidate while that lowers the loss. Ends at a set no single
+        # exchange improves, which need not be the global optimum.
+        improved = True
+        while improved and n_swaps < 10 * k:
+            improved = False
+            current = best[1]
+            outside = np.setdiff1d(cand_pos, current)
+            for i in range(k):
+                for j in outside:
+                    trial = np.sort(np.append(np.delete(current, i), j))
+                    loss, w, v, mse_t = evaluate(trial)
+                    if loss < best[0] * (1 - 1e-10):
+                        best = (loss, trial, w, v, mse_t)
+                        improved = True
+                        break
+                if improved:
+                    n_swaps += 1
+                    break
     loss, treated, w, v, mse_t = best
     control = np.setdiff1d(all_pos, treated)
     treated_w = dict(zip([units[j] for j in treated], w))
@@ -319,7 +360,10 @@ def _population_design(
             "n_candidates": len(cand),
             "k": k,
             "T_pre": int(Y.shape[0]),
-            "n_search": n_search,
+            "n_search": n_trials,
+            "search": "exhaustive" if exhaustive else "random + exchange",
+            "global_optimum": bool(exhaustive),
+            "n_exchanges": n_swaps,
             "rmse_treated": float(np.sqrt(mse_t)),
             "rmse_control": float(np.sqrt(loss - mse_t)),
             "population_weights": population_weights,
@@ -399,15 +443,21 @@ def synth_experimental_design(
         market, not on the units that happen to be easy to predict. Units
         of the set that get zero weight are left out of ``selected``. The
         result holds both weight vectors in ``weights['treated']`` and
-        ``weights['control']``. It is a random search, so it returns a good
-        set, not the optimum; ``risk`` and ``concentration_weight`` are not
-        used.
+        ``weights['control']``. When there are at most ``n_search`` sets of
+        ``k`` candidates all of them are tried and the result is the
+        optimum (``diagnostics['global_optimum']``). Otherwise the best
+        random set is improved by exchanging one treated unit for one
+        untreated candidate until no exchange helps: a local optimum, not
+        the mixed-integer solution. ``risk`` and ``concentration_weight``
+        are not used.
     population_weights : str, optional
         For ``criterion='population'``: a column, constant within unit,
         whose shares define the population average (city population, say).
         Default: every unit counts equally.
     n_search : int, default 500
-        For ``criterion='population'``: number of random treated sets tried.
+        For ``criterion='population'``: number of random treated sets tried
+        before the exchange step, and the largest number of sets that is
+        enumerated in full.
 
     Returns
     -------
