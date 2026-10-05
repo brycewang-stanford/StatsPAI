@@ -1615,7 +1615,7 @@
    "result_sha256": "6b8f8134e984718f89686b5578dd33bddbf2cc34b3333ea1df524bb28baf1ac8"
   },
   "44_mlogit": {
-   "seconds": 0.8,
+   "seconds": 3.4,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1631,7 +1631,7 @@
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
     "src/statspai/regression/_ml_newton.py": "e5626a17164b838c322ef0188fe7c84c07fdd656c5764f2452f85a382332f66f",
     "src/statspai/regression/_optim_helpers.py": "76bcf9db70638ed2de92d1613943da8d070e08dc9f038ac2ca399bdbd7070ce6",
-    "src/statspai/regression/multinomial.py": "5e0600442acce7108c8032301b90a260cd037867d22e5781fdfd7452ee138e53"
+    "src/statspai/regression/multinomial.py": "32eaca40823558bb07e38a0375fb2556f9a3263732e5ee3b115c04e05addcc4b"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -1643,7 +1643,7 @@
    "result_sha256": "16727c2640336baad0717d3751df2862e0dae5f80885b52e8fbd868b0b924ed0"
   },
   "45_ologit": {
-   "seconds": 0.78,
+   "seconds": 3.42,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1659,7 +1659,7 @@
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
     "src/statspai/regression/_ml_newton.py": "e5626a17164b838c322ef0188fe7c84c07fdd656c5764f2452f85a382332f66f",
     "src/statspai/regression/_optim_helpers.py": "76bcf9db70638ed2de92d1613943da8d070e08dc9f038ac2ca399bdbd7070ce6",
-    "src/statspai/regression/multinomial.py": "5e0600442acce7108c8032301b90a260cd037867d22e5781fdfd7452ee138e53"
+    "src/statspai/regression/multinomial.py": "32eaca40823558bb07e38a0375fb2556f9a3263732e5ee3b115c04e05addcc4b"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -1671,7 +1671,7 @@
    "result_sha256": "916134c07e0ee1cd4b893e08c151429ed356f598decefec7696cbe33761ae8f7"
   },
   "46_clogit": {
-   "seconds": 0.7,
+   "seconds": 3.27,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1686,7 +1686,7 @@
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
     "src/statspai/regression/_optim_helpers.py": "76bcf9db70638ed2de92d1613943da8d070e08dc9f038ac2ca399bdbd7070ce6",
-    "src/statspai/regression/multinomial.py": "5e0600442acce7108c8032301b90a260cd037867d22e5781fdfd7452ee138e53"
+    "src/statspai/regression/multinomial.py": "32eaca40823558bb07e38a0375fb2556f9a3263732e5ee3b115c04e05addcc4b"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
@@ -1779,7 +1779,7 @@
    "result_sha256": "35f138670a66dba61c6a1e77e2e30758a687dc9a6120dae8bc37dba5575b2619"
   },
   "49_oprobit": {
-   "seconds": 0.74,
+   "seconds": 3.19,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1795,7 +1795,7 @@
     "src/statspai/postestimation/_covariance.py": "c17dfc2be8ea42d1f13a8801af8fad8d9fbbf3b0df0c5a13986692edc0ba4b2e",
     "src/statspai/regression/_ml_newton.py": "e5626a17164b838c322ef0188fe7c84c07fdd656c5764f2452f85a382332f66f",
     "src/statspai/regression/_optim_helpers.py": "76bcf9db70638ed2de92d1613943da8d070e08dc9f038ac2ca399bdbd7070ce6",
-    "src/statspai/regression/multinomial.py": "5e0600442acce7108c8032301b90a260cd037867d22e5781fdfd7452ee138e53"
+    "src/statspai/regression/multinomial.py": "32eaca40823558bb07e38a0375fb2556f9a3263732e5ee3b115c04e05addcc4b"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
