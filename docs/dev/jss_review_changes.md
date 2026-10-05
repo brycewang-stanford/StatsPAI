@@ -2085,3 +2085,25 @@ only the recorded source hashes move.
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after `sp.gam` and `sp.conformal_regression`
+
+- **Commits.** `ab3f96b8` re-recorded the entries of Track A modules 03 13 15
+  24 25 26 27 53 63 64 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and all 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `c41e6bfc`: `src/statspai/__init__.py` (three new
+  exports: `gam`, `GAMResult`, `conformal_regression`) and
+  `src/statspai/regression/zeroinflated.py` (the fitted-value vectors of
+  `sp.zip_model` / `sp.zinb` move from `diagnostics` to `data_info`).
+- **Reason.** Third round of the audit in
+  `docs/dev/2026-10-05-ding-linear-model-review.md`. No estimator on a
+  Track A path changed: `python tests/r_parity/verify_reproduce_py.py
+  --no-report` on the 12 modules reported 12 reproduce, 0 drift.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves to 1,361
+  registered functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
