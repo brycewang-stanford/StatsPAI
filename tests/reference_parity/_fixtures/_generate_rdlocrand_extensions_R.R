@@ -1,7 +1,9 @@
 # Reference values for the options of sp.rdrandinf / sp.rdwinselect /
 # sp.rddensity exercised by Cattaneo, Idrobo & Titiunik (2024), "A Practical
 # Introduction to Regression Discontinuity Designs: Extensions", against
-# R rdlocrand 2.0 and rddensity 2.6.
+# R rdlocrand 3.0 (rdpackages/rdlocrand, 2026-10-04) and rddensity 2.6.
+# 3.0 is on GitHub, not yet on CRAN; install it into a library of its own
+# (R CMD INSTALL -l <dir> R/rdlocrand) and run with R_LIBS=<dir>.
 #
 # Only deterministic quantities are pinned as equalities: observed
 # statistics, large-sample p-values, window counts, binomial p-values.
@@ -28,6 +30,20 @@ out$p1_eval    <- det(wl = -5, wr = 5, p = 1, evall = -2, evalr = 2)
 out$null3      <- det(wl = -5, wr = 5, nulltau = 3)
 out$ks_null3   <- det(wl = -5, wr = 5, nulltau = 3, statistic = "ksmirnov")
 out$placebo_c2 <- det(cutoff = 2, wl = 0.5, wr = 3.5)
+stopifnot(as.character(packageVersion("rdlocrand")) == "3.0")
+
+# ---- p > 0: the large-sample test under each HC variance (3.0; HC3 is the
+# ---- default, HC2 is what releases up to 2.0 used) ------------------------
+vce_cases <- list(
+  p1 = list(wl = -5, wr = 5, p = 1), p2 = list(wl = -5, wr = 5, p = 2),
+  tri_p1 = list(wl = -5, wr = 5, p = 1, kernel = "triangular"),
+  p1_null3 = list(wl = -5, wr = 5, p = 1, nulltau = 3),
+  p1_eval = list(wl = -5, wr = 5, p = 1, evall = -2, evalr = 2))
+out$vce <- lapply(c(hc1 = "HC1", hc2 = "HC2", hc3 = "HC3"), function(v)
+  lapply(vce_cases, function(a) {
+    o <- q(do.call(rdrandinf, c(list(Y, X, reps = 10, vce = v), a)))
+    list(asy_pvalue = unname(as.numeric(o$asy.pvalue)), se = unname(as.numeric(o$se)))
+  }))
 
 # ---- fuzzy: a deterministic take-up rule, so the fixture needs no RNG ----
 D <- as.numeric(X >= 0)
@@ -47,9 +63,12 @@ out$winselect_approx <- list(
   Nl = unname(r$results[, "Obs<c"]), Nr = unname(r$results[, "Obs>=c"]),
   w_right = unname(r$results[, "w_right"]), rec_left = r$w_left, rec_right = r$w_right
 )
-# rdwinselect(..., approx = TRUE, p = 1) is not pinned: rdlocrand 2.0 stops
-# with "subscript out of bounds" in its HC2 step on this data. The adjusted
-# statistic and its large-sample p-value are pinned through rdrandinf above.
+# rdwinselect(..., approx = TRUE, p = 1) stopped with "subscript out of
+# bounds" up to 2.0 and runs in 3.0.
+r <- q(rdwinselect(X, covs, wmin = 0.5, wstep = 0.25, nwindows = 12, approx = TRUE, p = 1))
+out$winselect_approx_p1 <- list(
+  p_value = unname(r$results[, "p-value"]), variable = unname(r$results[, "Variable"]),
+  Nl = unname(r$results[, "Obs<c"]), Nr = unname(r$results[, "Obs>=c"]))
 
 # ---- randomization p-values: mean over 60 seeds (a screen, not parity) ---
 z <- d$termshouse
@@ -59,7 +78,7 @@ bp <- ifelse(abs(X) <= 1, 0.5, NA)
 out$seedmean <- list(
   diffmeans = sm(), ranksum = sm(statistic = "ranksum"),
   triangular = sm(kernel = "triangular"), bernoulli = sm(bernoulli = bp),
-  p1 = sm(p = 1),
+  # no randomization p-value is computed for p > 0 from 3.0 on
   p1_asy = as.numeric(q(rdrandinf(z, X, wl = -1, wr = 1, p = 1))$asy.pvalue)
 )
 
@@ -76,8 +95,8 @@ out$interfci <- list(lower = mean(ic[1, ]), upper = mean(ic[2, ]),
                      sd_lower = sd(ic[1, ]), sd_upper = sd(ic[2, ]))
 
 # ---- wmasspoints on a score with three units per support point below the
-# ---- cutoff and two above. Stored as evidence, not as a target: the first
-# ---- window rdlocrand 2.0 returns has no observation below the cutoff.
+# ---- cutoff and two above. In 1.1 and 2.0 the first window had no
+# ---- observation below the cutoff; 3.0 restores the 1.0 sequence.
 Rm <- c(rep(-(1:10), each = 3), rep((0:9) + 0.5, each = 2))
 set.seed(3); Xm <- matrix(rnorm(50), 50, 1)
 r <- q(rdwinselect(Rm, Xm, wmasspoints = TRUE, nwindows = 4, approx = TRUE))

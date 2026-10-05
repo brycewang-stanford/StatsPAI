@@ -23,6 +23,11 @@ _SEED_NOTE = (
 )
 _STATISTICS = {"diffmeans", "ttest", "ksmirnov", "ranksum", "all"}
 _KERNELS = {"uniform", "triangular", "epan"}
+_VCE = {"hc1", "hc2", "hc3"}
+_VCE_NOTE = (
+    "p() > 0 without vce(): HC3, the default of rdlocrand 3.0. Releases up "
+    "to 2.0 used HC2; add vce(hc2) to reproduce a log from one of those."
+)
 
 
 def _float_numlist(text: str) -> Optional[List[float]]:
@@ -86,7 +91,7 @@ def _choice(
 
 
 def _h_rdrandinf(cmd: StataCommand) -> Dict[str, Any]:
-    """``rdrandinf y x, wl() wr() [cutoff() statistic() p() kernel() fuzzy()
+    """``rdrandinf y x, wl() wr() [cutoff() statistic() p() kernel() vce() fuzzy()
     nulltau() d() dscale() ci() bernoulli() reps() seed() evall() evalr()]``
     -> ``sp.rdrandinf``."""
     if len(cmd.varlist) != 2:
@@ -113,6 +118,9 @@ def _h_rdrandinf(cmd: StataCommand) -> Dict[str, Any]:
     _choice(opts, "statistic", _STATISTICS, args, lost)
     _number(opts, "p", args, lost, integer=True)
     _choice(opts, "kernel", _KERNELS, args, lost)
+    _choice(opts, "vce", _VCE, args, lost)
+    if args.get("p", 0) > 0 and "vce" not in args and "vce" not in lost:
+        notes.append(_VCE_NOTE)
     for name in ("nulltau", "d", "dscale", "evall", "evalr", "interfci"):
         _number(opts, name, args, lost)
     _number(opts, "reps", args, lost, key="n_perms", integer=True)
@@ -176,6 +184,9 @@ def _h_rdwinselect(cmd: StataCommand) -> Dict[str, Any]:
     _choice(opts, "statistic", (_STATISTICS - {"all"}) | {"hotelling"}, args, lost)
     _number(opts, "p", args, lost, integer=True)
     _choice(opts, "kernel", _KERNELS, args, lost)
+    _choice(opts, "vce", _VCE, args, lost)
+    if args.get("p", 0) > 0 and "vce" not in args and "vce" not in lost:
+        notes.append(_VCE_NOTE)
     _number(opts, "level", args, lost, key="alpha")
     _number(opts, "reps", args, lost, key="n_perms", integer=True)
     for flag in ("approx", "wasymmetric", "dropmissing", "wmasspoints"):
@@ -188,9 +199,9 @@ def _h_rdwinselect(cmd: StataCommand) -> Dict[str, Any]:
     if "wmin" not in args:
         notes.append(
             "Without wmin(), the first window is the smallest with obsmin "
-            "observations on each side, as in rdlocrand 1.0; releases 1.1 and "
-            "2.0 start one observation short on the left, so their default "
-            "sequence can differ."
+            "observations on each side, as in rdlocrand 1.0 and 3.0; releases "
+            "1.1 and 2.0 start one observation short on the left, so their "
+            "default sequence can differ."
         )
     out = _emit("rdwinselect", args, _call("rdwinselect", args), notes)
     out["untranslated_options"] = lost

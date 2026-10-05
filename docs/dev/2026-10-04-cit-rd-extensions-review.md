@@ -110,6 +110,47 @@ Checking against 1.0 also showed that StatsPAI's own
 large-sample KS p-value was wrong with ties (0.965 against 0.356): it is
 now the exact conditional p-value, as in R.
 
+## rdlocrand 3.0 (added 2026-10-05)
+
+The maintainers released 3.0 on 2026-10-04 (`rdpackages/rdlocrand`, not
+yet on CRAN). It was installed into a library of its own and every
+generator in `tests/reference_parity/_fixtures/` was rerun against it.
+
+| | 2.0 | 3.0 | StatsPAI |
+| --- | --- | --- | --- |
+| default first window holds `obsmin` on each side | no | yes | yes |
+| `wmasspoints`, k-th support point on each side | no | yes | yes |
+| KS randomization p-value on a binary variable | stuck at 1 | ok | ok |
+| `rdwinselect(approx, p = 1)` | error | runs | same numbers, 1e-9 |
+| large-sample p-value honours `nulltau` when `p = 1` | no | yes | yes |
+| randomization p-value when `p > 0` | label permutation | not computed | outcome permutation |
+| variance behind the large-sample test when `p > 0` | HC2 | HC1, HC2 or HC3, default HC3 | same three, default HC3 from 1.39.0 |
+
+What that means for the three departures above.
+
+- **D2 is closed.** `rdlocrand_v1_R.json` and the same script run under
+  3.0 (`rdlocrand_v3_R.json`) hold identical numbers, and
+  `test_rdlocrand_v1_parity.py` runs every check against both. StatsPAI's
+  windows are the current reference's windows.
+- **D3 is closed.** The `nulltau` and `rdwinselect(approx, p = 1)` rows
+  have reference numbers now and agree to 1e-9.
+- **D1 changed shape.** 3.0 no longer re-randomizes labels for `p > 0`; it
+  reports large-sample inference only. `sp.rdrandinf` reports the same
+  large-sample p-values and keeps its outcome-permutation p-value, which
+  now has no reference counterpart. Its evidence stays the level
+  simulation (4.7% at a nominal 5%).
+
+**One default moved.** 3.0 adds `vce = "HC1" | "HC2" | "HC3"` for `p > 0`
+with HC3 as the default; up to 2.0 the variance was HC2. StatsPAI added
+`vce=` to `sp.rdrandinf`, `sp.rdwinselect` and `sp.rdsensitivity` and
+follows the new default. The three variances agree with 3.0 to 7e-13 on
+five settings (`p = 1`, `p = 2`, triangular kernel, non-zero null,
+evaluation points away from the cutoff). On the Senate data, for `termshouse` with `p = 1`
+in [-1, 1] the large-sample p-value goes from 0.666 to 0.694;
+`vce='hc2'` returns the earlier one. Nothing changes when `p = 0`. The
+Stata translation reads `vce()` and, for `p() > 0` without it, says which
+release used which default.
+
 ## Left open
 
 Closed after the first pass, all on main: `sp.rdms` with several boundary

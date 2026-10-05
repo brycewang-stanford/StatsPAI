@@ -11,10 +11,10 @@ Three things live here so that ``rdrandinf``, ``rdwinselect`` and
 * the **randomization draws**, in bounded-memory chunks.
 * the **nested window sequence** used for window selection.
 
-Formulas were fixed against ``rdlocrand`` 2.0 by output only (its source is
-GPL and was not consulted): the observed statistics and large-sample
-p-values agree to 1e-13 on the U.S. Senate data for every kernel,
-polynomial order and evaluation point tried. See
+Formulas were fixed against ``rdlocrand`` 2.0 and then 3.0 by output only
+(its source is GPL and was not consulted): the observed statistics and
+large-sample p-values agree to 1e-12 on the U.S. Senate data for every
+kernel, polynomial order, evaluation point and HC variance tried. See
 ``tests/reference_parity/test_rdlocrand_extensions_parity.py``.
 """
 
@@ -116,7 +116,7 @@ def linear_functional(
     return g, lev
 
 
-def hc2_se(
+def hc_se(
     y: np.ndarray,
     xc: np.ndarray,
     t: np.ndarray,
@@ -124,8 +124,21 @@ def hc2_se(
     p: int,
     eval_left: float = 0.0,
     eval_right: float = 0.0,
+    vce: str = "hc2",
 ) -> float:
-    """HC2 standard error of ``g @ y``; Welch's SE when p = 0 and unweighted."""
+    """Heteroskedasticity-robust standard error of ``g @ y``.
+
+    ``g @ y`` is the difference of the two side-specific polynomial fits at
+    their evaluation points, which is the coefficient on treatment in the
+    regression of the outcome on treatment, the polynomial and their
+    interaction. That design is block-diagonal across the sides, so the
+    leverages are the side-specific ones. ``'hc2'`` divides each squared
+    residual by ``1 - h`` (Welch's standard error when ``p = 0`` and the
+    weights are equal), ``'hc3'`` by ``(1 - h)^2``, and ``'hc1'`` scales the
+    whole variance by ``n / (n - k)`` with ``k = 2 (p + 1)`` coefficients.
+    """
+    if vce not in ("hc1", "hc2", "hc3"):
+        raise MethodIncompatibility(f"vce must be 'hc1', 'hc2' or 'hc3', got {vce!r}")
     var = 0.0
     for side, ev in ((1, eval_right), (0, eval_left)):
         m = t == side
@@ -136,11 +149,33 @@ def hc2_se(
         resid = y[m] - X @ beta
         lev = np.einsum("ij,ij->i", X @ A, X) * ws
         denom = 1.0 - lev
-        if np.any(denom <= 1e-12):
+        if vce == "hc1":
+            scale = np.ones_like(denom)
+        elif np.any(denom <= 1e-12):
             return float("nan")
-        meat = (X * (ws**2 * resid**2 / denom)[:, None]).T @ X
+        else:
+            scale = 1.0 / denom if vce == "hc2" else 1.0 / denom**2
+        meat = (X * (ws**2 * resid**2 * scale)[:, None]).T @ X
         var += float((A @ meat @ A)[0, 0])
+    if vce == "hc1":
+        n, k = int(y.shape[0]), 2 * (p + 1)
+        if n <= k:
+            return float("nan")
+        var *= n / (n - k)
     return float(np.sqrt(var))
+
+
+def hc2_se(
+    y: np.ndarray,
+    xc: np.ndarray,
+    t: np.ndarray,
+    w: np.ndarray,
+    p: int,
+    eval_left: float = 0.0,
+    eval_right: float = 0.0,
+) -> float:
+    """HC2 standard error of ``g @ y``; Welch's SE when p = 0 and unweighted."""
+    return hc_se(y, xc, t, w, p, eval_left, eval_right, "hc2")
 
 
 def ranksum_from_labels(ranks: np.ndarray, labels: np.ndarray) -> np.ndarray:

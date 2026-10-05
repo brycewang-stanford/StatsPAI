@@ -1,15 +1,16 @@
-"""``sp.rdwinselect`` against rdlocrand 1.0, the release before two
-window-construction regressions.
+"""``sp.rdwinselect`` against rdlocrand 1.0 and 3.0, the releases on
+either side of two window-construction regressions.
 
-Running the same checks on four CRAN releases (0.9, 1.0, 1.1, 2.0):
+Running the same checks on four CRAN releases (0.9, 1.0, 1.1, 2.0) and on
+3.0 (rdpackages/rdlocrand, 2026-10-04):
 
-=========================================  ====  ====  ====  ====
-                                           0.9   1.0   1.1   2.0
-=========================================  ====  ====  ====  ====
-default first window holds ``obsmin``      yes   yes   no    no
-``wmasspoints``: k-th point on each side   yes   yes   no    no
-KS randomization p-value, binary variable  ok    ok    ok    1.0
-=========================================  ====  ====  ====  ====
+=========================================  ====  ====  ====  ====  ====
+                                           0.9   1.0   1.1   2.0   3.0
+=========================================  ====  ====  ====  ====  ====
+default first window holds ``obsmin``      yes   yes   no    no    yes
+``wmasspoints``: k-th point on each side   yes   yes   no    no    yes
+KS randomization p-value, binary variable  ok    ok    ok    1.0   ok
+=========================================  ====  ====  ====  ====  ====
 
 From 1.1 the first window holds ``obsmin - 1`` observations below the
 cutoff and ``wmasspoints`` pairs the k-th support point above the cutoff
@@ -17,13 +18,13 @@ with the (k-1)-th below, so its first window is empty on the left (also
 reported, on the read-only CRAN mirror, as cran/rdlocrand issue 1). From
 2.0 the Kolmogorov-Smirnov randomization p-value is 1 on a binary variable.
 The help page and Cattaneo, Idrobo & Titiunik (2024) describe what 1.0
-does, so 1.0 is the reference here and the agreement is same-bytes parity
-at 1e-9, not a documented divergence. The 2.0 fixture
-(``rdlocrand_extensions_R.json``) covers everything those regressions do
-not touch.
+does, and 3.0 restores it: the two releases write the same numbers for
+every check below, so each test runs against both and the agreement is
+same-bytes parity at 1e-9, not a documented divergence.
 
-Fixture: ``_fixtures/_generate_rdlocrand_v1_R.R`` (needs the archived 1.0
-tarball installed in a library of its own; the script says how).
+Fixtures: ``_fixtures/_generate_rdlocrand_v1_R.R`` writes
+``rdlocrand_v1_R.json`` under 1.0 and ``rdlocrand_v3_R.json`` under 3.0
+(each installed in a library of its own; the script says how).
 """
 
 from __future__ import annotations
@@ -47,14 +48,25 @@ RTOL = 1e-9
 _COVS = ["class", "termshouse", "termssenate"]
 
 
-@pytest.fixture(scope="module")
-def v1():
-    path = _FIX / "rdlocrand_v1_R.json"
+@pytest.fixture(scope="module", params=["1.0", "3.0"])
+def v1(request):
+    """The reference numbers of one release (1.0, then 3.0)."""
+    path = _FIX / f"rdlocrand_v{request.param[0]}_R.json"
     if not path.exists():  # pragma: no cover
         pytest.skip("run _generate_rdlocrand_v1_R.R to build the fixture")
     out = json.loads(path.read_text(encoding="utf-8"))
-    assert out["_meta"]["rdlocrand_version"] == "1.0"
+    assert out["_meta"]["rdlocrand_version"] == request.param
     return out
+
+
+def test_3_0_writes_the_numbers_1_0_wrote():
+    """Not only within tolerance: the two fixtures hold the same values."""
+    a, b = (
+        json.loads((_FIX / f"rdlocrand_v{v}_R.json").read_text(encoding="utf-8"))
+        for v in "13"
+    )
+    a.pop("_meta"), b.pop("_meta")
+    assert a == b
 
 
 @pytest.fixture(scope="module")

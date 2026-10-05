@@ -52057,6 +52057,16 @@
             "description": "Test statistic: 'diffmeans', 'ksmirnov', 'ranksum', or 'all'. ``'ttest'`` is accepted as an alias for ``'diffmeans'``, matching rdlocrand, where both names select the same statistic. The rank and Kolmogorov-Smirnov statistics need ``p=0`` and the uniform kernel.",
             "type": "string"
           },
+          "vce": {
+            "default": "hc3",
+            "description": "Variance of the large-sample test when ``p > 0``: the heteroskedasticity-robust standard error of the regression of the outcome on treatment, the polynomial and their interaction. The default is the one of ``rdlocrand`` 3.0. Ignored when ``p = 0``, where the standard error is the HC2 one (Welch's with a uniform kernel). .. versionchanged:: 1.39.0 WARNING The large-sample p-value, standard error and power for ``p > 0`` used HC2, as ``rdlocrand`` up to 2.0 did. The reference moved to HC3 in 3.0 and so does the default here; ``vce='hc2'`` gives the earlier numbers.",
+            "enum": [
+              "hc3",
+              "hc2",
+              "hc1"
+            ],
+            "type": "string"
+          },
           "wl": {
             "description": "Left and right endpoints of the window, on the scale of the running variable (so ``wl <= c <= wr``). Use :func:`rdwinselect` to choose a window from covariate balance.",
             "type": "number"
@@ -52231,7 +52241,7 @@
           },
           "dropmissing": {
             "default": false,
-            "description": "Drop rows with a missing covariate before the windows are built. By default the windows are built on every row with an observed score and incomplete rows are dropped inside each window.",
+            "description": "Drop rows with a missing covariate before the windows are built.",
             "type": "boolean"
           },
           "kernel": {
@@ -52267,6 +52277,16 @@
           "statistic": {
             "default": "diffmeans",
             "description": "Balance statistic: 'diffmeans' (alias 'ttest'), 'ksmirnov', 'ranksum', or 'hotelling'. The first three test each covariate and report the smallest p-value; 'hotelling' is one joint test of all covariates (Hotelling's T-squared), so ``variable`` is empty.",
+            "type": "string"
+          },
+          "vce": {
+            "default": "hc3",
+            "description": "Variance of the large-sample balance tests when ``p > 0``; see :func:`rdrandinf`. Ignored when ``p = 0``. By default the windows are built on every row with an observed score and incomplete rows are dropped inside each window.",
+            "enum": [
+              "hc3",
+              "hc2",
+              "hc1"
+            ],
             "type": "string"
           },
           "wasymmetric": {
@@ -52458,6 +52478,16 @@
           "statistic": {
             "default": "diffmeans",
             "description": "Test statistic for inference.",
+            "type": "string"
+          },
+          "vce": {
+            "default": "hc3",
+            "description": "Variance of the large-sample test when ``p > 0``; see :func:`rdrandinf`.",
+            "enum": [
+              "hc3",
+              "hc2",
+              "hc1"
+            ],
             "type": "string"
           },
           "wlist": {

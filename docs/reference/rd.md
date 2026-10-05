@@ -54,9 +54,12 @@ test on its own.
 `sp.rdrandinf` reports the randomization p-value, the large-sample one
 (`model_info['pvalue_asymptotic']`), the power against `d`
 (`model_info['power']`) and an interval from inverting the test (`ci=`
-takes the grid of effects to test). With `p > 0` the randomization
-p-value is built by permuting outcomes against the scores, which differs
-from `rdlocrand`; the function's Notes give the reason.
+takes the grid of effects to test). With `p > 0` the large-sample p-value
+uses the variance `vce=` selects (`'hc1'`, `'hc2'` or `'hc3'`, default
+`'hc3'` as in `rdlocrand` 3.0), and the randomization p-value is built by
+permuting outcomes against the scores. `rdlocrand` 3.0 reports no
+randomization p-value in that case; the function's Notes give the reason
+StatsPAI keeps one.
 
 ## Multiple cutoffs and multiple scores
 

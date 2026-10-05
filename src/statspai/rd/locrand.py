@@ -318,6 +318,23 @@ def _tsls_wald(
     return float(beta[1]), float(np.sqrt(V[1, 1])), first_stage
 
 
+def _resolve_vce(vce: str, p: int) -> str:
+    """The variance of the large-sample test: ``vce`` when ``p > 0``.
+
+    Without polynomial adjustment the statistic is a difference in
+    (weighted) means and its standard error is the HC2 one, Welch's with
+    equal weights, whatever ``vce`` says: ``rdlocrand`` ignores the option
+    there too.
+    """
+    key = str(vce).lower()
+    if key not in ("hc1", "hc2", "hc3"):
+        raise MethodIncompatibility(
+            f"vce must be 'hc1', 'hc2' or 'hc3', got {vce!r}.",
+            diagnostics={"vce": repr(vce)},
+        )
+    return key if p > 0 else "hc2"
+
+
 def _randomization_test(
     y: np.ndarray,
     xc: np.ndarray,
@@ -336,6 +353,7 @@ def _randomization_test(
     ci_grid: Optional[np.ndarray],
     alpha: float,
     keep_draws: bool = False,
+    vce: str = "hc2",
 ) -> Dict[str, Any]:
     """Observed statistics, randomization p-values and the inverted interval.
 
@@ -358,7 +376,7 @@ def _randomization_test(
     n = y.shape[0]
     w = _lr.kernel_weights(xc, z, bw[0], bw[1], kernel)
     g, _ = _lr.linear_functional(xc, z, w, p, evals[0], evals[1])
-    se = _lr.hc2_se(y, xc, z, w, p, evals[0], evals[1])
+    se = _lr.hc_se(y, xc, z, w, p, evals[0], evals[1], vce)
     labels_scheme = p == 0
     y0 = y - nulltau * shift
 
@@ -489,6 +507,7 @@ def rdrandinf(
     evall: Optional[float] = None,
     evalr: Optional[float] = None,
     interfci: Optional[float] = None,
+    vce: str = "hc3",
 ) -> CausalResult:
     """
     Randomization inference for regression discontinuity designs.
@@ -590,6 +609,19 @@ def rdrandinf(
         distribution, and covers the difference between the statistic and
         what it would have been had no unit been treated. Needs ``p=0``
         and a sharp design.
+    vce : {'hc3', 'hc2', 'hc1'}, default 'hc3'
+        Variance of the large-sample test when ``p > 0``: the
+        heteroskedasticity-robust standard error of the regression of the
+        outcome on treatment, the polynomial and their interaction. The
+        default is the one of ``rdlocrand`` 3.0. Ignored when ``p = 0``,
+        where the standard error is the HC2 one (Welch's with a uniform
+        kernel).
+
+        .. versionchanged:: 1.39.0
+           ⚠️ The large-sample p-value, standard error and power for
+           ``p > 0`` used HC2, as ``rdlocrand`` up to 2.0 did. The
+           reference moved to HC3 in 3.0 and so does the default here;
+           ``vce='hc2'`` gives the earlier numbers.
 
     Returns
     -------
@@ -611,7 +643,7 @@ def rdrandinf(
     not: the statistic extrapolates each side's fit to the cutoff, and its
     randomization distribution has to be built from the same
     extrapolation. For ``p > 0`` this function therefore permutes outcomes
-    against (score, assignment) pairs. ``rdlocrand`` 2.0 produces
+    against (score, assignment) pairs. ``rdlocrand`` up to 2.0 produced
     much smaller p-values for ``p > 0``; on a design with no effect, 40
     observations and ``p = 1``, re-randomizing labels with the scores held
     fixed rejects a true null 37% of the time at the 5% level, against 4.7%
@@ -619,9 +651,11 @@ def rdrandinf(
     The observed statistic and the large-sample p-value agree with
     ``rdlocrand`` to 1e-13.
 
-    The large-sample p-value uses the HC2 variance of the side-specific
-    fits (Welch's standard error when ``p = 0``) and the normal
-    distribution.
+    The large-sample p-value uses the normal distribution and the
+    variance ``vce`` selects (HC2, Welch's standard error, when
+    ``p = 0``). With ``p > 0`` ``rdlocrand`` 3.0 reports this p-value only
+    and no longer computes a randomization p-value; the one reported here
+    is the outcome-permutation p-value described above.
 
     References
     ----------
@@ -650,6 +684,7 @@ def rdrandinf(
     True
     """
     rng = np.random.default_rng(seed)
+    vce_used = _resolve_vce(vce, int(p))
     wl_value, wr_value = _window_bounds(c, wl, wr)
     kernel = _lr.canonical_kernel(kernel)
     p = int(p)
@@ -739,7 +774,7 @@ def rdrandinf(
     w_kern = _lr.kernel_weights(xv - c, z, bw[0], bw[1], kernel)
     g, _ = _lr.linear_functional(xv - c, z, w_kern, p, evals[0], evals[1])
     itt = float(g @ yv)
-    se_itt = _lr.hc2_se(yv, xv - c, z, w_kern, p, evals[0], evals[1])
+    se_itt = _lr.hc_se(yv, xv - c, z, w_kern, p, evals[0], evals[1], vce_used)
 
     # --- interval grid ---
     if ci is False:
@@ -778,6 +813,7 @@ def rdrandinf(
         ci_grid=grid,
         alpha=alpha,
         keep_draws=interfci is not None,
+        vce=vce_used,
     )
     y0 = yv - float(nulltau) * shift
     results = {}
@@ -810,6 +846,7 @@ def rdrandinf(
         "n_draws": test["n_draws"],
         "randomization": "bernoulli" if prob is not None else "fixed margins",
         "nulltau": float(nulltau),
+        "vce": vce_used if p > 0 else None,
         "covariates": covs,
         "results_by_stat": results,
         "pvalue_permutation": results[primary]["pvalue_permutation"],
@@ -953,6 +990,7 @@ def rdwinselect(
     kernel: str = "uniform",
     dropmissing: bool = False,
     wmasspoints: bool = False,
+    vce: str = "hc3",
 ) -> pd.DataFrame:
     """
     Data-driven window selection for local randomization RD.
@@ -1023,6 +1061,9 @@ def rdwinselect(
     kernel : str, default 'uniform'
     dropmissing : bool, default False
         Drop rows with a missing covariate before the windows are built.
+    vce : {'hc3', 'hc2', 'hc1'}, default 'hc3'
+        Variance of the large-sample balance tests when ``p > 0``; see
+        :func:`rdrandinf`. Ignored when ``p = 0``.
         By default the windows are built on every row with an observed
         score and incomplete rows are dropped inside each window.
     wmasspoints : bool, default False
@@ -1044,13 +1085,14 @@ def rdwinselect(
     Notes
     -----
     The window sequences, counts, binomial p-values and large-sample
-    balance p-values agree with ``rdlocrand`` 1.0 to 1e-9, mass-point
-    windows included (``tests/reference_parity/test_rdlocrand_v1_parity.py``).
-    Releases 1.1 and 2.0 start the default sequence one observation short
-    below the cutoff (9 with ``obsmin = 10`` on the Senate data) and shift
-    the left edge of mass-point windows by one support point; the help page
-    and Cattaneo, Idrobo and Titiunik (2024, Snippet 2.5) describe what 1.0
-    does. With ``wmin=`` and ``wstep=`` all releases agree.
+    balance p-values agree with ``rdlocrand`` 1.0 and 3.0 to 1e-9,
+    mass-point windows included
+    (``tests/reference_parity/test_rdlocrand_v1_parity.py``). Releases 1.1
+    and 2.0 start the default sequence one observation short below the
+    cutoff (9 with ``obsmin = 10`` on the Senate data) and shift the left
+    edge of mass-point windows by one support point; the help page and
+    Cattaneo, Idrobo and Titiunik (2024, Snippet 2.5) describe what 1.0
+    and 3.0 do. With ``wmin=`` and ``wstep=`` all releases agree.
 
     References
     ----------
@@ -1077,6 +1119,7 @@ def rdwinselect(
     True
     """
     rng = np.random.default_rng(seed)
+    vce_used = _resolve_vce(vce, int(p))
     if statistic == "ttest":
         statistic = "diffmeans"
     if statistic not in _WINSELECT_STATS:
@@ -1183,6 +1226,7 @@ def rdwinselect(
                     approx=approx,
                     n_perms=n_perms,
                     rng=rng,
+                    vce=vce_used,
                 )
                 if np.isfinite(pval) and pval < best:
                     best, best_name = pval, cv
@@ -1243,6 +1287,7 @@ def _balance_pvalue(
     approx: bool,
     n_perms: int,
     rng: np.random.Generator,
+    vce: str = "hc2",
 ) -> float:
     """Balance p-value for one covariate in one window; NaN if constant."""
     if np.ptp(vals) < 1e-14:
@@ -1258,7 +1303,7 @@ def _balance_pvalue(
             if statistic != "diffmeans":
                 return _asymptotic_pvalue(vals, z, statistic)[1]
             g, _ = _lr.linear_functional(xc, z, w, p)
-            se = _lr.hc2_se(vals, xc, z, w, p)
+            se = _lr.hc_se(vals, xc, z, w, p, 0.0, 0.0, vce)
             return _asymptotic_for("diffmeans", vals, z, float(g @ vals), se)
         test = _randomization_test(
             vals,
@@ -1276,6 +1321,7 @@ def _balance_pvalue(
             nulltau=0.0,
             ci_grid=None,
             alpha=0.05,
+            vce=vce,
         )
     except ValueError:
         # The polynomial is not identified in this window for this
@@ -1297,6 +1343,7 @@ def rdsensitivity(
     seed: int = 42,
     alpha: float = 0.05,
     plot: bool = False,
+    vce: str = "hc3",
 ) -> pd.DataFrame:
     """
     Sensitivity of RD estimates across different window widths.
@@ -1330,6 +1377,9 @@ def rdsensitivity(
         Random seed.
     alpha : float, default 0.05
         Significance level.
+    vce : {'hc3', 'hc2', 'hc1'}, default 'hc3'
+        Variance of the large-sample test when ``p > 0``; see
+        :func:`rdrandinf`.
 
     Returns
     -------
@@ -1411,6 +1461,7 @@ def rdsensitivity(
                 n_perms=n_perms,
                 alpha=alpha,
                 seed=seed,
+                vce=vce,
             )
             rows.append(
                 {

@@ -4,8 +4,8 @@ The options exercised by Cattaneo, Idrobo & Titiunik (2024), *A Practical
 Introduction to Regression Discontinuity Designs: Extensions*: kernels,
 polynomial adjustment, a non-zero null, Bernoulli assignment, fuzzy designs,
 test-inversion intervals, window selection and the binomial tests of
-``rddensity``. Reference: R ``rdlocrand`` 2.0 and ``rddensity`` 2.6
-(``_fixtures/_generate_rdlocrand_extensions_R.R``).
+``rddensity``. Reference: R ``rdlocrand`` 3.0 (2026-10-04) and
+``rddensity`` 2.6 (``_fixtures/_generate_rdlocrand_extensions_R.R``).
 
 Evidence, by kind
 -----------------
@@ -14,23 +14,24 @@ Evidence, by kind
 * **S, stochastic screen.** A randomization p-value is an RNG draw. The
   mean over 60 seeds is compared with R's mean over its own 60 seeds; the
   tolerance is stated in the test. This is a screen, not parity.
-* **T4, documented divergence, with independent evidence.** Two places:
+* **One thing the reference no longer computes.** With polynomial
+  adjustment (``p > 0``) releases up to 2.0 re-randomized treatment labels
+  with the scores held fixed. The observed statistic extrapolates each
+  side's fit to the cutoff; a relabelled sample fits through the interior.
+  On data with no effect that test rejects far above its level
+  (``test_label_permutation_overrejects_with_p1``). Release 3.0 dropped the
+  randomization p-value for ``p > 0`` and reports large-sample inference
+  only, under HC1, HC2 or HC3 (default HC3). ``sp.rdrandinf`` reports the
+  same large-sample p-values, to 1e-9 for each of the three, and also keeps
+  a randomization p-value that permutes outcomes against (score,
+  assignment) pairs, which holds its level
+  (``test_rdrandinf_p1_holds_its_level``). That p-value has no reference
+  counterpart; its evidence is the level simulation.
 
-  1. *Polynomial adjustment* (``p > 0``). ``rdlocrand`` re-randomizes
-     treatment labels with the scores held fixed. The observed statistic
-     extrapolates each side's fit to the cutoff; a relabelled sample fits
-     through the interior. On data with no effect that test rejects far
-     above its level (``test_label_permutation_overrejects_with_p1``),
-     while permuting outcomes against (score, assignment) pairs holds it
-     (``test_rdrandinf_p1_holds_its_level``). The statistic and the
-     large-sample p-value still agree with R to 1e-9.
-  2. *The default windows of* ``rdwinselect``. ``rdlocrand`` 1.1 and 2.0
-     start one observation short on the left of the cutoff, and shift the
-     left edge of mass-point windows by one support point. Release 1.0
-     does what the documentation and the book (Snippet 2.5) describe, and
-     ``sp.rdwinselect`` matches it to 1e-9: that evidence is T2 and lives
-     in ``test_rdlocrand_v1_parity.py``. In this file, written against
-     2.0, the windows are given explicitly.
+The two window regressions of 1.1 and 2.0 (first default window one
+observation short on the left, mass-point windows shifted by one support
+point) are fixed in 3.0, so the windows StatsPAI builds are now the
+reference's own: see ``test_rdlocrand_v1_parity.py``.
 """
 
 from __future__ import annotations
@@ -103,11 +104,102 @@ def test_observed_statistic_matches_r(rjson, senate, case):
 
 @pytest.mark.parametrize("case", sorted(_CASES))
 def test_large_sample_pvalue_matches_r(rjson, senate, case):
-    """HC2 variance of the side-specific weighted fits, normal reference."""
+    """Default variance (HC3 when ``p > 0``), normal reference."""
     res = _fit(senate, **_CASES[case])
     assert res.model_info["pvalue_asymptotic"] == pytest.approx(
         rjson[case]["asy_pvalue"], rel=RTOL
     )
+
+
+_VCE_CASES = {
+    "p1": dict(p=1),
+    "p2": dict(p=2),
+    "tri_p1": dict(p=1, kernel="triangular"),
+    "p1_null3": dict(p=1, nulltau=3),
+    "p1_eval": dict(p=1, evall=-2, evalr=2),
+}
+
+
+@pytest.mark.parametrize("vce", ["hc1", "hc2", "hc3"])
+@pytest.mark.parametrize("case", sorted(_VCE_CASES))
+def test_each_hc_variance_matches_r(rjson, senate, vce, case):
+    """HC1 / HC2 / HC3 of the side-specific weighted fits (rdlocrand 3.0)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.rdrandinf(
+            senate,
+            y="vote",
+            x="margin",
+            wl=-5,
+            wr=5,
+            vce=vce,
+            n_perms=10,
+            seed=1,
+            ci=False,
+            **_VCE_CASES[case],
+        )
+    ref = rjson["vce"][vce][case]
+    assert res.model_info["vce"] == vce
+    assert res.model_info["pvalue_asymptotic"] == pytest.approx(
+        ref["asy_pvalue"], rel=RTOL
+    )
+
+
+def test_hc2_is_what_releases_up_to_2_0_reported(senate):
+    """rdlocrand 2.0, ``rdrandinf(termshouse, X, wl=-1, wr=1, p=1)``."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.rdrandinf(
+            senate,
+            y="termshouse",
+            x="margin",
+            wl=-1,
+            wr=1,
+            p=1,
+            vce="hc2",
+            n_perms=10,
+            seed=1,
+            ci=False,
+        )
+    assert res.model_info["pvalue_asymptotic"] == pytest.approx(
+        _RDLOCRAND_2_0_P1_ASY, rel=RTOL
+    )
+
+
+def test_vce_is_ignored_without_polynomial_adjustment(senate):
+    kw = dict(y="vote", x="margin", wl=-5, wr=5, seed=1, ci=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        a = sp.rdrandinf(senate, vce="hc1", **kw)
+        b = sp.rdrandinf(senate, vce="hc3", **kw)
+    assert a.model_info["pvalue_asymptotic"] == b.model_info["pvalue_asymptotic"]
+    assert a.pvalue == b.pvalue
+
+
+def test_unknown_vce_is_refused(senate):
+    with pytest.raises(sp.MethodIncompatibility, match="vce"):
+        sp.rdrandinf(senate, y="vote", x="margin", wl=-5, wr=5, vce="hc4")
+
+
+def test_winselect_large_sample_balance_with_p1_matches_r(rjson, senate):
+    """``approx=TRUE, p=1`` stopped with an error up to 2.0; 3.0 runs it."""
+    ref = rjson["winselect_approx_p1"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        out = sp.rdwinselect(
+            senate,
+            x="margin",
+            covs=_COVS,
+            wmin=0.5,
+            wstep=0.25,
+            nwindows=12,
+            approx=True,
+            p=1,
+        )
+    assert out["n_left"].tolist() == ref["Nl"]
+    assert out["n_right"].tolist() == ref["Nr"]
+    np.testing.assert_allclose(out["p_value"], ref["p_value"], rtol=RTOL)
+    assert out["variable"].tolist() == [_COVS[i - 1] for i in ref["variable"]]
 
 
 def test_kolmogorov_smirnov_under_a_nonzero_null(rjson, senate):
@@ -279,8 +371,9 @@ def test_label_permutation_overrejects_with_p1():
     The independent evidence for the divergence: the observed statistic is
     a boundary extrapolation, the relabelled ones are interior fits with a
     quarter of its variance, so a true null is rejected several times too
-    often. R's seed-mean p-value for p = 1 sits far below its own
-    large-sample p-value for the same reason (fixture ``seedmean``).
+    often. The 60-seed mean of rdlocrand 2.0's p = 1 randomization p-value
+    sat far below its own large-sample p-value for the same reason
+    (``test_rdlocrand_2_0_p1_randomization_pvalue_departed_from_its_own``).
     """
 
     def intercept_gap(y, x, t):
@@ -305,10 +398,22 @@ def test_label_permutation_overrejects_with_p1():
     assert reject / n_sim > 0.20
 
 
-def test_reference_p1_randomization_pvalue_departs_from_its_own_asymptotic(rjson):
-    """The same thing, read off the reference's own numbers."""
-    sm = rjson["seedmean"]
-    assert sm["p1"] < 0.5 * sm["p1_asy"]
+# rdlocrand 2.0 (CRAN), rdrandinf(termshouse, X, wl = -1, wr = 1, p = 1) on
+# the senate data: mean randomization p-value over seeds 1..60 with reps = 1000,
+# and the large-sample p-value (HC2). Recorded from the 2.0 run of
+# _generate_rdlocrand_extensions_R.R before the fixture moved to 3.0, which
+# no longer computes the first number.
+_RDLOCRAND_2_0_P1_SEEDMEAN = 0.2612166666666667
+_RDLOCRAND_2_0_P1_ASY = 0.6660971685565995
+
+
+def test_rdlocrand_2_0_p1_randomization_pvalue_departed_from_its_own():
+    """The same thing, read off the 2.0 reference's own numbers."""
+    assert _RDLOCRAND_2_0_P1_SEEDMEAN < 0.5 * _RDLOCRAND_2_0_P1_ASY
+
+
+def test_reference_no_longer_reports_a_p1_randomization_pvalue(rjson):
+    assert "p1" not in rjson["seedmean"]
 
 
 def test_p1_randomization_pvalue_tracks_the_large_sample_one(rjson, senate):
@@ -438,7 +543,7 @@ def test_recommended_window_is_the_last_before_balance_fails(senate):
 
 
 def test_first_window_holds_obsmin_on_each_side(senate):
-    """The documented rule, and where rdlocrand 2.0 departs from it."""
+    """The documented rule (rdlocrand 1.0 and 3.0; 1.1 and 2.0 fell short)."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         out = sp.rdwinselect(senate, x="margin", covs=_COVS, wobs=2, approx=True)
@@ -614,18 +719,17 @@ def test_mass_point_windows_take_one_support_point_per_side_per_step():
     assert out["n_right"].tolist() == [2, 4, 6, 8]
 
 
-def test_reference_first_mass_point_window_is_empty_on_the_left(rjson):
-    """Why the reference's sequence is not the target here.
+def test_reference_mass_point_windows_are_the_same(rjson):
+    """rdlocrand 3.0 pairs the k-th support point on each side, as 1.0 did.
 
-    rdlocrand 2.0 pairs the k-th support point on the right with the
-    (k-1)-th on the left, so its first window is [0.5, 0.5] with nothing
-    below the cutoff and no balance test can be run in it. From the second
-    window on its left edge is one support point behind.
+    In 1.1 and 2.0 the k-th point on the right was paired with the (k-1)-th
+    on the left, so the first window was [0.5, 0.5] with nothing below the
+    cutoff.
     """
     ref = rjson["masspoints_toy"]
-    assert ref["Nl"][0] == 0 and ref["w_left"][0] == ref["w_right"][0]
-    assert ref["w_left"][1:] == [-1, -2, -3]
-    assert ref["w_right"][1:] == [1.5, 2.5, 3.5]
+    assert ref["w_left"] == [-1, -2, -3, -4]
+    assert ref["w_right"] == [0.5, 1.5, 2.5, 3.5]
+    assert ref["Nl"] == [3, 6, 9, 12] and ref["Nr"] == [2, 4, 6, 8]
 
 
 def test_mass_point_windows_refuse_count_based_options():

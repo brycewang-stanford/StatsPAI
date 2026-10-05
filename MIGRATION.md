@@ -5,6 +5,19 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.rdrandinf` / `sp.rdwinselect` / `sp.rdsensitivity` with `p > 0` use HC3
+
+`rdlocrand` 3.0 (2026-10-04) moved the variance behind its large-sample
+test for polynomial-adjusted statistics from HC2 to HC3 and added a `vce`
+argument. StatsPAI follows the reference. Large-sample p-values, standard
+errors and the default grid of `ci=True` change for calls with `p > 0`.
+Calls with `p = 0` are unchanged.
+
+```python
+sp.rdrandinf(df, y="y", x="x", wl=-1, wr=1, p=1)              # HC3 now
+sp.rdrandinf(df, y="y", x="x", wl=-1, wr=1, p=1, vce="hc2")   # as before
+```
+
 ## 1.38.0 → next: ⚠️ `sp.arima` estimates a constant when the series is not differenced
 <a id="oct2026-syllabus-fixes"></a>
 

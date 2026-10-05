@@ -81,6 +81,32 @@ def test_rdrandinf_unknown_option_is_reported():
     assert out["untranslated_options"] == ["firststage"]
 
 
+@pytest.mark.parametrize(
+    "command", ["rdrandinf Y X, wl(-1) wr(1)", "rdwinselect X Z, approx"]
+)
+def test_vce_is_carried_over_with_polynomial_adjustment(command):
+    """rdlocrand 3.0: vce(hc1 | hc2 | hc3), any case, for p() > 0."""
+    out = _t(command + " p(1) vce(HC2)")
+    assert out["arguments"]["vce"] == "hc2" and out["arguments"]["p"] == 1
+    assert out["untranslated_options"] == []
+    assert not any("HC3" in n for n in out["notes"])
+
+
+@pytest.mark.parametrize(
+    "command", ["rdrandinf Y X, wl(-1) wr(1)", "rdwinselect X Z, approx"]
+)
+def test_p_without_vce_says_which_release_used_which_default(command):
+    out = _t(command + " p(1)")
+    assert "vce" not in out["arguments"]
+    assert any("HC3" in n and "vce(hc2)" in n for n in out["notes"])
+    assert not any("HC3" in n for n in _t(command + " wmin(1)")["notes"])
+
+
+def test_vce_that_is_not_an_hc_estimator_is_reported():
+    out = _t("rdrandinf Y X, wl(-1) wr(1) p(1) vce(cluster id)")
+    assert out["untranslated_options"] == ["vce"]
+
+
 def test_rdrandinf_interference_interval():
     out = _t("rdrandinf Y X, wl(-1) wr(1) interfci(0.05)")
     assert out["arguments"]["interfci"] == 0.05

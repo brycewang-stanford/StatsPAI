@@ -4,6 +4,38 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `rdlocrand` 3.0
+
+The maintainers of `rdlocrand` released 3.0 on 2026-10-04. Every reference
+fixture was regenerated against it. The window sequences StatsPAI already
+built (those of release 1.0) are the ones 3.0 returns, to the last digit.
+Notes are in `docs/dev/2026-10-04-cit-rd-extensions-review.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.rdrandinf`, `sp.rdwinselect` and `sp.rdsensitivity` with `p > 0`
+  use HC3 for the large-sample test; they used HC2.** `rdlocrand` 3.0 added
+  `vce = "HC1" | "HC2" | "HC3"` with HC3 as the default, and the same
+  argument is new here (`vce='hc1' | 'hc2' | 'hc3'`). All three agree with
+  3.0 to 7e-13 across polynomial orders, kernels, a non-zero null and
+  evaluation points away from the cutoff. On the U.S. Senate data, for
+  `termshouse` with `p = 1` in [-1, 1], the large-sample p-value moves from
+  0.666 to 0.694.
+  `vce='hc2'` returns the earlier numbers. Calls with `p = 0`, the default,
+  are unchanged, and so is the randomization p-value.
+
+#### Changed
+
+- `sp.from_stata` / `sp.stata` read `vce()` on `rdrandinf` and
+  `rdwinselect`. With `p() > 0` and no `vce()` the translation notes that
+  releases up to 2.0 used HC2.
+- `tests/reference_parity/test_rdlocrand_v1_parity.py` runs against both
+  1.0 and 3.0. `sp.rdwinselect(approx=True, p=1)` has reference numbers for
+  the first time (2.0 stopped with an error there).
+- With `p > 0`, 3.0 no longer computes a randomization p-value.
+  `sp.rdrandinf` keeps its own, which permutes outcomes against (score,
+  assignment) pairs and holds its level in simulation.
+
 ### What the examples of Wooldridge's *Introductory Econometrics* found
 
 Every example of the book that the companion scripts of Heiss compute was

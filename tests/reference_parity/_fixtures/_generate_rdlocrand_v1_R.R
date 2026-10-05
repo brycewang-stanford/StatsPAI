@@ -18,7 +18,12 @@ lib <- Sys.getenv("RDLOCRAND_V1_LIB")
 stopifnot(nzchar(lib))
 .libPaths(c(lib, .libPaths()))
 library(rdlocrand); library(jsonlite)
-stopifnot(as.character(packageVersion("rdlocrand")) == "1.0")
+# 3.0 (rdpackages/rdlocrand, 2026-10-04) restores the 1.0 behaviour. Run
+# this script with a library that holds 3.0 to write rdlocrand_v3_R.json,
+# which the tests hold to the same targets.
+ver <- as.character(packageVersion("rdlocrand"))
+stopifnot(ver %in% c("1.0", "3.0"))
+outfile <- if (ver == "1.0") "rdlocrand_v1_R.json" else "rdlocrand_v3_R.json"
 q <- function(e) { sink("/dev/null"); on.exit(sink()); suppressWarnings(e) }
 d <- read.csv("rdsenate.csv")
 X <- d$margin
@@ -44,6 +49,6 @@ o <- q(rdrandinf(z, X, wl = -2, wr = 2, statistic = "ksmirnov"))
 out$ks_binary <- list(seedmean = mean(ks), obs_stat = unname(o$obs.stat),
                       asy_pvalue = unname(o$asy.pvalue))
 out[["_meta"]] <- list(rdlocrand_version = as.character(packageVersion("rdlocrand")))
-write_json(out, "rdlocrand_v1_R.json", auto_unbox = TRUE, digits = 15, pretty = TRUE,
+write_json(out, outfile, auto_unbox = TRUE, digits = 15, pretty = TRUE,
            na = "null")
-cat("wrote rdlocrand_v1_R.json\n")
+cat("wrote", outfile, "\n")
