@@ -1787,3 +1787,22 @@ only the recorded source hashes move.
   standard error or table cell is read from this file.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the chapter 1 functions of the syllabus pass
+
+- **Commits.** `23711a16` re-recorded the entries of Track A modules 03 13 15
+  24 25 26 27 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and all 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in the same commit: `src/statspai/__init__.py`
+  (four new exports: `prtest`, `sktest`, `swilk`, `ci`).
+- **Reason.** Fourth round of the audit in
+  `docs/dev/2026-10-05-xu-lan-causal-econometrics-review.md`. No
+  estimator on a Track A path changed.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves from
+  1,312 to 1,316 registered functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
