@@ -3343,6 +3343,11 @@
     "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the bootstrap interval.",
+          "type": "number"
+        },
         "ascending": {
           "default": false,
           "description": "Rank the smallest predictions first (for an effect where lower is better).",
@@ -3351,6 +3356,16 @@
         "cate": {
           "description": "Predicted effects (or any score that ranks units by effect): a column name or one value per row of ``data``.",
           "type": "string"
+        },
+        "cluster": {
+          "description": "Column whose groups are resampled whole (repeated days of one store, say). Default: rows are resampled.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "n_boot": {
+          "default": 0,
+          "description": "Bootstrap replications for the standard error and the percentile interval of the area. ``0`` computes neither.",
+          "type": "integer"
         },
         "n_quantiles": {
           "default": 10,
@@ -3366,6 +3381,10 @@
           "default": true,
           "description": "Subtract the random-ranking line from the gain curve.",
           "type": "boolean"
+        },
+        "seed": {
+          "description": "Seed for the bootstrap.",
+          "type": "integer"
         },
         "treat": {
           "description": "Treatment column, binary or continuous.",

@@ -32141,6 +32141,15 @@
             "description": "Penalty on donor-weight concentration (Herfindahl): ``risk_score = loss + lambda * H(w)`` where ``H(w) = sum(w_j^2)`` (a heuristic).",
             "type": "number"
           },
+          "criterion": {
+            "default": "loo_fit",
+            "description": "'loo_fit' ranks each candidate by how well the other units reproduce it. 'population' searches random treated sets for the one whose weighted average, and the weighted average of the remaining units, both track the population average over the pre-period",
+            "enum": [
+              "loo_fit",
+              "population"
+            ],
+            "type": "string"
+          },
           "data": {
             "description": "Long-format panel",
             "type": "object",
@@ -32162,6 +32171,11 @@
             "description": "Monte-Carlo draws used to estimate ``baseline_variance`` (the expected sum-MSPE under random-``k`` selection).",
             "type": "integer"
           },
+          "n_search": {
+            "default": 500,
+            "description": "Random treated sets tried under criterion='population'",
+            "type": "integer"
+          },
           "outcome": {
             "description": "Column names for the panel.",
             "type": "string",
@@ -32175,6 +32189,10 @@
             "default": 0.0,
             "description": "Ridge penalty passed to the simplex solver (Doudchenko & Imbens 2016 style).",
             "type": "number"
+          },
+          "population_weights": {
+            "description": "Column, constant within unit, whose shares define the population average under criterion='population' (default: equal shares)",
+            "type": "string"
           },
           "risk": {
             "default": "mspe",

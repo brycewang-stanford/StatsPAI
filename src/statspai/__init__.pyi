@@ -308,6 +308,9 @@ from .diagnostics.evalue import evalue_from_result as evalue_from_result
 from .diagnostics.evalue import evalue_rd as evalue_rd
 from .diagnostics.hausman import hausman as hausman
 from .diagnostics.hausman import hausman_test as hausman_test
+from .diagnostics.influence import influence_measures as influence_measures
+from .diagnostics.influence import logit_gof as logit_gof
+from .diagnostics.influence import logit_influence as logit_influence
 from .diagnostics.late_test import KitagawaResult as KitagawaResult
 from .diagnostics.late_test import kitagawa_test as kitagawa_test
 from .diagnostics.rddensity import rddensity as rddensity
@@ -617,6 +620,16 @@ from .inference.ppi import ppi_ols as ppi_ols
 from .inference.randomization import FisherResult as FisherResult
 from .inference.randomization import fisher_exact as fisher_exact
 from .inference.randomization import ri_test as ri_test
+from .inference.rank_tests import ClassicTestResult as ClassicTestResult
+from .inference.rank_tests import ksmirnov as ksmirnov
+from .inference.rank_tests import ktau as ktau
+from .inference.rank_tests import kwallis as kwallis
+from .inference.rank_tests import median_test as median_test
+from .inference.rank_tests import oneway as oneway
+from .inference.rank_tests import ranksum as ranksum
+from .inference.rank_tests import robvar as robvar
+from .inference.rank_tests import signrank as signrank
+from .inference.rank_tests import spearman as spearman
 from .inference.sdtest import SDTestResult as SDTestResult
 from .inference.sdtest import sdtest as sdtest
 from .inference.sdtest import ztest as ztest
@@ -1106,6 +1119,8 @@ from .registry import support_tier as support_tier
 from .regression.advanced_iv import jive as jive
 from .regression.advanced_iv import lasso_iv as lasso_iv
 from .regression.advanced_iv import liml as liml
+from .regression.boxcox import BoxCoxResult as BoxCoxResult
+from .regression.boxcox import boxcox as boxcox
 from .regression.count import nbreg as nbreg
 from .regression.count import poisson as poisson
 from .regression.count import ppmlhdfe as ppmlhdfe
@@ -1113,6 +1128,7 @@ from .regression.count import xtnbreg as xtnbreg
 from .regression.et_count import etpoisson as etpoisson
 from .regression.fracreg import betareg as betareg
 from .regression.fracreg import fracreg as fracreg
+from .regression.gee import gee as gee
 from .regression.glm import GLMEstimator as GLMEstimator
 from .regression.glm import GLMRegression as GLMRegression
 from .regression.glm import glm as glm
@@ -1138,6 +1154,8 @@ from .regression.ols import regress as regress
 from .regression.prais import prais as prais
 from .regression.quantile import qreg as qreg
 from .regression.quantile import sqreg as sqreg
+from .regression.ridge import RidgeResult as RidgeResult
+from .regression.ridge import ridge as ridge
 from .regression.selection import biprobit as biprobit
 from .regression.selection import etregress as etregress
 from .regression.sur import SURResult as SURResult
@@ -1177,6 +1195,9 @@ from .robustness.spec_curve import spec_curve as spec_curve
 from .robustness.subgroup import SubgroupResult as SubgroupResult
 from .robustness.subgroup import subgroup_analysis as subgroup_analysis
 from .robustness.unified_sensitivity import unified_sensitivity as unified_sensitivity
+from .selection.best_subset import best_subset as best_subset
+from .selection.shrinkage import ShrinkageResult as ShrinkageResult
+from .selection.shrinkage import shrinkage as shrinkage
 from .selection.stepwise import SelectionResult as SelectionResult
 from .selection.stepwise import lasso_select as lasso_select
 from .selection.stepwise import stepwise as stepwise

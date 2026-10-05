@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 1.06,
+   "seconds": 5.02,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -76,7 +76,7 @@
    "result_sha256": "0770f9a37e8bc72e9f338d602037715ba70cb032401b8582095eebed942621b2"
   },
   "02_mpdta_original": {
-   "seconds": 0.69,
+   "seconds": 3.01,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -113,7 +113,7 @@
    "result_sha256": "f9f0953a27c1326f96e6a259dcd7c01f61ca1e016e2e39c648c8fecc1a8b597b"
   },
   "03_basque_original": {
-   "seconds": 1.72,
+   "seconds": 8.68,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -150,7 +150,7 @@
    "result_sha256": "b98ff256c9dcee03be2b3479563e8cbd510a91941ab95af8ecc62b07e5eab05a"
   },
   "04_lalonde_original": {
-   "seconds": 1.09,
+   "seconds": 5.1,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -167,7 +167,7 @@
    ],
    "exercised_sources": {
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
-    "src/statspai/_article_aliases.py": "0c18dc81daaf087158c81da5935b62b835458df721f0c568ca3b35c8c1199c83",
+    "src/statspai/_article_aliases.py": "76fda0ffa6f19db78c27411e5f8f021cdd3653732fdb5888341de10e0192612d",
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/_numba_kernels.py": "fc5ee0d755b2815c8e703ca9dea440717a79d7c6192e173f45c2e88022f973fd",
     "src/statspai/core/_vcov_spec.py": "e722b8dd7944749aa4e227052c2c1a7a4b0526bb967c8f61535b0a8075cffc88",
@@ -191,7 +191,7 @@
    "result_sha256": "72faf6409882746759800c5b2cc43aedbdfbe1f1be31d82e7bd518894a55017b"
   },
   "04b_nsw_psid_original": {
-   "seconds": 1.13,
+   "seconds": 5.5,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -208,7 +208,7 @@
    ],
    "exercised_sources": {
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
-    "src/statspai/_article_aliases.py": "0c18dc81daaf087158c81da5935b62b835458df721f0c568ca3b35c8c1199c83",
+    "src/statspai/_article_aliases.py": "76fda0ffa6f19db78c27411e5f8f021cdd3653732fdb5888341de10e0192612d",
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/_numba_kernels.py": "fc5ee0d755b2815c8e703ca9dea440717a79d7c6192e173f45c2e88022f973fd",
     "src/statspai/core/_vcov_spec.py": "e722b8dd7944749aa4e227052c2c1a7a4b0526bb967c8f61535b0a8075cffc88",
@@ -232,7 +232,7 @@
    "result_sha256": "6fd62314f0a1aa5901fe52cc6df41bca5d1fa970b7ea52807b12af3099bbd001"
   },
   "05_lee_original": {
-   "seconds": 0.74,
+   "seconds": 3.39,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -269,7 +269,7 @@
    "result_sha256": "3eef9a448bc3efcf1ec7188d67a396cda48aad673999bda6a4f8a95581f6a58b"
   },
   "06_nhefs_ch12_ipw": {
-   "seconds": 2.57,
+   "seconds": 13.96,
    "error": null,
    "boundary_calls": [
     {
@@ -344,7 +344,7 @@
    "result_sha256": "19385647d1d7cb264a1e4c5352088ecdee3af7d4519c8cb93c01c71f646cb1e9"
   },
   "07_nhefs_ch13_gformula": {
-   "seconds": 29.32,
+   "seconds": 158.9,
    "error": null,
    "boundary_calls": [
     {
@@ -456,7 +456,7 @@
    "result_sha256": "7195a81581bfaa5e290c8d2f00d759b67ba8a4561d9a70172710d57f9d452a00"
   },
   "08_nhefs_ch14_gestimation": {
-   "seconds": 1.22,
+   "seconds": 4.14,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -485,7 +485,7 @@
    "result_sha256": "7bdbc6b5bdde259d3ac58e2b9658a8d92a60faf8e4b8712ba1723da8e8bf4fc2"
   },
   "09_nhefs_ch15_outcome": {
-   "seconds": 1.89,
+   "seconds": 7.0,
    "error": null,
    "boundary_calls": [
     {
@@ -560,7 +560,7 @@
    "result_sha256": "462bfbeb1e2d111c25a597e311a484d7e2efc75c968d1e6cc4361de50c63c960"
   },
   "10_nhefs_ch17_survival": {
-   "seconds": 2.63,
+   "seconds": 11.01,
    "error": null,
    "boundary_calls": [
     {
@@ -635,7 +635,7 @@
    "result_sha256": "e62cb21d80f4866599ff4ad6fca3fdc2943693a612292779f9a415ea2e986c7e"
   },
   "11_nhefs_evalue": {
-   "seconds": 5.74,
+   "seconds": 26.9,
    "error": null,
    "boundary_calls": [
     {

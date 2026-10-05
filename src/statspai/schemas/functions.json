@@ -13371,6 +13371,15 @@
           "description": "Penalty on donor-weight concentration (Herfindahl): ``risk_score = loss + lambda * H(w)`` where ``H(w) = sum(w_j^2)`` (a heuristic).",
           "type": "number"
         },
+        "criterion": {
+          "default": "loo_fit",
+          "description": "'loo_fit' ranks each candidate by how well the other units reproduce it. 'population' searches random treated sets for the one whose weighted average, and the weighted average of the remaining units, both track the population average over the pre-period",
+          "enum": [
+            "loo_fit",
+            "population"
+          ],
+          "type": "string"
+        },
         "data": {
           "description": "Long-format panel",
           "type": "object",
@@ -13392,6 +13401,11 @@
           "description": "Monte-Carlo draws used to estimate ``baseline_variance`` (the expected sum-MSPE under random-``k`` selection).",
           "type": "integer"
         },
+        "n_search": {
+          "default": 500,
+          "description": "Random treated sets tried under criterion='population'",
+          "type": "integer"
+        },
         "outcome": {
           "description": "Column names for the panel.",
           "type": "string",
@@ -13405,6 +13419,10 @@
           "default": 0.0,
           "description": "Ridge penalty passed to the simplex solver (Doudchenko & Imbens 2016 style).",
           "type": "number"
+        },
+        "population_weights": {
+          "description": "Column, constant within unit, whose shares define the population average under criterion='population' (default: equal shares)",
+          "type": "string"
         },
         "risk": {
           "default": "mspe",
@@ -55596,6 +55614,11 @@
     "name": "cate_gain_curve",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the bootstrap interval.",
+          "type": "number"
+        },
         "ascending": {
           "default": false,
           "description": "Rank the smallest predictions first (for an effect where lower is better).",
@@ -55605,10 +55628,20 @@
           "description": "Predicted effects (or any score that ranks units by effect): a column name or one value per row of ``data``.",
           "type": "string"
         },
+        "cluster": {
+          "description": "Column whose groups are resampled whole (repeated days of one store, say). Default: rows are resampled.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "data": {
           "description": "Evaluation data in which ``treat`` was randomized. It should not be the data the predictions were fitted on.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "n_boot": {
+          "default": 0,
+          "description": "Bootstrap replications for the standard error and the percentile interval of the area. ``0`` computes neither.",
+          "type": "integer"
         },
         "n_quantiles": {
           "default": 10,
@@ -55624,6 +55657,10 @@
           "default": true,
           "description": "Subtract the random-ranking line from the gain curve.",
           "type": "boolean"
+        },
+        "seed": {
+          "description": "Seed for the bootstrap.",
+          "type": "integer"
         },
         "treat": {
           "description": "Treatment column, binary or continuous.",
