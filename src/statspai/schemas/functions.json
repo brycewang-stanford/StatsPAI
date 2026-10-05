@@ -4751,7 +4751,7 @@
     }
   },
   {
-    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). .forecast(steps=h, exog=...) forecasts several periods dynamically; .long_run() gives the long-run effect of each x with delta-method standard errors. x_lags='bic' searches the lag order of every x (statsmodels ardl_select_order). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ardl",
     "parameters": {
       "properties": {
@@ -4825,7 +4825,7 @@
         },
         "x_lags": {
           "default": 1,
-          "description": "Lags of each x: an order, {name: order}, or 'same' (= p)",
+          "description": "Lags of each x: an order, {name: order}, 'same' (= p), or 'bic' / 'aic' to search the order of every x separately, from leaving it out to max_lags",
           "type": [
             "object",
             "integer"
@@ -4910,10 +4910,15 @@
     }
   },
   {
-    "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). The Q test's chi-squared reference ignores that regression residuals were estimated: after a fit use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). On ARMA residuals pass model_df=p+q so the Q statistic loses those degrees of freedom; boxpierce=True adds the Box-Pierce statistic. On regression residuals the chi-squared reference ignores that they were estimated: use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "corrgram",
     "parameters": {
       "properties": {
+        "boxpierce": {
+          "default": false,
+          "description": "Add the Box-Pierce statistic and its p-value (columns BP, Prob>BP)",
+          "type": "boolean"
+        },
         "data": {
           "description": "The series, in time order",
           "type": "object",
@@ -4921,6 +4926,11 @@
         },
         "lags": {
           "description": "Number of lags; default min(floor(n / 2) - 2, 40)",
+          "type": "integer"
+        },
+        "model_df": {
+          "default": 0,
+          "description": "ARMA coefficients estimated to produce the series (p + q); the Q statistic at lag k then has k - model_df degrees of freedom",
           "type": "integer"
         },
         "pac": {
@@ -4940,6 +4950,158 @@
       },
       "required": [
         "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Chow test for a structural break at a date fixed in advance: F test that the regression coefficients are equal before and after break_point. All coefficients or the subset in break_vars, one break or several jointly, classical or heteroskedasticity-robust covariance. Returns the F and Wald statistics and the coefficients regime by regime. strucchange sctest(type='Chow'), Stata estat sbknown. For a date chosen by looking at the data use sp.structural_break(method='sup-f'), whose reference distribution allows for the search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "chow_test",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level used for 'reject'",
+          "type": "number"
+        },
+        "break_point": {
+          "description": "Start of the second regime: the number of rows in the first regime, or a value of time= / of the index whose row opens the new regime; a list tests several breaks",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "break_vars": {
+          "description": "Coefficients allowed to change, names from x plus 'const'; default all",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "Rows in time order",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "time": {
+          "description": "Column dating the rows",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "vce": {
+          "default": "nonrobust",
+          "description": "Covariance of the Wald statistic",
+          "enum": [
+            "nonrobust",
+            "hc0",
+            "hc1"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Regressors; a constant is always added",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "break_point"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "BDS test that a series is independent and identically distributed, from the share of pairs of m-histories that stay within epsilon of each other. Standard normal under the null for each embedding dimension 2..max_dim. Has power against linear and nonlinear dependence alike, so it is run on the residuals of a fitted model to ask whether structure is left; a rejection does not say which kind. Reproduces statsmodels bds. The normal approximation is poor below about 200 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "bds",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "The series in time order, or a fitted regression whose residuals are tested",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "distance": {
+          "default": 1.5,
+          "description": "Multiple of the standard deviation used for epsilon",
+          "type": "number"
+        },
+        "epsilon": {
+          "description": "Radius for two observations to count as close; default distance standard deviations",
+          "type": "number"
+        },
+        "max_dim": {
+          "default": 2,
+          "description": "Largest embedding dimension",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Column, when data is a DataFrame",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Rolling or recursive least squares: the same regression on a window of fixed length that moves through the sample, or on a sample that grows from the first row (recursive=True). Returns one row per window with the coefficients, their standard errors, R-squared and root MSE, indexed by the window's last row. The usual tool for a rolling market beta or for looking at coefficient stability. statsmodels RollingOLS, Stata rolling. Paths are noisy and consecutive windows overlap; test stability with sp.cusum_test or sp.structural_break. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "rolling",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Rows in time order",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "Regression formula",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "recursive": {
+          "default": false,
+          "description": "Keep the start fixed and let the sample grow",
+          "type": "boolean"
+        },
+        "step": {
+          "default": 1,
+          "description": "Rows between window ends",
+          "type": "integer"
+        },
+        "vce": {
+          "default": "nonrobust",
+          "description": "Covariance of the standard errors in each window",
+          "enum": [
+            "nonrobust",
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        },
+        "window": {
+          "description": "Rows per window; with recursive=True, in the first",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "formula",
+        "data",
+        "window"
       ],
       "type": "object"
     }
@@ -6156,7 +6318,7 @@
           "type": "string"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "A Series or one-dimensional array is tested against ``mu`` as it is, with no ``y``.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -41783,6 +41945,15 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "method": {
+          "default": "recursive",
+          "description": "Which residuals are cumulated. ``'recursive'`` is the test of Brown, Durbin and Evans on one-step-ahead prediction errors. ``'ols'`` is the test of Ploberger and Kramer on the residuals of the full-sample fit, ``cumsum(e) / (s sqrt(n))`` with ``s**2 = RSS / (n - k)``; its limit is a Brownian bridge, so the boundary is a constant (1.358 at 5%). This is ``strucchange::efp(type=\"OLS-CUSUM\")`` and Stata's ``estat sbcusum, ols``. statsmodels' ``breaks_cusumolsresid`` divides the residual sum of squares by ``n`` unless ``ddof=k`` is passed.",
+          "enum": [
+            "recursive",
+            "ols"
+          ],
+          "type": "string"
+        },
         "x": {
           "description": "Regressors.",
           "items": {
@@ -52700,7 +52871,7 @@
       "properties": {
         "auto": {
           "default": false,
-          "description": "If True, select the order and ignore ``order``. ``d`` is chosen first, as the number of differences after which a KPSS test no longer rejects level stationarity at 5% (at most ``max_d``); then ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``, ``(0, d, 0)`` included.",
+          "description": "If True, select the order and ignore ``order``. ``d`` is chosen first, as the number of differences after which a KPSS test no longer rejects level stationarity at 5% (at most ``max_d``); then ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``, ``(0, d, 0)`` included. Unless ``trend`` is given the constant is part of that search when ``d + D <= 1``: a mean without differencing, a drift with one difference. A candidate with an AR or MA root within 1% of the unit circle is dropped: it is a model differenced once too often or too seldom, fitted on the boundary. This is the exhaustive search of R's ``forecast::auto.arima( stepwise=FALSE, approximation=FALSE)``, without its cap on ``p + q``.",
           "type": "boolean"
         },
         "data": {
@@ -52729,7 +52900,7 @@
         },
         "method": {
           "default": "statespace",
-          "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations.",
+          "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations. With differencing, the integration states start from an exact diffuse prior and the ``d + s D`` observations that pin them down are left out of the likelihood, which is then the likelihood of the differenced series. Releases through 1.38.0 used statsmodels' default, a normal prior of variance 1e6. On a series whose innovation variance is not far below 1e6 that prior is informative: the estimates of a differenced model with AR or MA terms changed with the unit of measurement, and the reported log-likelihood was too low. ``AIC``, ``BIC`` and ``AICc`` count the estimated parameters only and use the number of observations after differencing, as R and Stata do.",
           "enum": [
             "statespace",
             "css_ml",

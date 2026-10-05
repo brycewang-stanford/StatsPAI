@@ -735,9 +735,9 @@
       "Stata parity module 40_qreg",
       "Cross-language parity (bit-exact) vs quantreg::rq [R version 4.5.2 (2025-10-31), quantreg 6.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 40_qreg -- tests/r_parity/40_qreg.py",
       "tests/external_parity/test_ding_linear_model.py",
+      "tests/external_parity/test_maitra_static_dynamic.py",
       "tests/reference_parity/test_count_quantile_parity.py",
-      "tests/reference_parity/test_ldv_design_stata_parity.py",
-      "tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
       "API/unit contract evidence: tests/test_quantile.py",
       "API/unit contract evidence: tests/test_decomposition_tier_c.py"
     ],
@@ -10071,20 +10071,20 @@
     ],
     "category": "timeseries",
     "cost_profile": "",
-    "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). The Q test's chi-squared reference ignores that regression residuals were estimated: after a fit use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). On ARMA residuals pass model_df=p+q so the Q statistic loses those degrees of freedom; boxpierce=True adds the Box-Pierce statistic. On regression residuals the chi-squared reference ignores that they were estimated: use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -10108,10 +10108,15 @@
       "fields": {}
     },
     "signature": {
-      "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). The Q test's chi-squared reference ignores that regression residuals were estimated: after a fit use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). On ARMA residuals pass model_df=p+q so the Q statistic loses those degrees of freedom; boxpierce=True adds the Box-Pierce statistic. On regression residuals the chi-squared reference ignores that they were estimated: use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "corrgram",
       "parameters": {
         "properties": {
+          "boxpierce": {
+            "default": false,
+            "description": "Add the Box-Pierce statistic and its p-value (columns BP, Prob>BP)",
+            "type": "boolean"
+          },
           "data": {
             "description": "The series, in time order",
             "type": "object",
@@ -10119,6 +10124,11 @@
           },
           "lags": {
             "description": "Number of lags; default min(floor(n / 2) - 2, 40)",
+            "type": "integer"
+          },
+          "model_df": {
+            "default": 0,
+            "description": "ARMA coefficients estimated to produce the series (p + q); the Q statistic at lag k then has k - model_df degrees of freedom",
             "type": "integer"
           },
           "pac": {
@@ -10145,7 +10155,334 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
+      "tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "structural_break",
+      "cusum_test"
+    ],
+    "assumptions": [
+      "The break date was chosen before looking at the data",
+      "With vce='nonrobust': errors with the same variance in every regime",
+      "Each regime has at least as many rows as coefficients that change"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Chow test for a structural break at a date fixed in advance: F test that the regression coefficients are equal before and after break_point. All coefficients or the subset in break_vars, one break or several jointly, classical or heteroskedasticity-robust covariance. Returns the F and Wald statistics and the coefficients regime by regime. strucchange sctest(type='Chow'), Stata estat sbknown. For a date chosen by looking at the data use sp.structural_break(method='sup-f'), whose reference distribution allows for the search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_maitra_static_dynamic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.chow_test(df, \"y\", [\"x\"], break_point=60)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "chow_test",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "chow1960tests",
+    "returns": {
+      "class": "dict",
+      "description": "dict",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Chow test for a structural break at a date fixed in advance: F test that the regression coefficients are equal before and after break_point. All coefficients or the subset in break_vars, one break or several jointly, classical or heteroskedasticity-robust covariance. Returns the F and Wald statistics and the coefficients regime by regime. strucchange sctest(type='Chow'), Stata estat sbknown. For a date chosen by looking at the data use sp.structural_break(method='sup-f'), whose reference distribution allows for the search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "chow_test",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level used for 'reject'",
+            "type": "number"
+          },
+          "break_point": {
+            "description": "Start of the second regime: the number of rows in the first regime, or a value of time= / of the index whose row opens the new regime; a list tests several breaks",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "break_vars": {
+            "description": "Coefficients allowed to change, names from x plus 'const'; default all",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "Rows in time order",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "time": {
+            "description": "Column dating the rows",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "vce": {
+            "default": "nonrobust",
+            "description": "Covariance of the Wald statistic",
+            "enum": [
+              "nonrobust",
+              "hc0",
+              "hc1"
+            ],
+            "type": "string"
+          },
+          "x": {
+            "description": "Regressors; a constant is always added",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Dependent variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "break_point"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "corrgram",
+      "estat"
+    ],
+    "assumptions": [
+      "Consecutive observations with no gaps",
+      "A sample long enough for the normal approximation (a few hundred observations)",
+      "On residuals: a model fitted by least squares; the limit law differs for GARCH standardised residuals"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "BDS test that a series is independent and identically distributed, from the share of pairs of m-histories that stay within epsilon of each other. Standard normal under the null for each embedding dimension 2..max_dim. Has power against linear and nonlinear dependence alike, so it is run on the residuals of a fitted model to ask whether structure is left; a rejection does not say which kind. Reproduces statsmodels bds. The normal approximation is poor below about 200 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_maitra_static_dynamic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bds(df, \"resid\", max_dim=4)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bds",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "broock1996test",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "BDS test that a series is independent and identically distributed, from the share of pairs of m-histories that stay within epsilon of each other. Standard normal under the null for each embedding dimension 2..max_dim. Has power against linear and nonlinear dependence alike, so it is run on the residuals of a fitted model to ask whether structure is left; a rejection does not say which kind. Reproduces statsmodels bds. The normal approximation is poor below about 200 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "bds",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "The series in time order, or a fitted regression whose residuals are tested",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "distance": {
+            "default": 1.5,
+            "description": "Multiple of the standard deviation used for epsilon",
+            "type": "number"
+          },
+          "epsilon": {
+            "description": "Radius for two observations to count as close; default distance standard deviations",
+            "type": "number"
+          },
+          "max_dim": {
+            "default": 2,
+            "description": "Largest embedding dimension",
+            "type": "integer"
+          },
+          "y": {
+            "description": "Column, when data is a DataFrame",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "cusum_test",
+      "structural_break",
+      "regress"
+    ],
+    "assumptions": [
+      "Rows in time order",
+      "Each window is long enough to estimate the coefficients; windows where the regressors are collinear return missing values with a warning"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Rolling or recursive least squares: the same regression on a window of fixed length that moves through the sample, or on a sample that grows from the first row (recursive=True). Returns one row per window with the coefficients, their standard errors, R-squared and root MSE, indexed by the window's last row. The usual tool for a rolling market beta or for looking at coefficient stability. statsmodels RollingOLS, Stata rolling. Paths are noisy and consecutive windows overlap; test stability with sp.cusum_test or sp.structural_break. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_maitra_static_dynamic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.rolling(\"ret ~ mkt\", df, window=36)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "rolling",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Rolling or recursive least squares: the same regression on a window of fixed length that moves through the sample, or on a sample that grows from the first row (recursive=True). Returns one row per window with the coefficients, their standard errors, R-squared and root MSE, indexed by the window's last row. The usual tool for a rolling market beta or for looking at coefficient stability. statsmodels RollingOLS, Stata rolling. Paths are noisy and consecutive windows overlap; test stability with sp.cusum_test or sp.structural_break. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "rolling",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Rows in time order",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "Regression formula",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "recursive": {
+            "default": false,
+            "description": "Keep the start fixed and let the sample grow",
+            "type": "boolean"
+          },
+          "step": {
+            "default": 1,
+            "description": "Rows between window ends",
+            "type": "integer"
+          },
+          "vce": {
+            "default": "nonrobust",
+            "description": "Covariance of the standard errors in each window",
+            "enum": [
+              "nonrobust",
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3"
+            ],
+            "type": "string"
+          },
+          "window": {
+            "description": "Rows per window; with recursive=True, in the first",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formula",
+          "data",
+          "window"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -11138,19 +11475,18 @@
     "cost_profile": "",
     "description": "Lag-order selection for a VAR: log likelihood, sequential likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders 0..maxlag, all fitted on the same observations (Stata varsoc). attrs['selected'] gives the order each criterion picks. SBIC and HQIC are consistent; AIC and FPE tend to pick longer lags. Check the residuals of the chosen model with sp.estat(fit, 'varlmar'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_hansen_methods_stata_parity.py",
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -11228,7 +11564,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_hansen_methods_stata_parity.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_hansen_methods_stata_parity.py",
+      "tests/reference_parity/test_textbook_methods_stata_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -11256,7 +11594,8 @@
       "source": "external_parity",
       "status": "external-replication",
       "tests": [
-        "tests/external_parity/test_dogan_python_econometrics.py"
+        "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -11334,6 +11673,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_dogan_python_econometrics.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
       "tests/reference_parity/test_textbook_methods_stata_parity.py"
     ],
     "validation_status": "validated"
@@ -12933,7 +13273,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata 18 oneway [Stata 18]; tolerance F, sums of squares and Bartlett's test 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata 18 oneway [Stata 18]; tolerance F, sums of squares and Bartlett's test 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+      "tests/external_parity/test_maitra_static_dynamic.py"
     ],
     "validation_status": "certified"
   },
@@ -13008,7 +13349,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata 18 predict after regress (rstandard, rstudent, cooksd, dfits, welsch, covratio, stdp, stdf, stdr) and dfbeta [Stata 18]; tolerance mean and sd of each statistic over the sample 1e-9 rel; DFBETAs 1e-5 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata 18 predict after regress (rstandard, rstudent, cooksd, dfits, welsch, covratio, stdp, stdf, stdr) and dfbeta [Stata 18]; tolerance mean and sd of each statistic over the sample 1e-9 rel; DFBETAs 1e-5 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+      "tests/external_parity/test_maitra_static_dynamic.py"
     ],
     "validation_status": "certified"
   },
@@ -14192,6 +14534,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "tolerance": ""
@@ -14252,7 +14595,7 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_dynamic_modelling_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -14269,18 +14612,18 @@
     "cost_profile": "",
     "description": "Shapiro-Wilk W test for normality (Stata swilk, R shapiro.test), with Royston's (1992) normal approximation for the p-value and his V index. One row per variable; 4 to 5,000 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than 5,000 observations -- outside the range of the approximation; use sp.sktest.",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -14334,7 +14677,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
+      "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -69186,7 +69531,7 @@
       "tests/external_parity/test_dcdh_did_textbook.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/external_parity/test_dogan_python_econometrics.py",
-      "tests/reference_parity/test_dcdh_textbook_stata_parity.py"
+      "tests/external_parity/test_maitra_static_dynamic.py"
     ],
     "validation_status": "certified"
   },
@@ -69887,6 +70232,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R car::vif [car 3.1.5, ivmodel 1.9.1, metafor 5.0.1]; tolerance 2.0e-16 on every variance inflation factor, once the returned values stopped being rounded to two decimals. -- tests/reference_parity/test_weakiv_meta_parity.py",
+      "tests/external_parity/test_maitra_static_dynamic.py",
       "tests/reference_parity/test_oct2026_fifth_pass.py"
     ],
     "validation_status": "certified"
@@ -89769,10 +90115,10 @@
       "R parity module 33_var",
       "Stata parity module 33_var",
       "Cross-language parity (bit-exact) vs vars::VAR [R version 4.5.2 (2025-10-31), vars 1.6.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 33_var -- tests/r_parity/33_var.py",
+      "tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
       "tests/reference_parity/test_hansen_methods_stata_parity.py",
-      "tests/reference_parity/test_textbook_methods_stata_parity.py",
-      "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
-      "tests/reference_parity/test_timeseries_R_parity.py"
+      "tests/reference_parity/test_textbook_methods_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -89882,6 +90228,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 vargranger; vars::causality 1.6.1 [R version 4.5.2 (2025-10-31), Stata 18, vars 1.6.1]; tolerance chi2 and F 1e-10 rel (observed 4.1e-15), p-values 1e-8 -- tests/reference_parity/test_timeseries_R_parity.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
       "tests/reference_parity/test_timeseries_parity.py"
     ],
     "validation_status": "certified"
@@ -90245,10 +90592,10 @@
       "reference": "docstring",
       "returns": "docstring"
     },
-    "reference": "brown1975techniques",
+    "reference": "brown1975techniques, ploberger1992cusum",
     "returns": {
       "class": "dict",
-      "description": "dict: Keys: 'cusum' (standardised CUSUM path of the recursive residuals, strucchange::efp(type = \"Rec-CUSUM\")$process without its leading 0), 'max_cusum' (its supremum in absolute value), 'statistic' (max_s |cusum_s| / (1 + 2 s / m),",
+      "description": "dict: For method='ols': 'cusum' (the scaled partial sums, one per observation), 'statistic' and 'max_cusum' (their largest absolute value), 'p_value' (from the law of the supremum of a Brownian bridge), 'critical_value' (a constant),",
       "fields": {}
     },
     "signature": {
@@ -90265,6 +90612,15 @@
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "method": {
+            "default": "recursive",
+            "description": "Which residuals are cumulated. ``'recursive'`` is the test of Brown, Durbin and Evans on one-step-ahead prediction errors. ``'ols'`` is the test of Ploberger and Kramer on the residuals of the full-sample fit, ``cumsum(e) / (s sqrt(n))`` with ``s**2 = RSS / (n - k)``; its limit is a Brownian bridge, so the boundary is a constant (1.358 at 5%). This is ``strucchange::efp(type=\"OLS-CUSUM\")`` and Stata's ``estat sbcusum, ols``. statsmodels' ``breaks_cusumolsresid`` divides the residual sum of squares by ``n`` unless ``ddof=k`` is passed.",
+            "enum": [
+              "recursive",
+              "ols"
+            ],
+            "type": "string"
           },
           "x": {
             "description": "Regressors.",
@@ -90290,7 +90646,9 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs strucchange::efp(type = 'Rec-CUSUM') + sctest 1.5.4; Stata 18 estat sbcusum [R version 4.5.2 (2025-10-31), Stata 18, strucchange 1.5.4]; tolerance process, statistic and p-value 1e-10 rel (observed 7.1e-14); Stata boundary constants 3e-6 -- tests/reference_parity/test_timeseries_R_parity.py",
-      "tests/reference_parity/test_cusum_test_parity.py"
+      "tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_cusum_test_parity.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -94158,7 +94516,7 @@
       "reference": "docstring",
       "returns": "docstring"
     },
-    "reference": "@engle1987integration",
+    "reference": "@engle1987integration; @mackinnon1994approximate",
     "returns": {
       "class": "CointegrationResult",
       "description": "CointegrationResult: test_stats is the ADF t-ratio; critical_values the (1%, 5%, 10%) MacKinnon (2010) response-surface critical values for N = len(variables) series and T = n - 1 (the egranger convention);",
@@ -94169,6 +94527,7 @@
         "lags": "int",
         "n_obs": "int",
         "n_vars": "int",
+        "pvalue": "Optional[float]",
         "rank": "int",
         "test_stats": "Any",
         "test_type": "str"
@@ -94226,6 +94585,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs egranger 1.0.6 (Stata SSC); urca::ur.df on lm residuals; aTSA::coint.test [R version 4.5.2 (2025-10-31), Stata 18, aTSA 3.1.2.1, egranger 1.0.6, urca 1.3.4]; tolerance Z(t) and step-1 coefficients 1e-10 rel (observed 2.1e-13); MacKinnon (2010) critical values 1e-12 vs egranger -- tests/reference_parity/test_timeseries_R_parity.py",
+      "tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
       "tests/reference_parity/test_engle_granger_parity.py"
     ],
     "validation_status": "certified"
@@ -94305,6 +94666,7 @@
         "lags": "int",
         "n_obs": "int",
         "n_vars": "int",
+        "pvalue": "Optional[float]",
         "rank": "int",
         "test_stats": "Any",
         "test_type": "str"
@@ -94366,6 +94728,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs urca::ca.jo 1.3.4; Stata 18 vecrank [R version 4.5.2 (2025-10-31), Stata 18, urca 1.3.4]; tolerance eigenvalues, trace & max-eigenvalue statistics 1e-11 rel vs ca.jo, 1e-10 vs vecrank (observed 8.2e-14); Osterwald-Lenum table equal to Stata _vecgetcv cell by cell -- tests/reference_parity/test_timeseries_R_parity.py",
+      "tests/external_parity/test_maitra_static_dynamic.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
       "tests/reference_parity/test_textbook_methods_stata_parity.py",
       "tests/reference_parity/test_timeseries_parity.py"
     ],
@@ -111918,7 +112282,7 @@
         "properties": {
           "auto": {
             "default": false,
-            "description": "If True, select the order and ignore ``order``. ``d`` is chosen first, as the number of differences after which a KPSS test no longer rejects level stationarity at 5% (at most ``max_d``); then ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``, ``(0, d, 0)`` included.",
+            "description": "If True, select the order and ignore ``order``. ``d`` is chosen first, as the number of differences after which a KPSS test no longer rejects level stationarity at 5% (at most ``max_d``); then ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``, ``(0, d, 0)`` included. Unless ``trend`` is given the constant is part of that search when ``d + D <= 1``: a mean without differencing, a drift with one difference. A candidate with an AR or MA root within 1% of the unit circle is dropped: it is a model differenced once too often or too seldom, fitted on the boundary. This is the exhaustive search of R's ``forecast::auto.arima( stepwise=FALSE, approximation=FALSE)``, without its cap on ``p + q``.",
             "type": "boolean"
           },
           "data": {
@@ -111947,7 +112311,7 @@
           },
           "method": {
             "default": "statespace",
-            "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations.",
+            "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations. With differencing, the integration states start from an exact diffuse prior and the ``d + s D`` observations that pin them down are left out of the likelihood, which is then the likelihood of the differenced series. Releases through 1.38.0 used statsmodels' default, a normal prior of variance 1e6. On a series whose innovation variance is not far below 1e6 that prior is informative: the estimates of a differenced model with AR or MA terms changed with the unit of measurement, and the reported log-likelihood was too low. ``AIC``, ``BIC`` and ``AICc`` count the estimated parameters only and use the number of observations after differencing, as R and Stata do.",
             "enum": [
               "statespace",
               "css_ml",
@@ -112000,6 +112364,7 @@
       "Stata parity module 39_arima",
       "Cross-language parity (bit-exact) vs stats::arima [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 39_arima; implementation: third party python -- tests/r_parity/39_arima.py",
       "tests/external_parity/test_dogan_python_econometrics.py",
+      "tests/external_parity/test_maitra_static_dynamic.py",
       "tests/reference_parity/test_arima_default_stata_parity.py",
       "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
     ],

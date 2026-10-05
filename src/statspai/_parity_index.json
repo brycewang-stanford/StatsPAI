@@ -380,6 +380,12 @@
       "tolerance": "Statistic 1.1e-15, p-value 1.2e-13, degrees of freedom exact, and the analytic AR confidence set 1.2e-14."
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "ardl",
       "notes": [
         "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
@@ -393,6 +399,7 @@
       "status": "external-replication",
       "test": [
         "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/external_parity/test_stock_watson_4e_ch15.py"
       ],
       "tolerance": ""
@@ -400,6 +407,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/reference_parity/test_arima_default_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
@@ -1176,6 +1184,29 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "bds",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -2588,6 +2619,29 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "chow_test",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_maitra_static_dynamic.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "ci",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -3502,19 +3556,26 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "corrgram",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -3799,9 +3860,12 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_cusum_test_parity.py"
+        "tests/external_parity/test_maitra_static_dynamic.py",
+        "tests/reference_parity/test_cusum_test_parity.py",
+        "tests/reference_parity/test_dynamic_modelling_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "cusum_test",
@@ -5696,9 +5760,12 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_maitra_static_dynamic.py",
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_engle_granger_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "engle_granger",
@@ -5842,7 +5909,8 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
-        "tests/external_parity/test_ding_linear_model.py"
+        "tests/external_parity/test_ding_linear_model.py",
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -7703,6 +7771,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"
       ],
       "also_verified_by": [
@@ -8579,6 +8648,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_maitra_static_dynamic.py"
+      ],
+      "also_verified_by": [
+        "external_parity"
+      ],
       "function": "influence_measures",
       "notes": [
         "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote. dfbeta stores its results as float, which bounds the gap on DFBETAs."
@@ -9291,10 +9366,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_maitra_static_dynamic.py",
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "johansen",
@@ -13274,6 +13352,12 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-05"
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_maitra_static_dynamic.py"
+      ],
+      "also_verified_by": [
+        "external_parity"
+      ],
       "function": "oneway",
       "notes": [
         "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
@@ -15232,7 +15316,9 @@
     {
       "additional_tests": [
         "tests/external_parity/test_ding_linear_model.py",
+        "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/reference_parity/test_count_quantile_parity.py",
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_ldv_design_stata_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_qreg_cluster_stata_parity.py"
@@ -16715,6 +16801,7 @@
         "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_dogan_python_econometrics.py",
         "tests/external_parity/test_facure_causal_inference_in_python.py",
+        "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/external_parity/test_published_replications.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_assimilation_parity.py",
@@ -16728,6 +16815,7 @@
         "tests/reference_parity/test_did_synth_shiftshare_parity.py",
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_difference_in_means_estimatr.py",
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_feols_bias_reduced_parity.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_hdfe_ols_se_menu_parity.py",
@@ -17390,6 +17478,29 @@
         "tests/reference_parity/_fixtures/survival_epi_stata.json"
       ],
       "tolerance": "1e-10 rel (observed 6e-15)"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "rolling",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_maitra_static_dynamic.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "romano_wolf",
@@ -18472,6 +18583,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "tolerance": ""
@@ -19640,19 +19752,26 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "swilk",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -20275,8 +20394,10 @@
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_dml_multi_treatment_parity.py",
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
@@ -20640,6 +20761,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_difference_in_means_estimatr.py",
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_ttest_known_values.py"
       ],
       "also_verified_by": [
@@ -20658,7 +20780,8 @@
       "status": "external-replication",
       "test": [
         "tests/external_parity/test_ding_first_course.py",
-        "tests/external_parity/test_facure_causal_inference_in_python.py"
+        "tests/external_parity/test_facure_causal_inference_in_python.py",
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -20807,6 +20930,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
@@ -20825,6 +20949,7 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
+        "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/external_parity/test_stock_watson_4e_ch15.py"
       ],
       "tolerance": ""
@@ -20851,6 +20976,8 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_maitra_static_dynamic.py",
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
@@ -20858,6 +20985,7 @@
         "tests/reference_parity/test_timeseries_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -20942,20 +21070,26 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "varsoc",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_hansen_methods_stata_parity.py",
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
@@ -20978,6 +21112,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
       "also_verified_by": [
@@ -20995,15 +21130,18 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
-        "tests/external_parity/test_dogan_python_econometrics.py"
+        "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "vif",
