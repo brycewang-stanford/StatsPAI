@@ -7562,8 +7562,8 @@ def _build_registry() -> None:
                 "confidence interval and a per-sample table."
             ),
             params=[
-                ParamSpec("data", "DataFrame", True),
-                ParamSpec("y", "str", True, None, "Variable whose mean is tested"),
+                ParamSpec("data", "DataFrame", False),
+                ParamSpec("y", "str", False, None, "Variable whose mean is tested"),
                 ParamSpec(
                     "by",
                     "str",
@@ -7597,6 +7597,19 @@ def _build_registry() -> None:
                     "Unequal variances with Welch's df (Stata welch)",
                 ),
                 ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+                ParamSpec(
+                    "n", "int | pair", False, None, "Observations (summary form)"
+                ),
+                ParamSpec(
+                    "mean", "float | pair", False, None, "Sample mean (summary form)"
+                ),
+                ParamSpec(
+                    "sd",
+                    "float | pair",
+                    False,
+                    None,
+                    "Sample standard deviation (summary form)",
+                ),
             ],
             returns="TTestResult",
             example='sp.ttest(df, "wage", by="female", unequal=True)',

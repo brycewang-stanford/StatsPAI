@@ -970,6 +970,7 @@ TIER3_ROUND_TRIPS = [
     # tests/reference_parity/test_textbook_syllabus_stata_parity.py)
     ("testparm i.race x1", "test", {"hypothesis": "i.race x1"}),
     ("nlcom _b[x1]/_b[x2]", "nlcom", {"expression": "_b[x1]/_b[x2]"}),
+    ("ttesti 10 88 1.1 85", "ttest", {"n": 10, "mean": 88.0, "sd": 1.1, "mu": 85.0}),
     ("sdtest y == 5", "sdtest", {"y": "y", "sd0": 5.0}),
     ("sdtesti 10 . 1.14 2", "sdtest", {"n": 10, "sd": 1.14, "sd0": 2.0}),
     ("ztest y, by(g) sd(6)", "ztest", {"y": "y", "by": "g", "sd": 6.0}),
@@ -1343,12 +1344,12 @@ class TestTier2EdgeCases:
         )
 
     def test_tobit_string_bounds_ignored(self):
-        # ``ll(.)`` is Stata's missing literal; we should ignore.
+        # ``ll(.)`` is Stata's missing literal: no limit on that side. Both
+        # limits are written out because sp.tobit's own default is ll=0.
         out = from_stata("tobit y x, ll(.) ul(.)")
         assert out["ok"] is True
-        # Neither lower nor upper survives — that's correct.
-        assert "lower" not in out["arguments"]
-        assert "upper" not in out["arguments"]
+        assert out["arguments"]["ll"] is None and out["arguments"]["ul"] is None
+        assert from_stata("tobit y x, ul(5)")["arguments"]["ll"] is None
 
     def test_psmatch2_convention_changing_options_emit_notes(self):
         out = from_stata("psmatch2 d x, out(y) probit ate")

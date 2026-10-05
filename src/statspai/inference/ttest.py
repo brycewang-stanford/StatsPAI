@@ -16,7 +16,7 @@ are parameters here rather than defaults to guess:
 
 from __future__ import annotations
 
-from typing import ClassVar, Dict, Optional, Tuple
+from typing import ClassVar, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -156,6 +156,55 @@ def _row(x: np.ndarray, alpha: float) -> Dict[str, float]:
     }
 
 
+def _summary_samples(
+    y: Optional[str],
+    by: Optional[str],
+    other: Optional[str],
+    n: object,
+    mean: object,
+    sd: object,
+    alpha: float,
+) -> Dict[str, Dict[str, float]]:
+    """One or two samples given as ``n`` / ``mean`` / ``sd``, as table rows."""
+    if y is not None or by is not None or other is not None:
+        raise MethodIncompatibility(
+            "ttest: y / by / other name columns of data; pass data, or the "
+            "summary statistics n=, mean= and sd=.",
+            recovery_hint="sp.ttest(df, 'y', ...) or sp.ttest(n=10, mean=88, "
+            "sd=1.1, mu=85).",
+        )
+    parts = []
+    for value in (n, mean, sd):
+        if value is None:
+            raise MethodIncompatibility(
+                "ttest: give data and y, or all of n=, mean= and sd=.",
+                recovery_hint="sp.ttest(n=10, mean=88, sd=1.1, mu=85).",
+            )
+        seq = value if isinstance(value, (list, tuple, np.ndarray)) else [value]
+        parts.append([float(v) for v in seq])
+    ns, means, sds = parts
+    if len(ns) not in (1, 2) or not len(ns) == len(means) == len(sds):
+        raise MethodIncompatibility(
+            "ttest: n, mean and sd must each describe the same one or two " "samples.",
+            recovery_hint="Pass scalars for one sample, pairs for two.",
+        )
+    rows: Dict[str, Dict[str, float]] = {}
+    for i, (ni, mi, si) in enumerate(zip(ns, means, sds), start=1):
+        if ni < 2 or ni != int(ni) or not si > 0:
+            raise MethodIncompatibility(
+                "ttest: n must be an integer of at least 2 and sd positive; "
+                f"got n={ni!r}, sd={si!r}.",
+                recovery_hint="sd is the sample standard deviation.",
+            )
+        se = si / np.sqrt(ni)
+        half = stats.t.ppf(1 - alpha / 2, ni - 1) * se
+        rows["x" if len(ns) == 1 else f"x{i}"] = {
+            "n": int(ni), "mean": mi, "se": float(se), "sd": si,
+            "ci_lower": float(mi - half), "ci_upper": float(mi + half),
+        }  # fmt: skip
+    return rows
+
+
 def _column(data: pd.DataFrame, name: str) -> pd.Series:
     if name not in data.columns:
         raise MethodIncompatibility(
@@ -174,8 +223,8 @@ def _column(data: pd.DataFrame, name: str) -> pd.Series:
 
 
 def ttest(
-    data: pd.DataFrame,
-    y: str,
+    data: Optional[pd.DataFrame] = None,
+    y: Optional[str] = None,
     by: Optional[str] = None,
     *,
     other: Optional[str] = None,
@@ -184,6 +233,9 @@ def ttest(
     unequal: bool = False,
     welch: bool = False,
     alpha: float = 0.05,
+    n: Union[None, int, Sequence[int]] = None,
+    mean: Union[None, float, Sequence[float]] = None,
+    sd: Union[None, float, Sequence[float]] = None,
 ) -> TTestResult:
     """t test on a mean, a paired difference, or a difference of two means.
 
@@ -197,6 +249,8 @@ def ttest(
     ``sp.ttest(df, "y", other="x")``        ``ttest y == x``
     ``sp.ttest(df, "y", other="x",          ``ttest y == x, unpaired``
     paired=False)``
+    ``sp.ttest(n=10, mean=88, sd=1.1,       ``ttesti 10 88 1.1 85``
+    mu=85)``
     ======================================  ===============================
 
     Parameters
@@ -227,6 +281,10 @@ def ttest(
         Implies ``unequal=True``.
     alpha : float, default 0.05
         ``1 - alpha`` is the confidence level of the intervals.
+    n, mean, sd : number or pair of numbers, optional
+        Summary statistics in place of ``data``: observations, sample mean
+        and sample standard deviation (divisor ``n - 1``) of one sample, or
+        pairs for two independent samples (Stata's ``ttesti``).
 
     Returns
     -------
@@ -265,7 +323,21 @@ def ttest(
             recovery_hint="Drop one of the two arguments.",
         )
     unequal = bool(unequal or welch)
-    yv = _column(data, y)
+    summary = data is None
+    if summary:
+        samples = _summary_samples(y, by, other, n, mean, sd, alpha)
+    elif n is not None or mean is not None or sd is not None:
+        raise MethodIncompatibility(
+            "ttest: n=, mean= and sd= are summary statistics, used in place "
+            "of data.",
+            recovery_hint="Drop them, or drop data.",
+        )
+    elif y is None:
+        raise MethodIncompatibility(
+            "ttest: y= names the variable to test.",
+            recovery_hint="Pass the column name.",
+        )
+    yv = _column(data, y) if not summary else None
 
     def too_small(label: str) -> MethodIncompatibility:
         return MethodIncompatibility(
@@ -275,7 +347,14 @@ def ttest(
         )
 
     # ---------------------------------------------- one sample / paired
-    if by is None and (other is None or paired):
+    if summary and len(samples) == 1:
+        ((label, base),) = samples.items()
+        rows = {label: base}
+        est, se, dof = base["mean"], base["se"], float(base["n"] - 1)
+        n_obs = int(base["n"])
+        method = "One-sample t test"
+        groups = pd.DataFrame.from_dict(rows, orient="index")
+    elif by is None and not summary and (other is None or paired):
         if other is None:
             x = yv.dropna().to_numpy()
             method, labels = "One-sample t test", {y: x}
@@ -294,7 +373,11 @@ def ttest(
         groups = pd.DataFrame.from_dict(rows, orient="index")
     # ---------------------------------------------- two unpaired samples
     else:
-        if by is not None:
+        if summary:
+            names = list(samples)
+            ra, rb = samples[names[0]], samples[names[1]]
+            a = b = np.empty(0)
+        elif by is not None:
             gv = data[by]
             keep = yv.notna() & gv.notna()
             levels = sorted(pd.unique(gv[keep]))
@@ -313,13 +396,13 @@ def ttest(
             a = yv.dropna().to_numpy()
             b = _column(data, str(other)).dropna().to_numpy()
             names = [y, str(other)]
-        if a.size < 2:
-            raise too_small(names[0])
-        if b.size < 2:
-            raise too_small(names[1])
-        ra, rb = _row(a, alpha), _row(b, alpha)
-        rc = _row(np.concatenate([a, b]), alpha)
-        na, nb = a.size, b.size
+        if not summary:
+            if a.size < 2:
+                raise too_small(names[0])
+            if b.size < 2:
+                raise too_small(names[1])
+            ra, rb = _row(a, alpha), _row(b, alpha)
+        na, nb = int(ra["n"]), int(rb["n"])
         va, vb = ra["sd"] ** 2, rb["sd"] ** 2
         est = ra["mean"] - rb["mean"]
         if unequal:
@@ -338,9 +421,10 @@ def ttest(
             kind = "equal variances"
         method = f"Two-sample t test with {kind}"
         n_obs = int(na + nb)
-        groups = pd.DataFrame.from_dict(
-            {names[0]: ra, names[1]: rb, "combined": rc}, orient="index"
-        )
+        table = {names[0]: ra, names[1]: rb}
+        if not summary:
+            table["combined"] = _row(np.concatenate([a, b]), alpha)
+        groups = pd.DataFrame.from_dict(table, orient="index")
 
     groups["n"] = groups["n"].astype(int)
     if not se > 0:

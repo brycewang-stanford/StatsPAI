@@ -2080,17 +2080,34 @@ def _h_tobit(cmd: StataCommand) -> Dict[str, Any]:
     # sp.tobit takes y / x / ll / ul explicitly — not a formula (matching its
     # signature is what makes the payload runnable).
     args: Dict[str, Any] = {"y": y, "x": list(xs)}
-    for stata_opt, kw_name in (("ll", "ll"), ("ul", "ul")):
-        raw = cmd.options.get(stata_opt)
-        if raw is not None:
-            try:
-                args[kw_name] = float(raw)
-            except (TypeError, ValueError):
-                pass
+    # Stata censors only on the sides that are written; sp.tobit defaults
+    # to ll=0, so both limits are always written out.
+    for limit in ("ll", "ul"):
+        if limit not in cmd.options:
+            args[limit] = None
+            continue
+        raw = cmd.options.get(limit)
+        if raw is not None and raw.strip() == ".":
+            args[limit] = None  # Stata's missing value: no limit on this side
+            continue
+        try:
+            args[limit] = float(raw)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return _emit_error(
+                f"tobit: {limit}"
+                + (
+                    " without a value censors at the smallest (largest) "
+                    "observed outcome, which one translated line cannot see"
+                    if raw is None
+                    else f"({raw}) is not a number; a limit that varies by "
+                    "observation is not translated"
+                )
+                + f"; write {limit}(#)",
+                command="tobit",
+                suggestions=[],
+            )
     code_pairs = ["data=df", f"y={y!r}", f"x={list(xs)!r}"]
-    for kw_name in ("ll", "ul"):
-        if kw_name in args:
-            code_pairs.append(f"{kw_name}={args[kw_name]}")
+    code_pairs += [f"{limit}={args[limit]!r}" for limit in ("ll", "ul")]
     # sp.tobit's vce='robust' / cluster= carry Stata's ML factors
     cluster = _vce_cluster(cmd)
     if cluster:
@@ -4309,9 +4326,14 @@ _VARLIST_COMMANDS = frozenset(
         "regress", "logit", "probit", "poisson", "nbreg", "tobit", "newey",
         "qreg", "ivregress", "ivreg2", "ivreghdfe", "reghdfe", "areg", "xtreg",
         "ologit", "oprobit", "mlogit", "summarize", "correlate", "pwcorr",
-        "teffects", "psmatch2",
+        "teffects", "psmatch2", "heckman", "truncreg", "etregress", "prais",
     }
 )  # fmt: skip
+
+#: Options whose value is a varlist (``select(z1 z2)``, ``treat(d = z)``,
+#: ``vce(cluster id)``) whatever the command: a word in them that is not a
+#: column can only be an abbreviated variable name.
+_VARLIST_OPTIONS = ("select", "treat", "cluster", "absorb", "by")
 
 
 def _takes_varlist(command: str) -> bool:
@@ -4357,6 +4379,28 @@ def _unabbreviate(
         # a##b splits into "a", "", "b": joining restores the operators
         out.append("#".join(parts))
     return None, out
+
+
+def _unabbreviate_options(
+    options: Dict[str, Optional[str]], columns: List[str]
+) -> Optional[str]:
+    """Spell out abbreviated variable names inside the options that hold a
+    varlist, in place. Returns an error for an ambiguous abbreviation."""
+    for name in _VARLIST_OPTIONS:
+        value = options.get(name)
+        if not value:
+            continue
+        err, words = _unabbreviate(str(value).split(), columns)
+        if err is not None:
+            return f"{name}(): {err}"
+        options[name] = " ".join(words)
+    vce = (options.get("vce") or "").split()
+    if len(vce) >= 2 and "cluster".startswith(vce[0].lower()) and len(vce[0]) >= 2:
+        err, words = _unabbreviate(vce[1:], columns)
+        if err is not None:
+            return f"vce(): {err}"
+        options["vce"] = " ".join([vce[0]] + words)
+    return None
 
 
 def _normalise_command(
@@ -4674,6 +4718,10 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
         return _emit_error(
             _opts.macro_error(macro), command=parsed.command, suggestions=[]
         )
+    if columns is not None:
+        err_opt = _unabbreviate_options(canonical, [str(c) for c in columns])
+        if err_opt is not None:
+            return _emit_error(err_opt, command=parsed.command, suggestions=[])
     tracked = _opts.TrackedOptions(canonical)
     parsed.options = tracked
 

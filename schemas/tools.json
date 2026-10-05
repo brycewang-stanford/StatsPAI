@@ -33806,10 +33806,18 @@
           "description": "Grouping column with exactly two values; the estimate is mean(lower group) - mean(higher group)",
           "type": "string"
         },
+        "mean": {
+          "description": "Sample mean (summary form)",
+          "type": "number"
+        },
         "mu": {
           "default": 0.0,
           "description": "Null value",
           "type": "number"
+        },
+        "n": {
+          "description": "Observations (summary form)",
+          "type": "integer"
         },
         "other": {
           "description": "Second variable: paired test on y - other, or two independent samples with paired=False",
@@ -33819,6 +33827,10 @@
           "default": true,
           "description": "Only used with other=",
           "type": "boolean"
+        },
+        "sd": {
+          "description": "Sample standard deviation (summary form)",
+          "type": "number"
         },
         "unequal": {
           "default": false,
@@ -33836,9 +33848,7 @@
           "x-statspai-role": "column"
         }
       },
-      "required": [
-        "y"
-      ],
+      "required": [],
       "type": "object"
     },
     "name": "ttest"

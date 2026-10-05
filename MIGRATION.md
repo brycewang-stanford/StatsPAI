@@ -26,6 +26,21 @@ price index). Series that were demeaned first, and every model with
 fit. `params` has one more entry (`const`) in the affected case, so code
 that indexes it by position should index by name.
 
+## 1.38.0 → next: ⚠️ Stata translation of `tobit`
+
+**What changed.** `sp.stata` / `sp.from_stata` write both censoring limits
+out. `tobit y x, ul(2)` is now `sp.tobit(..., ll=None, ul=2.0)`; it used to
+leave `ll` at `sp.tobit`'s default of 0 and so censored from below as
+well. `tobit y x` with no limit is the uncensored model, as in Stata.
+`tobit y x, ll` (censor at the observed minimum) and a limit given as a
+variable are refused instead of falling back to zero.
+
+**Who is affected.** Results obtained by running `tobit` through
+`sp.stata` without `ll()`. Commands with `ll(#)` are unchanged, and so are
+direct calls to `sp.tobit`, whose default stays `ll=0`.
+
+**What to do.** Re-run the command.
+
 ## 1.38.0 → next: ⚠️ two-step `sp.heckman` standard errors; `sp.garch(q=0)`
 
 **What changed.**

@@ -1094,7 +1094,9 @@ class StataSession:
                     arguments["data"] = self.last_data
             self.output = fn(self.last, **arguments)
             self._store_r(str(out["tool"]), arguments, None)
-        elif out["tool"] in ("bitest", "sdtest", "ztest") and "n" in arguments:
+        elif out["tool"] in ("bitest", "sdtest", "ztest", "ttest") and (
+            "n" in arguments
+        ):
             # the immediate form: counts on the command line, no data
             self.output = fn(**arguments)
             self._store_r(str(out["tool"]), arguments, None)

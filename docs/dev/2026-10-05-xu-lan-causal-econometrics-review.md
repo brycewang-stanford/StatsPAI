@@ -129,6 +129,28 @@ For the over-identified SVAR and for `arima`, Stata's default convergence
 stops short of the optimum. The generator iterates Stata to tight
 tolerances, at which point its log-likelihood equals ours to 13 digits.
 
+## Second round, the same day
+
+Bryce delegated the open decisions. Four were closed.
+
+- **`tobit` translated with a lower limit Stata did not ask for.** Found
+  while closing the bare `ll` item: `tobit y x, ul(2)` kept `sp.tobit`'s
+  default `ll=0`. Both limits are now written out and `sp.tobit` takes
+  `ll=None`. Stata 18 on a sample censored from above gives 0.998381
+  (0.045687) with 107 censored observations; so does the translation now.
+- **Variable-name abbreviations.** The Wooldridge pass had added them for
+  the main varlist of the regression commands. This round extends the
+  same rule to `heckman`, `truncreg`, `etregress` and `prais`, and to the
+  options that hold a varlist.
+- **`ttesti`.** `sp.ttest` takes `n=`, `mean=`, `sd=`.
+- **A stale test on main.** `test_stale_covariance_is_not_used` still
+  required a joint test under CR2 to be refused, after `vce='cr2'` began
+  storing its full covariance. It now checks that the test uses that
+  matrix.
+
+The dummy-variable regression behind `areg` lost another ten seconds
+(the bread matrix was assembled entry by entry). It is still slow.
+
 ## Differences that are not errors
 
 - **`tobit`, 14 numbers of chapter 4.** Stata's default convergence rule
@@ -147,8 +169,8 @@ tolerances, at which point its log-likelihood equals ours to 13 digits.
 
 | Item | Why it is open |
 | --- | --- |
-| Variable-name abbreviations (`educ` for `education`) | Stata resolves an unambiguous prefix. `sp.stata` reports an unknown column. Resolving it means deciding which tokens of every option are variable names. |
-| `ci means` / `ci variances`, `sktest`, `swilk`, `prtest`, `ttesti`, `tabulate, chi2` | Chapter 1 commands with no `sp` counterpart yet. Each is small; none was added without a second use. |
+| Variable-name abbreviations outside the commands and options listed above | Each remaining command needs its own decision about which words are variables. |
+| `ci means` / `ci variances`, `sktest`, `swilk`, `prtest`, `tabulate, chi2` | Chapter 1 commands with no `sp` counterpart yet. Each is small; none was added without a second use. |
 | `stepwise:` prefix, `estat szroeter`, `vwls` | `sp.stepwise` exists with different entry and exit rules; the other two have no counterpart. |
 | `margins, predict(ystar(0,.))` after `tobit`; predictive margins | `sp.margins` has no censored-outcome predictions. |
 | `sqreg`, `bsqreg`, `iqreg` | Bootstrap standard errors; only the point estimates could be compared. |
@@ -158,7 +180,7 @@ tolerances, at which point its log-likelihood equals ours to 13 digits.
 | `lpirf` | `sp.local_projections` is a single-equation estimator with a different specification. Not compared. |
 | `heckman, mills()`; `etregress, poutcomes` | Options with no counterpart; reported as untranslated. |
 | `areg` with thousands of groups | Translated to dummy variables on purpose (degrees of freedom). Now about 3 minutes on 4,134 groups, dominated by a dense QR. An absorbing path with `areg`'s degrees of freedom would make it instant. |
-| `tobit y x, ll` with no value | Stata censors at the minimum of `y`; the translation falls back to `sp.tobit`'s default of 0. |
+| `tobit y x, ll` with no value | Stata censors at the observed minimum. Now refused with that explanation; running it needs the data. |
 | `regress D.(y x1 x2)` | An operator applied to a parenthesised varlist is not expanded. |
 
 ## Reproducing

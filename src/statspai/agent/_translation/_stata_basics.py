@@ -191,6 +191,31 @@ def _h_ztesti(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("ztest", args, f"sp.ztest({_kw(args)})")
 
 
+def _h_ttesti(cmd: StataCommand) -> Dict[str, Any]:
+    """``ttesti 10 88 1.1 85`` -> ``sp.ttest(n=10, mean=88, sd=1.1, mu=85)``;
+    six numbers are two independent samples."""
+    values = _immediate(cmd)
+    if isinstance(values, dict):
+        return values
+    if any(v is None for v in values):
+        return _bad(cmd, "every argument must be a number")
+    args: Dict[str, Any]
+    if len(values) == 4:
+        n, mean, sd, null = values
+        args = {"n": int(n), "mean": mean, "sd": sd, "mu": null}
+    else:
+        n1, m1, s1, n2, m2, s2 = values
+        args = {"n": (int(n1), int(n2)), "mean": (m1, m2), "sd": (s1, s2)}
+        if "welch" in cmd.options:
+            args["welch"] = True
+        elif "unequal" in cmd.options:
+            args["unequal"] = True
+    err = _level(cmd, args)
+    if err:
+        return err
+    return _emit("ttest", args, f"sp.ttest({_kw(args)})")
+
+
 # ---------------------------------------------- limited dependent variables
 def _ml_vce(cmd: StataCommand, args: Dict[str, Any]) -> None:
     """``vce(robust)`` / ``vce(cluster c)`` onto ``robust=`` / ``cluster=``."""
@@ -382,6 +407,7 @@ HANDLERS = {
     "sdtesti": _h_sdtesti,
     "ztest": _h_ztest,
     "ztesti": _h_ztesti,
+    "ttesti": _h_ttesti,
     "etregress": _h_etregress,
     "pperron": _h_pperron,
     "kpss": _h_kpss,

@@ -378,5 +378,6 @@ sp.stata("sdtesti 10 . 1.14 2")
 StatsPAI 函数的默认设置不同时 (例如 `heckman` 默认极大似然、`ivregress gmm`
 默认稳健权重矩阵)，翻译会把 Stata 的默认写出来。
 
-还不能翻译的写法列在评审文档的 "Left open" 一节，其中最常见的是变量名缩写
-(`educ` 代替 `education`)，请写全名。
+变量名缩写 (`educ` 代替 `education`) 在回归类命令的变量表和 `select()`、
+`treat()`、`cluster()` 等选项里会按 Stata 的规则展开，有歧义时报错。还不能翻译
+的写法列在评审文档的 "Left open" 一节。

@@ -36,7 +36,7 @@ def tobit(
     data: pd.DataFrame,
     y: str,
     x: List[str],
-    ll: float = 0,
+    ll: Optional[float] = 0,
     ul: Optional[float] = None,
     alpha: float = 0.05,
     vce: Optional[str] = None,
@@ -65,8 +65,11 @@ def tobit(
         right, reports no ``sigma``, and is defined for a lower limit
         only. Its standard errors are Powell's sandwich (cluster-robust
         with ``cluster=``). Use it when :func:`cmtest` rejects.
-    ll : float, default 0
+    ll : float or None, default 0
         Lower censoring limit. Observations with Y ≤ ll are censored.
+        ``None`` means no lower limit (Stata's ``tobit y x, ul(#)``); the
+        default of 0 is this function's, not Stata's, where a limit applies
+        only when it is written.
         Set to ``-np.inf`` for no lower censoring.
     ul : float, optional
         Upper censoring limit. Default: no upper censoring.
@@ -128,6 +131,8 @@ def tobit(
     """
     from ..core._vcov_spec import parse_se_request
 
+    if ll is None:
+        ll = -np.inf  # no lower limit
     se_req = parse_se_request(
         vce,
         cluster,

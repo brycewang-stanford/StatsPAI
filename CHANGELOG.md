@@ -368,6 +368,16 @@ below are pinned on committed synthetic data in
   the gap that Track A module 43 carried as a tolerance. The worst relative
   gap in a standard error against R `sampleSelection` and Stata goes from
   8.6e-5 to 4e-9, and the module's budget is now the default 1e-6.
+- **`sp.stata("tobit y x, ul(2)")` censored from below as well.** Stata
+  censors only on the sides that are written. The translation passed the
+  upper limit and left `sp.tobit` at its own default of `ll=0`, so every
+  outcome at or below zero was treated as censored too. `tobit y x` with
+  no limit (an uncensored normal model in Stata) became a tobit at zero,
+  and `ll` without a value or with a variable name fell back to zero
+  silently. Both limits are now written out, `sp.tobit` accepts
+  `ll=None`, and the forms that cannot be translated are refused. On a
+  sample censored from above only, the slope goes from 0.965 to 0.998
+  (truth 1), equal to Stata 18 to 1e-8. See `MIGRATION.md`.
 - **`sp.garch(p >= 1, q=0)` returned numbers for a model that is not
   identified.** With no ARCH term the variance never responds to the data
   and every value of the GARCH coefficient gives the same likelihood. The
@@ -408,8 +418,15 @@ below are pinned on committed synthetic data in
   (Stata's `heckman y x, select(z1 z2)`, which `sp.stata` now runs), and
   `method='mle'` is accepted for `'ml'`. `sp.arima` and `sp.garch` take
   `data=` with a column name.
-- **`sp.stata` runs** `sdtest`, `sdtesti`, `ztest`, `ztesti`, `etregress`,
-  `pperron`, `kpss`, `arima`, `arch`, `testparm` and `nlcom`.
+- **`sp.ttest(n=, mean=, sd=)`** takes summary statistics for one sample
+  or two independent ones (Stata's `ttesti`).
+- **Abbreviated variable names in `sp.stata`** are spelled out in
+  `heckman`, `truncreg`, `etregress` and `prais`, and inside the options
+  that hold a varlist: `select()`, `treat()`, `absorb()`, `by()`,
+  `cluster()` and `vce(cluster ...)`. An abbreviation that fits two
+  variables is refused, as in Stata.
+- **`sp.stata` runs** `sdtest`, `sdtesti`, `ztest`, `ztesti`, `ttesti`,
+  `etregress`, `pperron`, `kpss`, `arima`, `arch`, `testparm` and `nlcom`.
 
 **Fixed**
 

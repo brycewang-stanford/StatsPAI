@@ -143,12 +143,10 @@ def _centered_intercept_bread(
         mean_bread @ x_mean
     ) / (const_value * const_value)
     cross = -mean_bread / const_value
-    for pos, j in enumerate(other):
-        XtX_inv[const_col, j] = cross[pos]
-        XtX_inv[j, const_col] = cross[pos]
-    for pos_i, i in enumerate(other):
-        for pos_j, j in enumerate(other):
-            XtX_inv[i, j] = slope_xtx_inv[pos_i, pos_j]
+    idx = np.asarray(other, dtype=np.intp)
+    XtX_inv[const_col, idx] = cross
+    XtX_inv[idx, const_col] = cross
+    XtX_inv[np.ix_(idx, idx)] = slope_xtx_inv
     return XtX_inv
 
 
