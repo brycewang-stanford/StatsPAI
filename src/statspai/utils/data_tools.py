@@ -202,6 +202,7 @@ def winsor(
     method: str = "stata",
     subset: Optional[Union[str, pd.Series, np.ndarray]] = None,
     by: Optional[Union[str, List[str]]] = None,
+    trim: bool = False,
 ) -> pd.DataFrame:
     """
     Winsorize variables at specified percentiles.
@@ -236,6 +237,13 @@ def winsor(
         column otherwise (Stata's ``generate ... if``).
     by : str or list of str, optional
         Compute the cutoffs within groups, as ``winsor2 ..., by(g)``.
+    trim : bool, default False
+        Set the values beyond the cutoffs to missing instead of pulling
+        them in (``winsor2 ..., trim``; truncation). The new columns then
+        take the suffix ``'_tr'`` unless ``suffix`` is given. Trimming one
+        variable at a time removes a different set of rows for each; a
+        regression on several trimmed variables loses every row trimmed in
+        any of them.
 
     Returns
     -------
@@ -266,6 +274,10 @@ def winsor(
     percentile with that percentile value. Unlike trimming, winsorization
     does not remove observations.
 
+    The ``'stata'`` percentile is also R's ``quantile(type = 2)``, so
+    ``sp.winsor(df, [v], cuts=(1, 99))`` equals ``farr::winsorize(v, 0.01)``
+    and ``trim=True`` equals ``farr::truncate(v, 0.01)``.
+
     Before 1.33 the cutoffs used numpy's linear interpolation, which
     differs from ``winsor2`` on every variable whose ``n p / 100`` is not
     an integer; on a long-tailed variable the 99th percentile moved by
@@ -276,6 +288,8 @@ def winsor(
     if vars is None:
         vars = list(df.select_dtypes(include=[np.number]).columns)
     np_method = "averaged_inverted_cdf" if str(method).lower() == "stata" else method
+    if trim and suffix == "_w":
+        suffix = "_tr"
 
     lo_pct, hi_pct = cuts
     if subset is None:
@@ -309,7 +323,13 @@ def winsor(
             lo_val, hi_val = np.percentile(
                 col[rows], [lo_pct, hi_pct], method=np_method
             )
-            winsorized[rows] = np.clip(col[rows], lo_val, hi_val)
+            if trim:
+                vals = col[rows]
+                winsorized[rows] = np.where(
+                    (vals < lo_val) | (vals > hi_val), np.nan, vals
+                )
+            else:
+                winsorized[rows] = np.clip(col[rows], lo_val, hi_val)
 
         if replace:
             df[var] = winsorized

@@ -3,7 +3,7 @@ OLS regression implementation with comprehensive features
 """
 
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -513,6 +513,36 @@ def _numba_kernels() -> tuple[
     )
 
 
+def _panel_hac_meat(
+    X: np.ndarray,
+    residuals: np.ndarray,
+    ids: np.ndarray,
+    periods: np.ndarray,
+    lags: int,
+) -> np.ndarray:
+    """Newey-West meat for a panel: autocovariances within units only.
+
+    The lag-``j`` term pairs each row with the row of the same unit ``j``
+    periods earlier; a pair with a gap in between is skipped. This is what
+    Stata's ``newey ..., lag(#) force`` computes on ``xtset`` data and, on
+    a panel without gaps, ``plm::vcovNW``.
+    """
+    order = np.lexsort((periods, ids))
+    moments = (X * residuals[:, None])[order]
+    ids_s, per_s = ids[order], periods[order]
+    total = moments.T @ moments
+    for j in range(1, int(lags) + 1):
+        # rows are sorted by period within unit, so the row j periods back,
+        # when it exists, is at most j positions back
+        gamma = np.zeros_like(total)
+        for back in range(1, j + 1):
+            same = (ids_s[back:] == ids_s[:-back]) & (per_s[back:] - per_s[:-back] == j)
+            if same.any():
+                gamma += moments[back:][same].T @ moments[:-back][same]
+        total += (1 - j / (lags + 1)) * (gamma + gamma.T)
+    return cast(np.ndarray, total)
+
+
 class OLSEstimator(BaseEstimator):
     """
     Ordinary Least Squares estimator with robust standard errors
@@ -736,7 +766,14 @@ class OLSEstimator(BaseEstimator):
                     f"HAC: {lags} autocovariances need more than {n} " "observations.",
                     recovery_hint="Lower hac_lags.",
                 )
-            meat = _fast_hac_meat(X, residuals, lags)
+            panel = kwargs.get("hac_panel", None)
+            if panel is not None:
+                if lags is None:
+                    n_t = len(np.unique(panel[1]))
+                    lags = int(np.floor(4 * (n_t / 100) ** (2 / 9)))
+                meat = _panel_hac_meat(X, residuals, panel[0], panel[1], lags)
+            else:
+                meat = _fast_hac_meat(X, residuals, lags)
             var_cov = XtX_inv @ meat @ XtX_inv
             if kwargs.get("hac_small"):
                 # Stata `newey` / sandwich::NeweyWest(adjust = TRUE)
@@ -1039,6 +1076,50 @@ class OLSRegression(BaseModel):
             context="OLS analytic weights",
         )
 
+    def _resolve_hac_panel(
+        self, panel: Any, design_index: Optional[pd.Index]
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Panel codes and integer periods of the rows that are estimated."""
+        names = [panel] if isinstance(panel, str) else list(panel)
+        if len(names) != 2 or not all(isinstance(c, str) for c in names):
+            raise MethodIncompatibility(
+                "regress: hac_panel takes the panel and the time column, "
+                f"got {panel!r}.",
+                recovery_hint="hac_panel=('firm', 'year').",
+            )
+        missing = [c for c in names if c not in self.data.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"regress: hac_panel column(s) {missing} are not in the data."
+            )
+        frame = self.data[names]
+        if design_index is not None:
+            frame = frame.reindex(design_index)
+        if frame.isna().any().any():
+            raise MethodIncompatibility(
+                "regress: the hac_panel columns have missing values on rows "
+                "that enter the regression.",
+                recovery_hint="Drop those rows or fill the identifiers.",
+            )
+        ids = pd.factorize(frame[names[0]])[0]
+        time = frame[names[1]]
+        if pd.api.types.is_numeric_dtype(time) and np.all(
+            np.asarray(time, dtype=float) == np.round(np.asarray(time, dtype=float))
+        ):
+            periods = np.asarray(time, dtype=np.int64)
+        else:
+            # dates and labels: consecutive distinct values are one period apart
+            periods = pd.factorize(time, sort=True)[0].astype(np.int64)
+        if pd.DataFrame({"i": ids, "t": periods}).duplicated().any():
+            raise MethodIncompatibility(
+                f"regress: {names[0]!r} and {names[1]!r} do not identify the "
+                "rows; a panel Newey-West estimator needs one row per unit "
+                "and period.",
+                recovery_hint="Cluster on the unit instead, or aggregate.",
+            )
+        self._hac_n_periods = int(len(np.unique(periods)))
+        return ids, periods
+
     def fit(
         self,
         robust: str = "nonrobust",
@@ -1132,6 +1213,11 @@ class OLSRegression(BaseModel):
             cluster_var = self.data[cluster]
             if design_index is not None:
                 cluster_var = cluster_var.reindex(design_index)
+
+        if kwargs.get("hac_panel", None) is not None:
+            kwargs["hac_panel"] = self._resolve_hac_panel(
+                kwargs["hac_panel"], design_index
+            )
 
         # Estimate model
         while True:
@@ -1477,9 +1563,9 @@ class OLSRegression(BaseModel):
                         return_type="dataframe",
                     )[0]
                 else:
-                    from ..core.utils import formula_eval_env, r_power_in_identity
+                    from ..core.utils import formula_eval_env, r_formula_idioms
 
-                    rhs = r_power_in_identity(self.formula.split("~", 1)[1].strip())
+                    rhs = r_formula_idioms(self.formula.split("~", 1)[1].strip())
 
                     X_df = dmatrix(
                         rhs,
@@ -1632,6 +1718,7 @@ def regress(
     collinear: str = "omit",
     hac_lags: Optional[int] = None,
     hac_small: bool = False,
+    hac_panel: Optional[Sequence[str]] = None,
     ewc_df: Optional[int] = None,
     dfadjust: bool = False,
     **kwargs: Any,
@@ -1688,6 +1775,16 @@ def regress(
         as Stata's ``newey`` and ``sandwich::NeweyWest(adjust = TRUE)`` do.
         The default (no factor) is ``NeweyWest(adjust = FALSE)`` and
         statsmodels' ``cov_type='HAC'``.
+    hac_panel : (str, str), optional
+        With ``robust='hac'`` on panel data: the unit and the time column.
+        Autocovariances are then taken within units only, at exact time
+        lags (a gap in a unit's series breaks the pairing), and the rows
+        need not be sorted. This is Stata's ``newey y x, lag(#) force``
+        after ``xtset`` and, without ``hac_small``, ``plm::vcovNW`` on a
+        panel without gaps. The default lag rule uses the number of
+        periods for ``T``. Without ``hac_panel`` the rows are read as one
+        time series, which on stacked panel data pairs the last period of
+        one unit with the first of the next.
     dfadjust : bool, default False
         With ``robust='hc2'``, or ``vce='cr2'`` and ``cluster=``: refer each
         coefficient to a t distribution with its own Bell and McCaffrey
@@ -2083,15 +2180,24 @@ def regress(
             collinear=collinear,
             weights=weights,
         )
-        from ..inference.jackknife import two_way_correction_ols
+        from ..inference.jackknife import two_way_vcov_ols
 
         c1_codes = _sample_codes(base, data, c1)
         c2_codes = _sample_codes(base, data, c2)
         c12_codes = pd.factorize(
             pd.Series(list(zip(c1_codes.tolist(), c2_codes.tolist())))
         )[0]
-        se = two_way_correction_ols(base, c1_codes, c2_codes, c12_codes)
+        two_way_vcov, _names, n_negative = two_way_vcov_ols(
+            base, c1_codes, c2_codes, c12_codes
+        )
+        se = pd.Series(np.sqrt(np.maximum(np.diag(two_way_vcov), 0.0)), index=_names)
         base.std_errors = se
+        # the matrix behind the standard errors, so vcov() / sp.test /
+        # sp.lincom see the two-way covariance and not the one-way fit's
+        base.data_info = dict(base.data_info, var_cov=two_way_vcov)
+        if n_negative:
+            base.diagnostics = dict(base.diagnostics or {})
+            base.diagnostics["Two-way VCOV negative eigenvalues"] = n_negative
         # t(G_min - 1), the degrees of freedom Stata 18's
         # regress, vce(cluster a b) and fixest report; the normal was
         # used through 1.36.0.
@@ -2115,12 +2221,13 @@ def regress(
     model = OLSRegression(formula=formula, data=data, collinear=collinear)
     robust_kw = vce_kw if vce_kw is not None else robust
     is_hac = str(robust_kw).lower() == "hac" and cluster is None
-    if (hac_lags is not None or hac_small) and not is_hac:
+    if (hac_lags is not None or hac_small or hac_panel is not None) and not is_hac:
         raise MethodIncompatibility(
-            "regress: hac_lags= and hac_small= only apply to robust='hac'; "
+            "regress: hac_lags=, hac_small= and hac_panel= only apply to "
+            "robust='hac'; "
             f"this call asks for {robust_kw!r}"
             + (f" clustered on {cluster!r}." if cluster is not None else "."),
-            recovery_hint="Add robust='hac', or drop the two options.",
+            recovery_hint="Add robust='hac', or drop these options.",
         )
     if hac_lags is not None:
         if isinstance(hac_lags, bool) or int(hac_lags) != hac_lags or hac_lags < 0:
@@ -2133,6 +2240,8 @@ def regress(
         kwargs["lags"] = int(hac_lags)
     if hac_small:
         kwargs["hac_small"] = True
+    if hac_panel is not None:
+        kwargs["hac_panel"] = hac_panel
     is_ewc = str(robust_kw).lower() == "ewc"
     if is_ewc and cluster is not None:
         raise MethodIncompatibility(
@@ -2159,6 +2268,10 @@ def regress(
         _result.model_info["ewc_df"] = int(_result.data_info["df_inference"])
     if is_hac:
         n_used = int(_result.data_info["nobs"])
+        if hac_panel is not None:
+            names = [hac_panel] if isinstance(hac_panel, str) else list(hac_panel)
+            n_used = int(model._hac_n_periods)
+            _result.model_info["hac_panel"] = names
         _result.model_info["hac_lags"] = (
             int(hac_lags)
             if hac_lags is not None

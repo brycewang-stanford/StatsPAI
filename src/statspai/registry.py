@@ -955,6 +955,15 @@ def _build_registry() -> None:
                     "Stata's newey and sandwich::NeweyWest(adjust=TRUE)",
                 ),
                 ParamSpec(
+                    "hac_panel",
+                    "list",
+                    False,
+                    None,
+                    "With robust='hac' on panel data: [unit, time] columns; "
+                    "autocovariances within units at exact time lags (Stata "
+                    "newey, force on xtset data; plm::vcovNW)",
+                ),
+                ParamSpec(
                     "dfadjust",
                     "bool",
                     False,
@@ -9858,6 +9867,348 @@ def _build_registry() -> None:
                 "predicted in sample)."
             ),
             alternatives=["regress", "conformal", "weighted_conformal_prediction"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="fama_macbeth",
+            category="panel",
+            description=(
+                "Fama-MacBeth two-step regression: one cross-sectional OLS "
+                "per period, coefficients averaged over periods, standard "
+                "errors from the variation of the per-period estimates, "
+                "with an optional Newey-West correction of the coefficient "
+                "series. R plm::pmg, Stata xtfmb / asreg fmb. Returns the "
+                "averages with t(T - 1) inference, the per-period "
+                "coefficients and the average cross-sectional R-squared."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="e.g. 'ret ~ beta'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("time", "str", True, description="Period column"),
+                ParamSpec(
+                    "lags",
+                    "int",
+                    False,
+                    0,
+                    "Newey-West lags for the coefficient series; 0 is the "
+                    "textbook standard error",
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="EconometricResults",
+            example='sp.fama_macbeth("ret ~ beta + size", df, time="month", lags=3)',
+            tags=["panel", "finance", "accounting", "regression", "asset pricing"],
+            reference="fama1973risk",
+            assumptions=[
+                "The per-period coefficient estimates are uncorrelated over "
+                "time (lags=0), or their autocorrelation dies out within "
+                "the chosen lags",
+                "Errors may be arbitrarily correlated across units within a " "period",
+                "Enough periods for a t(T - 1) reference distribution",
+            ],
+            pre_conditions=[
+                "Long-format panel with a period column",
+                "More observations than regressors in each period",
+                "At least two periods",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="A persistent unit effect in both regressor and "
+                    "error (the same firm in every period)",
+                    exception="",
+                    remedy="The Fama-MacBeth standard error is too small, "
+                    "with or without lags; cluster by unit or by unit and "
+                    "period instead.",
+                    alternative="sp.regress(cluster=['firm', 'year'])",
+                ),
+                FailureMode(
+                    symptom="A period has no more observations than "
+                    "coefficients, or collinear regressors",
+                    exception="UserWarning",
+                    remedy="The period is left out and listed in "
+                    "model_info['skipped_periods'].",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="Fewer than two estimable periods",
+                    exception="DataInsufficient",
+                    remedy="Check time= and the size of each cross-section.",
+                    alternative="sp.regress",
+                ),
+            ],
+            not_recommended_when=[
+                "The dependence is within units over time rather than "
+                "across units within a period: the standard error is then "
+                "biased downward by as much as OLS's",
+                "Few periods (T below about 10): the standard error is "
+                "itself estimated from T numbers",
+            ],
+            alternatives=["regress", "feols", "panel", "twoway_cluster"],
+            typical_n_min=10,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="robreg",
+            category="regression",
+            description=(
+                "Robust regression that bounds the influence of outliers: "
+                "MM (S start, 50% breakdown, 85% efficiency by default), "
+                "Huber or bisquare M, and S estimators. R "
+                "robustbase::lmrob / MASS::rlm, Stata robreg. Returns "
+                "coefficients, a sandwich or Huber-formula covariance, the "
+                "residual scale and the robustness weight of every "
+                "observation."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="e.g. 'y ~ x1 + x2'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "mm",
+                    "Estimator; 'mm' is the general recommendation",
+                    ["mm", "m", "s"],
+                ),
+                ParamSpec(
+                    "psi",
+                    "str",
+                    False,
+                    None,
+                    "rho function of the M step; huber for 'm' by default, "
+                    "bisquare for 'mm' and 's'",
+                    ["huber", "bisquare"],
+                ),
+                ParamSpec(
+                    "efficiency",
+                    "float",
+                    False,
+                    None,
+                    "Normal efficiency of the M step in (0, 1); default "
+                    "0.85 for 'mm', 0.95 for 'm'",
+                ),
+                ParamSpec(
+                    "tuning",
+                    "float",
+                    False,
+                    None,
+                    "Tuning constant given directly instead of efficiency",
+                ),
+                ParamSpec(
+                    "init",
+                    "str",
+                    False,
+                    "ls",
+                    "Start of an M fit: least squares (rlm) or LAD (robreg m)",
+                    ["ls", "lad"],
+                ),
+                ParamSpec(
+                    "scale",
+                    "str",
+                    False,
+                    "mad",
+                    "Scale of an M fit: 'mad' re-estimated each iteration "
+                    "(rlm), 'fixed' at the start (robreg m), or a number",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "robust",
+                    "Sandwich of the stacked equations, or Huber's formula",
+                    ["robust", "huber"],
+                ),
+                ParamSpec(
+                    "small",
+                    "bool",
+                    False,
+                    True,
+                    "n / (n - k) factor on the sandwich (robreg); lmrob " "uses none",
+                ),
+                ParamSpec("breakdown", "float", False, 0.5, "S-step breakdown point"),
+                ParamSpec(
+                    "tuning_s",
+                    "float",
+                    False,
+                    None,
+                    "Bisquare constant of the S step; default exact for "
+                    "the breakdown point (lmrob: 1.54764)",
+                ),
+                ParamSpec(
+                    "n_resample", "int", False, 500, "Random starts of the S search"
+                ),
+                ParamSpec("n_keep", "int", False, 25, "Candidates fully refined"),
+                ParamSpec("random_state", "int", False, 0, "Seed of the S search"),
+                ParamSpec("maxiter", "int", False, 500),
+                ParamSpec("tol", "float", False, 1e-10),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="EconometricResults",
+            example='sp.robreg("ta ~ big_n + cfo + size", df, method="mm")',
+            tags=["regression", "robust", "outliers", "accounting", "diagnostics"],
+            reference="yohai1987high",
+            assumptions=[
+                "The linear model describes the majority of the "
+                "observations; the rest may be arbitrary",
+                "MM and S: fewer than half of the observations are " "contaminated",
+                "vce='huber': errors symmetric and independent of the "
+                "regressors; vce='robust' needs neither",
+            ],
+            pre_conditions=[
+                "Clearly more observations than regressors",
+                "Regressors not collinear",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Collinear regressors",
+                    exception="MethodIncompatibility",
+                    remedy="Drop the redundant regressor(s).",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="More than half of the rows fitted exactly " "(scale zero)",
+                    exception="DataInsufficient",
+                    remedy="An exact fit; describe those rows by least squares.",
+                    alternative="sp.regress",
+                ),
+                FailureMode(
+                    symptom="M step not converged",
+                    exception="RuntimeWarning",
+                    remedy="Raise maxiter; with a redescending psi several "
+                    "solutions can exist, compare seeds.",
+                    alternative="",
+                ),
+            ],
+            not_recommended_when=[
+                "The extreme observations are the population of interest "
+                "(the largest firms): downweighting them answers a "
+                "different question",
+                "Clustered or serially dependent data: the covariance "
+                "assumes independent observations",
+                "method='m' with outliers in the regressors: a monotone M "
+                "estimate has no protection against leverage points",
+            ],
+            alternatives=["regress", "qreg", "winsor"],
+            typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="itcv",
+            category="robustness",
+            description=(
+                "Impact threshold for a confounding variable (Frank 2000): "
+                "how strongly an omitted variable would have to be "
+                "correlated with outcome and regressor to move a "
+                "coefficient to the significance threshold, benchmarked "
+                "against the impacts of the controls in the model, plus "
+                "the percent bias and RIR of Frank et al. (2013). Stata "
+                "konfound / pkonfound. Returns a dict."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "EconometricResults",
+                    True,
+                    description="Fitted linear regression",
+                ),
+                ParamSpec(
+                    "variable", "str", True, description="Coefficient of interest"
+                ),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "Two-sided significance level"
+                ),
+            ],
+            returns="dict",
+            example='sp.itcv(sp.regress("y ~ d + x1 + x2", df), "d")',
+            tags=["sensitivity", "omitted variable", "robustness", "accounting"],
+            reference="frank2000impact",
+            assumptions=[
+                "Linear regression with classical standard errors (an "
+                "approximation with robust ones)",
+                "A single omitted variable, linear in its effects",
+            ],
+            pre_conditions=[
+                "A result with finite residual degrees of freedom",
+                "For the benchmark: a result that keeps its design matrix "
+                "(sp.regress)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="The variable is not a coefficient of the result",
+                    exception="MethodIncompatibility",
+                    remedy="Pass a name from result.params.index.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="Result without residual degrees of freedom "
+                    "(a likelihood model)",
+                    exception="MethodIncompatibility",
+                    remedy="The threshold is defined for linear regression.",
+                    alternative="sp.sensemakr",
+                ),
+            ],
+            not_recommended_when=[
+                "As evidence that no confounder exists: the threshold "
+                "describes how much confounding it would take, nothing more",
+                "When bounds on the coefficient itself are wanted",
+            ],
+            alternatives=["sensemakr", "oster_bounds", "evalue"],
+            typical_n_min=30,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ndcg",
+            category="diagnostics",
+            description=(
+                "Normalised discounted cumulative gain at k for a binary "
+                "outcome: how many true cases a score puts at the very top "
+                "of the ranking, the measure used for rare-event "
+                "prediction such as accounting fraud. Returns a float in "
+                "[0, 1]."
+            ),
+            params=[
+                ParamSpec("y_true", "array", True, description="0/1 outcome"),
+                ParamSpec("scores", "array", True, description="Predicted score"),
+                ParamSpec(
+                    "k",
+                    "float",
+                    False,
+                    0.01,
+                    "Fraction of cases in (0, 1), or a count of 1 or more",
+                ),
+            ],
+            returns="float",
+            example="sp.ndcg(y, score, k=0.01)",
+            tags=["prediction", "classification", "ranking", "rare events"],
+            reference="jarvelin2002cumulated",
+            assumptions=[
+                "A binary outcome and a score where higher means more likely",
+                "The scores were produced out of sample",
+            ],
+            pre_conditions=["No missing values in outcome or score"],
+            failure_modes=[
+                FailureMode(
+                    symptom="k selects no case",
+                    exception="MethodIncompatibility",
+                    remedy="Raise k or pass a count.",
+                    alternative="",
+                ),
+            ],
+            not_recommended_when=[
+                "Many tied scores at the cutoff: the value then depends on "
+                "the order of the rows",
+                "The whole ranking matters rather than its top",
+            ],
+            alternatives=["auc", "roc_curve"],
+            typical_n_min=100,
         )
     )
 

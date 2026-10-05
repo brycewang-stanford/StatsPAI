@@ -147,12 +147,12 @@ def test_caret_inside_identity_is_a_power(df, R):
 
 
 def test_caret_outside_identity_keeps_its_formula_meaning():
-    from statspai.core.utils import r_power_in_identity
+    from statspai.core.utils import r_formula_idioms
 
-    assert r_power_in_identity("y ~ (a + b)^2 + I((x - 1)^3)") == (
+    assert r_formula_idioms("y ~ (a + b)^2 + I((x - 1)^3)") == (
         "y ~ (a + b)^2 + I((x - 1)**3)"
     )
-    assert r_power_in_identity("y ~ MI(x^2)") == "y ~ MI(x^2)"
+    assert r_formula_idioms("y ~ MI(x^2)") == "y ~ MI(x^2)"
 
 
 # ---------------------------------------------------------------- GLM

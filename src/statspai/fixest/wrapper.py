@@ -16,7 +16,7 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
-from ..core.utils import _widen_narrow_integers
+from ..core.utils import _widen_narrow_integers, r_formula_idioms
 from ..exceptions import MethodIncompatibility, NumericalInstability
 from ..output._lineage import records_provenance
 from .adapter import _multi_fit_to_results, _pyfixest_to_econometric_results
@@ -1185,6 +1185,7 @@ def feols(
     """
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
+    fml = r_formula_idioms(fml)
     data = _widen_narrow_integers(data)
     # ``i(rel, ref=[-1, -5])``: several reference levels (fixest's
     # ``ref = c(-1, -5)``); pyfixest takes one, so rewrite and map back.
@@ -1327,7 +1328,45 @@ def feols(
     out = _pyfixest_to_econometric_results(fit)
     _note_cluster_sizes(out, data, vcov)
     _note_weights(out, data, vcov, weights)
+    _warn_if_multiway_vcov_indefinite(fit, out, vcov)
     return out
+
+
+def _warn_if_multiway_vcov_indefinite(fit: Any, out: Any, vcov: Any) -> None:
+    """Say so when a multiway clustered covariance is not a covariance.
+
+    The inclusion-exclusion estimator can have negative eigenvalues when
+    one clustering dimension is small. R's fixest then sets them to zero
+    (``vcov_fix = TRUE``, its default); pyfixest reports the matrix as
+    computed, so the standard errors here are fixest's unadjusted ones and
+    can be several percent too small, or missing.
+    """
+    if not isinstance(vcov, dict):
+        return
+    spec = str(next(iter(vcov.values()), ""))
+    V = getattr(fit, "_vcov", None)
+    if "+" not in spec or V is None:
+        return
+    V = np.asarray(V, dtype=float)
+    if V.ndim != 2 or not np.all(np.isfinite(V)):
+        return
+    vals = np.linalg.eigvalsh((V + V.T) / 2.0)
+    tol = 1e-12 * max(float(np.max(np.abs(vals))), 1e-300)
+    n_negative = int(np.sum(vals < -tol))
+    if not n_negative:
+        return
+    if isinstance(getattr(out, "diagnostics", None), dict):
+        out.diagnostics["Multiway VCOV negative eigenvalues"] = n_negative
+    warnings.warn(
+        f"feols: the covariance clustered on {spec!r} is not positive "
+        f"semi-definite ({n_negative} negative eigenvalue"
+        f"{'s' if n_negative > 1 else ''}). The standard errors are read "
+        "off that matrix as it is, and are missing where a variance is "
+        "negative. R's fixest and sp.regress(cluster=[a, b]) set the "
+        "negative eigenvalues to zero and report larger ones.",
+        RuntimeWarning,
+        stacklevel=3,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -1432,6 +1471,7 @@ def fepois(
     """
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
+    fml = r_formula_idioms(fml)
     data = _widen_narrow_integers(data)
     _reject_silent_varying_slopes(fml)
 
@@ -1624,6 +1664,7 @@ def feglm(
     """
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
+    fml = r_formula_idioms(fml)
     data = _widen_narrow_integers(data)
     _reject_silent_varying_slopes(fml)
 

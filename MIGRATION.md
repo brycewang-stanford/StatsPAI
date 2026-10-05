@@ -82,6 +82,34 @@ they changed with the unit of the data.
 
 ---
 
+## 1.38.0 → next: ⚠️ two-way clustered standard errors, `sp.poisson` under separation
+
+**What changed.**
+
+- `sp.regress(cluster=[a, b])` and `sp.panel(..., cluster=[a, b])` set the
+  negative eigenvalues of the two-way covariance to zero when it is not
+  positive semi-definite, and warn. Until now a negative variance came out
+  as a standard error of 0 and the other standard errors were read off an
+  indefinite matrix. The result's `.vcov()` is the two-way matrix; it
+  raised before.
+- `sp.poisson` stops when the deviance is flat even if a coefficient is
+  still moving, and names the regressor responsible in
+  `model_info['separated_terms']`. Such a model used to fail.
+- `sp.from_r` on `feols(..., ~ a + b)` or `feols(..., vcov = ~ a + b)`
+  returns the clustered call. It returned the unclustered one.
+
+**Who is affected.** Anyone who clustered in two dimensions with one of
+them small (years, industries) relative to the number of coefficients: a
+`RuntimeWarning` now appears and the standard errors are larger. Fits whose
+two-way covariance was positive semi-definite give the same numbers.
+Converged Poisson fits give the same numbers.
+
+**What to do.** Re-run. The adjusted matrix depends on the parametrisation
+(which factor level is the base), as it does in `fixest` and `reghdfe`;
+with few clusters in one dimension consider clustering on the other alone,
+or a wild cluster bootstrap. There is no option to turn the adjustment off:
+the unadjusted matrix is not a covariance matrix.
+
 ## 1.38.0 → next: ⚠️ `sp.arima` default estimates and `auto=True` order selection
 
 **What changed.** `sp.arima(y, order=...)` with the default

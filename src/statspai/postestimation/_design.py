@@ -189,10 +189,10 @@ class _FormulaDesign:
         from ..core.utils import (
             _coerce_string_extension_dtypes,
             formula_eval_env,
-            r_power_in_identity,
+            r_formula_idioms,
         )
 
-        rhs = r_power_in_identity(formula.split("~", 1)[1].strip())
+        rhs = r_formula_idioms(formula.split("~", 1)[1].strip())
         frame = _coerce_string_extension_dtypes(frame)
         try:
             di = patsy.dmatrix(

@@ -181,10 +181,10 @@ def _design_for_new_data(
     from ..core.utils import (
         _coerce_string_extension_dtypes,
         formula_eval_env,
-        r_power_in_identity,
+        r_formula_idioms,
     )
 
-    rhs = r_power_in_identity(formula.split("~", 1)[1].strip())
+    rhs = r_formula_idioms(formula.split("~", 1)[1].strip())
     built = dmatrix(
         rhs,
         _coerce_string_extension_dtypes(data),

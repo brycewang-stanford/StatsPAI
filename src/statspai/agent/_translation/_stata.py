@@ -3979,6 +3979,22 @@ def _h_newey(cmd: StataCommand) -> Dict[str, Any]:
         "hac_lags": lag,
         "hac_small": True,
     }
+    unit, time = cmd.options.get("i"), cmd.options.get("t")
+    notes: List[str] = []
+    if unit and time:
+        # panel data: autocovariances within units, at exact time lags,
+        # with or without gaps, which is what `force` permits
+        "force" in cmd.options
+        args["hac_panel"] = [unit, time]
+        python = (
+            f"sp.regress({formula!r}, robust='hac', hac_lags={lag}, "
+            f"hac_small=True, hac_panel={[unit, time]!r}, data=df)"
+        )
+        semantics = [
+            "newey on xtset data takes the autocovariances within panels; "
+            "hac_panel= does the same and does not need sorted rows."
+        ]
+        return _emit("regress", args, python, notes, semantics=semantics)
     python = (
         f"sp.regress({formula!r}, robust='hac', hac_lags={lag}, "
         "hac_small=True, data=df)"
@@ -3988,7 +4004,122 @@ def _h_newey(cmd: StataCommand) -> Dict[str, Any]:
         "of `tsset` first. newey refuses a series with gaps unless `force` "
         "is given; the sp call does not check."
     ]
-    return _emit("regress", args, python, semantics=semantics)
+    # `force` is left unread on purpose: without the panel declaration the
+    # call above does not do what it asks, and the option is reported as
+    # untranslated. dict.__contains__ looks without marking it as read.
+    if dict.__contains__(cmd.options, "force"):
+        notes.append(
+            "`force` is how newey is run on panel data. If the data are "
+            "`xtset <panel_id> <time>`, add hac_panel=('<panel_id>', "
+            "'<time>') so that lags do not run from one panel into the next."
+        )
+    return _emit("regress", args, python, notes, semantics=semantics)
+
+
+def _h_xtfmb(cmd: StataCommand) -> Dict[str, Any]:
+    """``xtfmb y x [, lag(#)]`` -> ``sp.fama_macbeth(..., time=, lags=)``.
+
+    The cross-sections are the periods of ``xtset``; the panel variable
+    plays no part in the estimator.
+    """
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("xtfmb requires an outcome variable", command="xtfmb")
+    formula = _build_formula(y, xs)
+    cmd.options.get("i")  # the unit of xtset; Fama-MacBeth does not use it
+    time = cmd.options.get("t") or "<time>"
+    args: Dict[str, Any] = {"formula": formula, "time": time}
+    raw = cmd.options.get("lag")
+    if raw is not None:
+        try:
+            args["lags"] = int(str(raw).strip())
+        except ValueError:
+            return _emit_error(f"xtfmb: lag({raw}) is not an integer", command="xtfmb")
+    pairs = [repr(formula), "data=df"] + [
+        f"{k}={v!r}" for k, v in args.items() if k != "formula"
+    ]
+    notes: List[str] = []
+    if time == "<time>":
+        notes.append(
+            "Couldn't recover the time variable from this command alone "
+            "(Stata's `xtset <panel_id> <time>` lives in another line). "
+            "Replace <time> with the period column."
+        )
+    semantics = [
+        "With lag() xtfmb sets the covariances between coefficients to "
+        "zero; sp.fama_macbeth keeps the Newey-West ones. The standard "
+        "errors are the same, joint tests are not.",
+        "The constant is reported as `Intercept`, Stata's `_cons`.",
+    ]
+    return _emit(
+        "fama_macbeth",
+        args,
+        f"sp.fama_macbeth({', '.join(pairs)})",
+        notes,
+        semantics=semantics,
+    )
+
+
+def _h_robreg(cmd: StataCommand) -> Dict[str, Any]:
+    """``robreg m|s|mm y x [, efficiency() k() bp() biweight]`` (Jann) ->
+    ``sp.robreg``. The M estimator's LAD start and fixed scale are
+    written out; they are not sp.robreg's defaults."""
+    if not cmd.varlist or cmd.varlist[0] not in ("m", "s", "mm"):
+        sub = cmd.varlist[0] if cmd.varlist else ""
+        return _emit_error(
+            f"robreg {sub}: only the m, s and mm estimators have an "
+            "sp.robreg counterpart (not ls, q, lms, lqs, lts).",
+            command="robreg",
+            suggestions=[],
+        )
+    method = cmd.varlist[0]
+    y, xs = _split_varlist_y_x(cmd.varlist[1:])
+    if y is None:
+        return _emit_error("robreg requires an outcome variable", command="robreg")
+    formula = _build_formula(y, xs)
+    args: Dict[str, Any] = {"formula": formula, "method": method}
+
+    def number(name: str) -> Optional[float]:
+        raw = cmd.options.get(name)
+        if raw is None:
+            return None
+        return float(str(raw).strip())
+
+    try:
+        eff, k, bp = number("efficiency"), number("k"), number("bp")
+    except ValueError:
+        return _emit_error(
+            "robreg: efficiency(), k() and bp() take numbers", command="robreg"
+        )
+    if method == "m":
+        args["psi"] = "bisquare" if "biweight" in cmd.options else "huber"
+        "huber" in cmd.options  # the default objective function
+        args["init"] = "lad"
+        args["scale"] = "fixed"
+    if method in ("m", "mm"):
+        if k is not None:
+            args["tuning"] = k
+        elif eff is not None:
+            args["efficiency"] = eff / 100.0
+    if method in ("s", "mm") and bp is not None:
+        args["breakdown"] = bp / 100.0
+    if method == "s" and k is not None:
+        args["tuning_s"] = k
+    pairs = [repr(formula), "data=df"] + [
+        f"{key}={value!r}" for key, value in args.items() if key != "formula"
+    ]
+    semantics = [
+        "The constant is reported as `Intercept`, Stata's `_cons`.",
+        "The S step is a random search on both sides; the estimates agree "
+        "when both reach the global minimum of the scale.",
+    ]
+    if method == "m":
+        semantics.append(
+            "robreg m takes its scale from the LAD residuals that are not "
+            "exactly zero; sp.robreg leaves out the p interpolated points. "
+            "The two can differ by one order statistic."
+        )
+    return _emit("robreg", args, f"sp.robreg({', '.join(pairs)})", semantics=semantics)
 
 
 def _h_dfuller(cmd: StataCommand) -> Dict[str, Any]:
@@ -4202,6 +4333,8 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "bitesti": _h_bitesti,
     "dfuller": _h_dfuller,
     "newey": _h_newey,
+    "xtfmb": _h_xtfmb,
+    "robreg": _h_robreg,
 }
 
 

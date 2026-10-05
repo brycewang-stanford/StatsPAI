@@ -4331,4 +4331,140 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         "alternatives": ["manski_bounds", "iv_bounds", "iv"],
         "typical_n_min": 200,
     },
+    "winsor": {
+        "assumptions": [
+            "The extreme values are errors or are not the population the "
+            "analysis is about; winsorizing a correct heavy tail changes "
+            "the estimand",
+            "The cut-offs are computed on the estimation sample (use "
+            "subset= / by= when the regression uses part of the data)",
+        ],
+        "pre_conditions": [
+            "Numeric columns; missing values are left missing",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Winsorizing or trimming the dependent variable "
+                "of a regression",
+                "exception": "(none — informational)",
+                "remedy": "Selecting on the outcome biases the slope "
+                "towards zero; treat regressors only, or use a robust "
+                "estimator that downweights instead of cutting",
+                "alternative": "robreg",
+            },
+            {
+                "symptom": "trim=True on several variables removes a "
+                "different set of rows for each",
+                "exception": "(none — informational)",
+                "remedy": "The regression sample is the intersection; "
+                "report its size",
+                "alternative": "",
+            },
+        ],
+        "alternatives": ["robreg", "qreg", "sumstats"],
+        "typical_n_min": 100,
+    },
+    "bitest": {
+        "assumptions": [
+            "Independent trials with the same success probability",
+            "The null probability is fixed in advance, not estimated from "
+            "the same data",
+        ],
+        "pre_conditions": [
+            "A 0/1 column, or the number of trials and of successes",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Trials are clustered or serially dependent "
+                "(the same firm in several years)",
+                "exception": "(none — informational)",
+                "remedy": "The exact binomial p-value is too small; "
+                "test the proportion with clustered standard errors",
+                "alternative": "regress",
+            },
+        ],
+        "alternatives": ["prtest", "ttest"],
+        "typical_n_min": 1,
+    },
+    "ttest": {
+        "assumptions": [
+            "Independent observations within each group (paired "
+            "differences for a paired test)",
+            "Sample means approximately normal: normal data or a sample "
+            "large enough for the central limit theorem",
+            "Equal variances only when the pooled test is requested",
+        ],
+        "pre_conditions": [
+            "A numeric outcome; for two samples a grouping column with "
+            "exactly two values",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Clustered or repeated observations treated as "
+                "independent",
+                "exception": "(none — informational)",
+                "remedy": "Regress the outcome on the group indicator "
+                "with clustered standard errors",
+                "alternative": "regress",
+            },
+            {
+                "symptom": "Heavy tails or gross outliers in a small sample",
+                "exception": "(none — informational)",
+                "remedy": "Compare medians or ranks instead",
+                "alternative": "median_test",
+            },
+        ],
+        "alternatives": ["regress", "median_test", "sdtest", "prtest"],
+        "typical_n_min": 20,
+    },
+    "median_test": {
+        "assumptions": [
+            "Independent samples",
+            "The groups are compared by the share of observations above "
+            "the pooled median, which tests equality of medians without a "
+            "distributional assumption",
+        ],
+        "pre_conditions": [
+            "A numeric or ordinal outcome and a grouping column",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Many observations tied at the pooled median",
+                "exception": "(none — informational)",
+                "remedy": "The split of the ties decides the result; "
+                "state the rule used or compare distributions another way",
+                "alternative": "ttest",
+            },
+        ],
+        "alternatives": ["ttest", "qreg"],
+        "typical_n_min": 20,
+    },
+    "pwcorr": {
+        "assumptions": [
+            "Pearson correlations measure linear association; the "
+            "p-values assume independent observations",
+            "Pairwise deletion: each correlation uses the rows observed "
+            "for that pair, so the entries can rest on different samples",
+        ],
+        "pre_conditions": [
+            "Two or more numeric columns",
+        ],
+        "failure_modes": [
+            {
+                "symptom": "Panel data: the same unit contributes many " "rows",
+                "exception": "(none — informational)",
+                "remedy": "The stars overstate significance; use a "
+                "regression with clustered standard errors for inference",
+                "alternative": "regress",
+            },
+            {
+                "symptom": "Many pairs tested at once",
+                "exception": "(none — informational)",
+                "remedy": "Adjust for multiple comparisons",
+                "alternative": "romano_wolf",
+            },
+        ],
+        "alternatives": ["regress", "sumstats", "partial_corr_pvalue"],
+        "typical_n_min": 30,
+    },
 }

@@ -173,6 +173,81 @@ The same rerun found that `sp.pc_algorithm` drops edges `pcalg::pc` keeps.
 A parallel pass (Ness, *Causal AI*) reached that function first and carries
 the fix; this one leaves `causal_discovery/` and `dag/` alone. The notes
 record a 24-case `pcalg` comparison for whoever closes it.
+### What an accounting research textbook found
+
+Gow and Ding's *Empirical Research in Accounting: Tools and Methods*
+(2024) teaches the field's methods in R, with `fixest`, `plm`, `sandwich`
+and `robustbase` and the companion package `farr`. Most chapters need CRSP
+and Compustat through WRDS. The ones that do not, and the simulated or
+packaged-data parts of four others, were rerun in R 4.5.2 and recomputed
+with StatsPAI; what changed was then tested on committed synthetic files
+against R and Stata 18. Notes are in
+`docs/dev/2026-10-06-gow-ding-accounting-review.md`; the user-facing map is
+`docs/guides/empirical_accounting_research.md`.
+
+#### ⚠️ Correctness
+
+- **Two-way clustered standard errors when the covariance matrix is not
+  positive semi-definite.** `sp.regress(cluster=[a, b])` and
+  `sp.panel(..., cluster=[a, b])` build the covariance as `V_a + V_b -
+  V_ab`, which can have negative eigenvalues when one dimension has few
+  clusters. A negative variance was reported as a standard error of 0, with
+  no warning, and the matrix behind the standard errors was not stored, so
+  `.vcov()` raised. Negative eigenvalues are now set to zero, the
+  adjustment of Cameron, Gelbach and Miller (2011) that `fixest` and
+  `reghdfe` apply, a `RuntimeWarning` says so, and the matrix is stored. On
+  the book's accruals regression (8,850 firm-years, 21 years, 85
+  coefficients) 46 eigenvalues are negative and the reported standard
+  errors rise by 4 to 19 percent; they now equal `fixest`'s to 1e-12 when
+  both use the same base year. Fits whose covariance was already positive
+  semi-definite are unchanged. `sp.feols` (pyfixest) reports the matrix as
+  computed; it now warns when that matrix is indefinite.
+- **`sp.poisson` failed on a quasi-separated model**, with "SVD did not
+  converge". A regressor that picks out only zero outcomes has no finite
+  coefficient; the iteration tested convergence on the coefficients alone
+  and walked that one towards minus infinity until the weights underflowed.
+  It now also stops when the deviance is flat, reports the other
+  coefficients (equal to R's `glm` to 1e-9), warns, and lists the regressor
+  in `model_info['separated_terms']`. The starting values are `glm`'s
+  (`mu = y + 0.1`); the old ones could overflow on counts in the thousands.
+  Converged fits are unchanged.
+- **`sp.from_r` dropped the clustering of a `feols` call without a note.**
+  `feols(y ~ x | f, ~ firm + year, data = d)` and `vcov = ~ firm + year`
+  translated to `sp.feols('y ~ x | f', data=df)`. Both forms now give
+  `vcov={'CRV1': 'firm + year'}`; `vcov = "iid"` and `"hetero"` carry over,
+  and anything else is listed as untranslated.
+
+#### Added
+
+- **`sp.fama_macbeth`**: one cross-sectional regression per period, the
+  coefficients averaged, standard errors from their variation over time,
+  `lags=` for the Newey-West correction of the coefficient series.
+  `plm::pmg` and `sandwich::NeweyWest` to 1e-15, Stata `xtfmb` to 1e-6
+  (it keeps the per-period estimates in single precision).
+- **`sp.robreg`**: M, S and MM robust regression. The S step is the fast-S
+  algorithm with a subsampling scheme that also works with indicator
+  regressors. Coefficients, scale, robustness weights and the sandwich
+  covariance equal Stata `robreg` to 1e-8; coefficients, scale and weights
+  equal `robustbase::lmrob` to 1e-9; `method='m'` with `vce='huber'`
+  equals `MASS::rlm` to 1e-10.
+- **`sp.itcv`**: Frank's impact threshold for a confounding variable, the
+  impacts of the observed controls as a benchmark, and the percent bias and
+  RIR of Frank et al. (2013). Equal to Stata `pkonfound` to 1e-15.
+- **`sp.ndcg`**: normalised discounted cumulative gain at k, the ranking
+  measure of the fraud-prediction literature, next to `sp.auc`.
+- `sp.regress(robust='hac', hac_panel=(unit, time))`: Newey-West within
+  panels at exact time lags, in any row order. `plm::vcovNW` to 1e-15 and,
+  with `hac_small=True`, Stata `newey ..., force` to 1e-9, gaps included.
+  Without it a stacked panel is read as one long series.
+- `sp.winsor(..., trim=True)` sets the tails to missing instead of pulling
+  them in (`winsor2, trim`; `farr::truncate`).
+- `factor(x)` and `as.factor(x)` in a formula are read as `C(x)`, in every
+  estimator. They raised `NameError`.
+- `sp.from_r` translates `pmg`, `lmrob`, `rlm`, `rdrobust`, `binom.test`
+  and `linearHypothesis`; `matchit(!d ~ x)` and `caliper=` are carried
+  into the call. `sp.from_stata` / `sp.stata` translate `xtfmb`, `robreg`
+  and `newey` on `xtset` data.
+
 
 ### What a Python econometrics textbook found
 

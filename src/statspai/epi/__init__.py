@@ -33,6 +33,7 @@ from .diagnostic import (
     auc,
     cohen_kappa,
     diagnostic_test,
+    ndcg,
     roc_curve,
     sensitivity_specificity,
 )
@@ -95,5 +96,6 @@ __all__ = [
     "sensitivity_specificity",
     "roc_curve",
     "auc",
+    "ndcg",
     "cohen_kappa",
 ]

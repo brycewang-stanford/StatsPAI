@@ -629,7 +629,7 @@ def _expand_formula_terms(
     from ..core.utils import (
         _coerce_string_extension_dtypes,
         formula_eval_env,
-        r_power_in_identity,
+        r_formula_idioms,
     )
 
     frame = _coerce_string_extension_dtypes(data).copy()
@@ -638,7 +638,7 @@ def _expand_formula_terms(
     build = [t for t in terms if not plain(t)]
     try:
         design = dmatrix(
-            "1 + " + r_power_in_identity(" + ".join(build)),
+            "1 + " + r_formula_idioms(" + ".join(build)),
             frame,
             eval_env=formula_eval_env(),
             return_type="dataframe",

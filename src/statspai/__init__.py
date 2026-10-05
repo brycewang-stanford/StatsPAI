@@ -884,6 +884,7 @@ from .network import (
     reciprocity,
     transitivity,
 )
+from .panel.fama_macbeth import fama_macbeth
 
 # === NEW v0.6 Round 2 ===
 # Interactive Fixed Effects
@@ -1020,6 +1021,7 @@ from .regression.multinomial import clogit, mlogit, ologit, oprobit
 from .regression.nested_logit import nlogit
 from .regression.quantile import qreg, sqreg
 from .regression.ridge import RidgeResult, ridge
+from .regression.robreg import robreg
 
 # Sample Selection Models
 from .regression.selection import biprobit, etregress
@@ -1049,6 +1051,7 @@ from .rlasso import (  # noqa: E402
     rlassologit_effect,
     rlassologit_effects,
 )
+from .robustness.itcv import itcv
 from .selection import (
     SelectionResult,
     ShrinkageResult,
@@ -1881,6 +1884,9 @@ __all__ = [
     "GAMResult",
     "gee",
     "ridge",
+    "robreg",
+    "fama_macbeth",
+    "itcv",
     "RidgeResult",
     "boxcox",
     "BoxCoxResult",
@@ -2411,6 +2417,7 @@ __all__ = [
     "sensitivity_specificity",
     "roc_curve",
     "auc",
+    "ndcg",
     "cohen_kappa",
     "DiagnosticTestResult",
     "ROCResult",
@@ -3267,6 +3274,7 @@ _register_lazy(
     "sensitivity_specificity",
     "roc_curve",
     "auc",
+    "ndcg",
     "cohen_kappa",
     "DiagnosticTestResult",
     "ROCResult",

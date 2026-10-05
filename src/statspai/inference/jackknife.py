@@ -23,6 +23,7 @@ Cameron, A.C., Gelbach, J.B. and Miller, D.L. (2008).
 *Review of Economics and Statistics*, 90(3), 414-427. [@cameron2008bootstrap]
 """
 
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -955,14 +956,16 @@ def cr_vcov_matrix(
     return corr * bread @ meat @ bread
 
 
-def two_way_correction_ols(
+def two_way_vcov_ols(
     result: "EconometricResults",
     c1_codes: np.ndarray,
     c2_codes: np.ndarray,
     c12_codes: np.ndarray,
     small_sample: bool = True,
-) -> "pd.Series":
-    """Two-way (Cameron-Gelbach-Miller 2011) cluster-robust SE on the OLS design.
+) -> Tuple[np.ndarray, List[str], int]:
+    """Two-way (Cameron-Gelbach-Miller 2011) cluster-robust covariance on
+    the OLS design: the matrix, the coefficient names, and the number of
+    negative eigenvalues that had to be set to zero.
 
     Inclusion-exclusion on the projected-score meat ``M1 + M2 - M12``, with
     ``M_g = (X_g' e_g)(X_g' e_g)'``.  Default correction is
@@ -972,6 +975,11 @@ def two_way_correction_ols(
     side in ``tests/reference_parity/test_regress_vce_weights_stata_parity.py``.
     Pass ``small_sample=False`` for the bias-reduced variant. Analytic
     weights stored on the result are applied.
+
+    The difference of matrices need not be positive semi-definite. When it
+    is not, the negative eigenvalues are set to zero (:func:`psd_adjust`)
+    and a ``RuntimeWarning`` says so; before 1.39 a negative variance was
+    reported as a standard error of zero.
     """
     iv = getattr(result, "data_info", None) or {}
     X = np.asarray(iv["X"], dtype=float)
@@ -998,7 +1006,52 @@ def two_way_correction_ols(
     else:
         corr = 1.0
     vcov = corr * bread @ meat @ bread
-    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+    vcov, n_negative = psd_adjust(vcov)
+    if n_negative:
+        warnings.warn(
+            "Two-way clustered covariance was not positive semi-definite "
+            f"({n_negative} negative eigenvalue{'s' if n_negative > 1 else ''}); "
+            "they were set to zero, the adjustment of Cameron, Gelbach and "
+            "Miller (2011) that fixest and reghdfe also apply. This happens "
+            "when one clustering dimension has few clusters relative to the "
+            "number of coefficients; treat joint tests with care.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return vcov, names, n_negative
+
+
+def two_way_correction_ols(
+    result: "EconometricResults",
+    c1_codes: np.ndarray,
+    c2_codes: np.ndarray,
+    c12_codes: np.ndarray,
+    small_sample: bool = True,
+) -> "pd.Series":
+    """Standard errors of :func:`two_way_vcov_ols`."""
+    vcov, names, _ = two_way_vcov_ols(
+        result, c1_codes, c2_codes, c12_codes, small_sample
+    )
+    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0.0)), index=names)
+
+
+def psd_adjust(vcov: np.ndarray) -> Tuple[np.ndarray, int]:
+    """A multiway covariance with its negative eigenvalues set to zero.
+
+    The inclusion-exclusion estimator ``V1 + V2 - V12`` is not positive
+    semi-definite by construction. Cameron, Gelbach and Miller (2011,
+    sec. 2.3) replace ``V = U L U'`` by ``U max(L, 0) U'``. Returns the
+    matrix (unchanged when it is already positive semi-definite) and the
+    number of eigenvalues that were negative beyond rounding.
+    """
+    sym = (vcov + vcov.T) / 2.0
+    vals, vecs = np.linalg.eigh(sym)
+    tol = 1e-12 * max(float(np.max(np.abs(vals))), 1e-300)
+    negative = vals < -tol
+    if not negative.any():
+        return vcov, 0
+    fixed = (vecs * np.maximum(vals, 0.0)) @ vecs.T
+    return fixed, int(negative.sum())
 
 
 def conley_vcov_ols(

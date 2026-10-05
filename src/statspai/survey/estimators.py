@@ -553,13 +553,13 @@ def svyglm(
     from ..core.utils import (
         _coerce_string_extension_dtypes,
         formula_eval_env,
-        r_power_in_identity,
+        r_formula_idioms,
     )
 
     # pandas >= 3.0 string columns are StringDtype, which patsy cannot sniff.
     _data = _coerce_string_extension_dtypes(design.data)
     y_df, X_df = dmatrices(
-        r_power_in_identity(formula),
+        r_formula_idioms(formula),
         data=_data,
         eval_env=formula_eval_env(),
         return_type="dataframe",

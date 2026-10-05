@@ -125,6 +125,94 @@ _FACTOR_NOTES: Dict[str, Tuple[str, ...]] = {
 # tests/reference_parity/REFERENCES.md (the "Frozen R-value fixtures" table)
 # and the asserting test — no model-memory facts (CLAUDE.md §10).
 _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
+    # ---- tools of empirical accounting research (Gow and Ding) ----
+    #
+    # Two synthetic files, two frozen references: R 4.5.2 (plm, sandwich,
+    # robustbase, MASS) in accounting_research_R.json and Stata 18 (xtfmb,
+    # robreg, pkonfound) in accounting_research_Stata.csv. Tolerances are
+    # the EXACT (1e-9) and ITER (1e-6) constants of the asserting test.
+    "fama_macbeth": {
+        "status": "bit-exact",
+        "reference": "plm::pmg; sandwich::NeweyWest on the coefficient "
+        "series; Stata 18 xtfmb (with and without lag())",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "plm": "2.6.7",
+            "sandwich": "3.1.1",
+            "Stata": "18",
+        },
+        "tolerance": "coefficients, covariance and Newey-West SE 1e-9 rel "
+        "(R); 1e-6 rel (xtfmb keeps the per-period estimates as floats)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_accounting_research_parity.py",
+            "tests/reference_parity/_fixtures/accounting_research_R.json",
+            "tests/reference_parity/_fixtures/accounting_research_Stata.csv",
+        ],
+        "note": (
+            "Frozen-R and frozen-Stata fixtures on a committed synthetic "
+            "panel, balanced and with 60 firm-years removed."
+        ),
+    },
+    "robreg": {
+        "status": "bit-exact",
+        "reference": "Stata 18 robreg m / s / mm (Jann); robustbase::lmrob "
+        "(coefficients, scale, weights); MASS::rlm (M estimates and "
+        "Huber-formula SE)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "robustbase": "0.99.7",
+            "MASS": "7.3.65",
+            "Stata": "18",
+        },
+        "tolerance": "coefficients, scale and covariance 1e-6 rel (the "
+        "references iterate to their own tolerance); lmrob scale 1e-9 rel",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_accounting_research_parity.py",
+            "tests/reference_parity/_fixtures/accounting_research_R.json",
+            "tests/reference_parity/_fixtures/accounting_research_Stata.csv",
+        ],
+        "note": (
+            "Frozen-R and frozen-Stata fixtures. The sandwich covariance is "
+            "compared with robreg; lmrob's default standard errors differ by "
+            "up to 8e-6 for a reason not located and are bounded, not "
+            "claimed. The scale of robreg m is compared at robreg's own "
+            "value: its rule for dropping zero LAD residuals depends on "
+            "rounding."
+        ),
+    },
+    "itcv": {
+        "status": "bit-exact",
+        "reference": "Stata 18 pkonfound (ITCV and RIR); the formula of "
+        "Frank (2000) evaluated in R",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "Stata": "18"},
+        "tolerance": "threshold, correlations and benchmark impacts 1e-9 "
+        "rel (R); 1e-6 rel (pkonfound, fed rounded inputs)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_accounting_research_parity.py",
+            "tests/reference_parity/_fixtures/accounting_research_R.json",
+            "tests/reference_parity/_fixtures/accounting_research_Stata.csv",
+        ],
+        "note": (
+            "Frozen-R and frozen-Stata fixtures. pkonfound counts degrees "
+            "of freedom as n - ncov - 2; the comparison is made at its "
+            "count."
+        ),
+    },
+    "ndcg": {
+        "status": "bit-exact",
+        "reference": "farr::ndcg, evaluated in R from its definition",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "1e-9 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_accounting_research_parity.py",
+            "tests/reference_parity/_fixtures/accounting_research_R.json",
+        ],
+        "note": "Frozen-R fixture on a committed synthetic score.",
+    },
     # ---- classical tests and regression diagnostics (Kohler, Kreuter and
     # Haensch, Data Analysis Using Stata) ----
     #

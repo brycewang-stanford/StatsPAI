@@ -1691,9 +1691,9 @@ class GLMRegression(BaseModel):
                         return_type="dataframe",
                     )[0]
                 else:
-                    from ..core.utils import formula_eval_env, r_power_in_identity
+                    from ..core.utils import formula_eval_env, r_formula_idioms
 
-                    rhs = r_power_in_identity(self.formula.split("~", 1)[1].strip())
+                    rhs = r_formula_idioms(self.formula.split("~", 1)[1].strip())
 
                     X_new = dmatrix(
                         rhs,

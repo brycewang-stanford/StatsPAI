@@ -25,7 +25,27 @@ _FORMULA_FUNCTIONS: Dict[str, Any] = {
 }
 
 
-def r_power_in_identity(formula: str) -> str:
+_R_FACTOR_CALL = re.compile(r"(?<![\w.])(?:as\.)?factor\(")
+
+
+def r_formula_idioms(formula: str) -> str:
+    """Read a formula written the way R writes it.
+
+    Two spellings are translated before the formula reaches the parser:
+
+    * ``factor(x)`` and ``as.factor(x)`` become ``C(x)``. They are how R
+      marks a categorical term; the coefficient labels are the house ones
+      (``C(x)[T.2]``), so ``sp.test``, ``sp.margins`` and the table
+      builders read them without knowing where the formula came from.
+    * ``^`` inside ``I(...)`` becomes ``**``, see
+      :func:`_caret_as_power_in_identity`.
+    """
+    if "factor(" in formula:
+        formula = _R_FACTOR_CALL.sub("C(", formula)
+    return _caret_as_power_in_identity(formula)
+
+
+def _caret_as_power_in_identity(formula: str) -> str:
     """Read ``^`` inside ``I(...)`` as a power, the way R does.
 
     ``I(exper^2)`` is how R (and anyone coming from it) writes a squared
@@ -86,7 +106,7 @@ def evaluate_formula_expression(expr: str, data: pd.DataFrame) -> pd.Series:
     frame = _coerce_string_extension_dtypes(data)
     try:
         design = dmatrix(
-            "0 + " + r_power_in_identity(expr),
+            "0 + " + r_formula_idioms(expr),
             frame,
             eval_env=formula_eval_env(),
             return_type="dataframe",
@@ -479,7 +499,7 @@ def create_design_matrices(
     Tuple[pd.DataFrame, pd.DataFrame]
         (y, X) matrices
     """
-    formula = r_power_in_identity(formula)
+    formula = r_formula_idioms(formula)
     fast = _try_simple_numeric_design_matrices(formula, data, return_type)
     if fast is not None:
         return fast

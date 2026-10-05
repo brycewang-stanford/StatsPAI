@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
@@ -489,6 +490,79 @@ def auc(y_true: Any, scores: Any, weights: Any = None) -> float:
     1.0
     """
     return roc_curve(y_true, scores, weights=weights).auc
+
+
+def ndcg(y_true: Any, scores: Any, k: float = 0.01) -> float:
+    """Normalised discounted cumulative gain of the top-ranked cases.
+
+    For a rare outcome (accounting fraud, default) the question is not how
+    well a score ranks everyone, which is what the AUC answers, but how many
+    true cases sit at the very top of the list an examiner would work
+    through. NDCG at ``k`` looks at the ``k`` highest scores only, credits a
+    true case at rank ``i`` with ``1 / log2(i + 1)``, and divides by the
+    credit of a perfect ranking, so 1 means the top of the list is all true
+    cases (or all of them, when there are fewer than ``k``).
+
+    Parameters
+    ----------
+    y_true : array-like
+        0/1 outcome.
+    scores : array-like
+        Predicted score; higher means more likely.
+    k : float, default 0.01
+        A fraction in (0, 1): the top ``round(n * k)`` cases, 0.01 being
+        the top 1%. A number of 1 or more is the count itself.
+
+    Returns
+    -------
+    float
+        NDCG at ``k`` in [0, 1]; 0 when there is no true case at all.
+
+    Notes
+    -----
+    Tied scores are ranked in the order of the data, as R's ``sort`` does.
+    With many ties at the cutoff the value depends on that order; break
+    them before reading much into it.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> y = np.array([1, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+    >>> s = np.array([.9, .8, .7, .6, .5, .4, .3, .2, .1, .0])
+    >>> round(sp.ndcg(y, s, k=3), 4)        # hits at ranks 1 and 3 of top 3
+    0.9197
+    >>> sp.ndcg(y, s, k=1)
+    1.0
+
+    References
+    ----------
+    jarvelin2002cumulated, bao2020detecting
+    """
+    y = np.asarray(y_true)
+    s = np.asarray(scores, dtype=float)
+    if y.shape != s.shape or y.ndim != 1:
+        raise MethodIncompatibility(
+            "ndcg: y_true and scores must be one-dimensional and equally long."
+        )
+    if np.isnan(s).any() or pd.isna(y).any():
+        raise MethodIncompatibility("ndcg: missing values in y_true or scores.")
+    rel = (y.astype(float) == 1).astype(float)
+    n = len(rel)
+    if not k > 0:
+        raise MethodIncompatibility(f"ndcg: k must be positive, got {k!r}.")
+    kn = int(round(n * k)) if k < 1 else int(k)
+    kn = min(kn, n)
+    if kn < 1:
+        raise MethodIncompatibility(
+            f"ndcg: k={k!r} selects no case out of {n}.",
+            recovery_hint="Raise k, or give a count of 1 or more.",
+        )
+    order = np.argsort(-s, kind="stable")
+    discount = 1.0 / np.log2(np.arange(1, kn + 1) + 1.0)
+    dcg = float(np.sum(rel[order][:kn] * discount))
+    ideal = float(np.sum(discount[: int(min(kn, rel.sum()))]))
+    return dcg / ideal if ideal > 0 else 0.0
 
 
 # --------------------------------------------------------------------------- #

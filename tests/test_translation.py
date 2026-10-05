@@ -1062,6 +1062,17 @@ TIER3_ROUND_TRIPS = [
         {"formula": "y ~ x1 + x2", "id": "id", "corstr": "ar1", "vce": "robust"},
     ),
     ("boxcox y x1 x2", "boxcox", {"formula": "y ~ x1 + x2"}),
+    # Fama-MacBeth and robust regression (Gow and Ding pass)
+    (
+        "xtfmb y x1 x2, lag(2) i(id) t(year)",
+        "fama_macbeth",
+        {"formula": "y ~ x1 + x2", "time": "year", "lags": 2},
+    ),
+    (
+        "robreg mm y x1 x2, efficiency(95)",
+        "robreg",
+        {"formula": "y ~ x1 + x2", "method": "mm", "efficiency": 0.95},
+    ),
     # Poisson HDFE — absorb is a "+"-joined string (sp.ppmlhdfe's real arg)
     (
         "ppmlhdfe trade gravity, absorb(orig dest year) cluster(orig)",
@@ -2419,7 +2430,9 @@ def test_r_matchit_left_hand_side_is_the_treatment():
     # MatchIt's defaults, written out because sp.match's differ
     assert args["replace"] is False and args["estimand"] == "ATT"
     assert args["n_matches"] == 2
-    assert out["untranslated_arguments"] == ["caliper"]
+    # MatchIt's caliper is in standard deviations of the distance by default
+    assert args["caliper"] == 0.2 and args["caliper_scale"] == "sd"
+    assert "untranslated_arguments" not in out
     assert "y=" not in out["python_code"]
 
 

@@ -508,11 +508,20 @@ def _poisson_irls(
     weights: Optional[np.ndarray] = None,
     maxiter: int = 100,
     tol: float = 1e-8,
+    info: Optional[Dict[str, Any]] = None,
 ) -> Tuple[np.ndarray, np.ndarray, bool, int]:
     """
     Poisson regression via Iteratively Reweighted Least Squares.
 
     Returns (beta, mu, converged, n_iter).
+
+    The iteration stops when the coefficients stop moving (relative change
+    below ``tol``). Under (quasi-)separation they never do: a regressor that
+    picks out only zeros has no finite coefficient, the fit converges and the
+    coefficient keeps walking to minus infinity until the weights underflow.
+    So the iteration also stops when the deviance has been flat to machine
+    precision for two iterations; ``info['drifting']`` then holds the indices
+    of the coefficients that were still moving.
     """
     n, k = X.shape
     if offset is None:
@@ -520,33 +529,70 @@ def _poisson_irls(
     if weights is None:
         weights = np.ones(n)
 
-    # Initialize with log(y + 0.5)
-    y_init = np.where(y > 0, y, 0.5)
-    beta = np.linalg.lstsq(X, np.log(y_init) - offset, rcond=None)[0]
+    def _deviance(mu: np.ndarray) -> float:
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            term = np.where(y > 0, y * np.log(y / mu), 0.0) - (y - mu)
+        return float(2.0 * np.sum(weights * term))
 
-    converged = False
-    for it in range(maxiter):
-        eta = X @ beta + offset
-        mu = _safe_exp(eta)
-
-        # Working variable and weights
+    def _wls(eta: np.ndarray, mu: np.ndarray) -> np.ndarray:
+        # Working variable and weights: (X'WX)^-1 X'Wz
         w = weights * mu
         z = eta + (y - mu) / mu - offset  # working response without offset
-
-        # Weighted least squares: (X'WX)^-1 X'Wz
         XtW = X.T * w[None, :]
         XtWX = XtW @ X
         XtWz = XtW @ z
         try:
-            beta_new = np.linalg.solve(XtWX, XtWz)
+            return np.asarray(np.linalg.solve(XtWX, XtWz), dtype=np.float64)
         except np.linalg.LinAlgError:
-            beta_new = np.linalg.lstsq(XtWX, XtWz, rcond=None)[0]
+            return np.asarray(
+                np.linalg.lstsq(XtWX, XtWz, rcond=None)[0], dtype=np.float64
+            )
+
+    # Start from the data, mu = y + 0.1, as glm.fit does. The start used
+    # before, a least-squares fit of log(y) with zeros set to 0.5, could put
+    # the first Newton step far enough out that exp() overflowed: counts in
+    # the thousands next to zeros were enough.
+    mu = y + 0.1
+    eta = np.log(mu)
+    beta = _wls(eta, mu)
+    eta = X @ beta + offset
+    mu = _safe_exp(eta)
+    dev = _deviance(mu)
+
+    converged = False
+    it = 0
+    n_flat = 0
+    for it in range(maxiter):
+        beta_new = _wls(eta, mu)
+        eta_new = X @ beta_new + offset
+        mu_new = _safe_exp(eta_new)
+        dev_new = _deviance(mu_new)
+
+        # The Poisson log-likelihood is concave, so a full step that raises
+        # the deviance has overshot; halve it until it does not.
+        halvings = 0
+        while (
+            not np.isfinite(dev_new) or dev_new > dev + 1e-10 * (abs(dev) + 1.0)
+        ) and halvings < 30:
+            beta_new = (beta_new + beta) / 2.0
+            eta_new = X @ beta_new + offset
+            mu_new = _safe_exp(eta_new)
+            dev_new = _deviance(mu_new)
+            halvings += 1
 
         # Check convergence on relative parameter change
-        delta = np.max(np.abs(beta_new - beta) / (np.abs(beta) + 1e-12))
-        beta = beta_new
+        step = np.abs(beta_new - beta) / (np.abs(beta) + 1e-12)
+        delta = np.max(step)
+        flat = abs(dev_new - dev) <= 1e-12 * (abs(dev_new) + 1.0)
+        n_flat = n_flat + 1 if flat else 0
+        beta, eta, mu, dev = beta_new, eta_new, mu_new, dev_new
         if delta < tol:
             converged = True
+            break
+        if n_flat >= 2:
+            converged = True
+            if info is not None:
+                info["drifting"] = np.flatnonzero(step >= tol)
             break
 
     eta = X @ beta + offset
@@ -1353,11 +1399,30 @@ def poisson(
         cluster_arr = data[cluster].values
 
     # Fit
+    fit_info: Dict[str, Any] = {}
     beta, mu, converged, n_iter = _poisson_irls(
-        y_arr, X, offset=offset_arr, weights=w_arr, maxiter=maxiter, tol=tol
+        y_arr,
+        X,
+        offset=offset_arr,
+        weights=w_arr,
+        maxiter=maxiter,
+        tol=tol,
+        info=fit_info,
     )
     if not converged:
         warnings.warn(f"Poisson IRLS did not converge in {maxiter} iterations")
+    drifting = [str(var_names[j]) for j in fit_info.get("drifting", [])]
+    if drifting:
+        warnings.warn(
+            "Poisson: the fit has converged but the coefficient(s) on "
+            f"{drifting} have no finite estimate: the regressor(s) pick out "
+            "only zero outcomes (quasi-separation). The other coefficients "
+            "and their standard errors are the maximum-likelihood ones; do "
+            "not interpret the listed coefficient(s). sp.ppmlhdfe drops the "
+            "separated observations instead.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     residuals = y_arr - mu
 
@@ -1430,6 +1495,8 @@ def poisson(
         "aic": aic,
         "bic": bic,
     }
+    if drifting:
+        model_info["separated_terms"] = drifting
     if formula is not None:
         model_info["formula"] = formula
     if cluster_arr is not None:

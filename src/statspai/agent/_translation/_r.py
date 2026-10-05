@@ -211,6 +211,38 @@ def _h_feols(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
     cluster_kw = kw.get("cluster")
     if cluster_kw and not clusters:
         clusters = _parse_c_vector(cluster_kw)
+    # fixest's signature is feols(fml, data, vcov, ...): a positional
+    # argument after the formula is the covariance when ``data`` is named
+    # (``feols(y ~ x | f, ~ firm + year, data = df)``), otherwise the third.
+    vcov_r = kw.get("vcov")
+    if vcov_r is None:
+        rest = pos[1:] if "data" in kw else pos[2:]
+        if rest:
+            vcov_r = rest[0]
+    vcov_py: Any = None
+    vcov_note: Optional[str] = None
+    if vcov_r is not None:
+        v = vcov_r.strip()
+        if v.startswith("~"):
+            clusters = [t.strip() for t in v.lstrip("~").split("+")]
+        else:
+            name = _strip_quotes(v).lower()
+            named = {
+                "iid": "iid",
+                "standard": "iid",
+                "hetero": "hetero",
+                "hc1": "hetero",
+                "white": "hetero",
+            }
+            if name in named and v != name:
+                vcov_py = named[name]
+            elif name in ("cluster", "twoway"):
+                vcov_note = (
+                    f"R `vcov = {v}` clusters on the fixed effects; name the "
+                    "cluster column(s) with cluster= or vcov={'CRV1': '...'}."
+                )
+            else:
+                vcov_note = f"R `vcov = {v}` was not translated; see sp.feols `vcov=`."
     clusters = _clean_cluster_terms(clusters)
 
     # Target the real, registered ``sp.feols`` (there is no ``sp.fixest``
@@ -219,23 +251,15 @@ def _h_feols(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
     args: Dict[str, Any] = {"fml": fml}
     notes: List[str] = []
     unread_weights = False
-    if clusters:
+    if len(clusters) == 1:
         args["cluster"] = clusters[0]
-        if len(clusters) > 1:
-            # feols takes a single ``cluster`` kwarg; surface the first and tell
-            # the caller how to add the rest rather than silently dropping
-            # clustering dimensions.
-            joined = " + ".join(clusters)
-            notes.append(
-                f"Multiway clustering on {clusters}: sp.feols applies "
-                f"cluster={clusters[0]!r}; for the full multiway VCOV pass "
-                f"vcov={{'CRV1': {joined!r}}} explicitly."
-            )
-    if "vcov" in kw:
-        notes.append(
-            f"R `vcov={kw['vcov']}` not auto-translated; check sp.feols "
-            f"`vcov=` / `cluster=` options."
-        )
+    elif clusters:
+        # two-way (or more) clustering goes through vcov=, one string
+        args["vcov"] = {"CRV1": " + ".join(clusters)}
+    elif vcov_py is not None:
+        args["vcov"] = vcov_py
+    if vcov_note:
+        notes.append(vcov_note)
     if "weights" in kw:
         # fixest takes a one-sided formula (``~w``) or a vector; only a
         # column name can be carried over.
@@ -251,12 +275,17 @@ def _h_feols(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
     code_pairs = [repr(fml), "data=df"]
     if "cluster" in args:
         code_pairs.append(f"cluster={args['cluster']!r}")
+    if "vcov" in args:
+        code_pairs.append(f"vcov={args['vcov']!r}")
     if "weights" in args:
         code_pairs.append(f"weights={args['weights']!r}")
     python = f"sp.feols({', '.join(code_pairs)})"
     out = _emit("feols", args, python, notes)
-    if unread_weights:
-        out["untranslated_arguments"] = ["weights"]
+    untranslated = (["weights"] if unread_weights else []) + (
+        ["vcov"] if vcov_note else []
+    )
+    if untranslated:
+        out["untranslated_arguments"] = untranslated
     return out
 
 
@@ -681,6 +710,9 @@ def _h_matchit(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, An
             "matchit expects a two-sided formula `treat ~ x1 + x2`", command="matchit"
         )
     treat, rhs = parts
+    negated = treat.startswith("!")
+    if negated:
+        treat = treat.lstrip("!").strip()
     covariates = [c.strip() for c in rhs.split("+") if c.strip()]
     if not treat or not covariates:
         return _emit_error(
@@ -707,6 +739,11 @@ def _h_matchit(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, An
         "cbps": "cbps",
     }
     sp_method = method_alias.get(method, method)
+    source = "df"
+    if negated:
+        # matchit(!d ~ x) treats the units with d == FALSE
+        source = f"df.assign(not_{treat}=1 - df[{treat!r}].astype(int))"
+        treat = f"not_{treat}"
     args: Dict[str, Any] = {
         "treat": treat,
         "covariates": covariates,
@@ -739,17 +776,284 @@ def _h_matchit(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, An
     if distance:
         args["distance"] = _strip_quotes(distance)
         notes.append("sp.match('distance=...') may not apply to all methods.")
-    code_pairs = ["data=df"] + [f"{k}={v!r}" for k, v in args.items()]
+    if negated:
+        notes.append(
+            f"The formula's treatment is negated: the matched (treated) "
+            f"units are those with {treat[4:]} == FALSE, built here as "
+            f"the column {treat!r}."
+        )
+    if sp_method == "nearest" and "caliper" in kw:
+        try:
+            width = float(_strip_quotes(kw["caliper"]))
+        except ValueError:
+            width = None
+        std = _strip_quotes(kw.get("std.caliper", "TRUE")).upper() in ("TRUE", "T")
+        if width is not None:
+            read += ["caliper", "std.caliper"]
+            args["caliper"] = width
+            # MatchIt's caliper is in standard deviations of the distance
+            # unless std.caliper = FALSE
+            args["caliper_scale"] = "sd" if std else "raw"
+    code_pairs = [f"data={source}"] + [f"{k}={v!r}" for k, v in args.items()]
     out = _emit("match", args, f"sp.match({', '.join(code_pairs)})", notes)
     out["missing_arguments"] = ["y"]
     out = _unread(out, kw, tuple(read))
-    if "caliper" in kw:
-        out["notes"].append(
-            "MatchIt's caliper is in standard deviations of the distance "
-            "measure (std.caliper = TRUE); sp.match(caliper=) is on the raw "
-            "scale unless caliper_scale= says otherwise."
-        )
     return out
+
+
+def _dollar_column(expr: str) -> Optional[str]:
+    """``df$col`` or ``df[["col"]]`` -> ``col``; a bare name stays."""
+    e = expr.strip()
+    m = re.fullmatch(r"[A-Za-z.][\w.]*\$([A-Za-z.][\w.]*)", e)
+    if m:
+        return m.group(1)
+    m = re.fullmatch(r"[A-Za-z.][\w.]*\[\[\s*[\"']([^\"']+)[\"']\s*\]\]", e)
+    if m:
+        return m.group(1)
+    return _column(e)
+
+
+def _h_pmg(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
+    """``plm::pmg(y ~ x, data, index = "year")`` -> ``sp.fama_macbeth``.
+
+    ``pmg`` averages group-by-group regressions over the *first* index;
+    with the time variable there it is the Fama-MacBeth estimator.
+    """
+    formula = pos[0] if pos else kw.get("formula")
+    if not formula:
+        return _emit_error("pmg requires a formula as the first argument")
+    formula = _strip_quotes(formula)
+    index = _parse_c_vector(kw["index"]) if kw.get("index") else []
+    if not index:
+        return _emit_error(
+            "pmg needs index= naming the variable the regressions are run "
+            "by (the time variable for Fama-MacBeth).",
+            command="pmg",
+        )
+    model = _strip_quotes(kw.get("model", "mg")).lower()
+    if model != "mg":
+        return _emit_error(
+            f"pmg(model = {model!r}) is a common-correlated-effects "
+            "estimator; only the default mean-groups model maps to "
+            "sp.fama_macbeth.",
+            command="pmg",
+        )
+    args = {"formula": formula, "time": index[0]}
+    out = _emit(
+        "fama_macbeth",
+        args,
+        f"sp.fama_macbeth({formula!r}, data=df, time={index[0]!r})",
+        [
+            "pmg runs one regression per value of the first index and "
+            "averages; sp.fama_macbeth reports t(T - 1) p-values where "
+            "pmg's summary uses the normal."
+        ],
+    )
+    return _unread(out, kw, ("formula", "index", "model"))
+
+
+def _h_lmrob(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
+    """``robustbase::lmrob(y ~ x, data)`` -> ``sp.robreg(method='mm')``."""
+    formula = pos[0] if pos else kw.get("formula")
+    if not formula:
+        return _emit_error("lmrob requires a formula as the first argument")
+    formula = _strip_quotes(formula)
+    method = _strip_quotes(kw.get("method", "MM")).upper()
+    if method != "MM":
+        return _emit_error(
+            f"lmrob(method = {method!r}) is not translated; sp.robreg "
+            "covers the MM estimator.",
+            command="lmrob",
+        )
+    # lmrob's defaults: 95% efficiency, the rounded S constant, no
+    # small-sample factor on the covariance
+    args: Dict[str, Any] = {
+        "formula": formula,
+        "method": "mm",
+        "tuning": 4.685061,
+        "tuning_s": 1.54764,
+        "small": False,
+    }
+    notes: List[str] = []
+    read = ["formula", "method"]
+    control = kw.get("control")
+    if control:
+        m = re.search(r"tuning\.psi\s*=\s*([0-9.eE+-]+)", control)
+        rest = re.sub(r"tuning\.psi\s*=\s*[0-9.eE+-]+", "", control)
+        only_psi = re.fullmatch(r"\s*lmrob\.control\s*\(\s*\)\s*", rest) is not None
+        if m:
+            args["tuning"] = float(m.group(1))
+        if m and only_psi:
+            read.append("control")
+    code = ", ".join(
+        [repr(formula), "data=df"]
+        + [f"{k}={v!r}" for k, v in args.items() if k != "formula"]
+    )
+    notes.append(
+        "The S step is a random search; sp.robreg and lmrob agree on the "
+        "coefficients when both reach the global minimum. lmrob's standard "
+        "errors differ from sp.robreg's in the sixth digit."
+    )
+    return _unread(_emit("robreg", args, f"sp.robreg({code})", notes), kw, tuple(read))
+
+
+def _h_rlm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
+    """``MASS::rlm(y ~ x, data)`` -> ``sp.robreg(method='m', vce='huber')``."""
+    formula = pos[0] if pos else kw.get("formula")
+    if not formula:
+        return _emit_error("rlm requires a formula as the first argument")
+    formula = _strip_quotes(formula)
+    if _strip_quotes(kw.get("method", "M")).upper() != "M":
+        return _emit_error(
+            "rlm(method = 'MM') starts from lqs' S estimate, a different "
+            "search from sp.robreg's; use sp.robreg(method='mm') and expect "
+            "the scale to differ in the fourth digit.",
+            command="rlm",
+        )
+    psi_r = kw.get("psi", "psi.huber").strip()
+    table = {"psi.huber": ("huber", 1.345), "psi.bisquare": ("bisquare", 4.685)}
+    if psi_r not in table:
+        return _emit_error(
+            f"rlm(psi = {psi_r}) is not translated; sp.robreg has the Huber "
+            "and bisquare functions.",
+            command="rlm",
+        )
+    psi, tuning = table[psi_r]
+    args = {
+        "formula": formula,
+        "method": "m",
+        "psi": psi,
+        "tuning": tuning,
+        "vce": "huber",
+    }
+    code = ", ".join(
+        [repr(formula), "data=df"]
+        + [f"{k}={v!r}" for k, v in args.items() if k != "formula"]
+    )
+    notes = [
+        "rlm stops when the residuals change by less than acc = 1e-4; "
+        "sp.robreg iterates to 1e-10, so expect agreement to about four "
+        "digits unless rlm is run with a small acc."
+    ]
+    out = _emit("robreg", args, f"sp.robreg({code})", notes)
+    return _unread(out, kw, ("formula", "method", "psi"))
+
+
+def _h_rdrobust(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
+    """``rdrobust(y, x, c = 0, fuzzy = d)`` with ``df$col`` vectors."""
+    y_r = pos[0] if pos else kw.get("y")
+    x_r = pos[1] if len(pos) > 1 else kw.get("x")
+    if not y_r or not x_r:
+        return _emit_error("rdrobust requires the outcome and the running variable")
+    y, x = _dollar_column(y_r), _dollar_column(x_r)
+    if not y or not x:
+        return _emit_error(
+            "rdrobust takes vectors; the translation needs them as columns "
+            "(`df$y`, `df$x`). Put computed vectors in the data frame first.",
+            command="rdrobust",
+        )
+    args: Dict[str, Any] = {"y": y, "x": x}
+    notes: List[str] = []
+    read = ["y", "x"]
+    untranslated: List[str] = []
+    if "c" in kw:
+        c = kw["c"].strip()
+        read.append("c")
+        try:
+            args["c"] = float(c)
+        except ValueError:
+            notes.append(f"`c = {c}` is an R variable; pass its value as c=.")
+            untranslated.append("c")
+    if "fuzzy" in kw:
+        read.append("fuzzy")
+        f = _dollar_column(kw["fuzzy"])
+        if f:
+            args["fuzzy"] = f
+        else:
+            untranslated.append("fuzzy")
+    for key in ("p", "q", "deriv"):
+        if key in kw and kw[key].strip().lstrip("-").isdigit():
+            read.append(key)
+            args[key] = int(kw[key].strip())
+    for key in ("kernel", "bwselect", "vce", "masspoints"):
+        if key in kw:
+            read.append(key)
+            args[key] = _strip_quotes(kw[key]).lower()
+    for key in ("h", "b"):
+        if key in kw:
+            try:
+                args[key] = float(kw[key])
+                read.append(key)
+            except ValueError:
+                pass
+    if "cluster" in kw:
+        read.append("cluster")
+        cl = _dollar_column(kw["cluster"])
+        if cl:
+            args["cluster"] = cl
+        else:
+            untranslated.append("cluster")
+    code = ", ".join(["df"] + [f"{k}={v!r}" for k, v in args.items()])
+    out = _emit("rdrobust", args, f"sp.rdrobust({code})", notes)
+    if untranslated:
+        out["untranslated_arguments"] = untranslated
+    return _unread(out, kw, tuple(read))
+
+
+def _h_binom_test(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
+    """``binom.test(x, n, p)`` -> ``sp.bitest(successes=, n=, p=)``."""
+    names = ("x", "n", "p")
+    vals: Dict[str, str] = {}
+    for name, value in zip(names, pos):
+        vals[name] = value
+    for name in names:
+        if name in kw:
+            vals[name] = kw[name]
+    try:
+        x, n = int(float(vals["x"])), int(float(vals["n"]))
+        p = float(vals.get("p", "0.5"))
+    except (KeyError, ValueError):
+        return _emit_error(
+            "binom.test needs numeric x (successes) and n (trials); a "
+            "two-element vector or a table is not translated.",
+            command="binom.test",
+        )
+    args = {"successes": x, "n": n, "p": p}
+    out = _emit("bitest", args, f"sp.bitest(successes={x}, n={n}, p={p!r})", [])
+    return _unread(out, kw, names)
+
+
+def _h_linear_hypothesis(
+    pos: List[str], kw: Dict[str, str], _: List[str]
+) -> Dict[str, Any]:
+    """``car::linearHypothesis(fm, "a = b")`` -> ``sp.test(result, 'a = b')``."""
+    hyp = pos[1] if len(pos) > 1 else kw.get("hypothesis.matrix")
+    if not pos or not hyp:
+        return _emit_error(
+            "linearHypothesis needs the fitted model and the hypothesis",
+            command="linearHypothesis",
+        )
+    hyps = _parse_c_vector(hyp)
+    if not all(isinstance(h, str) and "=" in h for h in hyps) and not all(
+        re.fullmatch(r"[\w.:()\[\]]+", h) for h in hyps
+    ):
+        return _emit_error(
+            "Only hypotheses written as strings ('x1 = x2', 'x1 = 0') are "
+            "translated, not a restriction matrix.",
+            command="linearHypothesis",
+        )
+    arg: Any = hyps[0] if len(hyps) == 1 else hyps
+    out = _emit(
+        "test",
+        {"hypothesis": arg},
+        f"sp.test(result, {arg!r})",
+        [
+            "`result` is the fitted StatsPAI model. Coefficient names follow "
+            "StatsPAI's labels: R's `acc_decile10` for a factor level is "
+            "`C(acc_decile)[10]` here; check result.params.index."
+        ],
+    )
+    return _unread(out, kw, ("hypothesis.matrix",))
 
 
 def _h_synth(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
@@ -884,6 +1188,12 @@ R_FUNCTION_MAP: Dict[
     "lmer": _h_lmer,
     "plm": _h_plm,
     "matchit": _h_matchit,
+    "pmg": _h_pmg,
+    "lmrob": _h_lmrob,
+    "rlm": _h_rlm,
+    "rdrobust": _h_rdrobust,
+    "binom.test": _h_binom_test,
+    "linearHypothesis": _h_linear_hypothesis,
     "att_gt": _h_did,
     "did": _h_did,
     "synth": _h_synth,
