@@ -31735,6 +31735,14 @@
           "description": "Mapping of variable names to lists/arrays of values. If multiple variables are given, the Cartesian product of all value lists is used. Example:: at={\"experience\": [1, 5, 10], \"female\": [0, 1]} produces 6 grid points. Every key must be a model variable.",
           "type": "object"
         },
+        "contrast": {
+          "description": "Return differences between grid points instead of the margins: each point against the first one (``'first'``) or against the point before it (``'adjacent'``). The standard error uses the covariance between the two margins, which the separate rows do not show. With ``at={\"dose\": [30, 60]}`` this is g-computation of the effect of moving everyone from 30 to 60, whatever shape the model gives the dose (R ``marginaleffects::avg_comparisons( variables = list(dose = c(30, 60)))``).",
+          "enum": [
+            "first",
+            "adjacent"
+          ],
+          "type": "string"
+        },
         "data": {
           "description": "Data to compute margins on.",
           "type": "object",
@@ -31742,6 +31750,10 @@
         },
         "result": {
           "description": "Fitted model result (must have ``.params`` and associated data).",
+          "type": "string"
+        },
+        "subset": {
+          "description": "Average over a subpopulation of ``data``; see :func:`margins`.",
           "type": "string"
         }
       },

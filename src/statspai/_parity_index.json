@@ -10497,6 +10497,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_barrett_causal_inference_in_r.py",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_margins_at_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py"
       ],

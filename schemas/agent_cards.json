@@ -67116,7 +67116,7 @@
     "reference": "",
     "returns": {
       "class": "DataFrame",
-      "description": "pd.DataFrame: One row per grid point with columns for each *at* variable, plus margin, se, ci_lower, ci_upper.",
+      "description": "pd.DataFrame: One row per grid point with columns for each *at* variable, plus margin, se, ci_lower, ci_upper. With contrast, one row per comparison: the *at* columns of the point, versus (the point it is compared with), contrast, se, z,",
       "fields": {}
     },
     "signature": {
@@ -67133,6 +67133,14 @@
             "description": "Mapping of variable names to lists/arrays of values. If multiple variables are given, the Cartesian product of all value lists is used. Example:: at={\"experience\": [1, 5, 10], \"female\": [0, 1]} produces 6 grid points. Every key must be a model variable.",
             "type": "object"
           },
+          "contrast": {
+            "description": "Return differences between grid points instead of the margins: each point against the first one (``'first'``) or against the point before it (``'adjacent'``). The standard error uses the covariance between the two margins, which the separate rows do not show. With ``at={\"dose\": [30, 60]}`` this is g-computation of the effect of moving everyone from 30 to 60, whatever shape the model gives the dose (R ``marginaleffects::avg_comparisons( variables = list(dose = c(30, 60)))``).",
+            "enum": [
+              "first",
+              "adjacent"
+            ],
+            "type": "string"
+          },
           "data": {
             "description": "Data to compute margins on.",
             "type": "object",
@@ -67140,6 +67148,10 @@
           },
           "result": {
             "description": "Fitted model result (must have ``.params`` and associated data).",
+            "type": "string"
+          },
+          "subset": {
+            "description": "Average over a subpopulation of ``data``; see :func:`margins`.",
             "type": "string"
           }
         },
@@ -67156,6 +67168,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 margins, at(...); R marginaleffects::avg_predictions [R version 4.5.2 (2025-10-31), Stata 18, marginaleffects 0.32.0]; tolerance 1e-10 rel (observed <= 3.5e-15 est / SE; marginaleffects SE 1.8e-10, numerical Jacobian) -- tests/reference_parity/test_r2_postest_parity.py",
       "tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_margins_at_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py"
     ],
