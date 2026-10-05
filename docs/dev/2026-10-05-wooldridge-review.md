@@ -46,6 +46,18 @@ median regression of `statsmodels` stops at an intercept of 1.620759 on
 iterates Cochrane-Orcutt with a Yule-Walker estimate of rho and gets 0.2959
 on `barium`; StatsPAI and Stata `prais, corc` get 0.2934.
 
+A third case came up while writing the unit tests. On one simulated series
+`statsmodels.acorr_breusch_godfrey` (0.14.6) returns 43.127 where StatsPAI
+returns 43.175. The cause is in statsmodels. It appends a second constant
+column to a design that already has one and fits the singular design with
+a pseudo-inverse. On this series the zero singular value is not truncated:
+the two constants get coefficients of plus and minus 5.4e12, and the
+residual sum of squares comes out at 193.229. The least-squares minimum is
+193.184, which `numpy.linalg.lstsq` returns on the same five columns and
+which gives 43.175. On `barium` the cancellation happens to be harmless and
+all three programs agree. The unit test therefore uses the auxiliary
+regression written out, not the statsmodels function.
+
 ## What was wrong, and what changed
 
 | # | Finding | Kind | Status |
@@ -145,8 +157,3 @@ the docstring of the function.
 - **Stata translations not attempted.** `hausman fe re` (needs stored
   estimates), `reg3` and `sureg` (multi-equation syntax), `cnreg` and
   `intreg`, `arch`.
-- **A discrepancy not traced.** On one simulated series
-  `statsmodels.acorr_breusch_godfrey` returns 43.127 where the auxiliary
-  regression written out by hand, and StatsPAI, give 43.175. On `barium`
-  the two agree to 1e-13 and both agree with Stata. The unit test uses the
-  explicit regression.

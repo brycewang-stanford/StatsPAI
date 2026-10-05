@@ -206,6 +206,9 @@ def test_arch_lm_test(series):
 def test_breusch_godfrey_f_form_and_durbin_alternative(series):
     # the auxiliary regression, written out: residuals on the regressors and
     # two lags of themselves, the missing lags set to zero
+    # (statsmodels' acorr_breusch_godfrey is not the reference here: it adds
+    # a second constant column and its pseudo-inverse fit of that singular
+    # design misses the least-squares minimum on this series)
     ref_fit = smf.ols("y ~ x", series).fit()
     u = ref_fit.resid.to_numpy()
     n = len(u)
