@@ -46,35 +46,35 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 15,974 | 17 | 31 |
-| `inference` | 14,937 | 30 | 55 |
+| `inference` | 15,083 | 30 | 55 |
 | `output` | 14,193 | 22 | 42 |
-| `matching` | 12,593 | 18 | 29 |
+| `matching` | 12,595 | 18 | 29 |
+| `core` | 12,205 | 20 | 6 |
 | `panel` | 12,141 | 20 | 23 |
-| `core` | 12,133 | 20 | 6 |
 | `diagnostics` | 11,065 | 20 | 33 |
 | `timeseries` | 10,447 | 20 | 32 |
 | `decomposition` | 9,912 | 19 | 32 |
-| `dml` | 9,394 | 24 | 16 |
+| `dml` | 9,395 | 24 | 16 |
 | `iv` | 8,862 | 17 | 10 |
 | `fast` | 7,871 | 16 | 0 |
 | `spatial` | 7,860 | 30 | 38 |
 | `plots` | 6,015 | 7 | 8 |
+| `dag` | 5,988 | 11 | 25 |
 | `multilevel` | 5,384 | 9 | 11 |
 | `bayes` | 5,244 | 12 | 20 |
 | `mendelian` | 5,187 | 13 | 41 |
-| `metalearners` | 5,164 | 10 | 25 |
+| `metalearners` | 5,165 | 10 | 25 |
 | `frontier` | 4,986 | 8 | 12 |
 | `utils` | 4,831 | 11 | 35 |
 | `survival` | 4,531 | 6 | 15 |
 | `workflow` | 4,512 | 5 | 3 |
+| `causal_discovery` | 4,281 | 11 | 20 |
 | `gmm` | 4,190 | 12 | 4 |
-| `dag` | 4,164 | 9 | 23 |
 | `qte` | 4,152 | 9 | 13 |
-| `causal_discovery` | 4,110 | 11 | 20 |
-| `tmle` | 3,696 | 6 | 11 |
+| `robustness` | 3,968 | 8 | 14 |
+| `tmle` | 3,697 | 6 | 11 |
 | `structural` | 3,576 | 9 | 12 |
 | `network` | 3,514 | 9 | 33 |
-| `robustness` | 3,490 | 7 | 12 |
 | `neural_causal` | 3,442 | 6 | 18 |
 | `postestimation` | 3,279 | 7 | 13 |
 | `bounds` | 3,223 | 6 | 12 |
@@ -127,7 +127,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **558,037** | **952** | **1372** |
+| **Total** | **561,004** | **955** | **1376** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

@@ -392,9 +392,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs AER::ivreg [AER 1.2.16, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 02_iv -- tests/r_parity/02_iv.py",
       "tests/external_parity/test_facure_causal_inference_in_python.py",
+      "tests/external_parity/test_ness_causal_ai.py",
       "tests/reference_parity/test_hansen_methods_stata_parity.py",
-      "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
-      "tests/reference_parity/test_hdfe_iv_paths_agree.py"
+      "tests/reference_parity/test_hdfe_iv_ivreghdfe.py"
     ],
     "validation_status": "certified"
   },
@@ -17822,7 +17822,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: certified parity evidence.",
+    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Reports each arm's effective sample size and warns when the weights leave an arm less than a fifth of its size. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "derived from status and sides",
@@ -17887,7 +17887,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: certified parity evidence.",
+      "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Reports each arm's effective sample size and warns when the weights leave an arm less than a fifth of its size. Validation: certified parity evidence.",
       "name": "ipw",
       "parameters": {
         "properties": {
@@ -17976,8 +17976,8 @@
       "Cross-language parity (bit-exact) vs base R stats::glm(binomial) + hand-rolled Hajek weighted means; tolerance Hajek ATE/ATT estimate 1e-9 (observed <= 2e-15; SE not pinned) -- tests/reference_parity/test_ipw_parity.py",
       "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/external_parity/test_ding_first_course.py",
+      "tests/external_parity/test_ness_causal_ai.py",
       "tests/external_parity/test_whatif_nhefs.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "API/unit contract evidence: tests/test_new_features.py"
     ],
     "validation_status": "certified"
@@ -18008,7 +18008,8 @@
       "source": "external_parity",
       "status": "external-replication",
       "tests": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
+        "tests/external_parity/test_ness_causal_ai.py"
       ],
       "tolerance": ""
     },
@@ -18042,7 +18043,7 @@
     "reference": "Pearl (2009); Cunningham (2021)",
     "returns": {
       "class": "DAG",
-      "description": "DAG object with .adjustment_sets(), .frontdoor_sets(), .backdoor_paths(), .bad_controls(), .do(), .summary(), .d_separated(), .plot()",
+      "description": "DAG object with .adjustment_sets(), .frontdoor_sets(), .backdoor_paths(), .noncausal_paths(), .path_status(), .bad_controls(), .do(), .summary(), .d_separated(), .implied_independencies(), .test_implications(data), .plot()",
       "fields": {
         "latent": "Optional[Iterable[str]]",
         "spec": "str"
@@ -18061,7 +18062,7 @@
             "type": "array"
           },
           "spec": {
-            "description": "Edge spec: \"Z -> X; Z -> Y; X -> Y\"",
+            "description": "Edge spec: \"Z -> X; Z -> Y; X -> Y\". Arrows may point either way and chain (\"X <- Z -> Y\"); names may be quoted; a Graphviz digraph { ... } or dagitty dag { ... } wrapper is read as its body",
             "type": "string"
           }
         },
@@ -18078,7 +18079,7 @@
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_dag_implications_dagitty_parity.py",
       "tests/reference_parity/test_misc_sens_R_parity.py",
-      "tests/reference_parity/test_oct2026_fifth_pass.py",
+      "tests/reference_parity/test_ness_causal_ai_parity.py",
       "API/unit contract evidence: tests/test_dag_scm.py",
       "API/unit contract evidence: tests/test_dag_recommend_and_tte_report.py"
     ],
@@ -19004,8 +19005,8 @@
       "Cross-language parity (bit-exact) vs base R stats::lm g-formula standardization (Robins 1986); tolerance psi 1e-8 (observed <= 7e-16; bootstrap SE pinned loosely +/-25%) -- tests/reference_parity/test_gformula_parity.py",
       "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/external_parity/test_ding_first_course.py",
+      "tests/external_parity/test_ness_causal_ai.py",
       "tests/external_parity/test_whatif_nhefs.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "API/unit contract evidence: tests/test_g_computation.py"
     ],
     "validation_status": "certified"
@@ -19026,23 +19027,29 @@
     "cost_profile": "",
     "description": "Pearl's front-door adjustment: identifies ATE with unmeasured confounding when a mediator fully transmits the effect of D on Y. Supports binary or continuous mediator; integrate_by controls Pearl (marginal) vs Fulcher et al. (conditional) aggregation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_front_door_parity.py"
+        "tests/external_parity/test_ness_causal_ai.py"
       ],
       "tolerance": ""
     },
     "example": "sp.front_door(df, y=\"y\", treat=\"d\", mediator=\"m\", covariates=[\"x\"])",
     "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.IdentificationFailure",
+        "remedy": "outcome_model='additive' extrapolates under no D-by-M interaction; report it as resting on that",
+        "symptom": "The mediator does not vary within a treatment arm, so E[Y | D, M] cannot be estimated there"
+      },
       {
         "alternative": "sp.hal_tmle",
         "exception": "statspai.AssumptionViolation",
@@ -19062,7 +19069,7 @@
       "alternatives": "family",
       "assumptions": "family",
       "example": "curated",
-      "failure_modes": "family",
+      "failure_modes": "curated+family",
       "pre_conditions": "family",
       "reference": "curated",
       "returns": "curated",
@@ -19128,6 +19135,15 @@
             ],
             "type": "string"
           },
+          "outcome_model": {
+            "default": "by_arm",
+            "description": "E[Y | D, M]: a regression per arm, or one pooled regression without D-by-M interaction (the linear two-stage front door)",
+            "enum": [
+              "by_arm",
+              "additive"
+            ],
+            "type": "string"
+          },
           "treat": {
             "description": "Binary treatment (0/1)",
             "type": "string",
@@ -19151,7 +19167,8 @@
     "stability": "stable",
     "typical_n_min": 300,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_front_door_parity.py",
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ness_causal_ai.py",
+      "tests/reference_parity/test_front_door_parity.py",
       "API/unit contract evidence: tests/test_front_door.py",
       "API/unit contract evidence: tests/test_review_fixes_round2.py"
     ],
@@ -21141,26 +21158,42 @@
     ],
     "category": "dag",
     "cost_profile": "",
-    "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "causaleffect::causal.effect (Shpitser-Pearl ID) for identifiability; base R table arithmetic for the value of the estimand",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "causaleffect": "1.3.15"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_dag_implications_dagitty_parity.py",
-        "tests/reference_parity/test_oct2026_second_pass.py"
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "identifiable or not: equal on seven graphs (backdoor, bow, front door, instrument, napkin, M-bias, broken front door); .estimate(data): 1e-10 rel against the truncated factorisation"
     },
     "example": "sp.identify(sp.dag(\"Z->X;Z->Y;X->Y\"), treatment=\"X\", outcome=\"Y\")",
     "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "The formula needs a conditional probability whose conditioning event never occurs; coarsen the variables or restrict the treatment values",
+        "symptom": ".estimate(data) warns that positivity fails and returns missing values for some treatment values"
+      },
+      {
+        "alternative": "sp.manski_bounds",
+        "exception": "statspai.IdentificationFailure",
+        "remedy": "Bound the effect or find an instrument or proxy",
+        "symptom": ".estimate(data) on a query that is not identified"
+      },
       {
         "alternative": "dag",
         "exception": "KeyError",
@@ -21195,7 +21228,7 @@
     "reference": "Shpitser & Pearl (2006); Tian & Pearl (2002)",
     "returns": {
       "class": "IdentificationResult",
-      "description": "IdentificationResult",
+      "description": "IdentificationResult with .identifiable, .estimand, .hedge, .summary() and .estimate(data): the estimand evaluated on categorical data, P(outcome | do(treatment)), using only the observed columns",
       "fields": {
         "c_components": "list[NodeSet]",
         "estimand": "str",
@@ -21205,7 +21238,7 @@
       }
     },
     "signature": {
-      "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge. Validation: certified parity evidence.",
       "name": "identify",
       "parameters": {
         "properties": {
@@ -21247,8 +21280,309 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_dag_implications_dagitty_parity.py",
+      "Cross-language parity (bit-exact) vs causaleffect::causal.effect (Shpitser-Pearl ID) for identifiability; base R table arithmetic for the value of the estimand [R version 4.5.2 (2025-10-31), causaleffect 1.3.15]; tolerance identifiable or not: equal on seven graphs (backdoor, bow, front door, instrument, napkin, M-bias, broken front door); .estimate(data): 1e-10 rel against the truncated factorisation -- tests/reference_parity/test_ness_causal_ai_parity.py",
+      "tests/external_parity/test_ness_causal_ai.py",
+      "tests/reference_parity/test_dag_implications_dagitty_parity.py",
+      "tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_dag_scm.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "identify",
+      "g_computation",
+      "aipw",
+      "SCM"
+    ],
+    "assumptions": [
+      "The DAG is the causal graph and every node is observed",
+      "Variables are categorical with a modest number of states",
+      "Counterfactuals: all noise sits in root nodes (a structural causal model)"
+    ],
+    "category": "dag",
+    "cost_profile": "",
+    "description": "Discrete causal Bayesian network on a DAG: conditional probability tables estimated from categorical data or written by hand, with exact inference (variable elimination) for conditional queries, interventional queries P(Y | do(X)) by the truncated factorisation, expected utilities, simulation, and counterfactuals by a twin network when every non-root node is a deterministic function of its parents. Validation: certified parity evidence. Do NOT use when: Continuous outcomes or covariates that binning would distort; Unobserved confounders: the tables cannot be estimated; Very many parents per node: the tables are estimated cell by cell and thin out.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "bnlearn::bn.fit(method = 'mle') for the conditional probability tables; base R table arithmetic for a Dirichlet-smoothed table, an interventional distribution written as the truncated factorisation, and a conditional query by full enumeration",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "bnlearn": "5.2.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
+      ],
+      "tolerance": "1e-10 rel on every table cell and every probability"
+    },
+    "example": "net = sp.bayes_net(\"G -> E; G -> I; E -> I\", df); net.query(\"I\", do={\"E\": \"high\"})",
+    "failure_modes": [
+      {
+        "alternative": "sp.identify",
+        "exception": "statspai.exceptions.ColumnNotFound",
+        "remedy": "With latent variables identify first and evaluate the estimand: sp.identify(dag, x, y).estimate(data)",
+        "symptom": "A node of the graph is not a column of the data"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "Positivity fails for that query; coarsen the states or make the smoothing explicit with prior=",
+        "symptom": "A query warns that it depends on parent configurations that never occur in the data"
+      },
+      {
+        "alternative": "sp.SCM",
+        "exception": "statspai.AssumptionViolation",
+        "remedy": "Move each node's noise into an exogenous root and give the node a function of its parents, or use the interventional query",
+        "symptom": "counterfactual() on a network with noisy kernels"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_net",
+    "not_recommended_when": [
+      "Continuous outcomes or covariates that binning would distort",
+      "Unobserved confounders: the tables cannot be estimated",
+      "Very many parents per node: the tables are estimated cell by cell and thin out"
+    ],
+    "pre_conditions": [
+      "One column per node; bin continuous columns first"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "pearl2009causality",
+    "returns": {
+      "class": "BayesNet",
+      "description": "BayesNet with .query(variables, evidence=, do=), .prob(), .expectation(), .do(), .counterfactual(), .simulate(), .cpt(), .summary()",
+      "fields": {
+        "dag": "DAG",
+        "n_obs": "Optional[int]",
+        "parents": "Dict[str, Tuple[str, ...]]",
+        "states": "Dict[str, List[Any]]",
+        "tables": "Dict[str, np.ndarray]",
+        "unseen": "Optional[Dict[str, np.ndarray]]"
+      }
+    },
+    "signature": {
+      "description": "Discrete causal Bayesian network on a DAG: conditional probability tables estimated from categorical data or written by hand, with exact inference (variable elimination) for conditional queries, interventional queries P(Y | do(X)) by the truncated factorisation, expected utilities, simulation, and counterfactuals by a twin network when every non-root node is a deterministic function of its parents. Validation: certified parity evidence. Do NOT use when: Continuous outcomes or covariates that binning would distort; Unobserved confounders: the tables cannot be estimated; Very many parents per node: the tables are estimated cell by cell and thin out.",
+      "name": "bayes_net",
+      "parameters": {
+        "properties": {
+          "cpts": {
+            "description": "Hand-written tables: {state: p} for a root, {parent states: {state: p}} or a function of the parents otherwise",
+            "type": "object"
+          },
+          "dag": {
+            "description": "Graph or its spec",
+            "type": "string"
+          },
+          "data": {
+            "description": "One categorical column per node",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "prior": {
+            "default": 0.0,
+            "description": "Dirichlet pseudo-count per cell; 1 is Laplace smoothing",
+            "type": "number"
+          }
+        },
+        "required": [
+          "dag"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs bnlearn::bn.fit(method = 'mle') for the conditional probability tables; base R table arithmetic for a Dirichlet-smoothed table, an interventional distribution written as the truncated factorisation, and a conditional query by full enumeration [R version 4.5.2 (2025-10-31), bnlearn 5.2.1]; tolerance 1e-10 rel on every table cell and every probability -- tests/reference_parity/test_ness_causal_ai_parity.py",
+      "tests/external_parity/test_ness_causal_ai.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "sensemakr",
+      "evalue",
+      "robustness_report",
+      "spec_curve"
+    ],
+    "assumptions": [
+      "Passing is necessary, not sufficient: no check here detects an unobserved confounder"
+    ],
+    "category": "robustness",
+    "cost_profile": "",
+    "description": "Refutation tests for any effect estimator: rerun it on data altered so the answer is known (treatment shuffled, outcome replaced by one the treatment does not enter, a random covariate added, random subsets) and test whether the reruns are centred where they should be. The four data-side refuters of DoWhy with Monte Carlo p-values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As evidence against unobserved confounding: use sp.sensemakr or sp.evalue; Estimators whose single fit is slow: every test refits n_simulations times.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_ness_causal_ai.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.refute(sp.aipw, df, y=\"y\", treat=\"d\", covariates=[\"x\"], method=\"dummy_outcome\", outcome_function=lambda f: 3 * f[\"x\"])",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Wrap it in a lambda that returns a number",
+        "symptom": "The estimator does not return a scalar effect"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check that the estimator runs on a shuffled or subsetted copy of the data",
+        "symptom": "Fewer than half of the reruns can be fitted"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "refute",
+    "not_recommended_when": [
+      "As evidence against unobserved confounding: use sp.sensemakr or sp.evalue",
+      "Estimators whose single fit is slow: every test refits n_simulations times"
+    ],
+    "pre_conditions": [
+      "n_simulations >= 2 / alpha - 1 (39 at alpha = 0.05)"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "sharma2020dowhy",
+    "returns": {
+      "class": "RefutationResult",
+      "description": "RefutationResult with .estimate, .new_effect, .expected, .p_value, .refuted, .interval, .permutation_pvalue, .summary()",
+      "fields": {
+        "alpha": "float",
+        "details": "Dict[str, Any]",
+        "estimate": "float",
+        "expected": "float",
+        "interval": "Tuple[float, float]",
+        "method": "str",
+        "n_failed": "int",
+        "n_simulations": "int",
+        "new_effect": "float",
+        "p_value": "float",
+        "permutation_pvalue": "Optional[float]",
+        "refuted": "bool",
+        "simulations": "np.ndarray"
+      }
+    },
+    "signature": {
+      "description": "Refutation tests for any effect estimator: rerun it on data altered so the answer is known (treatment shuffled, outcome replaced by one the treatment does not enter, a random covariate added, random subsets) and test whether the reruns are centred where they should be. The four data-side refuters of DoWhy with Monte Carlo p-values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As evidence against unobserved confounding: use sp.sensemakr or sp.evalue; Estimators whose single fit is slow: every test refits n_simulations times.",
+      "name": "refute",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the verdict",
+            "type": "number"
+          },
+          "covariates": {
+            "description": "Adjustment set",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "estimator": {
+            "description": "Called as estimator(data, y=, treat=, covariates=, **kw); e.g. sp.aipw",
+            "type": "string"
+          },
+          "method": {
+            "default": "placebo_treatment",
+            "description": "Which alteration",
+            "enum": [
+              "placebo_treatment",
+              "dummy_outcome",
+              "random_common_cause",
+              "data_subset"
+            ],
+            "type": "string"
+          },
+          "n_simulations": {
+            "default": 100,
+            "description": "Number of reruns",
+            "type": "integer"
+          },
+          "outcome_function": {
+            "description": "dummy_outcome: a function of the data (not of the treatment) that keeps the confounding in place",
+            "type": "string"
+          },
+          "seed": {
+            "description": "Seed for the alterations",
+            "type": "integer"
+          },
+          "subset_fraction": {
+            "default": 0.8,
+            "description": "Rows kept by data_subset",
+            "type": "number"
+          },
+          "treat": {
+            "description": "Treatment column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "estimator",
+          "data",
+          "y",
+          "treat"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ness_causal_ai.py"
     ],
     "validation_status": "validated"
   },
@@ -48166,9 +48500,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 stratified_fit(k_split = 1) [AIPW 0.6.9.3, R version 4.5.2 (2025-10-31), Stata 18, SuperLearner 2.0.40]; tolerance 1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14) -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/external_parity/test_ding_first_course.py",
+      "tests/external_parity/test_ness_causal_ai.py",
       "tests/reference_parity/test_paper_parity.py",
-      "tests/reference_parity/test_teffects_design_stata_parity.py",
-      "tests/reference_parity/test_teffects_probit_stata.py"
+      "tests/reference_parity/test_teffects_design_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -78488,22 +78822,28 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Learn causal structure using the PC algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Learn causal structure using the PC algorithm. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "pcalg::pc(skel.method = 'stable') with gaussCItest, and with bnlearn::ci.test(test = 'x2-adf') as its independence test",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "bnlearn": "5.2.1",
+        "pcalg": "2.7.12"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_causal_discovery_parity.py"
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "graphs compared for equality: Gaussian data, every directed and undirected edge of the CPDAG and every separating set; categorical data, skeleton and every separating set"
     },
     "example": "result = sp.pc_algorithm(df, variables=['X', 'Z', 'M', 'Y'])",
     "failure_modes": [
@@ -78538,7 +78878,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Learn causal structure using the PC algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Learn causal structure using the PC algorithm. Validation: certified parity evidence.",
       "name": "pc_algorithm",
       "parameters": {
         "properties": {
@@ -78549,10 +78889,11 @@
           },
           "ci_test": {
             "default": "fisherz",
-            "description": "Conditional independence test: 'fisherz' (partial correlation) or 'hsic' (kernel-based, non-linear).",
+            "description": "Conditional independence test. - ``'fisherz'``: partial correlation, for numeric columns with linear relations. - ``'chi-square'`` / ``'g-test'``: for categorical columns. Pearson's statistic (or the likelihood ratio) is summed over the strata of the conditioning set, with degrees of freedom counted from the levels present in each stratum (``bnlearn``'s ``\"x2-adf\"`` / ``\"mi-adf\"``). An independence no stratum can test is not rejected, so with little data per stratum edges are removed for lack of evidence: keep ``max_cond_size`` small on small samples.",
             "enum": [
               "fisherz",
-              "hsic"
+              "chi-square",
+              "g-test"
             ],
             "type": "string"
           },
@@ -78580,7 +78921,7 @@
             "type": "array"
           },
           "variables": {
-            "description": "Column names to use. If None, uses all numeric columns.",
+            "description": "Column names to use. If None: all numeric columns under ``ci_test='fisherz'``, all columns under the categorical tests.",
             "items": {
               "type": "string"
             },
@@ -78596,9 +78937,11 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_causal_discovery_parity.py"
+      "Cross-language parity (bit-exact) vs pcalg::pc(skel.method = 'stable') with gaussCItest, and with bnlearn::ci.test(test = 'x2-adf') as its independence test [R version 4.5.2 (2025-10-31), bnlearn 5.2.1, pcalg 2.7.12]; tolerance graphs compared for equality: Gaussian data, every directed and undirected edge of the CPDAG and every separating set; categorical data, skeleton and every separating set -- tests/reference_parity/test_ness_causal_ai_parity.py",
+      "tests/external_parity/test_ness_causal_ai.py",
+      "tests/reference_parity/test_causal_discovery_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -113249,22 +113592,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Run FCI. Returns a :class:`FCIResult` with the learned PAG. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Run FCI. Returns a :class:`FCIResult` with the learned PAG. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "pcalg::fci(skel.method = 'stable') with gaussCItest",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pcalg": "2.7.12"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_fci_parity.py"
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "partial ancestral graphs compared for equality, every edge with the mark at each end, on three designs"
     },
     "example": "res = sp.fci(data, alpha=0.05)",
     "failure_modes": [
@@ -113310,7 +113658,7 @@
       }
     },
     "signature": {
-      "description": "Run FCI. Returns a :class:`FCIResult` with the learned PAG. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Run FCI. Returns a :class:`FCIResult` with the learned PAG. Validation: certified parity evidence.",
       "name": "fci",
       "parameters": {
         "properties": {
@@ -113350,9 +113698,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_fci_parity.py"
+      "Cross-language parity (bit-exact) vs pcalg::fci(skel.method = 'stable') with gaussCItest [R version 4.5.2 (2025-10-31), pcalg 2.7.12]; tolerance partial ancestral graphs compared for equality, every edge with the mark at each end, on three designs -- tests/reference_parity/test_ness_causal_ai_parity.py",
+      "tests/reference_parity/test_fci_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,

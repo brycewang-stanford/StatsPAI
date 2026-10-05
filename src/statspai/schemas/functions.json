@@ -7956,7 +7956,7 @@
     }
   },
   {
-    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: certified parity evidence.",
+    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Reports each arm's effective sample size and warns when the weights leave an arm less than a fifth of its size. Validation: certified parity evidence.",
     "name": "ipw",
     "parameters": {
       "properties": {
@@ -8052,7 +8052,7 @@
           "type": "array"
         },
         "spec": {
-          "description": "Edge spec: \"Z -> X; Z -> Y; X -> Y\"",
+          "description": "Edge spec: \"Z -> X; Z -> Y; X -> Y\". Arrows may point either way and chain (\"X <- Z -> Y\"); names may be quoted; a Graphviz digraph { ... } or dagitty dag { ... } wrapper is read as its body",
           "type": "string"
         }
       },
@@ -8413,6 +8413,15 @@
             "auto",
             "binary",
             "continuous"
+          ],
+          "type": "string"
+        },
+        "outcome_model": {
+          "default": "by_arm",
+          "description": "E[Y | D, M]: a regression per arm, or one pooled regression without D-by-M interaction (the linear two-stage front door)",
+          "enum": [
+            "by_arm",
+            "additive"
           ],
           "type": "string"
         },
@@ -9231,7 +9240,7 @@
     }
   },
   {
-    "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge. Validation: certified parity evidence.",
     "name": "identify",
     "parameters": {
       "properties": {
@@ -9266,6 +9275,112 @@
         "dag",
         "treatment",
         "outcome"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Discrete causal Bayesian network on a DAG: conditional probability tables estimated from categorical data or written by hand, with exact inference (variable elimination) for conditional queries, interventional queries P(Y | do(X)) by the truncated factorisation, expected utilities, simulation, and counterfactuals by a twin network when every non-root node is a deterministic function of its parents. Validation: certified parity evidence. Do NOT use when: Continuous outcomes or covariates that binning would distort; Unobserved confounders: the tables cannot be estimated; Very many parents per node: the tables are estimated cell by cell and thin out.",
+    "name": "bayes_net",
+    "parameters": {
+      "properties": {
+        "cpts": {
+          "description": "Hand-written tables: {state: p} for a root, {parent states: {state: p}} or a function of the parents otherwise",
+          "type": "object"
+        },
+        "dag": {
+          "description": "Graph or its spec",
+          "type": "string"
+        },
+        "data": {
+          "description": "One categorical column per node",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "prior": {
+          "default": 0.0,
+          "description": "Dirichlet pseudo-count per cell; 1 is Laplace smoothing",
+          "type": "number"
+        }
+      },
+      "required": [
+        "dag"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Refutation tests for any effect estimator: rerun it on data altered so the answer is known (treatment shuffled, outcome replaced by one the treatment does not enter, a random covariate added, random subsets) and test whether the reruns are centred where they should be. The four data-side refuters of DoWhy with Monte Carlo p-values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As evidence against unobserved confounding: use sp.sensemakr or sp.evalue; Estimators whose single fit is slow: every test refits n_simulations times.",
+    "name": "refute",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the verdict",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Adjustment set",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "estimator": {
+          "description": "Called as estimator(data, y=, treat=, covariates=, **kw); e.g. sp.aipw",
+          "type": "string"
+        },
+        "method": {
+          "default": "placebo_treatment",
+          "description": "Which alteration",
+          "enum": [
+            "placebo_treatment",
+            "dummy_outcome",
+            "random_common_cause",
+            "data_subset"
+          ],
+          "type": "string"
+        },
+        "n_simulations": {
+          "default": 100,
+          "description": "Number of reruns",
+          "type": "integer"
+        },
+        "outcome_function": {
+          "description": "dummy_outcome: a function of the data (not of the treatment) that keeps the confounding in place",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Seed for the alterations",
+          "type": "integer"
+        },
+        "subset_fraction": {
+          "default": 0.8,
+          "description": "Rows kept by data_subset",
+          "type": "number"
+        },
+        "treat": {
+          "description": "Treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "estimator",
+        "data",
+        "y",
+        "treat"
       ],
       "type": "object"
     }
@@ -36351,7 +36466,7 @@
     }
   },
   {
-    "description": "Learn causal structure using the PC algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Learn causal structure using the PC algorithm. Validation: certified parity evidence.",
     "name": "pc_algorithm",
     "parameters": {
       "properties": {
@@ -36362,10 +36477,11 @@
         },
         "ci_test": {
           "default": "fisherz",
-          "description": "Conditional independence test: 'fisherz' (partial correlation) or 'hsic' (kernel-based, non-linear).",
+          "description": "Conditional independence test. - ``'fisherz'``: partial correlation, for numeric columns with linear relations. - ``'chi-square'`` / ``'g-test'``: for categorical columns. Pearson's statistic (or the likelihood ratio) is summed over the strata of the conditioning set, with degrees of freedom counted from the levels present in each stratum (``bnlearn``'s ``\"x2-adf\"`` / ``\"mi-adf\"``). An independence no stratum can test is not rejected, so with little data per stratum edges are removed for lack of evidence: keep ``max_cond_size`` small on small samples.",
           "enum": [
             "fisherz",
-            "hsic"
+            "chi-square",
+            "g-test"
           ],
           "type": "string"
         },
@@ -36393,7 +36509,7 @@
           "type": "array"
         },
         "variables": {
-          "description": "Column names to use. If None, uses all numeric columns.",
+          "description": "Column names to use. If None: all numeric columns under ``ci_test='fisherz'``, all columns under the categorical tests.",
           "items": {
             "type": "string"
           },
@@ -53046,7 +53162,7 @@
     }
   },
   {
-    "description": "Run FCI. Returns a :class:`FCIResult` with the learned PAG. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Run FCI. Returns a :class:`FCIResult` with the learned PAG. Validation: certified parity evidence.",
     "name": "fci",
     "parameters": {
       "properties": {

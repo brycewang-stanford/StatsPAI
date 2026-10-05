@@ -245,6 +245,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_ding_first_course.py",
+        "tests/external_parity/test_ness_causal_ai.py",
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",
         "tests/reference_parity/test_teffects_probit_stata.py",
@@ -1086,6 +1087,35 @@
         "tests/reference_parity/test_oct2026_fourth_pass.py"
       ],
       "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_ness_causal_ai.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "bayes_net",
+      "notes": [
+        "Frozen-R fixture. Variable elimination is also checked against enumeration on a random six-node network to 1e-13, and the counterfactual and expected-utility queries against the numbers printed in the book (tests/test_ness_causal_ai_pass.py)."
+      ],
+      "reference": "bnlearn::bn.fit(method = 'mle') for the conditional probability tables; base R table arithmetic for a Dirichlet-smoothed table, an interventional distribution written as the truncated factorisation, and a conditional query by full enumeration",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "bnlearn": "5.2.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
+      ],
+      "tolerance": "1e-10 rel on every table cell and every probability"
     },
     {
       "function": "bayes_rd",
@@ -3905,6 +3935,7 @@
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_dag_implications_dagitty_parity.py",
         "tests/reference_parity/test_misc_sens_R_parity.py",
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
       ],
@@ -3923,7 +3954,8 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
+        "tests/external_parity/test_ness_causal_ai.py"
       ],
       "tolerance": ""
     },
@@ -6451,21 +6483,32 @@
       "tolerance": "coefficients, covariance and Newey-West SE 1e-9 rel (R); 1e-6 rel (xtfmb keeps the per-period estimates as floats)"
     },
     {
-      "function": "fci",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_fci_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "fci",
+      "notes": [
+        "Frozen-R fixture: an eight-variable DAG, two variables with three common causes, and a six-variable design with two unobserved common causes whose graph has a bidirected edge. Three designs do not exercise every orientation rule; the discriminating-path rule in particular has no row."
+      ],
+      "reference": "pcalg::fci(skel.method = 'stable') with gaussCItest",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pcalg": "2.7.12"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
+      ],
+      "tolerance": "partial ancestral graphs compared for equality, every edge with the mark at each end, on three designs"
     },
     {
       "additional_tests": [
@@ -7018,19 +7061,25 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_front_door_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "front_door",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_front_door_parity.py"
+        "tests/external_parity/test_ness_causal_ai.py"
       ],
       "tolerance": ""
     },
@@ -7176,6 +7225,7 @@
       "additional_tests": [
         "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_ding_first_course.py",
+        "tests/external_parity/test_ness_causal_ai.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_tmle_parity.py"
@@ -8498,22 +8548,35 @@
       "tolerance": ""
     },
     {
-      "function": "identify",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
+        "tests/external_parity/test_ness_causal_ai.py",
         "tests/reference_parity/test_dag_implications_dagitty_parity.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "identify",
+      "notes": [
+        "Frozen-R fixture. The printed estimand is not compared as a string: the two implementations write equivalent formulas differently. Its value on data is compared instead, and the front-door formula is checked against a known effect on an exact population in tests/test_ness_causal_ai_pass.py."
+      ],
+      "reference": "causaleffect::causal.effect (Shpitser-Pearl ID) for identifiability; base R table arithmetic for the value of the estimand",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "causaleffect": "1.3.15"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
+      ],
+      "tolerance": "identifiable or not: equal on seven graphs (backdoor, bow, front door, instrument, napkin, M-bias, broken front door); .estimate(data): 1e-10 rel against the truncated factorisation"
     },
     {
       "function": "identify_transport",
@@ -8915,6 +8978,7 @@
       "additional_tests": [
         "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_ding_first_course.py",
+        "tests/external_parity/test_ness_causal_ai.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_ding_first_course_parity.py",
@@ -9041,6 +9105,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_facure_causal_inference_in_python.py",
+        "tests/external_parity/test_ness_causal_ai.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
         "tests/reference_parity/test_hdfe_iv_paths_agree.py",
@@ -14076,21 +14141,35 @@
       "tolerance": ""
     },
     {
-      "function": "pc_algorithm",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
+        "tests/external_parity/test_ness_causal_ai.py",
         "tests/reference_parity/test_causal_discovery_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "pc_algorithm",
+      "notes": [
+        "Frozen-R fixture. On the categorical file two colliders claim one edge in opposite directions; which keeps it is an implementation's choice (pcalg's result has the later one, StatsPAI keeps the earlier and returns the clash in orientation_conflicts), so the orientation of that file is not compared. The result is also checked to be invariant to column order."
+      ],
+      "reference": "pcalg::pc(skel.method = 'stable') with gaussCItest, and with bnlearn::ci.test(test = 'x2-adf') as its independence test",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "bnlearn": "5.2.1",
+        "pcalg": "2.7.12"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
+      ],
+      "tolerance": "graphs compared for equality: Gaussian data, every directed and undirected edge of the CPDAG and every separating set; categorical data, skeleton and every separating set"
     },
     {
       "function": "pca",
@@ -16877,6 +16956,23 @@
         "tests/reference_parity/test_network_parity.py"
       ],
       "tolerance": "Exact on a 40-node directed graph."
+    },
+    {
+      "function": "refute",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_ness_causal_ai.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "regime",
