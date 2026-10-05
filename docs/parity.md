@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 399 |
 | | aligned | 52 |
 | | **subtotal** | **451** |
-| **No external software reference** | analytical-only (T1) | 336 |
-| | external-replication (published numbers) | 39 |
-| | **subtotal** | **375** |
-| No numerical evidence yet | unverified | 550 |
+| **No external software reference** | analytical-only (T1) | 338 |
+| | external-replication (published numbers) | 50 |
+| | **subtotal** | **388** |
+| No numerical evidence yet | unverified | 556 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 451 | 812 | 816 | 55.3% |
+| estimator callables | 451 | 825 | 829 | 54.4% |
 | infrastructure (parity N/A) | 0 | 11 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 340 | 0.0% |
-| **all registered** | 451 | 826 | 1376 | 32.8% |
+| result / exception classes | 0 | 3 | 346 | 0.0% |
+| **all registered** | 451 | 839 | 1395 | 32.3% |
 
 ### Coverage by estimator family
 
@@ -56,11 +56,11 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | regression | 43 | 54 | 54 |
 | inference | 28 | 47 | 47 |
 | panel | 28 | 34 | 34 |
+| timeseries | 11 | 33 | 33 |
 | spatial | 28 | 33 | 33 |
 | diagnostics | 23 | 31 | 31 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
-| timeseries | 11 | 20 | 20 |
 | mendelian | 18 | 20 | 20 |
 | epi | 16 | 17 | 17 |
 | bayes | 0 | 14 | 14 |
@@ -561,7 +561,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 39 functions
+## external-replication — 50 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -574,6 +574,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `bds` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
 | `best_linear_projection` | [`test_dml_irm_blp_parity.py`](../tests/external_parity/test_dml_irm_blp_parity.py) |
 | `bitest` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
+| `boxcox_lambda` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `cate_gain_curve` | [`test_facure_causal_inference_in_python.py`](../tests/external_parity/test_facure_causal_inference_in_python.py) |
 | `cdlz_bunching` | [`test_cdlz_bunching_table1.py`](../tests/external_parity/test_cdlz_bunching_table1.py) |
 | `chow_test` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
@@ -586,28 +587,38 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `difference_in_means` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) |
 | `ess` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `estat` | [`test_ding_linear_model.py`](../tests/external_parity/test_ding_linear_model.py) (+2) |
+| `ets` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
+| `forecast_accuracy` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `front_door` | [`test_ness_causal_ai.py`](../tests/external_parity/test_ness_causal_ai.py) |
+| `hierarchy` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `implied_weights` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
+| `ljungbox` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `lm_lin` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) |
+| `ndiffs` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
+| `nsdiffs` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 | `power` | [`test_facure_causal_inference_in_python.py`](../tests/external_parity/test_facure_causal_inference_in_python.py) |
 | `propensity_score` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `ps_weights` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
+| `reconcile` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `refute` | [`test_ness_causal_ai.py`](../tests/external_parity/test_ness_causal_ai.py) |
 | `rolling` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
 | `shrinkage` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) |
+| `simple_forecast` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `stepwise` | [`test_ding_linear_model.py`](../tests/external_parity/test_ding_linear_model.py) |
+| `stl` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `swilk` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
 | `switchback` | [`test_facure_causal_inference_in_python.py`](../tests/external_parity/test_facure_causal_inference_in_python.py) |
 | `trimming` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
+| `tscv` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `ttest` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) (+2) |
 | `twowayfeweights` | [`test_dcdh_did_textbook.py`](../tests/external_parity/test_dcdh_did_textbook.py) |
-| `unitroot` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) (+1) |
-| `varsoc` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
+| `unitroot` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) (+2) |
+| `varsoc` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) (+1) |
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 336 functions
+## analytical-only — 338 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -665,6 +676,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `cfrnet` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `check_absorbing` | [`test_absorbing_reference.py`](../tests/reference_parity/test_absorbing_reference.py) |
 | `ci` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
+| `classical_decompose` | [`test_forecasting_r_parity.py`](../tests/reference_parity/test_forecasting_r_parity.py) |
 | `clone_censor_weight` | [`test_target_trial_parity.py`](../tests/reference_parity/test_target_trial_parity.py) |
 | `cluster_cate` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `cluster_cross_interference` | [`test_cluster_cross_interference_parity.py`](../tests/reference_parity/test_cluster_cross_interference_parity.py) |
@@ -737,6 +749,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `forest_policy_tree` | [`test_fe_forest_policy_recovery.py`](../tests/reference_parity/test_fe_forest_policy_recovery.py) |
 | `forest_support` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
+| `fourier_terms` | [`test_forecasting_r_parity.py`](../tests/reference_parity/test_forecasting_r_parity.py) |
 | `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+11) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
@@ -950,6 +963,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 550 functions
+## unverified — 556 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

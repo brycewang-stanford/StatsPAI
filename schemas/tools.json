@@ -645,31 +645,46 @@
       "properties": {
         "auto": {
           "default": false,
-          "description": "If True, select the order and ignore ``order``. ``d`` is chosen first, as the number of differences after which a KPSS test no longer rejects level stationarity at 5% (at most ``max_d``); then ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``, ``(0, d, 0)`` included. Unless ``trend`` is given the constant is part of that search when ``d + D <= 1``: a mean without differencing, a drift with one difference. A candidate with an AR or MA root within 1% of the unit circle is dropped: it is a model differenced once too often or too seldom, fitted on the boundary. This is the exhaustive search of R's ``forecast::auto.arima( stepwise=FALSE, approximation=FALSE)``, without its cap on ``p + q``.",
+          "description": "If True, select the model and ignore ``order``, by the algorithm of Hyndman and Khandakar (2008): 1. With ``period=``, the number of seasonal differences ``D`` (at most ``max_D``) is one when the strength of seasonality of an STL decomposition exceeds 0.64 (:func:`statspai.nsdiffs`). 2. ``d`` is the number of differences after which a KPSS test no longer rejects level stationarity at 5%, at most ``max_d`` (:func:`statspai.ndiffs`), applied to the seasonally differenced series. 3. ``(p, q)``, with ``period=`` also ``(P, Q)``, and whether to include a constant (a mean when ``d + D = 0``, a drift when ``d + D = 1``) minimise AICc. With regressors, the differencing rules are applied to the residuals of the regression of ``y`` on them.",
           "type": "boolean"
         },
         "exog": {
-          "description": "Exogenous regressors (ARIMAX); column names when ``data`` is given.",
+          "description": "exog parameter (Optional[Any]).",
           "type": "string"
+        },
+        "max_D": {
+          "default": 1,
+          "description": "Bounds of the search.",
+          "type": "integer"
+        },
+        "max_P": {
+          "default": 2,
+          "description": "Bounds of the search.",
+          "type": "integer"
+        },
+        "max_Q": {
+          "default": 2,
+          "description": "Bounds of the search.",
+          "type": "integer"
         },
         "max_d": {
           "default": 2,
-          "description": "Bounds for the auto search.",
+          "description": "Bounds of the search.",
           "type": "integer"
         },
         "max_p": {
           "default": 5,
-          "description": "Bounds for the auto search.",
+          "description": "Bounds of the search.",
           "type": "integer"
         },
         "max_q": {
           "default": 5,
-          "description": "Bounds for the auto search.",
+          "description": "Bounds of the search.",
           "type": "integer"
         },
         "method": {
           "default": "statespace",
-          "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations. With differencing, the integration states start from an exact diffuse prior and the ``d + s D`` observations that pin them down are left out of the likelihood, which is then the likelihood of the differenced series. Releases through 1.38.0 used statsmodels' default, a normal prior of variance 1e6. On a series whose innovation variance is not far below 1e6 that prior is informative: the estimates of a differenced model with AR or MA terms changed with the unit of measurement, and the reported log-likelihood was too low. ``AIC``, ``BIC`` and ``AICc`` count the estimated parameters only and use the number of observations after differencing, as R and Stata do.",
+          "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations. With differencing, the likelihood is that of the differenced",
           "enum": [
             "statespace",
             "css_ml",
@@ -689,6 +704,10 @@
           },
           "type": "array"
         },
+        "period": {
+          "description": "Seasonal period for ``auto=True`` (4 quarterly, 12 monthly): the seasonal orders are then chosen too. Not needed when ``seasonal_order`` is given, which keeps the seasonal part fixed and searches ``(p, q)`` only.",
+          "type": "integer"
+        },
         "seasonal_order": {
           "description": "seasonal_order parameter (Optional[Tuple[int, int, int, int]]).",
           "items": {
@@ -696,8 +715,13 @@
           },
           "type": "array"
         },
+        "stepwise": {
+          "default": true,
+          "description": "Search the neighbours of the best model so far, starting from four standard models, until none is better. ``False`` fits every model with ``p + q + P + Q <= 5``: slower, and not trapped by the path of the stepwise search.",
+          "type": "boolean"
+        },
         "trend": {
-          "description": "Deterministic term. ``'c'`` estimates a constant: the mean of the series when it is not differenced (``const``), the mean of the differenced series -- a drift in the level -- when ``d + D = 1`` (``drift``). ``'n'`` estimates neither. The default follows R's ``stats::arima`` and statsmodels' ``ARIMA``: a constant without differencing, none with it. Stata's ``arima`` always includes the constant; pass ``trend='c'`` to reproduce it on a differenced series. A constant with ``d + D > 1`` is a polynomial trend and is refused.",
+          "description": "Deterministic term. ``'c'`` estimates a constant: the mean of the series when it is not differenced (``const``), the mean of the differenced series -- a drift in the level -- when ``d + D = 1`` (``drift``). ``'n'`` estimates neither. The default follows R's ``stats::arima`` and statsmodels' ``ARIMA``: a constant without differencing, none with it; with ``auto=True`` the default lets AICc decide. Stata's ``arima`` always includes the constant; pass ``trend='c'`` to reproduce it on a differenced series. A constant with ``d + D > 1`` is a polynomial trend and is refused.",
           "enum": [
             "c",
             "n"
@@ -2705,6 +2729,38 @@
     "name": "boxcox"
   },
   {
+    "description": "Box-Cox parameter that stabilises the variance of a series across its level, by Guerrero's method (minimum coefficient of variation of sd / mean^(1 - lambda) across cycles). lambda = 0 is the logarithm. R forecast::BoxCox.lambda, fabletools guerrero, coreforecast boxcox_lambda. For the Box-Cox transform of a regression outcome see sp.boxcox. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.boxcox.",
+    "input_schema": {
+      "properties": {
+        "lower": {
+          "default": -1.0,
+          "description": "Lower end of the search",
+          "type": "number"
+        },
+        "period": {
+          "default": 1,
+          "description": "Seasonal period",
+          "type": "integer"
+        },
+        "upper": {
+          "default": 2.0,
+          "description": "Upper end of the search",
+          "type": "number"
+        },
+        "y": {
+          "description": "A strictly positive series",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "boxcox_lambda"
+  },
+  {
     "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
@@ -4614,6 +4670,37 @@
       "type": "object"
     },
     "name": "cic"
+  },
+  {
+    "description": "Classical additive or multiplicative decomposition by centred moving averages: a 2 x m moving-average trend and a fixed seasonal figure. The textbook baseline; sp.stl has no missing ends, lets the seasonal pattern evolve and resists outliers. R stats::decompose, statsmodels seasonal_decompose. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.stl.",
+    "input_schema": {
+      "properties": {
+        "model": {
+          "default": "additive",
+          "description": "How the components combine",
+          "enum": [
+            "additive",
+            "multiplicative"
+          ],
+          "type": "string"
+        },
+        "period": {
+          "description": "Seasonal period",
+          "type": "integer"
+        },
+        "y": {
+          "description": "The series, in time order",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "period",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "classical_decompose"
   },
   {
     "description": "McFadden's conditional (fixed-effect) logit for choice data. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance. Assumptions: The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects; Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure; No perfect separation: every outcome category occurs at every level of each discrete covariate. Pre-conditions: Outcome is coded as integers (0/1, ordered levels, or category ids), not as floats or strings; Each outcome category has enough cases (rule of thumb: >= 10 events per estimated coefficient). Failure modes: ConvergenceWarning / coefficients drifting to +/-inf -> Quasi-complete separation: drop or coarsen the separating covariate, or use a penalised (Firth-type) or linear-probability specification; Coefficients reported but the question is about effects on the probability scale -> Report average marginal effects with sp.m...",
@@ -10937,6 +11024,93 @@
     "name": "etregress"
   },
   {
+    "description": "Exponential smoothing state space model ETS(error, trend, season): simple exponential smoothing, Holt's linear and damped trend, Holt-Winters additive and multiplicative, each with an additive or multiplicative error, fitted by maximum likelihood with the initial states estimated; model='ZZZ' chooses the form by AICc. Forecasts with analytic prediction intervals (simulated ones for the models that have none). The likelihood, parameter region, model search and forecast variances are those of R forecast::ets and fable::ETS; the optimiser is restarted, so the likelihood is at least as high as theirs. statsforecast AutoETS, statsmodels ETSModel. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Innovations are uncorrelated with constant variance (relative variance under a multiplicative error); normal for the intervals; The intervals take the estimated parameters as known; Multiplicative components need a strictly positive series. Pre-conditions: No missing values inside the series; period > 1 for a seasonal model; at most 24. Failure modes: Seasonal period above 24 (daily data with a yearly cycle, hourly data) -> Deco...",
+    "input_schema": {
+      "properties": {
+        "additive_only": {
+          "default": false,
+          "description": "Only additive models",
+          "type": "boolean"
+        },
+        "allow_multiplicative_trend": {
+          "default": false,
+          "description": "Let the search consider a multiplicative trend",
+          "type": "boolean"
+        },
+        "alpha": {
+          "description": "Fix the level smoothing parameter",
+          "type": "number"
+        },
+        "beta": {
+          "description": "Fix the trend smoothing parameter",
+          "type": "number"
+        },
+        "bounds": {
+          "default": "both",
+          "description": "Parameter region",
+          "enum": [
+            "both",
+            "usual",
+            "admissible"
+          ],
+          "type": "string"
+        },
+        "damped": {
+          "description": "Damp the trend; None tries both",
+          "type": "boolean"
+        },
+        "gamma": {
+          "description": "Fix the seasonal smoothing parameter",
+          "type": "number"
+        },
+        "ic": {
+          "default": "aicc",
+          "description": "Selection criterion",
+          "enum": [
+            "aicc",
+            "aic",
+            "bic"
+          ],
+          "type": "string"
+        },
+        "maxiter": {
+          "default": 2000,
+          "description": "Iteration limit per simplex run",
+          "type": "integer"
+        },
+        "model": {
+          "default": "ZZZ",
+          "description": "Error, trend, season letters: N none, A additive, M multiplicative, Z automatic; 'AAdN' damps the trend",
+          "type": "string"
+        },
+        "period": {
+          "default": 1,
+          "description": "Seasonal period (4, 12, 7 ...)",
+          "type": "integer"
+        },
+        "phi": {
+          "description": "Fix the damping parameter",
+          "type": "number"
+        },
+        "restrict": {
+          "default": true,
+          "description": "Leave out unstable combinations",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "The series, in time order",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "ets"
+  },
+  {
     "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale, or with scale='link' the treated-observation-weighted mean of the cohort x period coefficients (Stata jwdid estat simple, predict(xb)); fe='unit' absorbs unit fixed effects like jwdid ..., method(ppmlhdfe); hettype= and a covariate xvar= follow jwdid hettype() and jwdid y x (estat ..., over() via etwfe_emfx(by_xvar=True)). On the linear model hettype= / fe='unit' fit jwdid's reghdfe design. Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with panel=False or weights= is not yet supported; these raise rather than being silently...",
     "input_schema": {
       "properties": {
@@ -12366,6 +12540,41 @@
     "name": "focal_cate"
   },
   {
+    "description": "Accuracy of one or several forecasts against the outcomes: ME, RMSE, MAE, MPE, MAPE, the scaled errors MASE and RMSSE (relative to the in-sample naive or seasonal naive forecast), first autocorrelation of the errors, and for forecast tables with intervals the Winkler interval score, empirical coverage and, on request, the CRPS. R forecast::accuracy, fabletools::accuracy, utilsforecast evaluate. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Percentage errors need outcomes away from zero; The forecasts were made without the outcomes they are scored on. Alternatives: sp.tscv.",
+    "input_schema": {
+      "properties": {
+        "actual": {
+          "description": "Observed values of the forecast periods",
+          "type": "string"
+        },
+        "crps": {
+          "default": false,
+          "description": "Add the normal-approximation CRPS",
+          "type": "boolean"
+        },
+        "forecast": {
+          "description": "Point forecasts, a .forecast() table, or a dict of them by method name",
+          "type": "object"
+        },
+        "period": {
+          "default": 1,
+          "description": "Seasonal period of the scaling",
+          "type": "integer"
+        },
+        "train": {
+          "description": "Training series, for MASE / RMSSE",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actual",
+        "forecast"
+      ],
+      "type": "object"
+    },
+    "name": "forecast_accuracy"
+  },
+  {
     "description": "Return overlap and CATE-distribution diagnostics for a fitted forest. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
@@ -12649,6 +12858,37 @@
       "type": "object"
     },
     "name": "fortified_pci"
+  },
+  {
+    "description": "Sine and cosine regressors sin(2 pi k t / period), cos(2 pi k t / period), k = 1..K, for smooth, long, non-integer or multiple seasonal patterns: regressors of sp.arima (dynamic harmonic regression) or sp.regress. start= gives the rows of the forecast periods. R forecast::fourier, utilsforecast fourier. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.stl.",
+    "input_schema": {
+      "properties": {
+        "K": {
+          "description": "Number of harmonics, at most period / 2",
+          "type": "integer"
+        },
+        "n": {
+          "description": "Number of rows, or an indexed object",
+          "type": "integer"
+        },
+        "period": {
+          "description": "Length of the cycle in observations",
+          "type": "number"
+        },
+        "start": {
+          "default": 1,
+          "description": "Time of the first row",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "K",
+        "n",
+        "period"
+      ],
+      "type": "object"
+    },
+    "name": "fourier_terms"
   },
   {
     "description": "Fractional response model (Papke & Wooldridge 1996). Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem. Assumptions: The chosen family / link matches the outcome's support (fractional logit for shares in [0,1], beta for shares in (0,1), gamma for positive skewed outcomes, truncated normal for truncated samples); Fractional / quasi-likelihood models are consistent under a correct conditional mean only; use robust SEs. Pre-conditions: Outcome support matches the family (no exact 0/1 for betareg; values inside the truncation region for truncreg). Failure modes: Outcome values outside the family's support -> Rescale or switch family: exact 0/1 shares -> sp.fracreg; censoring rather than truncation -> a tobit / censored model. Alternatives: sp.sp.glm, sp.sp.regress.",
@@ -14747,6 +14987,41 @@
       "type": "object"
     },
     "name": "het_test"
+  },
+  {
+    "description": "Build a hierarchical or grouped time series structure from a long table: aggregate the bottom-level series along the key columns of each level and return every series (wide), the summing matrix S and the level tags. Input of sp.reconcile. hierarchicalforecast aggregate, R hts / fabletools aggregate_key. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: Balanced bottom level: every series in every period. Alternatives: sp.reconcile.",
+    "input_schema": {
+      "properties": {
+        "sep": {
+          "default": "/",
+          "description": "Separator in series identifiers",
+          "type": "string"
+        },
+        "spec": {
+          "description": "Key columns of each level; the last is the bottom",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "time": {
+          "description": "Period column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "value": {
+          "description": "Value column",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spec",
+        "time",
+        "value"
+      ],
+      "type": "object"
+    },
+    "name": "hierarchy"
   },
   {
     "description": "Holm (1979) step-down correction. Validation: certified parity evidence. Do NOT use when: the hypotheses are one pre-registered primary outcome -- there is nothing to adjust. Assumptions: Each input p-value is valid on its own (correct size marginally); Bonferroni / Holm control the family-wise error rate under arbitrary dependence; Benjamini-Hochberg controls the false discovery rate under independence or positive regression dependence. Pre-conditions: The family of hypotheses is fixed before looking at the data; adding tests after the fact invalidates the control. Failure modes: All adjusted p-values become 1 with many hypotheses -> Bonferroni / Holm are very conservative for large families; report FDR (sp.benjamini_hochberg) or Romano-Wolf. Alternatives: sp.sp.romano_wolf, sp.sp.benjamini_hochberg.",
@@ -17699,6 +17974,47 @@
       "type": "object"
     },
     "name": "list_replications"
+  },
+  {
+    "description": "Ljung-Box or Box-Pierce portmanteau test that the first `lags` autocorrelations are zero, with the degrees of freedom reduced by the number of ARMA parameters estimated (model_df). Accepts a series of residuals or a fitted sp.arima / sp.ets / sp.simple_forecast result. R Box.test(fitdf=), Stata wntestq, statsmodels acorr_ljungbox(model_df=). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Under H0 the series is white noise; the chi-squared reference is asymptotic; After a regression with lagged dependent variables use sp.estat(result, 'bgodfrey') instead. Alternatives: sp.corrgram, sp.estat.",
+    "input_schema": {
+      "properties": {
+        "lags": {
+          "description": "Lag(s) of the test; default 10 or 2 x period",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "method": {
+          "default": "ljung-box",
+          "description": "Statistic",
+          "enum": [
+            "ljung-box",
+            "box-pierce"
+          ],
+          "type": "string"
+        },
+        "model_df": {
+          "description": "Estimated ARMA parameters",
+          "type": "integer"
+        },
+        "period": {
+          "default": 1,
+          "description": "Seasonal period, for the default lags",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Residuals or a fitted model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    },
+    "name": "ljungbox"
   },
   {
     "description": "Propose a candidate DAG from variable names + domain description. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis. Assumptions: LLM-proposed graphs / priors are hypotheses to validate, not statistical identification; Human review or data-driven falsification is required before any causal claim. Pre-conditions: Domain context and a bounded list of candidate variables; A configured, logged LLM provider for reproducibility. Failure modes: Proposals are unstable across runs or include hallucinated variables/edges -> Fix the model release and seed, add constraints, and cross-check with constraint-based discovery. Alternatives: sp.llm_dag_constrained, sp.causal_discovery, sp.dag. Typical minimum N: 1.",
@@ -21132,6 +21448,33 @@
     "name": "ndcg"
   },
   {
+    "description": "Number of first differences that make a series stationary: difference until a KPSS test no longer rejects level stationarity (Hyndman-Khandakar rule). R forecast::ndiffs(test='kpss'), statsforecast ndiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.unitroot, sp.nsdiffs.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of each KPSS test: 0.10, 0.05, 0.025 or 0.01",
+          "type": "number"
+        },
+        "max_d": {
+          "default": 2,
+          "description": "Most differences considered",
+          "type": "integer"
+        },
+        "y": {
+          "description": "The series, in time order",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "ndiffs"
+  },
+  {
     "description": "Regress outcome on a *negative-control exposure*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The negative-control exposure has no causal effect on the outcome by design (Lipsitch et al. 2010); It shares the same confounding structure as the real exposure. Pre-conditions: data has the outcome and a negative-control exposure column. Failure modes: Significant coefficient on the negative-control exposure signals residual confounding, not an effect -> Treat a non-zero coefficient as a confounding alarm; add covariates or run a sensitivity analysis. Alternatives: sp.negative_control_outcome, sp.sensemakr, sp.evalue. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
@@ -21515,6 +21858,38 @@
       "type": "object"
     },
     "name": "notears"
+  },
+  {
+    "description": "Number of seasonal differences a series needs: one while the strength of seasonality of an STL decomposition exceeds 0.64. R forecast::nsdiffs(test='seas'), feasts unitroot_nsdiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.ndiffs, sp.stl.",
+    "input_schema": {
+      "properties": {
+        "max_D": {
+          "default": 1,
+          "description": "Most seasonal differences considered",
+          "type": "integer"
+        },
+        "period": {
+          "description": "Seasonal period",
+          "type": "integer"
+        },
+        "threshold": {
+          "default": 0.64,
+          "description": "Seasonal strength that triggers a difference",
+          "type": "number"
+        },
+        "y": {
+          "description": "The series, in time order",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "period",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "nsdiffs"
   },
   {
     "description": "Oaxaca-Blinder decomposition of mean outcome gaps. Validation: certified parity evidence. Assumptions: Linearity of conditional mean within each group; Constant returns to covariates within group (no interactions ignored); Reference-group choice does not change interpretive sign of explained vs. unexplained gaps. Pre-conditions: Binary group indicator with both groups represented; Linear specification of outcome on covariates within each group. Failure modes: Detailed decomposition signs flip when reference group changes -> Report aggregated decomposition only, or use pooled reference (Neumark / Cotton). Alternatives: sp.ffl_decompose, sp.dfl_decompose, sp.rif_decomposition. Typical minimum N: 200.",
@@ -29287,6 +29662,58 @@
     "name": "recommend_benchmark"
   },
   {
+    "description": "Reconcile base forecasts of a hierarchical or grouped structure so that they add up: bottom-up, top-down, OLS, structural or variance-weighted least squares, and minimum trace (MinT) with a shrunk or sample residual covariance. Returns coherent forecasts and the projection G. Numbers of R hts::MinT / combinef and fabletools min_trace; hierarchicalforecast MinTrace (which centres the residual covariance, a small difference for mint_shrink). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unbiased base forecasts (top-down is biased even then); MinT: the h-step error covariance is proportional to the one-step covariance estimated from the residuals. Failure modes: More series than residual periods with mint_cov -> Use method='mint_shrink'. Alternatives: sp.hierarchy.",
+    "input_schema": {
+      "properties": {
+        "S": {
+          "description": "Summing matrix or sp.hierarchy result",
+          "type": "string"
+        },
+        "base": {
+          "description": "Base forecasts, periods by series",
+          "type": "string"
+        },
+        "history": {
+          "description": "Observed series, for top_down",
+          "type": "string"
+        },
+        "method": {
+          "default": "mint_shrink",
+          "description": "Reconciliation method",
+          "enum": [
+            "bottom_up",
+            "top_down",
+            "ols",
+            "wls_struct",
+            "wls_var",
+            "mint_shrink",
+            "mint_cov"
+          ],
+          "type": "string"
+        },
+        "proportions": {
+          "default": "average",
+          "description": "Top-down proportions",
+          "enum": [
+            "average",
+            "of_averages"
+          ],
+          "type": "string"
+        },
+        "residuals": {
+          "description": "In-sample one-step errors of every series",
+          "type": "string"
+        }
+      },
+      "required": [
+        "S",
+        "base"
+      ],
+      "type": "object"
+    },
+    "name": "reconcile"
+  },
+  {
     "description": "Refutation tests for any effect estimator: rerun it on data altered so the answer is known (treatment shuffled, outcome replaced by one the treatment does not enter, a random covariate added, random subsets) and test whether the reruns are centred where they should be. The four data-side refuters of DoWhy with Monte Carlo p-values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As evidence against unobserved confounding: use sp.sensemakr or sp.evalue; Estimators whose single fit is slow: every test refits n_simulations times. Assumptions: Passing is necessary, not sufficient: no check here detects an unobserved confounder. Pre-conditions: n_simulations >= 2 / alpha - 1 (39 at alpha = 0.05). Failure modes: The estimator does not return a scalar effect -> Wrap it in a lambda that returns a number; Fewer than half of the reruns can be fitted -> Check that the estimator runs on a shuffled or subsetted copy of the data. Alternatives: sp.sensemakr, sp.evalue, sp.robustness_report, sp.spec_curve.",
     "input_schema": {
       "properties": {
@@ -31969,6 +32396,39 @@
     "name": "signrank"
   },
   {
+    "description": "Benchmark forecasting methods: mean, naive (random walk), seasonal naive and drift, with normal or bootstrapped prediction intervals. The yardstick any forecasting model has to beat out of sample. R forecast::meanf / naive / snaive / rwf(drift=TRUE); statsforecast HistoricAverage / Naive / SeasonalNaive / RandomWalkWithDrift. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Intervals assume uncorrelated, homoscedastic, normal one-step errors (bootstrap=True drops normality). Alternatives: sp.ets, sp.arima. Typical minimum N: 3.",
+    "input_schema": {
+      "properties": {
+        "method": {
+          "default": "naive",
+          "description": "Which benchmark",
+          "enum": [
+            "naive",
+            "snaive",
+            "drift",
+            "mean"
+          ],
+          "type": "string"
+        },
+        "period": {
+          "default": 1,
+          "description": "Seasonal period, for 'snaive'",
+          "type": "integer"
+        },
+        "y": {
+          "description": "The series, in time order",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "simple_forecast"
+  },
+  {
     "description": "Skewness and kurtosis tests for normality with their joint chi-squared(2) test (Stata sktest): D'Agostino's skewness test, the Anscombe-Glynn kurtosis test, and Royston's small-sample adjustment of the joint statistic. One row per variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A very large sample -- the test rejects for departures from normality too small to matter; look at the distribution; Regression residuals are what is in doubt -- use sp.estat(result, 'normality'). Assumptions: Independent observations from one distribution; at least 8. Alternatives: sp.swilk, sp.estat.",
     "input_schema": {
       "properties": {
@@ -33048,6 +33508,88 @@
       "type": "object"
     },
     "name": "stepwise"
+  },
+  {
+    "description": "STL decomposition of a series into trend, seasonal and remainder by loess, optionally robust to outliers, with a periodic seasonal option; several seasonal periods give MSTL. The result carries the seasonally adjusted series, the strength of trend and of seasonality, and forecasts that model the seasonally adjusted series (ETS, ARIMA, naive, drift) and add the seasonal pattern back. Defaults and numbers of R stats::stl / forecast::mstl / stlf; statsmodels STL runs the same algorithm with other defaults. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Additive components; take logs (or a Box-Cox transform) first when the seasonal swings grow with the level; At least two full cycles of each period. Alternatives: sp.classical_decompose, sp.ets.",
+    "input_schema": {
+      "properties": {
+        "inner_iter": {
+          "description": "Loess passes",
+          "type": "integer"
+        },
+        "iterate": {
+          "default": 2,
+          "description": "Passes over the periods (MSTL)",
+          "type": "integer"
+        },
+        "low_pass": {
+          "description": "Low-pass window (odd)",
+          "type": "integer"
+        },
+        "low_pass_deg": {
+          "default": 1,
+          "description": "Degree of the low-pass loess: 0 or 1",
+          "type": "integer"
+        },
+        "low_pass_jump": {
+          "description": "Interpolation step of the low-pass loess",
+          "type": "integer"
+        },
+        "outer_iter": {
+          "description": "Robustness iterations",
+          "type": "integer"
+        },
+        "period": {
+          "description": "Seasonal period(s)",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "robust": {
+          "default": false,
+          "description": "Robustness iterations against outliers",
+          "type": "boolean"
+        },
+        "seasonal": {
+          "description": "Seasonal window (odd), or 'periodic'; default 11",
+          "type": "integer"
+        },
+        "seasonal_deg": {
+          "default": 0,
+          "description": "Degree of the seasonal loess: 0 or 1",
+          "type": "integer"
+        },
+        "seasonal_jump": {
+          "description": "Interpolation step of the seasonal loess",
+          "type": "integer"
+        },
+        "trend": {
+          "description": "Trend window (odd)",
+          "type": "integer"
+        },
+        "trend_deg": {
+          "default": 1,
+          "description": "Degree of the trend loess: 0 or 1",
+          "type": "integer"
+        },
+        "trend_jump": {
+          "description": "Interpolation step of the trend loess",
+          "type": "integer"
+        },
+        "y": {
+          "description": "The series, in time order",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "period",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "stl"
   },
   {
     "description": "Test for stochastic dominance of the treated distribution over the Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the input came from a mean-based synthetic control -- there are no counterfactual quantiles to compare. Assumptions: The counterfactual quantile function from the distributional synthetic control fit is a valid stand-in for the treated unit's untreated distribution. Pre-conditions: A result from sp.discos (or qqsynth) carrying treated and counterfactual quantiles in model_info. Failure modes: order is not 1 or 2 -> Use order=1 (CDF dominance) or order=2 (integrated CDF). Alternatives: sp.sp.discos.",
@@ -35796,6 +36338,51 @@
       "type": "object"
     },
     "name": "truncreg"
+  },
+  {
+    "description": "Time series cross-validation on a rolling forecast origin: refit at each origin on the observations up to it (expanding or rolling window), forecast up to `horizon` steps and collect the errors; .accuracy() gives RMSE / MAE / MAPE by horizon. Built-in forecasters (naive, snaive, drift, mean, ets, arima) or any function f(train, horizon). The error matrix has the layout of R forecast::tsCV; statsforecast cross_validation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The forecaster uses only the training window it is handed; Errors at long horizons overlap across origins and are serially correlated. Alternatives: sp.forecast_accuracy. Typical minimum N: 20.",
+    "input_schema": {
+      "properties": {
+        "forecaster": {
+          "default": "naive",
+          "description": "Method name or f(train, horizon) returning forecasts",
+          "type": "string"
+        },
+        "horizon": {
+          "default": 1,
+          "description": "Longest forecast horizon",
+          "type": "integer"
+        },
+        "initial": {
+          "description": "Size of the first training window",
+          "type": "integer"
+        },
+        "period": {
+          "default": 1,
+          "description": "Seasonal period for built-in methods",
+          "type": "integer"
+        },
+        "step": {
+          "default": 1,
+          "description": "Periods between origins",
+          "type": "integer"
+        },
+        "window": {
+          "description": "Rolling window length; None expands",
+          "type": "integer"
+        },
+        "y": {
+          "description": "The series, in time order",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "tscv"
   },
   {
     "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Independent observations within each group (paired differences for a paired test); Sample means approximately normal: normal data or a sample large enough for the central limit theorem; Equal variances only when the pooled test is requested. Pre-conditions: A numeric outcome; for two samples a grouping column with exactly two values. Failure modes: Clustered or repeated observations treated as independent -> Regress the outcome on the group indicator with clustered standard errors; Heavy tails or gross outliers in a small sample -> Compare medians or ranks instead. Alternatives: sp.regress, sp.median_test, sp.sdtest, sp.prtest. Typical...",

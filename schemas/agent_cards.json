@@ -11493,6 +11493,7 @@
       "source": "external_parity",
       "status": "external-replication",
       "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py",
         "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
@@ -11571,9 +11572,1436 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_maitra_static_dynamic.py",
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
       "tests/reference_parity/test_hansen_methods_stata_parity.py",
       "tests/reference_parity/test_textbook_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "arima",
+      "simple_forecast",
+      "stl"
+    ],
+    "assumptions": [
+      "Innovations are uncorrelated with constant variance (relative variance under a multiplicative error); normal for the intervals",
+      "The intervals take the estimated parameters as known",
+      "Multiplicative components need a strictly positive series"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Exponential smoothing state space model ETS(error, trend, season): simple exponential smoothing, Holt's linear and damped trend, Holt-Winters additive and multiplicative, each with an additive or multiplicative error, fitted by maximum likelihood with the initial states estimated; model='ZZZ' chooses the form by AICc. Forecasts with analytic prediction intervals (simulated ones for the models that have none). The likelihood, parameter region, model search and forecast variances are those of R forecast::ets and fable::ETS; the optimiser is restarted, so the likelihood is at least as high as theirs. statsforecast AutoETS, statsmodels ETSModel. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.ets(df[\"sales\"], period=12).forecast(24, level=(80, 95))",
+    "failure_modes": [
+      {
+        "alternative": "stl",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Decompose with sp.stl and model the seasonally adjusted series, or use sp.fourier_terms in sp.arima",
+        "symptom": "Seasonal period above 24 (daily data with a yearly cycle, hourly data)"
+      },
+      {
+        "alternative": "arima",
+        "exception": "statspai.ConvergenceWarning",
+        "remedy": "Compare with sp.arima(auto=True) by sp.tscv",
+        "symptom": "sp.ljungbox(result) rejects: residuals autocorrelated"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ets",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "No missing values inside the series",
+      "period > 1 for a seasonal model; at most 24"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "hyndman2002state; hyndman2008forecasting",
+    "returns": {
+      "class": "ETSResult",
+      "description": "ETSResult",
+      "fields": {
+        "aic": "float",
+        "aicc": "float",
+        "bic": "float",
+        "candidates": "Optional[pd.DataFrame]",
+        "converged": "bool",
+        "damped": "bool",
+        "error": "str",
+        "fitted_values": "np.ndarray",
+        "fixed": "Dict[str, float]",
+        "initial_state": "pd.Series",
+        "log_likelihood": "float",
+        "model": "str",
+        "mse": "float",
+        "n": "int",
+        "n_params": "int",
+        "params": "pd.Series",
+        "period": "int",
+        "residuals": "np.ndarray",
+        "season": "str",
+        "sigma2": "float",
+        "states": "pd.DataFrame",
+        "trend": "str"
+      }
+    },
+    "signature": {
+      "description": "Exponential smoothing state space model ETS(error, trend, season): simple exponential smoothing, Holt's linear and damped trend, Holt-Winters additive and multiplicative, each with an additive or multiplicative error, fitted by maximum likelihood with the initial states estimated; model='ZZZ' chooses the form by AICc. Forecasts with analytic prediction intervals (simulated ones for the models that have none). The likelihood, parameter region, model search and forecast variances are those of R forecast::ets and fable::ETS; the optimiser is restarted, so the likelihood is at least as high as theirs. statsforecast AutoETS, statsmodels ETSModel. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "ets",
+      "parameters": {
+        "properties": {
+          "additive_only": {
+            "default": false,
+            "description": "Only additive models",
+            "type": "boolean"
+          },
+          "allow_multiplicative_trend": {
+            "default": false,
+            "description": "Let the search consider a multiplicative trend",
+            "type": "boolean"
+          },
+          "alpha": {
+            "description": "Fix the level smoothing parameter",
+            "type": "number"
+          },
+          "beta": {
+            "description": "Fix the trend smoothing parameter",
+            "type": "number"
+          },
+          "bounds": {
+            "default": "both",
+            "description": "Parameter region",
+            "enum": [
+              "both",
+              "usual",
+              "admissible"
+            ],
+            "type": "string"
+          },
+          "damped": {
+            "description": "Damp the trend; None tries both",
+            "type": "boolean"
+          },
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "gamma": {
+            "description": "Fix the seasonal smoothing parameter",
+            "type": "number"
+          },
+          "ic": {
+            "default": "aicc",
+            "description": "Selection criterion",
+            "enum": [
+              "aicc",
+              "aic",
+              "bic"
+            ],
+            "type": "string"
+          },
+          "maxiter": {
+            "default": 2000,
+            "description": "Iteration limit per simplex run",
+            "type": "integer"
+          },
+          "model": {
+            "default": "ZZZ",
+            "description": "Error, trend, season letters: N none, A additive, M multiplicative, Z automatic; 'AAdN' damps the trend",
+            "type": "string"
+          },
+          "period": {
+            "default": 1,
+            "description": "Seasonal period (4, 12, 7 ...)",
+            "type": "integer"
+          },
+          "phi": {
+            "description": "Fix the damping parameter",
+            "type": "number"
+          },
+          "restrict": {
+            "default": true,
+            "description": "Leave out unstable combinations",
+            "type": "boolean"
+          },
+          "y": {
+            "description": "The series, in time order",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 10,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "ets",
+      "arima"
+    ],
+    "assumptions": [
+      "Intervals assume uncorrelated, homoscedastic, normal one-step errors (bootstrap=True drops normality)"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Benchmark forecasting methods: mean, naive (random walk), seasonal naive and drift, with normal or bootstrapped prediction intervals. The yardstick any forecasting model has to beat out of sample. R forecast::meanf / naive / snaive / rwf(drift=TRUE); statsforecast HistoricAverage / Naive / SeasonalNaive / RandomWalkWithDrift. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.simple_forecast(df[\"beer\"], \"snaive\", period=4).forecast(8)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "simple_forecast",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "hyndman2026fpppy",
+    "returns": {
+      "class": "SimpleForecastResult",
+      "description": "SimpleForecastResult",
+      "fields": {
+        "drift": "Optional[float]",
+        "fitted_values": "np.ndarray",
+        "mean": "Optional[float]",
+        "method": "str",
+        "n": "int",
+        "period": "int",
+        "residuals": "np.ndarray",
+        "sigma": "float"
+      }
+    },
+    "signature": {
+      "description": "Benchmark forecasting methods: mean, naive (random walk), seasonal naive and drift, with normal or bootstrapped prediction intervals. The yardstick any forecasting model has to beat out of sample. R forecast::meanf / naive / snaive / rwf(drift=TRUE); statsforecast HistoricAverage / Naive / SeasonalNaive / RandomWalkWithDrift. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "simple_forecast",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "method": {
+            "default": "naive",
+            "description": "Which benchmark",
+            "enum": [
+              "naive",
+              "snaive",
+              "drift",
+              "mean"
+            ],
+            "type": "string"
+          },
+          "period": {
+            "default": 1,
+            "description": "Seasonal period, for 'snaive'",
+            "type": "integer"
+          },
+          "y": {
+            "description": "The series, in time order",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 3,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "tscv"
+    ],
+    "assumptions": [
+      "Percentage errors need outcomes away from zero",
+      "The forecasts were made without the outcomes they are scored on"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Accuracy of one or several forecasts against the outcomes: ME, RMSE, MAE, MPE, MAPE, the scaled errors MASE and RMSSE (relative to the in-sample naive or seasonal naive forecast), first autocorrelation of the errors, and for forecast tables with intervals the Winkler interval score, empirical coverage and, on request, the CRPS. R forecast::accuracy, fabletools::accuracy, utilsforecast evaluate. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.forecast_accuracy(test, {'ets': fc_ets, 'snaive': fc_sn}, train=train, period=12)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "forecast_accuracy",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hyndman2006another; gneiting2007strictly; winkler1972decision",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Accuracy of one or several forecasts against the outcomes: ME, RMSE, MAE, MPE, MAPE, the scaled errors MASE and RMSSE (relative to the in-sample naive or seasonal naive forecast), first autocorrelation of the errors, and for forecast tables with intervals the Winkler interval score, empirical coverage and, on request, the CRPS. R forecast::accuracy, fabletools::accuracy, utilsforecast evaluate. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "forecast_accuracy",
+      "parameters": {
+        "properties": {
+          "actual": {
+            "description": "Observed values of the forecast periods",
+            "type": "string"
+          },
+          "crps": {
+            "default": false,
+            "description": "Add the normal-approximation CRPS",
+            "type": "boolean"
+          },
+          "forecast": {
+            "description": "Point forecasts, a .forecast() table, or a dict of them by method name",
+            "type": "object"
+          },
+          "period": {
+            "default": 1,
+            "description": "Seasonal period of the scaling",
+            "type": "integer"
+          },
+          "train": {
+            "description": "Training series, for MASE / RMSSE",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actual",
+          "forecast"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "forecast_accuracy"
+    ],
+    "assumptions": [
+      "The forecaster uses only the training window it is handed",
+      "Errors at long horizons overlap across origins and are serially correlated"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Time series cross-validation on a rolling forecast origin: refit at each origin on the observations up to it (expanding or rolling window), forecast up to `horizon` steps and collect the errors; .accuracy() gives RMSE / MAE / MAPE by horizon. Built-in forecasters (naive, snaive, drift, mean, ets, arima) or any function f(train, horizon). The error matrix has the layout of R forecast::tsCV; statsforecast cross_validation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.tscv(df[\"y\"], \"ets\", horizon=4, initial=60, period=4).accuracy()",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "tscv",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "hyndman2026fpppy",
+    "returns": {
+      "class": "TSCVResult",
+      "description": "TSCVResult",
+      "fields": {
+        "actuals": "pd.DataFrame",
+        "errors": "pd.DataFrame",
+        "failures": "List[Tuple[Any, str]]",
+        "forecaster": "str",
+        "forecasts": "pd.DataFrame",
+        "horizon": "int",
+        "initial": "int",
+        "step": "int",
+        "window": "Optional[int]"
+      }
+    },
+    "signature": {
+      "description": "Time series cross-validation on a rolling forecast origin: refit at each origin on the observations up to it (expanding or rolling window), forecast up to `horizon` steps and collect the errors; .accuracy() gives RMSE / MAE / MAPE by horizon. Built-in forecasters (naive, snaive, drift, mean, ets, arima) or any function f(train, horizon). The error matrix has the layout of R forecast::tsCV; statsforecast cross_validation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "tscv",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "forecaster": {
+            "default": "naive",
+            "description": "Method name or f(train, horizon) returning forecasts",
+            "type": "string"
+          },
+          "horizon": {
+            "default": 1,
+            "description": "Longest forecast horizon",
+            "type": "integer"
+          },
+          "initial": {
+            "description": "Size of the first training window",
+            "type": "integer"
+          },
+          "period": {
+            "default": 1,
+            "description": "Seasonal period for built-in methods",
+            "type": "integer"
+          },
+          "step": {
+            "default": 1,
+            "description": "Periods between origins",
+            "type": "integer"
+          },
+          "window": {
+            "description": "Rolling window length; None expands",
+            "type": "integer"
+          },
+          "y": {
+            "description": "The series, in time order",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 20,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "classical_decompose",
+      "ets"
+    ],
+    "assumptions": [
+      "Additive components; take logs (or a Box-Cox transform) first when the seasonal swings grow with the level",
+      "At least two full cycles of each period"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "STL decomposition of a series into trend, seasonal and remainder by loess, optionally robust to outliers, with a periodic seasonal option; several seasonal periods give MSTL. The result carries the seasonally adjusted series, the strength of trend and of seasonality, and forecasts that model the seasonally adjusted series (ETS, ARIMA, naive, drift) and add the seasonal pattern back. Defaults and numbers of R stats::stl / forecast::mstl / stlf; statsmodels STL runs the same algorithm with other defaults. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.stl(df[\"employment\"], period=12, robust=True).to_frame()",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "stl",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "cleveland1990stl; bandara2025mstl",
+    "returns": {
+      "class": "DecompositionResult",
+      "description": "DecompositionResult",
+      "fields": {
+        "method": "str",
+        "multiplicative": "bool",
+        "observed": "np.ndarray",
+        "periods": "Tuple[int, ...]",
+        "remainder": "np.ndarray",
+        "seasonal": "np.ndarray",
+        "seasonal_components": "Dict[int, np.ndarray]",
+        "settings": "Dict[str, Any]",
+        "trend": "np.ndarray"
+      }
+    },
+    "signature": {
+      "description": "STL decomposition of a series into trend, seasonal and remainder by loess, optionally robust to outliers, with a periodic seasonal option; several seasonal periods give MSTL. The result carries the seasonally adjusted series, the strength of trend and of seasonality, and forecasts that model the seasonally adjusted series (ETS, ARIMA, naive, drift) and add the seasonal pattern back. Defaults and numbers of R stats::stl / forecast::mstl / stlf; statsmodels STL runs the same algorithm with other defaults. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "stl",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "inner_iter": {
+            "description": "Loess passes",
+            "type": "integer"
+          },
+          "iterate": {
+            "default": 2,
+            "description": "Passes over the periods (MSTL)",
+            "type": "integer"
+          },
+          "low_pass": {
+            "description": "Low-pass window (odd)",
+            "type": "integer"
+          },
+          "low_pass_deg": {
+            "default": 1,
+            "description": "Degree of the low-pass loess: 0 or 1",
+            "type": "integer"
+          },
+          "low_pass_jump": {
+            "description": "Interpolation step of the low-pass loess",
+            "type": "integer"
+          },
+          "outer_iter": {
+            "description": "Robustness iterations",
+            "type": "integer"
+          },
+          "period": {
+            "description": "Seasonal period(s)",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "robust": {
+            "default": false,
+            "description": "Robustness iterations against outliers",
+            "type": "boolean"
+          },
+          "seasonal": {
+            "description": "Seasonal window (odd), or 'periodic'; default 11",
+            "type": "integer"
+          },
+          "seasonal_deg": {
+            "default": 0,
+            "description": "Degree of the seasonal loess: 0 or 1",
+            "type": "integer"
+          },
+          "seasonal_jump": {
+            "description": "Interpolation step of the seasonal loess",
+            "type": "integer"
+          },
+          "trend": {
+            "description": "Trend window (odd)",
+            "type": "integer"
+          },
+          "trend_deg": {
+            "default": 1,
+            "description": "Degree of the trend loess: 0 or 1",
+            "type": "integer"
+          },
+          "trend_jump": {
+            "description": "Interpolation step of the trend loess",
+            "type": "integer"
+          },
+          "y": {
+            "description": "The series, in time order",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y",
+          "period"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "stl"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Classical additive or multiplicative decomposition by centred moving averages: a 2 x m moving-average trend and a fixed seasonal figure. The textbook baseline; sp.stl has no missing ends, lets the seasonal pattern evolve and resists outliers. R stats::decompose, statsmodels seasonal_decompose. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.classical_decompose(df[\"sales\"], period=12, model=\"multiplicative\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "classical_decompose",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hyndman2026fpppy",
+    "returns": {
+      "class": "DecompositionResult",
+      "description": "DecompositionResult",
+      "fields": {
+        "method": "str",
+        "multiplicative": "bool",
+        "observed": "np.ndarray",
+        "periods": "Tuple[int, ...]",
+        "remainder": "np.ndarray",
+        "seasonal": "np.ndarray",
+        "seasonal_components": "Dict[int, np.ndarray]",
+        "settings": "Dict[str, Any]",
+        "trend": "np.ndarray"
+      }
+    },
+    "signature": {
+      "description": "Classical additive or multiplicative decomposition by centred moving averages: a 2 x m moving-average trend and a fixed seasonal figure. The textbook baseline; sp.stl has no missing ends, lets the seasonal pattern evolve and resists outliers. R stats::decompose, statsmodels seasonal_decompose. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "classical_decompose",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "model": {
+            "default": "additive",
+            "description": "How the components combine",
+            "enum": [
+              "additive",
+              "multiplicative"
+            ],
+            "type": "string"
+          },
+          "period": {
+            "description": "Seasonal period",
+            "type": "integer"
+          },
+          "y": {
+            "description": "The series, in time order",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y",
+          "period"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "corrgram",
+      "estat"
+    ],
+    "assumptions": [
+      "Under H0 the series is white noise; the chi-squared reference is asymptotic",
+      "After a regression with lagged dependent variables use sp.estat(result, 'bgodfrey') instead"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Ljung-Box or Box-Pierce portmanteau test that the first `lags` autocorrelations are zero, with the degrees of freedom reduced by the number of ARMA parameters estimated (model_df). Accepts a series of residuals or a fitted sp.arima / sp.ets / sp.simple_forecast result. R Box.test(fitdf=), Stata wntestq, statsmodels acorr_ljungbox(model_df=). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.ljungbox(sp.arima(y, order=(2, 1, 0)), lags=10)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ljungbox",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "ljung1978measure; box1970distribution",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Ljung-Box or Box-Pierce portmanteau test that the first `lags` autocorrelations are zero, with the degrees of freedom reduced by the number of ARMA parameters estimated (model_df). Accepts a series of residuals or a fitted sp.arima / sp.ets / sp.simple_forecast result. R Box.test(fitdf=), Stata wntestq, statsmodels acorr_ljungbox(model_df=). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "ljungbox",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Frame holding x",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "lags": {
+            "description": "Lag(s) of the test; default 10 or 2 x period",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "method": {
+            "default": "ljung-box",
+            "description": "Statistic",
+            "enum": [
+              "ljung-box",
+              "box-pierce"
+            ],
+            "type": "string"
+          },
+          "model_df": {
+            "description": "Estimated ARMA parameters",
+            "type": "integer"
+          },
+          "period": {
+            "default": 1,
+            "description": "Seasonal period, for the default lags",
+            "type": "integer"
+          },
+          "x": {
+            "description": "Residuals or a fitted model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "unitroot",
+      "nsdiffs"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Number of first differences that make a series stationary: difference until a KPSS test no longer rejects level stationarity (Hyndman-Khandakar rule). R forecast::ndiffs(test='kpss'), statsforecast ndiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.ndiffs(df[\"log_gdp\"])",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ndiffs",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hyndman2008automatic; kwiatkowski1992testing",
+    "returns": {
+      "class": "int",
+      "description": "int",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Number of first differences that make a series stationary: difference until a KPSS test no longer rejects level stationarity (Hyndman-Khandakar rule). R forecast::ndiffs(test='kpss'), statsforecast ndiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "ndiffs",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of each KPSS test: 0.10, 0.05, 0.025 or 0.01",
+            "type": "number"
+          },
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "max_d": {
+            "default": 2,
+            "description": "Most differences considered",
+            "type": "integer"
+          },
+          "y": {
+            "description": "The series, in time order",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "ndiffs",
+      "stl"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Number of seasonal differences a series needs: one while the strength of seasonality of an STL decomposition exceeds 0.64. R forecast::nsdiffs(test='seas'), feasts unitroot_nsdiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.nsdiffs(df[\"log_turnover\"], period=12)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "nsdiffs",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "wang2006characteristic; hyndman2008automatic",
+    "returns": {
+      "class": "int",
+      "description": "int",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Number of seasonal differences a series needs: one while the strength of seasonality of an STL decomposition exceeds 0.64. R forecast::nsdiffs(test='seas'), feasts unitroot_nsdiffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "nsdiffs",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "max_D": {
+            "default": 1,
+            "description": "Most seasonal differences considered",
+            "type": "integer"
+          },
+          "period": {
+            "description": "Seasonal period",
+            "type": "integer"
+          },
+          "threshold": {
+            "default": 0.64,
+            "description": "Seasonal strength that triggers a difference",
+            "type": "number"
+          },
+          "y": {
+            "description": "The series, in time order",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y",
+          "period"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "boxcox"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Box-Cox parameter that stabilises the variance of a series across its level, by Guerrero's method (minimum coefficient of variation of sd / mean^(1 - lambda) across cycles). lambda = 0 is the logarithm. R forecast::BoxCox.lambda, fabletools guerrero, coreforecast boxcox_lambda. For the Box-Cox transform of a regression outcome see sp.boxcox. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "lam = sp.boxcox_lambda(df[\"gas\"], period=4)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "boxcox_lambda",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "guerrero1993time",
+    "returns": {
+      "class": "float",
+      "description": "float",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Box-Cox parameter that stabilises the variance of a series across its level, by Guerrero's method (minimum coefficient of variation of sd / mean^(1 - lambda) across cycles). lambda = 0 is the logarithm. R forecast::BoxCox.lambda, fabletools guerrero, coreforecast boxcox_lambda. For the Box-Cox transform of a regression outcome see sp.boxcox. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "boxcox_lambda",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "lower": {
+            "default": -1.0,
+            "description": "Lower end of the search",
+            "type": "number"
+          },
+          "period": {
+            "default": 1,
+            "description": "Seasonal period",
+            "type": "integer"
+          },
+          "upper": {
+            "default": 2.0,
+            "description": "Upper end of the search",
+            "type": "number"
+          },
+          "y": {
+            "description": "A strictly positive series",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "stl"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Sine and cosine regressors sin(2 pi k t / period), cos(2 pi k t / period), k = 1..K, for smooth, long, non-integer or multiple seasonal patterns: regressors of sp.arima (dynamic harmonic regression) or sp.regress. start= gives the rows of the forecast periods. R forecast::fourier, utilsforecast fourier. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "X = sp.fourier_terms(len(y), period=52.18, K=3)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "fourier_terms",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hyndman2026fpppy",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Sine and cosine regressors sin(2 pi k t / period), cos(2 pi k t / period), k = 1..K, for smooth, long, non-integer or multiple seasonal patterns: regressors of sp.arima (dynamic harmonic regression) or sp.regress. start= gives the rows of the forecast periods. R forecast::fourier, utilsforecast fourier. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "fourier_terms",
+      "parameters": {
+        "properties": {
+          "K": {
+            "description": "Number of harmonics, at most period / 2",
+            "type": "integer"
+          },
+          "n": {
+            "description": "Number of rows, or an indexed object",
+            "type": "integer"
+          },
+          "period": {
+            "description": "Length of the cycle in observations",
+            "type": "number"
+          },
+          "start": {
+            "default": 1,
+            "description": "Time of the first row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "n",
+          "period",
+          "K"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "reconcile"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Build a hierarchical or grouped time series structure from a long table: aggregate the bottom-level series along the key columns of each level and return every series (wide), the summing matrix S and the level tags. Input of sp.reconcile. hierarchicalforecast aggregate, R hts / fabletools aggregate_key. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.hierarchy(df, [[\"country\"], [\"country\", \"state\"]], time=\"quarter\", value=\"trips\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "hierarchy",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "Balanced bottom level: every series in every period"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hyndman2011optimal",
+    "returns": {
+      "class": "Hierarchy",
+      "description": "Hierarchy",
+      "fields": {
+        "S": "pd.DataFrame",
+        "Y": "pd.DataFrame",
+        "tags": "Dict[str, List[str]]"
+      }
+    },
+    "signature": {
+      "description": "Build a hierarchical or grouped time series structure from a long table: aggregate the bottom-level series along the key columns of each level and return every series (wide), the summing matrix S and the level tags. Input of sp.reconcile. hierarchicalforecast aggregate, R hts / fabletools aggregate_key. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "hierarchy",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Long table of bottom-level series",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "sep": {
+            "default": "/",
+            "description": "Separator in series identifiers",
+            "type": "string"
+          },
+          "spec": {
+            "description": "Key columns of each level; the last is the bottom",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "time": {
+            "description": "Period column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "value": {
+            "description": "Value column",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "spec",
+          "time",
+          "value"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "hierarchy"
+    ],
+    "assumptions": [
+      "Unbiased base forecasts (top-down is biased even then)",
+      "MinT: the h-step error covariance is proportional to the one-step covariance estimated from the residuals"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Reconcile base forecasts of a hierarchical or grouped structure so that they add up: bottom-up, top-down, OLS, structural or variance-weighted least squares, and minimum trace (MinT) with a shrunk or sample residual covariance. Returns coherent forecasts and the projection G. Numbers of R hts::MinT / combinef and fabletools min_trace; hierarchicalforecast MinTrace (which centres the residual covariance, a small difference for mint_shrink). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.reconcile(base_fc, h, method=\"mint_shrink\", residuals=resid).forecasts",
+    "failure_modes": [
+      {
+        "alternative": "reconcile",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use method='mint_shrink'",
+        "symptom": "More series than residual periods with mint_cov"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "reconcile",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "wickramasuriya2019optimal; hyndman2011optimal; schafer2005shrinkage",
+    "returns": {
+      "class": "ReconcileResult",
+      "description": "ReconcileResult",
+      "fields": {
+        "G": "pd.DataFrame",
+        "adjustment": "Optional[pd.DataFrame]",
+        "forecasts": "pd.DataFrame",
+        "method": "str",
+        "shrinkage": "Optional[float]",
+        "weights": "Optional[np.ndarray]"
+      }
+    },
+    "signature": {
+      "description": "Reconcile base forecasts of a hierarchical or grouped structure so that they add up: bottom-up, top-down, OLS, structural or variance-weighted least squares, and minimum trace (MinT) with a shrunk or sample residual covariance. Returns coherent forecasts and the projection G. Numbers of R hts::MinT / combinef and fabletools min_trace; hierarchicalforecast MinTrace (which centres the residual covariance, a small difference for mint_shrink). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "reconcile",
+      "parameters": {
+        "properties": {
+          "S": {
+            "description": "Summing matrix or sp.hierarchy result",
+            "type": "string"
+          },
+          "base": {
+            "description": "Base forecasts, periods by series",
+            "type": "string"
+          },
+          "history": {
+            "description": "Observed series, for top_down",
+            "type": "string"
+          },
+          "method": {
+            "default": "mint_shrink",
+            "description": "Reconciliation method",
+            "enum": [
+              "bottom_up",
+              "top_down",
+              "ols",
+              "wls_struct",
+              "wls_var",
+              "mint_shrink",
+              "mint_cov"
+            ],
+            "type": "string"
+          },
+          "proportions": {
+            "default": "average",
+            "description": "Top-down proportions",
+            "enum": [
+              "average",
+              "of_averages"
+            ],
+            "type": "string"
+          },
+          "residuals": {
+            "description": "In-sample one-step errors of every series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base",
+          "S"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hyndman_fpp_pythonic.py",
+      "tests/reference_parity/test_forecasting_r_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -113769,9 +115197,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "hyndman2008automatic, hyndman2026fpppy",
     "returns": {
       "class": "ARIMAResult",
       "description": "ARIMAResult: Exposes params and the matching standard errors se (alias std_errors), plus tvalues, pvalues, and conf_int(alpha) for inference, alongside aic / bic / aicc / log_likelihood and forecast / plot.",
@@ -113779,6 +115208,8 @@
         "aic": "float",
         "aicc": "float",
         "bic": "float",
+        "candidates": "Optional[pd.DataFrame]",
+        "exog_names": "Tuple[str, ...]",
         "fitted_values": "np.ndarray",
         "log_likelihood": "float",
         "n": "int",
@@ -113796,7 +115227,7 @@
         "properties": {
           "auto": {
             "default": false,
-            "description": "If True, select the order and ignore ``order``. ``d`` is chosen first, as the number of differences after which a KPSS test no longer rejects level stationarity at 5% (at most ``max_d``); then ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``, ``(0, d, 0)`` included. Unless ``trend`` is given the constant is part of that search when ``d + D <= 1``: a mean without differencing, a drift with one difference. A candidate with an AR or MA root within 1% of the unit circle is dropped: it is a model differenced once too often or too seldom, fitted on the boundary. This is the exhaustive search of R's ``forecast::auto.arima( stepwise=FALSE, approximation=FALSE)``, without its cap on ``p + q``.",
+            "description": "If True, select the model and ignore ``order``, by the algorithm of Hyndman and Khandakar (2008): 1. With ``period=``, the number of seasonal differences ``D`` (at most ``max_D``) is one when the strength of seasonality of an STL decomposition exceeds 0.64 (:func:`statspai.nsdiffs`). 2. ``d`` is the number of differences after which a KPSS test no longer rejects level stationarity at 5%, at most ``max_d`` (:func:`statspai.ndiffs`), applied to the seasonally differenced series. 3. ``(p, q)``, with ``period=`` also ``(P, Q)``, and whether to include a constant (a mean when ``d + D = 0``, a drift when ``d + D = 1``) minimise AICc. With regressors, the differencing rules are applied to the residuals of the regression of ``y`` on them.",
             "type": "boolean"
           },
           "data": {
@@ -113805,27 +115236,42 @@
             "x-statspai-role": "dataframe"
           },
           "exog": {
-            "description": "Exogenous regressors (ARIMAX); column names when ``data`` is given.",
+            "description": "exog parameter (Optional[Any]).",
             "type": "string"
+          },
+          "max_D": {
+            "default": 1,
+            "description": "Bounds of the search.",
+            "type": "integer"
+          },
+          "max_P": {
+            "default": 2,
+            "description": "Bounds of the search.",
+            "type": "integer"
+          },
+          "max_Q": {
+            "default": 2,
+            "description": "Bounds of the search.",
+            "type": "integer"
           },
           "max_d": {
             "default": 2,
-            "description": "Bounds for the auto search.",
+            "description": "Bounds of the search.",
             "type": "integer"
           },
           "max_p": {
             "default": 5,
-            "description": "Bounds for the auto search.",
+            "description": "Bounds of the search.",
             "type": "integer"
           },
           "max_q": {
             "default": 5,
-            "description": "Bounds for the auto search.",
+            "description": "Bounds of the search.",
             "type": "integer"
           },
           "method": {
             "default": "statespace",
-            "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations. With differencing, the integration states start from an exact diffuse prior and the ``d + s D`` observations that pin them down are left out of the likelihood, which is then the likelihood of the differenced series. Releases through 1.38.0 used statsmodels' default, a normal prior of variance 1e6. On a series whose innovation variance is not far below 1e6 that prior is informative: the estimates of a differenced model with AR or MA terms changed with the unit of measurement, and the reported log-likelihood was too low. ``AIC``, ``BIC`` and ``AICc`` count the estimated parameters only and use the number of observations after differencing, as R and Stata do.",
+            "description": "How the exact Gaussian likelihood is maximised. Both conventions maximise the same likelihood, of every observation, with the ARMA part started from its stationary distribution; they agree with Stata's ``arima``, R's ``stats::arima(method=\"ML\")`` and statsmodels' ``ARIMA`` up to optimiser tolerance. ``'statespace'`` runs a quasi-Newton search on the Kalman-filter likelihood and handles seasonal terms and regressors. ``'innovations_mle'`` (alias ``'css_ml'``) uses the innovations algorithm, which is tighter for pure ARMA models and is what the cross-language parity rows run. Releases through 1.38.0 started ``'statespace'`` from a diffuse prior and left the first ``max(p, q + 1)`` observations out of the likelihood. The estimates were not the exact MLE, and ``auto=True`` compared models scored on different numbers of observations. With differencing, the likelihood is that of the differenced",
             "enum": [
               "statespace",
               "css_ml",
@@ -113845,6 +115291,10 @@
             },
             "type": "array"
           },
+          "period": {
+            "description": "Seasonal period for ``auto=True`` (4 quarterly, 12 monthly): the seasonal orders are then chosen too. Not needed when ``seasonal_order`` is given, which keeps the seasonal part fixed and searches ``(p, q)`` only.",
+            "type": "integer"
+          },
           "seasonal_order": {
             "description": "seasonal_order parameter (Optional[Tuple[int, int, int, int]]).",
             "items": {
@@ -113852,8 +115302,13 @@
             },
             "type": "array"
           },
+          "stepwise": {
+            "default": true,
+            "description": "Search the neighbours of the best model so far, starting from four standard models, until none is better. ``False`` fits every model with ``p + q + P + Q <= 5``: slower, and not trapped by the path of the stepwise search.",
+            "type": "boolean"
+          },
           "trend": {
-            "description": "Deterministic term. ``'c'`` estimates a constant: the mean of the series when it is not differenced (``const``), the mean of the differenced series -- a drift in the level -- when ``d + D = 1`` (``drift``). ``'n'`` estimates neither. The default follows R's ``stats::arima`` and statsmodels' ``ARIMA``: a constant without differencing, none with it. Stata's ``arima`` always includes the constant; pass ``trend='c'`` to reproduce it on a differenced series. A constant with ``d + D > 1`` is a polynomial trend and is refused.",
+            "description": "Deterministic term. ``'c'`` estimates a constant: the mean of the series when it is not differenced (``const``), the mean of the differenced series -- a drift in the level -- when ``d + D = 1`` (``drift``). ``'n'`` estimates neither. The default follows R's ``stats::arima`` and statsmodels' ``ARIMA``: a constant without differencing, none with it; with ``auto=True`` the default lets AICc decide. Stata's ``arima`` always includes the constant; pass ``trend='c'`` to reproduce it on a differenced series. A constant with ``d + D > 1`` is a polynomial trend and is refused.",
             "enum": [
               "c",
               "n"
@@ -113878,9 +115333,9 @@
       "Stata parity module 39_arima",
       "Cross-language parity (bit-exact) vs stats::arima [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 39_arima; implementation: third party python -- tests/r_parity/39_arima.py",
       "tests/external_parity/test_dogan_python_econometrics.py",
+      "tests/external_parity/test_hyndman_fpp_pythonic.py",
       "tests/external_parity/test_maitra_static_dynamic.py",
-      "tests/reference_parity/test_arima_default_stata_parity.py",
-      "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      "tests/reference_parity/test_arima_default_stata_parity.py"
     ],
     "validation_status": "certified"
   },

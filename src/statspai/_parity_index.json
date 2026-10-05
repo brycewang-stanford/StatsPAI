@@ -408,8 +408,10 @@
     {
       "additional_tests": [
         "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/external_parity/test_hyndman_fpp_pythonic.py",
         "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/reference_parity/test_arima_default_stata_parity.py",
+        "tests/reference_parity/test_forecasting_r_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
@@ -1822,6 +1824,29 @@
       "tolerance": "profile log likelihood equal to MASS up to a constant (spread < 1e-9); lambda 1e-7 abs, log likelihoods 1e-8 rel and LR statistics 1e-4 rel vs Stata"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "boxcox_lambda",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "bradford_hill",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -2757,6 +2782,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06"
+    },
+    {
+      "function": "classical_decompose",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -6006,6 +6048,29 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ets",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
         "tests/reference_parity/test_etwfe_glm_parity.py",
         "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
         "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
@@ -6889,6 +6954,29 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "forecast_accuracy",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "forest_diagnostics",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -7004,6 +7092,23 @@
         "tests/reference_parity/_fixtures/teffects_Stata.json"
       ],
       "tolerance": "components 1e-12 rel; delta SEs 1e-12 rel vs CMAverse (vcov='ols'); variances 5e-9 rel vs med4way (vcov='ml')"
+    },
+    {
+      "function": "fourier_terms",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -8267,6 +8372,23 @@
         "tests/reference_parity/test_misc_sens_R_parity.py"
       ],
       "tolerance": "1e-12 rel"
+    },
+    {
+      "function": "hierarchy",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -10221,6 +10343,29 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oct2026_fifth_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ljungbox",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
       ],
       "tolerance": ""
     },
@@ -12953,6 +13098,29 @@
       "tolerance": "1e-9 rel"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ndiffs",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "negative_control_exposure",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -13316,6 +13484,29 @@
       "test": [
         "tests/reference_parity/test_causal_discovery_parity.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "nsdiffs",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
       ],
       "tolerance": ""
     },
@@ -16958,6 +17149,29 @@
       "tolerance": "Exact on a 40-node directed graph."
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "reconcile",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "refute",
       "notes": [
         "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
@@ -18813,6 +19027,29 @@
       "tolerance": "z, positive rank sum and adjusted variance 1e-9 rel"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "simple_forecast",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "sktest",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -19434,6 +19671,29 @@
       "status": "external-replication",
       "test": [
         "tests/external_parity/test_ding_linear_model.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "stl",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
       ],
       "tolerance": ""
     },
@@ -21003,6 +21263,29 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "tscv",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
         "tests/reference_parity/test_difference_in_means_estimatr.py",
         "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_ttest_known_values.py"
@@ -21192,6 +21475,7 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py",
         "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/external_parity/test_stock_watson_4e_ch15.py"
       ],
@@ -21332,6 +21616,7 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
+        "tests/external_parity/test_hyndman_fpp_pythonic.py",
         "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
