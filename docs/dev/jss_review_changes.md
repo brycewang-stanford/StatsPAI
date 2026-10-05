@@ -2125,3 +2125,21 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the discrete choice covariance
+
+- **Commits.** `8149feec` re-recorded the entries of Track A modules 44 45 46 49
+  in `tests/r_parity/results/_implementation_trace.json` and rewrote
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `46c3483a`: `src/statspai/regression/multinomial.py`
+  (`sp.mlogit`, `sp.ologit`, `sp.oprobit` and `sp.clogit` now keep the
+  covariance matrix they already computed).
+- **Reason.** Third round of the audit in
+  `docs/dev/2026-10-05-hansen-econometrics-review.md`.
+- **Effect on the paper.** None. `python tests/r_parity/verify_reproduce_py.py
+  --no-report` on 44, 45, 46 and 49 reported 4 reproduce, 0 drift, each
+  byte for byte. In the trace files only `exercised_sources` digests and
+  `seconds` differ. No registry entry was added.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
