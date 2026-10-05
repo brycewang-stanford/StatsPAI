@@ -7910,6 +7910,369 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="ps_weights",
+            category="causal",
+            description=(
+                "Propensity-score weights for a named target population: "
+                "ATE, ATT, ATC (also ATU), the overlap population (ATO) or "
+                "the evenly matchable (ATM, matching weights). Optional "
+                "stabilisation and truncation of the score; a continuous "
+                "exposure through the ratio of normal densities. Returns "
+                "one weight per row, to pass to sp.balance_diagnostics, "
+                "sp.ess or a weighted outcome model. Equals R propensity "
+                "wt_ate / wt_att / wt_atu / wt_atm / wt_ato."
+            ),
+            params=[
+                ParamSpec(
+                    "ps",
+                    "array",
+                    True,
+                    None,
+                    "Fitted P(treat = 1 | X); for a continuous exposure the "
+                    "fitted conditional mean of the exposure",
+                ),
+                ParamSpec("treat", "array", True, None, "Exposure, 0/1 or real"),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "Target population; treated get h/e and controls "
+                    "h/(1-e) with h = 1, e, 1-e, e(1-e), min(e, 1-e)",
+                    enum=["ATE", "ATT", "ATC", "ATO", "ATM"],
+                ),
+                ParamSpec(
+                    "stabilize",
+                    "bool",
+                    False,
+                    False,
+                    "Multiply by the marginal probability (density) of the "
+                    "exposure received; ATE only for a binary exposure",
+                ),
+                ParamSpec(
+                    "truncate",
+                    "tuple",
+                    False,
+                    None,
+                    "(lower, upper) bounds at which the score is winsorised "
+                    "before weighting; no row is dropped",
+                ),
+                ParamSpec(
+                    "truncate_scale",
+                    "str",
+                    False,
+                    "ps",
+                    "Whether the bounds are scores or quantiles of the scores",
+                    enum=["ps", "quantile"],
+                ),
+                ParamSpec(
+                    "exposure",
+                    "str",
+                    False,
+                    "binary",
+                    "Type of the exposure",
+                    enum=["binary", "continuous"],
+                ),
+                ParamSpec(
+                    "sigma",
+                    "float",
+                    False,
+                    None,
+                    "Continuous exposure: residual SD of the exposure model",
+                ),
+            ],
+            returns="ndarray | Series",
+            example='sp.ps_weights(ps, df["treat"], "ATO")',
+            tags=["propensity_score", "weighting", "ipw", "overlap", "estimand"],
+            assumptions=[
+                "The propensity scores come from a correctly specified model "
+                "of the exposure given all confounders",
+                "Positivity: scores strictly between 0 and 1",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="A few very large ATE weights; low sp.ess",
+                    exception="",
+                    remedy="Target the overlap population (estimand='ATO'), "
+                    "truncate the score, or trim with sp.trimming and refit",
+                    alternative="trimming",
+                ),
+            ],
+            not_recommended_when=[
+                "You want the effect estimate and its standard error in one "
+                "call — use sp.ipw, whose sandwich variance accounts for the "
+                "estimated score",
+            ],
+            alternatives=["ipw", "overlap_weights", "ebalance", "cbps", "sbw"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ess",
+            category="causal",
+            description=(
+                "Effective sample size of a set of weights, "
+                "(sum w)^2 / sum(w^2): the number of equally weighted "
+                "observations with the same precision for a weighted mean. "
+                "With by= it is returned for each group, which is what "
+                "governs a contrast of group means. Equals R halfmoon ess."
+            ),
+            params=[
+                ParamSpec("weights", "array", True, None, "Weights"),
+                ParamSpec(
+                    "by",
+                    "array",
+                    False,
+                    None,
+                    "Group labels (typically the exposure); one ESS per group",
+                ),
+            ],
+            returns="float | Series",
+            example='sp.ess(w, by=df["treat"])',
+            tags=["weighting", "diagnostics", "propensity_score"],
+            assumptions=[
+                "Approximates the variance inflation from weighting when "
+                "outcomes are homoskedastic and uncorrelated with the weights",
+            ],
+            not_recommended_when=[
+                "As the only balance diagnostic: a large ESS says the weights "
+                "are stable, not that covariates are balanced",
+            ],
+            alternatives=["balance_diagnostics", "ps_weights"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="energy_distance",
+            category="causal",
+            description=(
+                "Energy distance between the (weighted) covariate "
+                "distributions of two exposure groups, on standardised "
+                "covariates. Zero only when the joint distributions "
+                "coincide, so it reacts to imbalance in interactions and "
+                "higher moments that per-covariate standardized differences "
+                "miss. Equals R halfmoon bal_energy."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("treat", "str", True, None, "Binary 0/1 column"),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    True,
+                    None,
+                    "Numeric columns; expand categorical variables first",
+                ),
+                ParamSpec("weights", "str | array", False, None, "Weights; none = raw"),
+            ],
+            returns="float",
+            example='sp.energy_distance(df, "treat", ["age", "edu"], weights=w)',
+            tags=["balance", "diagnostics", "weighting", "propensity_score"],
+            assumptions=[
+                "Covariates are numeric and complete",
+                "Used comparatively: the same covariates before and after "
+                "weighting, or across sets of weights",
+            ],
+            not_recommended_when=[
+                "Very large samples: the pairwise distance matrix is O(n^2)",
+            ],
+            alternatives=["balance_diagnostics", "ps_balance", "love_plot"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="implied_weights",
+            category="causal",
+            description=(
+                "Weights that a linear regression adjustment implicitly "
+                "puts on each row: the coefficient on a binary treatment in "
+                "y ~ treat + covariates is a difference of two weighted "
+                "outcome means with these weights. Computed without the "
+                "outcome; shows the population the regression represents, "
+                "its effective sample size and which rows are extrapolated "
+                "(negative weight). interactions=True is the fully "
+                "interacted regression with a choice of estimand. Equals R "
+                "lmw."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("treat", "str", True, None, "Binary 0/1 column"),
+                ParamSpec("covariates", "list", True, None, "Numeric regressors"),
+                ParamSpec(
+                    "interactions",
+                    "bool",
+                    False,
+                    False,
+                    "Interact the treatment with every covariate (a separate "
+                    "regression in each arm)",
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "With interactions=True, the population averaged over",
+                    enum=["ATE", "ATT", "ATC"],
+                ),
+            ],
+            returns="Series",
+            example='sp.implied_weights(df, "treat", ["age", "edu"])',
+            tags=["regression", "weighting", "diagnostics", "extrapolation"],
+            assumptions=[
+                "Binary treatment and a linear outcome model fitted by OLS",
+                "No missing values in the treatment or covariates",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Some weights are negative",
+                    exception="",
+                    remedy="The regression extrapolates for those rows; "
+                    "check overlap, restrict the sample or use bounded "
+                    "weights (sp.ps_weights with estimand='ATO')",
+                    alternative="ps_weights",
+                ),
+            ],
+            not_recommended_when=[
+                "Non-linear outcome models (logit, Poisson): the weights "
+                "describe OLS only",
+            ],
+            alternatives=["ps_weights", "balance_diagnostics", "lm_lin"],
+        )
+    )
+
+    _CONFOUNDER_PARAMS = [
+        ParamSpec(
+            "effect",
+            "float | array",
+            True,
+            None,
+            "Observed estimate; pass the point estimate and both confidence "
+            "limits together to move all three",
+        ),
+        ParamSpec(
+            "confounder_outcome_effect",
+            "float | array",
+            False,
+            None,
+            "Effect of the confounder on the outcome on the scale of "
+            "measure (coefficient per unit, or a ratio)",
+        ),
+        ParamSpec(
+            "exposure_confounder_effect",
+            "float | array",
+            False,
+            None,
+            "Normal confounder with unit variance: difference in its mean "
+            "between exposed and unexposed",
+        ),
+        ParamSpec(
+            "exposed_prev",
+            "float | array",
+            False,
+            None,
+            "Binary confounder: prevalence among the exposed",
+        ),
+        ParamSpec(
+            "unexposed_prev",
+            "float | array",
+            False,
+            None,
+            "Binary confounder: prevalence among the unexposed",
+        ),
+        ParamSpec(
+            "measure",
+            "str",
+            False,
+            "coef",
+            "Scale of the effect: a difference, or a risk / odds / hazard ratio",
+            enum=["coef", "rr", "or", "hr"],
+        ),
+        ParamSpec(
+            "rare_outcome",
+            "bool",
+            False,
+            True,
+            "False converts odds and hazard ratios to approximate risk "
+            "ratios first (outcome more common than about 15%)",
+        ),
+    ]
+    _CONFOUNDER_ASSUMPTIONS = [
+        "One unmeasured confounder, binary or normal with unit variance",
+        "Its effect on the outcome is the same in both exposure groups "
+        "(no effect modification)",
+        "It is independent of the measured covariates given the exposure",
+    ]
+
+    register(
+        FunctionSpec(
+            name="confounder_adjust",
+            category="diagnostics",
+            description=(
+                "Adjust an observed effect for a specified unmeasured "
+                "confounder: what the estimate would have been had a "
+                "confounder with the stated association with the exposure "
+                "and effect on the outcome been adjusted for. Differences "
+                "(coefficients) and risk, odds and hazard ratios; binary or "
+                "normal confounder. Array formulas of Schlesselman (1978) "
+                "and Lin, Psaty and Kronmal (1998); equals R tipr adjust_*."
+            ),
+            params=list(_CONFOUNDER_PARAMS),
+            returns="DataFrame",
+            example=(
+                "sp.confounder_adjust(1.5, confounder_outcome_effect=1.8, "
+                'exposed_prev=0.4, unexposed_prev=0.1, measure="rr")'
+            ),
+            tags=["sensitivity", "unmeasured_confounding", "bias_analysis"],
+            reference="lin1998assessing",
+            assumptions=list(_CONFOUNDER_ASSUMPTIONS),
+            not_recommended_when=[
+                "You cannot describe a plausible confounder — use sp.evalue "
+                "or sp.sensemakr, which need no such specification",
+            ],
+            alternatives=["confounder_tip", "evalue", "sensemakr", "rosenbaum_bounds"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="confounder_tip",
+            category="diagnostics",
+            description=(
+                "Tipping-point analysis: the unmeasured confounder that "
+                "would move an effect (or a confidence limit) to the null. "
+                "Leave one property of the confounder unspecified and it is "
+                "solved for; specify all and the result is how many such "
+                "independent confounders it would take. Differences and "
+                "risk, odds and hazard ratios. Equals R tipr tip_*."
+            ),
+            params=list(_CONFOUNDER_PARAMS),
+            returns="DataFrame",
+            example="sp.confounder_tip(6.58, confounder_outcome_effect=-7)",
+            tags=["sensitivity", "unmeasured_confounding", "tipping_point"],
+            reference="lin1998assessing",
+            assumptions=list(_CONFOUNDER_ASSUMPTIONS),
+            failure_modes=[
+                FailureMode(
+                    symptom="A solved prevalence or ratio is NaN, with a warning",
+                    exception="",
+                    remedy="No binary confounder with the stated properties "
+                    "can reach the null; relax one of them",
+                    alternative="evalue",
+                ),
+            ],
+            not_recommended_when=[
+                "Tipping the point estimate when the question is about "
+                "significance — pass the confidence limit closest to the null",
+            ],
+            alternatives=["confounder_adjust", "evalue", "sensemakr"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="sktest",
             category="inference",
             description=(

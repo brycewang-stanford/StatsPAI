@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 372 |
 | | aligned | 52 |
 | | **subtotal** | **424** |
-| **No external software reference** | analytical-only (T1) | 344 |
-| | external-replication (published numbers) | 11 |
-| | **subtotal** | **355** |
+| **No external software reference** | analytical-only (T1) | 341 |
+| | external-replication (published numbers) | 20 |
+| | **subtotal** | **361** |
 | No numerical evidence yet | unverified | 537 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 424 | 766 | 768 | 55.2% |
+| estimator callables | 424 | 772 | 774 | 54.8% |
 | infrastructure (parity N/A) | 0 | 10 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 328 | 0.0% |
-| **all registered** | 424 | 779 | 1316 | 32.2% |
+| **all registered** | 424 | 785 | 1322 | 32.1% |
 
 ### Coverage by estimator family
 
@@ -52,12 +52,12 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 149 | 328 | 329 |
+| causal | 149 | 332 | 333 |
 | regression | 37 | 42 | 42 |
 | inference | 18 | 35 | 35 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
-| diagnostics | 19 | 25 | 25 |
+| diagnostics | 19 | 27 | 27 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
 | mendelian | 18 | 20 | 20 |
@@ -533,7 +533,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 11 functions
+## external-replication — 20 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -541,17 +541,26 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | --- | --- |
 | `aggte` | [`test_honest_did_paper_parity.py`](../tests/external_parity/test_honest_did_paper_parity.py) (+1) |
 | `ardl` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
+| `balance_diagnostics` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `best_linear_projection` | [`test_dml_irm_blp_parity.py`](../tests/external_parity/test_dml_irm_blp_parity.py) |
 | `cdlz_bunching` | [`test_cdlz_bunching_table1.py`](../tests/external_parity/test_cdlz_bunching_table1.py) |
+| `confounder_adjust` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
+| `confounder_tip` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
+| `dag` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `did_had` | [`test_dcdh_did_textbook.py`](../tests/external_parity/test_dcdh_did_textbook.py) |
 | `difference_in_means` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) |
+| `ess` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
+| `implied_weights` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `lm_lin` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
+| `propensity_score` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
+| `ps_weights` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
+| `trimming` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `ttest` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) |
 | `twowayfeweights` | [`test_dcdh_did_textbook.py`](../tests/external_parity/test_dcdh_did_textbook.py) |
 | `unitroot` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
 
-## analytical-only — 344 functions
+## analytical-only — 341 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -567,7 +576,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `assimilative_causal` | [`test_assimilation_parity.py`](../tests/reference_parity/test_assimilation_parity.py) |
 | `auto_cate` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `auto_cate_tuned` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
-| `balance_diagnostics` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `balke_pearl` | [`test_oct2026_correctness_fixes.py`](../tests/reference_parity/test_oct2026_correctness_fixes.py) |
 | `bayes_did` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `bayes_dml` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
@@ -637,7 +645,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `counterfactual_policy_optimization` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `cs_jackknife` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `cs_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
-| `dag` | [`test_dag_implications_dagitty_parity.py`](../tests/reference_parity/test_dag_implications_dagitty_parity.py) (+3) |
 | `deepiv` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) (+1) |
 | `demographic_parity` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `design_robust_event_study` | [`test_oct2026_correctness_fixes.py`](../tests/reference_parity/test_oct2026_correctness_fixes.py) |
@@ -672,6 +679,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `dragonnet` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `dynamic_dml` | [`test_dynamic_dml_econml_parity.py`](../tests/reference_parity/test_dynamic_dml_econml_parity.py) |
 | `dynotears` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
+| `energy_distance` | [`test_barrett_causal_inference_in_r_parity.py`](../tests/reference_parity/test_barrett_causal_inference_in_r_parity.py) |
 | `equalized_odds` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `estat` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+5) |
 | `evidence_without_injustice` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
@@ -790,7 +798,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `pretrends_test` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) (+1) |
 | `probability_forest` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `prod_fn` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
-| `propensity_score` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `proximal` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `proximal_regression` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `proximal_surrogate_index` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
@@ -880,7 +887,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `te_summary` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `translog_design` | [`test_translog_design_parity.py`](../tests/reference_parity/test_translog_design_parity.py) |
 | `transport_generalize` | [`test_transport_parity.py`](../tests/reference_parity/test_transport_parity.py) |
-| `trimming` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `twfe_decomposition` | [`test_dcdh_textbook_stata_parity.py`](../tests/reference_parity/test_dcdh_textbook_stata_parity.py) (+2) |
 | `uniform_bands` | [`test_event_study_vcov_R_parity.py`](../tests/reference_parity/test_event_study_vcov_R_parity.py) (+1) |
 | `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+3) |

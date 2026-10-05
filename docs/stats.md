@@ -47,15 +47,15 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 15,886 | 17 | 31 |
 | `output` | 14,013 | 22 | 42 |
-| `matching` | 11,893 | 17 | 25 |
-| `inference` | 13,184 | 27 | 41 |
+| `inference` | 13,236 | 27 | 41 |
+| `matching` | 12,517 | 18 | 29 |
 | `core` | 11,662 | 19 | 6 |
 | `panel` | 11,434 | 18 | 21 |
+| `diagnostics` | 10,577 | 19 | 30 |
 | `decomposition` | 9,912 | 19 | 32 |
-| `diagnostics` | 10,175 | 18 | 28 |
 | `dml` | 9,394 | 24 | 16 |
-| `iv` | 8,862 | 17 | 10 |
 | `timeseries` | 9,170 | 18 | 30 |
+| `iv` | 8,862 | 17 | 10 |
 | `fast` | 7,871 | 16 | 0 |
 | `spatial` | 7,860 | 30 | 38 |
 | `plots` | 6,015 | 7 | 8 |
@@ -69,8 +69,8 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `survival` | 4,290 | 6 | 15 |
 | `gmm` | 4,190 | 12 | 4 |
 | `qte` | 4,152 | 9 | 13 |
+| `dag` | 4,150 | 9 | 23 |
 | `causal_discovery` | 4,110 | 11 | 20 |
-| `dag` | 4,026 | 9 | 23 |
 | `tmle` | 3,694 | 6 | 11 |
 | `structural` | 3,576 | 9 | 12 |
 | `network` | 3,514 | 9 | 33 |
@@ -78,14 +78,14 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `robustness` | 3,279 | 6 | 11 |
 | `bounds` | 3,223 | 6 | 12 |
 | `bartik` | 3,183 | 6 | 9 |
+| `postestimation` | 3,150 | 7 | 13 |
 | `causal_llm` | 3,026 | 10 | 15 |
 | `rlasso` | 2,840 | 7 | 10 |
 | `crossval` | 2,809 | 7 | 2 |
-| `postestimation` | 3,037 | 7 | 13 |
 | `conformal_causal` | 2,597 | 9 | 21 |
-| `epi` | 2,523 | 6 | 20 |
-| `interference` | 2,460 | 10 | 20 |
+| `epi` | 2,569 | 6 | 20 |
 | `datasets` | 2,460 | 4 | 3 |
+| `interference` | 2,460 | 10 | 20 |
 | `mediation` | 2,188 | 5 | 6 |
 | `fixest` | 2,149 | 3 | 4 |
 | `question` | 2,102 | 3 | 6 |
@@ -126,7 +126,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **530,849** | **911** | **1316** |
+| **Total** | **532,235** | **913** | **1322** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

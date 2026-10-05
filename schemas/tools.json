@@ -1336,6 +1336,15 @@
           "description": "Propensity scores. If omitted, estimated with ``method``.",
           "type": "string"
         },
+        "sd_denom": {
+          "default": "weighted",
+          "description": "Standard deviation under the weighted mean difference. ``'weighted'`` uses the weighted variances of the two groups (Austin and Stuart 2015 [@austin2015moving]). ``'unweighted'`` keeps the variances of the unweighted sample, the default of R ``cobalt``: the scale is then the same before and after weighting and weights cannot improve the statistic by inflating the spread.",
+          "enum": [
+            "weighted",
+            "unweighted"
+          ],
+          "type": "string"
+        },
         "threshold": {
           "default": 0.1,
           "description": "Balance threshold for absolute standardized mean differences.",
@@ -5128,6 +5137,102 @@
     "name": "conformal_synth"
   },
   {
+    "description": "Adjust an observed effect for a specified unmeasured confounder: what the estimate would have been had a confounder with the stated association with the exposure and effect on the outcome been adjusted for. Differences (coefficients) and risk, odds and hazard ratios; binary or normal confounder. Array formulas of Schlesselman (1978) and Lin, Psaty and Kronmal (1998); equals R tipr adjust_*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You cannot describe a plausible confounder -- use sp.evalue or sp.sensemakr, which need no such specification. Assumptions: One unmeasured confounder, binary or normal with unit variance; Its effect on the outcome is the same in both exposure groups (no effect modification); It is independent of the measured covariates given the exposure. Alternatives: sp.confounder_tip, sp.evalue, sp.sensemakr, sp.rosenbaum_bounds.",
+    "input_schema": {
+      "properties": {
+        "confounder_outcome_effect": {
+          "description": "Effect of the confounder on the outcome on the scale of measure (coefficient per unit, or a ratio)",
+          "type": "number"
+        },
+        "effect": {
+          "description": "Observed estimate; pass the point estimate and both confidence limits together to move all three",
+          "type": "number"
+        },
+        "exposed_prev": {
+          "description": "Binary confounder: prevalence among the exposed",
+          "type": "number"
+        },
+        "exposure_confounder_effect": {
+          "description": "Normal confounder with unit variance: difference in its mean between exposed and unexposed",
+          "type": "number"
+        },
+        "measure": {
+          "default": "coef",
+          "description": "Scale of the effect: a difference, or a risk / odds / hazard ratio",
+          "enum": [
+            "coef",
+            "rr",
+            "or",
+            "hr"
+          ],
+          "type": "string"
+        },
+        "rare_outcome": {
+          "default": true,
+          "description": "False converts odds and hazard ratios to approximate risk ratios first (outcome more common than about 15%)",
+          "type": "boolean"
+        },
+        "unexposed_prev": {
+          "description": "Binary confounder: prevalence among the unexposed",
+          "type": "number"
+        }
+      },
+      "required": [
+        "effect"
+      ],
+      "type": "object"
+    },
+    "name": "confounder_adjust"
+  },
+  {
+    "description": "Tipping-point analysis: the unmeasured confounder that would move an effect (or a confidence limit) to the null. Leave one property of the confounder unspecified and it is solved for; specify all and the result is how many such independent confounders it would take. Differences and risk, odds and hazard ratios. Equals R tipr tip_*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Tipping the point estimate when the question is about significance -- pass the confidence limit closest to the null. Assumptions: One unmeasured confounder, binary or normal with unit variance; Its effect on the outcome is the same in both exposure groups (no effect modification); It is independent of the measured covariates given the exposure. Failure modes: A solved prevalence or ratio is NaN, with a warning -> No binary confounder with the stated properties can reach the null; relax one of them. Alternatives: sp.confounder_adjust, sp.evalue, sp.sensemakr.",
+    "input_schema": {
+      "properties": {
+        "confounder_outcome_effect": {
+          "description": "Effect of the confounder on the outcome on the scale of measure (coefficient per unit, or a ratio)",
+          "type": "number"
+        },
+        "effect": {
+          "description": "Observed estimate; pass the point estimate and both confidence limits together to move all three",
+          "type": "number"
+        },
+        "exposed_prev": {
+          "description": "Binary confounder: prevalence among the exposed",
+          "type": "number"
+        },
+        "exposure_confounder_effect": {
+          "description": "Normal confounder with unit variance: difference in its mean between exposed and unexposed",
+          "type": "number"
+        },
+        "measure": {
+          "default": "coef",
+          "description": "Scale of the effect: a difference, or a risk / odds / hazard ratio",
+          "enum": [
+            "coef",
+            "rr",
+            "or",
+            "hr"
+          ],
+          "type": "string"
+        },
+        "rare_outcome": {
+          "default": true,
+          "description": "False converts odds and hazard ratios to approximate risk ratios first (outcome more common than about 15%)",
+          "type": "boolean"
+        },
+        "unexposed_prev": {
+          "description": "Binary confounder: prevalence among the unexposed",
+          "type": "number"
+        }
+      },
+      "required": [
+        "effect"
+      ],
+      "type": "object"
+    },
+    "name": "confounder_tip"
+  },
+  {
     "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: certified parity evidence. Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count. Assumptions: Spatial dependence in the errors dies out beyond the chosen distance cutoff; the kernel weights within the cutoff are a modelling choice, not estimated; Locations are measured without error and distances are meaningful (great-circle for lat/lon). Pre-conditions: Latitude / longitude (or projected coordinates) for every observation. Failure modes: Results change materially with the cutoff -> Report a cutoff sensitivity table rather than one number. Alternatives: sp.sp.cluster_robust_se, sp.sp.twoway_cluster.",
     "input_schema": {
       "properties": {
@@ -5358,6 +5463,16 @@
           "description": "Significance level.",
           "type": "number"
         },
+        "effect": {
+          "default": "difference",
+          "description": "Scale of the contrast between two predictive margins ``m1`` and ``m0``. ``'ratio'`` is ``m1 / m0`` (a marginal risk ratio after a binary-outcome model) and ``'odds_ratio'`` is ``[m1 / (1 - m1)] / [m0 / (1 - m0)]``, the marginal odds ratio, which unlike the coefficient of a logistic regression is a population-averaged quantity. Inference is by the delta method on the log scale: ``se`` is the standard error of the log ratio, the test is of a ratio of one, and the interval is the exponentiated log-scale interval (R ``marginaleffects`` ``comparison = \"lnratioavg\"`` / ``\"lnoravg\"`` with ``transform = exp``). Not available with ``method='gw'``.",
+          "enum": [
+            "difference",
+            "ratio",
+            "odds_ratio"
+          ],
+          "type": "string"
+        },
         "method": {
           "default": "r",
           "description": "Contrast type: - ``'r'`` (reference): each level vs *reference* level. - ``'ar'`` (adjacent): each level vs the previous level. - ``'gw'`` (grand-mean weighted): each level vs the weighted grand mean of all levels.",
@@ -5374,6 +5489,10 @@
         },
         "result": {
           "description": "Fitted model result.",
+          "type": "string"
+        },
+        "subset": {
+          "description": "Average over a subpopulation of ``data``: a boolean mask aligned with its rows, or an expression for ``data.eval`` such as ``\"treat == 1\"``. The model's factor levels still come from the whole of ``data``, so with ``\"treat == 1\"`` the contrast between the levels of ``treat`` is the effect on the treated and with ``\"treat == 0\"`` the effect on the untreated (Stata ``margins, subpop()``; R ``marginaleffects`` ``newdata = subset(...)``). Passing an already subsetted frame as ``data`` is not the same: a level that is absent from it cannot be contrasted.",
           "type": "string"
         },
         "variable": {
@@ -9923,6 +10042,37 @@
     "name": "effective_f_test"
   },
   {
+    "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2). Assumptions: Covariates are numeric and complete; Used comparatively: the same covariates before and after weighting, or across sets of weights. Alternatives: sp.balance_diagnostics, sp.ps_balance, sp.love_plot.",
+    "input_schema": {
+      "properties": {
+        "covariates": {
+          "description": "Numeric columns; expand categorical variables first",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "treat": {
+          "description": "Binary 0/1 column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "weights": {
+          "description": "Weights; none = raw",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "covariates",
+        "treat"
+      ],
+      "type": "object"
+    },
+    "name": "energy_distance"
+  },
+  {
     "description": "Engle-Granger (1987) two-step cointegration test. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention. Assumptions: Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions. Pre-conditions: A regularly spaced time index without gaps; enough observations per parameter (rule of thumb: >= 50 for ARIMA, more for VAR / GARCH). Failure modes: Series are not all integrated of order one, or the deterministic terms or lag length are wrong: the cointegration conclusion changes with the specification -> Test the order of integration of each series first and report the result across lag and trend choices. Alternatives: sp.sp.arima, sp.sp.its, sp.sp.causal_impact.",
     "input_schema": {
       "properties": {
@@ -10057,6 +10207,26 @@
       "type": "object"
     },
     "name": "enhanced_event_study_plot"
+  },
+  {
+    "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced. Assumptions: Approximates the variance inflation from weighting when outcomes are homoskedastic and uncorrelated with the weights. Alternatives: sp.balance_diagnostics, sp.ps_weights.",
+    "input_schema": {
+      "properties": {
+        "by": {
+          "description": "Group labels (typically the exposure); one ESS per group",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Weights",
+          "type": "string"
+        }
+      },
+      "required": [
+        "weights"
+      ],
+      "type": "object"
+    },
+    "name": "ess"
   },
   {
     "description": "Unified post-estimation diagnostics dispatcher. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -14344,6 +14514,47 @@
     "name": "impactplot"
   },
   {
+    "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only. Assumptions: Binary treatment and a linear outcome model fitted by OLS; No missing values in the treatment or covariates. Failure modes: Some weights are negative -> The regression extrapolates for those rows; check overlap, restrict the sample or use bounded weights (sp.ps_weights with estimand='ATO'). Alternatives: sp.ps_weights, sp.balance_diagnostics, sp.lm_lin.",
+    "input_schema": {
+      "properties": {
+        "covariates": {
+          "description": "Numeric regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "estimand": {
+          "default": "ATE",
+          "description": "With interactions=True, the population averaged over",
+          "enum": [
+            "ATE",
+            "ATT",
+            "ATC"
+          ],
+          "type": "string"
+        },
+        "interactions": {
+          "default": false,
+          "description": "Interact the treatment with every covariate (a separate regression in each arm)",
+          "type": "boolean"
+        },
+        "treat": {
+          "description": "Binary 0/1 column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "covariates",
+        "treat"
+      ],
+      "type": "object"
+    },
+    "name": "implied_weights"
+  },
+  {
     "description": "Compute a single inequality index. Validation: certified parity evidence. Assumptions: The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used; Overlapping support of covariates across groups (reweighting / RIF methods are invalid outside overlap); Linearity assumption holds for Oaxaca-Blinder-type decompositions; non-linear methods (FFL/DFL/Machado-Mata) relax this. Pre-conditions: A group indicator with both groups well represented, and the same covariate set fitted in each group; Data contains a binary or categorical group indicator with both groups represented; Outcome and covariates are numeric (or properly encoded) and finite. Failure modes: Trimming warning at common-support boundaries -> Inspect propensity-score support; restrict the analysis sample or use bounds; RIF coefficients explode at distribution tails -> Use higher-bandwidth kernel density, restrict quantile range, or switch to FFL. Alternatives: sp.sp.decompose, sp.sp.oaxaca, sp.sp.gelbach, sp.dfl_decompose. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
@@ -17715,6 +17926,10 @@
         },
         "result": {
           "description": "Fitted model result (must have ``.params`` and associated data).",
+          "type": "string"
+        },
+        "subset": {
+          "description": "Average over a subpopulation of ``data``: a boolean mask aligned with its rows, or an expression for ``data.eval`` such as ``\"treat == 1\"``. The model's factor levels still come from the whole of ``data``, so with ``\"treat == 1\"`` the contrast between the levels of ``treat`` is the effect on the treated and with ``\"treat == 0\"`` the effect on the untreated (Stata ``margins, subpop()``; R ``marginaleffects`` ``newdata = subset(...)``). Passing an already subsetted frame as ``data`` is not the same: a level that is absent from it cannot be contrasted.",
           "type": "string"
         },
         "variables": {
@@ -23213,6 +23428,15 @@
           "description": "PS estimation method ('logit', 'probit', 'gbm').",
           "type": "string"
         },
+        "sd_denom": {
+          "default": "weighted",
+          "description": "Standard deviation under the weighted mean difference. ``'weighted'`` uses the weighted variances of the two groups (Austin and Stuart 2015 [@austin2015moving]). ``'unweighted'`` keeps the variances of the unweighted sample, the default of R ``cobalt``: the scale is then the same before and after weighting and weights cannot improve the statistic by inflating the spread.",
+          "enum": [
+            "weighted",
+            "unweighted"
+          ],
+          "type": "string"
+        },
         "treatment": {
           "description": "Binary treatment column.",
           "type": "string",
@@ -23234,6 +23458,74 @@
       "type": "object"
     },
     "name": "ps_balance"
+  },
+  {
+    "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score. Assumptions: The propensity scores come from a correctly specified model of the exposure given all confounders; Positivity: scores strictly between 0 and 1. Failure modes: A few very large ATE weights; low sp.ess -> Target the overlap population (estimand='ATO'), truncate the score, or trim with sp.trimming and refit. Alternatives: sp.ipw, sp.overlap_weights, sp.ebalance, sp.cbps.",
+    "input_schema": {
+      "properties": {
+        "estimand": {
+          "default": "ATE",
+          "description": "Target population; treated get h/e and controls h/(1-e) with h = 1, e, 1-e, e(1-e), min(e, 1-e)",
+          "enum": [
+            "ATE",
+            "ATT",
+            "ATC",
+            "ATO",
+            "ATM"
+          ],
+          "type": "string"
+        },
+        "exposure": {
+          "default": "binary",
+          "description": "Type of the exposure",
+          "enum": [
+            "binary",
+            "continuous"
+          ],
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "ps": {
+          "description": "Fitted P(treat = 1 | X); for a continuous exposure the fitted conditional mean of the exposure",
+          "type": "string"
+        },
+        "sigma": {
+          "description": "Continuous exposure: residual SD of the exposure model",
+          "type": "number"
+        },
+        "stabilize": {
+          "default": false,
+          "description": "Multiply by the marginal probability (density) of the exposure received; ATE only for a binary exposure",
+          "type": "boolean"
+        },
+        "treat": {
+          "description": "Exposure, 0/1 or real",
+          "type": "string"
+        },
+        "truncate": {
+          "description": "(lower, upper) bounds at which the score is winsorised before weighting; no row is dropped",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "truncate_scale": {
+          "default": "ps",
+          "description": "Whether the bounds are scores or quantiles of the scores",
+          "enum": [
+            "ps",
+            "quantile"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "ps",
+        "treat"
+      ],
+      "type": "object"
+    },
+    "name": "ps_weights"
   },
   {
     "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: certified parity evidence. Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support on the propensity score; SUTVA: no interference between matched units. Pre-conditions: binary treatment 0/1; covariates are pre-treatment (temporally prior to D); enough control units for each treated unit under k:1 matching. Failure modes: Residual imbalance after matching (max |SMD| > 0.1) -> Tighten caliper, add covariate interactions (ps_poly), or switch to sp.ebalance; Treated units off common support -> Pass common_support='minmax' (Stata `common`) or sp.trimming. Alternatives: sp.match, sp.psm, sp.ebalance, sp.cbps. Typical minimum N: 200.",

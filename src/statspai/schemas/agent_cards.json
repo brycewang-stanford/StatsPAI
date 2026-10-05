@@ -11209,6 +11209,662 @@
   {
     "alias_of": null,
     "alternatives": [
+      "ipw",
+      "overlap_weights",
+      "ebalance",
+      "cbps",
+      "sbw"
+    ],
+    "assumptions": [
+      "The propensity scores come from a correctly specified model of the exposure given all confounders",
+      "Positivity: scores strictly between 0 and 1"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.ps_weights(ps, df[\"treat\"], \"ATO\")",
+    "failure_modes": [
+      {
+        "alternative": "trimming",
+        "exception": "",
+        "remedy": "Target the overlap population (estimand='ATO'), truncate the score, or trim with sp.trimming and refit",
+        "symptom": "A few very large ATE weights; low sp.ess"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ps_weights",
+    "not_recommended_when": [
+      "You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "ndarray",
+      "description": "ndarray | Series",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score.",
+      "name": "ps_weights",
+      "parameters": {
+        "properties": {
+          "estimand": {
+            "default": "ATE",
+            "description": "Target population; treated get h/e and controls h/(1-e) with h = 1, e, 1-e, e(1-e), min(e, 1-e)",
+            "enum": [
+              "ATE",
+              "ATT",
+              "ATC",
+              "ATO",
+              "ATM"
+            ],
+            "type": "string"
+          },
+          "exposure": {
+            "default": "binary",
+            "description": "Type of the exposure",
+            "enum": [
+              "binary",
+              "continuous"
+            ],
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "ps": {
+            "description": "Fitted P(treat = 1 | X); for a continuous exposure the fitted conditional mean of the exposure",
+            "type": "string"
+          },
+          "sigma": {
+            "description": "Continuous exposure: residual SD of the exposure model",
+            "type": "number"
+          },
+          "stabilize": {
+            "default": false,
+            "description": "Multiply by the marginal probability (density) of the exposure received; ATE only for a binary exposure",
+            "type": "boolean"
+          },
+          "treat": {
+            "description": "Exposure, 0/1 or real",
+            "type": "string"
+          },
+          "truncate": {
+            "description": "(lower, upper) bounds at which the score is winsorised before weighting; no row is dropped",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "truncate_scale": {
+            "default": "ps",
+            "description": "Whether the bounds are scores or quantiles of the scores",
+            "enum": [
+              "ps",
+              "quantile"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "ps",
+          "treat"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "balance_diagnostics",
+      "ps_weights"
+    ],
+    "assumptions": [
+      "Approximates the variance inflation from weighting when outcomes are homoskedastic and uncorrelated with the weights"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.ess(w, by=df[\"treat\"])",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ess",
+    "not_recommended_when": [
+      "As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "float",
+      "description": "float | Series",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced.",
+      "name": "ess",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Group labels (typically the exposure); one ESS per group",
+            "type": "string"
+          },
+          "weights": {
+            "description": "Weights",
+            "type": "string"
+          }
+        },
+        "required": [
+          "weights"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "balance_diagnostics",
+      "ps_balance",
+      "love_plot"
+    ],
+    "assumptions": [
+      "Covariates are numeric and complete",
+      "Used comparatively: the same covariates before and after weighting, or across sets of weights"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.energy_distance(df, \"treat\", [\"age\", \"edu\"], weights=w)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "energy_distance",
+    "not_recommended_when": [
+      "Very large samples: the pairwise distance matrix is O(n^2)"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "float",
+      "description": "float",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2).",
+      "name": "energy_distance",
+      "parameters": {
+        "properties": {
+          "covariates": {
+            "description": "Numeric columns; expand categorical variables first",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "treat": {
+            "description": "Binary 0/1 column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "weights": {
+            "description": "Weights; none = raw",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "ps_weights",
+      "balance_diagnostics",
+      "lm_lin"
+    ],
+    "assumptions": [
+      "Binary treatment and a linear outcome model fitted by OLS",
+      "No missing values in the treatment or covariates"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.implied_weights(df, \"treat\", [\"age\", \"edu\"])",
+    "failure_modes": [
+      {
+        "alternative": "ps_weights",
+        "exception": "",
+        "remedy": "The regression extrapolates for those rows; check overlap, restrict the sample or use bounded weights (sp.ps_weights with estimand='ATO')",
+        "symptom": "Some weights are negative"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "implied_weights",
+    "not_recommended_when": [
+      "Non-linear outcome models (logit, Poisson): the weights describe OLS only"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "Series",
+      "description": "Series",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only.",
+      "name": "implied_weights",
+      "parameters": {
+        "properties": {
+          "covariates": {
+            "description": "Numeric regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "estimand": {
+            "default": "ATE",
+            "description": "With interactions=True, the population averaged over",
+            "enum": [
+              "ATE",
+              "ATT",
+              "ATC"
+            ],
+            "type": "string"
+          },
+          "interactions": {
+            "default": false,
+            "description": "Interact the treatment with every covariate (a separate regression in each arm)",
+            "type": "boolean"
+          },
+          "treat": {
+            "description": "Binary 0/1 column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "confounder_tip",
+      "evalue",
+      "sensemakr",
+      "rosenbaum_bounds"
+    ],
+    "assumptions": [
+      "One unmeasured confounder, binary or normal with unit variance",
+      "Its effect on the outcome is the same in both exposure groups (no effect modification)",
+      "It is independent of the measured covariates given the exposure"
+    ],
+    "category": "diagnostics",
+    "cost_profile": "",
+    "description": "Adjust an observed effect for a specified unmeasured confounder: what the estimate would have been had a confounder with the stated association with the exposure and effect on the outcome been adjusted for. Differences (coefficients) and risk, odds and hazard ratios; binary or normal confounder. Array formulas of Schlesselman (1978) and Lin, Psaty and Kronmal (1998); equals R tipr adjust_*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You cannot describe a plausible confounder -- use sp.evalue or sp.sensemakr, which need no such specification.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.confounder_adjust(1.5, confounder_outcome_effect=1.8, exposed_prev=0.4, unexposed_prev=0.1, measure=\"rr\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "confounder_adjust",
+    "not_recommended_when": [
+      "You cannot describe a plausible confounder -- use sp.evalue or sp.sensemakr, which need no such specification"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "lin1998assessing",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Adjust an observed effect for a specified unmeasured confounder: what the estimate would have been had a confounder with the stated association with the exposure and effect on the outcome been adjusted for. Differences (coefficients) and risk, odds and hazard ratios; binary or normal confounder. Array formulas of Schlesselman (1978) and Lin, Psaty and Kronmal (1998); equals R tipr adjust_*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You cannot describe a plausible confounder -- use sp.evalue or sp.sensemakr, which need no such specification.",
+      "name": "confounder_adjust",
+      "parameters": {
+        "properties": {
+          "confounder_outcome_effect": {
+            "description": "Effect of the confounder on the outcome on the scale of measure (coefficient per unit, or a ratio)",
+            "type": "number"
+          },
+          "effect": {
+            "description": "Observed estimate; pass the point estimate and both confidence limits together to move all three",
+            "type": "number"
+          },
+          "exposed_prev": {
+            "description": "Binary confounder: prevalence among the exposed",
+            "type": "number"
+          },
+          "exposure_confounder_effect": {
+            "description": "Normal confounder with unit variance: difference in its mean between exposed and unexposed",
+            "type": "number"
+          },
+          "measure": {
+            "default": "coef",
+            "description": "Scale of the effect: a difference, or a risk / odds / hazard ratio",
+            "enum": [
+              "coef",
+              "rr",
+              "or",
+              "hr"
+            ],
+            "type": "string"
+          },
+          "rare_outcome": {
+            "default": true,
+            "description": "False converts odds and hazard ratios to approximate risk ratios first (outcome more common than about 15%)",
+            "type": "boolean"
+          },
+          "unexposed_prev": {
+            "description": "Binary confounder: prevalence among the unexposed",
+            "type": "number"
+          }
+        },
+        "required": [
+          "effect"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "confounder_adjust",
+      "evalue",
+      "sensemakr"
+    ],
+    "assumptions": [
+      "One unmeasured confounder, binary or normal with unit variance",
+      "Its effect on the outcome is the same in both exposure groups (no effect modification)",
+      "It is independent of the measured covariates given the exposure"
+    ],
+    "category": "diagnostics",
+    "cost_profile": "",
+    "description": "Tipping-point analysis: the unmeasured confounder that would move an effect (or a confidence limit) to the null. Leave one property of the confounder unspecified and it is solved for; specify all and the result is how many such independent confounders it would take. Differences and risk, odds and hazard ratios. Equals R tipr tip_*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Tipping the point estimate when the question is about significance -- pass the confidence limit closest to the null.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.confounder_tip(6.58, confounder_outcome_effect=-7)",
+    "failure_modes": [
+      {
+        "alternative": "evalue",
+        "exception": "",
+        "remedy": "No binary confounder with the stated properties can reach the null; relax one of them",
+        "symptom": "A solved prevalence or ratio is NaN, with a warning"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "confounder_tip",
+    "not_recommended_when": [
+      "Tipping the point estimate when the question is about significance -- pass the confidence limit closest to the null"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "lin1998assessing",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Tipping-point analysis: the unmeasured confounder that would move an effect (or a confidence limit) to the null. Leave one property of the confounder unspecified and it is solved for; specify all and the result is how many such independent confounders it would take. Differences and risk, odds and hazard ratios. Equals R tipr tip_*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Tipping the point estimate when the question is about significance -- pass the confidence limit closest to the null.",
+      "name": "confounder_tip",
+      "parameters": {
+        "properties": {
+          "confounder_outcome_effect": {
+            "description": "Effect of the confounder on the outcome on the scale of measure (coefficient per unit, or a ratio)",
+            "type": "number"
+          },
+          "effect": {
+            "description": "Observed estimate; pass the point estimate and both confidence limits together to move all three",
+            "type": "number"
+          },
+          "exposed_prev": {
+            "description": "Binary confounder: prevalence among the exposed",
+            "type": "number"
+          },
+          "exposure_confounder_effect": {
+            "description": "Normal confounder with unit variance: difference in its mean between exposed and unexposed",
+            "type": "number"
+          },
+          "measure": {
+            "default": "coef",
+            "description": "Scale of the effect: a difference, or a risk / odds / hazard ratio",
+            "enum": [
+              "coef",
+              "rr",
+              "or",
+              "hr"
+            ],
+            "type": "string"
+          },
+          "rare_outcome": {
+            "default": true,
+            "description": "False converts odds and hazard ratios to approximate risk ratios first (outcome more common than about 15%)",
+            "type": "boolean"
+          },
+          "unexposed_prev": {
+            "description": "Binary confounder: prevalence among the unexposed",
+            "type": "number"
+          }
+        },
+        "required": [
+          "effect"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "swilk",
       "estat"
     ],
@@ -12733,10 +13389,10 @@
     "typical_n_min": 300,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs base R stats::glm(binomial) + hand-rolled Hajek weighted means; tolerance Hajek ATE/ATT estimate 1e-9 (observed <= 2e-15; SE not pinned) -- tests/reference_parity/test_ipw_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_whatif_nhefs.py",
-      "tests/reference_parity/test_ding_first_course_parity.py",
-      "tests/reference_parity/test_teffects_design_stata_parity.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "API/unit contract evidence: tests/test_new_features.py"
     ],
     "validation_status": "certified"
@@ -12756,21 +13412,18 @@
     "cost_profile": "",
     "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_dag_implications_dagitty_parity.py",
-        "tests/reference_parity/test_misc_sens_R_parity.py",
-        "tests/reference_parity/test_oct2026_fifth_pass.py",
-        "tests/reference_parity/test_oct2026_second_pass.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "tolerance": ""
     },
@@ -12836,7 +13489,11 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_dag_implications_dagitty_parity.py",
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+      "tests/reference_parity/test_dag_implications_dagitty_parity.py",
+      "tests/reference_parity/test_misc_sens_R_parity.py",
+      "tests/reference_parity/test_oct2026_fifth_pass.py",
       "API/unit contract evidence: tests/test_dag_scm.py",
       "API/unit contract evidence: tests/test_dag_recommend_and_tte_report.py"
     ],
@@ -13760,9 +14417,10 @@
     "typical_n_min": 300,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs base R stats::lm g-formula standardization (Robins 1986); tolerance psi 1e-8 (observed <= 7e-16; bootstrap SE pinned loosely +/-25%) -- tests/reference_parity/test_gformula_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_whatif_nhefs.py",
-      "tests/reference_parity/test_tmle_parity.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "API/unit contract evidence: tests/test_g_computation.py"
     ],
     "validation_status": "certified"
@@ -20461,6 +21119,10 @@
             ],
             "type": "string"
           },
+          "weights": {
+            "description": "Non-negative observation weights. Rates become weighted shares and the AUC the weighted Mann-Whitney probability. As a balance check pass the exposure as ``y_true``, the propensity score as ``scores`` and the propensity weights here: an AUC near 0.5 means the score no longer separates the groups. No standard error is reported with weights (``auc_se`` and ``auc_ci`` are NaN).",
+            "type": "string"
+          },
           "y_true": {
             "description": "y_true parameter (array).",
             "type": "string"
@@ -20478,6 +21140,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R pROC::roc/auc/var/ci.auc (DeLong); Stata roctab (default and hanley) [R version 4.5.2 (2025-10-31), Stata 18 MP, pROC 1.19.0.1]; tolerance 1e-10 rel (observed 6e-15) -- tests/reference_parity/test_survival_epi_R_parity.py",
       "tests/reference_parity/test_auc_parity.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "API/unit contract evidence: tests/test_epi_diagnostic.py"
     ],
     "validation_status": "certified"
@@ -57188,18 +57851,18 @@
     "cost_profile": "",
     "description": "Estimate propensity scores P(D=1|X). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_closed_form_identities.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "tolerance": ""
     },
@@ -57295,7 +57958,9 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_closed_form_identities.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+      "tests/reference_parity/test_closed_form_identities.py"
     ],
     "validation_status": "validated"
   },
@@ -57316,18 +57981,18 @@
     "cost_profile": "",
     "description": "Trim sample to optimal overlap region. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_closed_form_identities.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "tolerance": ""
     },
@@ -57427,7 +58092,9 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_closed_form_identities.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+      "tests/reference_parity/test_closed_form_identities.py"
     ],
     "validation_status": "validated"
   },
@@ -57509,6 +58176,15 @@
           "method": {
             "default": "logit",
             "description": "PS estimation method ('logit', 'probit', 'gbm').",
+            "type": "string"
+          },
+          "sd_denom": {
+            "default": "weighted",
+            "description": "Standard deviation under the weighted mean difference. ``'weighted'`` uses the weighted variances of the two groups (Austin and Stuart 2015 [@austin2015moving]). ``'unweighted'`` keeps the variances of the unweighted sample, the default of R ``cobalt``: the scale is then the same before and after weighting and weights cannot improve the statistic by inflating the spread.",
+            "enum": [
+              "weighted",
+              "unweighted"
+            ],
             "type": "string"
           },
           "treatment": {
@@ -61207,6 +61883,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs WeightIt::weightit 1.7.0 (method='glm'), R 4.5.2 [R 4.5.2, WeightIt 1.7.0]; tolerance All four estimands of the shared-propensity family (Li, Li & Li 2019 Table 1) relative to WeightIt: ATO 2.5e-14, ATE 4.1e-14, ATT 2.3e-14, ATC 4.1e-14. The propensity score itself matches R glm(family=binomial) to 2.6e-14 absolute. -- tests/reference_parity/test_overlap_weights_r_parity.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_matching_parity.py",
       "tests/reference_parity/test_recovery_batch_parity.py"
     ],
@@ -63388,10 +64065,10 @@
       "R parity module 57_logit",
       "Stata parity module 57_logit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"logit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 57_logit -- tests/r_parity/57_logit.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_binary_r2_and_scls_parity.py",
-      "tests/reference_parity/test_cmtest_micsr_parity.py",
-      "tests/reference_parity/test_count_weights_stata_parity.py",
-      "tests/reference_parity/test_joint_wald_stata_parity.py"
+      "tests/reference_parity/test_cmtest_micsr_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -64464,6 +65141,10 @@
             "description": "Fitted model result (must have ``.params`` and associated data).",
             "type": "string"
           },
+          "subset": {
+            "description": "Average over a subpopulation of ``data``: a boolean mask aligned with its rows, or an expression for ``data.eval`` such as ``\"treat == 1\"``. The model's factor levels still come from the whole of ``data``, so with ``\"treat == 1\"`` the contrast between the levels of ``treat`` is the effect on the treated and with ``\"treat == 0\"`` the effect on the untreated (Stata ``margins, subpop()``; R ``marginaleffects`` ``newdata = subset(...)``). Passing an already subsetted frame as ``data`` is not the same: a level that is absent from it cannot be contrasted.",
+            "type": "string"
+          },
           "variables": {
             "description": "Variables to compute dy/dx for. Default: every model variable, factor variables included (Stata ``dydx(*)``).",
             "items": {
@@ -64482,6 +65163,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (aligned) vs Stata 18 margins, dydx(*) [Stata 18]; tolerance 1e-6 rel (observed 2.7e-7 AME / 7.5e-8 SE on probit and logit-with-interaction; <= 1e-10 otherwise) -- tests/reference_parity/test_postestimation_stata_parity.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py",
       "tests/reference_parity/test_postestimation_parity.py",
       "tests/reference_parity/test_r2_postest_parity.py"
@@ -64591,6 +65273,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 margins, at(...); R marginaleffects::avg_predictions [R version 4.5.2 (2025-10-31), Stata 18, marginaleffects 0.32.0]; tolerance 1e-10 rel (observed <= 3.5e-15 est / SE; marginaleffects SE 1.8e-10, numerical Jacobian) -- tests/reference_parity/test_r2_postest_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/reference_parity/test_margins_at_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py"
     ],
@@ -64673,6 +65356,16 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "effect": {
+            "default": "difference",
+            "description": "Scale of the contrast between two predictive margins ``m1`` and ``m0``. ``'ratio'`` is ``m1 / m0`` (a marginal risk ratio after a binary-outcome model) and ``'odds_ratio'`` is ``[m1 / (1 - m1)] / [m0 / (1 - m0)]``, the marginal odds ratio, which unlike the coefficient of a logistic regression is a population-averaged quantity. Inference is by the delta method on the log scale: ``se`` is the standard error of the log ratio, the test is of a ratio of one, and the interval is the exponentiated log-scale interval (R ``marginaleffects`` ``comparison = \"lnratioavg\"`` / ``\"lnoravg\"`` with ``transform = exp``). Not available with ``method='gw'``.",
+            "enum": [
+              "difference",
+              "ratio",
+              "odds_ratio"
+            ],
+            "type": "string"
+          },
           "method": {
             "default": "r",
             "description": "Contrast type: - ``'r'`` (reference): each level vs *reference* level. - ``'ar'`` (adjacent): each level vs the previous level. - ``'gw'`` (grand-mean weighted): each level vs the weighted grand mean of all levels.",
@@ -64689,6 +65382,10 @@
           },
           "result": {
             "description": "Fitted model result.",
+            "type": "string"
+          },
+          "subset": {
+            "description": "Average over a subpopulation of ``data``: a boolean mask aligned with its rows, or an expression for ``data.eval`` such as ``\"treat == 1\"``. The model's factor levels still come from the whole of ``data``, so with ``\"treat == 1\"`` the contrast between the levels of ``treat`` is the effect on the treated and with ``\"treat == 0\"`` the effect on the untreated (Stata ``margins, subpop()``; R ``marginaleffects`` ``newdata = subset(...)``). Passing an already subsetted frame as ``data`` is not the same: a level that is absent from it cannot be contrasted.",
             "type": "string"
           },
           "variable": {
@@ -64708,6 +65405,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 margins r.g / rb3.g / ar.g / gw.g [Stata 18]; tolerance 1e-10 rel (observed <= 7.9e-15 est / 4.9e-15 SE) -- tests/reference_parity/test_r2_postest_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_contrast_pwcompare_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py"
     ],
@@ -66877,6 +67576,7 @@
       "R parity module 23_evalue",
       "Stata parity module 23_evalue",
       "Cross-language parity (bit-exact) vs EValue::evalues.RR [EValue 4.1.4, R version 4.2.3 (2023-03-15)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 23_evalue -- tests/r_parity/23_evalue.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_whatif_nhefs.py",
       "tests/reference_parity/test_inference_sens_R_parity.py"
@@ -111069,7 +111769,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "Shortcut: just return the AUC. Validation: certified parity evidence.",
+    "description": "Shortcut: just return the AUC (weighted when ``weights`` is given). Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "derived from status and sides",
@@ -111147,12 +111847,16 @@
       "fields": {}
     },
     "signature": {
-      "description": "Shortcut: just return the AUC. Validation: certified parity evidence.",
+      "description": "Shortcut: just return the AUC (weighted when ``weights`` is given). Validation: certified parity evidence.",
       "name": "auc",
       "parameters": {
         "properties": {
           "scores": {
             "description": "scores parameter.",
+            "type": "string"
+          },
+          "weights": {
+            "description": "Observation weights.",
             "type": "string"
           },
           "y_true": {
@@ -111171,7 +111875,9 @@
     "typical_n_min": 1000,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R pROC::auc; Stata roctab [R version 4.5.2 (2025-10-31), Stata 18 MP, pROC 1.19.0.1]; tolerance 1e-10 rel (observed 2e-16) -- tests/reference_parity/test_survival_epi_R_parity.py",
-      "tests/reference_parity/test_auc_parity.py"
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/reference_parity/test_auc_parity.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
     ],
     "validation_status": "certified"
   },

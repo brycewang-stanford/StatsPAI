@@ -568,9 +568,12 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_auc_parity.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
+        "tests/reference_parity/test_auc_parity.py",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "auc",
@@ -784,19 +787,26 @@
       "tolerance": "1e-9 rel"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "balance_diagnostics",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_oct2026_fourth_pass.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "tolerance": ""
     },
@@ -3165,6 +3175,52 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "confounder_adjust",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "confounder_tip",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
         "tests/reference_parity/test_conley_parity.py"
       ],
       "also_verified_by": [
@@ -3238,10 +3294,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_contrast_pwcompare_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "contrast",
@@ -3605,22 +3664,29 @@
       "tolerance": "process, statistic and p-value 1e-10 rel (observed 7.1e-14); Stata boundary constants 3e-6"
     },
     {
-      "function": "dag",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_dag_implications_dagitty_parity.py",
         "tests/reference_parity/test_misc_sens_R_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "dag",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "tolerance": ""
     },
@@ -5447,6 +5513,23 @@
       "tolerance": "5e-11 undirected, 8e-11 directed -- power-iteration tolerance on both sides. igraph::eigen_centrality max-scales instead (and 2.x ignores scale = FALSE), so it agrees only up to one scalar; the earlier note claiming the igraph convention was wrong."
     },
     {
+      "function": "energy_distance",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_engle_granger_parity.py"
       ],
@@ -5521,6 +5604,29 @@
         "tests/reference_parity/test_network_parity.py"
       ],
       "tolerance": "Coefficients 2e-16 to 7e-13 for edges + triangle + nodematch + nodecov + absdiff (undirected) and edges + mutual (directed); standard errors 2e-8 (directed) and <= 3.2e-7 (undirected), inside the 1e-6 budget."
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ess",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "estat",
@@ -5711,6 +5817,7 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_inference_sens_R_parity.py"
@@ -6740,8 +6847,10 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_whatif_nhefs.py",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_tmle_parity.py"
       ],
       "also_verified_by": [
@@ -8072,6 +8181,29 @@
       "tolerance": "Direct, indirect and total at 1e-6, inheriting the SAR rho's own agreement."
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "implied_weights",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "also_verified_by": [
         "reference_parity"
       ],
@@ -8361,8 +8493,10 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_whatif_nhefs.py",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",
         "tests/reference_parity/test_teffects_probit_stata.py"
@@ -9647,6 +9781,8 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_binary_r2_and_scls_parity.py",
         "tests/reference_parity/test_cmtest_micsr_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
@@ -9660,6 +9796,7 @@
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -10163,6 +10300,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py"
@@ -10192,10 +10330,12 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/reference_parity/test_margins_at_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "margins_at",
@@ -12858,6 +12998,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_recovery_batch_parity.py"
       ],
@@ -14183,19 +14324,26 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/reference_parity/test_closed_form_identities.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "propensity_score",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_closed_form_identities.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "tolerance": ""
     },
@@ -14281,6 +14429,29 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ps_weights",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "tolerance": ""
     },
@@ -15930,11 +16101,13 @@
         "tests/r_parity/55_hc2_hc3.py",
         "tests/r_parity/55_hc2_hc3.R",
         "tests/stata_parity/55_hc2_hc3.do",
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_published_replications.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_assimilation_parity.py",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_conley_acreg_spacetime_parity.py",
         "tests/reference_parity/test_conley_parity.py",
         "tests/reference_parity/test_contrast_pwcompare_parity.py",
@@ -16525,7 +16698,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_auc_parity.py"
+        "tests/reference_parity/test_auc_parity.py",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -19632,19 +19806,26 @@
       "tolerance": "1e-12 rel"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/reference_parity/test_closed_form_identities.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "trimming",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_closed_form_identities.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "tolerance": ""
     },
