@@ -80,6 +80,22 @@ defaults to adopt.
   unequal-variance t; its documentation now says so and says why it is the
   one to prefer. `sp.fisher_exact` gained `statistic='t'`.
 
+- **Rerandomization by Morgan and Rubin's criterion (chapter 6)**,
+  `sp.randomize(rerand_accept=)`. The existing `n_rerand` search keeps the
+  best of a number of draws by a Mahalanobis distance without the
+  `n1 n0 / n` factor, so its threshold is not a chi-square quantile and
+  the set of acceptable assignments is not defined. The new argument
+  redraws until the scaled distance is below the chi-square quantile of
+  the requested acceptance probability and records threshold, distance
+  and draws. The distance equals the book's `Mahalanobis2` to 1e-10.
+- **Lin's estimator in a stratified experiment (chapter 8)**,
+  `sp.lm_lin(blocks=)`: fitted in each block and combined by block
+  shares. Both arms of Chong et al. agree with the book's `sre_stat` to
+  1e-8 in estimate and standard error.
+- `sp.fisher_exact(...).summary()` printed "95% CI" whatever `alpha` was
+  and called the null-distribution quantiles of the other statistics a
+  confidence interval. It now prints the level and says which it is.
+
 ## Agreement found, nothing to change
 
 The last column is the relative tolerance the replication test enforces.
@@ -136,26 +152,17 @@ error of two-stage least squares.
 
 ## Left open
 
-- **Rerandomization (chapter 6).** `sp.randomize(n_rerand=, rerand_threshold=)`
-  keeps the best of `n_rerand` draws by a Mahalanobis distance that lacks
-  the `n1 n0 / n` factor, so the threshold is not on the chi-square scale
-  of Morgan and Rubin's criterion and there is no acceptance-probability
-  argument. The fix is an `accept_prob` argument with the scaled distance.
-- **Lin's estimator within strata (chapter 8).** `sp.lm_lin` has no
-  `blocks=`; the book fits it stratum by stratum and combines.
 - **Sensitivity parameters for the doubly robust estimator (chapter 18).**
-  Not implemented.
+  Not implemented. It would be a new public function and the method has
+  one source; left until someone asks.
 - **Complier outcome means and the testable implications of the instrument
   assumptions for a binary outcome (chapter 22).** `sp.kitagawa_test`
   covers the test; the `IVbinary` table of stratum means has no single
-  call.
+  call. Also a new public function; not added during the paper cycle.
 - **Overflow warnings in bootstrap logits.** `core._glm_fit.safe_logit_fit`
   runs statsmodels' Newton steps on unscaled covariates; on JOBS II some
   bootstrap draws print `overflow encountered in exp`. Estimates are
   unaffected as far as the checks here go.
-- **`sp.fisher_exact` summary** still prints "95% CI" whatever `alpha` is,
-  and for statistics other than the difference in means the field holds
-  quantiles of the null distribution, which are not a confidence interval.
 
 ## Tests
 

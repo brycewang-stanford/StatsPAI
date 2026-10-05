@@ -71,6 +71,9 @@ class RandomizationResult(ResultProtocolMixin):
         self.method = method
         self.balance = balance
         self.seed = seed
+        #: set by ``randomize(rerand_accept=)``: criterion, threshold,
+        #: accepted distance and number of draws
+        self.rerandomization: Optional[Dict[str, Any]] = None
 
     def summary(self) -> str:
         lines: List[str] = [
@@ -94,6 +97,12 @@ class RandomizationResult(ResultProtocolMixin):
             lines.append(f"Stratified by: {self.strata_col}")
         if self.seed is not None:
             lines.append(f"Seed: {self.seed}")
+        if self.rerandomization is not None:
+            r = self.rerandomization
+            lines.append(
+                f"Rerandomized: M = {r['distance']:.4f} <= {r['threshold']:.4f} "
+                f"(accept {r['accept_prob']:g}), {r['n_draws']} draws"
+            )
         if self.balance is not None:
             lines.append(f"\nBalance (F-test p-value): {self.balance['omnibus_p']:.4f}")
         lines.append("=" * 50)
@@ -220,6 +229,7 @@ def randomize(
     rerand_threshold: float = 0.001,
     seed: Optional[int] = None,
     treatment_col: str = "treatment",
+    rerand_accept: Optional[float] = None,
 ) -> RandomizationResult:
     """
     Randomize units to treatment and control.
@@ -262,7 +272,25 @@ def randomize(
     n_rerand : int, default 0
         Number of re-randomization iterations (0 = no re-randomization).
     rerand_threshold : float, default 0.001
-        Mahalanobis distance threshold for re-randomization.
+        Stopping threshold of the ``n_rerand`` search, on
+        ``diff' S^-1 diff`` with ``diff`` the difference in covariate means
+        and ``S`` the covariance of the covariates. This distance is not
+        scaled by the arm sizes, so the threshold is not a chi-square
+        quantile; ``rerand_accept`` is.
+    rerand_accept : float, optional
+        Rerandomization by Morgan and Rubin's criterion, for two arms under
+        complete randomization. Assignments are redrawn until
+        ``M = (n1 n0 / n) diff' S^-1 diff`` is at most the
+        ``rerand_accept`` quantile of the chi-square distribution with as
+        many degrees of freedom as ``balance_vars``, so about that share of
+        all assignments is acceptable (0.05 keeps the best-balanced 5%).
+        ``result.rerandomization`` records the threshold, the accepted
+        ``M`` and the number of draws. Unlike the ``n_rerand`` search the
+        accepted set is known, which is what the analysis needs: a
+        randomization test must redraw from it, and regression adjustment
+        for ``balance_vars`` (``sp.lm_lin``) stays valid. When given,
+        ``n_rerand`` is the largest number of draws (default
+        ``ceil(1000 / rerand_accept)``) and ``rerand_threshold`` is unused.
     seed : int, optional
         Random seed for reproducibility.
     treatment_col : str, default 'treatment'
@@ -337,9 +365,65 @@ def randomize(
 
     assignments = _draw()
 
+    rerand_info: Optional[Dict[str, Any]] = None
+    if rerand_accept is not None:
+        from ..exceptions import DataInsufficient
+
+        if not 0.0 < rerand_accept <= 1.0:
+            raise MethodIncompatibility(
+                f"rerand_accept must be in (0, 1], got {rerand_accept!r}."
+            )
+        if not balance_vars or n_arms != 2 or strata or cluster:
+            raise MethodIncompatibility(
+                "rerand_accept needs balance_vars and two arms, without "
+                "strata or cluster: the chi-square scale of the Mahalanobis "
+                "criterion is that of complete randomization.",
+                recovery_hint="Use n_rerand for other designs.",
+            )
+        if method == "simple":
+            raise MethodIncompatibility(
+                "rerand_accept needs fixed arm sizes.",
+                recovery_hint="Pass method='complete'.",
+            )
+        Xb = df[balance_vars].to_numpy(dtype=float)
+        if not np.all(np.isfinite(Xb)):
+            raise DataInsufficient("rerand_accept: balance_vars has missing values.")
+        cov = np.atleast_2d(np.cov(Xb, rowvar=False))
+        if np.linalg.matrix_rank(cov) < cov.shape[0]:
+            raise DataInsufficient(
+                "rerand_accept: the covariance of balance_vars is singular.",
+                recovery_hint="Drop collinear or constant balance variables.",
+            )
+        cov_inv = np.linalg.inv(cov)
+        threshold = float(stats.chi2.ppf(rerand_accept, df=cov.shape[0]))
+        max_draws = n_rerand if n_rerand > 0 else int(np.ceil(1000 / rerand_accept))
+
+        def _m(a: np.ndarray) -> float:
+            n1, n0 = int((a == 1).sum()), int((a == 0).sum())
+            diff = Xb[a == 1].mean(axis=0) - Xb[a == 0].mean(axis=0)
+            return float(n1 * n0 / (n1 + n0) * diff @ cov_inv @ diff)
+
+        draws, dist = 1, _m(assignments)
+        while dist > threshold and draws < max_draws:
+            assignments = _draw()
+            draws, dist = draws + 1, _m(assignments)
+        if dist > threshold:
+            raise DataInsufficient(
+                f"rerand_accept: no assignment with M <= {threshold:.4g} in "
+                f"{max_draws} draws.",
+                recovery_hint="Raise n_rerand or rerand_accept.",
+            )
+        rerand_info = {
+            "criterion": "mahalanobis",
+            "accept_prob": float(rerand_accept),
+            "threshold": threshold,
+            "distance": dist,
+            "n_draws": draws,
+        }
+
     # Re-randomization: redraw from the SAME design (it used to redraw by
     # simple randomization, discarding strata, clusters and fixed counts).
-    if n_rerand > 0 and balance_vars is not None:
+    elif n_rerand > 0 and balance_vars is not None:
         best_assignments = assignments.copy()
         best_distance = _mahalanobis_distance(df, balance_vars, assignments)
         for _ in range(n_rerand):
@@ -362,7 +446,7 @@ def randomize(
     n_treated = int((assignments == 1).sum()) if n_arms == 2 else None
     n_control = int((assignments == 0).sum()) if n_arms == 2 else None
 
-    return RandomizationResult(
+    result = RandomizationResult(
         data=df,
         treatment_col=treatment_col,
         n_treated=n_treated,
@@ -372,6 +456,8 @@ def randomize(
         balance=bal.__dict__ if bal else None,
         seed=seed,
     )
+    result.rerandomization = rerand_info
+    return result
 
 
 def _complete_ra(N: int, prob: np.ndarray, rng: Any) -> np.ndarray:

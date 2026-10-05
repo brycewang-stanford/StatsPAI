@@ -280,3 +280,129 @@ def test_gformula_flat_confounder_list():
     assert flat.value == pytest.approx(nested.value, rel=1e-12)
     assert flat.se == pytest.approx(nested.se, rel=1e-12)
     assert flat.value == pytest.approx(3.0, abs=4 * flat.se)
+
+
+# ---------------------------------------------------------------------------
+# Rerandomization by the Mahalanobis criterion (chapter 6)
+# ---------------------------------------------------------------------------
+
+
+def _covariates(seed=0, n=120):
+    rng = np.random.default_rng(seed)
+    a = rng.normal(size=n)
+    return pd.DataFrame(
+        {"a": a, "b": 0.5 * a + rng.normal(size=n), "c": rng.integers(0, 2, n) * 1.0}
+    )
+
+
+def test_rerandomization_accepts_on_the_chi_square_scale():
+    from scipy import stats
+
+    df = _covariates()
+    cols = ["a", "b", "c"]
+    res = sp.randomize(
+        df, method="complete", prob=[0.4, 0.6], balance_vars=cols,
+        rerand_accept=0.05, seed=3,
+    )  # fmt: skip
+    info = res.rerandomization
+    assert info["threshold"] == pytest.approx(stats.chi2.ppf(0.05, 3), rel=1e-12)
+    assert info["distance"] <= info["threshold"]
+    assert (res.n_treated, res.n_control) == (72, 48)
+    # the distance is the book's: diff' [(n / (n1 n0)) cov(X)]^-1 diff
+    z = res.data["treatment"].to_numpy()
+    X = df[cols].to_numpy()
+    n1, n0 = (z == 1).sum(), (z == 0).sum()
+    diff = X[z == 1].mean(axis=0) - X[z == 0].mean(axis=0)
+    by_hand = diff @ np.linalg.solve(
+        (n1 + n0) / (n1 * n0) * np.cov(X, rowvar=False), diff
+    )
+    assert info["distance"] == pytest.approx(by_hand, rel=1e-10)
+    assert "Rerandomized" in res.summary()
+    assert sp.randomize(df, method="complete", seed=3).rerandomization is None
+
+
+def test_rerandomization_acceptance_rate():
+    # The number of draws until acceptance is geometric with mean 1 / p_a.
+    # 400 experiments at p_a = 0.1: mean 10, sd of the mean about 0.47.
+    df = _covariates(seed=1)
+    draws = [
+        sp.randomize(
+            df, method="complete", balance_vars=["a", "b", "c"],
+            rerand_accept=0.1, seed=s,
+        ).rerandomization["n_draws"]  # fmt: skip
+        for s in range(400)
+    ]
+    assert 8.0 < np.mean(draws) < 12.0
+
+
+def test_rerandomization_refusals():
+    df = _covariates().assign(g=np.arange(120) % 4)
+    bad = sp.exceptions.MethodIncompatibility
+    with pytest.raises(bad):
+        sp.randomize(df, method="complete", rerand_accept=0.05)  # no balance_vars
+    with pytest.raises(bad):
+        sp.randomize(df, balance_vars=["a"], rerand_accept=0.05)  # simple
+    with pytest.raises(bad):
+        sp.randomize(
+            df, method="stratified", strata="g", balance_vars=["a"], rerand_accept=0.05
+        )
+    with pytest.raises(bad):
+        sp.randomize(df, method="complete", balance_vars=["a"], rerand_accept=1.5)
+    with pytest.raises(sp.exceptions.DataInsufficient):
+        sp.randomize(
+            df.assign(a2=df.a * 2), method="complete", balance_vars=["a", "a2"],
+            rerand_accept=0.05,
+        )  # fmt: skip
+
+
+# ---------------------------------------------------------------------------
+# Lin's estimator in a stratified experiment (chapter 8)
+# ---------------------------------------------------------------------------
+
+
+def _blocked_experiment(seed=0):
+    rng = np.random.default_rng(seed)
+    parts = []
+    for b, (n, n1) in enumerate([(120, 40), (200, 120), (80, 40)]):
+        x = rng.normal(size=n) + b
+        z = rng.permutation(np.r_[np.ones(n1), np.zeros(n - n1)])
+        y = 2.0 * b + (1.0 + 0.5 * (x - b)) * z + 1.5 * x + rng.normal(size=n)
+        parts.append(pd.DataFrame({"block": b, "x": x, "z": z, "y": y}))
+    return pd.concat(parts, ignore_index=True)
+
+
+def test_lm_lin_blocks_combines_the_block_fits():
+    df = _blocked_experiment()
+    res = sp.lm_lin(df, "y", "z", ["x"], blocks="block")
+    fits = [sp.lm_lin(g, "y", "z", ["x"]) for _, g in df.groupby("block")]
+    w = df.groupby("block").size().to_numpy() / len(df)
+    assert res.estimate == pytest.approx(sum(w * [f.estimate for f in fits]), rel=1e-12)
+    assert res.se == pytest.approx(
+        np.sqrt(sum(w**2 * np.array([f.se for f in fits]) ** 2)), rel=1e-12
+    )
+    assert list(res.detail.columns) == ["block", "estimate", "se", "weight", "n"]
+    assert res.model_info["n_blocks"] == 3
+    # the effect is 1 on average in every block; adjustment beats the
+    # blocked difference in means because x explains most of the outcome
+    assert res.estimate == pytest.approx(1.0, abs=4 * res.se)
+    assert res.se < 0.7 * sp.difference_in_means(df, "y", "z", blocks="block").se
+
+
+def test_lm_lin_blocks_refusals():
+    df = _blocked_experiment()
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.lm_lin(df, "y", "z", ["x"], blocks="block", superpopulation=True)
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.lm_lin(df, "y", "z", ["x"], blocks="block", cluster="block")
+    one_arm = df[~((df.block == 2) & (df.z == 1))]
+    with pytest.raises(sp.exceptions.DataInsufficient, match="block 2"):
+        sp.lm_lin(one_arm, "y", "z", ["x"], blocks="block")
+
+
+def test_fisher_summary_names_the_level_and_what_the_interval_is():
+    df = _small_experiment()
+    ate = sp.fisher_exact(df, "y", "d", n_perm=5000, alpha=0.10)
+    assert "90% CI (test inversion)" in ate.summary()
+    ks = sp.fisher_exact(df, "y", "d", statistic="ks", n_perm=5000, alpha=0.10)
+    assert "Null distribution, central 90%" in ks.summary()
+    assert "CI" not in ks.summary().split("Null distribution")[1].split("\n")[0]

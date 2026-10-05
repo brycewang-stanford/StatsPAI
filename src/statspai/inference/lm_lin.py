@@ -88,6 +88,7 @@ def lm_lin(
     vce: Optional[str] = None,
     superpopulation: bool = False,
     alpha: float = 0.05,
+    blocks: Optional[str] = None,
 ) -> CausalResult:
     """Average treatment effect by regression with treatment-covariate
     interactions (Lin 2013).
@@ -127,6 +128,15 @@ def lm_lin(
         population the sample was drawn from.
     alpha : float, default 0.05
         One minus the confidence level.
+    blocks : str, optional
+        Blocks (strata) within which treatment was randomized. The
+        interacted regression is fitted in each block, with the covariates
+        centred there, and the block estimates are combined with weights
+        equal to the block shares of the sample; the variance is the
+        weighted sum of the block variances. This is the covariate-adjusted
+        counterpart of ``sp.difference_in_means(blocks=)`` for a few large
+        blocks: every block needs more units in each arm than there are
+        covariates. Not available with ``cluster`` or ``superpopulation``.
 
     Returns
     -------
@@ -134,7 +144,8 @@ def lm_lin(
         ``estimate``, ``se``, ``pvalue`` and ``ci`` for the average
         treatment effect. ``detail`` has every coefficient of the
         regression; the rows named ``treat:<covariate>`` say how the
-        effect varies with that covariate.
+        effect varies with that covariate. With ``blocks`` it has one row
+        per block instead (estimate, standard error, weight, units).
 
     Examples
     --------
@@ -159,6 +170,10 @@ def lm_lin(
         raise MethodIncompatibility(
             f"{context}: no covariates given.",
             recovery_hint="Without covariates use sp.difference_in_means.",
+        )
+    if blocks is not None:
+        return _lm_lin_blocked(
+            data, y, treat, covariates, blocks, cluster, vce, superpopulation, alpha
         )
     columns = [y, treat, *covariates] + ([cluster] if cluster else [])
     missing = [c for c in columns if c not in data.columns]
@@ -294,5 +309,102 @@ def lm_lin(
         n_obs=n,
         detail=detail,
         model_info=model_info,
+        _citation_key="lm_lin",
+    )
+
+
+def _lm_lin_blocked(
+    data: pd.DataFrame,
+    y: str,
+    treat: str,
+    covariates: List[str],
+    blocks: str,
+    cluster: Optional[str],
+    vce: Optional[str],
+    superpopulation: bool,
+    alpha: float,
+) -> CausalResult:
+    """Lin's estimator block by block, combined with block-share weights."""
+    context = "lm_lin"
+    if cluster is not None or superpopulation:
+        raise MethodIncompatibility(
+            f"{context}: blocks= is not available with cluster= or "
+            "superpopulation=True.",
+            recovery_hint="Drop one of them, or analyse the blocks separately.",
+        )
+    columns = [y, treat, blocks, *covariates]
+    missing = [c for c in columns if c not in data.columns]
+    if missing:
+        from ..exceptions import ColumnNotFound
+
+        raise ColumnNotFound(
+            f"{context}: columns not in data: {missing}",
+            diagnostics={"missing_columns": missing},
+        )
+    frame = data[list(dict.fromkeys(columns))].dropna()
+    levels = np.sort(frame[treat].unique())
+    if len(levels) != 2:
+        raise MethodIncompatibility(
+            f"{context}: {treat!r} must take exactly two values, found "
+            f"{len(levels)}.",
+            recovery_hint="Compare two arms at a time.",
+        )
+    n = len(frame)
+    rows = []
+    for label, sub in frame.groupby(blocks, sort=True):
+        if sub[treat].nunique() != 2:
+            raise DataInsufficient(
+                f"{context}: block {label!r} has one arm only.",
+                recovery_hint="Merge it with another block or drop it.",
+            )
+        try:
+            fit = lm_lin(sub, y, treat, covariates, vce=vce, alpha=alpha)
+        except DataInsufficient as exc:
+            raise DataInsufficient(
+                f"{context}: block {label!r}: {exc}",
+                recovery_hint="blocks= needs a few large blocks; with many "
+                "small ones use sp.difference_in_means(blocks=).",
+            ) from exc
+        rows.append(
+            {
+                "block": label,
+                "estimate": fit.estimate,
+                "se": fit.model_info["se_regression"],
+                "weight": len(sub) / n,
+                "n": len(sub),
+                "df": fit.model_info["df"],
+            }
+        )
+    detail = pd.DataFrame(rows)
+    w = detail["weight"].to_numpy()
+    est = float(w @ detail["estimate"].to_numpy())
+    se = float(np.sqrt(np.sum(w**2 * detail["se"].to_numpy() ** 2)))
+    df = float(detail["df"].sum())
+    tstat = est / se if se > 0 else float("nan")
+    crit = float(stats.t.ppf(1 - alpha / 2, df))
+    d = frame[treat].to_numpy() == levels[1]
+    return CausalResult(
+        method="Regression adjustment with treatment interactions (Lin 2013), "
+        "by block",
+        estimand="ATE",
+        estimate=est,
+        se=se,
+        pvalue=float(2 * stats.t.sf(abs(tstat), df)) if se > 0 else float("nan"),
+        ci=(float(est - crit * se), float(est + crit * se)),
+        alpha=alpha,
+        n_obs=n,
+        detail=detail.drop(columns="df"),
+        model_info={
+            "vce": "hc2" if vce is None else str(vce).lower(),
+            "blocks": blocks,
+            "n_blocks": int(len(detail)),
+            "treatment_levels": [levels[0], levels[1]],
+            "n_treated": int(d.sum()),
+            "n_control": int(n - d.sum()),
+            "superpopulation": False,
+            "df": df,
+            "df_inference": df,
+            "statistic": tstat,
+        },
         _citation_key="lm_lin",
     )

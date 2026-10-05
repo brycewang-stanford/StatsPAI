@@ -23,9 +23,10 @@ redistributed with StatsPAI. The examples below read them from `files/`.
 | 3 | Fisher randomization test with four statistics | `sp.ri_test(stat='diff_means' / 't' / 'rank_sum' / 'ks')` |
 | 4 | Neyman's estimator and variance; HC0 to HC3 | `sp.difference_in_means`; `sp.regress(robust='hc2')` |
 | 5 | stratified and post-stratified estimators | `sp.difference_in_means(blocks=)` |
+| 6 | rerandomization by the Mahalanobis distance | `sp.randomize(rerand_accept=)` |
 | 6, 9 | Lin's estimator, with the super-population variance | `sp.lm_lin(superpopulation=True)` |
 | 7 | matched pairs, exact sign-flip test | `sp.ri_test(strata=pair)`; `sp.difference_in_means(blocks=pair)` |
-| 8 | studentized, covariate-adjusted randomization tests | `sp.ri_test(stat='lin_t', covariates=)` |
+| 8 | studentized, covariate-adjusted randomization tests; Lin's estimator by stratum | `sp.ri_test(stat='lin_t', covariates=)`; `sp.lm_lin(blocks=)` |
 | 11 | propensity-score stratification, Horvitz-Thompson and Hajek weighting | `sp.match(method='stratify')`; `sp.ipw(normalize=, trim=)` |
 | 12 | outcome regression and the doubly robust estimator | `sp.g_computation(by_arm=True)`; `sp.aipw(cross_fit=False)` |
 | 13 | the same for the effect on the treated | `estimand='ATT'` in the three functions above |
@@ -82,6 +83,23 @@ simulation error.
 `sp.fisher_exact` adds a confidence interval for a constant effect. It is
 the set of effects the test does not reject, computed on the same
 assignments as the p-value and exact for them.
+
+## Rerandomization
+
+Chapter 6 redraws the assignment until the covariates are balanced. The
+criterion is the Mahalanobis distance between the arm means, scaled so
+that it is chi-square under complete randomization.
+
+```python
+res = sp.randomize(df, method="complete", balance_vars=["female", "gpa0"],
+                   rerand_accept=0.05, seed=1)
+res.rerandomization   # threshold, accepted distance, number of draws
+```
+
+`rerand_accept=0.05` keeps the best-balanced 5% of assignments. Analyse
+the experiment with `sp.lm_lin` on the same covariates. In the book's
+simulation the adjusted estimator is about as precise with or without
+rerandomization, and the unadjusted one gains from it.
 
 ## Weighting, and the two ways to normalise
 

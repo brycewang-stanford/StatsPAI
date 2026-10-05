@@ -524,6 +524,18 @@ listed above. What was added:
   `sp.fisher_exact(statistic='t')`. `'lin_t'` is Lin's estimate over its
   HC2 standard error, the covariate-adjusted statistic whose
   randomization test is also valid for the weak null.
+- `sp.randomize(rerand_accept=)`: rerandomization by Morgan and Rubin's
+  criterion. Assignments are redrawn until the Mahalanobis distance,
+  scaled by `n1 n0 / n`, is below the chi-square quantile of the
+  acceptance probability; `result.rerandomization` records it. The
+  `n_rerand` search is unchanged, and its documentation now says that its
+  threshold is not on that scale.
+- `sp.lm_lin(blocks=)`: Lin's estimator fitted in each block of a
+  stratified experiment and combined by block shares.
+- `sp.fisher_exact(...).summary()` prints the confidence level that was
+  asked for and no longer calls the null-distribution quantiles of
+  `statistic='ks'` / `'rank_sum'` / `'t'` a confidence interval.
+  `FisherResult` has an `alpha` attribute.
 - `sp.principal_strat(method='principal_score')` recognises one-sided
   noncompliance: the arm in which the stratum variable is constant is not
   fitted and its empty stratum has share zero.

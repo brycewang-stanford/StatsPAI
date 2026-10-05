@@ -39856,6 +39856,10 @@
           },
           "type": "array"
         },
+        "rerand_accept": {
+          "description": "rerand_accept parameter (Optional[float]).",
+          "type": "number"
+        },
         "rerand_threshold": {
           "default": 0.001,
           "description": "rerand_threshold parameter (float).",

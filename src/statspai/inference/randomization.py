@@ -7,7 +7,7 @@ Increasingly required by top journals (Young 2019, QJE).
 
 This module provides both the original ``ri_test`` for quick usage and
 the enhanced ``fisher_exact`` with FisherResult class for richer output
-including Hodges-Lehmann confidence intervals and plotting.
+including test-inversion confidence intervals and plotting.
 
 References
 ----------
@@ -90,7 +90,10 @@ class FisherResult(ResultProtocolMixin):
     p_one_sided : float
         One-sided (greater) permutation p-value.
     ci : tuple of float
-        Confidence interval from Hodges-Lehmann inversion.
+        For ``statistic='ate'`` the confidence interval for a constant
+        effect, by inversion of the test. For the other statistics the
+        central ``1 - alpha`` range of the null distribution of the
+        statistic, which is not an interval for the effect.
     perm_dist : np.ndarray
         Full permutation distribution of the test statistic.
     statistic_type : str
@@ -131,7 +134,9 @@ class FisherResult(ResultProtocolMixin):
         n_perm: int,
         n_obs: int,
         n_treated: int,
+        alpha: float = 0.05,
     ) -> None:
+        self.alpha = alpha
         self.statistic = statistic
         self.p_value = p_value
         self.p_one_sided = p_one_sided
@@ -142,6 +147,13 @@ class FisherResult(ResultProtocolMixin):
         self.n_obs = n_obs
         self.n_treated = n_treated
 
+    def _ci_label(self) -> str:
+        """What ``ci`` holds: an interval for the effect only for 'ate'."""
+        level = f"{100 * (1 - self.alpha):g}%"
+        if self.statistic_type == "ate":
+            return f"{level} CI (test inversion)"
+        return f"Null distribution, central {level}"
+
     def summary(self) -> str:
         """Return a formatted summary string."""
         lines = [
@@ -151,7 +163,7 @@ class FisherResult(ResultProtocolMixin):
             f"  Test statistic ({self.statistic_type}):  {self.statistic:.6f}",
             f"  Two-sided p-value:           {self.p_value:.4f}",
             f"  One-sided p-value (greater):  {self.p_one_sided:.4f}",
-            f"  95% CI (Hodges-Lehmann):      [{self.ci[0]:.4f}, {self.ci[1]:.4f}]",
+            f"  {self._ci_label()}:  [{self.ci[0]:.4f}, {self.ci[1]:.4f}]",
             "-" * 60,
             f"  Permutations:  {self.n_perm:,}",
             f"  N (total):     {self.n_obs:,}",
@@ -253,7 +265,7 @@ class FisherResult(ResultProtocolMixin):
                     f'<td style="{right_style}">{self.p_one_sided:.4f}</td></tr>'
                 ),
                 (
-                    f'<tr><td style="{cell_style}"><b>95% CI</b></td>'
+                    f'<tr><td style="{cell_style}"><b>{self._ci_label()}</b></td>'
                     f'<td style="{right_style}">'
                     f"[{self.ci[0]:.4f}, {self.ci[1]:.4f}]</td></tr>"
                 ),
@@ -517,6 +529,7 @@ def fisher_exact(
         n_perm=int(perm_stats.size),
         n_obs=n,
         n_treated=n_treated,
+        alpha=alpha,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

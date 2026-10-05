@@ -67584,6 +67584,7 @@
       "class": "FisherResult",
       "description": "FisherResult: Object with statistic, p_value, ci, perm_dist, and methods for summary() and plot().",
       "fields": {
+        "alpha": "float",
         "ci": "Tuple[float, float]",
         "n_obs": "int",
         "n_perm": "int",
@@ -85662,6 +85663,10 @@
               "type": "number"
             },
             "type": "array"
+          },
+          "rerand_accept": {
+            "description": "rerand_accept parameter (Optional[float]).",
+            "type": "number"
           },
           "rerand_threshold": {
             "default": 0.001,

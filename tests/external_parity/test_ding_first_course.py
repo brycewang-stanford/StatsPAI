@@ -224,9 +224,17 @@ def test_ch08_covariate_adjusted_randomization_statistics(R):
         assert sp.ri_test(sub, "gradesq34", "z", stat="lin_t", covariates=["x"], **kw)[
             "observed"
         ] == pytest.approx(t_l, rel=EXACT)
-    tau_s, se_s = R["ch8_soccer"][:2]
+    tau_s, se_s, lin_s, se_lin_s = R["ch8_soccer"]
     pooled = sp.difference_in_means(soccer, "gradesq34", "z", blocks="class_level")
     assert (pooled.estimate, pooled.se) == pytest.approx((tau_s, se_s), rel=EXACT)
+    # Lin's estimator stratum by stratum, combined by stratum shares
+    lin = sp.lm_lin(soccer, "gradesq34", "z", ["x"], blocks="class_level")
+    assert (lin.estimate, lin.se) == pytest.approx((lin_s, se_lin_s), rel=EXACT)
+    phys = chong[chong.treatment != "Soccer Player"].copy()
+    phys["z"] = (phys.treatment == "Physician").astype(int)
+    phys["x"] = (phys.anemic == "Yes").astype(float)
+    lin = sp.lm_lin(phys, "gradesq34", "z", ["x"], blocks="class_level")
+    assert (lin.estimate, lin.se) == pytest.approx(tuple(R["ch8_phys"][2:]), rel=EXACT)
 
 
 # -- Part III: observational studies -----------------------------------------
