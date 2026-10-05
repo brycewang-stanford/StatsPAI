@@ -984,6 +984,11 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "formula": {
+            "description": "'y ~ x1 + I(x1**2) + C(g)' in place of y= and x=; transformed, factor and interaction terms are built as columns and named as sp.regress names them",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
           "ll": {
             "default": 0.0,
             "description": "Lower censoring limit (set -inf for none)",
@@ -1015,7 +1020,7 @@
             "x-statspai-role": "column"
           },
           "x": {
-            "description": "Regressors",
+            "description": "Regressors (with y=, unless formula=)",
             "items": {
               "type": "string"
             },
@@ -1025,15 +1030,13 @@
             ]
           },
           "y": {
-            "description": "Censored outcome variable",
+            "description": "Censored outcome variable (with x=, unless formula= is given)",
             "type": "string",
             "x-statspai-role": "column"
           }
         },
         "required": [
-          "data",
-          "y",
-          "x"
+          "data"
         ],
         "type": "object"
       }
@@ -2893,7 +2896,6 @@
       "did_imputation",
       "sdid",
       "did",
-      "callaway_santanna",
       "synth"
     ],
     "assumptions": [
@@ -3695,7 +3697,6 @@
       "sp.rdrobust",
       "sp.rd_honest",
       "sp.rdrandinf",
-      "rd_honest",
       "rdrbounds",
       "bounds"
     ],
@@ -6394,8 +6395,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -6529,8 +6528,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -11518,6 +11515,10 @@
             "default": 0.05,
             "description": "1 - confidence level",
             "type": "number"
+          },
+          "blocks": {
+            "description": "Blocks (strata) within which treatment was randomized: the regression is fitted in each block and the estimates are combined with the block shares of the sample. Every block needs more units in each arm than covariates; not available with cluster= or superpopulation=",
+            "type": "string"
           },
           "cluster": {
             "description": "Clusters assigned to treatment as a whole",
@@ -18401,7 +18402,6 @@
       "mr_mode",
       "mr_raps",
       "mr_median",
-      "mr_presso",
       "mr_multivariable",
       "iv"
     ],
@@ -23402,7 +23402,6 @@
       "mr_egger",
       "mr_median",
       "mr_presso",
-      "mr_multivariable",
       "iv"
     ],
     "assumptions": [
@@ -34263,8 +34262,6 @@
       "callaway_santanna",
       "did_multiplegt",
       "dose_response",
-      "sp.cgs_continuous_did",
-      "sp.dose_response",
       "sp.did"
     ],
     "assumptions": [
@@ -35168,7 +35165,6 @@
       "did_imputation",
       "gardner_did",
       "wooldridge_did",
-      "sun_abraham",
       "sdid",
       "synth"
     ],
@@ -35450,8 +35446,6 @@
       "mc_synth",
       "callaway_santanna",
       "sun_abraham",
-      "sp.did_imputation",
-      "sp.gsynth",
       "sp.mc_panel"
     ],
     "assumptions": [
@@ -35774,7 +35768,6 @@
       "sun_abraham",
       "gardner_did",
       "wooldridge_did",
-      "did_imputation",
       "sdid",
       "synth"
     ],
@@ -37715,9 +37708,7 @@
       "sun_abraham",
       "callaway_santanna",
       "did_imputation",
-      "sp.sun_abraham",
-      "sp.aggte",
-      "sp.did_imputation"
+      "sp.aggte"
     ],
     "assumptions": [
       "Parallel trends across event time",
@@ -38584,10 +38575,7 @@
       "did_analysis",
       "did_imputation",
       "sun_abraham",
-      "gardner_did",
-      "sp.callaway_santanna",
-      "sp.sun_abraham",
-      "sp.bacon_decomposition"
+      "gardner_did"
     ],
     "assumptions": [
       "Parallel trends hold for every valid 2x2 sub-comparison being harvested and aggregated",
@@ -40257,9 +40245,7 @@
       "sun_abraham",
       "did_imputation",
       "gardner_did",
-      "sp.callaway_santanna",
-      "sp.did_multiplegt",
-      "sp.did_imputation"
+      "sp.did_multiplegt"
     ],
     "assumptions": [
       "Parallel trends across event time (standard DiD)",
@@ -43063,7 +43049,6 @@
     "alternatives": [
       "uniform_bands",
       "honest_did",
-      "sp.honest_did",
       "sp.pretrends_power",
       "sp.event_study",
       "callaway_santanna",
@@ -43825,8 +43810,7 @@
       "did_imputation",
       "sun_abraham",
       "sp.staggered_cs",
-      "sp.staggered_sa",
-      "sp.callaway_santanna"
+      "sp.staggered_sa"
     ],
     "assumptions": [
       "treatment timing is randomly assigned (this is the identifying assumption; parallel trends is neither assumed nor sufficient)",
@@ -44046,10 +44030,7 @@
     "alternatives": [
       "staggered_rollout",
       "staggered_sa",
-      "callaway_santanna",
-      "sp.staggered_rollout",
-      "sp.staggered_sa",
-      "sp.callaway_santanna"
+      "callaway_santanna"
     ],
     "assumptions": [
       "treatment timing is randomly assigned",
@@ -44244,10 +44225,7 @@
     "alternatives": [
       "staggered_rollout",
       "staggered_cs",
-      "sun_abraham",
-      "sp.staggered_cs",
-      "sp.staggered_rollout",
-      "sp.sun_abraham"
+      "sun_abraham"
     ],
     "assumptions": [
       "treatment timing is randomly assigned",
@@ -44619,8 +44597,6 @@
       "pretrends_test",
       "pretrends_power",
       "honest_did",
-      "sp.honest_did",
-      "sp.pretrends_power",
       "sp.event_study",
       "callaway_santanna",
       "sun_abraham",
@@ -45370,7 +45346,6 @@
       "qdid",
       "cic",
       "panel_qtet",
-      "sp.qdid",
       "sp.callaway_santanna",
       "sp.distributional_te"
     ],
@@ -46562,7 +46537,6 @@
       "rdrobust",
       "rdrbounds",
       "rdsensitivity",
-      "rd_honest",
       "bounds"
     ],
     "assumptions": [
@@ -46946,8 +46920,6 @@
     "alternatives": [
       "rdrobust",
       "rd_honest",
-      "sp.rdrobust",
-      "sp.rd_honest",
       "sp.anderson_rubin_ci",
       "rdrbounds",
       "bounds"
@@ -47138,9 +47110,7 @@
     "alternatives": [
       "rdrobust",
       "rd_honest",
-      "sp.rd_honest",
       "sp.rdit",
-      "sp.rdrobust",
       "rdrbounds",
       "bounds"
     ],
@@ -52530,7 +52500,6 @@
       "sp.rdrandinf",
       "sp.rddensity",
       "rd_honest",
-      "rdrbounds",
       "bounds"
     ],
     "assumptions": [
@@ -59034,8 +59003,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -59968,7 +59935,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -60120,7 +60086,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -61950,7 +61915,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -62599,7 +62563,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -67346,8 +67309,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -71446,8 +71407,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -71553,8 +71512,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -71755,8 +71712,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -71874,8 +71829,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -73113,8 +73066,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -73479,8 +73430,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -77898,7 +77847,6 @@
       "sp.oaxaca",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -78077,7 +78025,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -78245,7 +78192,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -79872,7 +79818,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -83746,7 +83691,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -86764,7 +86708,6 @@
       "mr_ivw",
       "mr_median",
       "mr_presso",
-      "mr_egger",
       "mr_multivariable",
       "iv"
     ],
@@ -86914,7 +86857,6 @@
       "mr_median",
       "mr_presso",
       "mr_raps",
-      "mr_ivw",
       "mr_multivariable",
       "iv"
     ],
@@ -87076,7 +87018,6 @@
     "alternatives": [
       "mr_ivw",
       "mr_egger",
-      "mr_median",
       "mr_presso",
       "mr_multivariable",
       "iv"
@@ -90429,8 +90370,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -90803,7 +90742,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -90964,7 +90902,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -94109,7 +94046,6 @@
       "sp.regress",
       "sp.feols",
       "sp.iv",
-      "iv",
       "heckman",
       "qreg",
       "tobit"
@@ -99054,7 +98990,6 @@
     "alternatives": [
       "sp.sar",
       "sp.sem",
-      "sem",
       "sdm",
       "sac",
       "sar_gmm"
@@ -99762,7 +99697,6 @@
       "sp.sar",
       "sp.sem",
       "sp.impacts",
-      "sem",
       "sdm",
       "sac",
       "sar_gmm"
@@ -99925,7 +99859,6 @@
       "sp.sar",
       "sp.sem",
       "sp.impacts",
-      "sem",
       "sdm",
       "sac",
       "sar_gmm"
@@ -100164,7 +100097,6 @@
       "sp.sar",
       "sp.sem",
       "sp.impacts",
-      "sem",
       "sdm",
       "sac",
       "sar_gmm"
@@ -100325,9 +100257,7 @@
       "sp.sar",
       "sp.sem",
       "sp.impacts",
-      "sem",
       "sdm",
-      "sac",
       "sar_gmm"
     ],
     "assumptions": [
@@ -100467,7 +100397,6 @@
       "sp.sar",
       "sp.sem",
       "sp.impacts",
-      "sem",
       "sdm",
       "sac",
       "sar_gmm"
@@ -100603,10 +100532,8 @@
       "sp.sar",
       "sp.sem",
       "sp.impacts",
-      "sem",
       "sdm",
-      "sac",
-      "sar_gmm"
+      "sac"
     ],
     "assumptions": [
       "GMM spatial estimators (Kelejian-Prucha) do not need normality but rely on the instrument set built from W X, W^2 X",
@@ -100755,7 +100682,6 @@
       "sp.sar",
       "sp.sem",
       "sp.impacts",
-      "sem",
       "sdm",
       "sac",
       "sar_gmm"
@@ -100911,7 +100837,6 @@
       "sp.sar",
       "sp.sem",
       "sp.impacts",
-      "sem",
       "sdm",
       "sac",
       "sar_gmm"
@@ -101057,7 +100982,6 @@
       "sp.sar",
       "sp.sem",
       "sp.impacts",
-      "sem",
       "sdm",
       "sac",
       "sar_gmm"
@@ -102632,7 +102556,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -102814,7 +102737,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -102975,7 +102897,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -103463,7 +103384,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -103642,7 +103562,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -103807,7 +103726,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -103991,7 +103909,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -104158,7 +104075,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -104295,7 +104211,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -104485,7 +104400,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -104640,7 +104554,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -104770,7 +104683,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -105181,7 +105093,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -105377,7 +105288,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -105498,7 +105408,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [
@@ -106256,8 +106165,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -107867,8 +107774,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -108013,8 +107918,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -110654,8 +110557,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -117284,8 +117185,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -117573,8 +117472,6 @@
       "sp.metalearner",
       "sp.dml",
       "did_forest",
-      "metalearner",
-      "dml",
       "multi_arm_forest",
       "iv_forest"
     ],
@@ -120935,7 +120832,6 @@
       "sp.gelbach",
       "dfl_decompose",
       "ffl_decompose",
-      "oaxaca",
       "rif_decomposition"
     ],
     "assumptions": [

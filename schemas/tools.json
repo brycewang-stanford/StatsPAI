@@ -54,7 +54,7 @@
     "name": "a_learning"
   },
   {
-    "description": "OLS with absorbed high-dimensional fixed effects (reghdfe-style). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Conditional mean independence: E[u|X] = 0; No perfect collinearity; For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3'). Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.iv. Typical minimum N: 30.",
+    "description": "OLS with absorbed high-dimensional fixed effects (reghdfe-style). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Conditional mean independence: E[u|X] = 0; No perfect collinearity; For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3'). Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.heckman. Typical minimum N: 30.",
     "input_schema": {
       "properties": {
         "X": {
@@ -6296,7 +6296,7 @@
     "name": "decompose"
   },
   {
-    "description": "Return the within-transformed ``x`` and the singleton keep mask. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Conditional mean independence: E[u|X] = 0; No perfect collinearity; For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3'). Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.iv. Typical minimum N: 30.",
+    "description": "Return the within-transformed ``x`` and the singleton keep mask. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Conditional mean independence: E[u|X] = 0; No perfect collinearity; For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3'). Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.heckman. Typical minimum N: 30.",
     "input_schema": {
       "properties": {
         "drop_singletons": {
@@ -10670,7 +10670,7 @@
     "name": "evalue_rr"
   },
   {
-    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: certified parity evidence. Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna. Cost: One OLS with window x cohort dummies; O(n x window). Assumptions: Parallel trends across event time; No anticipation beyond window lead; SUTVA. Pre-conditions: panel with unit x time x outcome; treat_time column gives first-treatment period (or 0/NaN). Failure modes: Staggered heterogeneity -- TWFE event-study biased -> Use sp.sun_abraham for contamination-robust event-study coefficients. Alternatives: sp.sun_abraham, sp.callaway_santanna, sp.did_imputation, sp.sp.sun_ab...",
+    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: certified parity evidence. Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna. Cost: One OLS with window x cohort dummies; O(n x window). Assumptions: Parallel trends across event time; No anticipation beyond window lead; SUTVA. Pre-conditions: panel with unit x time x outcome; treat_time column gives first-treatment period (or 0/NaN). Failure modes: Staggered heterogeneity -- TWFE event-study biased -> Use sp.sun_abraham for contamination-robust event-study coefficients. Alternatives: sp.sun_abraham, sp.callaway_santanna, sp.did_imputation, sp.sp.aggte....",
     "input_schema": {
       "properties": {
         "absorb": {
@@ -15646,7 +15646,7 @@
     "name": "ivprobit"
   },
   {
-    "description": "Instrumental-variable quantile regression (Chernozhukov-Hansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function; Conditional mean independence: E[u|X] = 0; No perfect collinearity. Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.iv...",
+    "description": "Instrumental-variable quantile regression (Chernozhukov-Hansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Quantile IV (ivqreg): rank invariance / monotonicity of the structural quantile function; Conditional mean independence: E[u|X] = 0; No perfect collinearity. Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.he...",
     "input_schema": {
       "properties": {
         "add_constant": {
@@ -16892,6 +16892,10 @@
           "default": 0.05,
           "description": "1 - confidence level",
           "type": "number"
+        },
+        "blocks": {
+          "description": "Blocks (strata) within which treatment was randomized: the regression is fitted in each block and the estimates are combined with the block shares of the sample. Every block needs more units in each arm than covariates; not available with cluster= or superpopulation=",
+          "type": "string"
         },
         "cluster": {
           "description": "Clusters assigned to treatment as a whole",
@@ -30419,7 +30423,7 @@
     "name": "spillover_did"
   },
   {
-    "description": "Simultaneous quantile regression at multiple quantiles. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Conditional mean independence: E[u|X] = 0; No perfect collinearity; For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3'). Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.iv. Typical minimum N: 30.",
+    "description": "Simultaneous quantile regression at multiple quantiles. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Conditional mean independence: E[u|X] = 0; No perfect collinearity; For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3'). Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.heckman. Typical minimum N: 30.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -30675,7 +30679,7 @@
     "name": "stacked_did"
   },
   {
-    "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead. Cost: fisher=True re-solves the estimator n_fisher times. Assumptions: treatment timing is randomly assigned; balanced panel. Pre-conditions: balanced panel with at least two cohorts; Balanced panel with randomised adoption timing. Failure modes: se_type='adjusted' smaller than se_type='neyman' -> Both are valid; 'adjusted' uses the pre-period covariance that random timing identifies and is what R staggered prints. Report which one you used. Alternatives: sp.staggered_rollout, sp.staggered_sa, sp.callaway_santanna, sp.sp.staggered_rollout. Typical minimum...",
+    "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead. Cost: fisher=True re-solves the estimator n_fisher times. Assumptions: treatment timing is randomly assigned; balanced panel. Pre-conditions: balanced panel with at least two cohorts; Balanced panel with randomised adoption timing. Failure modes: se_type='adjusted' smaller than se_type='neyman' -> Both are valid; 'adjusted' uses the pre-period covariance that random timing identifies and is what R staggered prints. Report which one you used. Alternatives: sp.staggered_rollout, sp.staggered_sa, sp.callaway_santanna. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -30881,7 +30885,7 @@
     "name": "staggered_rollout"
   },
   {
-    "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead. Cost: fisher=True re-solves the estimator n_fisher times. Assumptions: treatment timing is randomly assigned; balanced panel. Pre-conditions: balanced panel with at least two cohorts; Balanced panel with randomised adoption timing and a last-treated cohort large enough to serve as the only control. Failure modes: Wide standard errors relative to sp.staggered_cs -> Only the last-treated cohort is the control here; if it is small the CS estimand (all not-yet-treated as controls) is more precise. Alternatives: sp.staggered_rollout, sp.staggered_cs, sp.sun_abraham, sp.sp.staggered_cs. Typical minimum N: 50.",
+    "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead. Cost: fisher=True re-solves the estimator n_fisher times. Assumptions: treatment timing is randomly assigned; balanced panel. Pre-conditions: balanced panel with at least two cohorts; Balanced panel with randomised adoption timing and a last-treated cohort large enough to serve as the only control. Failure modes: Wide standard errors relative to sp.staggered_cs -> Only the last-treated cohort is the control here; if it is small the CS estimand (all not-yet-treated as controls) is more precise. Alternatives: sp.staggered_rollout, sp.staggered_cs, sp.sun_abraham. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -31581,7 +31585,7 @@
     "name": "super_learner"
   },
   {
-    "description": "Seemingly Unrelated Regression (SUR). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation; Conditional mean independence: E[u|X] = 0; No perfect collinearity. Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.iv. Typical minimum N: 3...",
+    "description": "Seemingly Unrelated Regression (SUR). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation; Conditional mean independence: E[u|X] = 0; No perfect collinearity. Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.heckman. Typical minimum...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -33423,7 +33427,7 @@
     "name": "test"
   },
   {
-    "description": "Three-Stage Least Squares (3SLS). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation; Conditional mean independence: E[u|X] = 0; No perfect collinearity. Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Hansen J-test rejects over-identifying restrictions -> At least one moment condition is invalid; drop the suspect instruments rather than the test; Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250). Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.i...",
+    "description": "Three-Stage Least Squares (3SLS). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: SUR / 3SLS gain efficiency only when errors are correlated across equations and regressors differ; 3SLS additionally needs valid instruments in every equation; Conditional mean independence: E[u|X] = 0; No perfect collinearity. Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Hansen J-test rejects over-identifying restrictions -> At least one moment condition is invalid; drop the suspect instruments rather than the test; Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250). Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.h...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -33536,6 +33540,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "formula": {
+          "description": "'y ~ x1 + I(x1**2) + C(g)' in place of y= and x=; transformed, factor and interaction terms are built as columns and named as sp.regress names them",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
         "ll": {
           "default": 0.0,
           "description": "Lower censoring limit (set -inf for none)",
@@ -33567,7 +33576,7 @@
           "x-statspai-role": "column"
         },
         "x": {
-          "description": "Regressors",
+          "description": "Regressors (with y=, unless formula=)",
           "items": {
             "type": "string"
           },
@@ -33577,15 +33586,12 @@
           ]
         },
         "y": {
-          "description": "Censored outcome variable",
+          "description": "Censored outcome variable (with x=, unless formula= is given)",
           "type": "string",
           "x-statspai-role": "column"
         }
       },
-      "required": [
-        "x",
-        "y"
-      ],
+      "required": [],
       "type": "object"
     },
     "name": "tobit"

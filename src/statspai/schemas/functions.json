@@ -351,6 +351,11 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "formula": {
+          "description": "'y ~ x1 + I(x1**2) + C(g)' in place of y= and x=; transformed, factor and interaction terms are built as columns and named as sp.regress names them",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
         "ll": {
           "default": 0.0,
           "description": "Lower censoring limit (set -inf for none)",
@@ -382,7 +387,7 @@
           "x-statspai-role": "column"
         },
         "x": {
-          "description": "Regressors",
+          "description": "Regressors (with y=, unless formula=)",
           "items": {
             "type": "string"
           },
@@ -392,15 +397,13 @@
           ]
         },
         "y": {
-          "description": "Censored outcome variable",
+          "description": "Censored outcome variable (with x=, unless formula= is given)",
           "type": "string",
           "x-statspai-role": "column"
         }
       },
       "required": [
-        "data",
-        "y",
-        "x"
+        "data"
       ],
       "type": "object"
     }
@@ -5572,6 +5575,10 @@
           "default": 0.05,
           "description": "1 - confidence level",
           "type": "number"
+        },
+        "blocks": {
+          "description": "Blocks (strata) within which treatment was randomized: the regression is fitted in each block and the estimates are combined with the block shares of the sample. Every block needs more units in each arm than covariates; not available with cluster= or superpopulation=",
+          "type": "string"
         },
         "cluster": {
           "description": "Clusters assigned to treatment as a whole",

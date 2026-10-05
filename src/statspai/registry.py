@@ -1361,8 +1361,25 @@ def _build_registry() -> None:
             description="Tobit model for censored dependent variables.",
             params=[
                 ParamSpec("data", "DataFrame", True),
-                ParamSpec("y", "str", True, description="Censored outcome variable"),
-                ParamSpec("x", "list", True, description="Regressors"),
+                ParamSpec(
+                    "y",
+                    "str",
+                    False,
+                    None,
+                    "Censored outcome variable (with x=, unless formula= is given)",
+                ),
+                ParamSpec(
+                    "x", "list", False, None, "Regressors (with y=, unless formula=)"
+                ),
+                ParamSpec(
+                    "formula",
+                    "str",
+                    False,
+                    None,
+                    "'y ~ x1 + I(x1**2) + C(g)' in place of y= and x=; "
+                    "transformed, factor and interaction terms are built as "
+                    "columns and named as sp.regress names them",
+                ),
                 ParamSpec(
                     "ll",
                     "float",
@@ -8040,6 +8057,17 @@ def _build_registry() -> None:
                     "(population rather than sample average effect)",
                 ),
                 ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+                ParamSpec(
+                    "blocks",
+                    "str",
+                    False,
+                    None,
+                    "Blocks (strata) within which treatment was randomized: "
+                    "the regression is fitted in each block and the estimates "
+                    "are combined with the block shares of the sample. Every "
+                    "block needs more units in each arm than covariates; not "
+                    "available with cluster= or superpopulation=",
+                ),
             ],
             returns="CausalResult",
             example='sp.lm_lin(df, "y", "treat", ["age", "female"])',
