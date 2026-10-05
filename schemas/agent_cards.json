@@ -135,6 +135,13 @@
             "description": "With robust='hac': autocovariances in the Newey-West estimator (Stata newey lag(#)). Default floor(4*(T/100)^(2/9)). Rows must be in time order",
             "type": "integer"
           },
+          "hac_panel": {
+            "description": "With robust='hac' on panel data: [unit, time] columns; autocovariances within units at exact time lags (Stata newey, force on xtset data; plm::vcovNW)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "hac_small": {
             "default": false,
             "description": "With robust='hac': scale the covariance by N/(N-K), as Stata's newey and sandwich::NeweyWest(adjust=TRUE)",
@@ -566,7 +573,7 @@
       "tests/external_parity/test_causalml_book.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_dogan_python_econometrics.py",
-      "tests/external_parity/test_published_replications.py"
+      "tests/external_parity/test_gow_ding_accounting.py"
     ],
     "validation_status": "certified"
   },
@@ -12058,6 +12065,122 @@
   {
     "alias_of": null,
     "alternatives": [
+      "prtest",
+      "ttest"
+    ],
+    "assumptions": [
+      "Independent trials with the same success probability",
+      "The null probability is fixed in advance, not estimated from the same data"
+    ],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "Exact binomial test that a share equals p (Stata bitest / bitesti, R binom.test). The two-sided p-value sums the probabilities of every outcome no more likely than the one observed. Takes a 0/1 column, or the number of trials and successes. Returns both one-sided p-values, the two-sided one and a Clopper-Pearson interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_gow_ding_accounting.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bitest(n=41, successes=25, p=0.5)",
+    "failure_modes": [
+      {
+        "alternative": "regress",
+        "exception": "(none -- informational)",
+        "remedy": "The exact binomial p-value is too small; test the proportion with clustered standard errors",
+        "symptom": "Trials are clustered or serially dependent (the same firm in several years)"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bitest",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "A 0/1 column, or the number of trials and of successes"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "BiTestResult",
+      "description": "BiTestResult",
+      "fields": {
+        "alpha": "float",
+        "ci": "Tuple[float, float]",
+        "k_opposite": "Optional[int]",
+        "n_obs": "int",
+        "p_null": "float",
+        "pvalue": "float",
+        "pvalue_greater": "float",
+        "pvalue_less": "float",
+        "successes": "int"
+      }
+    },
+    "signature": {
+      "description": "Exact binomial test that a share equals p (Stata bitest / bitesti, R binom.test). The two-sided p-value sums the probabilities of every outcome no more likely than the one observed. Takes a 0/1 column, or the number of trials and successes. Returns both one-sided p-values, the two-sided one and a Clopper-Pearson interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "bitest",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "n": {
+            "description": "Trials (immediate form)",
+            "type": "integer"
+          },
+          "p": {
+            "default": 0.5,
+            "description": "Share under the null",
+            "type": "number"
+          },
+          "successes": {
+            "description": "Successes (immediate form)",
+            "type": "integer"
+          },
+          "y": {
+            "description": "0/1 column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 1,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gow_ding_accounting.py",
+      "tests/reference_parity/test_bitest_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "ttest",
       "ksmirnov",
       "median_test",
@@ -12988,11 +13111,15 @@
     "alias_of": null,
     "alternatives": [
       "ranksum",
-      "kwallis"
+      "kwallis",
+      "ttest",
+      "qreg"
     ],
     "assumptions": [
       "Independent groups of independent observations",
-      "An outcome that is at least ordinal; observations equal to the pooled median are counted as not above it"
+      "An outcome that is at least ordinal; observations equal to the pooled median are counted as not above it",
+      "Independent samples",
+      "The groups are compared by the share of observations above the pooled median, which tests equality of medians without a distributional assumption"
     ],
     "category": "inference",
     "cost_profile": "",
@@ -13018,17 +13145,29 @@
       "tolerance": "chi-squared, its continuity-corrected form and p-value 1e-9 rel"
     },
     "example": "sp.median_test(df, \"income\", by=\"female\")",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "ttest",
+        "exception": "(none -- informational)",
+        "remedy": "The split of the ties decides the result; state the rule used or compare distributions another way",
+        "symptom": "Many observations tied at the pooled median"
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "median_test",
     "not_recommended_when": [],
-    "pre_conditions": [],
+    "pre_conditions": [
+      "A numeric or ordinal outcome and a grouping column"
+    ],
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
-      "returns": "curated"
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
     },
     "reference": "",
     "returns": {
@@ -13074,7 +13213,7 @@
       }
     },
     "stability": "stable",
-    "typical_n_min": null,
+    "typical_n_min": 20,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 median [Stata 18]; tolerance chi-squared, its continuity-corrected form and p-value 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
     ],
@@ -13508,6 +13647,166 @@
       "Cross-language parity (bit-exact) vs Stata 18 estat gof and estat gof, group() [Stata 18]; tolerance chi-squared and degrees of freedom 1e-5 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "regress",
+      "median_test",
+      "sdtest",
+      "prtest"
+    ],
+    "assumptions": [
+      "Independent observations within each group (paired differences for a paired test)",
+      "Sample means approximately normal: normal data or a sample large enough for the central limit theorem",
+      "Equal variances only when the pooled test is requested"
+    ],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_ding_first_course.py",
+        "tests/external_parity/test_facure_causal_inference_in_python.py",
+        "tests/external_parity/test_maitra_static_dynamic.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.ttest(df, \"wage\", by=\"female\", unequal=True)",
+    "failure_modes": [
+      {
+        "alternative": "regress",
+        "exception": "(none -- informational)",
+        "remedy": "Regress the outcome on the group indicator with clustered standard errors",
+        "symptom": "Clustered or repeated observations treated as independent"
+      },
+      {
+        "alternative": "median_test",
+        "exception": "(none -- informational)",
+        "remedy": "Compare medians or ranks instead",
+        "symptom": "Heavy tails or gross outliers in a small sample"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ttest",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "A numeric outcome; for two samples a grouping column with exactly two values"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "TTestResult",
+      "description": "TTestResult",
+      "fields": {
+        "alpha": "float",
+        "ci": "Tuple[float, float]",
+        "df": "float",
+        "estimate": "float",
+        "groups": "pd.DataFrame",
+        "method": "str",
+        "n_obs": "int",
+        "null": "float",
+        "pvalue": "float",
+        "pvalue_greater": "float",
+        "pvalue_less": "float",
+        "se": "float",
+        "statistic": "float"
+      }
+    },
+    "signature": {
+      "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "ttest",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "by": {
+            "description": "Grouping column with exactly two values; the estimate is mean(lower group) - mean(higher group)",
+            "type": "string"
+          },
+          "data": {
+            "description": "A Series or one-dimensional array is tested against ``mu`` as it is, with no ``y``.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "mean": {
+            "description": "Sample mean (summary form)",
+            "type": "number"
+          },
+          "mu": {
+            "default": 0.0,
+            "description": "Null value",
+            "type": "number"
+          },
+          "n": {
+            "description": "Observations (summary form)",
+            "type": "integer"
+          },
+          "other": {
+            "description": "Second variable: paired test on y - other, or two independent samples with paired=False",
+            "type": "string"
+          },
+          "paired": {
+            "default": true,
+            "description": "Only used with other=",
+            "type": "boolean"
+          },
+          "sd": {
+            "description": "Sample standard deviation (summary form)",
+            "type": "number"
+          },
+          "unequal": {
+            "default": false,
+            "description": "Do not pool the two variances (Satterthwaite df)",
+            "type": "boolean"
+          },
+          "welch": {
+            "default": false,
+            "description": "Unequal variances with Welch's df (Stata welch)",
+            "type": "boolean"
+          },
+          "y": {
+            "description": "Variable whose mean is tested",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 20,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_difference_in_means_estimatr.py",
+      "tests/reference_parity/test_dynamic_modelling_parity.py",
+      "tests/reference_parity/test_ttest_known_values.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -15287,6 +15586,591 @@
       "tests/reference_parity/test_linear_model_extensions_parity.py"
     ],
     "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "regress",
+      "feols",
+      "panel",
+      "twoway_cluster"
+    ],
+    "assumptions": [
+      "The per-period coefficient estimates are uncorrelated over time (lags=0), or their autocorrelation dies out within the chosen lags",
+      "Errors may be arbitrarily correlated across units within a period",
+      "Enough periods for a t(T - 1) reference distribution"
+    ],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Fama-MacBeth two-step regression: one cross-sectional OLS per period, coefficients averaged over periods, standard errors from the variation of the per-period estimates, with an optional Newey-West correction of the coefficient series. R plm::pmg, Stata xtfmb / asreg fmb. Returns the averages with t(T - 1) inference, the per-period coefficients and the average cross-sectional R-squared. Validation: certified parity evidence. Do NOT use when: The dependence is within units over time rather than across units within a period: the standard error is then biased downward by as much as OLS's; Few periods (T below about 10): the standard error is itself estimated from T numbers.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "plm::pmg; sandwich::NeweyWest on the coefficient series; Stata 18 xtfmb (with and without lag())",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "plm": "2.6.7",
+        "sandwich": "3.1.1"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/_fixtures/accounting_research_R.json",
+        "tests/reference_parity/_fixtures/accounting_research_Stata.csv"
+      ],
+      "tolerance": "coefficients, covariance and Newey-West SE 1e-9 rel (R); 1e-6 rel (xtfmb keeps the per-period estimates as floats)"
+    },
+    "example": "sp.fama_macbeth(\"ret ~ beta + size\", df, time=\"month\", lags=3)",
+    "failure_modes": [
+      {
+        "alternative": "sp.regress(cluster=['firm', 'year'])",
+        "exception": "",
+        "remedy": "The Fama-MacBeth standard error is too small, with or without lags; cluster by unit or by unit and period instead.",
+        "symptom": "A persistent unit effect in both regressor and error (the same firm in every period)"
+      },
+      {
+        "alternative": "",
+        "exception": "UserWarning",
+        "remedy": "The period is left out and listed in model_info['skipped_periods'].",
+        "symptom": "A period has no more observations than coefficients, or collinear regressors"
+      },
+      {
+        "alternative": "sp.regress",
+        "exception": "DataInsufficient",
+        "remedy": "Check time= and the size of each cross-section.",
+        "symptom": "Fewer than two estimable periods"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "fama_macbeth",
+    "not_recommended_when": [
+      "The dependence is within units over time rather than across units within a period: the standard error is then biased downward by as much as OLS's",
+      "Few periods (T below about 10): the standard error is itself estimated from T numbers"
+    ],
+    "pre_conditions": [
+      "Long-format panel with a period column",
+      "More observations than regressors in each period",
+      "At least two periods"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "fama1973risk",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Fama-MacBeth two-step regression: one cross-sectional OLS per period, coefficients averaged over periods, standard errors from the variation of the per-period estimates, with an optional Newey-West correction of the coefficient series. R plm::pmg, Stata xtfmb / asreg fmb. Returns the averages with t(T - 1) inference, the per-period coefficients and the average cross-sectional R-squared. Validation: certified parity evidence. Do NOT use when: The dependence is within units over time rather than across units within a period: the standard error is then biased downward by as much as OLS's; Few periods (T below about 10): the standard error is itself estimated from T numbers.",
+      "name": "fama_macbeth",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level of the confidence intervals.",
+            "type": "number"
+          },
+          "data": {
+            "description": "Long-format panel, one row per unit and period.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "e.g. 'ret ~ beta'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "lags": {
+            "default": 0,
+            "description": "Newey-West lags for the coefficient series; 0 is the textbook standard error",
+            "type": "integer"
+          },
+          "time": {
+            "description": "Period column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "formula",
+          "data",
+          "time"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 10,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs plm::pmg; sandwich::NeweyWest on the coefficient series; Stata 18 xtfmb (with and without lag()) [R version 4.5.2 (2025-10-31), Stata 18, plm 2.6.7, sandwich 3.1.1]; tolerance coefficients, covariance and Newey-West SE 1e-9 rel (R); 1e-6 rel (xtfmb keeps the per-period estimates as floats) -- tests/reference_parity/test_accounting_research_parity.py",
+      "tests/external_parity/test_gow_ding_accounting.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "regress",
+      "qreg",
+      "winsor"
+    ],
+    "assumptions": [
+      "The linear model describes the majority of the observations; the rest may be arbitrary",
+      "MM and S: fewer than half of the observations are contaminated",
+      "vce='huber': errors symmetric and independent of the regressors; vce='robust' needs neither"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Robust regression that bounds the influence of outliers: MM (S start, 50% breakdown, 85% efficiency by default), Huber or bisquare M, and S estimators. R robustbase::lmrob / MASS::rlm, Stata robreg. Returns coefficients, a sandwich or Huber-formula covariance, the residual scale and the robustness weight of every observation. Validation: certified parity evidence. Do NOT use when: The extreme observations are the population of interest (the largest firms): downweighting them answers a different question; Clustered or serially dependent data: the covariance assumes independent observations; method='m' with outliers in the regressors: a monotone M estimate has no protection against leverage points.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 robreg m / s / mm (Jann); robustbase::lmrob (coefficients, scale, weights); MASS::rlm (M estimates and Huber-formula SE)",
+      "reference_versions": {
+        "MASS": "7.3.65",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "robustbase": "0.99.7"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/_fixtures/accounting_research_R.json",
+        "tests/reference_parity/_fixtures/accounting_research_Stata.csv"
+      ],
+      "tolerance": "coefficients, scale and covariance 1e-6 rel (the references iterate to their own tolerance); lmrob scale 1e-9 rel"
+    },
+    "example": "sp.robreg(\"ta ~ big_n + cfo + size\", df, method=\"mm\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Drop the redundant regressor(s).",
+        "symptom": "Collinear regressors"
+      },
+      {
+        "alternative": "sp.regress",
+        "exception": "DataInsufficient",
+        "remedy": "An exact fit; describe those rows by least squares.",
+        "symptom": "More than half of the rows fitted exactly (scale zero)"
+      },
+      {
+        "alternative": "",
+        "exception": "RuntimeWarning",
+        "remedy": "Raise maxiter; with a redescending psi several solutions can exist, compare seeds.",
+        "symptom": "M step not converged"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "robreg",
+    "not_recommended_when": [
+      "The extreme observations are the population of interest (the largest firms): downweighting them answers a different question",
+      "Clustered or serially dependent data: the covariance assumes independent observations",
+      "method='m' with outliers in the regressors: a monotone M estimate has no protection against leverage points"
+    ],
+    "pre_conditions": [
+      "Clearly more observations than regressors",
+      "Regressors not collinear"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "yohai1987high",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Robust regression that bounds the influence of outliers: MM (S start, 50% breakdown, 85% efficiency by default), Huber or bisquare M, and S estimators. R robustbase::lmrob / MASS::rlm, Stata robreg. Returns coefficients, a sandwich or Huber-formula covariance, the residual scale and the robustness weight of every observation. Validation: certified parity evidence. Do NOT use when: The extreme observations are the population of interest (the largest firms): downweighting them answers a different question; Clustered or serially dependent data: the covariance assumes independent observations; method='m' with outliers in the regressors: a monotone M estimate has no protection against leverage points.",
+      "name": "robreg",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "breakdown": {
+            "default": 0.5,
+            "description": "S-step breakdown point",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "efficiency": {
+            "description": "Normal efficiency of the M step in (0, 1); default 0.85 for 'mm', 0.95 for 'm'",
+            "type": "number"
+          },
+          "formula": {
+            "description": "e.g. 'y ~ x1 + x2'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "init": {
+            "default": "ls",
+            "description": "Start of an M fit: least squares (rlm) or LAD (robreg m)",
+            "enum": [
+              "ls",
+              "lad"
+            ],
+            "type": "string"
+          },
+          "maxiter": {
+            "default": 500,
+            "description": "Iteration limit and relative coefficient tolerance.",
+            "type": "integer"
+          },
+          "method": {
+            "default": "mm",
+            "description": "Estimator; 'mm' is the general recommendation",
+            "enum": [
+              "mm",
+              "m",
+              "s"
+            ],
+            "type": "string"
+          },
+          "n_keep": {
+            "default": 25,
+            "description": "Candidates fully refined",
+            "type": "integer"
+          },
+          "n_resample": {
+            "default": 500,
+            "description": "Random starts of the S search",
+            "type": "integer"
+          },
+          "psi": {
+            "description": "rho function of the M step; huber for 'm' by default, bisquare for 'mm' and 's'",
+            "enum": [
+              "huber",
+              "bisquare"
+            ],
+            "type": "string"
+          },
+          "random_state": {
+            "default": 0,
+            "description": "Seed of the S search",
+            "type": "integer"
+          },
+          "scale": {
+            "default": "mad",
+            "description": "Scale of an M fit: 'mad' re-estimated each iteration (rlm), 'fixed' at the start (robreg m), or a number",
+            "type": "string"
+          },
+          "small": {
+            "default": true,
+            "description": "n / (n - k) factor on the sandwich (robreg); lmrob uses none",
+            "type": "boolean"
+          },
+          "tol": {
+            "default": 1e-10,
+            "description": "Iteration limit and relative coefficient tolerance.",
+            "type": "number"
+          },
+          "tuning": {
+            "description": "Tuning constant given directly instead of efficiency",
+            "type": "number"
+          },
+          "tuning_s": {
+            "description": "Bisquare constant of the S step; default exact for the breakdown point (lmrob: 1.54764)",
+            "type": "number"
+          },
+          "vce": {
+            "default": "robust",
+            "description": "Sandwich of the stacked equations, or Huber's formula",
+            "enum": [
+              "robust",
+              "huber"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 robreg m / s / mm (Jann); robustbase::lmrob (coefficients, scale, weights); MASS::rlm (M estimates and Huber-formula SE) [MASS 7.3.65, R version 4.5.2 (2025-10-31), Stata 18, robustbase 0.99.7]; tolerance coefficients, scale and covariance 1e-6 rel (the references iterate to their own tolerance); lmrob scale 1e-9 rel -- tests/reference_parity/test_accounting_research_parity.py",
+      "tests/external_parity/test_gow_ding_accounting.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "sensemakr",
+      "oster_bounds",
+      "evalue"
+    ],
+    "assumptions": [
+      "Linear regression with classical standard errors (an approximation with robust ones)",
+      "A single omitted variable, linear in its effects"
+    ],
+    "category": "robustness",
+    "cost_profile": "",
+    "description": "Impact threshold for a confounding variable (Frank 2000): how strongly an omitted variable would have to be correlated with outcome and regressor to move a coefficient to the significance threshold, benchmarked against the impacts of the controls in the model, plus the percent bias and RIR of Frank et al. (2013). Stata konfound / pkonfound. Returns a dict. Validation: certified parity evidence. Do NOT use when: As evidence that no confounder exists: the threshold describes how much confounding it would take, nothing more; When bounds on the coefficient itself are wanted.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 pkonfound (ITCV and RIR); the formula of Frank (2000) evaluated in R",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/_fixtures/accounting_research_R.json",
+        "tests/reference_parity/_fixtures/accounting_research_Stata.csv"
+      ],
+      "tolerance": "threshold, correlations and benchmark impacts 1e-9 rel (R); 1e-6 rel (pkonfound, fed rounded inputs)"
+    },
+    "example": "sp.itcv(sp.regress(\"y ~ d + x1 + x2\", df), \"d\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Pass a name from result.params.index.",
+        "symptom": "The variable is not a coefficient of the result"
+      },
+      {
+        "alternative": "sp.sensemakr",
+        "exception": "MethodIncompatibility",
+        "remedy": "The threshold is defined for linear regression.",
+        "symptom": "Result without residual degrees of freedom (a likelihood model)"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "itcv",
+    "not_recommended_when": [
+      "As evidence that no confounder exists: the threshold describes how much confounding it would take, nothing more",
+      "When bounds on the coefficient itself are wanted"
+    ],
+    "pre_conditions": [
+      "A result with finite residual degrees of freedom",
+      "For the benchmark: a result that keeps its design matrix (sp.regress)"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "frank2000impact",
+    "returns": {
+      "class": "dict",
+      "description": "dict",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Impact threshold for a confounding variable (Frank 2000): how strongly an omitted variable would have to be correlated with outcome and regressor to move a coefficient to the significance threshold, benchmarked against the impacts of the controls in the model, plus the percent bias and RIR of Frank et al. (2013). Stata konfound / pkonfound. Returns a dict. Validation: certified parity evidence. Do NOT use when: As evidence that no confounder exists: the threshold describes how much confounding it would take, nothing more; When bounds on the coefficient itself are wanted.",
+      "name": "itcv",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Two-sided significance level",
+            "type": "number"
+          },
+          "result": {
+            "description": "Fitted linear regression",
+            "type": "string"
+          },
+          "variable": {
+            "description": "Coefficient of interest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result",
+          "variable"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 30,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 pkonfound (ITCV and RIR); the formula of Frank (2000) evaluated in R [R version 4.5.2 (2025-10-31), Stata 18]; tolerance threshold, correlations and benchmark impacts 1e-9 rel (R); 1e-6 rel (pkonfound, fed rounded inputs) -- tests/reference_parity/test_accounting_research_parity.py",
+      "tests/external_parity/test_gow_ding_accounting.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "auc",
+      "roc_curve"
+    ],
+    "assumptions": [
+      "A binary outcome and a score where higher means more likely",
+      "The scores were produced out of sample"
+    ],
+    "category": "diagnostics",
+    "cost_profile": "",
+    "description": "Normalised discounted cumulative gain at k for a binary outcome: how many true cases a score puts at the very top of the ranking, the measure used for rare-event prediction such as accounting fraud. Returns a float in [0, 1]. Validation: certified parity evidence. Do NOT use when: Many tied scores at the cutoff: the value then depends on the order of the rows; The whole ranking matters rather than its top.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "farr::ndcg, evaluated in R from its definition",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/_fixtures/accounting_research_R.json"
+      ],
+      "tolerance": "1e-9 rel"
+    },
+    "example": "sp.ndcg(y, score, k=0.01)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Raise k or pass a count.",
+        "symptom": "k selects no case"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ndcg",
+    "not_recommended_when": [
+      "Many tied scores at the cutoff: the value then depends on the order of the rows",
+      "The whole ranking matters rather than its top"
+    ],
+    "pre_conditions": [
+      "No missing values in outcome or score"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "jarvelin2002cumulated",
+    "returns": {
+      "class": "float",
+      "description": "float",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Normalised discounted cumulative gain at k for a binary outcome: how many true cases a score puts at the very top of the ranking, the measure used for rare-event prediction such as accounting fraud. Returns a float in [0, 1]. Validation: certified parity evidence. Do NOT use when: Many tied scores at the cutoff: the value then depends on the order of the rows; The whole ranking matters rather than its top.",
+      "name": "ndcg",
+      "parameters": {
+        "properties": {
+          "k": {
+            "default": 0.01,
+            "description": "Fraction of cases in (0, 1), or a count of 1 or more",
+            "type": "number"
+          },
+          "scores": {
+            "description": "Predicted score",
+            "type": "string"
+          },
+          "y_true": {
+            "description": "0/1 outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "y_true",
+          "scores"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 100,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs farr::ndcg, evaluated in R from its definition [R version 4.5.2 (2025-10-31)]; tolerance 1e-9 rel -- tests/reference_parity/test_accounting_research_parity.py",
+      "tests/external_parity/test_gow_ding_accounting.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -67446,6 +68330,287 @@
   {
     "alias_of": null,
     "alternatives": [
+      "regress",
+      "sumstats",
+      "partial_corr_pvalue"
+    ],
+    "assumptions": [
+      "Pearson correlations measure linear association; the p-values assume independent observations",
+      "Pairwise deletion: each correlation uses the rows observed for that pair, so the entries can rest on different samples"
+    ],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Pairwise correlation matrix with significance stars. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "out = sp.pwcorr(df, vars=['log_wage', 'education', 'experience'])",
+    "failure_modes": [
+      {
+        "alternative": "regress",
+        "exception": "(none -- informational)",
+        "remedy": "The stars overstate significance; use a regression with clustered standard errors for inference",
+        "symptom": "Panel data: the same unit contributes many rows"
+      },
+      {
+        "alternative": "romano_wolf",
+        "exception": "(none -- informational)",
+        "remedy": "Adjust for multiple comparisons",
+        "symptom": "Many pairs tested at once"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "pwcorr",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "Two or more numeric columns"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "docstring",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "docstring",
+      "typical_n_min": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "str",
+      "description": "str or pd.DataFrame: Formatted correlation matrix. With output='dataframe' the correlation matrix is returned and the p-values and pairwise observation counts are attached as .attrs['pvalues'] and .attrs['nobs'] (both DataFrames).",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Pairwise correlation matrix with significance stars. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "pwcorr",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "decimals": {
+            "default": 3,
+            "description": "Decimal places.",
+            "type": "integer"
+          },
+          "listwise": {
+            "default": false,
+            "description": "Drop every row with a missing value in any of ``vars`` before computing all correlations (Stata ``listwise``).",
+            "type": "boolean"
+          },
+          "method": {
+            "default": "pearson",
+            "description": "``'pearson'``, ``'spearman'``, or ``'kendall'``.",
+            "enum": [
+              "pearson",
+              "spearman",
+              "kendall"
+            ],
+            "type": "string"
+          },
+          "obs": {
+            "default": false,
+            "description": "Print the number of observations used for each pair beneath the coefficient (Stata ``obs``) in text / LaTeX / HTML output.",
+            "type": "boolean"
+          },
+          "output": {
+            "default": "text",
+            "description": "``'text'``, ``'dataframe'``, ``'latex'``, ``'html'``.",
+            "enum": [
+              "text",
+              "dataframe",
+              "latex",
+              "html"
+            ],
+            "type": "string"
+          },
+          "stars": {
+            "default": true,
+            "description": "Show significance stars (* p<0.1, ** p<0.05, *** p<0.01).",
+            "type": "boolean"
+          },
+          "vars": {
+            "description": "Variables to correlate. Default: all numeric columns.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 30,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "robreg",
+      "qreg",
+      "sumstats"
+    ],
+    "assumptions": [
+      "The extreme values are errors or are not the population the analysis is about; winsorizing a correct heavy tail changes the estimand",
+      "The cut-offs are computed on the estimation sample (use subset= / by= when the regression uses part of the data)"
+    ],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Winsorize variables at specified percentiles. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_gow_ding_accounting.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "out = sp.winsor(df, vars=['log_wage'], cuts=(1, 99))",
+    "failure_modes": [
+      {
+        "alternative": "robreg",
+        "exception": "(none -- informational)",
+        "remedy": "Selecting on the outcome biases the slope towards zero; treat regressors only, or use a robust estimator that downweights instead of cutting",
+        "symptom": "Winsorizing or trimming the dependent variable of a regression"
+      },
+      {
+        "alternative": "",
+        "exception": "(none -- informational)",
+        "remedy": "The regression sample is the intersection; report its size",
+        "symptom": "trim=True on several variables removes a different set of rows for each"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "winsor",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "Numeric columns; missing values are left missing"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "docstring",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "docstring",
+      "typical_n_min": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "DataFrame",
+      "description": "pd.DataFrame: DataFrame with winsorized variables.",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Winsorize variables at specified percentiles. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "winsor",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Compute the cutoffs within groups, as ``winsor2 ..., by(g)``.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "cuts": {
+            "default": [
+              1,
+              99
+            ],
+            "description": "Lower and upper percentile cutoffs.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "method": {
+            "default": "stata",
+            "description": "Percentile definition. ``'stata'`` is Stata's ``_pctile`` default, used by ``winsor2`` (the empirical quantile, averaging the two order statistics when ``n p / 100`` is an integer; numpy's ``'averaged_inverted_cdf'``). Any other value is passed to :func:`numpy.percentile` as its ``method``; ``'linear'`` reproduces StatsPAI before 1.33.",
+            "type": "string"
+          },
+          "replace": {
+            "default": false,
+            "description": "If True, overwrite original columns. If False, create new columns with ``suffix``.",
+            "type": "boolean"
+          },
+          "subset": {
+            "description": "Rows used to compute the cutoffs and winsorized, as ``winsor2 ... if <cond>``: a :meth:`pandas.DataFrame.query` string such as ``\"year >= 2007 & year <= 2020\"`` or a boolean mask. Rows outside keep their value when ``replace=True`` and get NaN in the new column otherwise (Stata's ``generate ... if``).",
+            "type": "string"
+          },
+          "suffix": {
+            "default": "_w",
+            "description": "Suffix for new winsorized columns (when ``replace=False``).",
+            "type": "string"
+          },
+          "trim": {
+            "default": false,
+            "description": "Set the values beyond the cutoffs to missing instead of pulling them in (``winsor2 ..., trim``; truncation). The new columns then take the suffix ``'_tr'`` unless ``suffix`` is given. Trimming one variable at a time removes a different set of rows for each; a regression on several trimmed variables loses every row trimmed in any of them.",
+            "type": "boolean"
+          },
+          "vars": {
+            "description": "Variables to winsorize. Default: all numeric columns.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 100,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gow_ding_accounting.py",
+      "tests/reference_parity/test_accounting_research_parity.py",
+      "tests/reference_parity/test_winsor_winsor2_Stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "sp.panel",
       "sp.interactive_fe",
       "feols",
@@ -67960,8 +69125,8 @@
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"logit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 57_logit -- tests/r_parity/57_logit.py",
       "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/external_parity/test_ding_linear_model.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
-      "tests/reference_parity/test_binary_r2_and_scls_parity.py"
+      "tests/external_parity/test_gow_ding_accounting.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -68141,10 +69306,10 @@
       "R parity module 48_probit",
       "Stata parity module 48_probit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"probit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=0.01; parity module 48_probit -- tests/r_parity/48_probit.py",
+      "tests/external_parity/test_gow_ding_accounting.py",
       "tests/reference_parity/test_binary_r2_and_scls_parity.py",
       "tests/reference_parity/test_cmtest_micsr_parity.py",
-      "tests/reference_parity/test_count_weights_stata_parity.py",
-      "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"
+      "tests/reference_parity/test_count_weights_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -68706,9 +69871,9 @@
       "Stata parity module 58_poisson",
       "Cross-language parity (bit-exact) vs stats::glm(family=poisson()) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 58_poisson -- tests/r_parity/58_poisson.py",
       "tests/external_parity/test_ding_linear_model.py",
-      "tests/reference_parity/test_count_quantile_parity.py",
-      "tests/reference_parity/test_count_weights_stata_parity.py",
-      "tests/reference_parity/test_etpoisson_stata_parity.py"
+      "tests/external_parity/test_gow_ding_accounting.py",
+      "tests/reference_parity/test_accounting_research_parity.py",
+      "tests/reference_parity/test_count_quantile_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -69061,8 +70226,8 @@
       "Cross-language parity (aligned) vs Stata 18 margins, dydx(*) [Stata 18]; tolerance 1e-6 rel (observed 2.7e-7 AME / 7.5e-8 SE on probit and logit-with-interaction; <= 1e-10 otherwise) -- tests/reference_parity/test_postestimation_stata_parity.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/external_parity/test_facure_causal_inference_in_python.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py"
+      "tests/external_parity/test_gow_ding_accounting.py",
+      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -69531,7 +70696,7 @@
       "tests/external_parity/test_dcdh_did_textbook.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/external_parity/test_dogan_python_econometrics.py",
-      "tests/external_parity/test_maitra_static_dynamic.py"
+      "tests/external_parity/test_gow_ding_accounting.py"
     ],
     "validation_status": "certified"
   },
@@ -87394,7 +88559,7 @@
       "tests/r_parity/15_hdfe_cluster.py",
       "tests/r_parity/15_hdfe_cluster.R",
       "tests/stata_parity/15_hdfe_cluster.do",
-      "tests/reference_parity/test_castle_stata_parity.py"
+      "tests/external_parity/test_gow_ding_accounting.py"
     ],
     "validation_status": "certified"
   },
@@ -115846,8 +117011,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R pROC::auc; Stata roctab [R version 4.5.2 (2025-10-31), Stata 18 MP, pROC 1.19.0.1]; tolerance 1e-10 rel (observed 2e-16) -- tests/reference_parity/test_survival_epi_R_parity.py",
       "tests/external_parity/test_barrett_causal_inference_in_r.py",
-      "tests/reference_parity/test_auc_parity.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      "tests/external_parity/test_gow_ding_accounting.py",
+      "tests/reference_parity/test_accounting_research_parity.py",
+      "tests/reference_parity/test_auc_parity.py"
     ],
     "validation_status": "certified"
   },

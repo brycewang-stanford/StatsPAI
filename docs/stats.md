@@ -40,17 +40,17 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
 | `did` | 53,238 | 70 | 97 |
-| `agent` | 40,054 | 68 | 4 |
+| `agent` | 40,497 | 68 | 4 |
 | `synth` | 30,394 | 40 | 56 |
-| `regression` | 28,627 | 38 | 57 |
+| `regression` | 29,582 | 39 | 58 |
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 15,974 | 17 | 31 |
-| `inference` | 14,884 | 30 | 55 |
+| `inference` | 14,937 | 30 | 55 |
 | `output` | 14,193 | 22 | 42 |
 | `matching` | 12,593 | 18 | 29 |
-| `core` | 12,113 | 20 | 6 |
-| `panel` | 11,910 | 19 | 22 |
+| `panel` | 12,141 | 20 | 23 |
+| `core` | 12,133 | 20 | 6 |
 | `diagnostics` | 11,065 | 20 | 33 |
 | `timeseries` | 10,447 | 20 | 32 |
 | `decomposition` | 9,912 | 19 | 32 |
@@ -64,7 +64,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mendelian` | 5,187 | 13 | 41 |
 | `metalearners` | 5,164 | 10 | 25 |
 | `frontier` | 4,986 | 8 | 12 |
-| `utils` | 4,811 | 11 | 35 |
+| `utils` | 4,831 | 11 | 35 |
 | `survival` | 4,531 | 6 | 15 |
 | `workflow` | 4,512 | 5 | 3 |
 | `gmm` | 4,190 | 12 | 4 |
@@ -74,20 +74,20 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `tmle` | 3,696 | 6 | 11 |
 | `structural` | 3,576 | 9 | 12 |
 | `network` | 3,514 | 9 | 33 |
+| `robustness` | 3,490 | 7 | 12 |
 | `neural_causal` | 3,442 | 6 | 18 |
 | `postestimation` | 3,279 | 7 | 13 |
-| `robustness` | 3,279 | 6 | 11 |
 | `bounds` | 3,223 | 6 | 12 |
 | `bartik` | 3,183 | 6 | 9 |
 | `causal_llm` | 3,026 | 10 | 15 |
 | `conformal_causal` | 2,929 | 10 | 22 |
 | `rlasso` | 2,840 | 7 | 10 |
 | `crossval` | 2,809 | 7 | 2 |
-| `epi` | 2,569 | 6 | 20 |
+| `epi` | 2,645 | 6 | 21 |
 | `datasets` | 2,460 | 4 | 3 |
 | `interference` | 2,460 | 10 | 20 |
+| `fixest` | 2,190 | 3 | 4 |
 | `mediation` | 2,188 | 5 | 6 |
-| `fixest` | 2,149 | 3 | 4 |
 | `question` | 2,102 | 3 | 6 |
 | `policy_learning` | 2,072 | 5 | 8 |
 | `proximal` | 2,052 | 8 | 13 |
@@ -127,7 +127,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **555,492** | **949** | **1368** |
+| **Total** | **558,037** | **952** | **1372** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

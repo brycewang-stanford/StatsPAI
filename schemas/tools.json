@@ -2244,7 +2244,7 @@
     "name": "biprobit"
   },
   {
-    "description": "Exact binomial test that a share equals p (Stata bitest / bitesti, R binom.test). The two-sided p-value sums the probabilities of every outcome no more likely than the one observed. Takes a 0/1 column, or the number of trials and successes. Returns both one-sided p-values, the two-sided one and a Clopper-Pearson interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Exact binomial test that a share equals p (Stata bitest / bitesti, R binom.test). The two-sided p-value sums the probabilities of every outcome no more likely than the one observed. Takes a 0/1 column, or the number of trials and successes. Returns both one-sided p-values, the two-sided one and a Clopper-Pearson interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Independent trials with the same success probability; The null probability is fixed in advance, not estimated from the same data. Pre-conditions: A 0/1 column, or the number of trials and of successes. Failure modes: Trials are clustered or serially dependent (the same firm in several years) -> The exact binomial p-value is too small; test the proportion with clustered standard errors. Alternatives: sp.prtest, sp.ttest. Typical minimum N: 1.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -11578,6 +11578,39 @@
     "name": "fairlie"
   },
   {
+    "description": "Fama-MacBeth two-step regression: one cross-sectional OLS per period, coefficients averaged over periods, standard errors from the variation of the per-period estimates, with an optional Newey-West correction of the coefficient series. R plm::pmg, Stata xtfmb / asreg fmb. Returns the averages with t(T - 1) inference, the per-period coefficients and the average cross-sectional R-squared. Validation: certified parity evidence. Do NOT use when: The dependence is within units over time rather than across units within a period: the standard error is then biased downward by as much as OLS's; Few periods (T below about 10): the standard error is itself estimated from T numbers. Assumptions: The per-period coefficient estimates are uncorrelated over time (lags=0), or their autocorrelation dies out within the chosen lags; Errors may be arbitrarily correlated across units within a period; Enough periods for a t(T - 1) reference distribution. Pre-conditions: Long-format panel with a period column; More observations than regressors in each period; At least two periods. Failure modes: A persistent unit effect in both regressor and error (the same firm in every period) -> The Fama-MacBeth stand...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level of the confidence intervals.",
+          "type": "number"
+        },
+        "formula": {
+          "description": "e.g. 'ret ~ beta'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "lags": {
+          "default": 0,
+          "description": "Newey-West lags for the coefficient series; 0 is the textbook standard error",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Period column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "formula",
+        "time"
+      ],
+      "type": "object"
+    },
+    "name": "fama_macbeth"
+  },
+  {
     "description": "Run FCI. Returns a :class:`FCIResult` with the learned PAG. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.ges, sp.lingam. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
@@ -15864,6 +15897,32 @@
     "name": "irf"
   },
   {
+    "description": "Impact threshold for a confounding variable (Frank 2000): how strongly an omitted variable would have to be correlated with outcome and regressor to move a coefficient to the significance threshold, benchmarked against the impacts of the controls in the model, plus the percent bias and RIR of Frank et al. (2013). Stata konfound / pkonfound. Returns a dict. Validation: certified parity evidence. Do NOT use when: As evidence that no confounder exists: the threshold describes how much confounding it would take, nothing more; When bounds on the coefficient itself are wanted. Assumptions: Linear regression with classical standard errors (an approximation with robust ones); A single omitted variable, linear in its effects. Pre-conditions: A result with finite residual degrees of freedom; For the benchmark: a result that keeps its design matrix (sp.regress). Failure modes: The variable is not a coefficient of the result -> Pass a name from result.params.index; Result without residual degrees of freedom (a likelihood model) -> The threshold is defined for linear regression. Alternatives: sp.sensemakr, sp.oster_bounds, sp.evalue. Typical minimum N: 30.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Two-sided significance level",
+          "type": "number"
+        },
+        "result": {
+          "description": "Fitted linear regression",
+          "type": "string"
+        },
+        "variable": {
+          "description": "Coefficient of interest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result",
+        "variable"
+      ],
+      "type": "object"
+    },
+    "name": "itcv"
+  },
+  {
     "description": "Segmented regression for interrupted time series. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention. Assumptions: Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions; Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date. Pre-conditions: A regularly spaced time index without gaps; enough observations per parameter (rule of thumb: >= 50 for ARIMA, more for VAR / GARCH). Failure modes: Unit root detected in a series used in levels -> Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling. Alternatives: sp.sp.arima, sp.sp.causal_impact.",
     "input_schema": {
       "properties": {
@@ -19291,7 +19350,7 @@
     "name": "mccrary_test"
   },
   {
-    "description": "Median test (Stata median): classifies every observation as above the pooled median or not and tests independence of that from the group with Pearson's chi-squared; with two groups the continuity-corrected statistic is reported too. Validation: certified parity evidence. Assumptions: Independent groups of independent observations; An outcome that is at least ordinal; observations equal to the pooled median are counted as not above it. Alternatives: sp.ranksum, sp.kwallis.",
+    "description": "Median test (Stata median): classifies every observation as above the pooled median or not and tests independence of that from the group with Pearson's chi-squared; with two groups the continuity-corrected statistic is reported too. Validation: certified parity evidence. Assumptions: Independent groups of independent observations; An outcome that is at least ordinal; observations equal to the pooled median are counted as not above it; Independent samples. Pre-conditions: A numeric or ordinal outcome and a grouping column. Failure modes: Many observations tied at the pooled median -> The split of the ties decides the result; state the rule used or compare distributions another way. Alternatives: sp.ranksum, sp.kwallis, sp.ttest, sp.qreg. Typical minimum N: 20.",
     "input_schema": {
       "properties": {
         "by": {
@@ -21036,6 +21095,32 @@
       "type": "object"
     },
     "name": "nbreg"
+  },
+  {
+    "description": "Normalised discounted cumulative gain at k for a binary outcome: how many true cases a score puts at the very top of the ranking, the measure used for rare-event prediction such as accounting fraud. Returns a float in [0, 1]. Validation: certified parity evidence. Do NOT use when: Many tied scores at the cutoff: the value then depends on the order of the rows; The whole ranking matters rather than its top. Assumptions: A binary outcome and a score where higher means more likely; The scores were produced out of sample. Pre-conditions: No missing values in outcome or score. Failure modes: k selects no case -> Raise k or pass a count. Alternatives: sp.auc, sp.roc_curve. Typical minimum N: 100.",
+    "input_schema": {
+      "properties": {
+        "k": {
+          "default": 0.01,
+          "description": "Fraction of cases in (0, 1), or a count of 1 or more",
+          "type": "number"
+        },
+        "scores": {
+          "description": "Predicted score",
+          "type": "string"
+        },
+        "y_true": {
+          "description": "0/1 outcome",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scores",
+        "y_true"
+      ],
+      "type": "object"
+    },
+    "name": "ndcg"
   },
   {
     "description": "Regress outcome on a *negative-control exposure*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The negative-control exposure has no causal effect on the outcome by design (Lipsitch et al. 2010); It shares the same confounding structure as the real exposure. Pre-conditions: data has the outcome and a negative-control exposure column. Failure modes: Significant coefficient on the negative-control exposure signals residual confounding, not an effect -> Treat a non-zero coefficient as a confounding alarm; add covariates or run a sensitivity analysis. Alternatives: sp.negative_control_outcome, sp.sensemakr, sp.evalue. Typical minimum N: 100.",
@@ -30006,6 +30091,116 @@
     "name": "rlassologit_effects"
   },
   {
+    "description": "Robust regression that bounds the influence of outliers: MM (S start, 50% breakdown, 85% efficiency by default), Huber or bisquare M, and S estimators. R robustbase::lmrob / MASS::rlm, Stata robreg. Returns coefficients, a sandwich or Huber-formula covariance, the residual scale and the robustness weight of every observation. Validation: certified parity evidence. Do NOT use when: The extreme observations are the population of interest (the largest firms): downweighting them answers a different question; Clustered or serially dependent data: the covariance assumes independent observations; method='m' with outliers in the regressors: a monotone M estimate has no protection against leverage points. Assumptions: The linear model describes the majority of the observations; the rest may be arbitrary; MM and S: fewer than half of the observations are contaminated; vce='huber': errors symmetric and independent of the regressors; vce='robust' needs neither. Pre-conditions: Clearly more observations than regressors; Regressors not collinear. Failure modes: Collinear regressors -> Drop the redundant regressor(s); More than half of the rows fitted exactly (scale zero) -> An exact fit; descri...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "breakdown": {
+          "default": 0.5,
+          "description": "S-step breakdown point",
+          "type": "number"
+        },
+        "efficiency": {
+          "description": "Normal efficiency of the M step in (0, 1); default 0.85 for 'mm', 0.95 for 'm'",
+          "type": "number"
+        },
+        "formula": {
+          "description": "e.g. 'y ~ x1 + x2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "init": {
+          "default": "ls",
+          "description": "Start of an M fit: least squares (rlm) or LAD (robreg m)",
+          "enum": [
+            "ls",
+            "lad"
+          ],
+          "type": "string"
+        },
+        "maxiter": {
+          "default": 500,
+          "description": "Iteration limit and relative coefficient tolerance.",
+          "type": "integer"
+        },
+        "method": {
+          "default": "mm",
+          "description": "Estimator; 'mm' is the general recommendation",
+          "enum": [
+            "mm",
+            "m",
+            "s"
+          ],
+          "type": "string"
+        },
+        "n_keep": {
+          "default": 25,
+          "description": "Candidates fully refined",
+          "type": "integer"
+        },
+        "n_resample": {
+          "default": 500,
+          "description": "Random starts of the S search",
+          "type": "integer"
+        },
+        "psi": {
+          "description": "rho function of the M step; huber for 'm' by default, bisquare for 'mm' and 's'",
+          "enum": [
+            "huber",
+            "bisquare"
+          ],
+          "type": "string"
+        },
+        "random_state": {
+          "default": 0,
+          "description": "Seed of the S search",
+          "type": "integer"
+        },
+        "scale": {
+          "default": "mad",
+          "description": "Scale of an M fit: 'mad' re-estimated each iteration (rlm), 'fixed' at the start (robreg m), or a number",
+          "type": "string"
+        },
+        "small": {
+          "default": true,
+          "description": "n / (n - k) factor on the sandwich (robreg); lmrob uses none",
+          "type": "boolean"
+        },
+        "tol": {
+          "default": 1e-10,
+          "description": "Iteration limit and relative coefficient tolerance.",
+          "type": "number"
+        },
+        "tuning": {
+          "description": "Tuning constant given directly instead of efficiency",
+          "type": "number"
+        },
+        "tuning_s": {
+          "description": "Bisquare constant of the S step; default exact for the breakdown point (lmrob: 1.54764)",
+          "type": "number"
+        },
+        "vce": {
+          "default": "robust",
+          "description": "Sandwich of the stacked equations, or Huber's formula",
+          "enum": [
+            "robust",
+            "huber"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "formula"
+      ],
+      "type": "object"
+    },
+    "name": "robreg"
+  },
+  {
     "description": "Robust / unconstrained Synthetic Control. Validation: certified parity evidence. Do NOT use when: negative weights are not interpretable for the application -- the unconstrained fit extrapolates outside the donor hull. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N:...",
     "input_schema": {
       "properties": {
@@ -35523,7 +35718,7 @@
     "name": "truncreg"
   },
   {
-    "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Independent observations within each group (paired differences for a paired test); Sample means approximately normal: normal data or a sample large enough for the central limit theorem; Equal variances only when the pooled test is requested. Pre-conditions: A numeric outcome; for two samples a grouping column with exactly two values. Failure modes: Clustered or repeated observations treated as independent -> Regress the outcome on the group indicator with clustered standard errors; Heavy tails or gross outliers in a small sample -> Compare medians or ranks instead. Alternatives: sp.regress, sp.median_test, sp.sdtest, sp.prtest. Typical...",
     "input_schema": {
       "properties": {
         "alpha": {

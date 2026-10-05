@@ -581,6 +581,8 @@
     {
       "additional_tests": [
         "tests/external_parity/test_barrett_causal_inference_in_r.py",
+        "tests/external_parity/test_gow_ding_accounting.py",
+        "tests/reference_parity/test_accounting_research_parity.py",
         "tests/reference_parity/test_auc_parity.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
@@ -1455,19 +1457,25 @@
       "tolerance": "coef / rho 1e-6 abs (observed <= 2e-7); logLik 1e-6 rel"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_bitest_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "bitest",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_bitest_stata_parity.py"
+        "tests/external_parity/test_gow_ding_accounting.py"
       ],
       "tolerance": ""
     },
@@ -5910,6 +5918,7 @@
       "status": "external-replication",
       "test": [
         "tests/external_parity/test_ding_linear_model.py",
+        "tests/external_parity/test_gow_ding_accounting.py",
         "tests/external_parity/test_maitra_static_dynamic.py"
       ],
       "tolerance": ""
@@ -6409,6 +6418,39 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_gow_ding_accounting.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "fama_macbeth",
+      "notes": [
+        "Frozen-R and frozen-Stata fixtures on a committed synthetic panel, balanced and with 60 firm-years removed."
+      ],
+      "reference": "plm::pmg; sandwich::NeweyWest on the coefficient series; Stata 18 xtfmb (with and without lag())",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "plm": "2.6.7",
+        "sandwich": "3.1.1"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/_fixtures/accounting_research_R.json",
+        "tests/reference_parity/_fixtures/accounting_research_Stata.csv"
+      ],
+      "tolerance": "coefficients, covariance and Newey-West SE 1e-9 rel (R); 1e-6 rel (xtfmb keeps the per-period estimates as floats)"
+    },
+    {
       "function": "fci",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -6539,6 +6581,8 @@
         "tests/r_parity/15_hdfe_cluster.py",
         "tests/r_parity/15_hdfe_cluster.R",
         "tests/stata_parity/15_hdfe_cluster.do",
+        "tests/external_parity/test_gow_ding_accounting.py",
+        "tests/reference_parity/test_accounting_research_parity.py",
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_fast_feols_weights_fixest_parity.py",
@@ -6555,6 +6599,7 @@
         "15_hdfe_cluster"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -8932,6 +8977,37 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_gow_ding_accounting.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "itcv",
+      "notes": [
+        "Frozen-R and frozen-Stata fixtures. pkonfound counts degrees of freedom as n - ncov - 2; the comparison is made at its count."
+      ],
+      "reference": "Stata 18 pkonfound (ITCV and RIR); the formula of Frank (2000) evaluated in R",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/_fixtures/accounting_research_R.json",
+        "tests/reference_parity/_fixtures/accounting_research_Stata.csv"
+      ],
+      "tolerance": "threshold, correlations and benchmark impacts 1e-9 rel (R); 1e-6 rel (pkonfound, fed rounded inputs)"
+    },
+    {
+      "additional_tests": [
         "tests/reference_parity/test_timeseries_parity.py"
       ],
       "also_verified_by": [
@@ -9193,6 +9269,7 @@
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/external_parity/test_gow_ding_accounting.py",
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_iv_first_stage_f_stata_parity.py",
         "tests/reference_parity/test_iv_parity.py",
@@ -10249,6 +10326,7 @@
       "additional_tests": [
         "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_ding_linear_model.py",
+        "tests/external_parity/test_gow_ding_accounting.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_binary_r2_and_scls_parity.py",
         "tests/reference_parity/test_cmtest_micsr_parity.py",
@@ -10821,6 +10899,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_facure_causal_inference_in_python.py",
+        "tests/external_parity/test_gow_ding_accounting.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
@@ -12781,6 +12860,34 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.005"
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_gow_ding_accounting.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "ndcg",
+      "notes": [
+        "Frozen-R fixture on a committed synthetic score."
+      ],
+      "reference": "farr::ndcg, evaluated in R from its definition",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/_fixtures/accounting_research_R.json"
+      ],
+      "tolerance": "1e-9 rel"
+    },
+    {
       "function": "negative_control_exposure",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -14056,6 +14163,8 @@
     {
       "additional_tests": [
         "tests/external_parity/test_ding_linear_model.py",
+        "tests/external_parity/test_gow_ding_accounting.py",
+        "tests/reference_parity/test_accounting_research_parity.py",
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_etpoisson_stata_parity.py",
@@ -14915,6 +15024,7 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_gow_ding_accounting.py",
         "tests/reference_parity/test_binary_r2_and_scls_parity.py",
         "tests/reference_parity/test_cmtest_micsr_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
@@ -14926,6 +15036,7 @@
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -16801,9 +16912,11 @@
         "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_dogan_python_econometrics.py",
         "tests/external_parity/test_facure_causal_inference_in_python.py",
+        "tests/external_parity/test_gow_ding_accounting.py",
         "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/external_parity/test_published_replications.py",
         "tests/external_parity/test_whatif_nhefs.py",
+        "tests/reference_parity/test_accounting_research_parity.py",
         "tests/reference_parity/test_assimilation_parity.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_conley_acreg_spacetime_parity.py",
@@ -17382,6 +17495,39 @@
         "tests/reference_parity/_fixtures/rlassologit_effect_R.json"
       ],
       "tolerance": "coef / se atol 1e-6 (observed rel 8.6e-16 / 2.5e-14)"
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_gow_ding_accounting.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "robreg",
+      "notes": [
+        "Frozen-R and frozen-Stata fixtures. The sandwich covariance is compared with robreg; lmrob's default standard errors differ by up to 8e-6 for a reason not located and are bounded, not claimed. The scale of robreg m is compared at robreg's own value: its rule for dropping zero LAD residuals depends on rounding."
+      ],
+      "reference": "Stata 18 robreg m / s / mm (Jann); robustbase::lmrob (coefficients, scale, weights); MASS::rlm (M estimates and Huber-formula SE)",
+      "reference_versions": {
+        "MASS": "7.3.65",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "robustbase": "0.99.7"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/_fixtures/accounting_research_R.json",
+        "tests/reference_parity/_fixtures/accounting_research_Stata.csv"
+      ],
+      "tolerance": "coefficients, scale and covariance 1e-6 rel (the references iterate to their own tolerance); lmrob scale 1e-9 rel"
     },
     {
       "also_verified_by": [
@@ -20394,6 +20540,7 @@
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/external_parity/test_gow_ding_accounting.py",
         "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_dml_multi_treatment_parity.py",
@@ -21351,19 +21498,26 @@
       "tolerance": "CI endpoints 1e-9 rel (observed 4.8e-12)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/test_winsor_winsor2_Stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "winsor",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_winsor_winsor2_Stata_parity.py"
+        "tests/external_parity/test_gow_ding_accounting.py"
       ],
       "tolerance": ""
     },
