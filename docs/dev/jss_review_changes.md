@@ -2251,3 +2251,29 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the forecasting toolkit and the `sp.arima` optimiser change
+
+- **Commits.** `8358dbf5` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 39 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and of module(s)
+  08 in `tests/orig_parity/results/_implementation_trace.json`. The
+  source that staled them is in `fdcf0a19`: `src/statspai/__init__.py` (19
+  new exports, the forecasting functions and their result classes) and, for
+  module 39 only, `src/statspai/timeseries/arima.py`.
+- **Reason.** The audit in
+  `docs/dev/2026-10-06-hyndman-fpp-pythonic-review.md`. `sp.arima` with the
+  default `method='statespace'` now starts its likelihood search twice and
+  checks it with simplex searches, and estimates a differenced model on the
+  differenced series. Module 39 runs `method='innovations_mle'`, which is
+  unchanged: `python tests/r_parity/verify_reproduce_py.py --no-report` on
+  Track A modules 03 13 15 24 25 26 27 39 53 65 66 reported 11 reproduce, 0
+  drift.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes. In the trace files `exercised_sources` digests and `seconds`
+  differ, and for module 39 the count of attribute reads on the statsmodels
+  result object moves from 11 to 8; its classification as served by
+  statsmodels is unchanged. The registry census the paper quotes moves to
+  1,395 registered functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
