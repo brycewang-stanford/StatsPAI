@@ -271,6 +271,28 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      # Both trace ledgers bind each parity module to the hashes of the
+      # StatsPAI sources it executes and of its committed result. A source
+      # edit that re-records neither leaves the ledger describing code that
+      # no longer exists. Until 2026-10-05 nothing checked this before a
+      # push: the original-data ledger went stale on main under two parallel
+      # lines of work, and one result (LaLonde psm_att) no longer reproduced.
+      # Hash comparisons and one table re-tabulation, about 3 s. A failure
+      # names the modules; re-run them, diff the result against the
+      # committed one, then `python scripts/trace_parity_provenance.py NN`
+      # (add `--ledger orig` for tests/orig_parity).
+      - id: parity-traces
+        name: parity trace ledgers describe the tree (Track A + original data)
+        entry: >-
+          python3 -m pytest -q --no-header -o addopts= -p no:cacheprovider
+          tests/test_parity_implementation_provenance.py::test_every_module_is_traced_and_the_trace_is_current
+          tests/test_orig_parity_native_contract.py::test_every_module_is_traced_and_the_trace_is_current
+          tests/test_orig_parity_harness_contract.py::test_orig_parity_rollup_is_reproducible_from_committed_json
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: import-budget
         name: cold-import budget (lazy-import contract — 0 heavy submodules)
         entry: python3 -m pytest tests/test_import_budget.py -q --no-header -o addopts=
