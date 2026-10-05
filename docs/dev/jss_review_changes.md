@@ -1924,3 +1924,32 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the Dogan textbook pass
+
+- **Commits.** `0527cbe7` re-recorded every Track A module in
+  `tests/r_parity/results/_implementation_trace.json` and all 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The sources
+  that staled them are in the same commit: `src/statspai/core/results.py`
+  (an `AttributeError` message that names where a statsmodels attribute
+  lives), `src/statspai/__init__.py` (two new exports),
+  `src/statspai/postestimation/hypothesis.py` (comma-separated
+  restrictions, names matched without regard to blanks) and
+  `src/statspai/timeseries/arima.py`.
+- **Reason.** The pass over Dogan, *Introduction to Econometrics with
+  Python* (`docs/dev/2026-10-05-dogan-python-econometrics-review.md`).
+  The default `sp.arima` method now maximises the exact likelihood.
+  Track A module `39_arima` calls `method="innovations_mle"`, which was
+  exact before and is unchanged, so its row does not move.
+  `python scripts/trace_parity_provenance.py` re-ran both ledgers and
+  reported `ok` for each module: every one reproduces its committed
+  result.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ, and no implementation classification moved. The
+  registry census the paper quotes moves from 1,346 to 1,348 registered
+  functions. A sentence that describes the default `sp.arima` as exact
+  maximum likelihood is true from this commit on, and was not before.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
