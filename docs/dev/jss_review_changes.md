@@ -2168,3 +2168,28 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — Maitra's *Static and Dynamic Econometric Modelling* pass: call traces
+
+- **Commits.** `06c2ed66` re-recorded every entry of
+  `tests/r_parity/results/_implementation_trace.json` (89 modules) and of
+  `tests/orig_parity/results/_implementation_trace.json` (12 modules). The
+  source that staled them is in `8e68b894`: `src/statspai/__init__.py` (three
+  new exports), `src/statspai/core/results.py` (two pointers for
+  statsmodels attribute names), `src/statspai/timeseries/arima.py`,
+  `src/statspai/regression/quantile.py`, `src/statspai/inference/ttest.py`
+  and `src/statspai/inference/basic_tests.py`.
+- **Reason.** Audit in `docs/dev/2026-10-06-maitra-static-dynamic-review.md`.
+  `sp.arima` uses the exact diffuse initialisation for differenced models
+  and searches a badly scaled series on a standardised copy.
+- **Effect on the paper.** None. `python tests/r_parity/verify_reproduce_py.py
+  --no-report 39_arima 40_qreg`, the two Track A modules that run the
+  changed estimators, reported 2 reproduce, 0 drift, both byte-identical:
+  module 39 fits an undifferenced series of order one, which takes the
+  unchanged path. No result file, parity table or fixture lock changed. In
+  both trace files only `exercised_sources` digests and `seconds` differ;
+  no implementation classification moved. The registry gains three entries
+  (`chow_test`, `bds`, `rolling`).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
