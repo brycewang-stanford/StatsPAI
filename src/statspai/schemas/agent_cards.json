@@ -13122,7 +13122,7 @@
       "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "gee::gee (independence, exchangeable); Stata 18 xtgee (independent, exchangeable, ar 1; with and without nmp)",
+      "reference": "gee::gee (independence, exchangeable, AR-M); Stata 18 xtgee (independent, exchangeable, ar 1; with and without nmp)",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
         "Stata": "18",
@@ -13204,11 +13204,12 @@
           },
           "corstr": {
             "default": "independence",
-            "description": "Working correlation",
+            "description": "Working correlation; 'ar1' estimates the AR(1) parameter as Stata xtgee, 'ar-m' as R gee",
             "enum": [
               "independence",
               "exchangeable",
               "ar1",
+              "ar-m",
               "unstructured"
             ],
             "type": "string"
@@ -13288,7 +13289,7 @@
     "stability": "stable",
     "typical_n_min": 40,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs gee::gee (independence, exchangeable); Stata 18 xtgee (independent, exchangeable, ar 1; with and without nmp) [R version 4.5.2 (2025-10-31), Stata 18, gee 4.13.30]; tolerance vs gee 1e-9 rel on coefficients, naive and robust SE, scale and alpha; vs xtgee 1e-6 rel (its convergence tolerance) -- tests/reference_parity/test_linear_model_extensions_parity.py",
+      "Cross-language parity (bit-exact) vs gee::gee (independence, exchangeable, AR-M); Stata 18 xtgee (independent, exchangeable, ar 1; with and without nmp) [R version 4.5.2 (2025-10-31), Stata 18, gee 4.13.30]; tolerance vs gee 1e-9 rel on coefficients, naive and robust SE, scale and alpha; vs xtgee 1e-6 rel (its convergence tolerance) -- tests/reference_parity/test_linear_model_extensions_parity.py",
       "tests/external_parity/test_ding_linear_model.py"
     ],
     "validation_status": "certified"

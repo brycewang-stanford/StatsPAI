@@ -38,7 +38,8 @@ _CORSTR = {
     "exc": "exchangeable",
     "ar1": "ar1",
     "ar": "ar1",
-    "ar-m": "ar1",
+    "ar-m": "ar-m",
+    "arm": "ar-m",
     "unstructured": "unstructured",
     "uns": "unstructured",
 }
@@ -52,7 +53,7 @@ def _working_correlation(kind: str, alpha: Any, m: int) -> np.ndarray:
         R = np.full((m, m), float(alpha))
         np.fill_diagonal(R, 1.0)
         return R
-    if kind == "ar1":
+    if kind in ("ar1", "ar-m"):
         lag = np.abs(np.subtract.outer(np.arange(m), np.arange(m)))
         return np.asarray(float(alpha) ** lag, dtype=float)
     return np.asarray(alpha, dtype=float)[:m, :m]
@@ -86,6 +87,26 @@ def _estimate_alpha(
                 recovery_hint="Use corstr='independence'.",
             )
         return float(num / (denom * phi))
+    if kind == "ar-m":
+        # R gee's "AR-M" with M = 1: each cluster's mean lag-one product
+        # over each cluster's mean square, summed across clusters. The
+        # scale cancels and there is no degrees-of-freedom term. On a
+        # balanced panel it is the pooled moment below without the
+        # correction; with unequal cluster sizes short clusters count for
+        # more here than there.
+        top = 0.0
+        bottom = 0.0
+        for r in resid:
+            if len(r) > 1:
+                top += float(np.sum(r[:-1] * r[1:])) / (len(r) - 1)
+            bottom += float(np.sum(r**2)) / len(r)
+        if top == 0.0 and all(len(r) < 2 for r in resid):
+            raise DataInsufficient(
+                "gee: no adjacent within-cluster pairs to estimate the AR(1) "
+                "correlation.",
+                recovery_hint="Use corstr='independence'.",
+            )
+        return float(top / bottom)
     if kind == "ar1":
         num = 0.0
         pairs = 0.0
@@ -156,9 +177,11 @@ def gee(
         Variance function of the marginal model.
     link : str, optional
         Link function; the family's canonical link when omitted.
-    corstr : {"independence", "exchangeable", "ar1", "unstructured"}
+    corstr : {"independence", "exchangeable", "ar1", "ar-m", "unstructured"}
         Working correlation. ``"independence"`` gives the pooled GLM point
-        estimates with a cluster-robust covariance.
+        estimates with a cluster-robust covariance. ``"ar1"`` and
+        ``"ar-m"`` are the same AR(1) structure with Stata's and R
+        ``gee``'s estimator of its parameter (see Notes).
     time : str, optional
         Column that orders observations within a cluster. Needed for
         ``"ar1"`` and ``"unstructured"`` unless the rows are already in
@@ -211,10 +234,17 @@ def gee(
     With few clusters (under roughly 40) either version is biased
     downward; treat the standard errors as a lower bound there.
 
-    For AR(1) the correlation is the pooled moment over adjacent pairs,
-    which is what Stata ``xtgee, corr(ar 1)`` computes. R ``gee``'s
-    ``corstr = "AR-M"`` estimates the lag correlation differently and its
-    coefficients differ from these by a few percent of a standard error.
+    Two moment estimators of the AR(1) correlation are in use and both are
+    offered. ``corstr="ar1"`` pools the products of adjacent Pearson
+    residuals over all clusters, divided by the number of pairs (minus
+    ``p`` under ``dof_correction``) and the scale: Stata ``xtgee, corr(ar
+    1)``. ``corstr="ar-m"`` is R ``gee``'s ``"AR-M"`` with ``Mv = 1``: the
+    sum over clusters of each cluster's mean adjacent product, over the
+    sum of each cluster's mean square. The two agree on a balanced panel
+    up to the degrees-of-freedom term and part ways when cluster sizes
+    differ, where the second gives short clusters more weight. Both are
+    consistent; the coefficients differ by a few percent of a standard
+    error.
 
     A cluster-level working correlation requires every cluster to be small
     enough to factor: memory grows with the square of the largest cluster.
@@ -243,7 +273,7 @@ def gee(
     if kind is None:
         raise MethodIncompatibility(
             f"gee: corstr={corstr!r} is not one of 'independence', "
-            "'exchangeable', 'ar1', 'unstructured'.",
+            "'exchangeable', 'ar1', 'ar-m', 'unstructured'.",
             diagnostics={"corstr": corstr},
         )
     vce_key = str(vce).lower()
@@ -478,7 +508,7 @@ def _check_alpha(kind: str, a_hat: Any, m_max: int) -> None:
     if kind == "exchangeable":
         lo = -1.0 / max(m_max - 1, 1)
         ok = lo < float(a_hat) < 1.0
-    elif kind == "ar1":
+    elif kind in ("ar1", "ar-m"):
         ok = abs(float(a_hat)) < 1.0
     elif kind == "unstructured":
         ok = bool(np.min(np.linalg.eigvalsh(np.asarray(a_hat))) > 1e-10)

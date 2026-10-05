@@ -133,8 +133,8 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     # and ITER (1e-6) constants of the asserting test.
     "gee": {
         "status": "bit-exact",
-        "reference": "gee::gee (independence, exchangeable); Stata 18 xtgee "
-        "(independent, exchangeable, ar 1; with and without nmp)",
+        "reference": "gee::gee (independence, exchangeable, AR-M); Stata 18 "
+        "xtgee (independent, exchangeable, ar 1; with and without nmp)",
         "reference_versions": {
             "R": "R version 4.5.2 (2025-10-31)",
             "gee": "4.13.30",
@@ -152,8 +152,9 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Frozen fixtures on a committed synthetic panel (60 clusters of 4 "
             "to 12 rows), Gaussian, binomial and Poisson margins. xtgee, "
             "vce(robust) is the same sandwich times G/(G-1), and the test "
-            "applies that factor. R gee's AR-M working correlation is not "
-            "reproduced; AR(1) is evidenced by Stata only."
+            "applies that factor. The AR(1) parameter has two moment "
+            "estimators: corstr='ar1' is checked against xtgee, corstr='ar-m' "
+            "against gee's AR-M."
         ),
     },
     "ridge": {

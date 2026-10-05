@@ -178,15 +178,17 @@ def test_cauchit_link_matches_r_glm(df, R):
 
 
 @pytest.mark.parametrize("family,dep", FAMILIES)
-@pytest.mark.parametrize("corstr", ["independence", "exchangeable"])
+@pytest.mark.parametrize("corstr", ["independence", "exchangeable", "ar-m"])
 def test_gee_matches_r_gee(df, R, family, dep, corstr):
-    ref = R["gee"][f"{family}_{corstr}"]
+    # the fixture stores gee's "AR-M" (Mv = 1) fits under the key "ar1"
+    ref = R["gee"][f"{family}_{corstr.replace('ar-m', 'ar1')}"]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         fit = sp.gee(
             f"{dep} ~ treat + x1 + x2 + x4",
             df,
             id="id",
+            time="t",
             family=family,
             corstr=corstr,
             tol=1e-12,
@@ -195,8 +197,33 @@ def test_gee_matches_r_gee(df, R, family, dep, corstr):
     close(fit.model_info["se_model"], ref["naive"], EXACT)
     close(fit.std_errors, ref["robust"], EXACT)
     close(fit.model_info["scale"], ref["scale"], EXACT)
-    if corstr == "exchangeable":
+    if corstr != "independence":
         close(fit.model_info["corr_alpha"], ref["alpha"], EXACT)
+
+
+def test_the_two_ar1_moments_agree_on_a_balanced_panel_and_part_on_a_ragged_one(df):
+    rng = np.random.default_rng(8)
+    G, m = 150, 6
+    g = np.repeat(np.arange(G), m)
+    e = rng.normal(size=G * m)
+    for j in range(1, m):
+        e[j::m] = 0.6 * e[j - 1 :: m] + 0.8 * e[j::m]
+    data = pd.DataFrame(
+        {"g": g, "t": np.tile(np.arange(m), G), "x": rng.normal(size=G * m)}
+    )
+    data["y"] = 1 + 0.5 * data["x"] + e
+    # balanced: the same moment once the pooled one drops its N - p term
+    pooled = sp.gee("y ~ x", data, id="g", time="t", corstr="ar1", dof_correction=False)
+    by_cluster = sp.gee("y ~ x", data, id="g", time="t", corstr="ar-m")
+    close(pooled.model_info["corr_alpha"], by_cluster.model_info["corr_alpha"], 1e-8)
+    close(pooled.params, by_cluster.params, 1e-8)
+    assert pooled.model_info["corr_alpha"] == pytest.approx(0.6, abs=0.06)
+    # ragged (the committed file): the estimators differ
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        a = sp.gee("ly ~ treat + x1", df, id="id", time="t", corstr="ar1")
+        b = sp.gee("ly ~ treat + x1", df, id="id", time="t", corstr="ar-m")
+    assert abs(a.model_info["corr_alpha"] - b.model_info["corr_alpha"]) > 5e-3
 
 
 @pytest.mark.parametrize("family,dep", FAMILIES)

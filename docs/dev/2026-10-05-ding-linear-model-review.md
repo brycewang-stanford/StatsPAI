@@ -126,15 +126,19 @@ line reproduces Stata's coefficients and model-based standard errors.
   `xtgee` fixes it at one for binomial and Poisson. `sp.gee` estimates it;
   `scale=1` gives Stata's model-based standard errors. Coefficients and
   robust standard errors do not depend on the choice.
-- **AR(1) in GEE.** `sp.gee(corstr='ar1')` uses the pooled moment over
-  adjacent pairs and matches Stata `xtgee, corr(ar 1)` in both of its
-  divisor conventions. R `gee`'s `"AR-M"` estimates the lag correlation
-  some other way: on the committed file it gives 0.557 where the pooled
-  moment and Stata give 0.568, and the coefficients differ by up to 5%.
-  The implied divisor is not an integer, so it is not one of the usual
-  variants. The source was not read (the package is GPL). This is the one
-  place where a reference is not reproduced and the reason is not pinned
-  down; the Stata match is the evidence for the estimator we ship.
+- **AR(1) in GEE.** The two references estimate the AR(1) parameter with
+  different moments, and `sp.gee` has both. `corstr='ar1'` pools the
+  products of adjacent Pearson residuals over all clusters; it matches
+  Stata `xtgee, corr(ar 1)` in both of its divisor conventions.
+  `corstr='ar-m'` is R `gee`'s `"AR-M"`: each cluster's mean adjacent
+  product, summed, over each cluster's mean square, summed. It matches
+  `gee` to 1e-12. On a balanced panel the two differ only by the
+  degrees-of-freedom term; with unequal cluster sizes the second weights
+  short clusters more (0.557 against 0.568 on the committed file, and
+  coefficients up to 5% apart). The first round left this unexplained.
+  It was pinned down in the third by running `gee` on balanced panels of
+  three sizes, where the implied divisor is `(m - 1)(N - p) / m` exactly,
+  and then on unbalanced ones. The package source was not read (GPL).
 - **Local polynomial regression.** `KernSmooth::locpoly` bins the data onto
   401 points before smoothing. `sp.lpoly` does not bin and equals the exact
   local linear fit to 1e-13; the two differ by up to 0.1 at the ends of the
@@ -194,11 +198,10 @@ Bryce asked for the open decisions to be made and the work continued.
 - **Conformal prediction intervals for regression** (chapter 12). The
   `sp.conformal` family targets treatment effects; there is no plain
   regression version.
-- **R `gee`'s `"AR-M"`** is not reproduced (see above).
 
 ## Evidence
 
-- `tests/reference_parity/test_linear_model_extensions_parity.py`: 69
+- `tests/reference_parity/test_linear_model_extensions_parity.py`: 73
   tests on the committed synthetic file. R (`sandwich`, `MASS`, `leaps`,
   `gee`, `quantreg`, `survival`) to 1e-9 on closed forms and convex
   problems; Stata 18 (`xtgee`, `boxcox`, `stcox`, `sts`) to 1e-6, its own

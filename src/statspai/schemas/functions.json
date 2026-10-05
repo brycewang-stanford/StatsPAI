@@ -6216,11 +6216,12 @@
         },
         "corstr": {
           "default": "independence",
-          "description": "Working correlation",
+          "description": "Working correlation; 'ar1' estimates the AR(1) parameter as Stata xtgee, 'ar-m' as R gee",
           "enum": [
             "independence",
             "exchangeable",
             "ar1",
+            "ar-m",
             "unstructured"
           ],
           "type": "string"

@@ -99,10 +99,13 @@ ours by the stated rule.
 | negative binomial standard errors | theta held fixed (`glm.nb`) | joint observed information (Stata `nbreg`) | differ by 2 to 4% |
 | Kaplan-Meier interval | symmetric for log S | symmetric for S until 1.40, then for log(-log S) as in Stata | `conf_type='log'` |
 
-Two differences are not conventions. `KernSmooth::locpoly` bins the data
-before smoothing and is an approximation; `sp.lpoly` is exact. And R
-`gee`'s `"AR-M"` working correlation is estimated in a way we could not
-reproduce; `sp.gee(corstr='ar1')` matches Stata's `xtgee, corr(ar 1)`.
+One difference is not a convention: `KernSmooth::locpoly` bins the data
+before smoothing and is an approximation; `sp.lpoly` is exact.
+
+For an AR(1) working correlation R and Stata estimate the parameter with
+different moments. `sp.gee(corstr='ar1')` is Stata's `xtgee, corr(ar 1)`
+and `sp.gee(corstr='ar-m')` is R `gee`'s `"AR-M"`. They coincide on a
+balanced panel and differ when cluster sizes do.
 
 ## What a paper written today would add
 

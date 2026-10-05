@@ -408,7 +408,9 @@ chapter map in `docs/guides/ding_linear_model.md`.
   for Gaussian, binomial, Poisson and gamma margins. Reports the sandwich
   and the model-based covariance. Matches R `gee` to 1e-12 and Stata
   `xtgee` to 1e-7 (`dof_correction=False`, `scale=1` for Stata's
-  conventions).
+  conventions). The AR(1) parameter comes in both references' versions:
+  `corstr='ar1'` is Stata's pooled moment, `corstr='ar-m'` is R `gee`'s
+  per-cluster one; they differ when cluster sizes do.
 - **`sp.ridge`**: ridge regression with the scaling, GCV score and HKB / LW
   penalties of `MASS::lm.ridge` (1e-13).
 - **`sp.boxcox`**: Box-Cox power for the outcome, with a profile-likelihood

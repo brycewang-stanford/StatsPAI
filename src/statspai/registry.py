@@ -8756,8 +8756,9 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "independence",
-                    "Working correlation",
-                    ["independence", "exchangeable", "ar1", "unstructured"],
+                    "Working correlation; 'ar1' estimates the AR(1) parameter "
+                    "as Stata xtgee, 'ar-m' as R gee",
+                    ["independence", "exchangeable", "ar1", "ar-m", "unstructured"],
                 ),
                 ParamSpec(
                     "time",
