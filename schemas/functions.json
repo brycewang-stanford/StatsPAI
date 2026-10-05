@@ -12633,6 +12633,694 @@
     }
   },
   {
+    "description": "Bayesian regression by MCMC with a normal prior on the coefficients: Gaussian linear (independent or conjugate prior), Student-t errors, logit, probit, ordered probit, Poisson, negative binomial, tobit and quantile regression. NumPy samplers (Gibbs, data augmentation, random-walk Metropolis); no PyMC needed. Returns draws, credible intervals, effective sample sizes, convergence diagnostics and the log marginal likelihood. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal design (DiD, RD, IV, synthetic control) is the target: use sp.bayes_did / sp.bayes_rd / sp.bayes_iv; Clustered or panel data with unit effects: the likelihood here treats rows as independent. Cost: O(iterations x n x k); seconds for n in the thousands with the default 12,000 iterations",
+    "name": "bayes_regress",
+    "parameters": {
+      "properties": {
+        "burnin": {
+          "default": 2000,
+          "description": "Iterations discarded",
+          "type": "integer"
+        },
+        "chains": {
+          "default": 1,
+          "description": "Independent chains",
+          "type": "integer"
+        },
+        "cut_prior_var": {
+          "default": 1.0,
+          "description": "oprobit: prior variance of the log cutpoint increments",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "dof": {
+          "default": 5.0,
+          "description": "model='t': degrees of freedom",
+          "type": "number"
+        },
+        "draws": {
+          "default": 10000,
+          "description": "Draws kept per chain",
+          "type": "integer"
+        },
+        "formula": {
+          "description": "e.g. 'y ~ x1 + x2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Credible interval mass",
+          "type": "number"
+        },
+        "lower": {
+          "description": "tobit: left-censoring point",
+          "type": "number"
+        },
+        "model": {
+          "default": "normal",
+          "description": "Likelihood",
+          "enum": [
+            "normal",
+            "conjugate",
+            "t",
+            "logit",
+            "probit",
+            "oprobit",
+            "poisson",
+            "negbin",
+            "tobit",
+            "quantile"
+          ],
+          "type": "string"
+        },
+        "prior_mean": {
+          "default": 0.0,
+          "description": "Prior mean of the coefficients (scalar or one per column)",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "prior_var": {
+          "description": "Prior variance: scalar, vector or covariance matrix. Default 1000 (100 for logit / probit / oprobit)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "quantile": {
+          "default": 0.5,
+          "description": "model='quantile'",
+          "type": "number"
+        },
+        "scale": {
+          "description": "model='quantile': fix the asymmetric Laplace scale (1 = MCMCpack::MCMCquantreg); estimated when omitted",
+          "type": "number"
+        },
+        "scale_prior": {
+          "default": [
+            0.001,
+            0.001
+          ],
+          "description": "(n0, s0): sigma ~ InvGamma(n0/2, s0/2), model='quantile'",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "sigma2_prior": {
+          "default": [
+            0.001,
+            0.001
+          ],
+          "description": "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "size_prior": {
+          "default": [
+            0.5,
+            0.1
+          ],
+          "description": "negbin: Gamma(shape, rate) prior on the size 1 / alpha",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "thin": {
+          "default": 1,
+          "description": "Keep one draw in thin",
+          "type": "integer"
+        },
+        "tune": {
+          "description": "Metropolis proposal scale; default 2.38 / sqrt(dim)",
+          "type": "number"
+        },
+        "upper": {
+          "description": "tobit: right-censoring point",
+          "type": "number"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bayesian hierarchical (random-effects) model for longitudinal / panel data: random intercepts and slopes with an inverse-Wishart prior on their covariance. Normal outcomes by the blocked Gibbs sampler of Chib and Carlin (1999); logit and Poisson outcomes by Metropolis within Gibbs. NumPy only. Returns the posterior of the fixed effects, variance components and every group's effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Group effects are correlated with the regressors and the target is a within-group effect: use sp.panel(method='fe'). Cost: O(iterations x (n + groups x q^3)); seconds for thousands of observations",
+    "name": "bayes_mixed",
+    "parameters": {
+      "properties": {
+        "burnin": {
+          "default": 2000,
+          "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
+          "type": "integer"
+        },
+        "chains": {
+          "default": 1,
+          "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
+          "type": "integer"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "default": 10000,
+          "description": "Draws kept per chain",
+          "type": "integer"
+        },
+        "family": {
+          "default": "normal",
+          "description": "Outcome family",
+          "enum": [
+            "normal",
+            "logit",
+            "poisson"
+          ],
+          "type": "string"
+        },
+        "formula": {
+          "description": "Fixed part 'y ~ x1 + x2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "group": {
+          "description": "Group (unit) column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Credible interval mass",
+          "type": "number"
+        },
+        "prior_mean": {
+          "default": 0.0,
+          "description": "Normal prior of the fixed effects, as in :func:`statspai.bayes_regress`. Default variance 1000 (100 for logit).",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "prior_var": {
+          "description": "Prior variance of the fixed effects; default 1000 (100 for logit)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "random": {
+          "description": "Columns with a random slope",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "random_intercept": {
+          "default": true,
+          "description": "random_intercept parameter (bool).",
+          "type": "boolean"
+        },
+        "re_prior": {
+          "description": "(df, scale): D ~ InvWishart(df, df * scale); default df = q + 2, identity scale",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
+          "type": "integer"
+        },
+        "sigma2_prior": {
+          "default": [
+            0.001,
+            0.001
+          ],
+          "description": "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "thin": {
+          "default": 1,
+          "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "formula",
+        "data",
+        "group"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bayesian model averaging over which regressors enter a linear model or GLM: posterior inclusion probabilities and model-averaged coefficients. method='bic' (Occam's window; R BMA::bicreg / bic.glm) for gaussian, binomial, poisson and gamma families; method='gprior' (Zellner g-prior, benchmark priors; R BMS::bms) for gaussian, by enumeration or MC3. Validation: certified parity evidence. Do NOT use when: A causal effect is the target and the candidates include mediators or colliders: inclusion probabilities are about prediction, not about which controls are valid; Far more candidates than observations: use sp.rlasso. Cost: Exact branch and bound; milliseconds to seconds up to about 40 candidates when the signal is clear, GLMs refit every model in the window",
+    "name": "bma",
+    "parameters": {
+      "properties": {
+        "always": {
+          "description": "Terms kept in every model",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "burnin": {
+          "default": 2000,
+          "description": "MC3 burn-in",
+          "type": "integer"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "default": 20000,
+          "description": "MC3 iterations kept",
+          "type": "integer"
+        },
+        "family": {
+          "default": "gaussian",
+          "description": "Outcome family",
+          "enum": [
+            "gaussian",
+            "binomial",
+            "poisson",
+            "gamma"
+          ],
+          "type": "string"
+        },
+        "formula": {
+          "description": "All candidate terms",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "g": {
+          "default": "benchmark",
+          "description": "g-prior: 'benchmark' max(n, K^2), 'uip' n, 'ric' K^2, or a number",
+          "type": [
+            "number",
+            "string"
+          ],
+          "x-statspai-role": "column"
+        },
+        "link": {
+          "description": "Link; default identity / logit / log / inverse",
+          "enum": [
+            "identity",
+            "logit",
+            "probit",
+            "log",
+            "inverse"
+          ],
+          "type": "string"
+        },
+        "max_nodes": {
+          "default": 2000000,
+          "description": "Branch-and-bound budget",
+          "type": "integer"
+        },
+        "method": {
+          "default": "bic",
+          "description": "Model weights",
+          "enum": [
+            "bic",
+            "gprior"
+          ],
+          "type": "string"
+        },
+        "occam_ratio": {
+          "default": 20.0,
+          "description": "Drop models this many times less probable than the best",
+          "type": "number"
+        },
+        "prior_inclusion": {
+          "default": 0.5,
+          "description": "Prior probability that a term is included",
+          "type": [
+            "object",
+            "number"
+          ]
+        },
+        "search": {
+          "default": "auto",
+          "description": "gprior: enumerate all models or sample them",
+          "enum": [
+            "auto",
+            "enumerate",
+            "mc3"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "description": "MC3 seed",
+          "type": "integer"
+        },
+        "strict": {
+          "default": false,
+          "description": "Also drop models with a more probable submodel",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bayes factors and posterior model probabilities from the marginal likelihoods of two or more fitted Bayesian models (or from the log marginal likelihoods as numbers), with the Kass-Raftery evidence label. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The priors are default 'vague' priors: the Bayes factor then favours the smaller model by an amount set by the arbitrary prior variance (Lindley's paradox).",
+    "name": "bayes_factor",
+    "parameters": {
+      "properties": {
+        "method": {
+          "description": "Marginal likelihood estimator",
+          "enum": [
+            "exact",
+            "chib",
+            "gelfand-dey",
+            "laplace"
+          ],
+          "type": "string"
+        },
+        "models": {
+          "description": "Two or more fitted models or log marginal likelihoods (positional)",
+          "type": "number"
+        },
+        "names": {
+          "description": "Model labels",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "prior_probs": {
+          "description": "Prior model probabilities",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "models"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Savage-Dickey density ratio: the Bayes factor of a point restriction on one coefficient (default zero) against the fitted model, as posterior density over prior density at the restricted value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "savage_dickey",
+    "parameters": {
+      "properties": {
+        "param": {
+          "description": "Coefficient name",
+          "type": "string"
+        },
+        "result": {
+          "description": "result parameter (BayesRegressResult).",
+          "type": "string"
+        },
+        "value": {
+          "default": 0.0,
+          "description": "Restricted value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "result",
+        "param"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bayesian bootstrap (Rubin 1981): posterior draws of least squares coefficients, or of any weighted statistic, under flat Dirichlet weights on the observed rows. No likelihood assumed; standard deviations close to robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Clustered or serially dependent data: weights are drawn per row, so dependence across rows is ignored.",
+    "name": "bayes_bootstrap",
+    "parameters": {
+      "properties": {
+        "concentration": {
+          "default": 1.0,
+          "description": "Dirichlet concentration",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "default": 2000,
+          "description": "Posterior draws",
+          "type": "integer"
+        },
+        "formula": {
+          "description": "'y ~ x1 + x2' (least squares)",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Credible interval mass",
+          "type": "number"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "statistic": {
+          "description": "statistic(data, weights) instead of a formula",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Posterior summary of MCMC draws: mean, sd, naive and time-series standard error, effective sample size, quantiles and optionally the HPD interval. Same numbers as R summary(coda::mcmc(x)). Validation: certified parity evidence.",
+    "name": "mcmc_summary",
+    "parameters": {
+      "properties": {
+        "chain": {
+          "description": "Draws (rows) by parameters (columns)",
+          "type": "string"
+        },
+        "hpd": {
+          "description": "Also report this HPD interval",
+          "type": "number"
+        },
+        "quantiles": {
+          "default": [
+            0.025,
+            0.25,
+            0.5,
+            0.75,
+            0.975
+          ],
+          "description": "Quantiles to report",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "chain"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Effective sample size of each parameter of an MCMC chain, from the spectral density at zero of an AR fit (coda::effectiveSize). Validation: certified parity evidence.",
+    "name": "mcmc_ess",
+    "parameters": {
+      "properties": {
+        "chain": {
+          "description": "Draws, one row per iteration and one column per parameter.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "chain"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Highest posterior density interval of each parameter: the shortest interval holding the requested share of the draws (coda::HPDinterval). Validation: certified parity evidence. Do NOT use when: The posterior is multimodal: the HPD region is then a union of intervals and one interval misrepresents it.",
+    "name": "hpd_interval",
+    "parameters": {
+      "properties": {
+        "chain": {
+          "description": "chain parameter (array | DataFrame | result).",
+          "type": "string"
+        },
+        "prob": {
+          "default": 0.95,
+          "description": "Posterior mass",
+          "type": "number"
+        }
+      },
+      "required": [
+        "chain"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Geweke (1992) convergence diagnostic: z-score for equal means in an early and a late window of the chain, with spectral standard errors (coda::geweke.diag). Validation: certified parity evidence.",
+    "name": "geweke_diag",
+    "parameters": {
+      "properties": {
+        "chain": {
+          "description": "chain parameter (array | DataFrame | result).",
+          "type": "string"
+        },
+        "frac1": {
+          "default": 0.1,
+          "description": "Early window share",
+          "type": "number"
+        },
+        "frac2": {
+          "default": 0.5,
+          "description": "Late window share",
+          "type": "number"
+        }
+      },
+      "required": [
+        "chain"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Raftery-Lewis (1992) run-length diagnostic: thinning, burn-in and total length needed to estimate a posterior quantile to a given accuracy, and the dependence factor (coda::raftery.diag). Validation: certified parity evidence.",
+    "name": "raftery_diag",
+    "parameters": {
+      "properties": {
+        "chain": {
+          "description": "chain parameter (array | DataFrame | result).",
+          "type": "string"
+        },
+        "converge_eps": {
+          "default": 0.001,
+          "description": "Convergence precision",
+          "type": "number"
+        },
+        "q": {
+          "default": 0.025,
+          "description": "Quantile of interest",
+          "type": "number"
+        },
+        "r": {
+          "default": 0.005,
+          "description": "Margin of error",
+          "type": "number"
+        },
+        "s": {
+          "default": 0.95,
+          "description": "Probability of the margin",
+          "type": "number"
+        }
+      },
+      "required": [
+        "chain"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Heidelberger-Welch (1983) diagnostic: Cramer-von Mises stationarity test with progressive discarding of the start of the chain, then the half-width test of the precision of the mean (coda::heidel.diag). Validation: certified parity evidence. Do NOT use when: The posterior mean is near zero: the half-width test is relative to the mean and fails mechanically.",
+    "name": "heidel_diag",
+    "parameters": {
+      "properties": {
+        "chain": {
+          "description": "chain parameter (array | DataFrame | result).",
+          "type": "string"
+        },
+        "eps": {
+          "default": 0.1,
+          "description": "Half-width to mean target",
+          "type": "number"
+        },
+        "pvalue": {
+          "default": 0.05,
+          "description": "Stationarity test level",
+          "type": "number"
+        }
+      },
+      "required": [
+        "chain"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Gelman-Rubin potential scale reduction factor over several chains (point estimate, upper limit and the multivariate factor; coda::gelman.diag), or over the two halves of one chain with split=True. Validation: certified parity evidence.",
+    "name": "gelman_rubin",
+    "parameters": {
+      "properties": {
+        "autoburnin": {
+          "default": false,
+          "description": "Discard the first half of each chain (coda's default)",
+          "type": "boolean"
+        },
+        "chains": {
+          "description": "List of chains or array chains x draws x parameters",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "confidence": {
+          "default": 0.95,
+          "description": "Upper limit coverage",
+          "type": "number"
+        },
+        "split": {
+          "default": false,
+          "description": "Split every chain in two",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "chains"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate, with optional full PyMC MCMC over the orthogonal moment equation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_dml",
     "parameters": {

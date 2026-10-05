@@ -30348,6 +30348,1656 @@
   {
     "alias_of": null,
     "alternatives": [
+      "regress",
+      "logit",
+      "probit",
+      "bma",
+      "bayes_bootstrap"
+    ],
+    "assumptions": [
+      "The likelihood chosen with model= is the data-generating family",
+      "The prior is proper; its scale is meaningful relative to the scale of the regressors"
+    ],
+    "category": "bayes",
+    "cost_profile": "O(iterations x n x k); seconds for n in the thousands with the default 12,000 iterations",
+    "description": "Bayesian regression by MCMC with a normal prior on the coefficients: Gaussian linear (independent or conjugate prior), Student-t errors, logit, probit, ordered probit, Poisson, negative binomial, tobit and quantile regression. NumPy samplers (Gibbs, data augmentation, random-walk Metropolis); no PyMC needed. Returns draws, credible intervals, effective sample sizes, convergence diagnostics and the log marginal likelihood. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal design (DiD, RD, IV, synthetic control) is the target: use sp.bayes_did / sp.bayes_rd / sp.bayes_iv; Clustered or panel data with unit effects: the likelihood here treats rows as independent. Cost: O(iterations x n x k); seconds for n in the thousands with the default 12,000 iterations",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_ramirez_hassan_bayes.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bayes_regress(\"y ~ x1 + x2\", df, model=\"probit\", seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "sp.gelman_rubin",
+        "exception": "statspai.ConvergenceWarning",
+        "remedy": "Increase draws / burnin, set thin, or run chains=4 and inspect result.diagnostics().",
+        "symptom": "ConvergenceWarning: low effective sample size or split R-hat above 1.05"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.StatsPAIWarning",
+        "remedy": "Set prior_var (and prior_mean) on the scale of the regressors, or rescale the regressors.",
+        "symptom": "Warning that the default prior is not vague"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Separation or collinearity: drop the offending regressor or use a tighter prior_var.",
+        "symptom": "Posterior not locally concave at its mode"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_regress",
+    "not_recommended_when": [
+      "A causal design (DiD, RD, IV, synthetic control) is the target: use sp.bayes_did / sp.bayes_rd / sp.bayes_iv",
+      "Clustered or panel data with unit effects: the likelihood here treats rows as independent"
+    ],
+    "pre_conditions": [
+      "More observations than coefficients; regressors not collinear",
+      "logit / probit: 0/1 outcome; poisson / negbin: counts; oprobit: at least three ordered categories"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "cost_profile": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "ramirezhassan2026introduction",
+    "returns": {
+      "class": "BayesRegressResult",
+      "description": "BayesRegressResult",
+      "fields": {
+        "acceptance_rate": "Optional[float]",
+        "burnin": "int",
+        "chain": "np.ndarray",
+        "chains": "int",
+        "diagnostics_info": "Dict[str, Any]",
+        "draws": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model": "str",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "prior": "Dict[str, Any]",
+        "sampler": "str",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame",
+        "thin": "int"
+      }
+    },
+    "signature": {
+      "description": "Bayesian regression by MCMC with a normal prior on the coefficients: Gaussian linear (independent or conjugate prior), Student-t errors, logit, probit, ordered probit, Poisson, negative binomial, tobit and quantile regression. NumPy samplers (Gibbs, data augmentation, random-walk Metropolis); no PyMC needed. Returns draws, credible intervals, effective sample sizes, convergence diagnostics and the log marginal likelihood. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal design (DiD, RD, IV, synthetic control) is the target: use sp.bayes_did / sp.bayes_rd / sp.bayes_iv; Clustered or panel data with unit effects: the likelihood here treats rows as independent. Cost: O(iterations x n x k); seconds for n in the thousands with the default 12,000 iterations",
+      "name": "bayes_regress",
+      "parameters": {
+        "properties": {
+          "burnin": {
+            "default": 2000,
+            "description": "Iterations discarded",
+            "type": "integer"
+          },
+          "chains": {
+            "default": 1,
+            "description": "Independent chains",
+            "type": "integer"
+          },
+          "cut_prior_var": {
+            "default": 1.0,
+            "description": "oprobit: prior variance of the log cutpoint increments",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "dof": {
+            "default": 5.0,
+            "description": "model='t': degrees of freedom",
+            "type": "number"
+          },
+          "draws": {
+            "default": 10000,
+            "description": "Draws kept per chain",
+            "type": "integer"
+          },
+          "formula": {
+            "description": "e.g. 'y ~ x1 + x2'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Credible interval mass",
+            "type": "number"
+          },
+          "lower": {
+            "description": "tobit: left-censoring point",
+            "type": "number"
+          },
+          "model": {
+            "default": "normal",
+            "description": "Likelihood",
+            "enum": [
+              "normal",
+              "conjugate",
+              "t",
+              "logit",
+              "probit",
+              "oprobit",
+              "poisson",
+              "negbin",
+              "tobit",
+              "quantile"
+            ],
+            "type": "string"
+          },
+          "prior_mean": {
+            "default": 0.0,
+            "description": "Prior mean of the coefficients (scalar or one per column)",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
+          },
+          "prior_var": {
+            "description": "Prior variance: scalar, vector or covariance matrix. Default 1000 (100 for logit / probit / oprobit)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "quantile": {
+            "default": 0.5,
+            "description": "model='quantile'",
+            "type": "number"
+          },
+          "scale": {
+            "description": "model='quantile': fix the asymmetric Laplace scale (1 = MCMCpack::MCMCquantreg); estimated when omitted",
+            "type": "number"
+          },
+          "scale_prior": {
+            "default": [
+              0.001,
+              0.001
+            ],
+            "description": "(n0, s0): sigma ~ InvGamma(n0/2, s0/2), model='quantile'",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "sigma2_prior": {
+            "default": [
+              0.001,
+              0.001
+            ],
+            "description": "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "size_prior": {
+            "default": [
+              0.5,
+              0.1
+            ],
+            "description": "negbin: Gamma(shape, rate) prior on the size 1 / alpha",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "thin": {
+            "default": 1,
+            "description": "Keep one draw in thin",
+            "type": "integer"
+          },
+          "tune": {
+            "description": "Metropolis proposal scale; default 2.38 / sqrt(dim)",
+            "type": "number"
+          },
+          "upper": {
+            "description": "tobit: right-censoring point",
+            "type": "number"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ramirez_hassan_bayes.py",
+      "tests/reference_parity/test_bayes_regress_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "mixed",
+      "melogit",
+      "mepoisson",
+      "panel",
+      "bayes_regress"
+    ],
+    "assumptions": [
+      "Random effects are independent of the regressors (random-effects, not fixed-effects, assumption)",
+      "Random effects are jointly normal across groups"
+    ],
+    "category": "bayes",
+    "cost_profile": "O(iterations x (n + groups x q^3)); seconds for thousands of observations",
+    "description": "Bayesian hierarchical (random-effects) model for longitudinal / panel data: random intercepts and slopes with an inverse-Wishart prior on their covariance. Normal outcomes by the blocked Gibbs sampler of Chib and Carlin (1999); logit and Poisson outcomes by Metropolis within Gibbs. NumPy only. Returns the posterior of the fixed effects, variance components and every group's effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Group effects are correlated with the regressors and the target is a within-group effect: use sp.panel(method='fe'). Cost: O(iterations x (n + groups x q^3)); seconds for thousands of observations",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_ramirez_hassan_bayes.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bayes_mixed(\"y ~ x\", df, group=\"id\", random=[\"x\"], seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.ConvergenceWarning",
+        "remedy": "Increase draws / burnin or thin; variance components mix slowest with few groups.",
+        "symptom": "ConvergenceWarning: low effective sample size"
+      },
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "With few groups the prior on D matters: report the sensitivity, or use a prior scale near the plausible variance.",
+        "symptom": "Variance components move with re_prior"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_mixed",
+    "not_recommended_when": [
+      "Group effects are correlated with the regressors and the target is a within-group effect: use sp.panel(method='fe')"
+    ],
+    "pre_conditions": [
+      "At least three groups, some with more than one observation"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "cost_profile": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "chib1999mcmc",
+    "returns": {
+      "class": "BayesMixedResult",
+      "description": "BayesMixedResult",
+      "fields": {
+        "acceptance_rate": "Optional[float]",
+        "burnin": "int",
+        "chain": "np.ndarray",
+        "chains": "int",
+        "diagnostics_info": "Dict[str, Any]",
+        "draws": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model": "str",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_groups": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "prior": "Dict[str, Any]",
+        "random_effects": "pd.DataFrame",
+        "re_cov": "pd.DataFrame",
+        "sampler": "str",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame",
+        "thin": "int"
+      }
+    },
+    "signature": {
+      "description": "Bayesian hierarchical (random-effects) model for longitudinal / panel data: random intercepts and slopes with an inverse-Wishart prior on their covariance. Normal outcomes by the blocked Gibbs sampler of Chib and Carlin (1999); logit and Poisson outcomes by Metropolis within Gibbs. NumPy only. Returns the posterior of the fixed effects, variance components and every group's effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Group effects are correlated with the regressors and the target is a within-group effect: use sp.panel(method='fe'). Cost: O(iterations x (n + groups x q^3)); seconds for thousands of observations",
+      "name": "bayes_mixed",
+      "parameters": {
+        "properties": {
+          "burnin": {
+            "default": 2000,
+            "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
+            "type": "integer"
+          },
+          "chains": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
+            "type": "integer"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 10000,
+            "description": "Draws kept per chain",
+            "type": "integer"
+          },
+          "family": {
+            "default": "normal",
+            "description": "Outcome family",
+            "enum": [
+              "normal",
+              "logit",
+              "poisson"
+            ],
+            "type": "string"
+          },
+          "formula": {
+            "description": "Fixed part 'y ~ x1 + x2'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "group": {
+            "description": "Group (unit) column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Credible interval mass",
+            "type": "number"
+          },
+          "prior_mean": {
+            "default": 0.0,
+            "description": "Normal prior of the fixed effects, as in :func:`statspai.bayes_regress`. Default variance 1000 (100 for logit).",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
+          },
+          "prior_var": {
+            "description": "Prior variance of the fixed effects; default 1000 (100 for logit)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "random": {
+            "description": "Columns with a random slope",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "random_intercept": {
+            "default": true,
+            "description": "random_intercept parameter (bool).",
+            "type": "boolean"
+          },
+          "re_prior": {
+            "description": "(df, scale): D ~ InvWishart(df, df * scale); default df = q + 2, identity scale",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "seed": {
+            "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
+            "type": "integer"
+          },
+          "sigma2_prior": {
+            "default": [
+              0.001,
+              0.001
+            ],
+            "description": "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "thin": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formula",
+          "data",
+          "group"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ramirez_hassan_bayes.py",
+      "tests/reference_parity/test_bayes_mixed_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "best_subset",
+      "lasso_select",
+      "rlasso",
+      "stepwise"
+    ],
+    "assumptions": [
+      "The true model is (close to) one of the subsets of the candidate terms",
+      "method='bic': samples large enough for the BIC approximation to the marginal likelihood"
+    ],
+    "category": "bayes",
+    "cost_profile": "Exact branch and bound; milliseconds to seconds up to about 40 candidates when the signal is clear, GLMs refit every model in the window",
+    "description": "Bayesian model averaging over which regressors enter a linear model or GLM: posterior inclusion probabilities and model-averaged coefficients. method='bic' (Occam's window; R BMA::bicreg / bic.glm) for gaussian, binomial, poisson and gamma families; method='gprior' (Zellner g-prior, benchmark priors; R BMS::bms) for gaussian, by enumeration or MC3. Validation: certified parity evidence. Do NOT use when: A causal effect is the target and the candidates include mediators or colliders: inclusion probabilities are about prediction, not about which controls are valid; Far more candidates than observations: use sp.rlasso. Cost: Exact branch and bound; milliseconds to seconds up to about 40 candidates when the signal is clear, GLMs refit every model in the window",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "BMS::bms (g-prior, enumeration); BMA::bic.glm; BMA::bicreg",
+      "reference_versions": {
+        "BMA": "3.18.21",
+        "BMS": "0.3.5",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "vs BMS: inclusion probabilities, posterior means and sds 1e-9 abs for g = UIP, BRIC, RIC; vs bic.glm: model probabilities 1e-9 (logit, Poisson), 1e-5 (gamma), standard deviations 1e-4 (R's IRLS tolerance); vs bicreg: same models, BIC 1e-9 after rounding R-squared to bicreg's five decimals"
+    },
+    "example": "sp.bma(\"y ~ x1 + x2 + x3 + x4\", df)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.NumericalInstability",
+        "remedy": "Lower occam_ratio, raise max_nodes, or use method='gprior' with search='mc3'.",
+        "symptom": "Search visited more than max_nodes nodes"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.NumericalInstability",
+        "remedy": "Check for separation or outcomes outside the family's support; drop the offending candidates.",
+        "symptom": "Full GLM did not converge"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bma",
+    "not_recommended_when": [
+      "A causal effect is the target and the candidates include mediators or colliders: inclusion probabilities are about prediction, not about which controls are valid",
+      "Far more candidates than observations: use sp.rlasso"
+    ],
+    "pre_conditions": [
+      "More observations than candidate coefficients; candidates not collinear"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "cost_profile": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "raftery1997bayesian",
+    "returns": {
+      "class": "BMAResult",
+      "description": "BMAResult",
+      "fields": {
+        "family": "str",
+        "formula": "str",
+        "link": "str",
+        "method": "str",
+        "models": "pd.DataFrame",
+        "n_models": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "settings": "Dict[str, Any]",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Bayesian model averaging over which regressors enter a linear model or GLM: posterior inclusion probabilities and model-averaged coefficients. method='bic' (Occam's window; R BMA::bicreg / bic.glm) for gaussian, binomial, poisson and gamma families; method='gprior' (Zellner g-prior, benchmark priors; R BMS::bms) for gaussian, by enumeration or MC3. Validation: certified parity evidence. Do NOT use when: A causal effect is the target and the candidates include mediators or colliders: inclusion probabilities are about prediction, not about which controls are valid; Far more candidates than observations: use sp.rlasso. Cost: Exact branch and bound; milliseconds to seconds up to about 40 candidates when the signal is clear, GLMs refit every model in the window",
+      "name": "bma",
+      "parameters": {
+        "properties": {
+          "always": {
+            "description": "Terms kept in every model",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "burnin": {
+            "default": 2000,
+            "description": "MC3 burn-in",
+            "type": "integer"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 20000,
+            "description": "MC3 iterations kept",
+            "type": "integer"
+          },
+          "family": {
+            "default": "gaussian",
+            "description": "Outcome family",
+            "enum": [
+              "gaussian",
+              "binomial",
+              "poisson",
+              "gamma"
+            ],
+            "type": "string"
+          },
+          "formula": {
+            "description": "All candidate terms",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "g": {
+            "default": "benchmark",
+            "description": "g-prior: 'benchmark' max(n, K^2), 'uip' n, 'ric' K^2, or a number",
+            "type": [
+              "number",
+              "string"
+            ],
+            "x-statspai-role": "column"
+          },
+          "link": {
+            "description": "Link; default identity / logit / log / inverse",
+            "enum": [
+              "identity",
+              "logit",
+              "probit",
+              "log",
+              "inverse"
+            ],
+            "type": "string"
+          },
+          "max_nodes": {
+            "default": 2000000,
+            "description": "Branch-and-bound budget",
+            "type": "integer"
+          },
+          "method": {
+            "default": "bic",
+            "description": "Model weights",
+            "enum": [
+              "bic",
+              "gprior"
+            ],
+            "type": "string"
+          },
+          "occam_ratio": {
+            "default": 20.0,
+            "description": "Drop models this many times less probable than the best",
+            "type": "number"
+          },
+          "prior_inclusion": {
+            "default": 0.5,
+            "description": "Prior probability that a term is included",
+            "type": [
+              "object",
+              "number"
+            ]
+          },
+          "search": {
+            "default": "auto",
+            "description": "gprior: enumerate all models or sample them",
+            "enum": [
+              "auto",
+              "enumerate",
+              "mc3"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "description": "MC3 seed",
+            "type": "integer"
+          },
+          "strict": {
+            "default": false,
+            "description": "Also drop models with a more probable submodel",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs BMS::bms (g-prior, enumeration); BMA::bic.glm; BMA::bicreg [BMA 3.18.21, BMS 0.3.5, R version 4.5.2 (2025-10-31)]; tolerance vs BMS: inclusion probabilities, posterior means and sds 1e-9 abs for g = UIP, BRIC, RIC; vs bic.glm: model probabilities 1e-9 (logit, Poisson), 1e-5 (gamma), standard deviations 1e-4 (R's IRLS tolerance); vs bicreg: same models, BIC 1e-9 after rounding R-squared to bicreg's five decimals -- tests/reference_parity/test_bayes_mcmc_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "savage_dickey",
+      "bma",
+      "lrtest"
+    ],
+    "assumptions": [
+      "Proper priors in every model",
+      "Same outcome and same observations in every model"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Bayes factors and posterior model probabilities from the marginal likelihoods of two or more fitted Bayesian models (or from the log marginal likelihoods as numbers), with the Kass-Raftery evidence label. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The priors are default 'vague' priors: the Bayes factor then favours the smaller model by an amount set by the arbitrary prior variance (Lindley's paradox).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_regress_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bayes_factor(fit_small, fit_large)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop rows with missing values in any model's variables before fitting all models.",
+        "symptom": "Models fitted on different numbers of observations"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_factor",
+    "not_recommended_when": [
+      "The priors are default 'vague' priors: the Bayes factor then favours the smaller model by an amount set by the arbitrary prior variance (Lindley's paradox)"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "kass1995bayes",
+    "returns": {
+      "class": "BayesFactorResult",
+      "description": "BayesFactorResult",
+      "fields": {
+        "bf": "float",
+        "evidence": "str",
+        "log_bf": "float",
+        "methods": "Dict[str, str]",
+        "table": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Bayes factors and posterior model probabilities from the marginal likelihoods of two or more fitted Bayesian models (or from the log marginal likelihoods as numbers), with the Kass-Raftery evidence label. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The priors are default 'vague' priors: the Bayes factor then favours the smaller model by an amount set by the arbitrary prior variance (Lindley's paradox).",
+      "name": "bayes_factor",
+      "parameters": {
+        "properties": {
+          "method": {
+            "description": "Marginal likelihood estimator",
+            "enum": [
+              "exact",
+              "chib",
+              "gelfand-dey",
+              "laplace"
+            ],
+            "type": "string"
+          },
+          "models": {
+            "description": "Two or more fitted models or log marginal likelihoods (positional)",
+            "type": "number"
+          },
+          "names": {
+            "description": "Model labels",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "prior_probs": {
+            "description": "Prior model probabilities",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "models"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_regress_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "bayes_factor"
+    ],
+    "assumptions": [
+      "The prior of the remaining parameters under the restriction equals their conditional prior given the restricted value (true for a diagonal prior covariance)"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Savage-Dickey density ratio: the Bayes factor of a point restriction on one coefficient (default zero) against the fitted model, as posterior density over prior density at the restricted value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_regress_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.savage_dickey(fit, \"x2\")",
+    "failure_modes": [
+      {
+        "alternative": "sp.bayes_factor",
+        "exception": "",
+        "remedy": "The restricted value is far in the posterior tail; compare marginal likelihoods with sp.bayes_factor for a reliable number.",
+        "symptom": "estimator reports a normal approximation"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "savage_dickey",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "dickey1971weighted",
+    "returns": {
+      "class": "dict",
+      "description": "dict",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Savage-Dickey density ratio: the Bayes factor of a point restriction on one coefficient (default zero) against the fitted model, as posterior density over prior density at the restricted value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "savage_dickey",
+      "parameters": {
+        "properties": {
+          "param": {
+            "description": "Coefficient name",
+            "type": "string"
+          },
+          "result": {
+            "description": "result parameter (BayesRegressResult).",
+            "type": "string"
+          },
+          "value": {
+            "default": 0.0,
+            "description": "Restricted value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "result",
+          "param"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_regress_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "bootstrap",
+      "bayes_regress",
+      "regress"
+    ],
+    "assumptions": [
+      "Independent, identically distributed rows"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Bayesian bootstrap (Rubin 1981): posterior draws of least squares coefficients, or of any weighted statistic, under flat Dirichlet weights on the observed rows. No likelihood assumed; standard deviations close to robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Clustered or serially dependent data: weights are drawn per row, so dependence across rows is ignored.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_regress_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bayes_bootstrap(\"y ~ x1 + x2\", df, seed=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_bootstrap",
+    "not_recommended_when": [
+      "Clustered or serially dependent data: weights are drawn per row, so dependence across rows is ignored"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "rubin1981bayesian",
+    "returns": {
+      "class": "BayesRegressResult",
+      "description": "BayesRegressResult",
+      "fields": {
+        "acceptance_rate": "Optional[float]",
+        "burnin": "int",
+        "chain": "np.ndarray",
+        "chains": "int",
+        "diagnostics_info": "Dict[str, Any]",
+        "draws": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model": "str",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "prior": "Dict[str, Any]",
+        "sampler": "str",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame",
+        "thin": "int"
+      }
+    },
+    "signature": {
+      "description": "Bayesian bootstrap (Rubin 1981): posterior draws of least squares coefficients, or of any weighted statistic, under flat Dirichlet weights on the observed rows. No likelihood assumed; standard deviations close to robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Clustered or serially dependent data: weights are drawn per row, so dependence across rows is ignored.",
+      "name": "bayes_bootstrap",
+      "parameters": {
+        "properties": {
+          "concentration": {
+            "default": 1.0,
+            "description": "Dirichlet concentration",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 2000,
+            "description": "Posterior draws",
+            "type": "integer"
+          },
+          "formula": {
+            "description": "'y ~ x1 + x2' (least squares)",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Credible interval mass",
+            "type": "number"
+          },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "statistic": {
+            "description": "statistic(data, weights) instead of a formula",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_regress_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "mcmc_ess",
+      "hpd_interval"
+    ],
+    "assumptions": [],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Posterior summary of MCMC draws: mean, sd, naive and time-series standard error, effective sample size, quantiles and optionally the HPD interval. Same numbers as R summary(coda::mcmc(x)). Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "summary(coda::mcmc(x))",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "mean, sd, naive and time-series SE, quantiles 1e-9 rel"
+    },
+    "example": "sp.mcmc_summary(fit.draws)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "mcmc_summary",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "plummer2006coda",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Posterior summary of MCMC draws: mean, sd, naive and time-series standard error, effective sample size, quantiles and optionally the HPD interval. Same numbers as R summary(coda::mcmc(x)). Validation: certified parity evidence.",
+      "name": "mcmc_summary",
+      "parameters": {
+        "properties": {
+          "chain": {
+            "description": "Draws (rows) by parameters (columns)",
+            "type": "string"
+          },
+          "hpd": {
+            "description": "Also report this HPD interval",
+            "type": "number"
+          },
+          "quantiles": {
+            "default": [
+              0.025,
+              0.25,
+              0.5,
+              0.75,
+              0.975
+            ],
+            "description": "Quantiles to report",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "chain"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs summary(coda::mcmc(x)) [R version 4.5.2 (2025-10-31), coda 0.19.4.1]; tolerance mean, sd, naive and time-series SE, quantiles 1e-9 rel -- tests/reference_parity/test_bayes_mcmc_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "mcmc_summary",
+      "gelman_rubin"
+    ],
+    "assumptions": [],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Effective sample size of each parameter of an MCMC chain, from the spectral density at zero of an AR fit (coda::effectiveSize). Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "coda::effectiveSize, coda::spectrum0.ar",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "1e-9 rel"
+    },
+    "example": "sp.mcmc_ess(fit.draws)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "mcmc_ess",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "plummer2006coda",
+    "returns": {
+      "class": "Series",
+      "description": "Series",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Effective sample size of each parameter of an MCMC chain, from the spectral density at zero of an AR fit (coda::effectiveSize). Validation: certified parity evidence.",
+      "name": "mcmc_ess",
+      "parameters": {
+        "properties": {
+          "chain": {
+            "description": "Draws, one row per iteration and one column per parameter.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chain"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs coda::effectiveSize, coda::spectrum0.ar [R version 4.5.2 (2025-10-31), coda 0.19.4.1]; tolerance 1e-9 rel -- tests/reference_parity/test_bayes_mcmc_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "mcmc_summary"
+    ],
+    "assumptions": [],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Highest posterior density interval of each parameter: the shortest interval holding the requested share of the draws (coda::HPDinterval). Validation: certified parity evidence. Do NOT use when: The posterior is multimodal: the HPD region is then a union of intervals and one interval misrepresents it.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "coda::HPDinterval",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "1e-9 rel at 95 and 80 percent"
+    },
+    "example": "sp.hpd_interval(fit.draws, prob=0.9)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "hpd_interval",
+    "not_recommended_when": [
+      "The posterior is multimodal: the HPD region is then a union of intervals and one interval misrepresents it"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "chen1999monte",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Highest posterior density interval of each parameter: the shortest interval holding the requested share of the draws (coda::HPDinterval). Validation: certified parity evidence. Do NOT use when: The posterior is multimodal: the HPD region is then a union of intervals and one interval misrepresents it.",
+      "name": "hpd_interval",
+      "parameters": {
+        "properties": {
+          "chain": {
+            "description": "chain parameter (array | DataFrame | result).",
+            "type": "string"
+          },
+          "prob": {
+            "default": 0.95,
+            "description": "Posterior mass",
+            "type": "number"
+          }
+        },
+        "required": [
+          "chain"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs coda::HPDinterval [R version 4.5.2 (2025-10-31), coda 0.19.4.1]; tolerance 1e-9 rel at 95 and 80 percent -- tests/reference_parity/test_bayes_mcmc_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "heidel_diag",
+      "raftery_diag",
+      "gelman_rubin"
+    ],
+    "assumptions": [],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Geweke (1992) convergence diagnostic: z-score for equal means in an early and a late window of the chain, with spectral standard errors (coda::geweke.diag). Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "coda::geweke.diag",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "z-scores 1e-9 rel at (0.1, 0.5) and (0.2, 0.3)"
+    },
+    "example": "sp.geweke_diag(fit.draws)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "geweke_diag",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "geweke1992evaluating",
+    "returns": {
+      "class": "MCMCDiagnostic",
+      "description": "MCMCDiagnostic",
+      "fields": {
+        "name": "str",
+        "passed": "Optional[bool]",
+        "settings": "Dict[str, Any]",
+        "table": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Geweke (1992) convergence diagnostic: z-score for equal means in an early and a late window of the chain, with spectral standard errors (coda::geweke.diag). Validation: certified parity evidence.",
+      "name": "geweke_diag",
+      "parameters": {
+        "properties": {
+          "chain": {
+            "description": "chain parameter (array | DataFrame | result).",
+            "type": "string"
+          },
+          "frac1": {
+            "default": 0.1,
+            "description": "Early window share",
+            "type": "number"
+          },
+          "frac2": {
+            "default": 0.5,
+            "description": "Late window share",
+            "type": "number"
+          }
+        },
+        "required": [
+          "chain"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs coda::geweke.diag [R version 4.5.2 (2025-10-31), coda 0.19.4.1]; tolerance z-scores 1e-9 rel at (0.1, 0.5) and (0.2, 0.3) -- tests/reference_parity/test_bayes_mcmc_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "geweke_diag",
+      "heidel_diag",
+      "mcmc_ess"
+    ],
+    "assumptions": [],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Raftery-Lewis (1992) run-length diagnostic: thinning, burn-in and total length needed to estimate a posterior quantile to a given accuracy, and the dependence factor (coda::raftery.diag). Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "coda::raftery.diag",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "burn-in, total and minimum length equal as integers; dependence factor equal after rounding to coda's three significant digits"
+    },
+    "example": "sp.raftery_diag(fit.draws)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Run a longer chain, or relax q / r / s (e.g. q=0.5, r=0.05).",
+        "symptom": "Chain shorter than the minimum length Nmin"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "raftery_diag",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "raftery1992how",
+    "returns": {
+      "class": "MCMCDiagnostic",
+      "description": "MCMCDiagnostic",
+      "fields": {
+        "name": "str",
+        "passed": "Optional[bool]",
+        "settings": "Dict[str, Any]",
+        "table": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Raftery-Lewis (1992) run-length diagnostic: thinning, burn-in and total length needed to estimate a posterior quantile to a given accuracy, and the dependence factor (coda::raftery.diag). Validation: certified parity evidence.",
+      "name": "raftery_diag",
+      "parameters": {
+        "properties": {
+          "chain": {
+            "description": "chain parameter (array | DataFrame | result).",
+            "type": "string"
+          },
+          "converge_eps": {
+            "default": 0.001,
+            "description": "Convergence precision",
+            "type": "number"
+          },
+          "q": {
+            "default": 0.025,
+            "description": "Quantile of interest",
+            "type": "number"
+          },
+          "r": {
+            "default": 0.005,
+            "description": "Margin of error",
+            "type": "number"
+          },
+          "s": {
+            "default": 0.95,
+            "description": "Probability of the margin",
+            "type": "number"
+          }
+        },
+        "required": [
+          "chain"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs coda::raftery.diag [R version 4.5.2 (2025-10-31), coda 0.19.4.1]; tolerance burn-in, total and minimum length equal as integers; dependence factor equal after rounding to coda's three significant digits -- tests/reference_parity/test_bayes_mcmc_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "geweke_diag",
+      "raftery_diag",
+      "gelman_rubin"
+    ],
+    "assumptions": [],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Heidelberger-Welch (1983) diagnostic: Cramer-von Mises stationarity test with progressive discarding of the start of the chain, then the half-width test of the precision of the mean (coda::heidel.diag). Validation: certified parity evidence. Do NOT use when: The posterior mean is near zero: the half-width test is relative to the mean and fails mechanically.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "coda::heidel.diag",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "stationarity decision and start equal; p-value, mean and half-width 1e-9 rel"
+    },
+    "example": "sp.heidel_diag(fit.draws)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "heidel_diag",
+    "not_recommended_when": [
+      "The posterior mean is near zero: the half-width test is relative to the mean and fails mechanically"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "heidelberger1983simulation",
+    "returns": {
+      "class": "MCMCDiagnostic",
+      "description": "MCMCDiagnostic",
+      "fields": {
+        "name": "str",
+        "passed": "Optional[bool]",
+        "settings": "Dict[str, Any]",
+        "table": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Heidelberger-Welch (1983) diagnostic: Cramer-von Mises stationarity test with progressive discarding of the start of the chain, then the half-width test of the precision of the mean (coda::heidel.diag). Validation: certified parity evidence. Do NOT use when: The posterior mean is near zero: the half-width test is relative to the mean and fails mechanically.",
+      "name": "heidel_diag",
+      "parameters": {
+        "properties": {
+          "chain": {
+            "description": "chain parameter (array | DataFrame | result).",
+            "type": "string"
+          },
+          "eps": {
+            "default": 0.1,
+            "description": "Half-width to mean target",
+            "type": "number"
+          },
+          "pvalue": {
+            "default": 0.05,
+            "description": "Stationarity test level",
+            "type": "number"
+          }
+        },
+        "required": [
+          "chain"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs coda::heidel.diag [R version 4.5.2 (2025-10-31), coda 0.19.4.1]; tolerance stationarity decision and start equal; p-value, mean and half-width 1e-9 rel -- tests/reference_parity/test_bayes_mcmc_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "geweke_diag",
+      "heidel_diag",
+      "mcmc_ess"
+    ],
+    "assumptions": [],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Gelman-Rubin potential scale reduction factor over several chains (point estimate, upper limit and the multivariate factor; coda::gelman.diag), or over the two halves of one chain with split=True. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "coda::gelman.diag(transform = FALSE)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "point estimate and upper limit 1e-9 rel, with and without autoburnin"
+    },
+    "example": "sp.gelman_rubin(fit.chain_list())",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "gelman_rubin",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "At least two chains of equal length, or split=True"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "gelman1992inference",
+    "returns": {
+      "class": "MCMCDiagnostic",
+      "description": "MCMCDiagnostic",
+      "fields": {
+        "name": "str",
+        "passed": "Optional[bool]",
+        "settings": "Dict[str, Any]",
+        "table": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Gelman-Rubin potential scale reduction factor over several chains (point estimate, upper limit and the multivariate factor; coda::gelman.diag), or over the two halves of one chain with split=True. Validation: certified parity evidence.",
+      "name": "gelman_rubin",
+      "parameters": {
+        "properties": {
+          "autoburnin": {
+            "default": false,
+            "description": "Discard the first half of each chain (coda's default)",
+            "type": "boolean"
+          },
+          "chains": {
+            "description": "List of chains or array chains x draws x parameters",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "confidence": {
+            "default": 0.95,
+            "description": "Upper limit coverage",
+            "type": "number"
+          },
+          "split": {
+            "default": false,
+            "description": "Split every chain in two",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "chains"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs coda::gelman.diag(transform = FALSE) [R version 4.5.2 (2025-10-31), coda 0.19.4.1]; tolerance point estimate and upper limit 1e-9 rel, with and without autoburnin -- tests/reference_parity/test_bayes_mcmc_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "dml",
       "bayes_did",
       "bayes_mte"
@@ -87491,6 +89141,7 @@
       "R parity module 49_oprobit",
       "Stata parity module 49_oprobit",
       "Cross-language parity (bit-exact) vs MASS::polr(method=\"probit\") [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 49_oprobit -- tests/r_parity/49_oprobit.py",
+      "tests/external_parity/test_ramirez_hassan_bayes.py",
       "tests/reference_parity/test_oprobit_dummies_Stata_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
       "tests/reference_parity/test_vuong_pscl_parity.py"
@@ -99867,6 +101518,7 @@
       "R parity module 25_lmm",
       "Stata parity module 25_lmm",
       "Cross-language parity (bit-exact) vs lme4::lmer [R version 4.5.2 (2025-10-31), lme4 2.0.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 25_lmm -- tests/r_parity/25_lmm.py",
+      "tests/reference_parity/test_bayes_mixed_exact_posterior.py",
       "tests/reference_parity/test_icc_parity.py",
       "tests/reference_parity/test_lrtest_parity.py",
       "tests/reference_parity/test_textbook_syllabus_stata_parity.py"

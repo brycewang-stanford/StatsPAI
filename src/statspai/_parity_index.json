@@ -972,6 +972,23 @@
       "tolerance": "Logit: explained, unexplained, gap, Yun-weighted detailed explained and unexplained terms, their 6x6 delta-method covariance and the aggregate SEs at 1e-9. Probit aligned at 2e-6 (reference probit not fully converged; see note)."
     },
     {
+      "function": "bayes_bootstrap",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_regress_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "bayes_did",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -1002,6 +1019,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "bayes_factor",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_regress_exact_posterior.py"
       ],
       "tolerance": ""
     },
@@ -1074,6 +1108,29 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_bayes_mixed_exact_posterior.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "bayes_mixed",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_ramirez_hassan_bayes.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "bayes_mte",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -1133,6 +1190,29 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_bayes_diagnostics_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_bayes_regress_exact_posterior.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "bayes_regress",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_ramirez_hassan_bayes.py"
       ],
       "tolerance": ""
     },
@@ -1656,6 +1736,32 @@
         "tests/reference_parity/_fixtures/ml_causal_R.json"
       ],
       "tolerance": "beta and SE 1e-10 rel (observed 2.3e-15); one-sided p 1e-8 rel"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "bma",
+      "notes": [
+        "Frozen-R fixture on a committed synthetic file with nine candidates. bicreg computes BIC from an R-squared rounded to five decimals, so its probabilities agree with the exact ones to about three digits; the test shows the rounding is the whole difference. Occam's window is also checked by brute force over all 512 models."
+      ],
+      "reference": "BMS::bms (g-prior, enumeration); BMA::bic.glm; BMA::bicreg",
+      "reference_versions": {
+        "BMA": "3.18.21",
+        "BMS": "0.3.5",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "vs BMS: inclusion probabilities, posterior means and sds 1e-9 abs for g = UIP, BRIC, RIC; vs bic.glm: model probabilities 1e-9 (logit, Poisson), 1e-5 (gamma), standard deviations 1e-4 (R's IRLS tolerance); vs bicreg: same models, BIC 1e-9 after rounding R-squared to bicreg's five decimals"
     },
     {
       "also_verified_by": [
@@ -7643,6 +7749,31 @@
       "tolerance": "Per-variable contributions at 1e-10; their full covariance, SEs and the total-change variance at 1e-9, robust and homoskedastic."
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "gelman_rubin",
+      "notes": [
+        "Frozen-R fixture: four chains of three series. The multivariate factor follows Brooks and Gelman (number of chains); coda has the number of parameters there, and the test rebuilds coda's value from the same eigenvalue."
+      ],
+      "reference": "coda::gelman.diag(transform = FALSE)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "point estimate and upper limit 1e-9 rel, with and without autoburnin"
+    },
+    {
       "function": "general_bunching",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -7840,6 +7971,31 @@
         "tests/reference_parity/test_spdep_parity.py"
       ],
       "tolerance": "Gi* 1.7e-14; Gi 4.3e-13 after the star=False branch stopped borrowing Gi*'s standardisation."
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "geweke_diag",
+      "notes": [
+        "Frozen-R fixture: the same two chains; the short one has a length at which the window rounding matters."
+      ],
+      "reference": "coda::geweke.diag",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "z-scores 1e-9 rel at (0.1, 0.5) and (0.2, 0.3)"
     },
     {
       "additional_tests": [
@@ -8323,6 +8479,31 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "heidel_diag",
+      "notes": [
+        "Frozen-R fixture: two settings of (eps, pvalue) on the two chains."
+      ],
+      "reference": "coda::heidel.diag",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "stationarity decision and start equal; p-value, mean and half-width 1e-9 rel"
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_oct2026_fifth_pass.py"
       ],
@@ -8592,6 +8773,31 @@
         "tests/reference_parity/_fixtures/teffects_Stata.json"
       ],
       "tolerance": "1e-12 rel / 1e-15 abs on both bounds"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "hpd_interval",
+      "notes": [
+        "Frozen-R fixture: the same two chains."
+      ],
+      "reference": "coda::HPDinterval",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "1e-9 rel at 95 and 80 percent"
     },
     {
       "additional_tests": [
@@ -11338,6 +11544,56 @@
       "also_verified_by": [
         "reference_parity"
       ],
+      "function": "mcmc_ess",
+      "notes": [
+        "Frozen-R fixture: the same two chains; the AR order is chosen by AIC on both sides."
+      ],
+      "reference": "coda::effectiveSize, coda::spectrum0.ar",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "1e-9 rel"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "mcmc_summary",
+      "notes": [
+        "Frozen-R fixture: a 4,000-draw chain of six series and a 1,237-draw prefix."
+      ],
+      "reference": "summary(coda::mcmc(x))",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "mean, sd, naive and time-series SE, quantiles 1e-9 rel"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "mde",
       "notes": [
         "Frozen-R fixture: MDE = (z_{1-a/2}+z_pow)/sqrt(n_g/2) matches the closed-form inverse of the two-sample power (sp rounds to 6 dp). Regenerate via _generate_power_extra_R.R."
@@ -11983,6 +12239,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_bayes_mixed_exact_posterior.py",
         "tests/reference_parity/test_icc_parity.py",
         "tests/reference_parity/test_lrtest_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
@@ -13760,11 +14017,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ramirez_hassan_bayes.py",
         "tests/reference_parity/test_oprobit_dummies_Stata_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -15858,6 +16117,31 @@
         "tests/reference_parity/_fixtures/spatial_survey_R.json"
       ],
       "tolerance": "neighbour sets exact; weights 1e-12 rel (observed 0)"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "raftery_diag",
+      "notes": [
+        "Frozen-R fixture: three settings of (q, r, s) on the two chains."
+      ],
+      "reference": "coda::raftery.diag",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "coda": "0.19.4.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_bayes_mcmc_parity.py",
+        "tests/reference_parity/_fixtures/bayes_mcmc_R.json"
+      ],
+      "tolerance": "burn-in, total and minimum length equal as integers; dependence factor equal after rounding to coda's three significant digits"
     },
     {
       "additional_tests": [
@@ -18274,6 +18558,23 @@
         "tests/reference_parity/_fixtures/spatial_survey_R.json"
       ],
       "tolerance": "beta, rho and SEs 1e-9 rel (observed 3.8e-11 / 3.0e-11); lambda 1e-7 rel (observed 6.5e-9)"
+    },
+    {
+      "function": "savage_dickey",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_regress_exact_posterior.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [

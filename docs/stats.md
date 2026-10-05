@@ -46,13 +46,13 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 15,974 | 17 | 31 |
+| `timeseries` | 15,771 | 29 | 51 |
 | `inference` | 15,083 | 30 | 55 |
 | `output` | 14,193 | 22 | 42 |
 | `matching` | 12,595 | 18 | 29 |
 | `core` | 12,205 | 20 | 6 |
 | `panel` | 12,141 | 20 | 23 |
 | `diagnostics` | 11,065 | 20 | 33 |
-| `timeseries` | 15,763 | 29 | 51 |
 | `decomposition` | 9,912 | 19 | 32 |
 | `dml` | 9,395 | 24 | 16 |
 | `iv` | 8,862 | 17 | 10 |
@@ -60,8 +60,9 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `spatial` | 7,860 | 30 | 38 |
 | `plots` | 6,015 | 7 | 8 |
 | `dag` | 5,988 | 11 | 25 |
+| `mcmc` | 5,840 | 9 | 18 |
 | `multilevel` | 5,384 | 9 | 11 |
-| `bayes` | 5,244 | 12 | 20 |
+| `bayes` | 5,263 | 12 | 20 |
 | `mendelian` | 5,187 | 13 | 41 |
 | `metalearners` | 5,165 | 10 | 25 |
 | `frontier` | 4,986 | 8 | 12 |
@@ -127,7 +128,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **561,004** | **955** | **1376** |
+| **Total** | **573,772** | **973** | **1413** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.
