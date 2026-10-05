@@ -36685,6 +36685,57 @@
     "name": "xtevent"
   },
   {
+    "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors. Assumptions: Every regressor is uncorrelated with the idiosyncratic error; The regressors not listed in endog= are uncorrelated with the unit effect; At least as many exogenous time-varying regressors as endogenous time-invariant ones. Failure modes: MethodIncompatibility: the model is under-identified -> Declare fewer time-invariant regressors endogenous or add exogenous time-varying regressors. Alternati...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Other cluster variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "endog": {
+          "description": "Regressors that may be correlated with the unit effect",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "formula": {
+          "description": "y ~ x1 + x2 + z1 + z2",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "id": {
+          "description": "Unit identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "vce": {
+          "default": "conventional",
+          "description": "Covariance estimator ('robust' clusters on the unit)",
+          "enum": [
+            "conventional",
+            "robust"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "endog",
+        "formula",
+        "id"
+      ],
+      "type": "object"
+    },
+    "name": "xthtaylor"
+  },
+  {
     "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: certified parity evidence. Do NOT use when: T is large relative to N -- the Nickell bias that motivates GMM is O(1/T) and within estimation is fine. Assumptions: Sequential exogeneity: errors are uncorrelated with past values of the regressors (lags are valid instruments); Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0); Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain. Pre-conditions: A panel with T >= 3 (T >= 4 for AR(2) testing) and unit / time identifiers; Data is a long-format panel keyed by (entity, time) with at least 2 time periods per entity; Outcome and regressors are numeric or properly encoded. Failure modes: Hausman test rejects RE -> Switch to fixed effects (method='fe') or correlated random effects (method='mundlak'); Few clusters (< 30) inflate Type I error with cluster-robust SEs -> Use wild-cluster bootstrap or CR2/CR3 small-sample corrections; High-dimensional fixed effects make the design singular -> Switch to method='hdfe' / feols for absorption, or drop singletons. Alternatives: sp.sp.panel,...",
     "input_schema": {
       "properties": {

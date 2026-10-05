@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 389 |
 | | aligned | 52 |
 | | **subtotal** | **441** |
-| **No external software reference** | analytical-only (T1) | 343 |
+| **No external software reference** | analytical-only (T1) | 344 |
 | | external-replication (published numbers) | 29 |
-| | **subtotal** | **372** |
+| | **subtotal** | **373** |
 | No numerical evidence yet | unverified | 548 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 441 | 799 | 803 | 54.9% |
+| estimator callables | 441 | 800 | 804 | 54.9% |
 | infrastructure (parity N/A) | 0 | 11 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 338 | 0.0% |
-| **all registered** | 441 | 813 | 1361 | 32.4% |
+| **all registered** | 441 | 814 | 1362 | 32.4% |
 
 ### Coverage by estimator family
 
@@ -55,8 +55,8 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | causal | 149 | 333 | 335 |
 | regression | 42 | 52 | 52 |
 | inference | 27 | 45 | 45 |
+| panel | 27 | 33 | 33 |
 | spatial | 28 | 33 | 33 |
-| panel | 27 | 32 | 32 |
 | diagnostics | 22 | 30 | 30 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
@@ -587,7 +587,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `unitroot` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) |
 
-## analytical-only — 343 functions
+## analytical-only — 344 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -929,6 +929,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `wooldridge_prod` | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `xtevent` | [`test_xtevent_Stata_parity.py`](../tests/reference_parity/test_xtevent_Stata_parity.py) |
+| `xthtaylor` | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) |
 | `xtoverid` | [`test_textbook_methods_stata_parity.py`](../tests/reference_parity/test_textbook_methods_stata_parity.py) |
 | `xtserial` | [`test_textbook_methods_stata_parity.py`](../tests/reference_parity/test_textbook_methods_stata_parity.py) |
 | `xtsum` | [`test_textbook_methods_stata_parity.py`](../tests/reference_parity/test_textbook_methods_stata_parity.py) |

@@ -5153,6 +5153,63 @@
     }
   },
   {
+    "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors.",
+    "name": "xthtaylor",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Other cluster variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "Long panel",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "endog": {
+          "description": "Regressors that may be correlated with the unit effect",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "formula": {
+          "description": "y ~ x1 + x2 + z1 + z2",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "id": {
+          "description": "Unit identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "vce": {
+          "default": "conventional",
+          "description": "Covariance estimator ('robust' clusters on the unit)",
+          "enum": [
+            "conventional",
+            "robust"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "formula",
+        "data",
+        "id",
+        "endog"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Model selection criteria and averaging weights for candidate least-squares regressions of one outcome: AIC, BIC and leave-one-out cross-validation for selection; Mallows, jackknife (cross-validation) and smoothed AIC / BIC weights for averaging. Returns averaged coefficients, fitted values and predictions, and averages any function of the candidate fits. Jackknife weights (the default) remain optimal under heteroskedasticity. No standard errors: inference after selection or averaging is not normal-based. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A confidence interval for one coefficient is the goal -- fit the model chosen in advance; intervals after selection or averaging undercover.",
     "name": "model_average",
     "parameters": {

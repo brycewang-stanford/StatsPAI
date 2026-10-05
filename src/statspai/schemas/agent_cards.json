@@ -10572,6 +10572,139 @@
   {
     "alias_of": null,
     "alternatives": [
+      "panel",
+      "hausman"
+    ],
+    "assumptions": [
+      "Every regressor is uncorrelated with the idiosyncratic error",
+      "The regressors not listed in endog= are uncorrelated with the unit effect",
+      "At least as many exogenous time-varying regressors as endogenous time-invariant ones"
+    ],
+    "category": "panel",
+    "cost_profile": "",
+    "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.xthtaylor(\"lwage ~ exper + union + female + educ\", df, id=\"person\", endog=[\"exper\", \"educ\"])",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Declare fewer time-invariant regressors endogenous or add exogenous time-varying regressors.",
+        "symptom": "MethodIncompatibility: the model is under-identified"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "xthtaylor",
+    "not_recommended_when": [
+      "Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hausman1981panel",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors.",
+      "name": "xthtaylor",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Other cluster variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "Long panel",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "endog": {
+            "description": "Regressors that may be correlated with the unit effect",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "formula": {
+            "description": "y ~ x1 + x2 + z1 + z2",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "id": {
+            "description": "Unit identifier",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "vce": {
+            "default": "conventional",
+            "description": "Covariance estimator ('robust' clusters on the unit)",
+            "enum": [
+              "conventional",
+              "robust"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "formula",
+          "data",
+          "id",
+          "endog"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_hansen_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "regress",
       "rlasso",
       "lasso_select"
