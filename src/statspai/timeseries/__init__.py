@@ -7,7 +7,9 @@ Granger causality, unit-root tests, and cointegration analysis.
 
 from .ardl import ARDLResult, ardl
 from .arima import ARIMAResult, arima
+from .bds import bds
 from .bvar import BVARResult, bvar
+from .chow import chow_test
 from .cointegration import CointegrationResult, engle_granger, johansen
 from .corrgram import corrgram
 from .garch import GARCHResult, garch
@@ -30,6 +32,8 @@ __all__ = [
     "structural_break",
     "StructuralBreakResult",
     "cusum_test",
+    "chow_test",
+    "bds",
     "engle_granger",
     "johansen",
     "CointegrationResult",

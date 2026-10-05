@@ -4,6 +4,97 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### What a statsmodels time-series textbook found
+
+Maitra's *A Practical Guide to Static and Dynamic Econometric Modelling*
+teaches diagnostics, asset-pricing regressions, ARDL, ARIMA, VAR and VECM
+with statsmodels on series downloaded from FRED and Yahoo Finance. Each
+computation was rerun with StatsPAI and compared with statsmodels, R 4.5.2
+and Stata 18. Notes are in
+`docs/dev/2026-10-06-maitra-static-dynamic-review.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.arima` on a differenced series depended on the unit of
+  measurement.** The level of an integrated series was started from a
+  normal prior of variance 1e6, the statsmodels default. That prior is
+  diffuse only against an innovation variance far below 1e6. For
+  ARIMA(1, 1, 0) on quarterly U.S. GDP the AR coefficient was 0.170 with
+  GDP in billions of dollars, 0.216 in trillions and 0.025 in millions. It
+  is now 0.216 in every unit, the estimate of R's `arima(method="ML")` and
+  Stata's `arima`, and the log-likelihood agrees with both to seven
+  digits. The filter now uses the exact diffuse initialisation, and the
+  `d + sD` observations that identify the integration states are left out
+  of the likelihood. A model with `d = 0`, or with no AR or MA term, is
+  unaffected.
+- **`sp.arima(method='innovations_mle')` reported the wrong
+  log-likelihood for a differenced model.** Its coefficients were right,
+  but the log-likelihood, AIC and BIC came from the same filter. For
+  ARIMA(0, 2, 1) on GDP it reported -408.62 where R gives -400.13.
+- **`sp.arima(auto=True)` never considered a drift, and could select a
+  model fitted on the unit circle.** After one difference only models
+  without a constant were searched, so a trending series was fitted with
+  an AR root at one or differenced again. The constant is now part of the
+  search when `d + D <= 1`, as in R's `forecast::auto.arima`, and a
+  candidate with an AR or MA root within 1% of the unit circle is dropped.
+  On thirteen series the order, the differencing, the constant and the
+  AICc match `auto.arima(stepwise=FALSE, approximation=FALSE)`. Pass
+  `trend='n'` or `trend='c'` to fix the constant yourself.
+- `sp.arima` computes AIC, BIC and AICc from the log-likelihood, the
+  number of estimated parameters and the number of observations after
+  differencing, as R and Stata do.
+- `sp.johansen(test='maxeig').summary()` headed its column "Trace stat"
+  and wrote the null as `r <= k`. It now reads "Max-eig stat" and `r = k`.
+  The statistics were right.
+
+#### Added
+
+- **`sp.chow_test`**: the Chow test for a break at a date fixed in
+  advance. All coefficients or a subset, one break or several, classical
+  or robust covariance. The break is the number of rows in the first
+  regime, a value of a time column, or an index label. Agrees with
+  `strucchange::sctest(type="Chow")` to 12 digits and, in its Wald form,
+  with Stata's `estat sbknown`. `sp.structural_break(method='chow')` is
+  unchanged: it searches for the date and uses the sup-F reference.
+- **`sp.bds`**: the BDS test that a series is independent and identically
+  distributed, usually run on residuals. Takes a series or a fitted
+  regression. Reproduces `statsmodels.tsa.stattools.bds` exactly.
+- **`sp.rolling`**: rolling or recursive least squares from a formula,
+  with coefficients, standard errors (classical or HC0 to HC3), R-squared
+  and root MSE per window. Agrees with statsmodels' `RollingOLS` to 1e-13.
+- `sp.cusum_test(method='ols')`: the CUSUM test on OLS residuals, whose
+  boundary is a constant. Agrees with `strucchange` to 12 digits and with
+  Stata's `estat sbcusum, ols`. The default is still the
+  recursive-residual test, and the result gains a `method` key.
+- `sp.corrgram(model_df=, boxpierce=)`: degrees of freedom reduced by the
+  ARMA coefficients behind a residual series, and the Box-Pierce
+  statistic. Agrees with R's `Box.test(fitdf=)`.
+- `sp.ardl(x_lags='bic')` or `'aic'` searches the lag order of every
+  regressor, jointly with the autoregressive order when `lags` names the
+  same criterion. Selects what `ardl_select_order` selects.
+- `ARDLResult.forecast(steps=, exog=)`: dynamic forecasts several periods
+  ahead, with future values of the regressors where the model needs them.
+  `ARDLResult.long_run()`: long-run effects with delta-method standard
+  errors, equal to statsmodels' `UECM.ci_params` and `ci_bse`.
+- `VECResult.forecast`, `.irf` and `.fevd`: forecasts with intervals,
+  impulse responses and the variance decomposition of the levels. Equal
+  to statsmodels' `VECM` for the five deterministic cases and to
+  `vars::vec2var` in R.
+- `sp.engle_granger` reports MacKinnon's p-value (`result.pvalue`), the
+  one statsmodels' `coint` gives, and the result has a readable `repr`.
+
+#### Changed
+
+- `sp.arima` searches for the maximum on a standardised copy of a badly
+  scaled series and maps the estimates back. With GDP in billions the
+  drift of ARIMA(1, 1, 0) was 249.09 where the maximum is at 248.90.
+- `sp.swilk` and `sp.sktest` accept a Series or a one-dimensional array,
+  and `sp.ttest(series, mu=...)` tests it against a value.
+- `sp.qreg(quantile=[...])` says to use `sp.sqreg`. It raised a
+  `TypeError` from a comparison.
+- `result.get_influence()` and `result.outlier_test()` name
+  `sp.influence_measures`.
+
 ### What an applied R causal-inference book found
 
 Das, *Causal Inference in R* (Packt), works through propensity scores,

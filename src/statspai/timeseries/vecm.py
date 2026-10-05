@@ -156,6 +156,164 @@ class VECResult(ResultProtocolMixin):
             comp[k:, :-k] = np.eye(k * (p - 1))
         return comp
 
+    # ------------------------------------------------- dynamics, forecasts
+    def _ma_weights(self, periods: int) -> np.ndarray:
+        """Responses of the levels to a unit forecast error, ``Phi[s]``
+        for ``s = 0 .. periods``, from the VAR in levels the model implies."""
+        k = len(self.var_names)
+        p = self.lags + 1
+        top = self.companion()[:k, :]
+        A = [top[:, i * k : (i + 1) * k] for i in range(p)]
+        phi = np.zeros((periods + 1, k, k))
+        phi[0] = np.eye(k)
+        for s in range(1, periods + 1):
+            for i in range(1, min(s, p) + 1):
+                phi[s] += A[i - 1] @ phi[s - i]
+        return phi
+
+    def irf(
+        self,
+        periods: int = 20,
+        impulse: Optional[str] = None,
+        response: Optional[str] = None,
+        orthogonal: bool = True,
+    ) -> Dict[str, Any]:
+        """Impulse responses of the levels.
+
+        Because the system has ``K - r`` unit roots, a shock can move the
+        levels for good: the responses settle at a constant that need not
+        be zero, where those of a stationary VAR die out.
+
+        Parameters
+        ----------
+        periods : int, default 20
+            Horizon; responses are returned for periods ``0 .. periods``.
+        impulse, response : str, optional
+            Restrict to one shock or one responding variable.
+        orthogonal : bool, default True
+            Responses to one-standard-deviation orthogonalised shocks, by
+            the Cholesky factor of the maximum-likelihood residual
+            covariance in the order of the variables (Stata ``irf
+            create`` after ``vec``). With ``False``, responses to a unit
+            forecast error in one equation.
+
+        Returns
+        -------
+        dict
+            ``'irf'``: ``{"<impulse> -> <response>": array}``;
+            ``'periods'``: ``0 .. periods``. The layout of
+            :func:`statspai.irf`.
+
+        Notes
+        -----
+        No confidence bands are computed. The ordering matters for the
+        orthogonalised responses exactly as in a VAR.
+        """
+        names = self.var_names
+        for label, value in (("impulse", impulse), ("response", response)):
+            if value is not None and value not in names:
+                raise MethodIncompatibility(
+                    f"vec.irf: {label} {value!r} is not a variable of the model.",
+                    recovery_hint=f"Choose one of {names}.",
+                )
+        periods = int(periods)
+        if periods < 0:
+            raise MethodIncompatibility("vec.irf: periods must be non-negative.")
+        phi = self._ma_weights(periods)
+        if orthogonal:
+            phi = phi @ np.linalg.cholesky(self.sigma_ml.to_numpy())
+        out = {}
+        for j, shock in enumerate(names):
+            if impulse is not None and shock != impulse:
+                continue
+            for i, resp in enumerate(names):
+                if response is not None and resp != response:
+                    continue
+                out[f"{shock} -> {resp}"] = phi[:, i, j].copy()
+        return {"irf": out, "periods": list(range(periods + 1))}
+
+    def fevd(self, periods: int = 20) -> pd.DataFrame:
+        """Forecast-error variance decomposition of the levels under the
+        Cholesky ordering of the variables.
+
+        One row per shock, response and period: the share of the
+        ``period``-step forecast-error variance of ``response`` due to the
+        orthogonalised innovation of ``shock`` (zero at ``period = 0``, as
+        in Stata's ``irf table fevd``).
+        """
+        from .svar import fevd_shares
+
+        names = self.var_names
+        theta = self._ma_weights(int(periods)) @ np.linalg.cholesky(
+            self.sigma_ml.to_numpy()
+        )
+        shares = fevd_shares(theta)
+        rows = [
+            {"shock": shock, "response": resp, "period": s,
+             "fevd": float(shares[s, i, j])}
+            for j, shock in enumerate(names)
+            for i, resp in enumerate(names)
+            for s in range(int(periods) + 1)
+        ]  # fmt: skip
+        return pd.DataFrame(rows)
+
+    def forecast(self, steps: int = 1, alpha: float = 0.05) -> pd.DataFrame:
+        """Dynamic forecasts of the levels ``steps`` periods past the sample.
+
+        Each forecast feeds the next through the error-correction
+        equations, deterministic terms included. The standard error is the
+        root of ``sum_i Phi_i Sigma Phi_i'`` with the maximum-likelihood
+        residual covariance; it treats the coefficients as known, so it
+        understates the uncertainty in short samples, and it grows without
+        bound with the horizon because the levels are integrated.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Indexed by horizon ``1 .. steps`` with, for each variable, the
+            columns ``<name>``, ``<name>_se``, ``<name>_lower`` and
+            ``<name>_upper``.
+        """
+        steps = int(steps)
+        if steps < 1:
+            raise MethodIncompatibility(
+                "vec.forecast: steps must be at least 1.", recovery_hint="Use steps=1."
+            )
+        names = self.var_names
+        k, m, T = len(names), self.lags, self.n_obs
+        beta = self.beta
+        beta_y = beta.loc[names].to_numpy()
+        cons = beta.loc["_cons"].to_numpy() if "_cons" in beta.index else 0.0
+        slope = beta.loc["_trend"].to_numpy() if "_trend" in beta.index else 0.0
+        levels = [row for row in self._levels[-(m + 1) :]]  # oldest first
+        phi = self._ma_weights(steps)
+        sigma = self.sigma_ml.to_numpy()
+        mse = np.zeros((k, k))
+        z = float(stats.norm.ppf(1.0 - alpha / 2.0))
+        rows = []
+        for h in range(1, steps + 1):
+            clock = float(T + h)
+            # the relation is dated t - 1, and so is its trend
+            ce = levels[-1] @ beta_y + cons + slope * (clock - 1.0)
+            parts = [np.atleast_1d(ce)]
+            parts += [levels[-j] - levels[-j - 1] for j in range(1, m + 1)]
+            if self.trend in ("c", "rt", "ct"):
+                parts.append(np.ones(1))
+            if self.trend == "ct":
+                parts.append(np.array([clock]))
+            point = levels[-1] + np.concatenate(parts) @ self._B
+            levels.append(point)
+            mse = mse + phi[h - 1] @ sigma @ phi[h - 1].T
+            se = np.sqrt(np.diag(mse))
+            row: Dict[str, float] = {}
+            for i, name in enumerate(names):
+                row[name] = float(point[i])
+                row[f"{name}_se"] = float(se[i])
+                row[f"{name}_lower"] = float(point[i] - z * se[i])
+                row[f"{name}_upper"] = float(point[i] + z * se[i])
+            rows.append(row)
+        return pd.DataFrame(rows, index=pd.RangeIndex(1, steps + 1, name="horizon"))
+
     def stability(self) -> pd.DataFrame:
         """Eigenvalues of the companion matrix (Stata ``vecstable``).
 

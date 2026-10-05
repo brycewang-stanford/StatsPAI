@@ -58,6 +58,18 @@ def _col(data: pd.DataFrame, name: Any, who: str) -> pd.Series:
     return col.astype(float)
 
 
+def _as_frame(data: Any) -> Any:
+    """A Series or a one-dimensional array is one variable: the residuals
+    of a fit, say. Anything else is returned as it came."""
+    if isinstance(data, pd.Series):
+        return data.to_frame(name="x" if data.name is None else data.name)
+    if isinstance(data, (np.ndarray, list, tuple)):
+        values = np.asarray(data)
+        if values.ndim == 1:
+            return pd.DataFrame({"x": values})
+    return data
+
+
 def _numeric_columns(data: pd.DataFrame, variables: _Vars, who: str) -> List[Any]:
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility(
@@ -429,6 +441,7 @@ def sktest(
     ----------
     [@dagostino1990suggestion]
     """
+    data = _as_frame(data)
     rows = {}
     for name in _numeric_columns(data, variables, "sktest"):
         x = _col(data, name, "sktest").dropna().to_numpy()
@@ -448,6 +461,9 @@ def sktest(
 # ------------------------------------------------------------------- swilk
 def swilk(data: pd.DataFrame, variables: _Vars = None) -> pd.DataFrame:
     """Shapiro-Wilk W test for normality.
+
+    ``data`` may also be a Series or a one-dimensional array, which is
+    tested as a single variable.
 
     Equivalent to Stata's ``swilk`` and R's ``shapiro.test``: ``W`` is the
     squared correlation of the ordered sample with the expected normal
@@ -493,6 +509,7 @@ def swilk(data: pd.DataFrame, variables: _Vars = None) -> pd.DataFrame:
     ----------
     [@royston1992approximating]
     """
+    data = _as_frame(data)
     rows = {}
     for name in _numeric_columns(data, variables, "swilk"):
         x = _col(data, name, "swilk").dropna().to_numpy()

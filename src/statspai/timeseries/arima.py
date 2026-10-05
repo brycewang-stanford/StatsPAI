@@ -24,6 +24,7 @@ Examples
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple
 
@@ -58,8 +59,8 @@ class ARIMAResult(ResultProtocolMixin):
     'ARIMAResult'
     >>> bool(np.isfinite(res.aic))
     True
-    >>> len(res.params)
-    2
+    >>> list(res.params.index)
+    ['const', 'ar.L1', 'sigma2']
     """
 
     order: Tuple[int, int, int]
@@ -269,7 +270,14 @@ def arima(
         first, as the number of differences after which a KPSS test no
         longer rejects level stationarity at 5% (at most ``max_d``); then
         ``(p, q)`` minimise AICc over ``0..max_p`` by ``0..max_q``,
-        ``(0, d, 0)`` included.
+        ``(0, d, 0)`` included. Unless ``trend`` is given the constant is
+        part of that search when ``d + D <= 1``: a mean without
+        differencing, a drift with one difference. A candidate with an AR
+        or MA root within 1% of the unit circle is dropped: it is a model
+        differenced once too often or too seldom, fitted on the boundary.
+        This is the exhaustive search of R's ``forecast::auto.arima(
+        stepwise=FALSE, approximation=FALSE)``, without its cap on
+        ``p + q``.
     max_p, max_q, max_d : int
         Bounds for the auto search.
     method : {'statespace', 'css_ml', 'innovations_mle'}, default 'statespace'
@@ -288,6 +296,18 @@ def arima(
         and left the first ``max(p, q + 1)`` observations out of the
         likelihood. The estimates were not the exact MLE, and ``auto=True``
         compared models scored on different numbers of observations.
+
+        With differencing, the integration states start from an exact
+        diffuse prior and the ``d + s D`` observations that pin them down
+        are left out of the likelihood, which is then the likelihood of the
+        differenced series. Releases through 1.38.0 used statsmodels'
+        default, a normal prior of variance 1e6. On a series whose
+        innovation variance is not far below 1e6 that prior is informative:
+        the estimates of a differenced model with AR or MA terms changed
+        with the unit of measurement, and the reported log-likelihood was
+        too low. ``AIC``, ``BIC`` and ``AICc`` count the estimated
+        parameters only and use the number of observations after
+        differencing, as R and Stata do.
 
     trend : {None, 'c', 'n'}, optional
         Deterministic term. ``'c'`` estimates a constant: the mean of the
@@ -324,7 +344,7 @@ def arima(
     >>> bool((res.se > 0).all())  # standard errors indexed by parameter name
     True
     >>> res.conf_int().shape  # 95% CIs, one row per param
-    (3, 2)
+    (4, 2)
     """
     try:
         from statsmodels.tsa.arima.model import ARIMA as SMARIMA
@@ -383,10 +403,16 @@ def arima(
         )
     seasonal_d = int(seasonal_order[1]) if seasonal_order else 0
 
+    # ``auto=True`` settles the deterministic term as part of the search and
+    # records its choice here; an explicit ``trend=`` is never overridden.
+    chosen_trend: Optional[str] = trend
+
     def _trend_for(order_: Tuple[int, int, int]) -> Tuple[str, Optional[str]]:
         """statsmodels' trend code and the name of the parameter it adds."""
         n_diff = int(order_[1]) + seasonal_d
-        want = trend if trend is not None else ("c" if n_diff == 0 else "n")
+        want = (
+            chosen_trend if chosen_trend is not None else ("c" if n_diff == 0 else "n")
+        )
         if want == "n":
             return "n", None
         if n_diff == 0:
@@ -401,55 +427,127 @@ def arima(
             recovery_hint="Use trend='n', or difference the series once less.",
         )
 
-    def _fit(
-        order_: Tuple[int, int, int],
-        maxiter: Optional[int] = None,
-    ) -> Any:
-        sm_trend, _ = _trend_for(order_)
-        if method_norm == "statespace":
-            # Stationary initialisation: the likelihood of every observation.
-            # With enforce_stationarity=False statsmodels starts the state
-            # from an approximate diffuse prior and leaves the first
-            # k_states terms out of the log-likelihood, so the estimates
-            # are not the exact MLE and models with more states are scored
-            # on fewer observations (AIC then favours them for free).
-            if sm_trend == "n":
-                model = SARIMAX(
-                    y,
-                    order=order_,
-                    seasonal_order=seasonal_order or (0, 0, 0, 0),
-                    exog=exog,
-                    enforce_stationarity=True,
-                    enforce_invertibility=True,
-                )
-                kwargs: dict[str, Any] = {"disp": False}
-                if maxiter is not None:
-                    kwargs["maxiter"] = maxiter
-                return model.fit(**kwargs)
-            model = SMARIMA(
-                y,
+    def _exact_diffuse(model: Any) -> int:
+        """Start the integration states from an exact diffuse prior.
+
+        statsmodels starts them from a normal prior of variance 1e6, the
+        "approximate diffuse" initialisation. That prior is diffuse only
+        against an innovation variance far below 1e6: on a series measured
+        in the thousands it is informative, the likelihood depends on the
+        unit of measurement, and so do the estimates. The exact
+        initialisation of Durbin and Koopman has no such constant. The
+        ``d + s D`` observations that identify the integration states are
+        left out of the likelihood, which is then the likelihood of the
+        differenced series (R ``stats::arima``, Stata ``arima``).
+        """
+        k_diff = int(model._k_states_diff)
+        if k_diff > 0:
+            from statsmodels.tsa.statespace.initialization import Initialization
+
+            init = Initialization(model.k_states)
+            init.set((0, k_diff), "diffuse")
+            if model.k_states > k_diff:
+                init.set((k_diff, model.k_states), "stationary")
+            model.ssm.initialize(init)
+            model._manual_initialization = True
+            model.ssm.loglikelihood_burn = k_diff
+        return k_diff
+
+    seasonal = tuple(seasonal_order) if seasonal_order else (0, 0, 0, 0)
+
+    def _build(series: np.ndarray, order_: Tuple[int, int, int], sm_trend: str) -> Any:
+        # SARIMAX for the model without a deterministic term, ARIMA (which
+        # folds the constant into the regression) otherwise.
+        if method_norm == "statespace" and sm_trend == "n":
+            model = SARIMAX(
+                series,
                 order=order_,
-                seasonal_order=seasonal_order or (0, 0, 0, 0),
+                seasonal_order=seasonal,
+                exog=exog,
+                enforce_stationarity=True,
+                enforce_invertibility=True,
+            )
+        else:
+            model = SMARIMA(
+                series,
+                order=order_,
+                seasonal_order=seasonal,
                 exog=exog,
                 trend=sm_trend,
                 enforce_stationarity=True,
                 enforce_invertibility=True,
             )
-            method_kwargs: dict[str, Any] = {"disp": False}
-            if maxiter is not None:
-                method_kwargs["maxiter"] = maxiter
-            return model.fit(method_kwargs=method_kwargs)
+        _exact_diffuse(model)
+        return model
 
-        model = SMARIMA(
-            y,
-            order=order_,
-            seasonal_order=seasonal_order or (0, 0, 0, 0),
-            exog=exog,
-            trend=sm_trend,
-            enforce_stationarity=True,
-            enforce_invertibility=True,
-        )
-        return model.fit(method="innovations_mle")
+    def _fit(
+        order_: Tuple[int, int, int],
+        maxiter: Optional[int] = None,
+    ) -> Any:
+        sm_trend, _ = _trend_for(order_)
+
+        def _run(model: Any) -> Any:
+            with warnings.catch_warnings():
+                # the burn is deliberate, see _exact_diffuse
+                warnings.filterwarnings(
+                    "ignore", message="Care should be used when applying"
+                )
+                if method_norm != "statespace":
+                    return model.fit(method="innovations_mle")
+                opts: dict[str, Any] = {"disp": False}
+                if maxiter is not None:
+                    opts["maxiter"] = maxiter
+                if isinstance(model, SMARIMA):
+                    return model.fit(method_kwargs=opts)
+                return model.fit(**opts)
+
+        # The likelihood does not depend on the unit of measurement, but the
+        # quasi-Newton search does: on a series in the thousands it stops
+        # short of the maximum in the third digit of the coefficients, and a
+        # mean far from zero is found slowly. A badly scaled series is
+        # therefore searched on a standardised copy; the estimates are mapped
+        # back and the reported fit is evaluated on the series as given. A
+        # series already of order one is fitted as it is.
+        x = y
+        for _ in range(int(order_[1])):
+            x = np.diff(x)
+        for _ in range(int(seasonal[1])):
+            x = x[int(seasonal[3]) :] - x[: -int(seasonal[3])]
+        sd = float(np.std(x)) if len(x) > 1 else 1.0
+        if not np.isfinite(sd) or sd <= 0:
+            sd = 1.0
+        scale = 1.0 if 0.1 <= sd <= 10.0 else sd
+        mean = float(np.mean(y))
+        loc = mean if sm_trend == "c" and abs(mean) > 10.0 * sd else 0.0
+        if scale == 1.0 and loc == 0.0:
+            return _run(_build(y, order_, sm_trend))
+
+        work = _build((y - loc) / scale, order_, sm_trend)
+        params = np.array(_run(work).params, dtype=float)
+        # constant or drift first, then the regressors
+        k_reg = int(work.k_exog) + int(getattr(work, "k_trend", 0))
+        params[:k_reg] *= scale
+        if sm_trend == "c":
+            params[0] += loc
+        params[-1] *= scale * scale  # innovation variance
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message="Care should be used when applying"
+            )
+            return _build(y, order_, sm_trend).smooth(params, cov_type="opg")
+
+    def _ic(res: Any, order_: Tuple[int, int, int]) -> Tuple[float, float, float]:
+        """AIC, BIC and AICc from the log-likelihood and the parameter count.
+
+        statsmodels adds the number of diffuse observations to the parameter
+        count; R and Stata do not, and neither does this.
+        """
+        k = len(np.asarray(res.params))
+        n_used = n - int(res.model._k_states_diff)
+        aic_ = -2.0 * float(res.llf) + 2.0 * k
+        bic_ = -2.0 * float(res.llf) + k * float(np.log(max(n_used, 1)))
+        aicc_ = aic_ + 2.0 * k * (k + 1) / max(n_used - k - 1, 1)
+        return aic_, bic_, aicc_
 
     if auto:
         # The order of differencing is settled first, by KPSS tests on the
@@ -457,35 +555,60 @@ def arima(
         # forecast::auto.arima). Likelihoods of differently differenced
         # series describe different data and cannot be ranked by AICc.
         d = _kpss_ndiffs(y, max_d)
+        # The constant is part of the search unless the caller fixed it: a
+        # mean when the series is not differenced, a drift when it is
+        # differenced once (forecast::auto.arima's allowmean / allowdrift).
+        # Without the drift candidate a trending series can only be fitted
+        # by differencing it again or by an AR root at one.
+        if trend is not None:
+            trend_candidates = [trend]
+        elif d + seasonal_d <= 1:
+            trend_candidates = ["c", "n"]
+        else:
+            trend_candidates = ["n"]
         best_aicc = np.inf
         best_order = (0, d, 0)
+        best_trend = trend_candidates[0]
         n_failed = 0
-        for p in range(max_p + 1):
-            for q in range(max_q + 1):
-                # (0, d, 0) is a candidate: white noise, or a random walk.
-                try:
-                    res = _fit((p, d, q), maxiter=50)
-                except Exception:
-                    n_failed += 1
-                    continue
-                k = len(np.asarray(res.params))
-                n_eff = n - d
-                aicc = res.aic + 2 * k * (k + 1) / max(n_eff - k - 1, 1)
-                if aicc < best_aicc:
-                    best_aicc = aicc
-                    best_order = (p, d, q)
+        n_boundary = 0
+        for cand in trend_candidates:
+            chosen_trend = cand
+            for p in range(max_p + 1):
+                for q in range(max_q + 1):
+                    # (0, d, 0) is a candidate: white noise, or a random walk.
+                    try:
+                        res = _fit((p, d, q), maxiter=50)
+                    except Exception:
+                        n_failed += 1
+                        continue
+                    # A root of the AR or MA polynomial within 1% of the
+                    # unit circle marks a model that is differenced once
+                    # too often or not often enough; its likelihood is
+                    # maximised on the boundary and its AICc is not
+                    # comparable. forecast::auto.arima drops such fits.
+                    roots = np.concatenate(
+                        [np.atleast_1d(res.arroots), np.atleast_1d(res.maroots)]
+                    )
+                    if roots.size and float(np.min(np.abs(roots))) < 1.01:
+                        n_boundary += 1
+                        continue
+                    aicc = _ic(res, (p, d, q))[2]
+                    if aicc < best_aicc:
+                        best_aicc = aicc
+                        best_order = (p, d, q)
+                        best_trend = cand
+        chosen_trend = best_trend
         if not np.isfinite(best_aicc):
             raise MethodIncompatibility(
                 "arima(auto=True): no candidate order could be fitted.",
                 recovery_hint="Check the series for constants or missing values.",
-                diagnostics={"n_failed": n_failed},
+                diagnostics={"n_failed": n_failed, "n_boundary": n_boundary},
             )
         order = best_order
 
     res = _fit(order)
 
-    k = len(np.asarray(res.params))
-    aicc = res.aic + 2 * k * (k + 1) / max(n - int(order[1]) - k - 1, 1)
+    aic, bic, aicc = _ic(res, order)
 
     _param_index = list(res.param_names) if hasattr(res, "param_names") else None
     _, _trend_name = _trend_for(order)
@@ -506,8 +629,8 @@ def arima(
         seasonal_order=seasonal_order,
         params=_params,
         se=_se,
-        aic=float(res.aic),
-        bic=float(res.bic),
+        aic=float(aic),
+        bic=float(bic),
         aicc=float(aicc),
         log_likelihood=float(res.llf),
         residuals=np.asarray(res.resid),

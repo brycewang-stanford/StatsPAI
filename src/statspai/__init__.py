@@ -502,6 +502,7 @@ from .regression.interflex import interflex, interflex_plot
 from .regression.iv import IVRegression, ivreg
 from .regression.ols import regress
 from .regression.prais import prais
+from .regression.rolling import rolling
 from .synth import (
     SynthComparison,
     SyntheticControl,
@@ -1109,7 +1110,9 @@ from .timeseries import (
     VECResult,
     ardl,
     arima,
+    bds,
     bvar,
+    chow_test,
     corrgram,
     cusum_test,
     engle_granger,
@@ -2005,6 +2008,9 @@ __all__ = [
     "structural_break",
     "StructuralBreakResult",
     "cusum_test",
+    "chow_test",
+    "bds",
+    "rolling",
     # Experimental Design
     "randomize",
     "RandomizationResult",

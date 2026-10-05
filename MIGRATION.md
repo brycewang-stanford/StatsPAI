@@ -50,6 +50,38 @@ The same holds for the keys of `diagnostics` that embed a name
 `sp.test` and `sp.lincom` both spellings are read. Plain column names
 were never affected. `sp.panel` still reports the bracket names.
 
+## 1.38.0 → next: ⚠️ `sp.arima` on differenced series, and `auto=True` with a drift
+
+**What changed.** For a model with `d + D >= 1` and at least one AR or MA
+term, `sp.arima` now starts the integration states from an exact diffuse
+prior. It used the statsmodels default, a normal prior of variance 1e6,
+which is informative when the innovation variance of the series is not
+far below 1e6. Coefficients, standard errors, the log-likelihood, AIC,
+BIC and AICc of such models move, and they move more the larger the
+numbers in the series. For ARIMA(1, 1, 0) on quarterly U.S. GDP in
+billions of dollars the AR coefficient goes from 0.170 to 0.216, which is
+what R and Stata report. `method='innovations_mle'` keeps its
+coefficients; its log-likelihood and information criteria change.
+
+`sp.arima(auto=True)` now considers a constant: a mean without
+differencing, a drift with one difference. It also drops candidates with
+a root within 1% of the unit circle. Selected models will more often be
+`(p, 1, q)` with a drift where they were `(p, 2, q)` or had an AR
+coefficient near one.
+
+AIC and BIC of differenced models use the number of observations after
+differencing.
+
+**Who is affected.** Anyone who fitted `sp.arima` with `d >= 1` to a
+series not of order one in size, such as GDP, prices or an index in
+levels, or who used `auto=True` on a trending series.
+
+**What to do.** Re-run. To keep the earlier search over models without a
+constant, pass `trend='n'`. There is no switch for the earlier estimates;
+they changed with the unit of the data.
+
+---
+
 ## 1.38.0 → next: ⚠️ `sp.arima` default estimates and `auto=True` order selection
 
 **What changed.** `sp.arima(y, order=...)` with the default

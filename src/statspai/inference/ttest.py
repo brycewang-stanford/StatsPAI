@@ -258,7 +258,9 @@ def ttest(
 
     Parameters
     ----------
-    data : pandas.DataFrame
+    data : pandas.DataFrame, Series or array
+        A Series or one-dimensional array is tested against ``mu`` as it
+        is, with no ``y``.
     y : str
         The variable whose mean is tested.
     by : str, optional
@@ -326,6 +328,17 @@ def ttest(
             recovery_hint="Drop one of the two arguments.",
         )
     unequal = bool(unequal or welch)
+    if isinstance(data, (pd.Series, np.ndarray, list, tuple)):
+        # one series: its mean against mu
+        values = np.asarray(data, dtype=float)
+        if values.ndim != 1 or y is not None or by is not None or other is not None:
+            raise MethodIncompatibility(
+                "ttest: a bare series can only be tested against mu=.",
+                recovery_hint="Pass a DataFrame and name the columns.",
+            )
+        name = getattr(data, "name", None)
+        y = "x" if name is None else str(name)
+        data = pd.DataFrame({y: values})
     summary = data is None
     if summary:
         samples = _summary_samples(y, by, other, n, mean, sd, alpha)

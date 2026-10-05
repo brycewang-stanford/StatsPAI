@@ -103,6 +103,7 @@ class TestCusumLinearBoundary:
             "critical_value",
             "cusum",
             "max_cusum",
+            "method",
             "n_obs",
             "p_value",
             "reject",

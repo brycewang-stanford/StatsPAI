@@ -24,6 +24,7 @@ post-estimation tool work on ``result.model``.
 
 from __future__ import annotations
 
+import itertools
 import warnings
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -196,38 +197,239 @@ class ARDLResult(ResultProtocolMixin):
             values.append(float(frame[var].iloc[source]))
         return np.asarray(values)
 
-    def forecast(self, alpha: Optional[float] = None) -> pd.DataFrame:
-        """Forecast of the period after the last estimation observation.
+    def forecast(
+        self,
+        alpha: Optional[float] = None,
+        *,
+        steps: int = 1,
+        exog: Optional[pd.DataFrame] = None,
+    ) -> pd.DataFrame:
+        """Forecasts of the periods after the last estimation observation.
 
-        The interval is ``forecast +/- z * RMSFE`` with the RMSFE estimated
-        by the standard error of the regression. It ignores the estimation
-        error in the coefficients and assumes normal errors; a pseudo
-        out-of-sample RMSFE from :meth:`poos` is the more honest width.
+        Beyond one step the forecast is dynamic: each forecast of ``y``
+        stands in for the lag the next one needs.
+
+        Parameters
+        ----------
+        alpha : float, optional
+            Level of the interval. Default: the model's.
+        steps : int, default 1
+            Number of periods ahead.
+        exog : pandas.DataFrame, optional
+            Future values of the ``x`` series, one row per period after the
+            sample in order, with the columns named as in the fit. Needed
+            whenever a forecast uses an ``x`` dated after the sample: from
+            the first step with ``contemporaneous=True``, from the second
+            otherwise.
 
         Returns
         -------
         pandas.DataFrame
-            One row with ``forecast``, ``rmsfe``, ``lower``, ``upper``.
+            One row per period with ``forecast``, ``rmsfe``, ``lower``,
+            ``upper``.
+
+        Notes
+        -----
+        The interval is ``forecast +/- z * RMSFE``. At one step the RMSFE
+        is the standard error of the regression. At step ``h`` it is that
+        times ``sqrt(1 + psi_1**2 + ... + psi_{h-1}**2)``, where ``psi``
+        are the moving-average weights of the autoregressive part. It
+        ignores the estimation error in the coefficients, treats the
+        future ``x`` as known and assumes normal errors; a pseudo
+        out-of-sample RMSFE from :meth:`poos` is the more honest width at
+        one step.
         """
-        if self.contemporaneous:
-            raise MethodIncompatibility(
-                "ardl.forecast: the model uses x at date t, which is not "
-                "known when the forecast is made.",
-                recovery_hint="Refit with contemporaneous=False.",
-            )
+        steps = int(steps)
+        if steps < 1:
+            raise MethodIncompatibility("ardl.forecast: steps must be at least 1.")
         level = self.alpha if alpha is None else alpha
-        origin = int(self._design.index.get_loc(self._sample_index[-1]))
-        point = self._predict(origin, self.params)
+        frame = self._design
+        origin = int(frame.index.get_loc(self._sample_index[-1]))
+        if origin != len(frame) - 1:
+            # rows after the estimation sample are data the fit did not use;
+            # forecasting past them would silently ignore them
+            frame = frame.iloc[: origin + 1]
+
+        first_x_lag = 0 if self.contemporaneous else 1
+        used_x = [v for v in self.x if self.x_lags[v] >= first_x_lag]
+        need = steps - first_x_lag  # future rows of x the recursion reads
+        future = None
+        if used_x and need > 0:
+            if exog is None:
+                why = (
+                    "the model uses x at date t"
+                    if self.contemporaneous
+                    else f"a {steps}-step forecast uses x after the sample"
+                )
+                raise MethodIncompatibility(
+                    f"ardl.forecast: {why}, which is not known when the "
+                    "forecast is made.",
+                    recovery_hint=(
+                        "Pass exog= with the assumed future values of "
+                        f"{used_x} ({need} row(s))"
+                        + (
+                            ", or refit with contemporaneous=False."
+                            if self.contemporaneous and steps == 1
+                            else "."
+                        )
+                    ),
+                )
+            absent = [v for v in used_x if v not in exog.columns]
+            if absent or len(exog) < need:
+                raise MethodIncompatibility(
+                    f"ardl.forecast: exog must have columns {used_x} and at "
+                    f"least {need} row(s).",
+                    diagnostics={"missing_columns": absent, "rows": len(exog)},
+                )
+            future = exog[used_x].to_numpy(dtype=float)[:need]
+            if np.isnan(future).any():
+                raise MethodIncompatibility(
+                    "ardl.forecast: exog has missing values in the rows used."
+                )
+
+        series = {self.y: list(frame[self.y].to_numpy(dtype=float))}
+        for var in self.x:
+            values = list(frame[var].to_numpy(dtype=float))
+            if future is not None and var in used_x:
+                values += list(future[:, used_x.index(var)])
+            series[var] = values
+        const = (
+            float(self.params["Intercept"]) if "Intercept" in self.params.index else 0.0
+        )
+        coef = self.params[self.regressors].to_numpy(dtype=float)
+        terms = [
+            ("_trend", 0) if name == "_trend" else _split_lag(name, [self.y] + self.x)
+            for name in self.regressors
+        ]
+        points = []
+        for h in range(1, steps + 1):
+            t = origin + h  # 0-based position of the period being forecast
+            row = np.array(
+                [
+                    float(t + 1) if var == "_trend" else series[var][t - k]
+                    for var, k in terms
+                ]
+            )
+            if np.isnan(row).any():
+                raise DataInsufficient(
+                    "ardl: a lag needed for the forecast is missing.",
+                    recovery_hint="The series must be observed through the "
+                    "forecast origin.",
+                )
+            point = const + float(row @ coef)
+            points.append(point)
+            series[self.y].append(point)
+
+        # psi weights of the AR polynomial: psi_0 = 1, psi_j = sum phi_i psi_{j-i}
+        phi = np.array(
+            [
+                float(self.params.get(_lag_name(self.y, i), 0.0))
+                for i in range(1, self.lags + 1)
+            ]
+        )
+        psi = [1.0]
+        for j in range(1, steps):
+            psi.append(
+                sum(phi[i - 1] * psi[j - i] for i in range(1, min(j, len(phi)) + 1))
+            )
+        rmsfe = self.ser * np.sqrt(np.cumsum(np.square(psi)))
         z = float(stats.norm.ppf(1 - level / 2))
+        fc = np.asarray(points)
         return pd.DataFrame(
             {
-                "forecast": [point],
-                "rmsfe": [self.ser],
-                "lower": [point - z * self.ser],
-                "upper": [point + z * self.ser],
+                "forecast": fc,
+                "rmsfe": rmsfe,
+                "lower": fc - z * rmsfe,
+                "upper": fc + z * rmsfe,
             },
-            index=pd.Index(["T+1"], name="period"),
+            index=pd.Index([f"T+{h}" for h in range(1, steps + 1)], name="period"),
         )
+
+    # ----------------------------------------------------------- long run
+    def long_run(self, alpha: Optional[float] = None) -> pd.DataFrame:
+        """Long-run effect of each ``x`` on ``y``.
+
+        A permanent unit rise in ``x`` moves ``y`` in the end by the sum of
+        the coefficients on ``x`` and its lags divided by one minus the sum
+        of the autoregressive coefficients. In the geometric-lag model
+        ``y[t] = a + b x[t] + lam y[t-1]`` this is ``b / (1 - lam)``.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per ``x`` in the model, and ``Intercept`` for the
+            long-run mean of ``y`` at ``x = 0`` when the model has a
+            constant, with ``coef``, ``std err``, ``z``, ``pvalue`` and the
+            confidence limits. The standard errors come from the delta
+            method on the model's covariance matrix, so they are robust
+            when the fit is. ``attrs['ar_sum']`` is the sum of the
+            autoregressive coefficients and ``attrs['adjustment']`` that
+            sum minus one, the error-correction coefficient.
+
+        Notes
+        -----
+        The ratio has no finite-sample moments and its normal
+        approximation is poor when the sum of the autoregressive
+        coefficients is near one. With that sum at or above one there is
+        no long-run level to converge to and the method refuses.
+        """
+        level = self.alpha if alpha is None else alpha
+        names = list(self.params.index)
+        beta = self.params.to_numpy(dtype=float)
+        cov = np.asarray(self.model.data_info["var_cov"], dtype=float)
+        ar_idx = [
+            names.index(_lag_name(self.y, i))
+            for i in range(1, self.lags + 1)
+            if _lag_name(self.y, i) in names
+        ]
+        ar_sum = float(beta[ar_idx].sum()) if ar_idx else 0.0
+        gap = 1.0 - ar_sum
+        if not gap > 0:
+            raise MethodIncompatibility(
+                f"ardl.long_run: the autoregressive coefficients sum to "
+                f"{ar_sum:.4f}; the model has no long-run level.",
+                recovery_hint="Difference the series, or test for "
+                "cointegration with sp.engle_granger.",
+                diagnostics={"ar_sum": ar_sum},
+            )
+        targets: Dict[str, List[int]] = {}
+        if "Intercept" in names:
+            targets["Intercept"] = [names.index("Intercept")]
+        for var in self.x:
+            idx = [
+                names.index(n)
+                for n in self.regressors
+                if n != "_trend" and _split_lag(n, [self.y] + self.x)[0] == var
+            ]
+            if idx:
+                targets[var] = idx
+        if not targets:
+            raise MethodIncompatibility(
+                "ardl.long_run: the model has neither a constant nor an x.",
+                recovery_hint="Fit with x=[...].",
+            )
+        rows = {}
+        z_crit = float(stats.norm.ppf(1 - level / 2))
+        for label, idx in targets.items():
+            num = float(beta[idx].sum())
+            theta = num / gap
+            grad = np.zeros(len(beta))
+            grad[idx] = 1.0 / gap
+            grad[ar_idx] = num / gap**2
+            se = float(np.sqrt(grad @ cov @ grad))
+            zval = theta / se if se > 0 else np.nan
+            rows[label] = {
+                "coef": theta,
+                "std err": se,
+                "z": zval,
+                "pvalue": float(2 * stats.norm.sf(abs(zval))),
+                "ci_lower": theta - z_crit * se,
+                "ci_upper": theta + z_crit * se,
+            }
+        out = pd.DataFrame(rows).T
+        out.attrs["ar_sum"] = ar_sum
+        out.attrs["adjustment"] = -gap
+        return out
 
     def _predict(self, position: int, params: pd.Series) -> float:
         row = self._row_for(position)
@@ -412,10 +614,18 @@ def ardl(
         with every candidate estimated on the same observations, so the
         criteria are comparable. BIC is consistent for the true order; AIC
         tends to pick more lags.
-    x_lags : int, dict or "same", default 1
+    x_lags : int, dict, "same", "bic" or "aic", default 1
         Lags of each ``x``: one order for all, a ``{name: order}`` dict, or
         ``"same"`` to tie it to ``p`` (the ADL(p, p) family a criterion then
-        searches over).
+        searches over). A criterion searches the order of every ``x``
+        separately, from leaving it out to ``max_lags``, jointly with ``p``
+        when ``lags`` names the same criterion and for the given ``p``
+        otherwise: the search of statsmodels' ``ardl_select_order``. Every
+        candidate is fitted on the rows the deepest one leaves. An ``x``
+        the search leaves out has order ``-1`` in ``x_lags`` with
+        ``contemporaneous=True`` and ``0`` without, one below its first lag.
+        The search fits ``(max_lags + 1) * (max_lags + 2) ** len(x)``
+        regressions with ``contemporaneous=True``.
     max_lags : int, optional
         Largest order searched. Default ``floor(12 * (T / 100) ** 0.25)``
         capped at 8.
@@ -529,9 +739,29 @@ def ardl(
             return p
         return int(x_lags)
 
-    def build(p: int) -> Tuple[pd.DataFrame, List[str], Dict[str, int]]:
-        q = {var: order_of(var, p) for var in xs}
-        if p < 0 or any(v < 0 for v in q.values()):
+    # An x is out of the model when its order is one below its first lag.
+    q_floor = -1 if contemporaneous else 0
+    x_criterion: Optional[str] = None
+    if isinstance(x_lags, str) and x_lags.lower() in ("bic", "aic"):
+        x_criterion = x_lags.lower()
+        if not xs:
+            raise MethodIncompatibility(
+                f"ardl: x_lags={x_lags!r} selects the lags of x, but no x was given.",
+                recovery_hint="Pass x=[...], or drop x_lags.",
+            )
+        if isinstance(lags, str) and lags.lower() != x_criterion:
+            raise MethodIncompatibility(
+                f"ardl: lags={lags!r} and x_lags={x_lags!r} name different "
+                "criteria; one search ranks every candidate.",
+                recovery_hint="Use the same criterion for both.",
+            )
+
+    def build(
+        p: int, orders: Optional[Dict[str, int]] = None
+    ) -> Tuple[pd.DataFrame, List[str], Dict[str, int]]:
+        q = dict(orders) if orders is not None else {v: order_of(v, p) for v in xs}
+        searched = orders is not None
+        if p < 0 or any(v < (q_floor if searched else 0) for v in q.values()):
             raise MethodIncompatibility(
                 "ardl: lag orders must be non-negative.",
                 recovery_hint="Use lags >= 0.",
@@ -549,8 +779,10 @@ def ardl(
             )
         return design, names, q
 
-    def fit(p: int, rows: pd.Index) -> Tuple[Any, pd.DataFrame, List[str], Dict]:
-        design, names, q = build(p)
+    def fit(
+        p: int, rows: pd.Index, orders: Optional[Dict[str, int]] = None
+    ) -> Tuple[Any, pd.DataFrame, List[str], Dict]:
+        design, names, q = build(p, orders)
         formula = f"{y} ~ " + (" + ".join(names) or "1")
         if trend == "n":
             if not names:
@@ -597,7 +829,53 @@ def ardl(
         return frame.index[lo : hi + 1]
 
     ic_table: Optional[pd.DataFrame] = None
-    if isinstance(lags, str):
+    q_final: Optional[Dict[str, int]] = None
+    if x_criterion is not None:
+        # Every combination of orders, each fitted on the rows the deepest
+        # candidate leaves, so the criteria rank like with like.
+        if isinstance(lags, str):
+            if max_lags is None:
+                max_lags = min(8, int(np.floor(12.0 * (T / 100.0) ** 0.25)))
+            p_grid = list(range(int(max_lags) + 1))
+        else:
+            if max_lags is None:
+                max_lags = max(
+                    int(lags), min(8, int(np.floor(12.0 * (T / 100.0) ** 0.25)))
+                )
+            p_grid = [int(lags)]
+        q_grid = list(range(q_floor, int(max_lags) + 1))
+        n_candidates = len(p_grid) * len(q_grid) ** len(xs)
+        if n_candidates > 20000:
+            raise MethodIncompatibility(
+                f"ardl: {n_candidates} candidate models to search.",
+                recovery_hint="Lower max_lags, or fix some of the orders.",
+                diagnostics={"n_candidates": n_candidates},
+            )
+        rows = rows_for(max(max(p_grid), int(max_lags)))
+        records = []
+        for p in p_grid:
+            for combo in itertools.product(q_grid, repeat=len(xs)):
+                orders = dict(zip(xs, combo))
+                if trend == "n" and p == 0 and all(c == q_floor for c in combo):
+                    continue
+                model, _, names, _ = fit(p, rows, orders)
+                resid = np.asarray(_residuals(model), dtype=float)
+                n, k = len(rows), len(model.params)
+                base = np.log(float(resid @ resid) / n)
+                records.append(
+                    {
+                        "lags": p,
+                        **orders,
+                        "bic": base + k * np.log(n) / n,
+                        "aic": base + k * 2.0 / n,
+                        "nobs": n,
+                    }
+                )
+        ic_table = pd.DataFrame(records).set_index(["lags"] + xs)
+        best = ic_table[x_criterion].idxmin()
+        p_final = int(best[0])
+        q_final = {v: int(o) for v, o in zip(xs, best[1:])}
+    elif isinstance(lags, str):
         criterion = lags.lower()
         if criterion not in ("bic", "aic"):
             raise MethodIncompatibility(
@@ -632,7 +910,7 @@ def ardl(
         deepest = max([p_final] + [order_of(v, p_final) for v in xs])
         rows = rows_for(deepest)
 
-    model, design, names, q = fit(p_final, rows)
+    model, design, names, q = fit(p_final, rows, q_final)
     return ARDLResult(
         model=model,
         y=y,

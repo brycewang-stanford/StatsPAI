@@ -52,6 +52,8 @@ def corrgram(
     *,
     lags: Optional[int] = None,
     pac: str = "regression",
+    model_df: int = 0,
+    boxpierce: bool = False,
 ) -> pd.DataFrame:
     """Autocorrelations, partial autocorrelations and Q statistics.
 
@@ -70,6 +72,17 @@ def corrgram(
         regression of the series on its first ``k`` lags and a constant
         (Stata's default); ``'yw'`` solves the Yule-Walker equations from
         the autocorrelations (Stata's ``yw`` option, R's ``pacf``).
+    model_df : int, default 0
+        Number of ARMA coefficients estimated to produce the series, when
+        it is a residual: ``p + q``. The Q statistic at lag ``k`` is then
+        referred to chi-squared with ``k - model_df`` degrees of freedom,
+        and has no p-value at lags up to ``model_df`` (R ``Box.test(fitdf=)``,
+        statsmodels ``acorr_ljungbox(model_df=)``).
+    boxpierce : bool, default False
+        Add the Box-Pierce statistic ``n * sum(AC**2)`` and its p-value as
+        columns ``BP`` and ``Prob>BP``. It has the same limit as Q and a
+        worse small-sample fit; it is offered for comparison with texts
+        that report it.
 
     Returns
     -------
@@ -105,8 +118,14 @@ def corrgram(
 
     References
     ----------
-    ljung1978measure
+    ljung1978measure, box1970distribution
     """
+    model_df = int(model_df)
+    if model_df < 0:
+        raise MethodIncompatibility(
+            f"sp.corrgram: model_df={model_df} is negative.",
+            recovery_hint="Pass p + q of the fitted ARMA model, or 0.",
+        )
     x = _series(data, y)
     n = x.size
     if lags is None:
@@ -130,7 +149,10 @@ def corrgram(
         )
     ac = np.array([float(d[k:] @ d[:-k]) / denom for k in range(1, lags + 1)])
     q = n * (n + 2) * np.cumsum(ac**2 / (n - np.arange(1, lags + 1)))
-    prob = stats.chi2.sf(q, np.arange(1, lags + 1))
+    dof = np.arange(1, lags + 1) - model_df
+    usable = dof > 0
+    prob = np.full(lags, np.nan)
+    prob[usable] = stats.chi2.sf(q[usable], dof[usable])
 
     part = np.full(lags, np.nan)
     if pac == "regression":
@@ -151,6 +173,13 @@ def corrgram(
         {"AC": ac, "PAC": part, "Q": q, "Prob>Q": prob},
         index=pd.RangeIndex(1, lags + 1, name="lag"),
     )
+    if boxpierce:
+        bp = n * np.cumsum(ac**2)
+        bp_prob = np.full(lags, np.nan)
+        bp_prob[usable] = stats.chi2.sf(bp[usable], dof[usable])
+        table["BP"] = bp
+        table["Prob>BP"] = bp_prob
     table.attrs["n"] = int(n)
     table.attrs["variable"] = y
+    table.attrs["model_df"] = model_df
     return table

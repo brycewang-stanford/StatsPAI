@@ -7127,6 +7127,10 @@ def _build_registry() -> None:
                 "forecast with an interval, a Granger-causality F test "
                 "(.granger()) and pseudo out-of-sample forecasts with their "
                 "root mean squared forecast error and bias (.poos()). "
+                ".forecast(steps=h, exog=...) forecasts several periods "
+                "dynamically; .long_run() gives the long-run effect of each "
+                "x with delta-method standard errors. x_lags='bic' searches "
+                "the lag order of every x (statsmodels ardl_select_order). "
                 "Robust or HAC standard errors. Coefficients are predictive, "
                 "not causal. statsmodels ARDL, R dynlm / ARDL."
             ),
@@ -7149,7 +7153,9 @@ def _build_registry() -> None:
                     "int|str|dict",
                     False,
                     1,
-                    "Lags of each x: an order, {name: order}, or 'same' (= p)",
+                    "Lags of each x: an order, {name: order}, 'same' (= p), or "
+                    "'bic' / 'aic' to search the order of every x separately, "
+                    "from leaving it out to max_lags",
                 ),
                 ParamSpec("max_lags", "int", False, None, "Largest order searched"),
                 ParamSpec(
@@ -7277,9 +7283,12 @@ def _build_registry() -> None:
                 "with its p-value at every lag (Stata corrgram; the last row "
                 "is wntestq at that lag). The partial autocorrelation is the "
                 "regression coefficient on the k-th lag by default, or the "
-                "Yule-Walker solution with pac='yw' (R pacf). The Q test's "
-                "chi-squared reference ignores that regression residuals "
-                "were estimated: after a fit use sp.estat(result, 'bgodfrey')."
+                "Yule-Walker solution with pac='yw' (R pacf). On ARMA "
+                "residuals pass model_df=p+q so the Q statistic loses those "
+                "degrees of freedom; boxpierce=True adds the Box-Pierce "
+                "statistic. On regression residuals the chi-squared reference "
+                "ignores that they were estimated: use sp.estat(result, "
+                "'bgodfrey')."
             ),
             params=[
                 ParamSpec(
@@ -7305,10 +7314,34 @@ def _build_registry() -> None:
                     "How the partial autocorrelations are computed",
                     ["regression", "yw"],
                 ),
+                ParamSpec(
+                    "model_df",
+                    "int",
+                    False,
+                    0,
+                    "ARMA coefficients estimated to produce the series (p + q); "
+                    "the Q statistic at lag k then has k - model_df degrees of "
+                    "freedom",
+                ),
+                ParamSpec(
+                    "boxpierce",
+                    "bool",
+                    False,
+                    False,
+                    "Add the Box-Pierce statistic and its p-value (columns BP, "
+                    "Prob>BP)",
+                ),
             ],
             returns="DataFrame",
             example='sp.corrgram(df, "resid", lags=12)',
-            tags=["timeseries", "autocorrelation", "ljung-box", "white-noise"],
+            tags=[
+                "timeseries",
+                "autocorrelation",
+                "ljung-box",
+                "box-pierce",
+                "portmanteau",
+                "white-noise",
+            ],
             reference="ljung1978measure",
             assumptions=[
                 "Covariance-stationary series",
@@ -7317,6 +7350,183 @@ def _build_registry() -> None:
                 "residuals of a fitted ARMA(p, q) the degrees of freedom fall by p + "
                 "q",
             ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="chow_test",
+            category="timeseries",
+            description=(
+                "Chow test for a structural break at a date fixed in "
+                "advance: F test that the regression coefficients are equal "
+                "before and after break_point. All coefficients or the "
+                "subset in break_vars, one break or several jointly, "
+                "classical or heteroskedasticity-robust covariance. Returns "
+                "the F and Wald statistics and the coefficients regime by "
+                "regime. strucchange sctest(type='Chow'), Stata estat "
+                "sbknown. For a date chosen by looking at the data use "
+                "sp.structural_break(method='sup-f'), whose reference "
+                "distribution allows for the search."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Rows in time order"),
+                ParamSpec("y", "str", True, None, "Dependent variable"),
+                ParamSpec(
+                    "x", "list", False, None, "Regressors; a constant is always added"
+                ),
+                ParamSpec(
+                    "break_point",
+                    "int|label|list",
+                    True,
+                    None,
+                    "Start of the second regime: the number of rows in the "
+                    "first regime, or a value of time= / of the index whose "
+                    "row opens the new regime; a list tests several breaks",
+                ),
+                ParamSpec("time", "str", False, None, "Column dating the rows"),
+                ParamSpec(
+                    "break_vars",
+                    "list",
+                    False,
+                    None,
+                    "Coefficients allowed to change, names from x plus 'const'; "
+                    "default all",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "nonrobust",
+                    "Covariance of the Wald statistic",
+                    ["nonrobust", "hc0", "hc1"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level used for 'reject'"),
+            ],
+            returns="dict",
+            example='sp.chow_test(df, "y", ["x"], break_point=60)',
+            tags=["timeseries", "structural-break", "chow", "stability", "f-test"],
+            reference="chow1960tests",
+            assumptions=[
+                "The break date was chosen before looking at the data",
+                "With vce='nonrobust': errors with the same variance in every "
+                "regime",
+                "Each regime has at least as many rows as coefficients that " "change",
+            ],
+            alternatives=["structural_break", "cusum_test"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bds",
+            category="timeseries",
+            description=(
+                "BDS test that a series is independent and identically "
+                "distributed, from the share of pairs of m-histories that "
+                "stay within epsilon of each other. Standard normal under "
+                "the null for each embedding dimension 2..max_dim. Has power "
+                "against linear and nonlinear dependence alike, so it is run "
+                "on the residuals of a fitted model to ask whether structure "
+                "is left; a rejection does not say which kind. Reproduces "
+                "statsmodels bds. The normal approximation is poor below "
+                "about 200 observations."
+            ),
+            params=[
+                ParamSpec(
+                    "data",
+                    "DataFrame|Series|array|result",
+                    True,
+                    None,
+                    "The series in time order, or a fitted regression whose "
+                    "residuals are tested",
+                ),
+                ParamSpec("y", "str", False, None, "Column, when data is a DataFrame"),
+                ParamSpec("max_dim", "int", False, 2, "Largest embedding dimension"),
+                ParamSpec(
+                    "epsilon",
+                    "float",
+                    False,
+                    None,
+                    "Radius for two observations to count as close; default "
+                    "distance standard deviations",
+                ),
+                ParamSpec(
+                    "distance",
+                    "float",
+                    False,
+                    1.5,
+                    "Multiple of the standard deviation used for epsilon",
+                ),
+            ],
+            returns="DataFrame",
+            example='sp.bds(df, "resid", max_dim=4)',
+            tags=["timeseries", "independence", "nonlinearity", "bds", "residuals"],
+            reference="broock1996test",
+            assumptions=[
+                "Consecutive observations with no gaps",
+                "A sample long enough for the normal approximation (a few "
+                "hundred observations)",
+                "On residuals: a model fitted by least squares; the limit law "
+                "differs for GARCH standardised residuals",
+            ],
+            alternatives=["corrgram", "estat"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="rolling",
+            category="regression",
+            description=(
+                "Rolling or recursive least squares: the same regression on "
+                "a window of fixed length that moves through the sample, or "
+                "on a sample that grows from the first row (recursive=True). "
+                "Returns one row per window with the coefficients, their "
+                "standard errors, R-squared and root MSE, indexed by the "
+                "window's last row. The usual tool for a rolling market beta "
+                "or for looking at coefficient stability. statsmodels "
+                "RollingOLS, Stata rolling. Paths are noisy and consecutive "
+                "windows overlap; test stability with sp.cusum_test or "
+                "sp.structural_break."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, None, "Regression formula"),
+                ParamSpec("data", "DataFrame", True, None, "Rows in time order"),
+                ParamSpec(
+                    "window",
+                    "int",
+                    True,
+                    None,
+                    "Rows per window; with recursive=True, in the first",
+                ),
+                ParamSpec("step", "int", False, 1, "Rows between window ends"),
+                ParamSpec(
+                    "recursive",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the start fixed and let the sample grow",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "nonrobust",
+                    "Covariance of the standard errors in each window",
+                    ["nonrobust", "hc0", "hc1", "hc2", "hc3"],
+                ),
+            ],
+            returns="DataFrame",
+            example='sp.rolling("ret ~ mkt", df, window=36)',
+            tags=["regression", "rolling", "recursive", "stability", "beta"],
+            assumptions=[
+                "Rows in time order",
+                "Each window is long enough to estimate the coefficients; "
+                "windows where the regressors are collinear return missing "
+                "values with a warning",
+            ],
+            alternatives=["cusum_test", "structural_break", "regress"],
         )
     )
 

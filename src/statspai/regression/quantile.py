@@ -204,6 +204,14 @@ def qreg(
 
     See Koenker & Bassett (1978, *Econometrica*).
     """
+    if isinstance(quantile, (list, tuple, np.ndarray)):
+        raise MethodIncompatibility(
+            "qreg fits one quantile; quantile= was given several.",
+            recovery_hint=(
+                "sp.sqreg(data, y, x, quantiles=[...]) fits them together, "
+                "or call sp.qreg once per quantile."
+            ),
+        )
     if not (0 < quantile < 1):
         raise MethodIncompatibility(f"quantile must be in (0, 1), got {quantile}")
 

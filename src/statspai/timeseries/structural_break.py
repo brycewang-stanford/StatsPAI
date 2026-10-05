@@ -885,6 +885,7 @@ def cusum_test(
     y: str,
     x: Optional[List[str]] = None,
     alpha: float = 0.05,
+    method: str = "recursive",
 ) -> Dict[str, Any]:
     """
     CUSUM test for parameter stability.
@@ -899,10 +900,27 @@ def cusum_test(
     x : list of str, optional
         Regressors.
     alpha : float, default 0.05
+    method : {'recursive', 'ols'}, default 'recursive'
+        Which residuals are cumulated. ``'recursive'`` is the test of
+        Brown, Durbin and Evans on one-step-ahead prediction errors.
+        ``'ols'`` is the test of Ploberger and Kramer on the residuals of
+        the full-sample fit, ``cumsum(e) / (s sqrt(n))`` with ``s**2 =
+        RSS / (n - k)``; its limit is a Brownian bridge, so the boundary
+        is a constant (1.358 at 5%). This is
+        ``strucchange::efp(type="OLS-CUSUM")`` and Stata's ``estat
+        sbcusum, ols``. statsmodels' ``breaks_cusumolsresid`` divides the
+        residual sum of squares by ``n`` unless ``ddof=k`` is passed.
 
     Returns
     -------
     dict
+        For ``method='ols'``: ``'cusum'`` (the scaled partial sums, one per
+        observation), ``'statistic'`` and ``'max_cusum'`` (their largest
+        absolute value), ``'p_value'`` (from the law of the supremum of a
+        Brownian bridge), ``'critical_value'`` (a constant),
+        ``'boundary_coef'`` (the same number), ``'reject'``, ``'n_obs'``
+        and ``'method'``. For ``method='recursive'``:
+
         Keys: ``'cusum'`` (standardised CUSUM path of the recursive
         residuals, ``strucchange::efp(type = "Rec-CUSUM")$process`` without
         its leading 0), ``'max_cusum'`` (its supremum in absolute value),
@@ -926,7 +944,7 @@ def cusum_test(
 
     References
     ----------
-    brown1975techniques
+    brown1975techniques, ploberger1992cusum
 
     Examples
     --------
@@ -939,8 +957,11 @@ def cusum_test(
     >>> df = pd.DataFrame({"y": y, "x": x})
     >>> res = sp.cusum_test(df, y="y", x=["x"])
     >>> sorted(res.keys())  # doctest: +NORMALIZE_WHITESPACE
-    ['boundary_coef', 'critical_value', 'cusum', 'max_cusum', 'n_obs',
-     'p_value', 'reject', 'statistic']
+    ['boundary_coef', 'critical_value', 'cusum', 'max_cusum', 'method',
+     'n_obs', 'p_value', 'reject', 'statistic']
+    >>> ols = sp.cusum_test(df, y="y", x=["x"], method="ols")
+    >>> round(ols["critical_value"], 3)
+    1.358
     >>> res["n_obs"]
     120
     >>> bool(res["reject"])
@@ -955,6 +976,33 @@ def cusum_test(
         X_data = np.ones((n, 1))
 
     k = X_data.shape[1]
+
+    if method not in ("recursive", "ols"):
+        raise MethodIncompatibility(
+            f"cusum_test: method must be 'recursive' or 'ols', got {method!r}."
+        )
+    if method == "ols":
+        from scipy.stats import kstwobign
+
+        if not 0.0 < alpha < 1.0:
+            raise MethodIncompatibility("alpha must lie in (0, 1)")
+        beta = np.linalg.lstsq(X_data, y_data, rcond=None)[0]
+        e = y_data - X_data @ beta
+        s = np.sqrt(float(e @ e) / (n - k))
+        path = np.cumsum(e) / (s * np.sqrt(n))
+        ols_stat = float(np.max(np.abs(path)))
+        crit = float(kstwobign.isf(alpha))
+        return {
+            "cusum": path,
+            "max_cusum": ols_stat,
+            "critical_value": crit,
+            "boundary_coef": crit,
+            "statistic": ols_stat,
+            "p_value": float(kstwobign.sf(ols_stat)),
+            "reject": bool(ols_stat > crit),
+            "n_obs": n,
+            "method": "ols",
+        }
 
     # Recursive residuals
     rec_resid_values: list[float] = []
@@ -1008,4 +1056,5 @@ def cusum_test(
         "p_value": _bm_linear_crossing_pvalue(stat),
         "reject": bool(np.any(np.abs(cusum) > boundary)),
         "n_obs": n,
+        "method": "recursive",
     }

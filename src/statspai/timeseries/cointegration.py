@@ -69,7 +69,9 @@ class CointegrationResult(ResultProtocolMixin):
         n_obs: int,
         n_vars: int,
         lags: int,
+        pvalue: Optional[float] = None,
     ) -> None:
+        self.pvalue = pvalue
         self.test_type = test_type
         self.test_stats = test_stats
         self.critical_values = critical_values
@@ -79,6 +81,19 @@ class CointegrationResult(ResultProtocolMixin):
         self.n_obs = n_obs
         self.n_vars = n_vars
         self.lags = lags
+
+    def __repr__(self) -> str:
+        if self.test_type == "Engle-Granger":
+            p = "" if self.pvalue is None else f", pvalue={self.pvalue:.4g}"
+            return (
+                f"CointegrationResult(Engle-Granger: statistic="
+                f"{self.test_stats:.4f}{p}, lags={self.lags}, "
+                f"cointegrated={bool(self.rank)})"
+            )
+        return (
+            f"CointegrationResult({self.test_type}: rank={self.rank}, "
+            f"n_vars={self.n_vars}, lags={self.lags})"
+        )
 
     def summary(self) -> str:
         lines = [
@@ -90,6 +105,8 @@ class CointegrationResult(ResultProtocolMixin):
 
         if self.test_type == "Engle-Granger":
             lines.append(f"ADF test statistic: {self.test_stats:.4f}")
+            if self.pvalue is not None:
+                lines.append(f"MacKinnon p-value: {self.pvalue:.4f}")
             lines.append(
                 f"Critical values (1%, 5%, 10%): "
                 f"{self.critical_values[0]:.3f}, "
@@ -100,9 +117,13 @@ class CointegrationResult(ResultProtocolMixin):
             conclusion = "Cointegrated" if reject else "Not cointegrated"
             lines.append(f"Conclusion: {conclusion} at 5%")
         else:
+            # the trace test's null is rank <= r, the maximum-eigenvalue
+            # test's is rank = r
+            maxeig = "maxeig" in self.test_type
+            label = "Max-eig stat" if maxeig else "Trace stat"
+            rel = "r = " if maxeig else "r <= "
             lines.append(
-                f"{'H0: rank':>12s} {'Trace stat':>12s}"
-                f" {'5% CV':>10s} {'Reject':>8s}"
+                f"{'H0: rank':>12s} {label:>12s}" f" {'5% CV':>10s} {'Reject':>8s}"
             )
             lines.append("-" * 50)
             for i in range(self.n_vars):
@@ -112,7 +133,7 @@ class CointegrationResult(ResultProtocolMixin):
                 )
                 reject = ts > cv if np.isfinite(ts) and np.isfinite(cv) else False
                 lines.append(
-                    f"{'r <= ' + str(i):>12s} {ts:>12.4f}"
+                    f"{rel + str(i):>12s} {ts:>12.4f}"
                     f" {cv:>10.3f} {'Yes' if reject else 'No':>8s}"
                 )
 
@@ -168,7 +189,11 @@ def engle_granger(
         (1%, 5%, 10%) MacKinnon (2010) response-surface critical values for
         ``N = len(variables)`` series and ``T = n - 1`` (the ``egranger``
         convention); ``eigenvectors`` holds the step-1 coefficients
-        (constant, regressors, trend terms).
+        (constant, regressors, trend terms); ``pvalue`` is MacKinnon's
+        (1994) asymptotic p-value, the one statsmodels' ``coint`` reports,
+        or None with more than six series, which his surfaces do not
+        cover. The decision in ``rank`` uses the finite-sample critical
+        value, so near a boundary it can disagree with ``pvalue < alpha``.
 
     Examples
     --------
@@ -191,7 +216,7 @@ def engle_granger(
 
     References
     ----------
-    [@engle1987integration]
+    [@engle1987integration], [@mackinnon1994approximate]
     """
     from ._critvals import mackinnon_cv
 
@@ -257,6 +282,13 @@ def engle_granger(
     cvs = [mackinnon_cv(trend, k, lvl, n - 1) for lvl in (1, 5, 10)]
     reject = adf_stat < cvs[(1, 5, 10).index(level_pct)]
 
+    # MacKinnon (1994) asymptotic p-value. His surfaces stop at six series.
+    pvalue: Optional[float] = None
+    if k <= 6:
+        from statsmodels.tsa.adfvalues import mackinnonp
+
+        pvalue = float(mackinnonp(adf_stat, regression=trend, N=k))
+
     _result = CointegrationResult(
         test_type="Engle-Granger",
         test_stats=adf_stat,
@@ -267,6 +299,7 @@ def engle_granger(
         n_obs=n,
         n_vars=k,
         lags=max_lag,
+        pvalue=pvalue,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

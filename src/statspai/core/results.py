@@ -344,6 +344,8 @@ _FOREIGN_RESULT_NAMES: Dict[str, str] = {
     "wald_test": "use `.test('x1 = 0, x2 = 0')` or `sp.test(result, ...)`",
     "t_test": "use `.lincom('x1 - x2')` or `sp.lincom(result, ...)`",
     "get_margeff": "use `sp.margins(result, data, method='ame')`",
+    "get_influence": "use `sp.influence_measures(result)`",
+    "outlier_test": "use `sp.influence_measures(result)` and read `rstudent`",
     "get_prediction": "use `.predict(data, what='confidence')`",
     "summary2": "use `.summary()` or `sp.regtable(result)`",
     "cov": "the covariance matrix is `.vcov()`",

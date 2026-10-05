@@ -34,6 +34,22 @@ The formulas carry over as they are. `I(x**2)`, `np.log(x)`, `C(g)`,
 | `VAR(df).fit(2)`, `.irf(10)`, `.test_causality` | `sp.var(df, lags=2)`, `sp.irf`, `sp.granger_causality` |
 | `coint_johansen(df, 0, 3)` | `sp.johansen(df, lags=3)` |
 | `VECM(df, k_ar_diff=3, coint_rank=1, deterministic="ci").fit()` | `sp.vec(df, lags=3, rank=1, trend="rc")` |
+| `VECM(...).fit().predict(steps=8)`, `.irf(10)` | `fit.forecast(8)`, `fit.irf(10)`, `fit.fevd(10)` |
+| `coint(y, x, maxlag=2, autolag=None)` | `sp.engle_granger(df, ["y", "x"], lags=2)` |
+| `AutoReg(y, lags=3).fit()`, `ar_select_order(y, 8)` | `sp.ardl(df, "y", lags=3)`, `lags="bic"` |
+| `ARDL(y, 2, X, {"x": 1}).fit()` | `sp.ardl(df, "y", ["x"], lags=2, x_lags=1, contemporaneous=True)` |
+| `ardl_select_order(y, 4, X, 4)` | `sp.ardl(df, "y", xs, lags="bic", x_lags="bic", max_lags=4, contemporaneous=True)` |
+| `res.predict(start, end, exog_oos=new)` | `fit.forecast(steps=h, exog=new)` |
+| `UECM.from_ardl(m).fit().ci_params` | `fit.long_run()` |
+| `pmdarima.auto_arima(y, seasonal=False)` | `sp.arima(y, auto=True)` |
+| `acorr_ljungbox(e, lags=10, boxpierce=True, model_df=2)` | `sp.corrgram(e, lags=10, boxpierce=True, model_df=2)` |
+| `RollingOLS(y, X, window=36).fit()` | `sp.rolling("y ~ x", df, window=36)` |
+| `breaks_cusumolsresid(res.resid, ddof=k)` | `sp.cusum_test(df, "y", xs, method="ols")` |
+| `bds(res.resid, max_dim=3)` | `sp.bds(res, max_dim=3)` |
+| `het_breuschpagan`, `het_white`, `het_arch`, `acorr_breusch_godfrey` | `sp.estat(res, "hettest" / "white" / "archlm" / "bgodfrey")` |
+| `reset_ramsey(res, degree=5)` | `sp.estat(res, "reset", powers=5)` |
+| `res.get_influence().cooks_distance` | `sp.influence_measures(res)["cooksd"]` |
+| `stats.shapiro(res.resid)`, `stats.ttest_1samp(x, 0.5)` | `sp.swilk(res.residuals())`, `sp.ttest(x, mu=0.5)` |
 | `arch_model(r, vol="Garch", p=1, q=1).fit()` | `sp.garch(r, p=1, q=1, vce="robust")` |
 | `RidgeCV`, `LassoCV`, `PCA` + `LinearRegression` | `sp.shrinkage(df, y, x, method="ridge" / "lasso" / "pcr")` |
 | `summary_col([r1, r2])`, `Stargazer([r1, r2])` | `sp.regtable(r1, r2)` |
@@ -100,6 +116,61 @@ not know, so this misspelling of `cov_type` returns classical standard
 errors without a word (the book's chapter 12 has five such calls).
 `sp.regress(f, df, vcov="HC1")` computes HC1, and an option StatsPAI does
 not know raises.
+
+**ARIMA on a differenced series.** `statsmodels` starts the level of an
+integrated series from a normal prior with variance 1e6. That is diffuse
+for a series whose innovations have a variance of 1, and informative for
+one measured in thousands. On quarterly U.S. GDP in billions of dollars
+`ARIMA(gdp, order=(1, 1, 0))` gives an AR coefficient of 0.17, 0.22 with
+GDP in trillions and 0.02 in millions. `sp.arima` uses the exact diffuse
+initialisation and returns 0.216 in every unit, with the log-likelihood
+of R's `arima(method="ML")` and Stata's `arima`. AIC and BIC use the
+number of observations left after differencing.
+
+**Automatic ARIMA.** `sp.arima(auto=True)` runs the exhaustive search of
+R's `forecast::auto.arima(stepwise=FALSE, approximation=FALSE)`: `d` by
+KPSS tests, then every `(p, q)` with and without a constant or drift,
+ranked by AICc, dropping fits with a root on the unit circle. `pmdarima`
+defaults to the stepwise search, which can stop at a different model.
+
+**AutoReg and ARDL standard errors.** Both divide the residual sum of
+squares by `n`. `sp.ardl` is an OLS regression and divides by `n - k`, so
+its classical standard errors and forecast intervals are wider by
+`sqrt(n / (n - k))`. Coefficients and point forecasts are identical.
+
+**Lag selected by `adfuller`.** `statsmodels` searches up to
+`ceil(12 (T / 100) ** 0.25)` lags and StatsPAI up to the floor of the same
+number, which is Schwert's rule. When the two differ and AIC picks the
+extra lag, pass `max_lags=` to reproduce `adfuller`; the statistic and the
+p-value then agree exactly.
+
+**`coint`.** It chooses the lag of the residual regression by AIC.
+`sp.engle_granger` uses a fixed rule unless `lags=` is given. With the
+same lag the statistic and the MacKinnon p-value are identical.
+
+**`breaks_cusumolsresid`.** Its default divides the residual sum of
+squares by `n`. `sp.cusum_test(method="ols")` divides by `n - k`, as R's
+`strucchange` and Stata's `estat sbcusum, ols` do; `ddof=k` in
+`statsmodels` gives the same number.
+
+**Quantile regression.** `quantreg` iterates reweighted least squares and
+stops slightly above the minimum of the check function; its coefficients
+differ from the exact solution in the fifth digit. `sp.qreg` solves the
+linear programme. Standard errors differ by design: `statsmodels`
+defaults to a kernel sandwich, `sp.qreg` to Stata's `vce(iid)`.
+
+**`variance_inflation_factor`.** It regresses each column of the array it
+is given on the others, with no constant added. Called on the regressors
+alone, as textbook code often does, it returns uncentred factors.
+`sp.vif` includes the constant, which is `variance_inflation_factor` on
+the design matrix that has one.
+
+**Granger causality.** `sp.granger_causality` reports the Wald statistic
+and, as its F, that statistic over its degrees of freedom, which is what
+Stata's `vargranger` prints after `var, small`. The F of
+`grangercausalitytests` and `test_causality(kind="f")` uses the residual
+variance with divisor `T - m` and is smaller by `(T - m) / T`; fit the VAR
+with `se_df="r"` to get it.
 
 **`sp.acf`.** It is the Ackerberg-Caves-Frazer production-function
 estimator. Autocorrelations and the Ljung-Box statistics are `sp.corrgram`.
