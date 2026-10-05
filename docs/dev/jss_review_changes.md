@@ -2016,3 +2016,32 @@ only the recorded source hashes move.
   changes; only `exercised_sources` digests and `seconds` differ.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the Dogan follow-up
+
+- **Commits.** `e34f417f` re-recorded every Track A module in
+  `tests/r_parity/results/_implementation_trace.json` and all 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The sources
+  that staled them are in the same commit: `src/statspai/__init__.py`
+  (the message of the package-level `AttributeError`),
+  `src/statspai/regression/iv.py` (IV results report formula terms under
+  the names `sp.regress` gives them),
+  `src/statspai/postestimation/hypothesis.py` and
+  `src/statspai/postestimation/_design.py`.
+- **Reason.** Follow-up to the pass over Dogan, *Introduction to
+  Econometrics with Python*
+  (`docs/dev/2026-10-05-dogan-python-econometrics-review.md`). The IV
+  change relabels coefficients and leaves every array as it was.
+  `python scripts/trace_parity_provenance.py` re-ran both ledgers and
+  reported `ok` for each module: every one reproduces its committed
+  result.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ, and no implementation classification moved. The
+  registry census is unchanged at 1,348. Where the paper prints an IV
+  coefficient of a transformed or categorical term, its label is now the
+  formula name (`np.log(x)`, `C(g)[T.2]`) and no longer `np.log[x]`,
+  `g[2]`.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
