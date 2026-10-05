@@ -19,6 +19,7 @@ Tolerances
   seven digits.
 """
 
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -515,3 +516,183 @@ def test_dickey_fuller_p_value_of_an_explosive_series(G, ts):
     close(mackinnon1994_pvalue(0.48008745, "ct"), 0.9968134395, rtol=1e-9)
     close(mackinnon1994_pvalue(2.67036504, "c"), 0.9990848786, rtol=1e-9)
     assert mackinnon1994_pvalue(3.25, "ct") == 1.0
+
+
+# ------------------------------------------- dynamic panel with period dummies
+def _dpd(data, **kwargs):
+    # Stata's xtdpd: the MA(1) weight on the differenced rows (h=2) and each
+    # iv() variable differenced in one equation and in levels in the other
+    return sp.xtdpdsys(
+        data,
+        y="n",
+        id="id",
+        time="year",
+        lags=2,
+        time_dummies=True,
+        h=2,
+        iv_equation="both",
+        **kwargs,
+    )
+
+
+def test_system_gmm_with_period_dummies_matches_stata_xtdpd(G):
+    """Two lags take the first periods out of the differenced equation. The
+    dummies of those periods, and one more because the rest sum to the
+    constant, leave the regressors; before, all of them stayed and the fit
+    went through a pseudo-inverse (L1.n 1.1548 where Stata prints 1.1665)."""
+    data = pd.read_csv(FIX / "dynpanel_abdata.csv")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        one = _dpd(data, twostep=False, robust=False)
+        rob = _dpd(data, twostep=False, robust=True)
+        two = _dpd(data, twostep=True, robust=True)
+    t = one.detail.set_index("variable")
+    assert list(t.index) == ["L1.n", "L2.n"] + [
+        f"_T{year}" for year in range(1979, 1984)
+    ] + ["_cons"]
+    assert len(t) == G["dpd.one.k"]
+    assert one.model_info["n_instruments"] == G["dpd.one.zrank"]
+    close(t.loc["L1.n", "coefficient"], G["dpd.one.b_l1"])
+    close(t.loc["L2.n", "coefficient"], G["dpd.one.b_l2"])
+    close(t.loc["_cons", "coefficient"], G["dpd.one.b_cons"])
+    close(t.loc["_T1979", "coefficient"], G["dpd.one.b_yr1979"])
+    close(t.loc["_T1983", "coefficient"], G["dpd.one.b_yr1983"])
+    close(t.loc["L1.n", "se"], G["dpd.one.se_l1"])
+    close(t.loc["_cons", "se"], G["dpd.one.se_cons"])
+    close(one.model_info["sargan_stat"], G["dpd.one.sargan"])
+    r = rob.detail.set_index("variable")
+    close(r.loc["L1.n", "se"], G["dpd.rob.se_l1"])
+    close(r.loc["L2.n", "se"], G["dpd.rob.se_l2"])
+    close(r.loc["_cons", "se"], G["dpd.rob.se_cons"])
+    w = two.detail.set_index("variable")
+    close(w.loc["L1.n", "coefficient"], G["dpd.two.b_l1"], rtol=1e-8)
+    close(w.loc["L2.n", "coefficient"], G["dpd.two.b_l2"], rtol=1e-8)
+    close(w.loc["_cons", "coefficient"], G["dpd.two.b_cons"], rtol=1e-8)
+    close(w.loc["L1.n", "se"], G["dpd.two.se_l1"], rtol=1e-8)
+    close(w.loc["_cons", "se"], G["dpd.two.se_cons"], rtol=1e-8)
+
+
+def test_two_step_gmm_with_a_singular_weight_matches_stata(G):
+    """Six firms are observed in the first two years and the moments dated
+    there outnumber them, so the two-step weight is a generalized inverse
+    and the estimate depends on which one. Stata sweeps on the largest
+    remaining diagonal (Mata's `invsym`) and leaves the moments it set to
+    zero out of the one-step covariance in Windmeijer's correction. With the
+    Moore-Penrose inverse the first lag is 1.1638 here, not 1.1574."""
+    data = pd.read_csv(FIX / "dynpanel_abdata.csv")
+    data = data[~((data["year"] < 1978) & (data["id"] > 6))]
+
+    def fit(robust):
+        return sp.xtdpdsys(
+            data,
+            y="n",
+            id="id",
+            time="year",
+            lags=2,
+            h=2,
+            iv_equation="both",
+            twostep=True,
+            robust=robust,
+        )
+
+    with pytest.warns(UserWarning, match="two-step weight matrix.*singular"):
+        conventional = fit(False)
+    with pytest.warns(UserWarning, match="two-step weight matrix.*singular"):
+        corrected = fit(True)
+    t = conventional.detail.set_index("variable")
+    close(t.loc["L1.n", "coefficient"], G["dpd.sing.b_l1"], rtol=1e-9)
+    close(t.loc["L2.n", "coefficient"], G["dpd.sing.b_l2"], rtol=1e-9)
+    close(t.loc["_cons", "coefficient"], G["dpd.sing.b_cons"], rtol=1e-9)
+    close(t.loc["L1.n", "se"], G["dpd.sing.se_l1"], rtol=1e-9)
+    close(t.loc["_cons", "se"], G["dpd.sing.se_cons"], rtol=1e-9)
+    # Stata's two-step Sargan statistic is Hansen's J
+    close(conventional.model_info["hansen_stat"], G["dpd.sing.sargan"], rtol=1e-9)
+    c = corrected.detail.set_index("variable")
+    close(c.loc["L1.n", "se"], G["dpd.sing.wc_l1"], rtol=1e-9)
+    close(c.loc["L2.n", "se"], G["dpd.sing.wc_l2"], rtol=1e-9)
+    close(c.loc["_cons", "se"], G["dpd.sing.wc_cons"], rtol=1e-9)
+
+
+def test_xtdpd_through_sp_stata(G):
+    """`dgmmiv()` variables are instrumented GMM-style, `iv()` variables are
+    their own instruments, `i.year` in both is the set of period dummies."""
+    data = pd.read_csv(FIX / "dynpanel_abdata.csv")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        fit = sp.stata(
+            """
+            xtset id year
+            xi: xtdpd L(0/2).n L(0/1).w k i.year, iv(k i.year) ///
+                dgmmiv(n w, lag(2 4)) lgmmiv(n w) twostep vce(robust)
+            """,
+            data=data,
+        )
+    t = fit.detail.set_index("variable")
+    assert fit.model_info["n_instruments"] == G["dpd.endo.zrank"]
+    for ours, key in (
+        ("L1.n", "l1"),
+        ("L2.n", "l2"),
+        ("w", "w"),
+        ("L1.w", "w_l1"),
+        ("k", "k"),
+        ("_cons", "cons"),
+    ):
+        close(t.loc[ours, "coefficient"], G[f"dpd.endo.b_{key}"], rtol=1e-8)
+    close(t.loc["L1.n", "se"], G["dpd.endo.se_l1"], rtol=1e-8)
+    close(t.loc["w", "se"], G["dpd.endo.se_w"], rtol=1e-8)
+    close(t.loc["k", "se"], G["dpd.endo.se_k"], rtol=1e-8)
+    close(t.loc["_cons", "se"], G["dpd.endo.se_cons"], rtol=1e-8)
+    # the one-line form carries the panel as i() t()
+    one = sp.from_stata(
+        "xtdpd n n_L1 k, iv(k) dgmmiv(n, lagrange(2 3)) lgmmiv(n) i(id) t(year)"
+    )
+    assert one["arguments"] == {
+        "y": "n",
+        "id": "id",
+        "lags": 1,
+        "gmm_lags": (2, 3),
+        "time": "year",
+        "x": ["k"],
+        "twostep": False,
+        "robust": False,
+        "h": 2,
+        "iv_equation": "both",
+    }
+    for line, why in (
+        ("xtdpd L(0/1).n, dgmmiv(n)", "lgmmiv"),
+        ("xtdpd L(0/1).n k, dgmmiv(n) lgmmiv(n)", "has to be in iv"),
+        ("xtdpd L(0/1).n, dgmmiv(n) lgmmiv(n) noconstant", "noconstant"),
+        ("xtdpd L(0/1).n, dgmmiv(n) lgmmiv(n, lag(2))", "lag"),
+        ("xtdpd L(0/1).n k, dgmmiv(n) lgmmiv(n) div(k)", "div"),
+        ("xtdpd L(0/1).n, dgmmiv(n) lgmmiv(n) artests(3)", "artests"),
+    ):
+        with pytest.raises(sp.exceptions.MethodIncompatibility, match=why):
+            sp.stata("xtset id year\n" + line, data=data)
+
+
+def test_a_weight_matrix_singular_to_rounding_is_reported():
+    """`inv` raises only on an exactly zero pivot. Three firms observed early
+    carry more moments than firms, the two-step weight has no inverse, and
+    what `inv` returned for it gave standard errors of order 1e14."""
+    from statspai.gmm._dynpanel._estimate import safe_inv, sweep_ginv
+
+    rng = np.random.default_rng(17)
+    g = rng.normal(size=(3, 6))
+    m = g.T @ g
+    with pytest.warns(UserWarning, match="singular"):
+        a = safe_inv(m, "weight")
+    # a generalized inverse (M A M = M) of the rank of M, zero on the
+    # moments it dropped
+    np.testing.assert_allclose(m @ a @ m, m, atol=1e-9)
+    assert np.linalg.matrix_rank(a) == 3
+    assert int((np.diag(a) == 0).sum()) == 3
+    np.testing.assert_array_equal(a, sweep_ginv(m))
+    full = rng.normal(size=(40, 6))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        np.testing.assert_allclose(
+            safe_inv(full.T @ full, "weight"), np.linalg.inv(full.T @ full)
+        )
+    np.testing.assert_allclose(
+        sweep_ginv(full.T @ full), np.linalg.inv(full.T @ full), rtol=1e-9
+    )

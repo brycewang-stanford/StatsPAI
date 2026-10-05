@@ -1151,6 +1151,37 @@ The Stata evidence on committed data is in
 
 #### ⚠️ Correctness
 
+- **Dynamic panel GMM with `time_dummies=True` kept dummies it could not
+  identify.** `sp.xtabond` and `sp.xtdpdsys` made a dummy for every period
+  of the panel but the first. With `lags=2` the differenced equation starts
+  three periods in, so the dummies of the periods before it were zero or
+  identified from a handful of level rows, and the rest summed to the
+  constant. The fit went through a pseudo-inverse with a warning. On
+  `abdata` a system GMM with two lags gave 1.1548 for the first lag where
+  Stata's `xtdpd` prints 1.1665. Now the dummies of periods without a
+  transformed row are left out, and with a constant one more is omitted
+  from the regressors and kept as an instrument, which is what `xtdpd`
+  does. One-step, robust and two-step estimates, standard errors, the
+  instrument count and Sargan's statistic agree with Stata 18 to 1e-9 on
+  `abdata`. Fits without period dummies are unchanged. See
+  `MIGRATION.md`.
+- **A GMM weight matrix that is singular to rounding was inverted as if it
+  were not.** `numpy.linalg.inv` raises only on an exactly zero pivot. On
+  the investment panel of chapter 17 the two-step weight has rank 191 of
+  199 (the first years hold six to thirteen firms and more moments than
+  that), `inv` returned noise, and the standard errors came out of order
+  1e14 with no warning. The rank is now checked first, and a singular
+  weight gets a generalized inverse with the existing warning.
+- **Which generalized inverse: the one Stata takes.** With a singular
+  weight the two-step estimate depends on the generalized inverse. The
+  Moore-Penrose inverse used so far gives 0.3178 for the first lag in
+  Table 17.3 where Stata prints 0.3191. `sp.xtabond` / `sp.xtdpdsys` now
+  sweep on the largest remaining diagonal and set the collinear moments to
+  zero, which is Mata's `invsym`, and leave those moments out of the
+  one-step covariance in Windmeijer's correction. Table 17.3 is reproduced
+  to every printed digit, coefficients and corrected standard errors, and a
+  case on committed data agrees with `xtdpd` to 1e-9. Fits whose weight
+  has full rank are unchanged.
 - **Random effects with a regressor that does not vary within unit used the
   wrong degrees of freedom.** `sp.panel(method='re')` divided the within
   residual variance by `N - G - K` with `K` the number of regressors. A
@@ -1183,6 +1214,13 @@ The Stata evidence on committed data is in
   rounding error.
 
 #### Added
+
+- `sp.stata` runs `xtdpd` with `dgmmiv()`, `lgmmiv()` and `iv()` through
+  `sp.xtdpdsys`: the `dgmmiv()` variables are instrumented GMM-style, the
+  `iv()` variables are their own instruments, `i.<time>` in both is the set
+  of period dummies. Both columns of Hansen's Table 17.3 are reproduced
+  (136 printed coefficients and standard errors). `xtdpd` without
+  `lgmmiv()`, `div()`, `liv()`, `noconstant` and `fodeviation` are declined.
 
 - `sp.cnsreg`: linear regression under linear equality constraints.
   `method='cls'` is constrained least squares and reproduces Stata's

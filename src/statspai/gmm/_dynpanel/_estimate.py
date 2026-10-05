@@ -16,7 +16,7 @@ The estimator minimises ``(Δy - Wβ)' Z A Z' (Δy - Wβ)`` for a weight matrix
 from __future__ import annotations
 
 import warnings
-from typing import List, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -34,24 +34,65 @@ __all__ = [
 ]
 
 
+def sweep_ginv(M: np.ndarray, tol: Optional[float] = None) -> np.ndarray:
+    """Generalized inverse of a symmetric PSD matrix by pivoted sweeping.
+
+    Pivots are taken on the largest remaining diagonal element. A row and
+    column whose diagonal has been swept down to rounding is collinear with
+    the ones already taken and is set to zero, so the result is the inverse
+    of the retained block and zero elsewhere. For a moment covariance this
+    amounts to dropping the redundant moments. It is the generalized
+    inverse Mata's ``invsym`` returns, which is what makes a two-step fit
+    with a singular weight comparable with ``xtdpd`` and ``xtabond2``; the
+    Moore-Penrose inverse is another valid choice and gives another
+    estimate.
+    """
+    n = M.shape[0]
+    if tol is None:
+        tol = 1e3 * n * np.finfo(float).eps
+    R = np.array(M, dtype=float)
+    scale = np.abs(np.diag(R)).copy()
+    left = np.ones(n, dtype=bool)
+    keep: List[int] = []
+    while left.any():
+        candidates = np.flatnonzero(left)
+        j = int(candidates[np.argmax(R[candidates, candidates])])
+        left[j] = False
+        if not R[j, j] > tol * scale[j]:
+            # the largest one is at rounding level, so the rest are too
+            break
+        keep.append(j)
+        R -= np.outer(R[:, j], R[j, :]) / R[j, j]
+    idx = np.sort(np.array(keep, dtype=int))
+    out = np.zeros((n, n))
+    if idx.size:
+        out[np.ix_(idx, idx)] = np.linalg.inv(np.asarray(M)[np.ix_(idx, idx)])
+    return out
+
+
 def safe_inv(M: np.ndarray, what: str, stacklevel: int = 3) -> np.ndarray:
     """Inverse that warns loudly instead of quietly returning garbage.
 
-    Falls back to the Moore-Penrose pseudo-inverse so the computation can
-    finish, but emits a warning naming the matrix — a singular weight matrix
-    almost always means collinear regressors or an over-saturated instrument
-    set, and both are user-actionable.
+    Falls back to a generalized inverse (:func:`sweep_ginv`) so the
+    computation can finish, but emits a warning naming the matrix — a
+    singular weight matrix almost always means collinear regressors or an
+    over-saturated instrument set, and both are user-actionable.
     """
+    # ``inv`` raises only on an exactly singular pivot. A matrix that is
+    # singular to rounding goes through and comes back as noise of order
+    # 1e15, so the rank is checked first.
     try:
+        if M.size and np.linalg.matrix_rank(M, hermitian=True) < M.shape[0]:
+            raise np.linalg.LinAlgError("rank-deficient")
         return np.linalg.inv(M)
     except np.linalg.LinAlgError:
         warnings.warn(
-            f"{what} is singular (rank-deficient); falling back to the "
-            f"pseudo-inverse. Results may be unreliable — check for collinear "
-            f"regressors or an over-saturated instrument set.",
+            f"{what} is singular (rank-deficient); falling back to a "
+            f"generalized inverse. Results may be unreliable — check for "
+            f"collinear regressors or an over-saturated instrument set.",
             stacklevel=stacklevel,
         )
-        return np.linalg.pinv(M)
+        return sweep_ginv(M)
 
 
 def unit_H_blocks(design: Design) -> List[np.ndarray]:

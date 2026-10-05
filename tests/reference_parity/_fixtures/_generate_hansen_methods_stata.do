@@ -233,5 +233,68 @@ dfuller e1, lags(1)
 emit df.c_stat r(Zt)
 emit df.c_p r(p)
 
+* ============================================================ dynamic panel
+* --- system GMM with a dummy for every period but the first, on an
+*     unbalanced panel: the periods lost to the lags and one more dummy are
+*     omitted from the regressors (dynpanel_abdata.csv is `webuse abdata')
+import delimited using "dynpanel_abdata.csv", clear asdouble
+xtset id year
+xtdpd L(0/2).n yr1977-yr1984, iv(yr1977-yr1984) dgmmiv(n) lgmmiv(n)
+emit dpd.one.b_l1 _b[L1.n]
+emit dpd.one.b_l2 _b[L2.n]
+emit dpd.one.b_cons _b[_cons]
+emit dpd.one.b_yr1979 _b[yr1979]
+emit dpd.one.b_yr1983 _b[yr1983]
+emit dpd.one.se_l1 _se[L1.n]
+emit dpd.one.se_cons _se[_cons]
+emit dpd.one.sargan e(sargan)
+emit dpd.one.zrank e(zrank)
+emit dpd.one.k e(rank)
+xtdpd L(0/2).n yr1977-yr1984, iv(yr1977-yr1984) dgmmiv(n) lgmmiv(n) vce(robust)
+emit dpd.rob.se_l1 _se[L1.n]
+emit dpd.rob.se_l2 _se[L2.n]
+emit dpd.rob.se_cons _se[_cons]
+xtdpd L(0/2).n yr1977-yr1984, iv(yr1977-yr1984) dgmmiv(n) lgmmiv(n) twostep vce(robust)
+emit dpd.two.b_l1 _b[L1.n]
+emit dpd.two.b_l2 _b[L2.n]
+emit dpd.two.b_cons _b[_cons]
+emit dpd.two.se_l1 _se[L1.n]
+emit dpd.two.se_cons _se[_cons]
+
+* --- a two-step weight that has no inverse: six firms are observed before
+*     1978, and the moments dated in their first years outnumber them
+import delimited using "dynpanel_abdata.csv", clear asdouble
+drop if year < 1978 & id > 6
+xtset id year
+xtdpd L(0/2).n, dgmmiv(n) lgmmiv(n) twostep
+emit dpd.sing.b_l1 _b[L1.n]
+emit dpd.sing.b_l2 _b[L2.n]
+emit dpd.sing.b_cons _b[_cons]
+emit dpd.sing.se_l1 _se[L1.n]
+emit dpd.sing.se_cons _se[_cons]
+emit dpd.sing.sargan e(sargan)
+emit dpd.sing.zrank e(zrank)
+xtdpd L(0/2).n, dgmmiv(n) lgmmiv(n) twostep vce(robust)
+emit dpd.sing.wc_l1 _se[L1.n]
+emit dpd.sing.wc_l2 _se[L2.n]
+emit dpd.sing.wc_cons _se[_cons]
+
+* --- an endogenous regressor with its own GMM instruments and an exogenous
+*     one among the standard instruments
+import delimited using "dynpanel_abdata.csv", clear asdouble
+xtset id year
+xi: xtdpd L(0/2).n L(0/1).w k i.year, iv(k i.year) dgmmiv(n w, lag(2 4)) lgmmiv(n w) twostep vce(robust)
+emit dpd.endo.b_l1 _b[L1.n]
+emit dpd.endo.b_l2 _b[L2.n]
+emit dpd.endo.b_w _b[w]
+emit dpd.endo.b_w_l1 _b[L1.w]
+emit dpd.endo.b_k _b[k]
+emit dpd.endo.b_cons _b[_cons]
+emit dpd.endo.se_l1 _se[L1.n]
+emit dpd.endo.se_w _se[w]
+emit dpd.endo.se_k _se[k]
+emit dpd.endo.se_cons _se[_cons]
+emit dpd.endo.zrank e(zrank)
+
 file close fh
 capture erase _hansen_irf.irf

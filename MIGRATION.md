@@ -426,6 +426,33 @@ x", df)` raised `NumericalInstability`. They fit now. A model with an
 intercept behaves as before, and proportional columns (`x` and `2 x`) are
 still caught in a model without one.
 
+## 1.38.0 → next: ⚠️ period dummies in `sp.xtabond` / `sp.xtdpdsys`
+<a id="oct2026-hansen-dynpanel"></a>
+
+**What changed.** With `time_dummies=True` the dummies of periods that have
+no row in the transformed equation are no longer regressors. When the model
+has a constant (`sp.xtdpdsys`, or `constant=True`), the last remaining dummy
+is also omitted from the regressors and stays among the instruments. This
+is the rule of Stata's `xtdpd`. The coefficient table is shorter and the
+other coefficients change: on `abdata` with two lags the first lag in a
+one-step system GMM moves from 1.1548 to 1.1665, Stata's value.
+
+**Who is affected.** Calls with `time_dummies=True`. The old fit emitted
+"GMM weight matrix Z'HZ is singular" in the affected cases. Fits without
+period dummies, and fits where you pass your own dummies as regressors, are
+unchanged.
+
+**What to do.** Rerun. Code that looks up `_T<period>` rows of
+`result.detail` should expect fewer of them.
+
+A two-step fit whose weight matrix is singular to rounding now warns. It
+used to return unusable standard errors without a warning. A singular
+weight, whether detected before or now, gets the generalized inverse Stata
+takes (Mata's `invsym`) in place of the Moore-Penrose inverse, so the
+two-step estimates of such a fit change and now agree with `xtdpd` and
+`xtabond2`. Fits that did not warn about a singular weight and did not have
+standard errors of order 1e14 are unchanged.
+
 ## 1.38.0 → next: ⚠️ random effects with a regressor that is constant within unit
 <a id="oct2026-hansen-fixes"></a>
 

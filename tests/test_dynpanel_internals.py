@@ -309,14 +309,21 @@ class TestSafeInverse:
         A = np.array([[2.0, 0.0], [0.0, 4.0]])
         np.testing.assert_allclose(safe_inv(A, "test"), np.diag([0.5, 0.25]))
 
-    def test_singular_matrix_warns_and_pseudo_inverts(self):
-        """Falling back quietly would return garbage that looks like an answer."""
+    def test_singular_matrix_warns_and_takes_a_generalized_inverse(self):
+        """Falling back quietly would return garbage that looks like an answer.
+
+        The fallback keeps the first pivot and zeroes the collinear rows and
+        columns, as Mata's ``invsym`` does (Stata parity of the resulting
+        two-step fit is in ``test_hansen_methods_stata_parity.py``)."""
         singular = np.ones((3, 3))
         with pytest.warns(UserWarning, match="singular"):
             with warnings.catch_warnings():
                 warnings.simplefilter("always")
                 out = safe_inv(singular, "the weight matrix")
-        np.testing.assert_allclose(out, np.linalg.pinv(singular))
+        expected = np.zeros((3, 3))
+        expected[0, 0] = 1.0
+        np.testing.assert_allclose(out, expected)
+        np.testing.assert_allclose(singular @ out @ singular, singular)
 
 
 # ---------------------------------------------------------------------------

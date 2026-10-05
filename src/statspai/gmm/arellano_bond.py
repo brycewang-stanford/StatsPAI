@@ -205,8 +205,11 @@ def xtabond(
         a hole, forward deviations only the one at the hole. Matches
         ``xtabond2, orthogonal`` (difference and system, one- and two-step).
     time_dummies : bool, default False
-        Add period dummies (first period dropped) as regressors *and* as
-        their own standard instruments. Roodman (2009) recommends these as
+        Add period dummies as regressors *and* as their own standard
+        instruments. Dummies of periods that the lags remove from the
+        transformed equation are left out; with a constant one more is
+        omitted from the regressors and kept as an instrument, as Stata's
+        ``xtdpd`` does. Roodman (2009) recommends these as
         a default: they absorb common shocks, which is what makes the
         no-cross-sectional-dependence assumption behind the moment
         conditions plausible.

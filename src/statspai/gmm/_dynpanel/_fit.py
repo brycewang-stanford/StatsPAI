@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import replace
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -166,75 +166,104 @@ def fit_dynamic_panel(
         endogenous_lags, default_min=2, horizon=horizon
     )
 
-    all_x_terms = (
-        list(x_terms)
-        + list(pre_terms)
-        + list(endo_terms)
-        + [t for name in dummy_names for t in parse_terms([name])]
-    )
+    def build(dummy_names: List[str], dummy_iv: Optional[List[str]] = None) -> Any:
+        if dummy_iv is None:
+            dummy_iv = dummy_names
+        all_x_terms = (
+            list(x_terms)
+            + list(pre_terms)
+            + list(endo_terms)
+            + [t for name in dummy_names for t in parse_terms([name])]
+        )
 
-    # One GMM block per instrumented variable for the transformed equation;
-    # system GMM mirrors each with a level block whose instrument is the
-    # lagged *difference* (Blundell-Bond).
-    windows = (
-        [(y, y_lag_min, y_lag_max)]
-        + [(v, pre_min, pre_max) for v in pre_vars]
-        + [(v, endo_min, endo_max) for v in endo_vars]
-    )
-    ah_extra_iv: List[Term] = []
-    ah_blocks: List[GMMBlock] = []
-    if anderson_hsiao:
-        # Anderson-Hsiao uses ONE pooled instrument for the differenced lagged
-        # dependent variable instead of Arellano-Bond's block-diagonal set:
-        # y_{t-2} in levels, or its first difference. Both are expressible in
-        # the same moment vocabulary -- the levels variant is a collapsed GMM
-        # block with a single lag, the differences variant a standard IV
-        # column -- so this is a different moment set, not a new estimator.
-        if ah_instrument == "levels":
-            ah_blocks = [
-                GMMBlock(y, y_lag_min, y_lag_min, collapse=True, equation="diff")
-            ]
-        else:
-            ah_extra_iv.append(Term(y, y_lag_min))
-        windows = windows[1:]  # the dependent variable is handled above
+        # One GMM block per instrumented variable for the transformed equation;
+        # system GMM mirrors each with a level block whose instrument is the
+        # lagged *difference* (Blundell-Bond).
+        windows = (
+            [(y, y_lag_min, y_lag_max)]
+            + [(v, pre_min, pre_max) for v in pre_vars]
+            + [(v, endo_min, endo_max) for v in endo_vars]
+        )
+        ah_extra_iv: List[Term] = []
+        ah_blocks: List[GMMBlock] = []
+        if anderson_hsiao:
+            # Anderson-Hsiao uses ONE pooled instrument for the differenced lagged
+            # dependent variable instead of Arellano-Bond's block-diagonal set:
+            # y_{t-2} in levels, or its first difference. Both are expressible in
+            # the same moment vocabulary -- the levels variant is a collapsed GMM
+            # block with a single lag, the differences variant a standard IV
+            # column -- so this is a different moment set, not a new estimator.
+            if ah_instrument == "levels":
+                ah_blocks = [
+                    GMMBlock(y, y_lag_min, y_lag_min, collapse=True, equation="diff")
+                ]
+            else:
+                ah_extra_iv.append(Term(y, y_lag_min))
+            windows = windows[1:]  # the dependent variable is handled above
 
-    gmm_blocks = ah_blocks + [
-        GMMBlock(v, lo, hi, collapse=collapse, equation="diff") for v, lo, hi in windows
-    ]
-    if system:
-        gmm_blocks += [
-            GMMBlock(v, lo, hi, collapse=collapse, equation="level")
+        gmm_blocks = ah_blocks + [
+            GMMBlock(v, lo, hi, collapse=collapse, equation="diff")
             for v, lo, hi in windows
         ]
+        if system:
+            gmm_blocks += [
+                GMMBlock(v, lo, hi, collapse=collapse, equation="level")
+                for v, lo, hi in windows
+            ]
 
-    # xtabond2's iv() default is equation(both): one column carrying the
-    # difference on transformed rows and the level on level rows.
-    iv_eq = (
-        iv_equation
-        if (system and iv_equation is not None)
-        else ("both" if system else "diff")
-    )
-    iv_terms = (
-        list(ah_extra_iv)
-        + list(x_terms)
-        + [t for name in dummy_names for t in parse_terms([name])]
-    )
-    iv_blocks = [IVBlock(t, equation=iv_eq) for t in iv_terms]
+        # xtabond2's iv() default is equation(both): one column carrying the
+        # difference on transformed rows and the level on level rows.
+        iv_eq = (
+            iv_equation
+            if (system and iv_equation is not None)
+            else ("both" if system else "diff")
+        )
+        iv_terms = (
+            list(ah_extra_iv)
+            + list(x_terms)
+            + [t for name in dummy_iv for t in parse_terms([name])]
+        )
+        iv_blocks = [IVBlock(t, equation=iv_eq) for t in iv_terms]
 
-    spec = DynPanelSpec(
-        y=y,
-        y_lags=lags,
-        x_terms=all_x_terms,
-        gmm_blocks=gmm_blocks,
-        iv_blocks=iv_blocks,
-        transform=transform,
-        level_equation=system,
-        constant=constant,
-    )
-    design = build_design(panel, spec)
-    design.h = h
-    if cluster is not None and not cluster_is_unit:
-        design.set_clusters(unit_cluster_codes(panel, cluster))
+        spec = DynPanelSpec(
+            y=y,
+            y_lags=lags,
+            x_terms=all_x_terms,
+            gmm_blocks=gmm_blocks,
+            iv_blocks=iv_blocks,
+            transform=transform,
+            level_equation=system,
+            constant=constant,
+        )
+        design = build_design(panel, spec)
+        design.spec = spec
+        design.h = h
+        if cluster is not None and not cluster_is_unit:
+            design.set_clusters(unit_cluster_codes(panel, cluster))
+        return design
+
+    design = build(dummy_names)
+    if dummy_names:
+        # The dummies were made for every period of the panel. The lags and
+        # the differencing remove the first periods from the transformed
+        # equation, and a dummy for a period with no transformed row is not
+        # identified by it. If the ones that are left cover every period
+        # that has such a row, they sum to the constant there and one more
+        # has to go. Stata's xtdpd checks this on the same rows, omits the
+        # last dummy from the regressors and keeps it among the instruments;
+        # so do we.
+        period_of = {name: p + 1 for p, name in enumerate(dummy_names)}
+        present = set(np.unique(design.row_period[design.row_eq == 0]).tolist())
+        kept = [n for n in dummy_names if period_of[n] in present]
+        dummy_iv = list(kept)
+        if constant and len(kept) == len(present):
+            kept = kept[:-1]
+        if len(kept) < len(dummy_names):
+            design = build(kept, dummy_iv)
+        while kept and np.linalg.matrix_rank(design.W) < design.n_params:
+            kept = kept[:-1]
+            design = build(kept, dummy_iv)
+        dummy_names = kept
 
     k = design.n_params
     m = design.n_instruments
@@ -380,6 +409,20 @@ def fit_dynamic_panel(
             # deeper recursion the same correction is applied with the
             # penultimate iterate playing the role of step 1 — exactly right
             # at steps=2 and its natural extension beyond.
+            # When the weight is a generalized inverse, the moments it set
+            # to zero are also left out of the one-step covariance that
+            # enters the correction. Stata's xtdpd and xtabond2 get there by
+            # inverting the weight back; with a weight of full rank the two
+            # are the same matrix.
+            V1_step = V1_robust
+            kept = np.diag(weight_final) != 0
+            if not kept.all():
+                Omega_kept = np.zeros_like(weight_final)
+                at = np.ix_(kept, kept)
+                Omega_kept[at] = moment_covariance(
+                    Z, prev_resid, meat_rows, index=meat_index
+                )[at]
+                V1_step = robust_sandwich(Minv1, WZ, A1, Omega_kept)
             vcov = windmeijer_correction(
                 W,
                 Z,
@@ -388,7 +431,7 @@ def fit_dynamic_panel(
                 resid,
                 weight_final,
                 Minv_final,
-                V1_robust,
+                V1_step,
                 meat_rows,
                 index=meat_index,
             )
@@ -415,7 +458,7 @@ def fit_dynamic_panel(
     ar_design = design
     ar_resid = resid
     if transform == "fod":
-        ar_spec = replace(spec, transform="fd")
+        ar_spec = replace(design.spec, transform="fd")
         ar_design = build_design(panel, ar_spec)
         if cluster is not None and not cluster_is_unit:
             ar_design.set_clusters(unit_cluster_codes(panel, cluster))

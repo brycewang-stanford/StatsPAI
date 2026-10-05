@@ -330,7 +330,131 @@ def _h_xthtaylor(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("xthtaylor", args, f"sp.xthtaylor({', '.join(shown)})", notes)
 
 
+_GMM_WINDOW = re.compile(r"^l[a-z]*\(\s*(\d+)(?:\s+(\d+|\.))?\s*\)$", re.I)
+
+
+def _h_xtdpd(cmd: StataCommand) -> Dict[str, Any]:
+    """``xtdpd L(0/p).y x..., dgmmiv() lgmmiv() [iv()] [twostep]
+    [vce(robust)]`` -> ``sp.xtdpdsys``.
+
+    ``sp.stata`` has already written ``L(0/2).y`` as ``y y_L1 y_L2``. The
+    variables of ``dgmmiv()`` are instrumented GMM-style, the ones of
+    ``iv()`` are their own instruments, and ``i.<time>`` in both places is
+    ``time_dummies=True``. Stata's weight for the one-step fit (``h=2``)
+    and its use of each ``iv()`` variable in both equations are written
+    out, because the defaults of ``sp.xtdpdsys`` are those of ``xtdpdsys``.
+    """
+
+    def refuse(what: str) -> Dict[str, Any]:
+        return _emit_error(f"xtdpd: {what}", command="xtdpd", suggestions=[])
+
+    if not cmd.varlist:
+        return refuse("an outcome variable is required")
+    y, rest = cmd.varlist[0], list(cmd.varlist[1:])
+    for name in ("div", "liv", "hascons", "fodeviation", "noconstant"):
+        if name in cmd.options:
+            return refuse(f"{name} is not translated")
+
+    def split(raw: Any) -> "tuple[List[str], str]":
+        head, _, tail = str(raw or "").partition(",")
+        return head.split(), tail.strip()
+
+    gmm_vars, window = split(cmd.options.get("dgmmiv"))
+    if y not in gmm_vars:
+        return refuse(f"dgmmiv() has to name the outcome {y!r}")
+    gmm_lags: List[Optional[int]] = [2, None]
+    if window:
+        m = _GMM_WINDOW.match(window)
+        if m is None:
+            return refuse(f"dgmmiv(, {window}) is not translated")
+        gmm_lags = [int(m.group(1)), None]
+        if m.group(2) not in (None, "."):
+            gmm_lags[1] = int(m.group(2))
+    if "lgmmiv" not in cmd.options:
+        return refuse(
+            "without lgmmiv() this is difference GMM with a constant from "
+            "the level equation, which is not translated; xtabond is"
+        )
+    level_vars, level_lag = split(cmd.options.get("lgmmiv"))
+    if sorted(level_vars) != sorted(gmm_vars):
+        return refuse("lgmmiv() and dgmmiv() have to name the same variables")
+    if level_lag and re.sub(r"\s", "", level_lag.lower()) not in ("lag(1)", "l(1)"):
+        return refuse(f"lgmmiv(, {level_lag}) is not translated")
+    standard, standard_opts = split(cmd.options.get("iv"))
+    if standard_opts:
+        return refuse(f"iv(, {standard_opts}) is not translated")
+
+    def factor(word: str) -> Optional[str]:
+        m = re.match(r"^(?:i\.(\w+)|C\((\w+)\))$", word)
+        return (m.group(1) or m.group(2)) if m else None
+
+    time = cmd.options.get("t")
+    own_lags: List[int] = []
+    exog: List[str] = []
+    endog: List[str] = []
+    dummies = False
+    for word in rest:
+        m = re.match(r"^(\w+?)_L(\d+)$", word)
+        base, lag = (m.group(1), int(m.group(2))) if m else (word, 0)
+        if factor(word) is not None:
+            if time is not None and factor(word) != time:
+                return refuse(f"{word} is not the time variable of xtset")
+            dummies = True
+        elif base == y and lag:
+            own_lags.append(lag)
+        elif base in gmm_vars:
+            endog.append(f"L{lag}.{base}" if lag else base)
+        else:
+            exog.append(word)
+    if not own_lags or sorted(own_lags) != list(range(1, len(own_lags) + 1)):
+        return refuse(
+            "the lags of the outcome have to be written L(0/p).y after "
+            "`xtset id time`"
+        )
+    iv_dummies = [w for w in standard if factor(w) is not None]
+    iv_plain = [w for w in standard if factor(w) is None]
+    if sorted(iv_plain) != sorted(exog) or bool(iv_dummies) != dummies:
+        return refuse(
+            "a regressor outside dgmmiv() has to be in iv(), and iv() may "
+            "hold nothing else"
+        )
+    vce = str(cmd.options.get("vce") or "gmm").strip().lower()
+    if vce not in ("gmm", "robust"):
+        return refuse(f"vce({vce}) is not translated")
+    unit = cmd.options.get("i") or "<panel_id>"
+    args: Dict[str, Any] = {
+        "y": y,
+        "id": None if unit == "<panel_id>" else unit,
+        "lags": len(own_lags),
+        "gmm_lags": tuple(gmm_lags),
+    }
+    if time is not None:
+        args["time"] = time
+    if exog:
+        args["x"] = exog
+    if endog:
+        args["endogenous"] = endog
+        args["endogenous_lags"] = tuple(gmm_lags)
+    if dummies:
+        args["time_dummies"] = True
+    args["twostep"] = "twostep" in cmd.options
+    args["robust"] = vce == "robust"
+    args["h"] = 2
+    args["iv_equation"] = "both"
+    notes = []
+    if unit == "<panel_id>":
+        notes.append(
+            "Stata's `xtset id [t]` set the panel id; replace <panel_id> "
+            "with your unit-id column."
+        )
+    shown = ["data=df", f"y={y!r}", f"id={unit!r}"] + [
+        f"{k}={v!r}" for k, v in args.items() if k not in ("y", "id")
+    ]
+    return _emit("xtdpdsys", args, f"sp.xtdpdsys({', '.join(shown)})", notes)
+
+
 HANDLERS = {
+    "xtdpd": _h_xtdpd,
     "xthtaylor": _h_xthtaylor,
     "cnsreg": _h_cnsreg,
     "nl": _h_nl,

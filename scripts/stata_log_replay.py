@@ -54,7 +54,7 @@ NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 ESTIMATION = {
     "reg", "regress", "xtreg", "areg", "probit", "logit", "poisson", "nbreg",
     "ivreg", "ivreg2", "ivregress", "tobit", "newey", "reghdfe", "prais",
-    "cnsreg", "nl", "qreg", "xthtaylor",
+    "cnsreg", "nl", "qreg", "xthtaylor", "xtdpd",
 }  # fmt: skip
 SUMMARIZE = {"su", "sum", "summ", "summarize"}
 #: commands compared number by number without naming the numbers
@@ -837,7 +837,21 @@ class Replay:
                     self.report.number(self.name, cmd, f"#{position}", printed, nearest)
 
     def _estimates(self, cmd: str, buf: List[str], res: Any, word: str) -> None:
-        params, ses = dict(res.params), dict(res.std_errors)
+        if word == "xtdpd":
+            table = res.detail.set_index("variable")
+            params, ses = dict(table["coefficient"]), dict(table["se"])
+            # the period dummies are _T<period> here, _I<time>_<period> under xi
+            for key in [k for k in params if re.fullmatch(r"_T\d+", str(k))]:
+                for store in (params, ses):
+                    store[f"_Iperiod_{key[2:]}"] = store[key]
+            # a lag is L1.x here and x_L1 once the session has written it out
+            for key in list(params):
+                lagged = re.fullmatch(r"L(\d+)\.(\w+)", str(key))
+                if lagged:
+                    for store in (params, ses):
+                        store[f"{lagged.group(2)}_L{lagged.group(1)}"] = store[key]
+        else:
+            params, ses = dict(res.params), dict(res.std_errors)
         if word.startswith("ivreg"):
             # `first` prints the first-stage regressions above the estimates
             start = [i for i, ln in enumerate(buf) if "Instrumental" in ln]
@@ -880,7 +894,9 @@ class Replay:
             if word == "nl":
                 name = name.lstrip("/")  # parameters are printed as /b0
             xi = re.fullmatch(r"_I([A-Za-z]\w*?)_(\d+)", name)
-            if xi:  # xi's dummy _Iyear_1963 is the level 1963 of year
+            if xi and f"_Iperiod_{xi.group(2)}" in params:
+                name = f"_Iperiod_{xi.group(2)}"
+            elif xi:  # xi's dummy _Iyear_1963 is the level 1963 of year
                 name = f"C({xi.group(1)})[T.{xi.group(2)}]"
             # xtreg, fe prints _cons, which the session derives
             ours_b = params.get(name, stored_b.get(name))

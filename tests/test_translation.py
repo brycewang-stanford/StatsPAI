@@ -1171,6 +1171,25 @@ TIER3_ROUND_TRIPS = [
         },
     ),
     (
+        "xtdpd y y_L1 x1_L1 x2, iv(x2) dgmmiv(y x1, lagrange(2 4)) lgmmiv(y x1) "
+        "i(id) t(year) twostep vce(robust)",
+        "xtdpdsys",
+        {
+            "y": "y",
+            "id": "id",
+            "lags": 1,
+            "gmm_lags": (2, 4),
+            "time": "year",
+            "x": ["x2"],
+            "endogenous": ["L1.x1"],
+            "endogenous_lags": (2, 4),
+            "twostep": True,
+            "robust": True,
+            "h": 2,
+            "iv_equation": "both",
+        },
+    ),
+    (
         "xthtaylor y x1 x2 z1 z2, endog(x2 z2) i(id) vce(robust)",
         "xthtaylor",
         {
