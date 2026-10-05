@@ -2045,3 +2045,43 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — Hansen's *Econometrics* pass: conditional logit row, call traces
+
+- **Commits.** `8b2e429b` rewrote `tests/r_parity/results/46_clogit_py.json`.
+  `faef6a04` regenerated the rollups that read it
+  (`tests/r_parity/results/parity_table.md`, `parity_table.tex`,
+  `parity_table_3way.md`, `parity_table_3way.tex`), refreshed
+  `tests/r_parity/TIER_A_FIXTURE_LOCK.json`, and re-recorded the entries of
+  Track A modules 02 03 13 15 24 25 26 27 33 35 44 45 46 49 53 59 65 66 69
+  in `tests/r_parity/results/_implementation_trace.json` and all 12
+  modules of `tests/orig_parity/results/_implementation_trace.json`. The
+  source that staled them is in `8b2e429b`: `src/statspai/__init__.py` (ten
+  new exports), `src/statspai/regression/iv.py`,
+  `src/statspai/regression/multinomial.py`, `src/statspai/panel/_cre.py`,
+  `src/statspai/panel/xt_tools.py`, `src/statspai/timeseries/var.py`.
+- **Reason.** Audit in `docs/dev/2026-10-05-hansen-econometrics-review.md`.
+  `sp.clogit` now evaluates its likelihood without a loop over choice sets
+  and finishes with Newton steps, so the estimate is at the optimum and no
+  longer where BFGS stopped. 2SLS projects by QR and solves the second
+  stage by least squares.
+- **Effect on the paper.** One row moves. Module 46 (`clogit`,
+  `beta_x`): the relative difference from R goes from 1.31e-08 to 2.04e-13
+  for the estimate and from 2.68e-09 to 1.01e-13 for the standard error.
+  The row was inside the 1e-6 budget before and after, so no evidence tier
+  changes. `python tests/r_parity/verify_reproduce_py.py --no-report` on
+  the other 18 modules reported 18 reproduce, 0 drift (run before the last
+  rebase); module 02 (`iv`) moves by 5.2e-12, inside the 1e-9
+  reproducibility tolerance, and its committed file was kept. In both
+  trace files only `exercised_sources` digests, `seconds` and the result
+  digest of module 46 differ; no implementation classification moved. The
+  registry gains ten entries and one submodule (`multivariate`).
+- **Paths.**
+  - `tests/r_parity/results/46_clogit_py.json`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table.tex`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/results/parity_table_3way.tex`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
