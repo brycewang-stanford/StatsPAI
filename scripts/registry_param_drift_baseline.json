@@ -137,18 +137,10 @@
       "W",
       "X",
       "Y",
-      "d",
       "discrete_treatment",
       "max_depth",
-      "max_samples",
-      "min_samples_leaf",
       "model_t",
-      "model_y",
-      "n_estimators",
-      "random_state",
-      "w",
-      "x",
-      "y"
+      "model_y"
     ],
     "causal_impact": [
       "alpha",
@@ -215,14 +207,8 @@
       "print_results"
     ],
     "did": [
-      "aggregation",
       "alpha",
-      "anticipation",
       "base_period",
-      "cluster",
-      "control_group",
-      "covariates",
-      "estimator",
       "n_boot",
       "panel",
       "random_state",
@@ -232,7 +218,6 @@
       "treat_time",
       "treat_unit",
       "vce",
-      "weights",
       "wild_reps",
       "wild_weight_type"
     ],
@@ -291,7 +276,6 @@
     "esttab": [
       "drop",
       "filename",
-      "fmt",
       "keep",
       "labels",
       "names",
@@ -358,12 +342,10 @@
       "grid_size"
     ],
     "ivreg": [
-      "cluster",
       "conley_cutoff",
       "conley_lat",
       "conley_lon",
       "seed",
-      "vce",
       "wild_reps",
       "wild_weight_type"
     ],
@@ -387,7 +369,6 @@
       "weights"
     ],
     "mediate": [
-      "inference",
       "pvalue_method",
       "seed"
     ],
@@ -411,7 +392,6 @@
     "modelsummary": [
       "add_rows",
       "coef_map",
-      "fmt",
       "model_names",
       "notes",
       "output",
@@ -449,14 +429,6 @@
     ],
     "multi_treatment": [
       "random_state"
-    ],
-    "nbreg": [
-      "alpha",
-      "maxiter",
-      "tol",
-      "weights",
-      "x",
-      "y"
     ],
     "netlm": [
       "intercept"
@@ -579,9 +551,7 @@
     "regress": [
       "conley_cutoff",
       "conley_lat",
-      "conley_lon",
-      "vce",
-      "weights"
+      "conley_lon"
     ],
     "regtable": [
       "add_rows",

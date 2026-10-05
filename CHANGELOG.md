@@ -1249,6 +1249,14 @@ Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
   `oster_bounds`, `rdbwselect`, `rd_discrete`, `mixed`, `liml`). The
   twenty new cards had no defect in required arguments, result class or
   enum values.
+- **Arguments agents could not see.** `sp.regress(weights=, vce=)`,
+  `sp.ivreg(cluster=, vce=)` and six arguments of `sp.nbreg` (`weights`,
+  `y`, `x`, `alpha`, `maxiter`, `tol`) were accepted by the functions and
+  absent from `sp.function_schema()`. They are registered now, and the
+  `weights` descriptions say which kind of weight the default variance
+  assumes. The card of `sp.rdrobust` described `weights=` as reserved
+  and unimplemented; it has been implemented and reference-checked for
+  some time, and the card says so.
 - `sp.fect(method='ife' | 'mc')` without `r=` / `lam=`, and
   `sp.interflex(estimator='kernel')` without `bw=` or
   `vce='bootstrap'` with another estimator, raised a bare `ValueError`.

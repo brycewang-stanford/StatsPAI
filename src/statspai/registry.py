@@ -865,6 +865,31 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Weight column (or an array). Alone it is an analytic "
+                    "weight (Stata [aw=]): weighted least squares with the "
+                    "classical variance, right when the weights are "
+                    "precisions. For sampling or inverse-probability weights "
+                    "add robust='hc1' (Stata [pw=]), or vce='hc3' when the "
+                    "effective sample is small; the default interval is far "
+                    "too short there. model_info['n_effective_weights'] is "
+                    "the Kish effective sample size",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "Alias of robust= that also takes the cluster corrections: "
+                    "'cr2', 'cr3' or 'jackknife' with cluster=, 'wild' for the "
+                    "wild cluster bootstrap, 'conley' with conley_lat / "
+                    "conley_lon / conley_cutoff, and Stata's spellings "
+                    "'robust' and 'cluster <var>'",
+                ),
+                ParamSpec(
                     "vcov",
                     "str",
                     False,
@@ -1203,6 +1228,22 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("data", "DataFrame", True, description="pandas DataFrame"),
                 ParamSpec("robust", "str", False, "nonrobust", "Standard error type"),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column for cluster-robust standard errors",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "Alias of robust=. vce='wild' with cluster= runs the WRE "
+                    "wild cluster bootstrap on the endogenous coefficient "
+                    "(Stata boottest after ivreg2)",
+                ),
             ],
             returns="EconometricResults",
             example='sp.ivreg("wage ~ (education ~ parent_edu + distance) + experience", data=df)',
@@ -2069,6 +2110,26 @@ def _build_registry() -> None:
                     "Negative-binomial parameterisation",
                     ["mean", "constant"],
                 ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Observation weight column. Alone it is a frequency "
+                    "weight (Stata [fw=] / [iw=]): the model-based variance "
+                    "scales with the weights. For sampling weights add "
+                    "robust='robust' (Stata [pw=]); the default interval is "
+                    "far too short there",
+                ),
+                ParamSpec(
+                    "y", "str", False, None, "Outcome column (alternative to formula)"
+                ),
+                ParamSpec(
+                    "x", "list", False, None, "Regressors (alternative to formula)"
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Significance level"),
+                ParamSpec("maxiter", "int", False, 100, "Maximum iterations"),
+                ParamSpec("tol", "float", False, 1e-8, "Convergence tolerance"),
             ],
             returns="EconometricResults",
             example='sp.nbreg("visits ~ age + income | person", data=df, cluster="person")',
@@ -2744,7 +2805,9 @@ def _build_registry() -> None:
                     "str",
                     False,
                     None,
-                    "Reserved; currently raises NotImplementedError",
+                    "Column of non-negative observation weights, as R "
+                    "rdrobust(weights=): they multiply the kernel weights in "
+                    "every local regression, bandwidth selection included",
                 ),
                 ParamSpec(
                     "kernel",

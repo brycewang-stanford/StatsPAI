@@ -153,9 +153,18 @@
             ],
             "type": "string"
           },
+          "vce": {
+            "description": "Alias of robust= that also takes the cluster corrections: 'cr2', 'cr3' or 'jackknife' with cluster=, 'wild' for the wild cluster bootstrap, 'conley' with conley_lat / conley_lon / conley_cutoff, and Stata's spellings 'robust' and 'cluster <var>'",
+            "type": "string"
+          },
           "vcov": {
             "description": "pyfixest/fixest-style variance specification, accepted so one spelling works across sp.regress, sp.ivreg and sp.feols: 'iid' / 'hetero' / 'HC0'-'HC3', or a cluster dict such as {'CRV1': 'firm'} (CRV2 / CRV3 select the matching small-sample correction). Mutually exclusive with robust=/cluster=.",
             "type": "string"
+          },
+          "weights": {
+            "description": "Weight column (or an array). Alone it is an analytic weight (Stata [aw=]): weighted least squares with the classical variance, right when the weights are precisions. For sampling or inverse-probability weights add robust='hc1' (Stata [pw=]), or vce='hc3' when the effective sample is small; the default interval is far too short there. model_info['n_effective_weights'] is the Kish effective sample size",
+            "type": "string",
+            "x-statspai-role": "column"
           }
         },
         "required": [
@@ -511,6 +520,11 @@
       "name": "ivreg",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "Cluster column for cluster-robust standard errors",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "data": {
             "description": "pandas DataFrame",
             "type": "object",
@@ -524,6 +538,10 @@
           "robust": {
             "default": "nonrobust",
             "description": "Standard error type",
+            "type": "string"
+          },
+          "vce": {
+            "description": "Alias of robust=. vce='wild' with cluster= runs the WRE wild cluster bootstrap on the endogenous coefficient (Stata boottest after ivreg2)",
             "type": "string"
           },
           "vcov": {
@@ -2197,6 +2215,11 @@
       "name": "nbreg",
       "parameters": {
         "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level",
+            "type": "number"
+          },
           "cluster": {
             "description": "Column name for cluster-robust SEs",
             "type": "string",
@@ -2231,6 +2254,11 @@
             "description": "Report incidence-rate ratios",
             "type": "boolean"
           },
+          "maxiter": {
+            "default": 100,
+            "description": "Maximum iterations",
+            "type": "integer"
+          },
           "offset": {
             "description": "Column containing a log offset",
             "type": "string",
@@ -2250,6 +2278,28 @@
               "vce"
             ],
             "x-canonical": "vce"
+          },
+          "tol": {
+            "default": 1e-08,
+            "description": "Convergence tolerance",
+            "type": "number"
+          },
+          "weights": {
+            "description": "Observation weight column. Alone it is a frequency weight (Stata [fw=] / [iw=]): the model-based variance scales with the weights. For sampling weights add robust='robust' (Stata [pw=]); the default interval is far too short there",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "x": {
+            "description": "Regressors (alternative to formula)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome column (alternative to formula)",
+            "type": "string",
+            "x-statspai-role": "column"
           }
         },
         "required": [
@@ -3497,7 +3547,7 @@
             "type": "boolean"
           },
           "weights": {
-            "description": "Reserved; currently raises NotImplementedError",
+            "description": "Column of non-negative observation weights, as R rdrobust(weights=): they multiply the kernel weights in every local regression, bandwidth selection included",
             "type": "string",
             "x-statspai-role": "column"
           },
