@@ -31,6 +31,21 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — traces of modules 24, 41 and 62 re-recorded for the second Wooldridge round
+
+Commit `208af7fd`. `regression/tobit.py` and `regression/truncreg.py` gain a
+`formula=` argument, and `survival/models.py` accepts the data first in
+`sp.survreg`. Those files are on the estimation path of Track A modules
+24, 41 and 62, whose traces were re-recorded.
+
+**Effect on the paper.** None. The new argument is not used by the
+modules and the fits with `y=` and `x=` are unchanged; only source
+digests and `seconds` differ in the ledger, and no implementation
+classification moves. No result file changes.
+
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-05 — call traces re-recorded after the Wooldridge textbook pass
 
 Commit `85cdb0c6`. The pass edits `core/results.py` (`predict`),
