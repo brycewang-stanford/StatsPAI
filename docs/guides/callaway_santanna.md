@@ -317,7 +317,6 @@ event time — call [`cs_report()`](cs_report.md).
 - `sp.did_imputation`
 - `sp.sdid`
 - `sp.did`
-- `sp.callaway_santanna`
 - `sp.synth`
 
 **Typical minimum N**: 50

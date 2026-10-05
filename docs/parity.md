@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 376 |
+| **Compared against R/Stata** (T2) | bit-exact | 388 |
 | | aligned | 52 |
-| | **subtotal** | **428** |
+| | **subtotal** | **440** |
 | **No external software reference** | analytical-only (T1) | 338 |
 | | external-replication (published numbers) | 27 |
 | | **subtotal** | **365** |
-| No numerical evidence yet | unverified | 555 |
+| No numerical evidence yet | unverified | 543 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 428 | 779 | 795 | 53.8% |
+| estimator callables | 440 | 791 | 795 | 55.3% |
 | infrastructure (parity N/A) | 0 | 11 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 333 | 0.0% |
-| **all registered** | 428 | 793 | 1348 | 31.8% |
+| **all registered** | 440 | 805 | 1348 | 32.6% |
 
 ### Coverage by estimator family
 
@@ -54,10 +54,10 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | --- | ---: | ---: | ---: |
 | causal | 149 | 333 | 335 |
 | regression | 41 | 47 | 47 |
-| inference | 18 | 35 | 44 |
+| inference | 27 | 44 | 44 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
-| diagnostics | 19 | 27 | 30 |
+| diagnostics | 22 | 30 | 30 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
 | mendelian | 18 | 20 | 20 |
@@ -95,7 +95,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 376 functions
+## bit-exact — 388 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -238,6 +238,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `incidence_rate_ratio` | base-R closed form (rate ratio + conditional-binomial exact CI) | R 4.5.2 | estimate 1e-12; exact CI 1e-10 abs (observed ~3e-15) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `indirect_standardize` | Stata istdize (exact CI); R epitools::ageadjust.indirect (log-normal CI) | R 4.5.2; epitools 0.5.10.1; Stata 18 MP | 1e-10 rel (observed 6e-16) | — / — | [`test_survival_epi_R_parity.py`](../tests/reference_parity/test_survival_epi_R_parity.py) (+2) |
 | `inequality_index` | base-R closed form (Gini/Theil-T/Theil-L/Atkinson; = ineq) | R 4.5.2 | all indices 1e-12 abs (observed ~2e-16) | — / — | [`test_inequality_parity.py`](../tests/reference_parity/test_inequality_parity.py) (+1) |
+| `influence_measures` | Stata 18 predict after regress (rstandard, rstudent, cooksd, dfits, welsch, covratio, stdp, stdf, stdr) and dfbeta | Stata 18 | mean and sd of each statistic over the sample 1e-9 rel; DFBETAs 1e-5 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
 | `interactive_fe` | Stata regife (SSC, Gomez) ..., noconstant; R phtt::Eup(additive.effects = 'none') | Stata 18 MP; regife 2026-03-30 SSC; R 4.5.2; phtt 3.1.2 | slopes rtol 1e-9 vs both (observed <= 2e-11); SEs rtol 1e-9 vs regife with dof='regife' (homoskedastic and cluster), phtt SE reconstructed rtol 1e-9 | — / — | [`test_panel_ife_parity.py`](../tests/reference_parity/test_panel_ife_parity.py) |
 | `interflex` | interflex::interflex(vartype="delta", vcov.type="robust", neval=5, nbins=3, bw=1); Stata side uses the SSC interflex command | R 4.5.2; interflex 1.4.0 | rel_est<=1e-06, rel_se<=1e-06 | 4.0e-15 / 1.5e-14 | [`87_interflex.py`](../tests/r_parity/87_interflex.py) (+2) |
 | `ipcw` | survival::coxph(ties = 'breslow') + basehaz(centered = FALSE) | R 4.5.2; survival 3.8.3 | 1e-9 rel on every weight (observed 2.0e-11) | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
@@ -263,12 +264,17 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `kernel_weights` | spdep::nb2listwdist(type = 'dpd', alpha = 2) on dnearneigh(0, h); GWmodel::gw.weight | R 4.5.2; spdep 1.4.2; GWmodel 2.4.1 | weights 1e-12 rel / 1e-15 abs (observed 6.9e-16 rel, 3.3e-16 abs) | — / — | [`test_spatial_survey_R_parity.py`](../tests/reference_parity/test_spatial_survey_R_parity.py) (+1) |
 | `kitagawa_decompose` | R DasGuptR::dgnpop with ratefunction sum(size*rate)/sum(size) | DasGuptR 2.2.0; ddecompose 1.0.0; cdgd 1.0.1 | Rate and composition effects on Das Gupta's Table 5.1 at 1e-10; interaction exactly 0. | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `knn_weights` | R spdep::knearneigh + knn2nb | spdep 1.4.2; spatialreg 1.4.3 | Neighbour sets identical for all 120 points, k=4, on a random point set chosen so no distance ties make the answer non-unique. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
+| `ksmirnov` | Stata 18 ksmirnov | Stata 18 | D statistics and p-values 1e-9 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
+| `ktau` | Stata 18 ktau | Stata 18 | tau-a, tau-b, score, its standard error and p-value 1e-9 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
+| `kwallis` | Stata 18 kwallis | Stata 18 | chi-squared with and without ties 1e-5 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
 | `lee_bounds` | Stata leebounds 1.5 (Tauchmann), vce(analytic) | Stata 18; leebounds 1.5 (2013-07-17, Tauchmann) | 1e-10 rel on bounds and analytic variances | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
 | `liml` | ivmodel::LIML | R 4.5.2; ivmodel 1.9.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.7e-15 / 9.7e-16 | [`59_liml.py`](../tests/r_parity/59_liml.py) (+2) |
 | `linear_calibration` | survey::calibrate(calfun='linear', unbounded); Stata svycal regress | R 4.5.2; survey 4.5; Stata 18 MP | calibrated weights 1e-12 rel (observed 5.5e-15) | — / — | [`test_survey_calib_R_parity.py`](../tests/reference_parity/test_survey_calib_R_parity.py) (+2) |
 | `lm_tests` | R spdep::lm.RStests | spdep 1.4.2; spatialreg 1.4.3 | All five statistics and their p-values at 1e-9. Before the fix: LM_err 39.47 against 19.58, and Robust_LM_err 20.49 (p=6e-6) against 0.0397 (p=0.84) -- the Anselin lag-vs-error decision rule, reversed. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `local_projections` | lpirfs::lp_lin | R 4.5.2; lpirfs 0.2.5 | rel_est<=1e-06, rel_se<=1e-06 | 5.0e-15 / 4.4e-15 | [`34_lp.py`](../tests/r_parity/34_lp.py) (+2) |
 | `logit` | stats::glm(family=binomial("logit")) | R 4.5.2; stats 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 2.7e-11 / 2.7e-11 | [`57_logit.py`](../tests/r_parity/57_logit.py) (+2) |
+| `logit_gof` | Stata 18 estat gof and estat gof, group() | Stata 18 | chi-squared and degrees of freedom 1e-5 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
+| `logit_influence` | Stata 18 predict after logit (residuals, hat, rstandard, deviance, dx2, ddeviance, dbeta) | Stata 18 | mean and sd of each statistic over the sample 1e-5 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
 | `logrank_test` | survival::survdiff | R 4.5.2; survival 3.8.3 | chi-square 1e-10 rel (observed ~8e-16); p-value 1e-10 abs | — / — | [`test_survival_km_parity.py`](../tests/reference_parity/test_survival_km_parity.py) (+1) |
 | `lp_did` | direct transcription (no LP-DiD R package installed); Stata side uses the authors' lpdid | R 4.5.2 | rel_est<=1e-10, rel_se<=1e-10 | 5.0e-15 / 2.5e-15 | [`83_lpdid.py`](../tests/r_parity/83_lpdid.py) (+2) |
 | `lpoly` | Stata lpoly (at(), bwidth(), degree(), kernel(), se(), pwidth()) | Stata 18 MP | 1e-10 rel (observed 1.6e-12) | — / — | [`test_survival_epi_R_parity.py`](../tests/reference_parity/test_survival_epi_R_parity.py) (+2) |
@@ -283,6 +289,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `mc_synth` | MCPanel::mcnnm_fit (Athey, Bayati, Doudchenko, Imbens & Khosravi; github.com/susanathey/MCPanel) and fect::fect(method = "mc") | R 4.5.2; MCPanel 0.0 @ 6b2706fd7c35f3266048ceb22a7e9a61ae1774da; fect 2.4.1 | ATT and fitted untreated matrix 1e-9 rel at fixed lambda (observed <= 6.0e-13), two-way and no-FE x two lambdas | — / — | [`test_did_synth_mc_parity.py`](../tests/reference_parity/test_did_synth_mc_parity.py) (+1) |
 | `mccrary_test` | R rdd::DCdensity 0.57 (CRAN archive) | R 4.5.2; rdd 0.57 | theta, se, z rel 1e-9; p rel 1e-8; bin width 1e-12 (observed 6.5e-12) | — / — | [`test_rd_iv_rd_R_parity.py`](../tests/reference_parity/test_rd_iv_rd_R_parity.py) (+1) |
 | `mde` | base-R closed form (RCT minimum detectable effect) | R 4.5.2 | effect size 1e-6 abs (output rounded to 6 dp; observed ~2e-8) | — / — | [`test_power_extra_parity.py`](../tests/reference_parity/test_power_extra_parity.py) (+1) |
+| `median_test` | Stata 18 median | Stata 18 | chi-squared, its continuity-corrected form and p-value 1e-9 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
 | `mediate` | mediation::mediate | R 4.5.2; mediation 4.5.1 | rel_est<=1e-06, rel_se<=0.1 | 6.7e-15 / 3.6e-15 | [`36_mediation.py`](../tests/r_parity/36_mediation.py) (+3) |
 | `mediate_interventional` | CMAverse::cmest 0.1.0 (gformula with postc: rpnde / rpnie / te; rb paramfunc without) | R 4.5.2; CMAverse 0.1.0 | IIE / IDE / total 1e-9 rel (observed 2.3e-15) | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
 | `mediate_sensitivity` | R mediation::medsens (lm/lm, rho.by = 0.1) | mediation 4.5.1 | 1e-10 rel | — / — | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
@@ -338,6 +345,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `oaxaca` | oaxaca::oaxaca | R 4.5.2; oaxaca 0.1.5 | rel_est<=1e-06, rel_se<=0.05 | 6.3e-16 / 1.3e-16 | [`30_oaxaca.py`](../tests/r_parity/30_oaxaca.py) (+3) |
 | `odds_ratio` | base-R closed form (Woolf logit; = epiR::epi.2by2) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed 0) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `ologit` | MASS::polr(method="logistic") | R 4.5.2; MASS 7.3.65 | rel_est<=1e-06, rel_se<=1e-05 | 1.5e-07 / 3.4e-07 | [`45_ologit.py`](../tests/r_parity/45_ologit.py) (+2) |
+| `oneway` | Stata 18 oneway | Stata 18 | F, sums of squares and Bartlett's test 1e-9 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
 | `oprobit` | MASS::polr(method="probit") | R 4.5.2; MASS 7.3.65 | rel_est<=1e-06, rel_se<=1e-06 | 3.7e-07 / 2.1e-10 | [`49_oprobit.py`](../tests/r_parity/49_oprobit.py) (+2) |
 | `oster_bounds` | Stata psacalc (Oster); R robomit::o_delta / o_beta | Stata 18; psacalc 2.1; R 4.5.2; robomit 1.0.7 | 1e-12 rel vs psacalc (observed 4.4e-14); 5e-7 abs vs robomit (it rounds to 6 dp) | — / — | [`test_inference_sens_R_parity.py`](../tests/reference_parity/test_inference_sens_R_parity.py) (+3) |
 | `oster_delta` | Stata psacalc (Oster); R robomit::o_delta / o_beta | Stata 18; psacalc 2.1; R 4.5.2; robomit 1.0.7 | 1e-12 rel vs psacalc (observed 4.4e-14); 5e-7 abs vs robomit | — / — | [`test_inference_sens_R_parity.py`](../tests/reference_parity/test_inference_sens_R_parity.py) (+3) |
@@ -367,6 +375,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `qreg` | quantreg::rq | R 4.5.2; quantreg 6.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.0e-15 / 5.6e-16 | [`40_qreg.py`](../tests/r_parity/40_qreg.py) (+2) |
 | `queen_weights` | spdep::poly2nb(queen = TRUE) + nb2listw(style = 'W' / 'S' / 'U') | R 4.5.2; spdep 1.4.2; sf 1.1.1; spData 2.3.5 | neighbour sets exact; weights 1e-12 rel (observed 0) | — / — | [`test_spatial_survey_R_parity.py`](../tests/reference_parity/test_spatial_survey_R_parity.py) (+1) |
 | `rake` | survey::rake (to its fixed point) and survey::calibrate(calfun='raking'); Stata svycal rake | R 4.5.2; survey 4.5; Stata 18 MP | calibrated weight shares 1e-12 rel at tol=1e-14 (observed 1.5e-15); 1e-8 at the default tol=1e-10 (observed 1.0e-10) | — / — | [`test_survey_calib_R_parity.py`](../tests/reference_parity/test_survey_calib_R_parity.py) (+2) |
+| `ranksum` | Stata 18 ranksum | Stata 18 | z, rank sum and adjusted variance 1e-9 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
 | `rd2d` | R rd2d::rd2d / rd2d.distance 1.0.0 (Cattaneo, Titiunik & Yu) | R; rd2d 1.0.0; sandwich 3.1.1 | estimate.p/q, std.err.p/q, t, CI, cross-point covariance rel 1e-9 (observed 1.6e-11); bandwidths rel 1e-8 (observed 1.2e-12); N exact | — / — | [`test_rd_open_R_parity.py`](../tests/reference_parity/test_rd_open_R_parity.py) (+1) |
 | `rd2d_bw` | R rd2d::rdbw2d / rdbw2d.distance 1.0.0 | R; rd2d 1.0.0 | per-point bandwidths rel 1e-8 (observed 5.0e-13) | — / — | [`test_rd_open_R_parity.py`](../tests/reference_parity/test_rd_open_R_parity.py) (+1) |
 | `rd_honest` | RDHonest::RDHonest 1.0.1.9000 (Armstrong & Kolesar) | R 4.5.2; RDHonest 1.0.1.9000 | estimate / std.error / maximum.bias / conf.low / conf.high 1e-9 rel at fixed bandwidth; 1e-6 rel when the bandwidth and M are selected | — / — | [`test_rdhonest_parity.py`](../tests/reference_parity/test_rdhonest_parity.py) (+1) |
@@ -402,6 +411,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `rlassologit_effect` | R hdm::rlassologitEffect 0.3.2 | R 4.5.2; hdm 0.3.2 | alpha / se atol 1e-6 (observed rel 1.1e-15 / 5.3e-14 post; se 3.2e-7 with post=False) | — / — | [`test_rlassologit_effect_parity.py`](../tests/reference_parity/test_rlassologit_effect_parity.py) (+1) |
 | `rlassologit_effects` | R hdm::rlassologitEffects 0.3.2 | R 4.5.2; hdm 0.3.2 | coef / se atol 1e-6 (observed rel 8.6e-16 / 2.5e-14) | — / — | [`test_rlassologit_effect_parity.py`](../tests/reference_parity/test_rlassologit_effect_parity.py) (+1) |
 | `robust_synth` | scpi::scest(w.constr = list(name = 'ols')) with scdata(constant = TRUE) and stats::lm (unconstrained SC with intercept); glmnet (ridge / lasso / elastic net, unpenalised intercept) | R 4.5.2; scpi 4.0.1; glmnet 4.1.10 | OLS weights / intercept / fitted path 1e-10 rel (observed 8.4e-13); penalised paths 1e-8 rel, weights atol 1e-10 (observed 3.4e-11 abs, glmnet's coordinate-descent stop) | — / — | [`test_did_synth_synthvar_parity.py`](../tests/reference_parity/test_did_synth_synthvar_parity.py) (+1) |
+| `robvar` | Stata 18 robvar | Stata 18 | W0, W50 and W10 1e-9 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
 | `roc_curve` | R pROC::roc/auc/var/ci.auc (DeLong); Stata roctab (default and hanley) | R 4.5.2; pROC 1.19.0.1; Stata 18 MP | 1e-10 rel (observed 6e-15) | — / — | [`test_survival_epi_R_parity.py`](../tests/reference_parity/test_survival_epi_R_parity.py) (+2) |
 | `rook_weights` | spdep::poly2nb(queen = FALSE) + nb2listw(style = 'W') | R 4.5.2; spdep 1.4.2; sf 1.1.1; spData 2.3.5 | neighbour sets exact; weights 1e-12 rel (observed 0) | — / — | [`test_spatial_survey_R_parity.py`](../tests/reference_parity/test_spatial_survey_R_parity.py) (+1) |
 | `rosenbaum_bounds` | R DOS2::senWilcox (Rosenbaum); Stata rbounds; R stats::binom.test (sign test); R rbounds::psens (zero_method='wilcox', 4-dp) | R 4.5.2; DOS2 0.5.2; rbounds 2.2; Stata 18; rbounds (Stata) 1.1.6 | bounding p-values 1e-12 rel (observed 4.6e-15); Stata sig- 1e-15 abs; psens at its own 4-dp rounding | — / — | [`test_inference_sens_R_parity.py`](../tests/reference_parity/test_inference_sens_R_parity.py) (+3) |
@@ -421,10 +431,12 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `shift_share_political` | AER::ivreg + sandwich HC1; ShiftShareSE::ivreg_ss (EHW / AKM / AKM0); bartik.weight::bw; anova(lm) share balance | R 4.5.2; AER 1.2.16; sandwich 3.1.1; ShiftShareSE 1.1.0; bartik.weight 0.1.0 | estimate / SEs / Rotemberg / F 1e-9 rel (observed <= 5e-15); AKM p-value 1e-7 rel (ShiftShareSE uses 2*(1-pnorm), cancellation at p ~ 1e-9) | — / — | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) (+1) |
 | `shift_share_political_panel` | fixest::feols 0.14.0 (ssc adj=FALSE, cluster.adj=FALSE; unit / time / two-way clusters; unit, time, two-way FE; unbalanced panel); ShiftShareSE::ivreg_ss with FE dummies (AKM); bartik.weight::bw with FE dummies; AER + HC0 per period | R 4.5.2; fixest 0.14.0; ShiftShareSE 1.1.0; bartik.weight 0.1.0; AER 1.2.16; sandwich 3.1.1 | estimate / SEs / Rotemberg / first-stage F 1e-9 rel (observed <= 1.1e-14) | — / — | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) (+1) |
 | `shift_share_se` | R ShiftShareSE::ivreg_ss (Adao, Kolesar & Morales), AKM row; Stata SSC ivreg_ss | R 4.5.2; ShiftShareSE 1.1.0; Stata 18 MP; ivreg_ss SSC 20241116 | 1e-9 rel on beta and the AKM / AKM0 / EHW / Homoscedastic SEs; observed <= 6e-14 | — / — | [`test_did_synth_shiftshare_parity.py`](../tests/reference_parity/test_did_synth_shiftshare_parity.py) (+2) |
+| `signrank` | Stata 18 signrank | Stata 18 | z, positive rank sum and adjusted variance 1e-9 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
 | `slx` | R spatialreg::lmSLX | spdep 1.4.2; spatialreg 1.4.3 | Every coefficient at 1e-10. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `snips` | Open Bandit Pipeline (obp) 0.5.7 SelfNormalizedInverseProbabilityWeighting | obp 0.5.7 | value 1e-12 rel (observed 0.0); delta-method SE identity 1e-10 and equal to sp.ope.snips | — / — | [`test_ml_causal_obp_parity.py`](../tests/reference_parity/test_ml_causal_obp_parity.py) (+1) |
 | `source_decompose` | Stata descogini (Lerman-Yitzhaki) | Stata 18 MP; descogini SSC | With gini='population': total Gini, and each source's S_k, G_k, R_k and share of the total at 1e-12. The default n/(n-1)-corrected Gini differs by exactly that factor; S_k, R_k and shares are identical. | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `spatial_iv` | sphet::spreg(model = 'lag', het = TRUE) 2.1.1 | R 4.5.2; sphet 2.1.1; spdep 1.4.2 | coefficients and HC0 SEs 1e-10 rel (observed 9.5e-14 / 6.8e-14) | — / — | [`test_spatial_survey_R_parity.py`](../tests/reference_parity/test_spatial_survey_R_parity.py) (+1) |
+| `spearman` | Stata 18 spearman | Stata 18 | rho and p-value 1e-9 rel | — / — | [`test_kohler_kreuter_stata_parity.py`](../tests/reference_parity/test_kohler_kreuter_stata_parity.py) (+1) |
 | `spillover_did` | R did::att_gt(control_group='nevertreated') + did::aggte(type='simple') per group (direct / ring r, ring cohort = exposure onset); single cohort also fixest::feols(dbar ~ treat + ring1 + ring2, vcov='hetero', ssc(adj=FALSE)) | did 2.3.0; DRDID 1.2.3; fixest 0.14.0 | Direct and ring effects, their SEs and every (group, onset cohort, period) cell at 1e-9 relative on a single-cohort and a staggered spatial panel; observed agreement 1e-14. The ring construction is recomputed independently in R from the coordinates. | — / — | [`test_did_synth_misc_parity.py`](../tests/reference_parity/test_did_synth_misc_parity.py) |
 | `sqreg` | R quantreg::rq (Barrodale-Roberts), Koenker 2005 | quantreg see sqreg_R.json provenance | Coefficients 3.5e-14 against quantreg::rq at tau = 0.25 / 0.50 / 0.75 -- both sides minimise the same pinball loss with the same simplex. Standard errors differ from R's se='iid' by ONE SCALAR PER QUANTILE, constant across coefficients to 6e-16: the sandwich is identical and only the sparsity estimate 1/f(0) differs (Powell kernel here, Koenker-Bassett with a Siddiqui/Hall-Sheather bandwidth there). The test asserts the ratio's constancy rather than a numerical band, which a structural difference could not satisfy. R's default se='nid' (Hendricks-Koenker, also Stata qreg's) is a third convention and is recorded as one. | — / — | [`test_sqreg_parity.py`](../tests/reference_parity/test_sqreg_parity.py) |
 | `ssaggregate` | R ShiftShareSE::ivreg_ss / reg_ss (Adao, Kolesar & Morales) and ssaggregate (Borusyak, Hull & Jaravel; R kylebutts/ssaggregate + AER::ivreg/sandwich HC0); Stata SSC ivreg_ss / reg_ss and ssaggregate + ivreg2, robust | R 4.5.2; ShiftShareSE 1.1.0; ssaggregate (R) 0.0.0.9000 (GitHub kylebutts/ssaggregate@22df93980250891a0cc247f6020136cd33c65ba2); AER 1.2.16; sandwich 3.1.1; Stata 18 MP; reg_ss / ivreg_ss SSC 20241116; ssaggregate (Stata) SSC 1.2.2 (20200826) | 1e-9 rel on beta, every SE row (Homoscedastic, EHW, Reg. cluster, AKM, AKM0), AKM/AKM0 CIs and the shock-level frame; p-values also atol 1e-15 (references use 2*(1-Phi)); observed <= 6e-14 (frame 2.9e-13) | — / — | [`test_did_synth_shiftshare_parity.py`](../tests/reference_parity/test_did_synth_shiftshare_parity.py) (+2) |
@@ -916,6 +928,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 555 functions
+## unverified — 543 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

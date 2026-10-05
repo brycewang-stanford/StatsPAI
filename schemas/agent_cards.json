@@ -10884,18 +10884,26 @@
     ],
     "category": "inference",
     "cost_profile": "",
-    "description": "Wilcoxon rank-sum (Mann-Whitney) test that two groups have the same distribution (Stata ranksum, R wilcox.test with correct=FALSE). The variance of the rank sum is corrected for ties; z is referred to the standard normal without a continuity correction. Returns z, the p-value, the rank sums and P(y1 > y2). ",
+    "description": "Wilcoxon rank-sum (Mann-Whitney) test that two groups have the same distribution (Stata ranksum, R wilcox.test with correct=FALSE). The variance of the rank sum is corrected for ties; z is referred to the standard normal without a continuity correction. Returns z, the p-value, the rank sums and P(y1 > y2). Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 ranksum",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "z, rank sum and adjusted variance 1e-9 rel"
     },
     "example": "sp.ranksum(df, \"wage\", by=\"female\")",
     "failure_modes": [],
@@ -10926,7 +10934,7 @@
       }
     },
     "signature": {
-      "description": "Wilcoxon rank-sum (Mann-Whitney) test that two groups have the same distribution (Stata ranksum, R wilcox.test with correct=FALSE). The variance of the rank sum is corrected for ties; z is referred to the standard normal without a continuity correction. Returns z, the p-value, the rank sums and P(y1 > y2). ",
+      "description": "Wilcoxon rank-sum (Mann-Whitney) test that two groups have the same distribution (Stata ranksum, R wilcox.test with correct=FALSE). The variance of the rank sum is corrected for ties; z is referred to the standard normal without a continuity correction. Returns z, the p-value, the rank sums and P(y1 > y2). Validation: certified parity evidence.",
       "name": "ranksum",
       "parameters": {
         "properties": {
@@ -10955,8 +10963,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 ranksum [Stata 18]; tolerance z, rank sum and adjusted variance 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -10964,21 +10974,33 @@
       "ttest",
       "ranksum"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "Paired observations whose differences are independent",
+      "Under the null the differences are symmetric about zero",
+      "Differences on an interval scale, so that their absolute values can be ranked"
+    ],
     "category": "inference",
     "cost_profile": "",
-    "description": "Wilcoxon matched-pairs signed-rank test (Stata signrank). Ranks the absolute differences y - other (or y - value), zeros and ties included, and tests that their distribution is symmetric about zero; the variance is adjusted for ties and for zero differences. ",
+    "description": "Wilcoxon matched-pairs signed-rank test (Stata signrank). Ranks the absolute differences y - other (or y - value), zeros and ties included, and tests that their distribution is symmetric about zero; the variance is adjusted for ties and for zero differences. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 signrank",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "z, positive rank sum and adjusted variance 1e-9 rel"
     },
     "example": "sp.signrank(df, \"after\", other=\"before\")",
     "failure_modes": [],
@@ -10989,6 +11011,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11008,7 +11031,7 @@
       }
     },
     "signature": {
-      "description": "Wilcoxon matched-pairs signed-rank test (Stata signrank). Ranks the absolute differences y - other (or y - value), zeros and ties included, and tests that their distribution is symmetric about zero; the variance is adjusted for ties and for zero differences. ",
+      "description": "Wilcoxon matched-pairs signed-rank test (Stata signrank). Ranks the absolute differences y - other (or y - value), zeros and ties included, and tests that their distribution is symmetric about zero; the variance is adjusted for ties and for zero differences. Validation: certified parity evidence.",
       "name": "signrank",
       "parameters": {
         "properties": {
@@ -11041,8 +11064,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 signrank [Stata 18]; tolerance z, positive rank sum and adjusted variance 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11051,21 +11076,33 @@
       "ranksum",
       "median_test"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "Independent groups of independent observations",
+      "An outcome that is at least ordinal",
+      "Reading a rejection as a shift in location needs the groups to share the same shape and spread"
+    ],
     "category": "inference",
     "cost_profile": "",
-    "description": "Kruskal-Wallis rank test that several groups have the same distribution (Stata kwallis, R kruskal.test). Reports the statistic with and without the correction for ties, on k - 1 degrees of freedom. ",
+    "description": "Kruskal-Wallis rank test that several groups have the same distribution (Stata kwallis, R kruskal.test). Reports the statistic with and without the correction for ties, on k - 1 degrees of freedom. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 kwallis",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "chi-squared with and without ties 1e-5 rel"
     },
     "example": "sp.kwallis(df, \"income\", by=\"education\")",
     "failure_modes": [],
@@ -11076,6 +11113,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11095,7 +11133,7 @@
       }
     },
     "signature": {
-      "description": "Kruskal-Wallis rank test that several groups have the same distribution (Stata kwallis, R kruskal.test). Reports the statistic with and without the correction for ties, on k - 1 degrees of freedom. ",
+      "description": "Kruskal-Wallis rank test that several groups have the same distribution (Stata kwallis, R kruskal.test). Reports the statistic with and without the correction for ties, on k - 1 degrees of freedom. Validation: certified parity evidence.",
       "name": "kwallis",
       "parameters": {
         "properties": {
@@ -11124,8 +11162,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 kwallis [Stata 18]; tolerance chi-squared with and without ties 1e-5 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11133,21 +11173,32 @@
       "ktau",
       "pwcorr"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "Independent pairs of observations",
+      "Both variables at least ordinal; the coefficient measures monotone, not linear, association"
+    ],
     "category": "inference",
     "cost_profile": "",
-    "description": "Spearman's rank correlation and the t test that it is zero (Stata spearman, R cor.test with method='spearman', exact=FALSE). Ties get their mean rank. ",
+    "description": "Spearman's rank correlation and the t test that it is zero (Stata spearman, R cor.test with method='spearman', exact=FALSE). Ties get their mean rank. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 spearman",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "rho and p-value 1e-9 rel"
     },
     "example": "sp.spearman(df, \"income\", \"education\")",
     "failure_modes": [],
@@ -11158,6 +11209,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11177,7 +11229,7 @@
       }
     },
     "signature": {
-      "description": "Spearman's rank correlation and the t test that it is zero (Stata spearman, R cor.test with method='spearman', exact=FALSE). Ties get their mean rank. ",
+      "description": "Spearman's rank correlation and the t test that it is zero (Stata spearman, R cor.test with method='spearman', exact=FALSE). Ties get their mean rank. Validation: certified parity evidence.",
       "name": "spearman",
       "parameters": {
         "properties": {
@@ -11207,8 +11259,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 spearman [Stata 18]; tolerance rho and p-value 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11216,21 +11270,32 @@
       "spearman",
       "tab"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "Independent pairs of observations",
+      "Both variables at least ordinal; the test is of independence, the coefficient measures monotone association"
+    ],
     "category": "inference",
     "cost_profile": "",
-    "description": "Kendall's rank correlations tau-a and tau-b with the score test of independence (Stata ktau). The variance of the score is corrected for ties and z carries a continuity correction. ",
+    "description": "Kendall's rank correlations tau-a and tau-b with the score test of independence (Stata ktau). The variance of the score is corrected for ties and z carries a continuity correction. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 ktau",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "tau-a, tau-b, score, its standard error and p-value 1e-9 rel"
     },
     "example": "sp.ktau(df, \"health\", \"education\")",
     "failure_modes": [],
@@ -11241,6 +11306,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11260,7 +11326,7 @@
       }
     },
     "signature": {
-      "description": "Kendall's rank correlations tau-a and tau-b with the score test of independence (Stata ktau). The variance of the score is corrected for ties and z carries a continuity correction. ",
+      "description": "Kendall's rank correlations tau-a and tau-b with the score test of independence (Stata ktau). The variance of the score is corrected for ties and z carries a continuity correction. Validation: certified parity evidence.",
       "name": "ktau",
       "parameters": {
         "properties": {
@@ -11290,8 +11356,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 ktau [Stata 18]; tolerance tau-a, tau-b, score, its standard error and p-value 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11299,21 +11367,32 @@
       "ranksum",
       "median_test"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "Two independent samples of independent observations",
+      "Continuous distributions; with ties the reported p-values are conservative"
+    ],
     "category": "inference",
     "cost_profile": "",
-    "description": "Two-sample Kolmogorov-Smirnov test of equal distribution functions (Stata ksmirnov). Returns the largest differences in each direction with their large-sample p-values and the combined statistic. ",
+    "description": "Two-sample Kolmogorov-Smirnov test of equal distribution functions (Stata ksmirnov). Returns the largest differences in each direction with their large-sample p-values and the combined statistic. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 ksmirnov",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "D statistics and p-values 1e-9 rel"
     },
     "example": "sp.ksmirnov(df, \"income\", by=\"female\")",
     "failure_modes": [],
@@ -11324,6 +11403,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11343,7 +11423,7 @@
       }
     },
     "signature": {
-      "description": "Two-sample Kolmogorov-Smirnov test of equal distribution functions (Stata ksmirnov). Returns the largest differences in each direction with their large-sample p-values and the combined statistic. ",
+      "description": "Two-sample Kolmogorov-Smirnov test of equal distribution functions (Stata ksmirnov). Returns the largest differences in each direction with their large-sample p-values and the combined statistic. Validation: certified parity evidence.",
       "name": "ksmirnov",
       "parameters": {
         "properties": {
@@ -11372,8 +11452,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 ksmirnov [Stata 18]; tolerance D statistics and p-values 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11381,21 +11463,32 @@
       "ranksum",
       "kwallis"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "Independent groups of independent observations",
+      "An outcome that is at least ordinal; observations equal to the pooled median are counted as not above it"
+    ],
     "category": "inference",
     "cost_profile": "",
-    "description": "Median test (Stata median): classifies every observation as above the pooled median or not and tests independence of that from the group with Pearson's chi-squared; with two groups the continuity-corrected statistic is reported too. ",
+    "description": "Median test (Stata median): classifies every observation as above the pooled median or not and tests independence of that from the group with Pearson's chi-squared; with two groups the continuity-corrected statistic is reported too. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 median",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "chi-squared, its continuity-corrected form and p-value 1e-9 rel"
     },
     "example": "sp.median_test(df, \"income\", by=\"female\")",
     "failure_modes": [],
@@ -11406,6 +11499,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11425,7 +11519,7 @@
       }
     },
     "signature": {
-      "description": "Median test (Stata median): classifies every observation as above the pooled median or not and tests independence of that from the group with Pearson's chi-squared; with two groups the continuity-corrected statistic is reported too. ",
+      "description": "Median test (Stata median): classifies every observation as above the pooled median or not and tests independence of that from the group with Pearson's chi-squared; with two groups the continuity-corrected statistic is reported too. Validation: certified parity evidence.",
       "name": "median_test",
       "parameters": {
         "properties": {
@@ -11454,8 +11548,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 median [Stata 18]; tolerance chi-squared, its continuity-corrected form and p-value 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11463,21 +11559,32 @@
       "sdtest",
       "oneway"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "Independent groups of independent observations",
+      "A continuous outcome; the median-centred form (W50) is the one to rely on when the outcome is skewed"
+    ],
     "category": "inference",
     "cost_profile": "",
-    "description": "Robust tests of equal variances across groups (Stata robvar): Levene's W0 on absolute deviations from the group means and the Brown-Forsythe variants W50 (medians) and W10 (10 percent trimmed means), each an F test. ",
+    "description": "Robust tests of equal variances across groups (Stata robvar): Levene's W0 on absolute deviations from the group means and the Brown-Forsythe variants W50 (medians) and W10 (10 percent trimmed means), each an F test. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 robvar",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "W0, W50 and W10 1e-9 rel"
     },
     "example": "sp.robvar(df, \"income\", by=\"female\")",
     "failure_modes": [],
@@ -11488,6 +11595,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11507,7 +11615,7 @@
       }
     },
     "signature": {
-      "description": "Robust tests of equal variances across groups (Stata robvar): Levene's W0 on absolute deviations from the group means and the Brown-Forsythe variants W50 (medians) and W10 (10 percent trimmed means), each an F test. ",
+      "description": "Robust tests of equal variances across groups (Stata robvar): Levene's W0 on absolute deviations from the group means and the Brown-Forsythe variants W50 (medians) and W10 (10 percent trimmed means), each an F test. Validation: certified parity evidence.",
       "name": "robvar",
       "parameters": {
         "properties": {
@@ -11536,8 +11644,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 robvar [Stata 18]; tolerance W0, W50 and W10 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11552,18 +11662,26 @@
     ],
     "category": "inference",
     "cost_profile": "",
-    "description": "One-way analysis of variance (Stata oneway, R aov): the F test of equal group means, Bartlett's test of equal variances and, on request, pairwise differences of means with Bonferroni, Sidak or Scheffe p-values. ",
+    "description": "One-way analysis of variance (Stata oneway, R aov): the F test of equal group means, Bartlett's test of equal variances and, on request, pairwise differences of means with Bonferroni, Sidak or Scheffe p-values. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 oneway",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "F, sums of squares and Bartlett's test 1e-9 rel"
     },
     "example": "sp.oneway(df, \"income\", by=\"education\", compare=\"bonferroni\")",
     "failure_modes": [],
@@ -11594,7 +11712,7 @@
       }
     },
     "signature": {
-      "description": "One-way analysis of variance (Stata oneway, R aov): the F test of equal group means, Bartlett's test of equal variances and, on request, pairwise differences of means with Bonferroni, Sidak or Scheffe p-values. ",
+      "description": "One-way analysis of variance (Stata oneway, R aov): the F test of equal group means, Bartlett's test of equal variances and, on request, pairwise differences of means with Bonferroni, Sidak or Scheffe p-values. Validation: certified parity evidence.",
       "name": "oneway",
       "parameters": {
         "properties": {
@@ -11627,8 +11745,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 oneway [Stata 18]; tolerance F, sums of squares and Bartlett's test 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11636,21 +11756,32 @@
       "estat",
       "logit_influence"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "A linear regression fitted by least squares (an sp.regress result); the statistics describe how much each observation moves that fit, not whether the model is right",
+      "Cut-offs such as 4/n or 2 sqrt(k/n) are screening rules, not tests"
+    ],
     "category": "diagnostics",
     "cost_profile": "",
-    "description": "Influence statistics of every observation of a linear regression: leverage, standardized and studentized residuals, Cook's distance, DFFITS, Welsch distance, COVRATIO, the standard errors of the prediction, forecast and residual, and DFBETAs (Stata predict after regress and dfbeta, R influence.measures). ",
+    "description": "Influence statistics of every observation of a linear regression: leverage, standardized and studentized residuals, Cook's distance, DFFITS, Welsch distance, COVRATIO, the standard errors of the prediction, forecast and residual, and DFBETAs (Stata predict after regress and dfbeta, R influence.measures). Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 predict after regress (rstandard, rstudent, cooksd, dfits, welsch, covratio, stdp, stdf, stdr) and dfbeta",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "mean and sd of each statistic over the sample 1e-9 rel; DFBETAs 1e-5 rel"
     },
     "example": "sp.influence_measures(sp.regress(\"y ~ x\", data=df))",
     "failure_modes": [],
@@ -11661,6 +11792,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11671,7 +11803,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Influence statistics of every observation of a linear regression: leverage, standardized and studentized residuals, Cook's distance, DFFITS, Welsch distance, COVRATIO, the standard errors of the prediction, forecast and residual, and DFBETAs (Stata predict after regress and dfbeta, R influence.measures). ",
+      "description": "Influence statistics of every observation of a linear regression: leverage, standardized and studentized residuals, Cook's distance, DFFITS, Welsch distance, COVRATIO, the standard errors of the prediction, forecast and residual, and DFBETAs (Stata predict after regress and dfbeta, R influence.measures). Validation: certified parity evidence.",
       "name": "influence_measures",
       "parameters": {
         "properties": {
@@ -11688,8 +11820,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 predict after regress (rstandard, rstudent, cooksd, dfits, welsch, covratio, stdp, stdf, stdr) and dfbeta [Stata 18]; tolerance mean and sd of each statistic over the sample 1e-9 rel; DFBETAs 1e-5 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11697,21 +11831,32 @@
       "influence_measures",
       "logit_gof"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "A logistic regression fitted by maximum likelihood",
+      "Statistics are computed by covariate pattern, as Stata does; observations sharing a pattern share their values"
+    ],
     "category": "diagnostics",
     "cost_profile": "",
-    "description": "Pregibon's diagnostics after a logistic regression, by covariate pattern: Pearson and deviance residuals, leverage, the standardized residual and the changes in Pearson's chi- squared, in the deviance and in the coefficients when a pattern is left out (Stata predict after logit / logistic). ",
+    "description": "Pregibon's diagnostics after a logistic regression, by covariate pattern: Pearson and deviance residuals, leverage, the standardized residual and the changes in Pearson's chi- squared, in the deviance and in the coefficients when a pattern is left out (Stata predict after logit / logistic). Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 predict after logit (residuals, hat, rstandard, deviance, dx2, ddeviance, dbeta)",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "mean and sd of each statistic over the sample 1e-5 rel"
     },
     "example": "sp.logit_influence(sp.logit(\"d ~ x\", data=df))",
     "failure_modes": [],
@@ -11722,6 +11867,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11732,7 +11878,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Pregibon's diagnostics after a logistic regression, by covariate pattern: Pearson and deviance residuals, leverage, the standardized residual and the changes in Pearson's chi- squared, in the deviance and in the coefficients when a pattern is left out (Stata predict after logit / logistic). ",
+      "description": "Pregibon's diagnostics after a logistic regression, by covariate pattern: Pearson and deviance residuals, leverage, the standardized residual and the changes in Pearson's chi- squared, in the deviance and in the coefficients when a pattern is left out (Stata predict after logit / logistic). Validation: certified parity evidence.",
       "name": "logit_influence",
       "parameters": {
         "properties": {
@@ -11749,8 +11895,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 predict after logit (residuals, hat, rstandard, deviance, dx2, ddeviance, dbeta) [Stata 18]; tolerance mean and sd of each statistic over the sample 1e-5 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -11758,21 +11906,33 @@
       "estat",
       "logit_influence"
     ],
-    "assumptions": [],
+    "assumptions": [
+      "A binary-outcome model fitted by maximum likelihood",
+      "Pearson's test needs covariate patterns with several observations each; with near-continuous regressors use the grouped (Hosmer- Lemeshow) form",
+      "A non-rejection is not evidence that the model is right: the grouped test has little power against omitted interactions"
+    ],
     "category": "diagnostics",
     "cost_profile": "",
-    "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. ",
+    "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 estat gof and estat gof, group()",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "chi-squared and degrees of freedom 1e-5 rel"
     },
     "example": "sp.logit_gof(sp.logit(\"d ~ x\", data=df), groups=10)",
     "failure_modes": [],
@@ -11783,6 +11943,7 @@
     "pre_conditions": [],
     "provenance": {
       "alternatives": "curated",
+      "assumptions": "curated",
       "example": "curated",
       "returns": "curated"
     },
@@ -11793,7 +11954,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. ",
+      "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. Validation: certified parity evidence.",
       "name": "logit_gof",
       "parameters": {
         "properties": {
@@ -11814,8 +11975,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 estat gof and estat gof, group() [Stata 18]; tolerance chi-squared and degrees of freedom 1e-5 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,

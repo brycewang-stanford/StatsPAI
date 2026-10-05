@@ -7714,6 +7714,12 @@ def _build_registry() -> None:
                     "Value to compare with when other is not given",
                 ),
             ],
+            assumptions=[
+                "Paired observations whose differences are independent",
+                "Under the null the differences are symmetric about zero",
+                "Differences on an interval scale, so that their absolute values can "
+                "be ranked",
+            ],
             returns="ClassicTestResult",
             example='sp.signrank(df, "after", other="before")',
             tags=["inference", "nonparametric", "stata", "paired"],
@@ -7736,6 +7742,12 @@ def _build_registry() -> None:
                 ParamSpec("y", "str", True, None, "Variable to compare"),
                 ParamSpec("by", "str", True, None, "Grouping column"),
             ],
+            assumptions=[
+                "Independent groups of independent observations",
+                "An outcome that is at least ordinal",
+                "Reading a rejection as a shift in location needs the groups to "
+                "share the same shape and spread",
+            ],
             returns="ClassicTestResult",
             example='sp.kwallis(df, "income", by="education")',
             tags=["inference", "nonparametric", "stata", "ranks"],
@@ -7757,6 +7769,11 @@ def _build_registry() -> None:
                 ParamSpec("x", "str", True, None, "First variable"),
                 ParamSpec("y", "str", True, None, "Second variable"),
             ],
+            assumptions=[
+                "Independent pairs of observations",
+                "Both variables at least ordinal; the coefficient measures monotone, "
+                "not linear, association",
+            ],
             returns="ClassicTestResult",
             example='sp.spearman(df, "income", "education")',
             tags=["inference", "nonparametric", "stata", "correlation"],
@@ -7777,6 +7794,11 @@ def _build_registry() -> None:
                 ParamSpec("data", "DataFrame", True, None, "Data"),
                 ParamSpec("x", "str", True, None, "First variable"),
                 ParamSpec("y", "str", True, None, "Second variable"),
+            ],
+            assumptions=[
+                "Independent pairs of observations",
+                "Both variables at least ordinal; the test is of independence, the "
+                "coefficient measures monotone association",
             ],
             returns="ClassicTestResult",
             example='sp.ktau(df, "health", "education")',
@@ -7802,6 +7824,11 @@ def _build_registry() -> None:
                     "by", "str", True, None, "Grouping column with exactly two values"
                 ),
             ],
+            assumptions=[
+                "Two independent samples of independent observations",
+                "Continuous distributions; with ties the reported p-values are "
+                "conservative",
+            ],
             returns="ClassicTestResult",
             example='sp.ksmirnov(df, "income", by="female")',
             tags=["inference", "nonparametric", "stata", "distribution"],
@@ -7824,6 +7851,11 @@ def _build_registry() -> None:
                 ParamSpec("y", "str", True, None, "Variable to compare"),
                 ParamSpec("by", "str", True, None, "Grouping column"),
             ],
+            assumptions=[
+                "Independent groups of independent observations",
+                "An outcome that is at least ordinal; observations equal to the "
+                "pooled median are counted as not above it",
+            ],
             returns="ClassicTestResult",
             example='sp.median_test(df, "income", by="female")',
             tags=["inference", "nonparametric", "stata", "median"],
@@ -7845,6 +7877,11 @@ def _build_registry() -> None:
                 ParamSpec("data", "DataFrame", True, None, "Data"),
                 ParamSpec("y", "str", True, None, "Variable to compare"),
                 ParamSpec("by", "str", True, None, "Grouping column"),
+            ],
+            assumptions=[
+                "Independent groups of independent observations",
+                "A continuous outcome; the median-centred form (W50) is the one to "
+                "rely on when the outcome is skewed",
             ],
             returns="ClassicTestResult",
             example='sp.robvar(df, "income", by="female")',
@@ -7903,6 +7940,12 @@ def _build_registry() -> None:
                     "Unweighted fit of sp.regress",
                 ),
             ],
+            assumptions=[
+                "A linear regression fitted by least squares (an sp.regress result); "
+                "the statistics describe how much each observation moves that fit, "
+                "not whether the model is right",
+                "Cut-offs such as 4/n or 2 sqrt(k/n) are screening rules, not tests",
+            ],
             returns="DataFrame",
             example='sp.influence_measures(sp.regress("y ~ x", data=df))',
             tags=["diagnostics", "regression", "outliers", "stata"],
@@ -7925,6 +7968,11 @@ def _build_registry() -> None:
                 ParamSpec(
                     "result", "EconometricResults", True, None, "Fit of sp.logit"
                 ),
+            ],
+            assumptions=[
+                "A logistic regression fitted by maximum likelihood",
+                "Statistics are computed by covariate pattern, as Stata does; "
+                "observations sharing a pattern share their values",
             ],
             returns="DataFrame",
             example='sp.logit_influence(sp.logit("d ~ x", data=df))',
@@ -7958,6 +8006,14 @@ def _build_registry() -> None:
                     None,
                     "Number of quantile groups (Hosmer-Lemeshow)",
                 ),
+            ],
+            assumptions=[
+                "A binary-outcome model fitted by maximum likelihood",
+                "Pearson's test needs covariate patterns with several observations "
+                "each; with near-continuous regressors use the grouped (Hosmer- "
+                "Lemeshow) form",
+                "A non-rejection is not evidence that the model is right: the "
+                "grouped test has little power against omitted interactions",
             ],
             returns="dict",
             example='sp.logit_gof(sp.logit("d ~ x", data=df), groups=10)',

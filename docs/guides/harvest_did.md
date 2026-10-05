@@ -195,7 +195,6 @@ boot = bootstrap(df, stat, n_boot=500, cluster='unit', random_state=0)
 - `sp.did_imputation`
 - `sp.sdid`
 - `sp.did`
-- `sp.callaway_santanna`
 - `sp.synth`
 
 **Typical minimum N**: 50

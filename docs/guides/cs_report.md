@@ -139,7 +139,6 @@ rpt = sp.cs_report(cs, n_boot=500, random_state=0)
 - `sp.did_imputation`
 - `sp.sdid`
 - `sp.did`
-- `sp.callaway_santanna`
 - `sp.synth`
 
 **Typical minimum N**: 50

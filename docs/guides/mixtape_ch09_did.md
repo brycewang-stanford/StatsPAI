@@ -324,7 +324,6 @@ If you use this guide or StatsPAI in academic work, please cite both:
 - `sp.did_imputation`
 - `sp.sdid`
 - `sp.did`
-- `sp.callaway_santanna`
 - `sp.synth`
 
 **Typical minimum N**: 50

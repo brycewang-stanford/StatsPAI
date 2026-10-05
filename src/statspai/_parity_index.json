@@ -8449,6 +8449,27 @@
       "tolerance": ""
     },
     {
+      "function": "influence_measures",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote. dfbeta stores its results as float, which bounds the gap on DFBETAs."
+      ],
+      "reference": "Stata 18 predict after regress (rstandard, rstudent, cooksd, dfits, welsch, covratio, stdp, stdf, stdr) and dfbeta",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "mean and sd of each statistic over the sample 1e-9 rel; DFBETAs 1e-5 rel"
+    },
+    {
       "function": "instrumental_forest",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -9471,6 +9492,69 @@
       "tolerance": "Neighbour sets identical for all 120 points, k=4, on a random point set chosen so no distance ties make the answer non-unique."
     },
     {
+      "function": "ksmirnov",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
+      ],
+      "reference": "Stata 18 ksmirnov",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "D statistics and p-values 1e-9 rel"
+    },
+    {
+      "function": "ktau",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
+      ],
+      "reference": "Stata 18 ktau",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "tau-a, tau-b, score, its standard error and p-value 1e-9 rel"
+    },
+    {
+      "function": "kwallis",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote. Stata builds kwallis's working variables in single precision, which bounds the gap."
+      ],
+      "reference": "Stata 18 kwallis",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "chi-squared with and without ties 1e-5 rel"
+    },
+    {
       "function": "lasso_iv",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -10002,6 +10086,48 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "logit_gof",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote. Stata's logit stops at nrtolerance(1e-5); sp.logit iterates further."
+      ],
+      "reference": "Stata 18 estat gof and estat gof, group()",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "chi-squared and degrees of freedom 1e-5 rel"
+    },
+    {
+      "function": "logit_influence",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote. Stata's logit stops at nrtolerance(1e-5); sp.logit iterates further."
+      ],
+      "reference": "Stata 18 predict after logit (residuals, hat, rstandard, deviance, dx2, ddeviance, dbeta)",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "mean and sd of each statistic over the sample 1e-5 rel"
     },
     {
       "additional_tests": [
@@ -10715,6 +10841,27 @@
         "tests/reference_parity/_fixtures/power_extra_R.json"
       ],
       "tolerance": "effect size 1e-6 abs (output rounded to 6 dp; observed ~2e-8)"
+    },
+    {
+      "function": "median_test",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
+      ],
+      "reference": "Stata 18 median",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "chi-squared, its continuity-corrected form and p-value 1e-9 rel"
     },
     {
       "additional_tests": [
@@ -12943,6 +13090,27 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-05"
     },
     {
+      "function": "oneway",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
+      ],
+      "reference": "Stata 18 oneway",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "F, sums of squares and Bartlett's test 1e-9 rel"
+    },
+    {
       "function": "opreg",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -15060,6 +15228,27 @@
       "tolerance": ""
     },
     {
+      "function": "ranksum",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
+      ],
+      "reference": "Stata 18 ranksum",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "z, rank sum and adjusted variance 1e-9 rel"
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_fe_forest_rate_recovery.py",
         "tests/reference_parity/test_forest_rate_honest_parity.py"
@@ -16919,6 +17108,27 @@
       "tolerance": ""
     },
     {
+      "function": "robvar",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
+      ],
+      "reference": "Stata 18 robvar",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "W0, W50 and W10 1e-9 rel"
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_auc_parity.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
@@ -17998,6 +18208,27 @@
       "tolerance": ""
     },
     {
+      "function": "signrank",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
+      ],
+      "reference": "Stata 18 signrank",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "z, positive rank sum and adjusted variance 1e-9 rel"
+    },
+    {
       "function": "sktest",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -18188,6 +18419,27 @@
         "tests/reference_parity/_fixtures/spatial_survey_stata.json"
       ],
       "tolerance": "vs splm: estimates and SEs 1e-7 rel (observed 7.2e-8 / 1.3e-8, the splm optimize floor); vs xsmle (tightened ml tolerances): estimates and beta SEs 1e-9 (observed 2.5e-13 / 8.5e-11), spatial-parameter SE 1e-8 (observed 3.0e-9)"
+    },
+    {
+      "function": "spearman",
+      "notes": [
+        "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
+      ],
+      "reference": "Stata 18 spearman",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+        "tests/reference_parity/_fixtures/kk_syllabus_stata.txt"
+      ],
+      "tolerance": "rho and p-value 1e-9 rel"
     },
     {
       "function": "spec_curve",
