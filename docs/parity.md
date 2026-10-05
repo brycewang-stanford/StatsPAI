@@ -33,7 +33,7 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **No external software reference** | analytical-only (T1) | 338 |
 | | external-replication (published numbers) | 26 |
 | | **subtotal** | **364** |
-| No numerical evidence yet | unverified | 541 |
+| No numerical evidence yet | unverified | 554 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 428 | 778 | 782 | 54.7% |
+| estimator callables | 428 | 778 | 794 | 53.9% |
 | infrastructure (parity N/A) | 0 | 11 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 331 | 0.0% |
-| **all registered** | 428 | 792 | 1333 | 32.1% |
+| result / exception classes | 0 | 3 | 332 | 0.0% |
+| **all registered** | 428 | 792 | 1346 | 31.8% |
 
 ### Coverage by estimator family
 
@@ -54,10 +54,10 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | --- | ---: | ---: | ---: |
 | causal | 149 | 333 | 335 |
 | regression | 41 | 46 | 46 |
-| inference | 18 | 35 | 35 |
+| inference | 18 | 35 | 44 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
-| diagnostics | 19 | 27 | 27 |
+| diagnostics | 19 | 27 | 30 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
 | mendelian | 18 | 20 | 20 |
@@ -915,6 +915,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 541 functions
+## unverified — 554 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

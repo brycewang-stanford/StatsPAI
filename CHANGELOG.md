@@ -87,9 +87,6 @@ numbers on committed synthetic data are in
   where `g` is observed. The two differ only when a level occurs solely in
   rows that are dropped for a missing value elsewhere; the fit is the
   same, the coefficients are those of the other coding.
-- `sp.regress("y ~ one - 1")` with a constant column `one` estimates the
-  mean. It was refused as collinear with an intercept the model does not
-  have.
 - `sp.stata`: `display` with text returns the line as Stata prints it
   when it holds no number or more than one; a pure string used to return
   nothing. `oprobit` runs `sp.oprobit` (the translation named a `glm`

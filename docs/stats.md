@@ -12,7 +12,7 @@
 
 | Ecosystem / Project                  | Method     |  Files | Lines of code | Primary focus                      |
 | ------------------------------------ | ---------- | -----: | ------------: | ---------------------------------- |
-| **StatsPAI** `src/statspai/`         | measured   |    854 |   **482,412** | validation-tiered causal inference |
+| **StatsPAI** `src/statspai/`         | measured   |    929 |   **544,630** | validation-tiered causal inference |
 | StatsPAI tests (`tests/`)            | measured   |  1,584 |       320,122 | —                                  |
 | statsmodels 0.14.x                   | measured   |    948 |   **381,981** | GLM / time series / general        |
 | linearmodels                         | measured   |    131 |        36,607 | panel / IV                         |
@@ -40,18 +40,18 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
 | `did` | 53,206 | 70 | 97 |
-| `agent` | 32,489 | 58 | 4 |
+| `agent` | 38,439 | 64 | 4 |
 | `synth` | 30,162 | 40 | 56 |
 | `regression` | 26,087 | 33 | 50 |
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 15,886 | 17 | 31 |
-| `output` | 14,020 | 22 | 42 |
-| `inference` | 13,242 | 27 | 41 |
+| `output` | 14,193 | 22 | 42 |
+| `inference` | 14,160 | 28 | 51 |
 | `matching` | 12,530 | 18 | 29 |
-| `core` | 11,979 | 20 | 6 |
+| `core` | 12,063 | 20 | 6 |
 | `panel` | 11,438 | 18 | 21 |
-| `diagnostics` | 10,594 | 19 | 30 |
+| `diagnostics` | 11,036 | 20 | 33 |
 | `decomposition` | 9,912 | 19 | 32 |
 | `dml` | 9,394 | 24 | 16 |
 | `timeseries` | 9,170 | 18 | 30 |
@@ -97,8 +97,8 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `bcf` | 1,732 | 5 | 8 |
 | `power` | 1,525 | 3 | 12 |
 | `fairness` | 1,489 | 3 | 9 |
+| `survey` | 1,481 | 4 | 7 |
 | `target_trial` | 1,475 | 7 | 9 |
-| `survey` | 1,471 | 4 | 7 |
 | `bunching` | 1,445 | 5 | 8 |
 | `bridge` | 1,345 | 8 | 2 |
 | `principal_strat` | 1,238 | 2 | 3 |
@@ -126,7 +126,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **536,722** | **921** | **1333** |
+| **Total** | **544,630** | **929** | **1346** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

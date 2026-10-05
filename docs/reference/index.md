@@ -1,6 +1,6 @@
 # API Reference — Overview
 
-StatsPAI exposes 1,333 registered public functions under a single
+StatsPAI exposes 1,346 registered public functions under a single
 `import statspai as sp` namespace. Reference pages are grouped by
 methodological area:
 

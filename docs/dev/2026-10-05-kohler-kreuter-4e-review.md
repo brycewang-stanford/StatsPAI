@@ -97,7 +97,8 @@ These changed a number or a result that StatsPAI returned without saying so.
 5. **`regress y x, noconstant` with a constant `x` was refused** as
    collinear with an intercept the model does not have. This is the
    first-difference regression of the book's panel chapter (`D.age` is 1 in
-   every row).
+   every row). The pass over Ding's *Linear Model and Extensions* found the
+   same on the same day and its fix is the one on main.
 6. **`table g, statistic(frequency) statistic(mean y)` returned one
    statistic.** A repeated option survived only once in the parsed
    command, so the translation carried the last `statistic()` and dropped
