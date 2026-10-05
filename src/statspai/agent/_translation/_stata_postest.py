@@ -210,7 +210,13 @@ def _h_estat(cmd: StataCommand) -> Dict[str, Any]:
                 )
         return _call("classification", extra, [])
 
-    if sub in ("dwatson", "vif", "ic", "overid", "firststage", "endogenous"):
+    if sub == "overid":
+        # the i.i.d.-error statistics are part of the output either way
+        # (key 'iid_errors'), so the option changes nothing here
+        opts.pop("forcenonrobust", None)
+        return _call(sub, {}, [])
+
+    if sub in ("dwatson", "vif", "ic", "firststage", "endogenous"):
         return _call(sub, {}, [])
 
     if sub in ("ptrends", "granger"):

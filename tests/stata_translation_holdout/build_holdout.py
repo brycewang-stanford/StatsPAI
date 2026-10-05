@@ -64,7 +64,10 @@ CORPUS = [
     ("xtreg_fe_cluster", "panel", "xtreg y x, fe vce(cluster id)", "run"),
     ("xtreg_re", "panel", "xtreg y x, re", "run"),
     ("refuse_unknown_option", "cross", "regress y x1 x2, weirdopt(3)", "refuse"),
-    ("refuse_bootstrap", "cross", "bootstrap, reps(50): regress y x1 x2", "refuse"),
+    # `bootstrap:` was the refused prefix here until sp.stata learned to run
+    # it by resampling the command (2026-10); its standard errors depend on
+    # the draws, so it cannot be a "run" entry either
+    ("refuse_rolling", "cross", "rolling, window(20): regress y x1 x2", "refuse"),
     ("refuse_by", "cross", "by d: regress y x1 x2", "refuse"),
     ("refuse_svy", "cross", "svy: regress y x1 x2", "refuse"),
     ("refuse_macro", "cross", "regress y `controls'", "refuse"),

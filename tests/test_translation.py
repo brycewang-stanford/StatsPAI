@@ -1135,6 +1135,40 @@ TIER3_ROUND_TRIPS = [
     # time series
     ("prais y x, corc", "prais", {"formula": "y ~ x", "method": "corc"}),
     ("corrgram y, lags(5)", "corrgram", {"y": "y", "lags": 5}),
+    (
+        "var y1 y2, lag(1/2) exog(t t2)",
+        "var",
+        {"variables": ["y1", "y2"], "lags": 2, "exog": ["t", "t2"]},
+    ),
+    # constrained, nonlinear and multivariate
+    (
+        "cnsreg y x1 x2, constraints(x1 + x2 = 1 | x1 = 0.3) r",
+        "cnsreg",
+        {
+            "formula": "y ~ x1 + x2",
+            "constraints": ["x1 + x2 = 1", "x1 = 0.3"],
+            "vce": "robust",
+        },
+    ),
+    (
+        "nl (y = {a} + {b}*x^{c}), initial(a 1 b 2 c .5) r",
+        "nls",
+        {
+            "formula": "y ~ {a} + {b}*x^{c}",
+            "start": {"a": 1.0, "b": 2.0, "c": 0.5},
+            "vce": "robust",
+        },
+    ),
+    (
+        "pca x1 x2 x3, components(2)",
+        "pca",
+        {"variables": ["x1", "x2", "x3"], "n_components": 2},
+    ),
+    (
+        "factor x1 x2 x3 x4, ml factors(1)",
+        "factor",
+        {"variables": ["x1", "x2", "x3", "x4"], "method": "ml", "n_factors": 1},
+    ),
     ("var y1 y2, lags(1/3)", "var", {"variables": ["y1", "y2"], "lags": 3}),
     ("varsoc y1 y2, maxlag(6)", "varsoc", {"variables": ["y1", "y2"], "maxlag": 6}),
     ("varlmar, mlag(3)", "estat", {"test": "varlmar", "lags": 3}),

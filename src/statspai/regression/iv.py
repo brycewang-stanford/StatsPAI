@@ -40,7 +40,12 @@ from ..core._vcov_spec import markout_clusters
 from ..core.base import BaseEstimator, BaseModel
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula
-from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    AssumptionWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+    StatsPAIWarning,
+)
 
 
 def _require_string(value: Any, name: str) -> str:
@@ -158,7 +163,12 @@ def _k_class_fit(
             alternative_functions=["sp.vif", "sp.anderson_rubin_ci"],
         ) from exc
 
-    params = XAX_inv @ XAy
+    if kappa == 1.0:
+        # 2SLS is least squares on the projected regressors; solving it by
+        # an orthogonal factorisation keeps the digits the inverse loses
+        params = np.linalg.lstsq(PX, y, rcond=None)[0]
+    else:
+        params = np.linalg.solve(XAX, XAy)
 
     # Residuals always use actual endogenous regressors
     fitted_values = X_actual @ params
@@ -196,7 +206,6 @@ def _k_class_fit(
     # Sargan is no longer valid.
     sargan = _sargan_test(residuals, W, m, k2) if m > k2 else None
     hansen = _hansen_j(y, X_actual, W, residuals, robust, cluster)
-
     # Durbin-Wu-Hausman endogeneity test
     hausman = _hausman_test(y, X_exog, X_endog, W)
 
@@ -238,11 +247,57 @@ def _projector(
     the same linear map at O(n k) cost.
     """
 
+    # An orthonormal basis of the column space, not (W'W)^{-1}: the
+    # normal-equations form squares the condition number of W, which costs
+    # seven digits of the coefficients when the instruments are powers of
+    # one variable (a cubic in class size). ``WtW_inv`` is still what the
+    # callers use for leverages and what fails first on a singular W.
+    Q = np.linalg.qr(W)[0]
+
     def apply(M: np.ndarray) -> np.ndarray:
-        out: np.ndarray = W @ (WtW_inv @ (W.T @ M))
+        out: np.ndarray = Q @ (Q.T @ M)
         return out
 
     return apply
+
+
+def _independent_instruments(X_exog: np.ndarray, Z: np.ndarray) -> List[int]:
+    """Columns of ``Z`` that are not linear combinations of ``X_exog`` and
+    the columns of ``Z`` before them.
+
+    Each instrument is measured after the exogenous regressors and the
+    instruments already kept have been projected out; one whose remaining
+    sum of squares is below ``1e-11`` of its own is redundant (exact
+    dependence among dummies leaves about ``1e-16``). The elimination runs
+    on the cross-product of the residualised instruments, so its cost does
+    not grow with the number of rows beyond forming that matrix. When
+    ``X_exog`` is itself rank deficient every column is kept and the fit
+    reports that.
+    """
+    m = Z.shape[1]
+    if m == 0 or X_exog.shape[0] <= X_exog.shape[1] + m:
+        return list(range(m))
+    if X_exog.shape[1]:
+        Qx, Rx = np.linalg.qr(X_exog)
+        diag = np.abs(np.diag(Rx))
+        if diag.min() <= 1e-9 * max(diag.max(), 1e-300):
+            return list(range(m))
+        rest = Z - Qx @ (Qx.T @ Z)
+    else:
+        rest = Z
+    gram = rest.T @ rest
+    size = np.maximum((Z**2).sum(axis=0), 1e-300)
+    keep: List[int] = []
+    chol = np.zeros((m, m))  # rows: the Cholesky factor of gram[keep, keep]
+    for j in range(m):
+        r = len(keep)
+        y = np.linalg.solve(chol[:r, :r], gram[keep, j]) if r else np.zeros(0)
+        left = gram[j, j] - float(y @ y)
+        if left > 1e-11 * size[j]:
+            chol[r, :r] = y
+            chol[r, r] = np.sqrt(left)
+            keep.append(j)
+    return keep
 
 
 def _row_leverage(W: np.ndarray, WtW_inv: np.ndarray) -> np.ndarray:
@@ -1506,6 +1561,36 @@ class IVRegression(BaseModel):
                 },
             )
 
+        # Excluded instruments that add nothing to the ones before them
+        # (a full set of quarter-by-year cells next to the year dummies):
+        # drop them and say so, as Stata does, instead of failing on a
+        # singular cross-product.
+        omitted_instruments: List[str] = []
+        keep_z = _independent_instruments(
+            np.asarray(X_exog_fit, dtype=float), np.asarray(Z_fit, dtype=float)
+        )
+        if len(keep_z) < np.shape(Z_fit)[1]:
+            kept = set(keep_z)
+            omitted_instruments = [
+                str(name)
+                for j, name in enumerate(self._instrument_names)
+                if j not in kept
+            ]
+            Z_fit = np.asarray(Z_fit)[:, keep_z]
+            self.Z = Z_fit
+            self._instrument_names = [self._instrument_names[j] for j in keep_z]
+            warnings.warn(
+                f"{len(omitted_instruments)} instrument(s) omitted because of "
+                "collinearity with the exogenous regressors and the other "
+                f"instruments: {omitted_instruments[:8]}"
+                + (" ..." if len(omitted_instruments) > 8 else "")
+                + ". The estimates are unaffected; the count of instruments "
+                "and the degrees of freedom of the overidentification test "
+                "use the ones kept.",
+                StatsPAIWarning,
+                stacklevel=3,
+            )
+
         # Cluster variable. Accept either a column-name string (looked up in
         # the model data) or an array-like / pandas Series aligned with the
         # estimation sample. The ``cluster is not None`` guard replaces a bare
@@ -1679,6 +1764,8 @@ class IVRegression(BaseModel):
                 pass
         if results.get("kappa") is not None:
             model_info["kappa"] = results["kappa"]
+        if omitted_instruments:
+            model_info["omitted_instruments"] = omitted_instruments
 
         # Surface the first-stage strength so it is machine-readable downstream
         # (``result.violations()`` / ``sp.audit_result``), not just printed in
@@ -1814,6 +1901,34 @@ class IVRegression(BaseModel):
             diagnostics[f"{test_name} statistic"] = overid["statistic"]
             diagnostics[f"{test_name} p-value"] = overid["pvalue"]
             diagnostics[f"{test_name} df"] = overid["df"]
+
+        # The i.i.d.-error statistics next to the headline one, as Stata's
+        # `estat overid, forcenonrobust` prints them: Sargan and Basmann
+        # after 2SLS, Anderson-Rubin and Basmann's F after LIML.
+        sargan = results.get("sargan")
+        n_obs = len(y_fit)
+        n_all = X_exog_fit.shape[1] + results["n_instruments"]
+        if method in ("2sls", "liml") and sargan is not None and sargan["df"] > 0:
+            q = int(sargan["df"])
+            if method == "2sls":
+                s_stat = float(sargan["statistic"])
+                basmann = s_stat * (n_obs - n_all) / (n_obs - s_stat)
+                diagnostics["Sargan chi2 (i.i.d.)"] = s_stat
+                diagnostics["Sargan chi2 (i.i.d.) p-value"] = float(sargan["pvalue"])
+                diagnostics["Basmann chi2"] = basmann
+                diagnostics["Basmann chi2 p-value"] = float(stats.chi2.sf(basmann, q))
+            else:
+                kappa_liml = float(results.get("kappa", 1.0))
+                # Stata's form, n (kappa - 1); n log(kappa) is the same
+                # to first order
+                ar = n_obs * (kappa_liml - 1.0)
+                basmann_f = (kappa_liml - 1.0) * (n_obs - n_all) / q
+                diagnostics["Anderson-Rubin chi2"] = ar
+                diagnostics["Anderson-Rubin chi2 p-value"] = float(stats.chi2.sf(ar, q))
+                diagnostics["Basmann F"] = basmann_f
+                diagnostics["Basmann F p-value"] = float(
+                    stats.f.sf(basmann_f, q, n_obs - n_all)
+                )
 
         if results["hausman"] is not None:
             diagnostics["Hausman F-stat"] = results["hausman"]["statistic"]
@@ -2551,7 +2666,10 @@ def _materialise_formula_terms(
         return keep + names
 
     exog_names = expand(exog_terms)
-    inst_names = expand(inst_terms)
+    # An interaction among the instruments brings the main-effect dummies
+    # with it; where those are exogenous regressors already they are the
+    # same columns, not further instruments.
+    inst_names = [n for n in expand(inst_terms) if n not in exog_names]
     new_rhs = " + ".join(
         exog_names + [f"({' + '.join(endog_terms)} ~ {' + '.join(inst_names)})"]
     )

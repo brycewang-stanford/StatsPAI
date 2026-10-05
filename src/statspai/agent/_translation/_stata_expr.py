@@ -870,6 +870,12 @@ class _Parser:
             inner = self._or()
             self._expect(")")
             return inner
+        if kind == "op" and val == "[":
+            # Stata reads square brackets around an expression as
+            # parentheses: `gen n = [_N]`, `display [2+3]*2` (10)
+            inner = self._or()
+            self._expect("]")
+            return inner
         if kind == "op" and val == ".":
             nxt_kind, nxt = self._peek()
             if nxt_kind == "name" and len(nxt) == 1 and nxt.islower():

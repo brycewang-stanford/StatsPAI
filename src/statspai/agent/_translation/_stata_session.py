@@ -364,6 +364,33 @@ def _lookup(session: "StataSession", names: List[str], line: str) -> List[Any]:
     return [session.estimates[n][0] for n in names]
 
 
+def _estimates_stats(session: "StataSession", rest: str, line: str) -> bool:
+    """``estimates stats [names]``: N, log likelihood, number of parameters,
+    AIC and BIC of the last model or of the stored ones, one row each."""
+    import statspai as sp
+
+    names = rest.split(",")[0].split()
+    if names:
+        fits = dict(zip(names, _lookup(session, names, line)))
+    elif session.last is not None:
+        fits = {".": session.last}
+    else:
+        raise StataExprError("`estimates stats`: there is no estimation result")
+    rows = {}
+    for name, fit in fits.items():
+        ic = sp.estat(fit, "ic")
+        info = getattr(fit, "data_info", None) or {}
+        rows[name] = {
+            "N": info.get("nobs", getattr(fit, "nobs", np.nan)),
+            "ll": ic.get("ll"),
+            "df": ic.get("k"),
+            "AIC": ic.get("AIC"),
+            "BIC": ic.get("BIC"),
+        }
+    session.output = pd.DataFrame.from_dict(rows, orient="index")
+    return True
+
+
 def _estimates(session: "StataSession", sub: str, rest: str, line: str) -> bool:
     if "store".startswith(sub) and len(sub) >= 3:
         names = rest.split(",")[0].split()
@@ -382,6 +409,8 @@ def _estimates(session: "StataSession", sub: str, rest: str, line: str) -> bool:
         return False
     if "table".startswith(sub) and len(sub) >= 1:
         return _table(session, rest, line, command="estimates table")
+    if "stats".startswith(sub) and len(sub) >= 4:
+        return _estimates_stats(session, rest, line)
     if sub in ("dir", "query", "describe", "replay", "notes"):
         return False
     if sub in ("clear", "drop"):
@@ -631,7 +660,7 @@ def _svar(session: "StataSession", line: str) -> bool:
     unsupported = sorted(
         k for k in cmd.options
         if k in ("acns", "bcns", "aconstraints", "bconstraints", "lrcns",
-                 "lrconstraints", "exog", "dfk", "small", "var")
+                 "lrconstraints", "dfk", "small", "var")
     )  # fmt: skip
     if unsupported:
         raise StataExprError(f"svar: option(s) {unsupported} are not implemented")
@@ -733,14 +762,17 @@ def _hausman(session: "StataSession", rest: str, line: str) -> bool:
 # ------------------------------------------------------------- after xtreg
 def _design(data: pd.DataFrame, names: List[str]) -> Optional[pd.DataFrame]:
     """The regressors a result names, as columns: a plain variable, or the
-    indicator of a factor level written ``C(g)[T.2]``. ``None`` when a name
-    is neither."""
+    indicator of a factor level written ``C(g)[T.2]`` or ``g[2]``. ``None``
+    when a name is neither."""
     out: Dict[str, Any] = {}
     for name in names:
         if name in data.columns:
             out[name] = data[name].to_numpy(dtype=float, na_value=np.nan)
             continue
-        m = re.fullmatch(r"C\((\w+)\)\[T\.(.+)\]", name)
+        # C(g)[T.2] from the formula interface, g[2] from sp.panel
+        m = re.fullmatch(r"C\((\w+)\)\[T\.(.+)\]", name) or re.fullmatch(
+            r"(\w+)\[(.+)\]", name
+        )
         if m is None or m.group(1) not in data.columns:
             return None
         col = data[m.group(1)]

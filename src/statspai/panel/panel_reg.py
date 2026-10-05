@@ -37,7 +37,7 @@ from .._aliases import accepts_aliases, accepts_formula_first
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
-from ._cre import fit_cre
+from ._cre import fit_cre, fit_re, within_rank_deficient
 from ._ssc import SSCInference, panel_ssc_inference, resolve_ssc
 
 _PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
@@ -1423,7 +1423,12 @@ def _fit_linearmodels(
                 "another time-varying variable.",
             )
         cov_kwargs = _build_cov_kwargs(robust, cluster, panel_data, entity, time)
-    lm_result = lm_model.fit(**cov_kwargs)
+    if method == "re" and within_rank_deficient(exog):
+        # a regressor constant within unit: linearmodels' variance
+        # components count it as a within parameter (see _cre)
+        lm_result = fit_re(dep, add_constant(exog), cov_kwargs)
+    else:
+        lm_result = lm_model.fit(**cov_kwargs)
     ssc_inf = None
     if ssc is not None:
         ssc_inf = panel_ssc_inference(

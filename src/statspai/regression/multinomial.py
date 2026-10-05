@@ -1215,78 +1215,54 @@ def clogit(
 
     cluster_vals = df[cluster].values if cluster else None
 
-    # Group structure
-    unique_groups = np.unique(G_vals)
-
-    # Map groups to indices
-    group_indices: Dict[Any, np.ndarray] = {}
-    for g in unique_groups:
-        idx = np.where(G_vals == g)[0]
-        # Verify exactly one chosen per group
-        chosen = Y[idx]
-        if chosen.sum() != 1:
-            # Skip groups without exactly 1 chosen alternative
-            continue
-        group_indices[g] = idx
-
-    if len(group_indices) == 0:
+    # Group structure. Rows are worked on in group order, so that every
+    # per-group sum is one ``reduceat`` over contiguous segments instead of
+    # a Python loop over groups (thousands of choice sets per likelihood
+    # evaluation).
+    codes_all, _ = pd.factorize(G_vals, sort=True)
+    chosen_per_group = np.bincount(codes_all, weights=Y)
+    # groups without exactly one chosen alternative carry no information
+    valid_rows = chosen_per_group[codes_all] == 1
+    if not valid_rows.any():
         raise ValueError(
             "No valid choice groups (each group needs exactly one chosen alternative)."
         )
+    rows = np.flatnonzero(valid_rows)
+    rows = rows[np.argsort(codes_all[rows], kind="stable")]
+    Xs, Ys = X[rows], Y[rows]
+    seg_codes = codes_all[rows]
+    starts = np.flatnonzero(np.r_[True, seg_codes[1:] != seg_codes[:-1]])
+    sizes = np.diff(np.r_[starts, len(rows)])
+    member = np.repeat(np.arange(len(starts)), sizes)
+    n_groups_valid = len(starts)
 
-    n_groups_valid = len(group_indices)
-    groups_list = list(group_indices.keys())
-
-    def neg_loglik(beta: np.ndarray) -> float:
-        ll = 0.0
-        for g in groups_list:
-            idx = group_indices[g]
-            xb = X[idx] @ beta
-            chosen_mask = Y[idx] == 1
-            ll += xb[chosen_mask].sum() - np.log(
-                np.sum(np.exp(xb - xb.max())) + np.exp(-xb.max())
-            )
-            # More stable: logsumexp
-        return float(-ll)
+    def _probabilities(beta: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """(x'b, log of each group's denominator, choice probabilities)."""
+        xb = Xs @ beta
+        top = np.maximum.reduceat(xb, starts)
+        e = np.exp(xb - top[member])
+        denom = np.add.reduceat(e, starts)
+        return xb, top + np.log(denom), e / denom[member]
 
     def neg_loglik_stable(beta: np.ndarray) -> float:
-        ll = 0.0
-        for g in groups_list:
-            idx = group_indices[g]
-            xb = X[idx] @ beta
-            xb_max = xb.max()
-            chosen_mask = Y[idx] == 1
-            ll += xb[chosen_mask].sum() - (xb_max + np.log(np.sum(np.exp(xb - xb_max))))
-        return float(-ll)
+        xb, log_denom, _ = _probabilities(beta)
+        return float(-(Ys @ xb - log_denom.sum()))
 
     def grad(beta: np.ndarray) -> np.ndarray:
-        g_vec = np.zeros(k)
-        for g in groups_list:
-            idx = group_indices[g]
-            xb = X[idx] @ beta
-            xb_max = xb.max()
-            exp_xb = np.exp(xb - xb_max)
-            probs = exp_xb / exp_xb.sum()
-            chosen_mask = Y[idx] == 1
-            g_vec += X[idx][chosen_mask].sum(axis=0) - (
-                probs[:, np.newaxis] * X[idx]
-            ).sum(axis=0)
-        return _as_float_array(-g_vec)
+        p = _probabilities(beta)[2]
+        return _as_float_array(-(Xs.T @ (Ys - p)))
+
+    def information(beta: np.ndarray) -> np.ndarray:
+        # -d2 ll = sum_g sum_j p_gj (x_gj - xbar_g)(x_gj - xbar_g)', with
+        # xbar_g the probability-weighted group mean
+        p = _probabilities(beta)[2]
+        means = np.add.reduceat(Xs * p[:, None], starts, axis=0)
+        return _as_float_array((Xs * p[:, None]).T @ Xs - means.T @ means)
 
     def score_obs_clogit(beta: np.ndarray) -> np.ndarray:
         """Per-observation score (one row per group)."""
-        S = np.zeros((n_groups_valid, k))
-        for gi, g in enumerate(groups_list):
-            idx = group_indices[g]
-            xb = X[idx] @ beta
-            xb_max = xb.max()
-            exp_xb = np.exp(xb - xb_max)
-            probs = exp_xb / exp_xb.sum()
-            chosen_mask = Y[idx] == 1
-            S[gi] = X[idx][chosen_mask].sum(axis=0) - (
-                probs[:, np.newaxis] * X[idx]
-            ).sum(axis=0)
-        return _as_float_array(S)
+        p = _probabilities(beta)[2]
+        return _as_float_array(np.add.reduceat(Xs * (Ys - p)[:, None], starts, axis=0))
 
     # --- Optimise ---
     beta0 = np.zeros(k)
@@ -1298,33 +1274,35 @@ def clogit(
         options={"maxiter": maxiter, "gtol": tol},
     )
     beta_hat = _as_float_array(res.x)
-    ll = float(-res.fun)
+    # The log likelihood is globally concave: a few Newton steps from the
+    # quasi-Newton solution bring the gradient to rounding error.
+    for _ in range(5):
+        try:
+            step = np.linalg.solve(information(beta_hat), -grad(beta_hat))
+        except np.linalg.LinAlgError:
+            break
+        if not np.all(np.isfinite(step)):
+            break
+        candidate = beta_hat + step
+        if neg_loglik_stable(candidate) > neg_loglik_stable(beta_hat):
+            break
+        beta_hat = candidate
+        if np.max(np.abs(step)) < 1e-12 * max(1.0, float(np.max(np.abs(beta_hat)))):
+            break
+    ll = float(-neg_loglik_stable(beta_hat))
 
     # Null model: beta=0 => each alternative equally likely
-    ll_0 = 0.0
-    for g in groups_list:
-        idx = group_indices[g]
-        J_g = len(idx)
-        ll_0 += -np.log(J_g)
+    ll_0 = float(-np.log(sizes).sum())
 
     pseudo_r2 = 1.0 - ll / ll_0
     aic = -2 * ll + 2 * k
     bic = -2 * ll + np.log(n_groups_valid) * k
 
     # --- Standard errors ---
-    # Inverse *observed* information, analytic: for the conditional logit
-    # -d2 ll = sum_g sum_j p_gj (x_gj - xbar_g)(x_gj - xbar_g)', with
-    # xbar_g the probability-weighted group mean. This replaces BFGS
-    # ``hess_inv``, a quasi-Newton approximation built from the optimisation
-    # path rather than the information matrix.
-    info = np.zeros((k, k))
-    for g in groups_list:
-        Xg = X[group_indices[g]]
-        xb = Xg @ beta_hat
-        p = np.exp(xb - xb.max())
-        p = p / p.sum()
-        centred = Xg - p @ Xg
-        info += (centred * p[:, None]).T @ centred
+    # Inverse *observed* information, analytic (see ``information``). This
+    # replaces BFGS ``hess_inv``, a quasi-Newton approximation built from
+    # the optimisation path rather than the information matrix.
+    info = information(beta_hat)
     try:
         H_inv = _as_float_array(np.linalg.inv(info))
     except np.linalg.LinAlgError:
@@ -1336,28 +1314,24 @@ def clogit(
     # to groups (groups must nest within clusters, as in Stata).
     cluster_group = None
     if cluster_vals is not None:
-        cluster_group = np.array(
-            [cluster_vals[group_indices[g][0]] for g in groups_list]
+        cl_sorted = cluster_vals[rows]
+        cl_codes = pd.factorize(cl_sorted)[0]
+        cluster_group = cl_sorted[starts]
+        spans = np.maximum.reduceat(cl_codes, starts) != np.minimum.reduceat(
+            cl_codes, starts
         )
-        for g in groups_list:
-            if len(pd.unique(cluster_vals[group_indices[g]])) > 1:
-                raise MethodIncompatibility(
-                    f"clogit: group {g!r} spans more than one {cluster!r} "
-                    "cluster; groups must be nested within clusters.",
-                    recovery_hint=(
-                        "Cluster on a variable that is constant within group."
-                    ),
-                )
+        if spans.any():
+            bad = G_vals[rows][starts][spans][0]
+            raise MethodIncompatibility(
+                f"clogit: group {bad!r} spans more than one {cluster!r} "
+                "cluster; groups must be nested within clusters.",
+                recovery_hint=("Cluster on a variable that is constant within group."),
+            )
     se = _compute_se(S_obs, H_inv, robust, cluster_group)
 
     # --- Predicted choice probabilities ---
     pred_probs = np.zeros(n)
-    for g in groups_list:
-        idx = group_indices[g]
-        xb = X[idx] @ beta_hat
-        xb_max = xb.max()
-        exp_xb = np.exp(xb - xb_max)
-        pred_probs[idx] = exp_xb / exp_xb.sum()
+    pred_probs[rows] = _probabilities(beta_hat)[2]
 
     # --- Build results ---
     params_series = pd.Series(beta_hat, index=var_names)

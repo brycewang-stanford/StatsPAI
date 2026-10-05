@@ -654,7 +654,7 @@ def test_panel_unitroot_tables_equal_plm():
 def test_mackinnon1994_pvalue_matches_plm_and_statsmodels():
     from statsmodels.tsa.adfvalues import mackinnonp
 
-    from statspai.panel.unit_root import mackinnon1994_pvalue
+    from statspai.panel.unit_root import _MACK94_MAX, mackinnon1994_pvalue
 
     pad = R["purtest"]["padf1994"]
     for trend, name, smreg in (
@@ -662,11 +662,17 @@ def test_mackinnon1994_pvalue_matches_plm_and_statsmodels():
         ("c", "intercept", "c"),
         ("ct", "trend", "ct"),
     ):
-        ours = [mackinnon1994_pvalue(t, trend) for t in pad["t"]]
-        _close(ours, pad[name], rtol=1e-12)
+        # Above the largest statistic the surface was fitted on, the p-value
+        # is 1 (Stata's dfuller, statsmodels). plm evaluates the cubic
+        # there, which bends down: 0.06 at +3.25 with a trend. Inside the
+        # range the three agree.
+        inside = np.asarray(pad["t"], float) <= _MACK94_MAX[trend]
+        ours = np.array([mackinnon1994_pvalue(t, trend) for t in pad["t"]])
+        _close(ours[inside], np.asarray(pad[name], float)[inside], rtol=1e-12)
+        assert (ours[~inside] == 1.0).all()
         for t, p in zip(pad["t"], ours):
             sm = mackinnonp(t, regression=smreg)
-            if 0.0 < sm < 1.0:  # statsmodels clips outside its fitted range
+            if sm > 0.0:  # statsmodels also returns 0 far below the range
                 _close(p, sm, rtol=1e-12)
 
 

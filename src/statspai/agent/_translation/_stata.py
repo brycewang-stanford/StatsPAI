@@ -1196,6 +1196,12 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
     if cmd.command == "ivregress" and method == "gmm":
         return _ivregress_gmm(cmd, formula)
 
+    # `perfect` only switches off ivregress's check that no endogenous
+    # regressor is a linear combination of the instruments (experience =
+    # age - education - 6 with age as an instrument); the estimator is the
+    # same and sp.iv makes no such check
+    if cmd.command == "ivregress":
+        cmd.options.pop("perfect", None)
     cluster = _vce_cluster(cmd) or cmd.options.get("cluster")
     if cluster:
         cluster = cluster.split()[0]
@@ -3567,15 +3573,40 @@ def _h_testparm(cmd: StataCommand) -> Dict[str, Any]:
 _B_OPERATOR = re.compile(r"_b\[\s*([^\]]+?)\s*\]")
 
 
+def _top_level_groups(text: str) -> List[str]:
+    """The parenthesised groups of ``(a) (b) ...`` when ``text`` is nothing
+    but such groups; ``[]`` for anything else, such as ``(a + b) / (1 - c)``,
+    which is one expression."""
+    groups, depth, start = [], 0, 0
+    for i, ch in enumerate(text):
+        if ch == "(":
+            if depth == 0:
+                if text[start:i].strip():
+                    return []
+                start = i
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth < 0:
+                return []
+            if depth == 0:
+                groups.append(text[start : i + 1])
+                start = i + 1
+    if depth != 0 or text[start:].strip():
+        return []
+    return groups
+
+
 def _h_nlcom(cmd: StataCommand) -> Dict[str, Any]:
     """``nlcom _b[x1]/_b[x2]`` → ``sp.nlcom(result, '_b[x1]/_b[x2]')``."""
     text = " ".join(cmd.varlist).strip()
-    if text.startswith("(") and text.endswith(")") and text.count("(") == 1:
-        text = text[1:-1].strip()
+    groups = _top_level_groups(text)
+    if len(groups) == 1:
+        text = text[1:-1].strip()  # `nlcom (exp)`: one expression in parentheses
     name, colon, body = text.partition(":")
     if colon and re.fullmatch(r"[^\W\d]\w*", name.strip()):
         text = body.strip()  # `nlcom ratio: _b[x1]/_b[x2]`: a display label
-    if not text or text.startswith("("):
+    if not text or len(groups) > 1:
         return _emit_error(
             "nlcom: one expression per call is translated, e.g. "
             "`nlcom _b[x1]/_b[x2]`",
@@ -4574,6 +4605,7 @@ _VARLIST_COMMANDS = frozenset(
         "xtgee", "boxcox",
         "ologit", "oprobit", "mlogit", "summarize", "correlate", "pwcorr",
         "teffects", "psmatch2", "heckman", "truncreg", "etregress", "prais",
+        "cnsreg", "pca", "factor",
     }
 )  # fmt: skip
 
@@ -4714,9 +4746,21 @@ def _normalise_command(
     # `a#b` is one indicator per cell in Stata but a main effect plus nested
     # contrasts in the formula language: the same fit under other
     # coefficients, so `_b[1.a#1.b]` would not be Stata's number.
+    # The excluded instruments of `(d = i.a#i.b)` are exempt: only their
+    # span enters the estimate, and no coefficient is reported for them.
+    in_instruments, instruments = False, set()
+    for term in out:
+        if term == ")":
+            in_instruments = False
+        elif in_instruments:
+            instruments.update(term.split(" + "))
+        elif term == "=":
+            in_instruments = True
     flat = [t for term in out for t in term.split(" + ")]
     present = {frozenset(t.split(":")) for t in flat}
     for term in flat:
+        if term in instruments:
+            continue
         pieces = term.split(":")
         factors = [i for i, piece in enumerate(pieces) if piece.startswith("C(")]
         if len(factors) < 2:
@@ -4816,6 +4860,7 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
 from . import _stata_basics as _basics  # noqa: E402
 from . import _stata_design as _design  # noqa: E402
 from . import _stata_did as _did  # noqa: E402
+from . import _stata_models as _models  # noqa: E402
 from . import _stata_panel as _panel  # noqa: E402
 from . import _stata_postest as _postest  # noqa: E402
 from . import _stata_rd as _rd  # noqa: E402
@@ -4830,6 +4875,7 @@ STATA_COMMAND_MAP.update(_rd.HANDLERS)
 STATA_COMMAND_MAP.update(_did.HANDLERS)
 STATA_COMMAND_MAP.update(_basics.HANDLERS)
 STATA_COMMAND_MAP.update(_sensitivity.HANDLERS)
+STATA_COMMAND_MAP.update(_models.HANDLERS)
 
 _POSTEST_HANDLERS = frozenset(
     {
@@ -4973,9 +5019,10 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
     parsed.options = tracked
 
     info: Dict[str, Any]
-    if handler in _POSTEST_HANDLERS:
+    if handler in _POSTEST_HANDLERS or handler in _models.EXPRESSION:
         # postestimation commands take variable names / expressions, which
-        # their handlers interpret themselves (``contrast i.g`` -> ``g``)
+        # their handlers interpret themselves (``contrast i.g`` -> ``g``);
+        # so does ``nl (y = {a} + {b}*x)``
         err, info = None, {"weight": None, "semantics": []}
     else:
         err, info = _normalise_command(parsed, columns)

@@ -364,7 +364,10 @@ def test_the_abbreviated_absorb_changes_the_point_estimate(df):
         ("reg y x, hascons", "hascons"),
         ("reg y x, foobar(1)", "foobar"),
         ("reghdfe y x, absorb(id) dofadjustments(none)", "dofadjustments"),
-        ("reg y x, vce(bootstrap)", "vce"),
+        # vce(bootstrap) and vce(jackknife) are run by resampling the
+        # command (tests/test_hansen_textbook_fixes.py); a variance type
+        # with no counterpart is still refused
+        ("reg y x, vce(hc5)", "vce"),
     ],
 )
 def test_stata_refuses_to_run_a_translation_that_lost_something(df, line, match):

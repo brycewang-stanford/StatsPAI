@@ -1,0 +1,453 @@
+"""Stata parity for the methods added or corrected while walking through
+Hansen's *Econometrics* (2022).
+
+The reference numbers are real Stata 18 output on three committed synthetic
+datasets (``_fixtures/_generate_hansen_methods_stata.do`` reads the same CSV
+bytes): ``cnsreg``, ``nl``, ``pca``, ``factor``, ``estat overid`` after 2SLS
+and LIML, collinear instruments, ``jackknife``, ``xtreg, re`` with regressors
+that do not vary within panel, ``var`` / ``varsoc`` with exogenous
+variables, ``irf table`` and ``dfuller`` p-values of explosive series.
+Model averaging is compared with R's ``quadprog`` on the same bytes.
+
+Tolerances
+----------
+* 1e-9 relative by default: the quantities are closed-form given the data.
+* 1e-6 / 1e-5 for the parameters / standard errors of ``nl``: both programs
+  iterate, and both differentiate the regression function numerically.
+* 1e-6 for jackknife standard errors: Stata keeps the leave-one-out values
+  in single precision unless told otherwise, so its variance carries about
+  seven digits.
+"""
+
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pytest
+
+import statspai as sp
+
+FIX = Path(__file__).parent / "_fixtures"
+PCA_VARS = ["y", "endog", "x1", "x2", "z1", "z2"]
+
+
+@pytest.fixture(scope="module")
+def G():
+    table = pd.read_csv(FIX / "hansen_methods_Stata.csv", skipinitialspace=True)
+    values = pd.to_numeric(table["value"], errors="coerce")  # Stata's "." is NaN
+    return {k: float(v) for k, v in zip(table["key"], values)}
+
+
+@pytest.fixture(scope="module")
+def cs():
+    data = pd.read_csv(FIX / "textbook_cs.csv")
+    data["xp"] = np.exp(data["x1"] / 2)
+    data["ynl"] = 2 + 3 * data["xp"] ** 0.5 + data["z2"] / 4
+    data["z3"] = data["z1"] + data["z2"]
+    data["z4"] = 2 * data["x1"] - 1
+    return data
+
+
+@pytest.fixture(scope="module")
+def panel():
+    data = pd.read_csv(FIX / "textbook_panel.csv")
+    data["ti"] = (data["id"] % 3).astype(float)
+    data["hi"] = (data["id"] > 20).astype(float)
+    return data
+
+
+@pytest.fixture(scope="module")
+def ts():
+    return pd.read_csv(FIX / "textbook_ts.csv")
+
+
+def close(ours, stata, rtol=1e-9, atol=0.0):
+    assert np.isclose(ours, stata, rtol=rtol, atol=atol), (ours, stata)
+
+
+# ------------------------------------------------- constrained least squares
+@pytest.mark.parametrize(
+    "tag, kwargs",
+    [("ols", {}), ("rob", {"vce": "robust"}), ("clu", {"cluster": "g"})],
+)
+def test_cnsreg_matches_stata(G, cs, tag, kwargs):
+    fit = sp.cnsreg("y ~ x1 + x2 + d", cs, ["x1 + x2 = 1", "d = 0.5"], **kwargs)
+    close(fit.params["x1"], G[f"cns.{tag}.b_x1"])
+    close(fit.params["x2"], G[f"cns.{tag}.b_x2"])
+    close(fit.params["Intercept"], G[f"cns.{tag}.b_cons"])
+    close(fit.std_errors["x1"], G[f"cns.{tag}.se_x1"])
+    close(fit.std_errors["Intercept"], G[f"cns.{tag}.se_cons"])
+    close(fit.diagnostics["Root MSE"], G[f"cns.{tag}.rmse"])
+    assert fit.params["d"] == pytest.approx(0.5, abs=1e-12)
+    assert fit.std_errors["d"] == pytest.approx(0.0, abs=1e-9)
+    if tag != "ols":  # Stata leaves the classical F of this model missing
+        close(fit.diagnostics["F-statistic"], G[f"cns.{tag}.F"])
+
+
+def test_minimum_distance_is_cls_under_the_classical_covariance(cs):
+    """With V = s^2 (X'X)^{-1} the minimum distance projection is the
+    constrained least squares estimator; with a robust V it is not."""
+    from statspai.regression.cnsreg import _robust_cov
+
+    cls = sp.cnsreg("y ~ x1 + x2 + d", cs, "x1 + x2 = 1")
+    ols = sp.regress("y ~ x1 + x2 + d", data=cs)
+    X, y = ols.data_info["X"], ols.data_info["y"]
+    b = ols.params.to_numpy()
+    V = _robust_cov(X, y - X @ b, "ols", None, X.shape[1])
+    R = cls.model_info["R"]
+    projected = b - V @ R.T @ np.linalg.solve(R @ V @ R.T, R @ b - cls.model_info["c"])
+    np.testing.assert_allclose(projected, cls.params.to_numpy(), rtol=1e-10)
+
+    emd = sp.cnsreg("y ~ x1 + x2 + d", cs, "x1 + x2 = 1", method="emd")
+    assert emd.params["x1"] + emd.params["x2"] == pytest.approx(1.0, abs=1e-12)
+    assert abs(emd.params["x1"] - cls.params["x1"]) > 1e-6
+    # the constraint direction has no variance left
+    assert abs(R @ emd.data_info["var_cov"] @ R.T).max() < 1e-12
+
+
+def test_cnsreg_refuses_what_it_cannot_fit(cs):
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.cnsreg("y ~ x1 + x2", cs, ["x1 = 1", "x1 = 2"])
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.cnsreg("y ~ x1", cs, ["x1 = 1", "Intercept = 0"])
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.cnsreg("y ~ x1 + x2", cs, "x1 = x2", method="gls")
+
+
+# -------------------------------------------------- nonlinear least squares
+@pytest.mark.parametrize(
+    "tag, kwargs",
+    [("ols", {}), ("rob", {"vce": "robust"}), ("clu", {"cluster": "g"})],
+)
+def test_nls_matches_stata_nl(G, cs, tag, kwargs):
+    fit = sp.nls(
+        "ynl ~ {a} + {b} * xp^{c}", cs, start={"a": 1, "b": 1, "c": 1}, **kwargs
+    )
+    for name in ("a", "b", "c"):
+        close(fit.params[name], G[f"nl.{tag}.{name}"], rtol=1e-6)
+        close(fit.std_errors[name], G[f"nl.{tag}.se_{name}"], rtol=1e-5)
+    close(fit.diagnostics["Residual SS"], G[f"nl.{tag}.rss"], rtol=1e-10)
+    close(fit.diagnostics["R-squared"], G[f"nl.{tag}.r2"], rtol=1e-10)
+    close(fit.diagnostics["Root MSE"], G[f"nl.{tag}.rmse"], rtol=1e-10)
+    assert fit.model_info["has_constant"] and fit.model_info["converged"]
+
+
+def test_nls_formula_and_function_agree(cs):
+    by_formula = sp.nls("ynl ~ {a} + {b} * xp^{c=1}", cs, vce="robust")
+    by_function = sp.nls(
+        lambda p, d: p["a"] + p["b"] * d["xp"] ** p["c"],
+        cs,
+        start={"a": 1.0, "b": 1.0, "c": 1.0},
+        y="ynl",
+        vce="robust",
+    )
+    np.testing.assert_allclose(by_formula.params, by_function.params, rtol=1e-8)
+    np.testing.assert_allclose(by_formula.std_errors, by_function.std_errors, rtol=1e-6)
+    # post-estimation works on the result
+    assert np.isfinite(sp.nlcom(by_formula, "_b[a] + _b[b]")["estimate"])
+
+
+def test_nls_fails_loudly(cs):
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.nls("ynl ~ a + b * xp", cs)  # no parameter in braces
+    # a parameter may share its name with a column (the fixture has `b`)
+    assert "b" in cs.columns
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.nls("ynl ~ {a} + {b} * xp", cs, start={"zz": 1})
+    with pytest.raises(sp.exceptions.NumericalInstability):
+        # c is not identified when the regressor is a constant
+        sp.nls("ynl ~ {a} + {b} * 1^{c}", cs)
+
+
+# ------------------------------------------- principal components, factors
+def test_pca_matches_stata(G, cs):
+    res = sp.pca(cs, PCA_VARS)
+    for j in range(6):
+        close(res.eigenvalues["eigenvalue"].iloc[j], G[f"pca.ev{j + 1}"])
+        close(res.loadings.iloc[j, 0], G[f"pca.l{j + 1}1"])
+        close(res.loadings.iloc[j, 1], G[f"pca.l{j + 1}2"])
+    assert res.eigenvalues["proportion"].sum() == pytest.approx(1.0)
+    scores = res.scores(cs)
+    # scores are uncorrelated with variances equal to the eigenvalues
+    np.testing.assert_allclose(
+        np.cov(scores.to_numpy(), rowvar=False),
+        np.diag(res.eigenvalues["eigenvalue"]),
+        atol=1e-10,
+    )
+
+
+def test_principal_factors_match_stata(G, cs):
+    res = sp.factor(cs, PCA_VARS)
+    assert res.n_factors == int(G["pf.k"])
+    for j in range(6):
+        close(res.eigenvalues["eigenvalue"].iloc[j], G[f"pf.ev{j + 1}"])
+        close(res.loadings.iloc[j, 0], G[f"pf.l{j + 1}1"])
+        close(res.uniqueness.iloc[j], G[f"pf.u{j + 1}"])
+
+
+def test_principal_component_factors_match_stata(G, cs):
+    res = sp.factor(cs, PCA_VARS, method="pcf", n_factors=2)
+    for j in range(6):
+        close(res.loadings.iloc[j, 0], G[f"pcf.l{j + 1}1"])
+        close(res.loadings.iloc[j, 1], G[f"pcf.l{j + 1}2"])
+        close(res.uniqueness.iloc[j], G[f"pcf.u{j + 1}"])
+
+
+def test_ml_factor_statistics_and_recovery(G, cs):
+    """The test of independence does not depend on the factor solution, so
+    it is compared on the fixture (whose one-factor solution is a Heywood
+    case, where programs differ by where they stop). The loadings are
+    checked on data that follow a two-factor model."""
+    res = sp.factor(cs, PCA_VARS, method="ml", n_factors=1)
+    close(res.lr_independence["chi2"], G["ml.chi2_i"])
+    assert res.lr_factors["df"] == G["ml.df_1"]
+
+    rng = np.random.default_rng(3)
+    load = np.array(
+        [[0.8, 0], [0.7, 0.2], [0.6, 0.3], [0, 0.8], [0.2, 0.7], [0.3, 0.6]]
+    )
+    f = rng.normal(size=(20000, 2))
+    x = f @ load.T + rng.normal(size=(20000, 6)) * np.sqrt(1 - (load**2).sum(1))
+    fit = sp.factor(pd.DataFrame(x, columns=list("abcdef")), method="ml", n_factors=2)
+    implied = fit.loadings.to_numpy() @ fit.loadings.to_numpy().T
+    np.testing.assert_allclose(
+        implied[np.triu_indices(6, 1)],
+        (load @ load.T)[np.triu_indices(6, 1)],
+        atol=0.03,
+    )
+    np.testing.assert_allclose(fit.uniqueness, 1 - (load**2).sum(1), atol=0.03)
+    assert not fit.heywood and fit.lr_factors["pvalue"] > 0.001
+
+
+# ------------------------------------------------------- overidentification
+def test_overid_statistics_after_2sls_and_liml(G, cs):
+    formula = "y ~ x1 + x2 + (endog ~ z1 + z2 + b)"
+    plain = sp.estat(sp.iv(formula, data=cs, method="2sls"), "overid")
+    close(plain["statistic"], G["oid.sargan"])
+    close(plain["pvalue"], G["oid.p_sargan"])
+    close(plain["iid_errors"]["basmann"], G["oid.basmann"])
+    close(plain["iid_errors"]["basmann_pvalue"], G["oid.p_basmann"])
+    assert "score" not in plain
+
+    robust = sp.estat(sp.iv(formula, data=cs, method="2sls", robust="robust"), "overid")
+    close(robust["score"], G["oid.score"])
+    close(robust["score_pvalue"], G["oid.p_score"])
+    # the i.i.d. statistics stay available after a robust fit
+    close(robust["iid_errors"]["sargan"], G["oid.sargan"])
+
+    liml = sp.estat(sp.iv(formula, data=cs, method="liml"), "overid")
+    close(liml["iid_errors"]["anderson_rubin"], G["oid.ar"])
+    close(liml["iid_errors"]["anderson_rubin_pvalue"], G["oid.p_ar"])
+
+
+def test_collinear_instruments_are_dropped_with_a_warning(G, cs):
+    with pytest.warns(sp.exceptions.StatsPAIWarning, match="omitted"):
+        fit = sp.iv("y ~ x1 + x2 + (endog ~ z1 + z2 + z3 + z4)", data=cs, small=False)
+    assert fit.model_info["omitted_instruments"] == ["z3", "z4"]
+    assert fit.diagnostics["N instruments"] == 2
+    close(fit.params["endog"], G["ivc.b_endog"])
+    close(fit.std_errors["endog"], G["ivc.se_endog"])
+
+
+def test_2sls_keeps_its_digits_on_an_ill_conditioned_design():
+    """A just-identified model with a cubic in the instrument: Z'X has a
+    condition number near 1e9. The data are integers and y = X b exactly, so
+    the estimate must return b; a solve through (W'W)^{-1} lost seven
+    digits."""
+    z = np.arange(1.0, 41.0)
+    frame = pd.DataFrame({"z1": z, "z2": z**2, "z3": z**3})
+    shift = np.where(np.arange(40) % 2 == 0, 1.0, -1.0)
+    frame["d1"] = frame.z1 + shift
+    frame["d2"] = frame.z2 + 3 * shift
+    frame["d3"] = frame.z3 - 2 * shift
+    beta = np.array([34.0, -61.0, 29.0])
+    frame["y"] = 5 + frame[["d1", "d2", "d3"]].to_numpy() @ beta
+    assert np.linalg.cond(frame[["z1", "z2", "z3"]].T @ frame[["d1", "d2", "d3"]]) > 1e7
+    fit = sp.iv("y ~ (d1 + d2 + d3 ~ z1 + z2 + z3)", data=frame)
+    np.testing.assert_allclose(fit.params[["d1", "d2", "d3"]], beta, rtol=1e-8)
+
+
+# ----------------------------------------------------------------- jackknife
+def test_jackknife_matches_stata(G, cs):
+    sub = cs[cs["g"] <= 3]
+    assert len(sub) == G["jk.n"]
+    fit = sp.jackknife(sub, lambda d: sp.regress("y ~ x1 + x2", data=d))
+    close(fit.std_errors["x1"], G["jk.se_x1"], rtol=1e-6)
+    close(fit.std_errors["x2"], G["jk.se_x2"], rtol=1e-6)
+    close(fit.std_errors["Intercept"], G["jk.se_cons"], rtol=1e-6)
+    assert fit.data_info["df_resid"] == len(sub) - 1
+
+    def ratio(d):
+        b = sp.regress("y ~ x1 + x2", data=d).params
+        return b["x1"] / b["x2"]
+
+    one = sp.jackknife(sub, ratio)
+    close(one.estimate, G["jk.ratio"])
+    close(one.se, G["jk.ratio_se"], rtol=1e-6)
+    close(sp.jackknife(sub, ratio, mse=True).se, G["jk.ratio_se_mse"], rtol=1e-6)
+
+    def s2(d):
+        info = sp.regress("y ~ x1 + x2", data=d).data_info
+        return info["rss"] / info["nobs"]
+
+    by_cluster = sp.jackknife(sub, s2, cluster="g")
+    close(by_cluster.estimate, G["jk.s2"])
+    close(by_cluster.se, G["jk.s2_se"], rtol=1e-6)
+    assert by_cluster.n_reps == 3
+
+
+def test_jackknife_through_sp_stata(G, cs):
+    sub = cs[cs["g"] <= 3]
+    fit = sp.stata("regress y x1 x2, vce(jackknife)", data=sub)
+    close(fit.std_errors["x1"], G["jk.se_x1"], rtol=1e-6)
+    one = sp.stata("jackknife (_b[x1] / _b[x2]): regress y x1 x2", data=sub)
+    close(one.se, G["jk.ratio_se"], rtol=1e-6)
+
+
+# ----------------------------------------------- random effects, rank counts
+def test_random_effects_with_time_invariant_regressors(G, panel):
+    fit = sp.panel(
+        panel, "y ~ x1 + x2 + ti + hi", entity="id", time="year", method="re",
+        ssc="stata",
+    )  # fmt: skip
+    close(fit.params["x1"], G["re.b_x1"])
+    close(fit.params["ti"], G["re.b_ti"])
+    close(fit.params["hi"], G["re.b_hi"])
+    close(fit.std_errors["x1"], G["re.se_x1"])
+    close(fit.std_errors["ti"], G["re.se_ti"])
+    # sigma_e is the within estimate, which the two swept-out regressors
+    # cannot change: the fixed-effects fit without them gives the same number
+    assert G["re.sigma_e"] == G["re.fe_sigma_e"]
+    from statspai.panel.xt_tools import xt_statistics
+
+    xt = xt_statistics(
+        panel, "y", ["x1", "x2", "ti", "hi"], id="id",
+        params=fit.params.to_dict(), method="re",
+    )  # fmt: skip
+    close(xt["sigma_e"], G["re.sigma_e"])
+    close(xt["sigma_u"], G["re.sigma_u"])
+
+    robust = sp.panel(
+        panel, "y ~ x1 + x2 + ti + hi", entity="id", time="year", method="re",
+        ssc="stata", robust="robust",
+    )  # fmt: skip
+    close(robust.std_errors["x1"], G["re.rob_se_x1"])
+    close(robust.std_errors["ti"], G["re.rob_se_ti"])
+
+
+# ------------------------------------------------- VAR with exogenous terms
+def test_var_with_exogenous_variables(G, ts):
+    fit = sp.var(ts, ["z1", "z2"], lags=2, exog=["x1", "d"])
+    close(fit.log_likelihood, G["var.ll"])
+    close(fit.coefs["z1"].loc["L1.z1", "coef"], G["var.b11"])
+    close(fit.coefs["z1"].loc["x1", "coef"], G["var.b1x"])
+    close(fit.coefs["z2"].loc["d", "coef"], G["var.b2d"])
+    close(fit.coefs["z1"].loc["x1", "se"], G["var.se1x"])
+    close(fit.aic, G["var.aic"])
+    path = sp.irf(fit, periods=4, orthogonal=True)["irf"]["z1 -> z2"]
+    for s in range(5):
+        close(path[s], G[f"var.oirf{s}"])
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="exogenous"):
+        fit.forecast(2)
+
+    table = sp.varsoc(ts, ["z1", "z2"], maxlag=3, exog=["x1", "d"])
+    for p in range(4):
+        close(table.loc[p, "LL"], G[f"soc.ll{p}"])
+        close(table.loc[p, "AIC"], G[f"soc.aic{p}"])
+        close(table.loc[p, "SBIC"], G[f"soc.sbic{p}"])
+
+
+def test_irf_table_through_sp_stata(G, ts):
+    out = sp.stata(
+        """
+        tsset t
+        var z1 z2, lag(1/2) exog(x1 d)
+        irf create m1, step(4)
+        irf table oirf, impulse(z1) response(z2)
+        """,
+        data=ts,
+    )
+    for s in range(5):
+        close(out["oirf"].loc[s], G[f"var.oirf{s}"])
+
+
+# ------------------------------------------------------------ model averaging
+def test_model_averaging_matches_quadprog(cs):
+    """Criteria and weights against R (``quadprog::solve.QP``) on the same
+    bytes, with the definitions of the programs of Hansen's chapter 28
+    (``_fixtures/_generate_hansen_model_average.R``)."""
+    table = pd.read_csv(FIX / "hansen_model_average_R.csv")
+    R = dict(zip(table["key"], table["value"]))
+    formulas = [
+        "y ~ x1",
+        "y ~ x1 + x2",
+        "y ~ x1 + x2 + d",
+        "y ~ x1 + x2 + d + z1 + z2",
+        "y ~ x1 + I(x1**2) + x2 + I(x2**2) + d + z1 + z2",
+    ]
+    res = sp.model_average(formulas, cs, method="mma")
+    for m in range(5):
+        row = res.table.iloc[m]
+        close(row["aic"], R[f"aic{m + 1}"], rtol=1e-12)
+        close(row["bic"], R[f"bic{m + 1}"], rtol=1e-12)
+        close(row["cv"], R[f"cv{m + 1}"], rtol=1e-11)
+        close(row["w_aic"], R[f"waic{m + 1}"], rtol=1e-9)
+        close(row["w_bic"], R[f"wbic{m + 1}"], rtol=1e-9, atol=1e-300)
+        # quadratic programmes: both are exact on the support
+        close(row["w_mma"], R[f"wmma{m + 1}"], rtol=1e-8, atol=1e-12)
+        close(row["w_jma"], R[f"wjma{m + 1}"], rtol=1e-8, atol=1e-12)
+    assert res.weights.sum() == pytest.approx(1.0, abs=1e-12)
+    # the averaged coefficients and fit are the weighted candidates
+    by_hand = sum(
+        w * fit.params.reindex(res.params.index).fillna(0.0)
+        for w, fit in zip(res.weights, res.fits)
+    )
+    np.testing.assert_allclose(res.params, by_hand, rtol=1e-12)
+    np.testing.assert_allclose(res.predict(cs), res.fitted, rtol=1e-10)
+    slope = res.average(lambda fit: fit.params["x1"])
+    assert slope == pytest.approx(
+        sum(w * f.params["x1"] for w, f in zip(res.weights, res.fits))
+    )
+
+
+def test_model_averaging_weights_are_the_minimum(cs):
+    """No point of the simplex does better than the returned weights."""
+    formulas = ["y ~ x1", "y ~ x1 + x2", "y ~ x1 + x2 + d", "y ~ x1 + d + z1"]
+    res = sp.model_average(formulas, cs)
+    E = np.column_stack([f.data_info["residuals"] for f in res.fits])
+    lev = [(np.linalg.qr(f.data_info["X"])[0] ** 2).sum(axis=1) for f in res.fits]
+    Rm = E / (1 - np.column_stack(lev))
+    best = res.table["w_jma"].to_numpy()
+    value = best @ Rm.T @ Rm @ best
+    rng = np.random.default_rng(0)
+    for w in rng.dirichlet(np.ones(4), size=2000):
+        assert w @ Rm.T @ Rm @ w >= value - 1e-9
+    assert res.selected["cv"] == res.table["cv"].idxmin()
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.model_average(["y ~ x1"], cs)
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.model_average(["y ~ x1", "endog ~ x1"], cs)
+
+
+# -------------------------------------------- Dickey-Fuller upper-tail p-value
+def test_dickey_fuller_p_value_of_an_explosive_series(G, ts):
+    """Above the fitted range of MacKinnon's surface the p-value is 1; the
+    cubic left on its own turns down (0.06 at +3.25 with a trend)."""
+    from statspai.panel.unit_root import mackinnon1994_pvalue
+
+    e1 = np.zeros(len(ts))
+    z1 = ts["z1"].to_numpy()
+    e1[0] = z1[0]
+    for t in range(1, len(ts)):
+        e1[t] = 1.08 * e1[t - 1] + z1[t]
+    frame = pd.DataFrame({"e1": e1})
+    with_trend = sp.unitroot(frame, y="e1", test="adf", lags=1, trend="ct")
+    close(with_trend.statistic, G["df.ct_stat"], rtol=1e-7)
+    assert with_trend.pvalue == G["df.ct_p"] == 1.0
+    constant = sp.unitroot(frame, y="e1", test="adf", lags=1, trend="c")
+    close(constant.statistic, G["df.c_stat"], rtol=1e-7)
+    assert constant.pvalue == G["df.c_p"] == 1.0
+    # inside the range nothing changes (values printed by Stata 18)
+    close(mackinnon1994_pvalue(0.48008745, "ct"), 0.9968134395, rtol=1e-9)
+    close(mackinnon1994_pvalue(2.67036504, "c"), 0.9990848786, rtol=1e-9)
+    assert mackinnon1994_pvalue(3.25, "ct") == 1.0

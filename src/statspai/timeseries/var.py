@@ -95,6 +95,7 @@ class VARResult(ResultProtocolMixin):
         self._k = len(var_names)
         self._lags = lags
         self._trend: Optional[str] = None
+        self._exog: List[str] = []
         self._XtX_inv: Optional[np.ndarray] = None
         self._coef_sigma_u: Optional[np.ndarray] = None
         self._X: Optional[np.ndarray] = None
@@ -272,6 +273,7 @@ def var(
     trend: str = "c",
     alpha: float = 0.05,
     se_df: str = "stata",
+    exog: Optional[List[str]] = None,
 ) -> VARResult:
     """
     Estimate a Vector Autoregression (VAR) model.
@@ -296,6 +298,13 @@ def var(
         conditional-MLE standard errors. ``'r'``/``'unbiased'`` uses
         ``T - k_params`` and matches the equation-by-equation ``lm()``
         standard errors returned inside R ``vars::VAR()``.
+
+    exog : list of str, optional
+        Exogenous variables that enter every equation contemporaneously
+        (Stata's ``var ..., exog()``): a quadratic trend, seasonal dummies,
+        a policy indicator. Their coefficients are listed after the lags.
+        Impulse responses are unaffected by them; ``forecast`` would need
+        their future values and is refused.
 
     Returns
     -------
@@ -326,7 +335,16 @@ def var(
     if se_df_key not in {"stata", "ml", "r", "unbiased"}:
         raise ValueError("se_df must be one of {'stata', 'ml', 'r', 'unbiased'}")
 
-    var_data = data[variables].dropna().values.astype(float)
+    exog_names = [str(v) for v in (exog or [])]
+    missing = [v for v in exog_names if v not in data.columns]
+    if missing or set(exog_names) & set(variables):
+        raise MethodIncompatibility(
+            f"sp.var: exog={exog_names} must name columns of the data that "
+            "are not among the endogenous variables.",
+            recovery_hint="Check the names passed to exog=.",
+        )
+    complete = data[list(variables) + exog_names].dropna()
+    var_data = complete[list(variables)].values.astype(float)
     var_names = list(variables)
     n, k = var_data.shape
 
@@ -337,6 +355,8 @@ def var(
         X = np.column_stack([X, np.arange(1, T + 1)])
     elif trend == "n":
         X = X[:, :-1]  # remove constant
+    if exog_names:
+        X = np.column_stack([X, complete[exog_names].values.astype(float)[lags:]])
 
     # OLS for each equation
     try:
@@ -375,6 +395,7 @@ def var(
             idx_names.append("_cons")
         if trend == "ct":
             idx_names.append("_trend")
+        idx_names.extend(exog_names)
 
         coef_df = pd.DataFrame(
             {
@@ -415,6 +436,7 @@ def var(
     result._k = k
     result._lags = lags
     result._trend = trend
+    result._exog = exog_names
     # Store (X'X)^{-1} so granger_causality can form the proper coefficient
     # covariance σ²·(X'X)^{-1} for its Wald test (not just the SE diagonal).
     result._XtX_inv = XtX_inv

@@ -256,18 +256,28 @@ _MACK94 = {
     "c": ((2.1659, 1.4412, 0.038269), (1.7339, 0.93202, -0.12745, -0.010368), -1.61),
     "ct": ((3.2512, 1.6047, 0.049588), (2.5261, 0.61654, -0.37956, -0.060285), -2.89),
 }
+# Upper end of the fitted range (statsmodels' _tau_maxs, N = 1); the case
+# without a constant has none.
+_MACK94_MAX = {"n": float("inf"), "c": 2.74, "ct": 0.70}
 
 
 def mackinnon1994_pvalue(tstat: float, trend: str = "c") -> float:
     """MacKinnon (1994) approximate p-value of a Dickey-Fuller t-statistic.
 
     The approximation used by Stata's ``dfuller`` / ``xtunitroot fisher``
-    and by ``plm::purtest(p.approx = "MacKinnon1994")``. Unlike
-    ``statsmodels.tsa.adfvalues.mackinnonp`` it does not clip to 0 / 1
-    outside the fitted range (plm does not either).
+    and by ``plm::purtest(p.approx = "MacKinnon1994")``.
+
+    Above the largest statistic the response surface was fitted on (2.74
+    with a constant, 0.70 with a constant and trend) the p-value is 1, as in
+    Stata and ``statsmodels``: the cubic turns down beyond that point, and
+    with a trend it would give 0.06 at a statistic of +3.25. Far below the
+    fitted range the polynomial is kept (the values are below 1e-20), so
+    that Fisher-type panel tests can still take logarithms.
     """
     small, large, star = _MACK94[trend]
     x = float(tstat)
+    if x > _MACK94_MAX[trend]:
+        return 1.0
     if x <= star:
         z = small[0] + small[1] * x + small[2] * x * x
     else:

@@ -112,7 +112,17 @@ def read_data(
 
     if ext == ".dta":
         converted, alias = _dta_layout.without_alias_variables(path)
-        if converted is None:
+        old = _dta_layout.release_110_as_111(path)
+        if old is not None:
+            # Stata 7's format: read from a copy with the storage types
+            # written the later way
+            try:
+                df = _read_stata(
+                    old, extended_missing=extended_missing, _shown=path, **kwargs
+                )
+            finally:
+                os.unlink(old)
+        elif converted is None:
             df = _read_stata(path, extended_missing=extended_missing, **kwargs)
         else:
             df = _read_dta_without_alias(

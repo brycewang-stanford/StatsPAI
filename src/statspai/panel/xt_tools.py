@@ -311,6 +311,15 @@ def _complete(data: pd.DataFrame, y: str, xs: List[str], id: str) -> tuple:
     )
 
 
+def _scaled_rank(part: np.ndarray, whole: np.ndarray) -> int:
+    """Rank of ``part`` with each column measured against the size of the
+    same column of ``whole``, so that a column a transformation reduced to
+    rounding noise counts as zero."""
+    scale = np.sqrt((np.asarray(whole, dtype=float) ** 2).sum(axis=0))
+    scale[scale == 0] = 1.0
+    return int(np.linalg.matrix_rank(part / scale))
+
+
 def _swamy_arora(
     y: np.ndarray, X: np.ndarray, codes: np.ndarray, n: int, components: bool = True
 ) -> dict:
@@ -326,16 +335,20 @@ def _swamy_arora(
         # does not exist with more regressors than panels (year dummies
         # on a short list of firms)
         return {"Ti": Ti, "yb": yb, "Xb": Xb, "yw": yw, "Xw": Xw, "bw": bw, "ew": ew}
-    if N - n - K <= 0 or n - K - 1 <= 0:
+    # Degrees of freedom count ranks, not columns: a regressor that is
+    # constant within panel is swept out of the within regression and
+    # costs it nothing (Stata's xtreg, re and R's plm do the same).
+    Zb = np.column_stack([np.ones(n), Xb])
+    rank_w, rank_b = _scaled_rank(Xw, X), _scaled_rank(Zb, Zb)
+    if N - n - rank_w <= 0 or n - rank_b <= 0:
         raise DataInsufficient(
             "Too few panels or periods for the variance components.",
             recovery_hint="Use fewer regressors.",
         )
-    s2e = float(ew @ ew) / (N - n - K)
-    Zb = np.column_stack([np.ones(n), Xb])
+    s2e = float(ew @ ew) / (N - n - rank_w)
     eb = yb - Zb @ np.linalg.lstsq(Zb, yb, rcond=None)[0]
     t_harmonic = n / float(np.sum(1.0 / Ti))
-    s2u = max(0.0, float(eb @ eb) / (n - K - 1) - s2e / t_harmonic)
+    s2u = max(0.0, float(eb @ eb) / (n - rank_b) - s2e / t_harmonic)
     theta = 1.0 - np.sqrt(s2e / (Ti * s2u + s2e))
     return {
         "s2e": s2e, "s2u": s2u, "theta": theta, "Ti": Ti,

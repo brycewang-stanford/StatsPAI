@@ -1,4 +1,5 @@
-"""Stata time-series operators: ``L.x``, ``L2.x``, ``F.x``, ``D.x``, ``L(1/4).x``.
+"""Stata time-series operators: ``L.x``, ``L2.x``, ``F.x``, ``D.x``, ``L(1/4).x``,
+``L(1/3).D.x``.
 
 Stata defines a lag by the time variable of ``tsset`` / ``xtset``, not by
 the row above: ``L.x`` at time ``t`` is ``x`` at ``t - 1`` in the same panel,
@@ -27,7 +28,8 @@ __all__ = ["has_ts_operator", "rewrite_ts_operators"]
 
 _OPS = r"(?:[LlFfDd]\d*)+"
 _TERM = re.compile(
-    rf"(?<![\w.])(?:(?P<ops>{_OPS})|(?P<kind>[LlFf])\((?P<lo>\d+)/(?P<hi>\d+)\))"
+    rf"(?<![\w.])(?:(?P<ops>{_OPS})|(?P<kind>[LlFf])\((?P<lo>\d+)/(?P<hi>\d+)\)"
+    rf"(?:\.?(?P<tail>{_OPS}))?)"
     r"\.(?P<var>[A-Za-z_]\w*)"
 )
 _ONE = re.compile(r"([LlFfDd])(\d*)")
@@ -141,9 +143,12 @@ def rewrite_ts_operators(
         if hi < lo:
             raise StataExprError(f"empty lag list in {m.group(0)!r}")
         kind = m.group("kind").upper()
+        # L(1/3).D.x: lags one to three of the first difference
+        tail = _parse_ops(m.group("tail")) if m.group("tail") else []
         terms: List[str] = []
         for k in range(lo, hi + 1):
-            term = var if k == 0 else column(var, [(kind, k)])
+            ops = ([] if k == 0 else [(kind, k)]) + tail
+            term = var if not ops else column(var, ops)
             if term is None:
                 return m.group(0)
             terms.append(term)

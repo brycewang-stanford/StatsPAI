@@ -18,6 +18,13 @@ like a ``RandomEffectsResults``; applied to a design without mean columns it
 reproduces linearmodels' fit attribute for attribute
 (``tests/test_panel_cre_theta.py``). Stata 18 ``xtreg ..., re`` with the
 means added is the reference (``test_panel_ssc_stata_parity.py``).
+
+The same miscount happens in a plain random-effects fit with a regressor
+that does not vary within unit (an industry dummy, a listing indicator):
+the within transformation sweeps it out, so the within regression has one
+parameter fewer than the design has columns. ``variance_components`` counts
+the rank instead, as Stata's ``xtreg, re`` and R's ``plm`` do, and
+``fit_re`` applies the resulting theta.
 """
 
 from __future__ import annotations
@@ -67,6 +74,68 @@ class CREFit:
         return getattr(self._template, name)
 
 
+def within_rank_deficient(exog: pd.DataFrame) -> bool:
+    """True when some regressor (other than the constant) adds no rank to
+    the within-unit variation: it is constant within unit, or collinear
+    with the others once unit means are removed."""
+    from .xt_tools import _scaled_rank
+
+    x = exog.drop(columns=[c for c in exog.columns if c == "const"]).dropna()
+    if x.shape[1] == 0 or len(x) == 0:
+        return False
+    xw = (x - x.groupby(level=0).transform("mean")).to_numpy(dtype=float)
+    return _scaled_rank(xw, x.to_numpy(dtype=float)) < x.shape[1]
+
+
+def variance_components(dep: pd.Series, exog: pd.DataFrame) -> tuple:
+    """Swamy-Arora ``theta`` and variance decomposition of a random-effects
+    design, in the layout of ``RandomEffectsResults``.
+
+    When every regressor varies within unit these are linearmodels' own.
+    Otherwise they are ``xt_tools._swamy_arora``'s: the within residual
+    variance is divided by ``N - G - r`` with ``r`` the rank of the
+    within-transformed regressors (the number of slopes a fixed-effects fit
+    estimates), and the between residual variance by ``G`` minus the rank
+    of the unit means. The unbalanced-panel form is the same in both: the
+    harmonic mean of the panel lengths. ``dep`` and ``exog`` must be free
+    of missing values.
+    """
+    from linearmodels.panel import RandomEffects
+
+    if not within_rank_deficient(exog):
+        plain = RandomEffects(dep, exog).fit()
+        return plain.theta, plain.variance_decomposition
+
+    from .xt_tools import _swamy_arora
+
+    x = exog.drop(columns=[c for c in exog.columns if c == "const"])
+    ids = dep.index.get_level_values(0)
+    codes, units = pd.factorize(ids, sort=True)
+    parts = _swamy_arora(
+        dep.to_numpy(dtype=float), x.to_numpy(dtype=float), codes, len(units)
+    )
+    sigma2_e, sigma2_u, t = parts["s2e"], parts["s2u"], parts["Ti"]
+    ybar = dep.groupby(level=0).mean().reindex(units)
+    theta = pd.DataFrame(
+        1.0 - np.sqrt(sigma2_e / (t * sigma2_u + sigma2_e)),
+        index=ybar.index,
+        columns=["theta"],
+    )
+    decomposition = pd.Series(
+        {
+            "Effects": sigma2_u,
+            "Residual": sigma2_e,
+            "Percent due to Effects": sigma2_u / (sigma2_u + sigma2_e),
+        }
+    )
+    return theta, decomposition
+
+
+def fit_re(dep: pd.Series, exog: pd.DataFrame, cov_kwargs: Dict[str, Any]) -> CREFit:
+    """Random-effects GLS with the rank-based variance components."""
+    return fit_cre(dep, exog, [], cov_kwargs)
+
+
 def fit_cre(
     dep: pd.Series,
     exog: pd.DataFrame,
@@ -77,11 +146,15 @@ def fit_cre(
     that omits ``mean_cols`` (the regressors' unit means)."""
     from linearmodels.panel import PooledOLS, RandomEffects
 
-    plain = RandomEffects(dep, exog.drop(columns=mean_cols)).fit()
+    # unit means below must be taken over the estimation sample
+    complete = dep.notna().to_numpy() & exog.notna().all(axis=1).to_numpy()
+    if not complete.all():
+        dep, exog = dep[complete], exog[complete]
+    theta_frame, decomposition = variance_components(dep, exog.drop(columns=mean_cols))
     model = RandomEffects(dep, exog)
     template = model.fit(**cov_kwargs)
 
-    theta = plain.theta["theta"]
+    theta = theta_frame["theta"]
     th = theta.reindex(dep.index.get_level_values(0)).to_numpy()
     ybar = dep.groupby(level=0).transform("mean")
     xbar = exog.groupby(level=0).transform("mean")
@@ -102,8 +175,8 @@ def fit_cre(
     wmu = wy_a.mean() if "const" in exog.columns else 0.0
     total_ss = float(((wy_a - wmu) ** 2).sum())
     extras = {
-        "theta": plain.theta,
-        "variance_decomposition": plain.variance_decomposition,
+        "theta": theta_frame,
+        "variance_decomposition": decomposition,
         "fitted_values": fitted,
         "resids": resids,
         "rsquared": 1.0 - float(weps @ weps) / total_ss,

@@ -70,6 +70,7 @@ def varsoc(
     maxlag: int = 4,
     trend: str = "c",
     alpha: float = 0.05,
+    exog: Optional[Sequence[str]] = None,
 ) -> pd.DataFrame:
     """Lag-order selection statistics for a VAR.
 
@@ -148,10 +149,19 @@ def varsoc(
             f"sp.varsoc: trend={trend!r} is not 'c', 'ct' or 'n'.",
             recovery_hint="Use trend='c'.",
         )
-    values = data[variables].dropna().to_numpy(dtype=float)
+    exog_names = [str(v) for v in (exog or [])]
+    if [v for v in exog_names if v not in data.columns or v in variables]:
+        raise MethodIncompatibility(
+            f"sp.varsoc: exog={exog_names} must name columns that are not "
+            "among the endogenous variables.",
+            recovery_hint="Check the names passed to exog=.",
+        )
+    complete = data[variables + exog_names].dropna()
+    values = complete[variables].to_numpy(dtype=float)
+    extra = complete[exog_names].to_numpy(dtype=float)[maxlag:]
     n, k = values.shape
     T = n - maxlag
-    deterministic = {"c": 1, "ct": 2, "n": 0}[trend]
+    deterministic = {"c": 1, "ct": 2, "n": 0}[trend] + len(exog_names)
     if maxlag < 1 or T <= k * maxlag + deterministic:
         raise DataInsufficient(
             f"sp.varsoc: {n} observations cannot support maxlag={maxlag} "
@@ -162,6 +172,7 @@ def varsoc(
     previous = np.nan
     for p in range(maxlag + 1):
         Y, X = _design(values, p, trend, maxlag)
+        X = np.hstack([X, extra])
         sigma = _ml_sigma(Y, X)
         det = float(np.linalg.det(sigma))
         ll = -0.5 * T * k * (1.0 + np.log(2.0 * np.pi)) - 0.5 * T * np.log(det)
@@ -348,6 +359,13 @@ def forecast(result: Any, steps: int = 1, alpha: float = 0.05) -> pd.DataFrame:
     if steps < 1:
         raise MethodIncompatibility(
             "forecast: steps must be at least 1.", recovery_hint="Use steps=1."
+        )
+    if getattr(result, "_exog", None):
+        raise MethodIncompatibility(
+            "forecast: the VAR has exogenous variables "
+            f"({', '.join(result._exog)}); their future values are not known.",
+            recovery_hint="Refit without exog=, or forecast from the "
+            "coefficients with your own path for the exogenous variables.",
         )
     names = list(result.var_names)
     k, p = len(names), result.lags

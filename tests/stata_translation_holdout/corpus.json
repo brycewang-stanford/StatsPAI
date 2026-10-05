@@ -204,9 +204,9 @@
     "expect": "refuse"
   },
   {
-    "id": "refuse_bootstrap",
+    "id": "refuse_rolling",
     "dataset": "cross",
-    "command": "bootstrap, reps(50): regress y x1 x2",
+    "command": "rolling, window(20): regress y x1 x2",
     "expect": "refuse"
   },
   {

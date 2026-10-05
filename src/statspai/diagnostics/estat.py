@@ -842,6 +842,11 @@ def _estat_did_test(result: Any, which: str, *, alpha: float = 0.05) -> Dict[str
     }
 
 
+def _clustered(result: Any) -> bool:
+    info = getattr(result, "model_info", None) or {}
+    return info.get("cluster") is not None or info.get("n_clusters") is not None
+
+
 def _estat_overid(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Sargan/Hansen J test for over-identifying restrictions."""
     # sp.ivreg reports Sargan under i.i.d. errors and Hansen's J once the
@@ -881,7 +886,7 @@ def _estat_overid(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 
     label = f"chi2({sargan_df})" if sargan_df else "J"
 
-    return {
+    out = {
         "test": "Sargan/Hansen J over-identification test",
         "H0": "All instruments are valid (exclusion restrictions hold)",
         "H1": "At least one instrument is invalid",
@@ -891,6 +896,29 @@ def _estat_overid(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
         "pvalue": float(sargan_pval) if sargan_pval is not None else None,
         "interpretation": interp,
     }
+    # The statistics that assume i.i.d. errors (Stata: `estat overid,
+    # forcenonrobust`). After a robust fit they are shown for comparison
+    # only; the headline statistic above is the one to read.
+    diag = getattr(result, "diagnostics", None) or {}
+    iid = {}
+    for key, name in (
+        ("sargan", "Sargan chi2 (i.i.d.)"),
+        ("basmann", "Basmann chi2"),
+        ("anderson_rubin", "Anderson-Rubin chi2"),
+        ("basmann_f", "Basmann F"),
+    ):
+        if name in diag:
+            iid[key] = float(diag[name])
+            iid[f"{key}_pvalue"] = float(diag[f"{name} p-value"])
+    if iid:
+        out["iid_errors"] = iid
+    if "sargan" in iid and iid["sargan"] != out["statistic"] and not _clustered(result):
+        # After 2SLS with a heteroskedasticity-robust covariance Hansen's J
+        # at the 2SLS residuals is also Wooldridge's (1995) robust score
+        # statistic, the one Stata's `estat overid` prints after
+        # `ivregress 2sls, vce(robust)`.
+        out["score"], out["score_pvalue"] = out["statistic"], out["pvalue"]
+    return out
 
 
 # ------------------------------------------------------------------

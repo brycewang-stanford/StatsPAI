@@ -236,12 +236,26 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "dfuller": (("regress", 3), ("trend", 2), ("drift", 2), ("lags", 1)),
     "estat": (("nomiss0", 4), ("lags", 1), ("cutoff", 3)),
     "prais": (("rhotype", 3), ("twostep", 3)),
+    # [R] cnsreg: constraints(), minimum abbreviation c().
+    "cnsreg": (("constraints", 1),),
+    "nl": (("initial", 2),),
+    # [MV] pca: components(), com(); mineigen(), mine(); covariance, cov.
+    "pca": (
+        ("components", 3),
+        ("mineigen", 4),
+        ("covariance", 3),
+        ("correlation", 3),
+    ),
+    "factor": (("factors", 2), ("mineigen", 4)),
+    # [TS] var: lags(numlist); the parser takes lag() as well.
+    "var": (("lags", 3), ("exog", 2)),
+    "svar": (("lags", 3), ("exog", 2)),
     # [R] heckman: select(), minimum abbreviation sel(); twostep, two.
     "heckman": (("select", 3), ("twostep", 3)),
     # [R] glm: family(), f(); link(), l(); scale(), sca().
     "glm": (("family", 1), ("link", 1), ("scale", 3), ("exposure", 1)),
     "corrgram": (("lags", 1),),
-    "varsoc": (("maxlag", 1),),
+    "varsoc": (("maxlag", 1), ("exog", 2)),
     "varlmar": (("mlag", 2),),
     "veclmar": (("mlag", 2),),
     "vec": (("rank", 1), ("lags", 1), ("trend", 1)),

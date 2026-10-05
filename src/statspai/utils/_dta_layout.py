@@ -509,6 +509,48 @@ def extra_attrs(path: Any, columns: Optional[List[Any]] = None) -> Dict[str, Any
 
 
 # ----------------------------------------------------- alias variables (120+)
+#: storage types of format 110 and earlier ('b', 'i', 'l', 'f', 'd') in the
+#: numbering of format 111 and later
+_OLD_TYPE_CODES = {98: 251, 105: 252, 108: 253, 102: 254, 100: 255}
+
+
+def release_110_as_111(path: Any) -> Optional[str]:
+    """Copy a format 110 file (Stata 7) as the format 111 file it is but
+    for the spelling of the storage types.
+
+    Format 110 has the layout of format 111 and still writes a variable's
+    type as a letter (``l`` for long, ``d`` for double, ``0x80 + n`` for
+    ``str<n>``); 111 writes 253, 255 and ``n``. Readers that know 108 and
+    111 but not 110 refuse the file. Returns the path of a temporary copy
+    (the caller removes it), or ``None`` when ``path`` is not format 110.
+    """
+    import tempfile
+
+    if dta_release(path) != 110:
+        return None
+    with open(path, "rb") as source:
+        raw = bytearray(source.read())
+    if len(raw) < 109:
+        raise _malformed("the header is cut short")
+    endian = "<" if raw[1] == 2 else ">"
+    (n_vars,) = struct.unpack(endian + "H", raw[4:6])
+    if len(raw) < 109 + n_vars:
+        raise _malformed("the variable types are cut short")
+    for j in range(109, 109 + n_vars):
+        code = raw[j]
+        if code in _OLD_TYPE_CODES:
+            raw[j] = _OLD_TYPE_CODES[code]
+        elif code > 128:
+            raw[j] = code - 128  # str<n>: 0x80 + n -> n
+        else:
+            raise _malformed(f"storage type {code} is not one format 110 defines")
+    raw[0] = 111
+    handle, name = tempfile.mkstemp(suffix=".dta")
+    with os.fdopen(handle, "wb") as target:
+        target.write(bytes(raw))
+    return name
+
+
 def without_alias_variables(path: Any) -> Tuple[Optional[str], List[str]]:
     """Copy a format 120 / 121 file as the 118 / 119 file it is without aliases.
 

@@ -2052,6 +2052,16 @@ __all__ = [
     "ARDLResult",
     "corrgram",
     "prais",
+    "cnsreg",
+    "nls",
+    "model_average",
+    "ModelAverageResult",
+    "jackknife",
+    "JackknifeResult",
+    "pca",
+    "PCAResult",
+    "factor",
+    "FactorResult",
     "varsoc",
     "vec",
     "VECResult",
@@ -2929,6 +2939,12 @@ _register_lazy("agent._translation._stata", "from_stata")
 _register_lazy("agent._translation._stata_run", "stata")
 _register_lazy("agent._translation._r", "from_r")
 _register_lazy("agent._translation._coverage", "translation_coverage")
+_register_lazy("regression.cnsreg", "cnsreg")
+_register_lazy("regression.nls", "nls")
+_register_lazy("regression.model_average", "model_average", "ModelAverageResult")
+_register_lazy("inference._jackknife_general", "jackknife", "JackknifeResult")
+_register_lazy("multivariate.pca", "pca", "PCAResult")
+_register_lazy("multivariate.factor", "factor", "FactorResult")
 _register_lazy(
     "plots.interactive",
     "interactive",

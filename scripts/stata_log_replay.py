@@ -36,6 +36,7 @@ fix what it finds by special-casing the file it was found in.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import re
 import sys
 import warnings
@@ -53,6 +54,7 @@ NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 ESTIMATION = {
     "reg", "regress", "xtreg", "areg", "probit", "logit", "poisson", "nbreg",
     "ivreg", "ivreg2", "ivregress", "tobit", "newey", "reghdfe", "prais",
+    "cnsreg", "nl", "qreg",
 }  # fmt: skip
 SUMMARIZE = {"su", "sum", "summ", "summarize"}
 #: commands compared number by number without naming the numbers
@@ -107,16 +109,31 @@ def _numbers_in(out: Any, depth: int = 0) -> List[float]:
 
 
 # ------------------------------------------------------------ the data
+@contextlib.contextmanager
+def _readable(path: Path) -> Any:
+    """``path``, or a temporary copy pandas can read when the file is in
+    Stata 7's format (110), which pandas before 3.0 refuses."""
+    from statspai.utils._dta_layout import release_110_as_111
+
+    old = release_110_as_111(path)
+    try:
+        yield old or path
+    finally:
+        if old is not None:
+            Path(old).unlink()
+
+
 def read_dta(path: Path) -> pd.DataFrame:
     """A .dta file as Stata holds it: dates are counts of periods."""
-    return pd.read_stata(path, convert_categoricals=False, convert_dates=False)
+    with _readable(path) as source:
+        return pd.read_stata(source, convert_categoricals=False, convert_dates=False)
 
 
 def dta_value_labels(path: Path) -> Dict[str, Dict[str, Any]]:
     """variable -> {label text: code}: Stata prints a factor level by its
     label, the session names it by its code."""
     out: Dict[str, Dict[str, Any]] = {}
-    with pd.io.stata.StataReader(path) as reader:
+    with _readable(path) as source, pd.io.stata.StataReader(source) as reader:
         sets = reader.value_labels()
         names = list(getattr(reader, "_varlist", []))
         attached = list(getattr(reader, "_lbllist", []))
@@ -553,7 +570,7 @@ class Replay:
         self.labels = dta_value_labels(path)
         # code -> text per variable, where `decode` looks for it
         texts: Dict[str, Dict[Any, str]] = {}
-        with pd.io.stata.StataReader(path) as reader:
+        with _readable(path) as source, pd.io.stata.StataReader(source) as reader:
             sets = reader.value_labels()
             attached = dict(zip(getattr(reader, "_varlist", []),
                                 getattr(reader, "_lbllist", [])))  # fmt: skip
@@ -751,6 +768,14 @@ class Replay:
             self._corrgram(cmd, buf, out, word)
         elif word in TIME_SERIES and not quiet:
             TIME_SERIES[word](self, cmd, buf, out)
+        elif word.startswith("est") and isinstance(out, pd.DataFrame) and "AIC" in out:
+            _cmp_estimates_stats(self, cmd, buf, out)
+        elif _RESAMPLED.search(cmd):
+            _cmp_resample(self, cmd, buf, out)
+        elif word == "irf" and isinstance(out, pd.DataFrame):
+            _cmp_irf(self, cmd, buf, out)
+        elif word in MULTIVARIATE and not quiet:
+            MULTIVARIATE[word](self, cmd, buf, out)
         elif word == "test":
             self._test(cmd, buf, out, quiet)
         elif word == "ttest":
@@ -817,6 +842,11 @@ class Replay:
         # `xtreg, mle` is fitted by Stata's `ml`; its standard errors agree
         # to about six digits
         ml_rtol = 1e-5 if word == "xtreg" and re.search(r",.*\bmle\b", cmd) else 0.0
+        # `nl` stops when the residual sum of squares changes by less than
+        # 1e-5 in relative terms, which leaves about four digits of the
+        # parameters when the surface is flat
+        b_rtol = 1e-4 if word == "nl" else 0.0
+        ml_rtol = max(ml_rtol, b_rtol)
         by_term = {stata_term(str(k)): k for k in params}
         # `encode` defines its value label inside the session, not in the file
         labels = dict(self.labels)
@@ -834,6 +864,8 @@ class Replay:
                 continue
             if name in ("/sigma_u", "/sigma_e"):
                 continue
+            if word == "nl":
+                name = name.lstrip("/")  # parameters are printed as /b0
             # xtreg, fe prints _cons, which the session derives
             ours_b = params.get(name, stored_b.get(name))
             ours_se = ses.get(name, stored_se.get(name))
@@ -841,7 +873,7 @@ class Replay:
                 key = by_term.get(stata_term(name))
                 if key is not None:
                     ours_b, ours_se = params[key], ses.get(key)
-            self.report.number(self.name, cmd, f"b[{name}]", b, ours_b)
+            self.report.number(self.name, cmd, f"b[{name}]", b, ours_b, rtol=b_rtol)
             self.report.number(self.name, cmd, f"se[{name}]", se, ours_se, rtol=ml_rtol)
         if word == "xtreg":
             text = "\n".join(buf)
@@ -909,8 +941,12 @@ class Replay:
             (c for c in ("dydx", "dy/dx", "margin", "estimate") if c in table), None
         )
         se = next((c for c in ("se", "std_err", "std_error") if c in table), None)
+        by_term = {stata_term(str(k)): k for k in table.index}
         for name, (b, s_) in coefficient_table(buf).items():
             ours = table.loc[name] if name in table.index else None
+            if ours is None and stata_term(name) in by_term:
+                # a factor level: `2.region` here, `C(region)[T.2]` in the log
+                ours = table.loc[by_term[stata_term(name)]]
             self.report.number(
                 self.name, cmd, f"dydx[{name}]", b,
                 None if ours is None or est is None else ours[est],
@@ -1068,14 +1104,37 @@ class Replay:
                         self.name, cmd, label, Printed(m.group(1)), out.get(key)
                     )
         elif sub.startswith("overid"):
-            m = re.search(rf"chi2\((\d+)\)\s*=\s*({NUM})\s*\(p = ({NUM})\)", text)
-            if m:
+            # one line per statistic; after a robust fit Stata prints the
+            # score test alone unless `forcenonrobust` asks for the others
+            iid = out.get("iid_errors") or {}
+            robust_fit = "sargan" in iid and iid["sargan"] != out.get("statistic")
+            ours = {
+                "Sargan": (iid.get("sargan"), iid.get("sargan_pvalue")),
+                "Basmann": (
+                    iid.get("basmann", iid.get("basmann_f")),
+                    iid.get("basmann_pvalue", iid.get("basmann_f_pvalue")),
+                ),
+                "Anderson-Rubin": (
+                    iid.get("anderson_rubin"), iid.get("anderson_rubin_pvalue"),
+                ),
+                "Score": (out.get("score"), out.get("score_pvalue")),
+            }  # fmt: skip
+            if not iid or not robust_fit:
+                ours.setdefault("Sargan", (out.get("statistic"), out.get("pvalue")))
+            found = re.findall(
+                rf"^\s*([A-Z][\w-]*) (?:chi2|F)\([\d, ]+\)\s*=\s*({NUM})"
+                rf"\s*\(p = ({NUM})\)",
+                text,
+                re.M,
+            )
+            for label, stat, p in found:
+                mine = ours.get(label, (None, None))
+                if label == "Sargan" and mine[0] is None:
+                    mine = (out.get("statistic"), out.get("pvalue"))
                 self.report.number(
-                    self.name, cmd, "chi2", Printed(m.group(2)), out.get("statistic")
+                    self.name, cmd, f"{label} statistic", Printed(stat), mine[0]
                 )
-                self.report.number(
-                    self.name, cmd, "p-value", Printed(m.group(3)), out.get("pvalue")
-                )
+                self.report.number(self.name, cmd, f"{label} p", Printed(p), mine[1])
         elif sub.startswith("first"):
             m = re.search(
                 rf"^\s*\S+\s*\|\s*({NUM})\s+({NUM})\s+({NUM})\s+({NUM})\s+({NUM})",
@@ -1936,7 +1995,154 @@ def _cmp_vec(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
         )  # fmt: skip
 
 
+def _matrix_rows(buf: List[str], start: str) -> List[List[Printed]]:
+    """Numeric cells of the table rows after the line containing ``start``,
+    up to the closing rule."""
+    rows: List[List[Printed]] = []
+    seen = False
+    for ln in buf:
+        if not seen:
+            seen = start in ln
+            continue
+        if "|" not in ln:
+            if rows and set(ln.strip()) <= set("-+"):
+                break
+            continue
+        cells = ln.split("|", 1)[1].replace("|", " ").split()
+        if cells and all(re.fullmatch(NUM, c) or c == "." for c in cells):
+            rows.append([Printed(c) for c in cells if c != "."])
+    return rows
+
+
+def _cmp_pca(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    for j, row in enumerate(_matrix_rows(buf, "Eigenvalue")):
+        if j < len(out.eigenvalues):
+            ours = out.eigenvalues.iloc[j]
+            self.report.number(
+                self.name, cmd, f"eigenvalue {j + 1}", row[0], ours["eigenvalue"]
+            )
+            self.report.number(
+                self.name, cmd, f"proportion {j + 1}", row[-2], ours["proportion"]
+            )
+    for i, row in enumerate(_matrix_rows(buf, "Variable")):
+        for j, cell in enumerate(row[: out.loadings.shape[1]]):
+            self.report.number(
+                self.name, cmd, f"loading[{i + 1},{j + 1}]", cell,
+                out.loadings.iloc[i, j],
+            )  # fmt: skip
+
+
+def _cmp_factor(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    # Stata's default tolerance for the iterative methods leaves four digits
+    loose = 2e-4 if re.search(r",.*\b(?:ml|ipf)\b", cmd) else 0.0
+    for j, row in enumerate(_matrix_rows(buf, "Eigenvalue")):
+        if j < len(out.eigenvalues):
+            self.report.number(
+                self.name, cmd, f"eigenvalue {j + 1}", row[0],
+                out.eigenvalues["eigenvalue"].iloc[j], rtol=loose,
+            )  # fmt: skip
+    k = out.loadings.shape[1]
+    for i, row in enumerate(_matrix_rows(buf, "Variable")):
+        for j, cell in enumerate(row[:k]):
+            self.report.number(
+                self.name, cmd, f"loading[{i + 1},{j + 1}]", cell,
+                out.loadings.iloc[i, j], rtol=loose,
+            )  # fmt: skip
+        if len(row) > k:
+            self.report.number(
+                self.name, cmd, f"uniqueness[{i + 1}]", row[k],
+                out.uniqueness.iloc[i], rtol=loose,
+            )  # fmt: skip
+    text = "\n".join(buf)
+    found = re.findall(rf"Log likelihood = ({NUM})", text)  # the last: the header
+    if found and out.loglik is not None:
+        self.report.number(
+            self.name, cmd, "log likelihood", Printed(found[-1]), out.loglik,
+            rtol=1e-6,
+        )  # fmt: skip
+    m = re.search(rf"factors vs\. saturated:\s*chi2\(\d+\)\s*=\s*({NUM})", text)
+    if m and out.lr_factors is not None:
+        self.report.number(
+            self.name, cmd, "LR chi2", Printed(m.group(1)), out.lr_factors["chi2"]
+        )
+
+
+def _cmp_estimates_stats(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    for ln in buf:
+        m = re.match(
+            rf"^\s*(\S+)\s*\|\s*([\d,]+)\s+({NUM}|\.)\s+({NUM})\s+(\d+)"
+            rf"\s+({NUM})\s+({NUM})\s*$",
+            ln,
+        )
+        if not m or m.group(1) not in out.index:
+            continue
+        row = out.loc[m.group(1)]
+        for label, group in (("N", 2), ("ll", 4), ("df", 5), ("AIC", 6), ("BIC", 7)):
+            self.report.number(
+                self.name, cmd, f"{label}[{m.group(1)}]",
+                Printed(m.group(group).replace(",", "")), row[label],
+            )  # fmt: skip
+
+
+def _cmp_irf(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """`irf table`: the first numeric column after the step is the statistic
+    (the others are its confidence limits, which are not computed here)."""
+    if out.shape[1] != 1:
+        return
+    name = out.columns[0]
+    for ln in buf:
+        m = re.match(rf"^\s*(\d+)\s*\|\s*({NUM})", ln)
+        if m and int(m.group(1)) in out.index:
+            self.report.number(
+                self.name, cmd, f"{name}[{m.group(1)}]", Printed(m.group(2)),
+                out[name].loc[int(m.group(1))],
+            )  # fmt: skip
+
+
+_RESAMPLED = re.compile(
+    r"^\s*(?:jackknife|jknife|bootstrap|bs)\b.*:|vce\(\s*(?:jack|boot)", re.I
+)
+
+
+def _cmp_resample(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """`jackknife` / `bootstrap`: the statistic and its standard error. A
+    bootstrap standard error depends on the replications drawn, which are
+    numpy's here and Stata's in the log."""
+    random = re.search(r"\bboot|^\s*bs\b", cmd, re.I) is not None
+    if hasattr(out, "params"):
+        ours_b, ours_se = dict(out.params), dict(out.std_errors)
+        for alias in ("Intercept", "const"):
+            if alias in ours_b:
+                ours_b["_cons"], ours_se["_cons"] = ours_b[alias], ours_se[alias]
+    else:
+        ours_b = {"_jk_1": out.estimate, "_bs_1": out.estimate}
+        ours_se = {"_jk_1": out.se, "_bs_1": out.se}
+    by_term = {stata_term(str(k)): k for k in ours_b}
+    for name, (b, se) in coefficient_table(buf, self.labels).items():
+        key = name if name in ours_b else by_term.get(stata_term(name))
+        self.report.number(self.name, cmd, f"b[{name}]", b, ours_b.get(key))
+        if random:
+            self.report.add(self.name, cmd, f"se[{name}]", "random", stata=se.value)
+        else:
+            self.report.number(self.name, cmd, f"se[{name}]", se, ours_se.get(key))
+
+
+MULTIVARIATE = {"pca": _cmp_pca, "factor": _cmp_factor}
+
+
+def _cmp_kpss(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """`kpss y, maxlag(m)` prints the statistic at every lag order up to m;
+    the translation asks for the last one."""
+    rows = re.findall(rf"^\s*(\d+)\s+({NUM})\s*$", "\n".join(buf), re.M)
+    if rows:
+        self.report.number(
+            self.name, cmd, f"KPSS[{rows[-1][0]}]", Printed(rows[-1][1]),
+            getattr(out, "statistic", None),
+        )  # fmt: skip
+
+
 TIME_SERIES = {
+    "kpss": _cmp_kpss,
     "vecrank": _cmp_vecrank,
     "vec": _cmp_vec,
     "veclmar": _cmp_var_table,

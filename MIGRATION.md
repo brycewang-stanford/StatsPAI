@@ -222,6 +222,44 @@ x", df)` raised `NumericalInstability`. They fit now. A model with an
 intercept behaves as before, and proportional columns (`x` and `2 x`) are
 still caught in a model without one.
 
+## 1.38.0 → next: ⚠️ random effects with a regressor that is constant within unit
+<a id="oct2026-hansen-fixes"></a>
+
+**What changed.** `sp.panel(method='re')` computes the within residual
+variance with `N - G - r` degrees of freedom, `r` being the number of
+regressors that vary within unit. It used `N - G - K` with `K` the number
+of regressors, which counts a time-invariant regressor as a parameter of
+the within regression although that regression cannot estimate it. Stata's
+`xtreg, re` and R's `plm` count the rank. `method='mundlak'` and
+`'chamberlain'` use the same variance components.
+
+**Who is affected.** Random-effects and correlated-random-effects fits that
+include at least one regressor with no within-unit variation, which is the
+usual reason to choose random effects. `sigma_e` was too large by the
+factor `sqrt((N - G - r) / (N - G - K))`, and `sigma_u`, `theta`, the
+coefficients and the standard errors moved with it. On a panel of 40 units
+and 300 rows with two such regressors a slope went from 1.09305 to
+1.09251. Fits in which every regressor varies within unit are unchanged.
+
+**What to do.** Re-run. No argument reproduces the old numbers.
+
+## 1.38.0 → next: ⚠️ Dickey-Fuller p-values above the fitted range are 1
+
+**What changed.** `sp.unitroot` (`test='adf'`, `test='pp'`), the
+Fisher-type panel unit-root tests and anything else that calls
+`mackinnon1994_pvalue` return a p-value of 1 when the statistic is above
+the largest value MacKinnon's response surface was fitted on: 2.74 with a
+constant, 0.70 with a constant and a trend. The approximation was
+evaluated outside that range before, where its cubic bends down.
+
+**Who is affected.** Tests on series that are explosive or trend upward
+faster than a random walk, where the statistic is positive. With a trend
+the old p-value was 0.99 at +1.5, 0.77 at +2.5, 0.25 at +3.0, 0.06 at +3.25
+and 0.00 at +4.0, so such a series could be declared stationary. Negative
+statistics, which is where unit-root tests are usually read, are unchanged.
+
+**What to do.** Re-run any test whose statistic was positive.
+
 ## 1.38.0 → next: ⚠️ `sp.rdrandinf` / `sp.rdwinselect` / `sp.rdsensitivity` with `p > 0` use HC3
 
 `rdlocrand` 3.0 (2026-10-04) moved the variance behind its large-sample

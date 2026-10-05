@@ -399,6 +399,16 @@ def _parse_linear(expression: str, params: pd.Series) -> Tuple[np.ndarray, float
             )
         coef, names = sign, []
         for factor in factors:
+            # `x/5`: division by a number (Stata's `lincom exp + exp2/5`)
+            factor, *divisors = [part.strip() for part in factor.split("/")]
+            if any(not _NUMBER.fullmatch(d) or float(d) == 0 for d in divisors):
+                raise MethodIncompatibility(
+                    f"{term!r} in {expression!r} divides by something other "
+                    "than a non-zero number; test and lincom take linear "
+                    "combinations only (sp.nlcom takes ratios of coefficients)."
+                )
+            for d in divisors:
+                coef /= float(d)
             if _NUMBER.fullmatch(factor):
                 coef *= float(factor)
             else:

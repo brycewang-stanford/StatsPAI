@@ -23,6 +23,7 @@ from ...exceptions import MethodIncompatibility
 from ._stata_datastep import DataSteps, row_mask
 from ._stata_expr import StataExprError, coefficient_key, evaluate
 from ._stata_flow import flow_line, macro_line, macro_value
+from ._stata_irf import irf_line
 from ._stata_macro import display_items, display_text, tool_line
 from ._stata_matrix import matrix_line
 from ._stata_multi import file_key, multi_line
@@ -647,6 +648,8 @@ class StataSession:
         self._macros.evaluator = lambda name: macro_value(self, name)
         #: models named by `estimates store`: name -> (result, data, call)
         self.estimates: Dict[str, Tuple[Any, Any, Any]] = {}
+        #: `constraint define #`: number -> text of the restriction
+        self.constraints: Dict[int, str] = {}
         #: columns a command needed for its own run (a weight expression)
         self._scratch: list = []
         #: True while the data in memory hold random draws
@@ -764,6 +767,9 @@ class StataSession:
             if isinstance(got, (int, float, np.integer, np.floating)):
                 e[key] = float(got)
         e.update(_e_scalars(result))
+        # e(rank): the number of coefficients estimated (omitted terms are
+        # not in params)
+        e.setdefault("rank", float(len(dict(params))))
         self.stored["_b"], self.stored["_se"], self.stored["e"] = b, se, e
 
     def _store_r(self, tool: str, arguments: Dict[str, Any], frame: Any) -> None:
@@ -853,6 +859,16 @@ class StataSession:
                  "p_u": float(out.pvalue_greater)}  # fmt: skip
             if out.k_opposite is not None:
                 r["k_opp"] = float(out.k_opposite)
+        iid = out.get("iid_errors") if isinstance(out, dict) else None
+        if isinstance(iid, dict):
+            # `estat overid` after ivregress: r(sargan), r(basmann), r(score)
+            for key, name in (("sargan", "sargan"), ("basmann", "basmann"),
+                              ("anderson_rubin", "ar"), ("basmann_f", "basmann_f")):  # fmt: skip
+                if key in iid:
+                    r[name] = iid[key]
+                    r[f"p_{name}"] = iid[f"{key}_pvalue"]
+            if "score" in out:
+                r["score"], r["p_score"] = out["score"], out["score_pvalue"]
         self.stored["r"] = r
 
     @property
@@ -932,7 +948,9 @@ class StataSession:
         import statspai as sp
 
         from ._stata import from_stata
+        from ._stata_models import constraint_line, constraints_written_out
         from ._stata_programs import run_simulate
+        from ._stata_resample import resample_line
         from ._stata_script import (
             ScriptError,
             control_flow,
@@ -1041,6 +1059,28 @@ class StataSession:
                     "sp.label_var / sp.label_values and drop the line.",
                     diagnostics={"command": line},
                 ) from exc
+        try:
+            resampled = resample_line(self, line)
+        except StataExprError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                recovery_hint="Call sp.jackknife(data, statistic) or "
+                "sp.bootstrap(data, statistic) with the statistic as a function.",
+                diagnostics={"command": line},
+            ) from exc
+        if resampled is not None:
+            return resampled
+        try:
+            irf_done = irf_line(self, line)
+        except StataExprError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                recovery_hint="Call result.irf(...) / result.fevd(...) on the "
+                "fitted VAR directly.",
+                diagnostics={"command": line},
+            ) from exc
+        if irf_done is not None:
+            return irf_done
         if _SKIPPED.match(line):
             # session settings and output-only commands: nothing to run
             return False
@@ -1052,6 +1092,17 @@ class StataSession:
                 stacklevel=3,
             )
             return False
+        if constraint_line(self.constraints, line):
+            return False
+        try:
+            line = constraints_written_out(self.constraints, line)
+        except KeyError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: constraint {exc.args[0]} is "
+                "not defined.",
+                recovery_hint="Put `constraint define # ...` above the command.",
+                diagnostics={"command": line},
+            ) from exc
         fweight: Optional[str] = None
         try:
             handled = run_session_command(self, line)

@@ -7390,6 +7390,379 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="cnsreg",
+            category="regression",
+            description=(
+                "Linear regression under linear equality constraints on the "
+                "coefficients (constant returns to scale, equal slopes, a "
+                "coefficient fixed at a value). method='cls' is constrained "
+                "least squares and reproduces Stata cnsreg, including its "
+                "robust and cluster covariances; method='emd' is the "
+                "efficient minimum distance estimator, which is more precise "
+                "under heteroskedasticity. model_info['constraint_test'] is "
+                "the Wald test of the constraints: if it rejects, the "
+                "constrained estimates are not consistent for the "
+                "unconstrained coefficients."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, None, "y ~ x1 + x2"),
+                ParamSpec("data", "DataFrame", True, None, "The data"),
+                ParamSpec(
+                    "constraints",
+                    "str | list",
+                    True,
+                    None,
+                    "Linear restrictions, e.g. 'x1 + x2 = 1' or ['x1 = x2', 'x3 = 0']",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "cls",
+                    "Constrained least squares or efficient minimum distance",
+                    ["cls", "emd"],
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "ols",
+                    "Covariance estimator ('robust' is HC1)",
+                    ["ols", "robust", "hc2", "hc3"],
+                ),
+                ParamSpec("cluster", "str", False, None, "Column to cluster on"),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="EconometricResults",
+            example='sp.cnsreg("lnq ~ lnk + lnl", data=df, constraints="lnk + lnl = 1")',
+            tags=["regression", "constraints", "restricted", "minimum-distance"],
+            reference="hansen2022econometrics",
+            assumptions=[
+                "The constraints hold in the population; otherwise the estimates "
+                "converge to the best approximation that satisfies them, not to "
+                "the unconstrained coefficients",
+                "The usual conditions for least squares on the unconstrained model",
+            ],
+            alternatives=["regress", "test", "nlcom"],
+            not_recommended_when=[
+                "The constraint is a hypothesis to be tested, not maintained — "
+                "fit sp.regress and use sp.test",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="nls",
+            category="regression",
+            description=(
+                "Nonlinear least squares for y = m(x, theta) + e. The "
+                "regression function is a formula with the parameters in "
+                "braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting "
+                "values as {c=0.5} or start=), or a Python function of the "
+                "parameters and the data. Classical, robust (HC1-HC3) and "
+                "cluster covariances from the Jacobian at the estimate; "
+                "reproduces Stata nl. The result works with sp.test, "
+                "sp.lincom and sp.nlcom. The sum of squares can have local "
+                "minima: try several starting values."
+            ),
+            params=[
+                ParamSpec(
+                    "formula",
+                    "str | callable",
+                    True,
+                    None,
+                    "'y ~ {a} + {b}*x^{c}' or f(params, data) -> fitted values",
+                ),
+                ParamSpec("data", "DataFrame", True, None, "The data"),
+                ParamSpec(
+                    "start",
+                    "dict | list",
+                    False,
+                    None,
+                    "Starting values by parameter name (default 1 each)",
+                ),
+                ParamSpec(
+                    "y", "str", False, None, "Outcome column when formula is a function"
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "ols",
+                    "Covariance estimator ('robust' is HC1)",
+                    ["ols", "robust", "hc2", "hc3"],
+                ),
+                ParamSpec("cluster", "str", False, None, "Column to cluster on"),
+                ParamSpec("tol", "float", False, 1e-10, "Convergence tolerance"),
+                ParamSpec("maxiter", "int", False, 1000, "Function evaluation limit"),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.nls("y ~ {a} + {b} * x^{c}", data=df, start={"c": 1}, '
+                'vce="robust")'
+            ),
+            tags=["regression", "nonlinear", "nls", "stata"],
+            reference="hansen2022econometrics",
+            assumptions=[
+                "The regression function is correctly specified and smooth in the "
+                "parameters near the truth",
+                "The parameters are identified: the Jacobian has full column rank",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="NumericalInstability: the Jacobian is rank deficient",
+                    exception="statspai.NumericalInstability",
+                    remedy="A parameter is not identified at the estimate "
+                    "(for example an exponent whose coefficient is zero); fix "
+                    "it at a value or simplify the model.",
+                ),
+                FailureMode(
+                    symptom="ConvergenceWarning, or estimates that change with start=",
+                    exception="statspai.ConvergenceWarning",
+                    remedy="The sum of squares has several local minima; "
+                    "start from a grid of values and keep the fit with the "
+                    "smallest diagnostics['Residual SS'].",
+                ),
+            ],
+            alternatives=["regress", "glm", "gmm"],
+            not_recommended_when=[
+                "The model is linear in its coefficients after a transformation "
+                "of the regressors — use sp.regress",
+                "A parameter is a threshold or change point — the estimate is "
+                "usable but its normal-theory standard error is not reliable",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="model_average",
+            category="regression",
+            description=(
+                "Model selection criteria and averaging weights for "
+                "candidate least-squares regressions of one outcome: AIC, "
+                "BIC and leave-one-out cross-validation for selection; "
+                "Mallows, jackknife (cross-validation) and smoothed AIC / "
+                "BIC weights for averaging. Returns averaged coefficients, "
+                "fitted values and predictions, and averages any function "
+                "of the candidate fits. Jackknife weights (the default) "
+                "remain optimal under heteroskedasticity. No standard "
+                "errors: inference after selection or averaging is not "
+                "normal-based."
+            ),
+            params=[
+                ParamSpec(
+                    "formulas",
+                    "list",
+                    True,
+                    None,
+                    "Candidate formulas with the same outcome; need not be nested",
+                ),
+                ParamSpec("data", "DataFrame", True, None, "The data"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "jma",
+                    "Weights used for the averaged coefficients and fit",
+                    ["jma", "mma", "aic", "bic"],
+                ),
+                ParamSpec(
+                    "sigma2_model",
+                    "int",
+                    False,
+                    None,
+                    "Position of the model whose error variance enters the "
+                    "Mallows penalty (default: the largest)",
+                ),
+                ParamSpec("names", "list", False, None, "Labels of the candidates"),
+            ],
+            returns="ModelAverageResult",
+            example=(
+                'sp.model_average(["y ~ x1", "y ~ x1 + x2", "y ~ x1 + x2 + x3"], '
+                'df, method="jma").weights'
+            ),
+            tags=[
+                "regression",
+                "model-averaging",
+                "model-selection",
+                "mallows",
+                "cross-validation",
+            ],
+            reference="hansen2022econometrics",
+            assumptions=[
+                "Candidates are linear regressions of the same outcome on the "
+                "same sample",
+                "Mallows weights assume homoskedastic errors; jackknife weights "
+                "do not",
+            ],
+            alternatives=["regress", "rlasso", "lasso_select"],
+            not_recommended_when=[
+                "A confidence interval for one coefficient is the goal — fit "
+                "the model chosen in advance; intervals after selection or "
+                "averaging undercover",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="jackknife",
+            category="inference",
+            description=(
+                "Delete-one (or delete-one-cluster) jackknife standard "
+                "errors for any statistic: a function of a DataFrame that "
+                "returns a number, a vector or a fitted model. Covers "
+                "Stata's `jackknife (exp): command` and `vce(jackknife)` "
+                "and reproduces their numbers, since nothing is random. "
+                "Use it for smooth functions of estimates (ratios, "
+                "predicted levels, turning points); it is not consistent "
+                "for quantiles, where sp.bootstrap applies."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "The estimation sample"),
+                ParamSpec(
+                    "statistic",
+                    "callable",
+                    True,
+                    None,
+                    "f(DataFrame) -> float, vector, or fitted result with .params",
+                ),
+                ParamSpec(
+                    "cluster", "str", False, None, "Leave out one cluster at a time"
+                ),
+                ParamSpec(
+                    "mse",
+                    "bool",
+                    False,
+                    False,
+                    "Centre on the full-sample statistic (Stata's mse)",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="JackknifeResult | EconometricResults",
+            example=("sp.jackknife(df, lambda d: sp.regress('y ~ x', data=d))"),
+            tags=["inference", "jackknife", "resampling", "standard-errors"],
+            reference="hansen2022econometrics",
+            assumptions=[
+                "The statistic is a smooth function of sample moments",
+                "Independent observations, or independent clusters with cluster=",
+            ],
+            alternatives=["bootstrap", "nlcom", "jackknife_se"],
+            not_recommended_when=[
+                "The statistic is a quantile or another non-smooth functional — "
+                "use sp.bootstrap",
+                "The sample is large and each evaluation is slow — the cost is "
+                "one evaluation per observation; sp.nlcom gives the delta-method "
+                "answer at once",
+            ],
+            cost_profile="One evaluation of the statistic per observation or cluster.",
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="pca",
+            category="multivariate",
+            description=(
+                "Principal component analysis of the correlation (default) "
+                "or covariance matrix: eigenvalues with shares of variance, "
+                "unit-length eigenvectors, unexplained variance per variable "
+                "when components are dropped, and scores for any data. "
+                "Reproduces Stata pca, including the sign convention. Use "
+                "the correlation matrix unless the variables share a unit."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "The data"),
+                ParamSpec(
+                    "variables", "list", False, None, "Columns (default: all numeric)"
+                ),
+                ParamSpec("n_components", "int", False, None, "Components to keep"),
+                ParamSpec(
+                    "min_eigenvalue",
+                    "float",
+                    False,
+                    None,
+                    "Keep components with a larger eigenvalue (1 = Kaiser rule)",
+                ),
+                ParamSpec(
+                    "covariance",
+                    "bool",
+                    False,
+                    False,
+                    "Decompose the covariance matrix",
+                ),
+            ],
+            returns="PCAResult",
+            example='sp.pca(df, ["math", "reading", "writing"]).scores(df)',
+            tags=["multivariate", "pca", "dimension-reduction", "index"],
+            reference="hansen2022econometrics",
+            assumptions=[
+                "Components summarise variance, not a causal or structural "
+                "factor: the first component is the best one-dimensional linear "
+                "summary and nothing more",
+            ],
+            alternatives=["factor"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="factor",
+            category="multivariate",
+            description=(
+                "Exploratory factor analysis of the correlation matrix: "
+                "principal factors (default), iterated principal factors, "
+                "principal-component factors or maximum likelihood. Returns "
+                "unrotated loadings, uniquenesses, eigenvalues, the "
+                "likelihood-ratio test of independence and, for maximum "
+                "likelihood, the log likelihood, AIC, BIC and the test of k "
+                "factors against an unrestricted correlation matrix. "
+                "Reproduces Stata factor. Loadings are identified only up to "
+                "rotation; no rotation is applied."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "The data"),
+                ParamSpec(
+                    "variables", "list", False, None, "Columns (default: all numeric)"
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "pf",
+                    "Estimation method",
+                    ["pf", "ipf", "pcf", "ml"],
+                ),
+                ParamSpec(
+                    "n_factors", "int", False, None, "Factors to keep (required for ml)"
+                ),
+                ParamSpec(
+                    "min_eigenvalue",
+                    "float",
+                    False,
+                    None,
+                    "Keep factors with a larger eigenvalue (default 0; 1 for pcf)",
+                ),
+                ParamSpec("tol", "float", False, 1e-8, "Convergence for ipf"),
+                ParamSpec("maxiter", "int", False, 1000, "Iteration limit for ipf"),
+            ],
+            returns="FactorResult",
+            example='sp.factor(df, tests, method="ml", n_factors=2).loadings',
+            tags=["multivariate", "factor-analysis", "latent", "loadings"],
+            reference="hansen2022econometrics",
+            assumptions=[
+                "Linear factor model with uncorrelated unique components",
+                "method='ml' and its tests assume joint normality",
+            ],
+            alternatives=["pca"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="varsoc",
             category="timeseries",
             description=(
@@ -7414,6 +7787,14 @@ def _build_registry() -> None:
                     ["c", "ct", "n"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05, "Level of the LR test"),
+                ParamSpec(
+                    "exog",
+                    "list",
+                    False,
+                    None,
+                    "Exogenous variables in every equation at every lag order "
+                    "(Stata varsoc ..., exog())",
+                ),
             ],
             returns="DataFrame",
             example='sp.varsoc(df, ["inflation", "unemployment"], maxlag=8)',

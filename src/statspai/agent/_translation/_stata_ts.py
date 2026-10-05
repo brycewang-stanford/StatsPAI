@@ -139,6 +139,8 @@ def _h_var(cmd: StataCommand) -> Dict[str, Any]:
     args: Dict[str, Any] = {"variables": names, "lags": lags}
     if "noconstant" in cmd.options:
         args["trend"] = "n"
+    if cmd.options.get("exog"):
+        args["exog"] = str(cmd.options["exog"]).split()
     semantics = [
         _ROW_ORDER,
         "Standard errors use the maximum-likelihood residual covariance "
@@ -168,6 +170,8 @@ def _h_varsoc(cmd: StataCommand) -> Dict[str, Any]:
         args["maxlag"] = maxlag
     if "noconstant" in cmd.options:
         args["trend"] = "n"
+    if cmd.options.get("exog"):
+        args["exog"] = str(cmd.options["exog"]).split()
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
     return _emit("varsoc", args, f"sp.varsoc(df, {kw})", semantics=[_ROW_ORDER])
 

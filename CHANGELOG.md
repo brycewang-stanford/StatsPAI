@@ -533,6 +533,105 @@ hoerl1970ridge, golub1979generalized, box1964analysis,
 furnival1974regressions, cribari2004asymptotic, lin1989robust,
 cook1977detection.
 
+### What the programs of Hansen's *Econometrics* found
+
+The sixteen Stata do-files that come with Hansen's *Econometrics* (2022)
+were run in Stata 18 and replayed through `sp.stata`, every printed number
+compared. The notes are in `docs/dev/2026-10-05-hansen-econometrics-review.md`.
+The Stata evidence on committed data is in
+`tests/reference_parity/test_hansen_methods_stata_parity.py`.
+
+#### ⚠️ Correctness
+
+- **Random effects with a regressor that does not vary within unit used the
+  wrong degrees of freedom.** `sp.panel(method='re')` divided the within
+  residual variance by `N - G - K` with `K` the number of regressors. A
+  regressor that is constant within unit (an industry dummy, a listing
+  indicator) is swept out of the within regression and costs it nothing, so
+  the divisor is `N - G - r` with `r` the within rank, as in Stata's
+  `xtreg, re` and R's `plm`. `sigma_e`, `sigma_u`, `theta` and through them
+  every coefficient were slightly off. On the investment panel of chapter
+  17 the coefficient on lagged debt moves from -0.009192 to -0.009196,
+  Stata's value. Designs in which every regressor varies within unit are
+  unchanged. The same count is used by `method='mundlak'` /
+  `'chamberlain'` and by the `sigma_u` / `sigma_e` that `sp.stata` reports
+  after `xtreg`. See `MIGRATION.md`.
+- **Dickey-Fuller p-values of explosive series were too small.** MacKinnon's
+  approximation is a cubic fitted up to a statistic of 2.74 (constant) or
+  0.70 (constant and trend). Beyond that the cubic turns down. With a
+  trend, a statistic of +3.0 was given p = 0.25, +3.25 p = 0.06 and +4.0
+  p = 0.00, so a series growing faster than a random walk could be
+  reported as stationary. The p-value is now 1 above the fitted range, as
+  in Stata and statsmodels. This affects `sp.unitroot` (`test='adf'` and
+  `'pp'`) and the Fisher-type panel tests. Statistics inside the range are
+  unchanged. See `MIGRATION.md`.
+- **2SLS lost digits on ill-conditioned designs.** The projection on the
+  instruments went through `(W'W)^-1` and the second stage through
+  `(X'PX)^-1`, which squares the condition number twice. With a cubic in
+  class size instrumented by a cubic in predicted class size (chapter 20)
+  the coefficients agreed with Stata to seven digits only. Both steps now
+  use orthogonal factorisations. Against a 50-digit solution of the same
+  system the error falls from 8e-7 to 3e-13. Well-conditioned fits move by
+  rounding error.
+
+#### Added
+
+- `sp.cnsreg`: linear regression under linear equality constraints.
+  `method='cls'` is constrained least squares and reproduces Stata's
+  `cnsreg` with classical, robust and cluster covariances. `method='emd'`
+  is the efficient minimum distance estimator of chapter 8.
+- `sp.nls`: nonlinear least squares. The regression function is a formula
+  with the parameters in braces (`"y ~ {a} + {b} * x^{c}"`, Stata's `nl`
+  syntax) or a Python function. Classical, HC1 to HC3 and cluster
+  covariances. Reproduces `nl` to 1e-6.
+- `sp.pca` and `sp.factor`: principal components, and factor analysis by
+  principal factors, iterated principal factors, principal-component
+  factors or maximum likelihood, with scores. They reproduce Stata's `pca`
+  and `factor`, sign convention and likelihood-ratio statistics included.
+- `sp.jackknife`: the delete-one or delete-one-cluster jackknife for any
+  statistic, the counterpart of `sp.bootstrap`. It reproduces Stata's
+  `jackknife` prefix and `vce(jackknife)`.
+- `sp.model_average`: selection criteria (AIC, BIC, leave-one-out
+  cross-validation) and averaging weights (Mallows, jackknife, smoothed
+  AIC and BIC) for candidate regressions, with averaged coefficients, fit
+  and predictions. Weights agree with R's `quadprog` to 1e-8, and the
+  jackknife weights with the book's program for chapter 28 digit for
+  digit.
+- `sp.var(exog=)` and `sp.varsoc(exog=)`: exogenous variables in every
+  equation of a VAR, as in Stata's `var ..., exog()`. A structural VAR
+  fitted on such a model works unchanged.
+- `sp.estat(result, 'overid')` after 2SLS and LIML also returns the
+  statistics that assume i.i.d. errors (Sargan and Basmann, or
+  Anderson-Rubin and Basmann's F) under `iid_errors`, and names the robust
+  statistic `score` after a heteroskedasticity-robust 2SLS fit.
+- `sp.read_data` reads Stata 7 files (format 110), which pandas before 3.0
+  refuses.
+- `sp.stata` runs `cnsreg` with `constraint define`, `nl`, `pca`, `factor`,
+  `estimates stats`, `irf create` / `irf table` (`irf`, `cirf`, `oirf`,
+  `coirf`, `fevd`, `sirf`, `sfevd`), the `jackknife` and `bootstrap`
+  prefixes and `vce(jackknife)` / `vce(bootstrap)`, `var` / `varsoc` /
+  `svar` with `exog()`, `L(1/3).D.x`, `ivregress, perfect`, `estat overid,
+  forcenonrobust` with `r(sargan)` and its companions, `e(rank)`,
+  interacted factors among the excluded instruments, and square brackets
+  used as parentheses (`gen n = [_N]`).
+
+#### Changed
+
+- `sp.iv` drops excluded instruments that are linear combinations of the
+  exogenous regressors and the other instruments, warns, and lists them in
+  `model_info['omitted_instruments']`. It used to stop with numpy's
+  `Singular matrix`. An interaction of two factors among the instruments
+  no longer duplicates dummies that are already regressors. The
+  quarter-of-birth specification of chapter 12 with 180 instruments now
+  runs.
+- `sp.clogit` evaluates its likelihood without a Python loop over choice
+  sets and finishes with Newton steps. On 2,779 choice sets of four
+  alternatives it takes 0.13 seconds where it took 22. Estimates agree with
+  the earlier ones to 1e-8 or better.
+- `sp.lincom` and `sp.test` accept division by a number (`"exp + exp2/5"`).
+- `sp.from_stata("nlcom (a + b) / (1 - c)")` is read as one expression.
+
+
 ### `rdlocrand` 3.0
 
 The maintainers of `rdlocrand` released 3.0 on 2026-10-04. Every reference
