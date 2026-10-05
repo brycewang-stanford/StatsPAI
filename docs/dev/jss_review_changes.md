@@ -1827,9 +1827,11 @@ only the recorded source hashes move.
   `seconds` differ. Checked by rerunning the Python side of original-data
   modules 06, 07, 09, 10 and 11 and of Track A modules 03 and 53 on the new
   tree: 06, 11, 03 and 53 rewrite their result files byte for byte; 07, 09
-  and 10 differ from the committed files in the 13th significant digit
-  (run-to-run floating-point noise in the bootstrap and optimizer paths)
-  and the committed files were kept. The registry census the paper quotes
+  and 10 differ from the committed files in the 13th significant digit.
+  Module 07 rerun with the code as it was before `d5e62968` gives the
+  same digits as with it, so the difference is between this machine and
+  the run that produced the committed files and does not come from this
+  pass. The committed files were kept. The registry census the paper quotes
   moves from 1,316 to 1,322 registered functions.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`

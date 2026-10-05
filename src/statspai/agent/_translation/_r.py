@@ -251,17 +251,62 @@ def _h_felm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     return _h_feols(pos, kw, _)  # delegate
 
 
+def _unread(
+    out: Dict[str, Any], kw: Dict[str, str], read: Tuple[str, ...]
+) -> Dict[str, Any]:
+    """Record R arguments the handler did not carry into the call.
+
+    An argument that changes the estimate (``subset``, ``offset``,
+    ``na.action``) must not vanish: it is listed in
+    ``untranslated_arguments`` with a note, the way ``sp.from_stata`` lists
+    ``untranslated_options``.
+    """
+    left = [k for k in kw if k not in read and k not in ("data", "__fn__")]
+    if left:
+        out["untranslated_arguments"] = left
+        hints = {
+            "subset": "filter the data frame first (data=df[...])",
+            "na.action": "StatsPAI drops incomplete rows, as na.omit does",
+            "offset": "sp.glm takes offset=<column>",
+            "weights": "compute the weights as a column and pass weights=<column>",
+        }
+        for k in left:
+            hint = hints.get(k)
+            out["notes"].append(
+                f"R argument `{k} = {kw[k]}` was not translated"
+                + (f"; {hint}." if hint else ".")
+            )
+    return out
+
+
+def _column(expr: Optional[str]) -> Optional[str]:
+    """A bare column name, or None for anything that is an R expression.
+
+    ``weights = w`` names a column and translates; ``weights =
+    as.numeric(w)`` or ``weights = 1 / p`` does not, and is then reported
+    as untranslated instead of being passed on as a column called
+    ``'1 / p'``.
+    """
+    if not expr:
+        return None
+    name = _strip_quotes(expr).strip()
+    return name if re.fullmatch(r"[A-Za-z.][A-Za-z0-9._]*", name) else None
+
+
 def _h_lm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     formula = pos[0] if pos else kw.get("formula")
     if not formula:
         return _emit_error("lm requires a formula as the first argument")
     formula = _strip_quotes(formula)
     args: Dict[str, Any] = {"formula": formula}
-    weights = kw.get("weights")
+    code = f"sp.regress({formula!r}, data=df"
+    read = ["formula"]
+    weights = _column(kw.get("weights"))
     if weights:
-        args["weights"] = _strip_quotes(weights)
-    code = f"sp.regress({formula!r}, data=df)"
-    return _emit("regress", args, code)
+        read.append("weights")
+        args["weights"] = weights
+        code += f", weights={weights!r}"
+    return _unread(_emit("regress", args, code + ")"), kw, tuple(read))
 
 
 def _h_did(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
@@ -299,31 +344,89 @@ def _h_did(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     return _emit("callaway_santanna", args, python)
 
 
+_R_FAMILY = re.compile(
+    r"""^(?:stats::)?(?P<name>[A-Za-z.]+)\s*
+        (?:\(\s*(?:link\s*=\s*)?(?P<link>["']?[A-Za-z]*["']?)\s*\))?$""",
+    re.VERBOSE,
+)
+_R_DEFAULT_LINK = {
+    "binomial": "logit",
+    "quasibinomial": "logit",
+    "poisson": "log",
+    "quasipoisson": "log",
+    "gaussian": "identity",
+    "gamma": "inverse",
+    "inverse.gaussian": "1/mu^2",
+}
+
+
 def _h_glm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
-    """R `glm(y ~ x, family=binomial, data=df)` → ``sp.glm`` (or sp.logit
-    / sp.probit / sp.poisson when the family resolves to one of those).
+    """R ``glm(y ~ x, family = binomial(), data = df)`` → ``sp.logit`` /
+    ``sp.probit`` / ``sp.poisson`` when the family and link resolve to one
+    of those, ``sp.glm`` otherwise.
+
+    The family is read the ways R accepts it: ``binomial``,
+    ``binomial()``, ``"binomial"``, ``binomial("probit")``,
+    ``binomial(link = "probit")``. ``quasibinomial`` and ``quasipoisson``
+    give the same coefficients as their parents and differ only in the
+    dispersion behind the standard errors, which a note says.
     """
     formula = pos[0] if pos else kw.get("formula")
     if not formula:
         return _emit_error("glm requires a formula as the first argument")
     formula = _strip_quotes(formula)
-    family = (
-        _strip_quotes(kw.get("family", "gaussian")) if kw.get("family") else "gaussian"
-    )
-    # Recognise common family/link combos so we can route to the
-    # specialised sp helper rather than the generic GLM.
-    fam_lower = family.lower().strip()
-    if "binomial" in fam_lower and ("logit" in fam_lower or fam_lower == "binomial"):
-        return _emit("logit", {"formula": formula}, f"sp.logit({formula!r}, data=df)")
-    if "binomial" in fam_lower and "probit" in fam_lower:
-        return _emit("probit", {"formula": formula}, f"sp.probit({formula!r}, data=df)")
-    if "poisson" in fam_lower:
-        return _emit(
-            "poisson", {"formula": formula}, f"sp.poisson({formula!r}, data=df)"
+    raw = _strip_quotes(kw["family"]).strip() if kw.get("family") else "gaussian"
+    m = _R_FAMILY.match(raw)
+    if m is None:
+        return _emit_error(
+            f"glm family {raw!r} was not understood", command="glm", family=raw
+        )
+    name = m.group("name").lower()
+    link = _strip_quotes(m.group("link") or "") or _R_DEFAULT_LINK.get(name)
+    notes: List[str] = []
+    quasi = name.startswith("quasi") and name != "quasi"
+    if quasi:
+        name = name[len("quasi") :]
+        notes.append(
+            f"quasi{name} has the coefficients of {name}; R scales its "
+            "standard errors by the estimated dispersion. Add "
+            "robust='hc1' for standard errors that do not assume the "
+            "variance function."
+        )
+    weights = _column(kw.get("weights"))
+    extra = f", weights={weights!r}" if weights else ""
+    read = ("formula", "family") + (("weights",) if weights else ())
+
+    def _out(tool: str, args: Dict[str, Any], code: str) -> Dict[str, Any]:
+        if weights:
+            args["weights"] = weights
+        return _unread(_emit(tool, args, code, notes), kw, read)
+
+    if name == "binomial" and link in ("logit", "probit"):
+        return _out(
+            link, {"formula": formula}, f"sp.{link}({formula!r}, data=df{extra})"
+        )
+    if name == "poisson" and link == "log":
+        return _out(
+            "poisson", {"formula": formula}, f"sp.poisson({formula!r}, data=df{extra})"
+        )
+    family = {"inverse.gaussian": "inverse_gaussian"}.get(name, name)
+    if family not in (
+        "gaussian",
+        "binomial",
+        "poisson",
+        "gamma",
+        "inverse_gaussian",
+    ):
+        return _emit_error(
+            f"glm family {raw!r} has no sp.glm counterpart", command="glm", family=raw
         )
     args: Dict[str, Any] = {"formula": formula, "family": family}
-    python = f"sp.glm({formula!r}, data=df, family={family!r})"
-    return _emit("glm", args, python)
+    code = f"sp.glm({formula!r}, data=df, family={family!r}"
+    if link and link != _R_DEFAULT_LINK.get(name):
+        args["link"] = link
+        code += f", link={link!r}"
+    return _out("glm", args, code + extra + ")")
 
 
 def _parse_lme4_formula(formula: str) -> Optional[Tuple[str, List[str], str]]:
@@ -443,45 +546,42 @@ def _h_plm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
 
 
 def _h_matchit(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
-    """R `MatchIt::matchit(treat ~ x1 + x2, data=df, method='nearest')` →
-    ``sp.match(data=df, y=..., treat=..., covariates=[...], method=...)``.
+    """R ``MatchIt::matchit(treat ~ x1 + x2, data = df)`` → ``sp.match``.
 
-    sp.match takes y / treat / covariates as required keyword args, not a
-    formula. The old emit (`sp.match('formula', data=df, method=...)`) hit a
-    multiple-values-for-data TypeError on every call. We parse the LHS/RHS,
-    surface a useful error if a variable is missing, and pass the new shape
-    to both ``arguments`` and ``python_code``.
+    The left-hand side of a ``matchit`` formula is the *treatment*;
+    ``matchit`` only builds the matched sample and never sees an outcome.
+    ``sp.match`` matches and estimates in one call, so it needs the outcome
+    column as well: the translation leaves ``y`` out, lists it under
+    ``missing_arguments`` and says so in a note. (Until 1.38.0 the
+    treatment was passed as the outcome too, which asked for the effect of
+    the treatment on itself.)
+
+    ``matchit`` matches without replacement and targets the ATT by
+    default; both are written out because ``sp.match`` matches with
+    replacement by default.
     """
     formula = pos[0] if pos else kw.get("formula")
     if not formula:
         return _emit_error("matchit requires a formula as the first argument")
-    parts = [s.strip() for s in formula.split("~", 1)]
+    parts = [s.strip() for s in _strip_quotes(formula).split("~", 1)]
     if len(parts) != 2:
         return _emit_error(
-            "matchit expects a two-sided formula `y ~ x1 + x2`", command="matchit"
+            "matchit expects a two-sided formula `treat ~ x1 + x2`", command="matchit"
         )
-    outcome, rhs = parts
+    treat, rhs = parts
     covariates = [c.strip() for c in rhs.split("+") if c.strip()]
-    if not outcome or not covariates:
+    if not treat or not covariates:
         return _emit_error(
-            "matchit formula must declare both the outcome (`y ~`) and at "
+            "matchit formula must declare the treatment (`treat ~`) and at "
             "least one covariate; got " + formula,
             command="matchit",
         )
-    # sp.match takes a separate treatment column — in matchit it is passed
-    # via `treat=` (default: same as the LHS when the user writes `trt ~ x`).
-    # The matchit spec lets users write any variable on the LHS and put the
-    # treatment in `treat=`, so we look for an explicit override.
-    treat = _strip_quotes(kw.get("treat", outcome))
     method = (
         _strip_quotes(kw.get("method", "nearest")).lower()
         if kw.get("method")
         else "nearest"
     )
     # Map MatchIt method names → sp.match's actual method names.
-    # Previous alias list ("nearest" -> "nn") was wrong: "nn" is not a valid
-    # sp.match method — the valid names are cardinality / cbps / cem / genetic /
-    # mahalanobis / nearest / optimal / subclass / full.
     method_alias = {
         "nearest": "nearest",
         "exact": "subclass",  # sp.match's exact-style falls under subclass
@@ -496,31 +596,48 @@ def _h_matchit(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, An
     }
     sp_method = method_alias.get(method, method)
     args: Dict[str, Any] = {
-        "y": outcome,
         "treat": treat,
         "covariates": covariates,
         "method": sp_method,
     }
-    notes: List[str] = []
+    notes: List[str] = [
+        "matchit() only matches; sp.match also estimates the effect and "
+        "needs the outcome column. Add y='<outcome>'."
+    ]
     if method != sp_method:
         notes.append(
             f"MatchIt method '{method}' mapped to sp.match method='{sp_method}'."
         )
+    read = ["formula", "method", "distance"]
+    if sp_method == "nearest":
+        read += ["replace", "ratio", "estimand"]
+        replace = _strip_quotes(kw.get("replace", "FALSE")).upper() in ("TRUE", "T")
+        args["replace"] = replace
+        ratio = _strip_quotes(kw.get("ratio", "1"))
+        if ratio.isdigit():
+            args["n_matches"] = int(ratio)
+        else:
+            read.remove("ratio")
+        estimand = _strip_quotes(kw.get("estimand", "ATT")).upper()
+        if estimand in ("ATT", "ATC", "ATE"):
+            args["estimand"] = estimand
+        else:
+            read.remove("estimand")
     distance = kw.get("distance")
     if distance:
         args["distance"] = _strip_quotes(distance)
         notes.append("sp.match('distance=...') may not apply to all methods.")
-    code_pairs = [
-        "data=df",
-        f"y={outcome!r}",
-        f"treat={treat!r}",
-        f"covariates={covariates!r}",
-        f"method={sp_method!r}",
-    ]
-    if "distance" in args:
-        code_pairs.append(f"distance={args['distance']!r}")
-    python = f"sp.match({', '.join(code_pairs)})"
-    return _emit("match", args, python, notes)
+    code_pairs = ["data=df"] + [f"{k}={v!r}" for k, v in args.items()]
+    out = _emit("match", args, f"sp.match({', '.join(code_pairs)})", notes)
+    out["missing_arguments"] = ["y"]
+    out = _unread(out, kw, tuple(read))
+    if "caliper" in kw:
+        out["notes"].append(
+            "MatchIt's caliper is in standard deviations of the distance "
+            "measure (std.caliper = TRUE); sp.match(caliper=) is on the raw "
+            "scale unless caliper_scale= says otherwise."
+        )
+    return out
 
 
 def _h_synth(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:

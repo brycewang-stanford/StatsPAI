@@ -30,6 +30,20 @@ guide is `docs/guides/causal_inference_in_r.md`.
   Stuart (2015). Weighted variance ratios now equal `cobalt` and `halfmoon`
   to 1e-10 (0.7794 before, 0.7938 after on the book's temperature
   variable). Weighted standardized differences move in the third decimal.
+- **`sp.from_r` translated four common calls of the book to something
+  else and reported `ok`.** `lm(..., weights = w)` kept the weights in
+  `arguments` and dropped them from `python_code`, so the code ran an
+  unweighted regression. `glm(..., family = binomial())`, the usual way to
+  write it, became `sp.glm(family='binomial()')`, which raises.
+  `matchit(treat ~ x)` passed the treatment as the outcome as well.
+  `subset =` and `offset =` disappeared without a note. Now the weights
+  reach the code, families are read in every spelling R accepts
+  (`binomial`, `binomial()`, `binomial("probit")`, `binomial(link =
+  "probit")`, `quasibinomial()` with a note on its standard errors),
+  `matchit` leaves `y` to the caller under `missing_arguments` and writes
+  out MatchIt's defaults (`replace=False`, `estimand='ATT'`), and any
+  argument that was not carried over is listed in
+  `untranslated_arguments`.
 - **`DAG.adjustment_sets(minimal=True)` could miss minimal sets.** The
   search stopped at the smallest size that had a valid set. For
   `W -> X; P -> W; Q -> W; P -> Y; Q -> Y; X -> Y` it returned `{W}` and

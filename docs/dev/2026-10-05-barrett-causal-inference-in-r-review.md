@@ -50,6 +50,20 @@ they are listed under "Not adopted" below.
 4. **`sp.contrast` on a frame with one level returned an empty table.** It
    now raises and points to `subset=`.
 
+5. **`sp.from_r` on the book's own calls.** Four translations returned
+   `ok` for a call that was not the R one. `lm(y ~ x, weights = w)` kept
+   `weights` in `arguments` but the emitted code was the unweighted
+   regression, and every outcome model of chapters 2, 11 and 14 is written
+   that way. `glm(..., family = binomial())` became
+   `sp.glm(family='binomial()')`, which raises; only the bare `binomial`
+   was recognised. `matchit(treat ~ x)` put the treatment in `y` as well,
+   because the handler read the left-hand side as an outcome. `subset =`,
+   `offset =` and an expression in `weights =` vanished. All four are
+   fixed, with the rule `sp.from_stata` already follows: an argument goes
+   into the call, or into `untranslated_arguments` with a note.
+   `avg_comparisons`, `weightit` and the `propensity` / `halfmoon` / `tipr`
+   functions are still unsupported R functions and say so.
+
 ## What was missing
 
 | chapter | the book uses | StatsPAI now |

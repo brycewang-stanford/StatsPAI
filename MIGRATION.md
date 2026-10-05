@@ -27,6 +27,12 @@ numbers, since they were not invariant to equal weights.
 because minimal sets larger than the smallest one are now included. Every
 set returned before is still returned.
 
+**`sp.from_r`.** The payload for `matchit(...)` no longer has `y` (it used
+to repeat the treatment there); it has `missing_arguments: ['y']`, and for
+`method = "nearest"` it now carries `replace`, `n_matches` and `estimand`.
+`lm` / `glm` payloads may carry `untranslated_arguments`. Code generated
+earlier from `lm(..., weights =)` ran unweighted; regenerate it.
+
 **`sp.contrast`** on a frame in which the variable takes a single value now
 raises. Pass the full data and `subset=` to average over a subpopulation.
 

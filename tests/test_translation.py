@@ -384,23 +384,24 @@ R_ROUND_TRIPS = [
         "panel",
         {"formula": "y ~ x", "entity": "id", "time": "t", "method": "random"},
     ),
-    # MatchIt — sp.match takes y (outcome) / treat / covariates (kw), not
-    # a formula. Translator uses the LHS as outcome and falls back to LHS
-    # as treatment if no ``treat=`` override is given.
+    # MatchIt — the LHS of a matchit formula is the treatment; matchit has
+    # no outcome, so ``y`` is left to the caller (``missing_arguments``).
     (
         'matchit(treat ~ x1 + x2, data = df, method = "nearest")',
         "match",
         {
-            "y": "treat",
             "treat": "treat",
             "covariates": ["x1", "x2"],
             "method": "nearest",
+            "replace": False,
+            "n_matches": 1,
+            "estimand": "ATT",
         },
     ),
     (
         'matchit(treat ~ x1, data = df, method = "genetic")',
         "match",
-        {"y": "treat", "treat": "treat", "covariates": ["x1"], "method": "genetic"},
+        {"treat": "treat", "covariates": ["x1"], "method": "genetic"},
     ),
 ]
 
@@ -2290,3 +2291,85 @@ class TestVarlistAbbreviations:
         a = sp.stata("regress y x*", data=df)
         b = sp.regress("y ~ x1 + x2", data=df)
         np.testing.assert_allclose(a.params.to_numpy(), b.params.to_numpy())
+
+
+# ---------------------------------------------------------------------------
+# R calls of "Causal Inference in R" (Barrett, D'Agostino McGowan, Gerke).
+# Before the October 2026 pass each of these translated "ok" to a call that
+# was not the R one.
+# ---------------------------------------------------------------------------
+
+
+def test_r_lm_weights_reach_the_code():
+    out = from_r("lm(y ~ x, data = d, weights = w_att)")
+    assert out["arguments"]["weights"] == "w_att"
+    assert out["python_code"] == "sp.regress('y ~ x', data=df, weights='w_att')"
+
+
+@pytest.mark.parametrize(
+    "family,tool",
+    [
+        ("binomial", "logit"),
+        ("binomial()", "logit"),
+        ('"binomial"', "logit"),
+        ("stats::binomial()", "logit"),
+        ('binomial("probit")', "probit"),
+        ('binomial(link = "probit")', "probit"),
+        ("poisson()", "poisson"),
+    ],
+)
+def test_r_glm_family_spellings(family, tool):
+    out = from_r(f"glm(y ~ x, data = d, family = {family})")
+    assert out["ok"] and out["tool"] == tool
+    assert out["python_code"] == f"sp.{tool}('y ~ x', data=df)"
+
+
+def test_r_glm_links_quasi_families_and_weights():
+    out = from_r('glm(y ~ x, data = d, family = Gamma(link = "log"))')
+    assert out["python_code"] == "sp.glm('y ~ x', data=df, family='gamma', link='log')"
+    out = from_r("glm(y ~ x, data = d, weights = w, family = quasibinomial())")
+    assert out["python_code"] == "sp.logit('y ~ x', data=df, weights='w')"
+    assert any("dispersion" in n for n in out["notes"])
+    out = from_r("glm(y ~ x, data = d, family = tweedie(1.5))")
+    assert out["ok"] is False
+
+
+def test_r_arguments_that_change_the_estimate_leave_a_trace():
+    out = from_r("lm(y ~ x, data = d, subset = z > 0)")
+    assert out["untranslated_arguments"] == ["subset"]
+    assert any("subset" in n for n in out["notes"])
+    # an expression is not a column name
+    out = from_r("glm(y ~ x, data = d, weights = as.numeric(w), family = binomial())")
+    assert out["untranslated_arguments"] == ["weights"]
+    assert "weights" not in out["arguments"]
+    assert "weights" not in out["python_code"]
+    out = from_r("glm(y ~ x, data = d, family = poisson, offset = log(n))")
+    assert out["untranslated_arguments"] == ["offset"]
+
+
+def test_r_matchit_left_hand_side_is_the_treatment():
+    out = from_r("matchit(t ~ z + w, data = d, ratio = 2, caliper = 0.2)")
+    args = out["arguments"]
+    assert "y" not in args and out["missing_arguments"] == ["y"]
+    assert args["treat"] == "t" and args["covariates"] == ["z", "w"]
+    # MatchIt's defaults, written out because sp.match's differ
+    assert args["replace"] is False and args["estimand"] == "ATT"
+    assert args["n_matches"] == 2
+    assert out["untranslated_arguments"] == ["caliper"]
+    assert "y=" not in out["python_code"]
+
+
+def test_r_translation_code_is_the_arguments():
+    """The emitted call carries every argument, and nothing else."""
+    for line in (
+        "lm(y ~ x, data = d, weights = w)",
+        "glm(y ~ x, data = d, weights = w, family = binomial())",
+        'glm(y ~ x, data = d, family = binomial(link = "cloglog"))',
+        "matchit(t ~ z, data = d, replace = TRUE)",
+    ):
+        out = from_r(line)
+        for key, value in out["arguments"].items():
+            if key == "formula":
+                assert repr(value) in out["python_code"]
+            else:
+                assert f"{key}={value!r}" in out["python_code"], (line, key)
