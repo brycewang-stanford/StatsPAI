@@ -31,6 +31,23 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — call traces re-recorded after the weight diagnostic reached logit, probit, glm and iv
+
+Commit `8cdfa8d8`. `sp.logit`, `sp.probit`, `sp.glm` and `sp.iv` now record
+the Kish effective sizes of a weighted fit and warn when the weights are
+dispersed. The edits are in `regression/logit_probit.py`,
+`regression/glm.py` and `regression/iv.py`, which Track A modules 02, 35,
+48, 57 and 59 and the original-data module 01 execute, so their source
+hashes in the traces changed.
+
+Effect on the paper: none. The six modules were run on the source before
+and after the change and their result files are identical; against the
+committed files they reproduce within 3e-11, inside the 1e-9
+reproducibility tolerance, and the committed files are kept.
+
+- `tests/r_parity/results/_implementation_trace.json`
+- `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-05 — call traces re-recorded after two error classes changed in `sp.fect` and `sp.interflex`
 
 Commit `2df681ff`. Four precondition errors (`method='ife'` without `r=`,
