@@ -161,6 +161,87 @@ def benjamini_hochberg(pvalues: PValueInput) -> np.ndarray:
     return result
 
 
+def _sorted_with_missing_as_one(p: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Order and sorted values, a missing p-value counting as 1.
+
+    A test that returned no p-value is still a member of the family. Putting
+    1 in its place keeps the family size and cannot lower any adjusted
+    p-value; the caller puts the NaN back afterwards.
+    """
+    filled = np.where(np.isnan(p), 1.0, p)
+    order = np.argsort(filled, kind="stable")
+    return order, filled[order]
+
+
+def _hochberg(pvalues: PValueInput) -> np.ndarray:
+    """Hochberg (1988) step-up: ``min_{j >= i} (S - j + 1) p_(j)``, capped at 1.
+
+    Uniformly at least as powerful as Holm; valid under independence or
+    positive dependence of the test statistics (the Simes inequality).
+    """
+    p = np.asarray(pvalues, dtype=float)
+    S = len(p)
+    order, sp_ = _sorted_with_missing_as_one(p)
+    adjusted = np.minimum(sp_ * (S - np.arange(S)), 1.0)
+    adjusted = np.minimum.accumulate(adjusted[::-1])[::-1]
+    out = np.empty(S)
+    out[order] = adjusted
+    out[np.isnan(p)] = np.nan
+    return out
+
+
+def _hommel(pvalues: PValueInput) -> np.ndarray:
+    """Hommel (1988), by the algorithm of Wright (1992).
+
+    The closed test built on Simes' global test: at least as powerful as
+    Hochberg, under the same condition.
+    """
+    p = np.asarray(pvalues, dtype=float)
+    S = len(p)
+    if S <= 1:
+        return p.copy()
+    order, sp_ = _sorted_with_missing_as_one(p)
+    ranks = np.arange(1, S + 1)
+    q = np.full(S, float(np.min(S * sp_ / ranks)))
+    adjusted = q.copy()
+    for m in range(S - 1, 1, -1):
+        head = S - m + 1  # the first `head` ordered p-values
+        tail_bound = float(np.min(m * sp_[head:] / np.arange(2, m + 1)))
+        q[:head] = np.minimum(m * sp_[:head], tail_bound)
+        q[head:] = q[head - 1]
+        adjusted = np.maximum(adjusted, q)
+    adjusted = np.minimum(np.maximum(adjusted, sp_), 1.0)
+    out = np.empty(S)
+    out[order] = adjusted
+    out[np.isnan(p)] = np.nan
+    return out
+
+
+def _benjamini_yekutieli(pvalues: PValueInput) -> np.ndarray:
+    """Benjamini-Yekutieli (2001): BH times ``sum_{i<=S} 1/i``.
+
+    Controls the false discovery rate under any dependence between the
+    tests, at the price of that harmonic factor.
+    """
+    p = np.asarray(pvalues, dtype=float)
+    S = len(p)
+    order, sp_ = _sorted_with_missing_as_one(p)
+    ranks = np.arange(1, S + 1)
+    harmonic = float(np.sum(1.0 / ranks))
+    adjusted = np.minimum(sp_ * S * harmonic / ranks, 1.0)
+    adjusted = np.minimum.accumulate(adjusted[::-1])[::-1]
+    out = np.empty(S)
+    out[order] = adjusted
+    out[np.isnan(p)] = np.nan
+    return out
+
+
+def _sidak(pvalues: PValueInput) -> np.ndarray:
+    """Sidak: ``1 - (1 - p)^S``, exact for independent tests."""
+    p = np.asarray(pvalues, dtype=float)
+    return np.asarray(-np.expm1(len(p) * np.log1p(-p)), dtype=float)
+
+
 # ──────────────────────────────────────────────────────────────────────
 # OLS helper (no external dependency)
 # ──────────────────────────────────────────────────────────────────────
@@ -762,8 +843,19 @@ def adjust_pvalues(
         Adjustment method.  One of:
 
         - ``'bonferroni'`` -- Bonferroni correction.
-        - ``'holm'`` -- Holm (1979) step-down.
+        - ``'sidak'`` -- ``1 - (1 - p)^S``, exact under independence.
+        - ``'holm'`` -- Holm (1979) step-down. Valid under any dependence.
+        - ``'hochberg'`` -- Hochberg (1988) step-up. More powerful than
+          Holm; needs independent or positively dependent tests.
+        - ``'hommel'`` -- Hommel (1988). More powerful than Hochberg, under
+          the same condition.
         - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR.
+        - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence.
+
+        These are the methods of R's ``p.adjust`` (plus Sidak), and return
+        the same numbers. A missing p-value stays missing and still counts
+        towards the size of the family, which is where this differs from
+        ``p.adjust``: R drops it from the count.
 
         For Romano-Wolf or Westfall-Young adjustments (which require
         the original data and bootstrap), use :func:`romano_wolf`
@@ -779,6 +871,14 @@ def adjust_pvalues(
     >>> import statspai as sp
     >>> sp.adjust_pvalues([0.01, 0.04, 0.03, 0.20], method='holm')
     array([0.04, 0.09, 0.09, 0.2 ])
+    >>> sp.adjust_pvalues([0.01, 0.04, 0.03, 0.20], method='hommel')
+    array([0.04, 0.08, 0.08, 0.2 ])
+
+    References
+    ----------
+    [@holm1979simple] [@hochberg1988sharper] [@hommel1988stagewise]
+    [@wright1992adjusted] [@benjamini1995controlling]
+    [@benjamini2001control]
     """
     _dispatch = {
         "bonferroni": bonferroni,
@@ -788,12 +888,19 @@ def adjust_pvalues(
         "fdr": benjamini_hochberg,
         "benjamini_hochberg": benjamini_hochberg,
         "benjamini-hochberg": benjamini_hochberg,
+        "hochberg": _hochberg,
+        "hommel": _hommel,
+        "by": _benjamini_yekutieli,
+        "benjamini_yekutieli": _benjamini_yekutieli,
+        "benjamini-yekutieli": _benjamini_yekutieli,
+        "sidak": _sidak,
     }
-    method_lower = method.lower()
+    method_lower = str(method).lower()
     if method_lower not in _dispatch:
+        available = ["bonferroni", "sidak", "holm", "hochberg", "hommel", "bh", "by"]
         raise ValueError(
             f"Unknown adjustment method '{method}'. "
-            f"Available: {sorted(set(_dispatch.values()), key=lambda f: f.__name__)}. "
+            f"Available: {available}. "
             f"For Romano-Wolf, use romano_wolf() directly."
         )
-    return _dispatch[method_lower](pvalues)
+    return np.asarray(_dispatch[method_lower](pvalues), dtype=float)

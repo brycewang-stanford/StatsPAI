@@ -4,6 +4,85 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### What an applied R causal-inference book found
+
+Das, *Causal Inference in R* (Packt), works through propensity scores,
+graphs, instruments, mediation, causal forests and causal discovery with
+MatchIt, dagitty, AER, mediation, grf, pcalg and bnlearn. Its 32 scripts
+were rerun in R 4.5 and each computation repeated with StatsPAI on the same
+data, with Stata 18 as a second reference where it has the command. Most
+of it reproduced to the last digit. What did not is below; notes are in
+`docs/dev/2026-10-06-das-causal-inference-in-r-review.md`.
+
+#### ⚠️ Correctness
+
+- **`CoxResult.ph_test()` was not the Grambsch-Therneau test.** It returned
+  `n * rho^2` with `rho` the Spearman correlation between time and the
+  unscaled Schoenfeld residuals. On the book's maintenance data that gave
+  0.14 where `survival::cox.zph` gives 1.03. It is now the score test of
+  `cox.zph` (survival 3.0 and later), with `transform='km'` by default and
+  `'rank'`, `'identity'`, `'log'` or a callable as alternatives, a `df`
+  column and a `GLOBAL` row. It agrees with `cox.zph` to 1e-6 under either
+  tie rule, with and without strata. `method='approx'` gives the 1994
+  approximation that Stata's `estat phtest` reports, and matches it for
+  all four time functions. The `ph_test` violation that `sp.cox` stores is
+  computed from the new statistic.
+- **The overdispersion test of `sp.poisson` could not detect
+  overdispersion.** The auxiliary regression had a constant in it and was
+  tested on the slope, which measures how the excess variance changes
+  with the mean. Counts with a Pearson dispersion of 12 passed with
+  p = 0.44. It is now the Cameron-Trivedi regression without intercept of
+  `((y - mu)^2 - y) / mu` on `mu`, the statistic of
+  `AER::dispersiontest(trafo = 2)` (3.9747 on those counts, in both).
+  `diagnostics` gains `'Dispersion (Pearson chi2 / df)'` and
+  `'Overdispersion alpha (C-T)'`.
+
+#### Added
+
+- **`sp.power_ttest`**: power, sample size or detectable difference of a
+  one-sample, two-sample or paired t test from the noncentral t
+  distribution. Give two of `n`, `delta` and `power`. Agrees with Stata's
+  `power onemean / twomeans / pairedmeans` to 1e-10 and with
+  `pwr::pwr.t.test` to its solver tolerance. `sp.power_rct` is the normal
+  approximation and is unchanged; with 15 per arm and an effect of one
+  standard deviation it reports 0.78 where the t test has 0.75.
+- **`sp.esize`**: Cohen's d, Hedges's g, Glass's Delta and the
+  point-biserial correlation for a difference between two group means,
+  with noncentral-t confidence intervals. Equal to Stata's
+  `esize twosample, all` to 1e-9, with and without `unequal`.
+- **`sp.cor_test`**: Pearson's correlation, or the partial correlation
+  given covariates, with its t test and Fisher-z interval (R `cor.test`,
+  `ggm::pcor.test`).
+- `sp.adjust_pvalues` gains `'hochberg'`, `'hommel'`, `'by'`
+  (Benjamini-Yekutieli) and `'sidak'`. With the existing three these are
+  the methods of R's `p.adjust`, to 2e-15.
+- `sp.iv` and `sp.ivreg` read the two-part formula of `AER::ivreg`,
+  `"y ~ x + d | x + z"`. A regressor missing from the instrument list is
+  endogenous.
+
+#### Changed
+
+- **`sp.match` warns when `ties='first'` chose among equally close
+  matches.** On the ECLS sample the book uses, three covariates give a
+  propensity score with 91 distinct values over 9,289 children. The
+  default kept the first control in data order for each, so 1,357 treated
+  children were matched to 52 controls and the ATT was -0.50 (SE 0.25).
+  With every tied control kept (`ties='all'`) it is -0.12 (SE 0.03). The
+  numbers are unchanged; the warning states how many units had ties and
+  how many controls the estimate rests on, and `model_info` carries
+  `n_units_with_tied_matches` and `n_tied_matches_left_out`.
+- The error for an unknown `sp.adjust_pvalues` method lists method names.
+  It listed function objects.
+- `docs/guides/migration-from-r.md`: the `AER::ivreg` row showed a call
+  that raises (`instruments=`), and the `pcalg::fci` row a dispatcher
+  method that is refused. Both corrected, and a section added for base-R
+  tests, `effsize`, `pwr`, `cox.zph` and `dispersiontest`.
+
+The same rerun found that `sp.pc_algorithm` drops edges `pcalg::pc` keeps.
+A parallel pass (Ness, *Causal AI*) reached that function first and carries
+the fix; this one leaves `causal_discovery/` and `dag/` alone. The notes
+record a 24-case `pcalg` comparison for whoever closes it.
+
 ### What a Python econometrics textbook found
 
 Dogan's *Introduction to Econometrics with Python* follows Stock & Watson

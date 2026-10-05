@@ -271,9 +271,11 @@ from .inference import (
     ci,
     cluster_robust_se,
     conley,
+    cor_test,
     cr2_se,
     cr3_jackknife_vcov,
     difference_in_means,
+    esize,
     fisher_exact,
     front_door,
     g_computation,
@@ -927,6 +929,7 @@ from .power import (
     power_ols,
     power_rct,
     power_rd,
+    power_ttest,
     power_two_proportions,
 )
 
@@ -1664,6 +1667,8 @@ __all__ = [
     "signrank",
     "kwallis",
     "spearman",
+    "cor_test",
+    "esize",
     "ktau",
     "ksmirnov",
     "median_test",
@@ -1857,6 +1862,7 @@ __all__ = [
     "power_ols",
     "mde",
     "power_two_proportions",
+    "power_ttest",
     "power_logrank",
     "power_case_control",
     # Decomposition

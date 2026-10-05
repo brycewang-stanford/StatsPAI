@@ -106,7 +106,8 @@ report = sp.cs_report(data, y="y", t="t", g="g", i="id",
 
 | R                                              | StatsPAI                                              |
 | ---------------------------------------------- | ----------------------------------------------------- |
-| `AER::ivreg(y ~ x \| z, data = df)`            | `sp.ivreg("y ~ x", instruments=["z"], data=df)`       |
+| `AER::ivreg(y ~ x + d \| x + z, data = df)`    | `sp.ivreg("y ~ x + d \| x + z", data=df)` (the same two-part formula), or `sp.ivreg("y ~ x + (d ~ z)", data=df)` |
+| `summary(iv, diagnostics = TRUE)`              | printed by `.summary()`: first-stage F, Wu-Hausman, Sargan |
 | `ivmodel::LIML(...)`                           | `sp.liml(...)`                                        |
 | `ivmodel::JIVE(...)`                           | `sp.jive(...)`                                        |
 | `hdm::rlassoIV(...)`                           | `sp.lasso_iv(...)`                                    |
@@ -167,10 +168,28 @@ from statspai import SLearner, TLearner, XLearner, RLearner, DRLearner
 | `bounds::bounds(...)` (manual)         | `sp.manski_bounds(...)`, `sp.lee_bounds(...)`       |
 | `EValue::evalues.OR(...)`              | `sp.evalue(...)`                                    |
 | `pcalg::pc(suffStat, ...)`             | `sp.pc_algorithm(data)`                             |
-| `pcalg::fci(...)`                      | `sp.causal_discovery(data, method="fci")`           |
+| `pcalg::fci(...)`                      | `sp.fci(data)`                                      |
 | — (NOTEARS: Python only historically)  | `sp.notears(data)`                                  |
 | `policytree::policy_tree(...)`         | `sp.policy_tree(...)`                               |
 | —                                      | `sp.conformal_cate(...)` — conformal CATE           |
+
+---
+
+## Tests, Effect Sizes, Power (`stats`, `effsize`, `pwr`, `survival`, `AER`)
+
+| R                                              | StatsPAI                                              |
+| ---------------------------------------------- | ----------------------------------------------------- |
+| `t.test(y ~ g, data = df)` (Welch)             | `sp.ttest(df, "y", by="g", unequal=True)`. `welch=True` is Stata's Welch formula, a different approximation |
+| `t.test(x, y, paired = TRUE)`                  | `sp.ttest(df, "x", other="y", paired=True)`           |
+| `var.test(y ~ g)`, `shapiro.test(y)`           | `sp.sdtest(df, "y", by="g")`, `sp.swilk(df, ["y"])`   |
+| `cor.test(x, y)`, `ggm::pcor.test(...)`        | `sp.cor_test(df, "x", "y")`, `sp.cor_test(df, "x", "y", covariates=["z"])` |
+| `p.adjust(p, "hommel")`                        | `sp.adjust_pvalues(p, method="hommel")`; also `holm`, `hochberg`, `bonferroni`, `bh`, `by` |
+| `effsize::cohen.d(y ~ g)`                      | `sp.esize(df, "y", by="g")`: d, Hedges's g, Glass's Delta, noncentral-t intervals |
+| `pwr::pwr.t.test(d = 0.5, power = 0.8)`        | `sp.power_ttest(delta=0.5, power=0.8)`. `n` is the total over both groups; `params["n_exact"] / 2` is pwr's per-group figure |
+| `survival::cox.zph(fit)`                       | `sp.cox(...).ph_test()`; `transform=` as in `cox.zph` |
+| `AER::dispersiontest(fit, trafo = 2)`          | `sp.poisson(...).diagnostics["Overdispersion test (C-T)"]` |
+| `rbounds::psens(x, y, Gamma = 2)`              | `sp.rosenbaum_bounds(x, y, gamma_grid=[1, 1.5, 2])`   |
+| `MatchIt::matchit(method = "subclass")`        | `sp.match(df, y=, treat=, covariates=, method="stratify", n_strata=6)` |
 
 ---
 

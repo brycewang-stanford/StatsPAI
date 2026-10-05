@@ -1310,7 +1310,7 @@ class IVRegression(BaseModel):
         if data is not None:
             data = _require_dataframe(data, "data")
         method = _require_string(method, "method")
-        self.formula = formula
+        self.formula = _two_part_to_block_formula(formula)
         self.data = data
         self.method = method.lower()
         self.fuller_alpha = fuller_alpha
@@ -2553,6 +2553,70 @@ def _safe_term_name(name: str) -> str:
 _IV_BRACKET_BLOCK = re.compile(r"\[([^\[\]]*~[^\[\]]*)\]")
 
 
+def _two_part_to_block_formula(formula: Any) -> Any:
+    """Rewrite R's two-part IV formula as the block form.
+
+    ``y ~ x1 + d | x1 + z`` is how ``AER::ivreg`` and ``ivreg::ivreg`` write
+    an IV model: regressors before the bar, the full instrument list after
+    it. A regressor missing from the instrument list is endogenous; an
+    instrument missing from the regressors is excluded; what appears on
+    both sides is exogenous. That reading is unambiguous, so the formula is
+    rewritten as ``y ~ x1 + (d ~ z)``. Any other use of ``|`` is left for
+    the parser to judge.
+    """
+    if not isinstance(formula, str) or formula.count("|") != 1:
+        return formula
+    if "~" not in formula or re.search(r"[(\[][^()\[\]]*~", formula):
+        return formula
+    left, right = formula.split("|")
+    dep, rhs = left.split("~", 1)
+    if "~" in right:
+        return formula
+
+    def _terms(text: str) -> List[str]:
+        text = re.sub(r"(?<!^)\s*-\s*(?=[01](?:\b|$))", "+ -", text.strip())
+        return [re.sub(r"\s+", " ", t) for t in _top_level_terms(text)]
+
+    regs, insts = _terms(rhs), _terms(right)
+    if "." in regs or "." in insts or any(t.startswith(". ") for t in insts):
+        raise MethodIncompatibility(
+            "The '.' shorthand of a two-part IV formula is not supported.",
+            recovery_hint=(
+                "List the instruments in full after the bar, or write the "
+                'model as "y ~ exog + (endog ~ instruments)".'
+            ),
+            diagnostics={"formula": formula},
+        )
+    constants = {"1", "0", "-1", "-0"}
+    inst_set = set(insts)
+    endog = [t for t in regs if t not in inst_set and t not in constants]
+    excluded = [t for t in insts if t not in set(regs) and t not in constants]
+    exog = [t for t in regs if t in inst_set or t in constants]
+    if not endog or not excluded:
+        raise MethodIncompatibility(
+            "The two-part IV formula has "
+            + (
+                "no endogenous regressor: every regressor is also in the "
+                "instrument list."
+                if not endog
+                else "no excluded instrument: every instrument is also a " "regressor."
+            ),
+            recovery_hint=(
+                'In "y ~ regressors | instruments" the endogenous variables '
+                "are the regressors left out of the instrument list, and the "
+                "instruments that are not regressors identify them."
+            ),
+            diagnostics={"formula": formula, "regressors": regs, "instruments": insts},
+        )
+    block = f"({' + '.join(endog)} ~ {' + '.join(excluded)})"
+    parts = [t for t in exog if not t.startswith("-")] + [block]
+    out = f"{dep.strip()} ~ {' + '.join(parts)}"
+    for t in exog:
+        if t.startswith("-"):
+            out += f" - {t[1:]}"
+    return out
+
+
 def _materialise_formula_terms(
     formula: str, data: pd.DataFrame
 ) -> Tuple[str, pd.DataFrame]:
@@ -2571,6 +2635,7 @@ def _materialise_formula_terms(
     # ``y ~ 1 + [endog ~ z] + exog`` is the linearmodels spelling of the
     # same model; read the bracketed block as the parenthesised one.
     formula = _IV_BRACKET_BLOCK.sub(r"(\1)", formula)
+    formula = _two_part_to_block_formula(formula)
     if "|" in formula or "~" not in formula:
         return formula, data
     dep, rhs = formula.split("~", 1)
@@ -2857,6 +2922,12 @@ def iv(
         - Variables in parentheses before ``~``: endogenous regressors
         - Variables in parentheses after ``~``: excluded instruments
         - Variables outside parentheses: exogenous controls
+
+        The two-part formula of R's ``AER::ivreg`` is read as well:
+        ``"y ~ exog + endog | exog + z1 + z2"`` lists the regressors before
+        the bar and every instrument after it, so a regressor missing from
+        the second list is endogenous. Fixed effects go in ``absorb=``, not
+        after a bar.
     data : pd.DataFrame
         Data containing all variables.
     method : str, default '2sls'
@@ -3086,7 +3157,9 @@ def ivreg(
     Parameters
     ----------
     formula : str
-        IV formula: ``"y ~ (endog ~ z1 + z2) + exog1 + exog2"``
+        IV formula: ``"y ~ (endog ~ z1 + z2) + exog1 + exog2"``, or the
+        two-part form of R's ``AER::ivreg``,
+        ``"y ~ exog1 + endog | exog1 + z1 + z2"``.
     data : pd.DataFrame
     robust : str, default 'nonrobust'
     cluster : str, optional

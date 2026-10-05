@@ -2249,6 +2249,48 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Regenerate via _generate_power_R.R."
         ),
     },
+    "power_ttest": {
+        "status": "bit-exact",
+        "reference": "Stata 18 MP power onemean / twomeans / pairedmeans; "
+        "R pwr::pwr.t.test",
+        "provenance": (
+            "Stata 18 MP r(power), r(delta) and r(N) captured live on 2026-10-06 "
+            "for the calls listed in the test docstring, and pwr 1.3-0 fractional "
+            "sample sizes from R 4.5.2; values embedded as constants."
+        ),
+        "reference_versions": {"Stata": "18 MP", "R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "power / delta 1e-8 rel vs Stata (observed <= 1e-11); "
+        "fractional n 1e-6 rel vs pwr (its uniroot tolerance)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_effect_size_power_ttest_parity.py",
+        ],
+        "note": (
+            "Noncentral-t power of the one-sample, two-sample and paired t "
+            "test: power, detectable difference and rounded sample sizes equal "
+            "Stata's power commands; the unrounded sample size equals pwr.t.test."
+        ),
+    },
+    "esize": {
+        "status": "bit-exact",
+        "reference": "Stata 18 MP esize twosample, all (with and without unequal)",
+        "provenance": (
+            "Stata 18 MP r() scalars captured live on 2026-10-06 on the 400-row "
+            "car-sales sample that the test rebuilds from its frequency table; "
+            "values embedded as constants."
+        ),
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": "estimates and interval limits 1e-8 rel (observed <= 1e-12)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_effect_size_power_ttest_parity.py",
+        ],
+        "note": (
+            "Cohen's d, Hedges's g, Glass's Delta 1 and 2 and the point-biserial "
+            "correlation with noncentral-t intervals equal Stata esize twosample "
+            "at 95% with pooled degrees of freedom and at 90% with Satterthwaite's."
+        ),
+    },
     "mde": {
         "status": "bit-exact",
         "reference": "base-R closed form (RCT minimum detectable effect)",

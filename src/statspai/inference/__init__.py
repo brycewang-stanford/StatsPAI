@@ -12,6 +12,7 @@ from .bitest import BiTestResult, bitest
 from .bootstrap import BootstrapResult, bootstrap
 from .conley import conley
 from .difference_in_means import difference_in_means
+from .effect_size import cor_test, esize
 from .front_door import front_door
 from .g_computation import g_computation
 from .ipw import ipw
@@ -83,6 +84,8 @@ __all__ = [
     "signrank",
     "kwallis",
     "spearman",
+    "cor_test",
+    "esize",
     "ktau",
     "ksmirnov",
     "median_test",

@@ -8238,6 +8238,134 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="cor_test",
+            category="inference",
+            description=(
+                "Pearson's correlation, or the partial correlation given "
+                "covariates, with its t test and Fisher-z confidence interval "
+                "(R cor.test and ggm::pcor.test; the significance level of "
+                "Stata pwcorr, sig). A zero partial correlation is what a "
+                "causal graph implies for two d-separated nodes under "
+                "linearity. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("x", "str", True, None, "First variable"),
+                ParamSpec("y", "str", True, None, "Second variable"),
+                ParamSpec("covariates", "list", False, None, "Columns to partial out"),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="ClassicTestResult",
+            example='sp.cor_test(df, "income", "frugality", covariates=["spending"])',
+            tags=["inference", "correlation", "partial correlation", "r", "dag"],
+            assumptions=[
+                "Linear association: the correlation measures only that",
+                "Joint normality for the t test and the Fisher-z interval to be "
+                "exact; both are large-sample approximations otherwise",
+                "Independent observations",
+            ],
+            alternatives=["spearman", "ktau", "pwcorr", "dag"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="esize",
+            category="inference",
+            description=(
+                "Standardised effect sizes of a difference between two group "
+                "means: Cohen's d, Hedges's g (exact small-sample correction), "
+                "Glass's Delta for either group and the point-biserial "
+                "correlation, with confidence intervals from the noncentral t "
+                "distribution (Stata esize twosample, R effsize::cohen.d with "
+                "noncentral = TRUE). "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("y", "str", True, None, "Outcome"),
+                ParamSpec("by", "str", True, None, "Column with two groups"),
+                ParamSpec(
+                    "unequal",
+                    "bool",
+                    False,
+                    False,
+                    "Satterthwaite degrees of freedom for the intervals",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="ClassicTestResult",
+            example='sp.esize(df, "cars_sold", by="strategy")',
+            tags=["inference", "effect size", "cohen", "hedges", "stata", "rct"],
+            assumptions=[
+                "Independent observations in two groups",
+                "Normal outcome within each group for the noncentral-t "
+                "intervals to be exact",
+                "Cohen's d and Hedges's g take the two groups to share a "
+                "variance; Glass's Delta does not",
+            ],
+            alternatives=["ttest", "power_ttest", "balance_table"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="power_ttest",
+            category="power",
+            description=(
+                "Power, sample size or detectable difference of a one-sample, "
+                "two-sample or paired t test, from the noncentral t "
+                "distribution (Stata power onemean / twomeans / pairedmeans, R "
+                "pwr.t.test). Give two of n, delta and power. sp.power_rct is "
+                "the normal approximation, which overstates power in small "
+                "samples. "
+            ),
+            params=[
+                ParamSpec(
+                    "n",
+                    "float",
+                    False,
+                    None,
+                    "Total sample size (both groups), observations, or pairs",
+                ),
+                ParamSpec(
+                    "delta", "float", False, None, "Difference to detect, outcome units"
+                ),
+                ParamSpec("power", "float", False, None, "Target power"),
+                ParamSpec("sd", "float", False, 1.0, "Outcome standard deviation"),
+                ParamSpec("alpha", "float", False, 0.05, "Significance level"),
+                ParamSpec(
+                    "type",
+                    "str",
+                    False,
+                    "two-sample",
+                    "Kind of t test",
+                    ["two-sample", "one-sample", "paired"],
+                ),
+                ParamSpec(
+                    "alternative",
+                    "str",
+                    False,
+                    "two-sided",
+                    "Alternative hypothesis",
+                    ["two-sided", "greater", "less"],
+                ),
+                ParamSpec("ratio", "float", False, 1.0, "n2 / n1 (two-sample)"),
+            ],
+            returns="PowerResult",
+            example="sp.power_ttest(delta=0.5, power=0.8)",
+            tags=["power", "sample size", "t test", "stata", "pwr", "rct"],
+            assumptions=[
+                "Normal outcome with a variance common to the two groups",
+                "The difference to detect and the standard deviation are "
+                "inputs: power is only as credible as those guesses",
+                "Independent observations (pairs, for the paired test)",
+            ],
+            alternatives=["power_rct", "mde", "power_cluster_rct", "esize"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="ktau",
             category="inference",
             description=(

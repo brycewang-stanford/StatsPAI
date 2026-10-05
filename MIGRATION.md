@@ -5,6 +5,29 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `CoxResult.ph_test()` and the Poisson overdispersion test
+
+**What changed.**
+
+- `CoxResult.ph_test()` returns the Grambsch-Therneau score test. The
+  `chi2` and `p_value` columns change, a `df` column and a `GLOBAL` row are
+  added, and `rho` is the correlation of the scaled Schoenfeld residuals
+  with the time function instead of a Spearman correlation with time.
+  `fit.model_info['ph_test']` and the proportional-hazards violation that
+  `fit.violations()` reports follow the new p-values.
+- `sp.poisson(...).diagnostics['Overdispersion test (C-T)']` and
+  `'Overdispersion p-value'` change. The statistic is now the
+  Cameron-Trivedi t ratio against the NB2 alternative.
+
+**Who is affected.** Anyone who reported a proportional-hazards test from
+`ph_test()`, or relied on the Poisson overdispersion flag to clear a model.
+
+**What to do.** Re-run. Code that takes the row with the smallest p-value
+from `ph_test()` should drop the `GLOBAL` row first, or use it. There is no
+switch for the earlier numbers: neither was the statistic it was named
+after. `ph_test(method='approx', transform='identity')` reproduces
+Stata's `estat phtest`.
+
 ## 1.38.0 → next: `sp.ivreg` / `sp.iv` name formula terms as `sp.regress` does
 
 **What changed.** A transformed, categorical or interacted term in an IV

@@ -1209,6 +1209,7 @@ class MatchEstimator:
             # width, or an exhausted control pool -- and saying so is the
             # difference between a documented restriction and a silent one.
             self._warn_incomplete_treated_coverage(a, model_info)
+            self._warn_arbitrary_ties(a, model_info)
 
             # Resolve and (optionally) override the SE with the digit-exact
             # Stata psmatch2 analytic / Abadie-Imbens robust standard error.
@@ -1303,6 +1304,7 @@ class MatchEstimator:
             )
             model_info["matched_frame_estimand"] = "ATE"
             model_info["matched_frame_weight_kind"] = "ate_signed"
+            self._warn_arbitrary_ties(a, model_info)
             model_info["matched_data_note"] = (
                 "estimand='ATE' matches both arms, so _weight is the "
                 "Abadie-Imbens (2006) weight 1 + K_M(i) and enters the "
@@ -1506,6 +1508,7 @@ class MatchEstimator:
         # measure, so both matching directions use the same width.
         self._pscore_cache = pscore
         caliper = self._resolve_caliper(pscore)
+        self._tie_stats = {"targets": 0, "left_out": 0}
 
         if self.estimand == "ATT":
             matches, weights = self._nn_match_from_dist(
@@ -1658,6 +1661,51 @@ class MatchEstimator:
             + cause
             + " The reported effect is an ATT over the matched subset, which "
             "is selected non-randomly.",
+            UserWarning,
+            stacklevel=3,
+        )
+
+    def _warn_arbitrary_ties(
+        self,
+        assignment: dict[str, Any],
+        model_info: dict[str, Any],
+    ) -> None:
+        """Warn when ``ties='first'`` chose among equally close matches.
+
+        With discrete covariates, or a propensity score that takes few
+        distinct values, many units sit at exactly the same distance. The
+        default keeps the one that comes first in the data, so the estimate
+        is a function of the row order and every unit with that score is
+        matched to the same partner. Nothing in the returned number shows
+        it; the count does.
+        """
+        stats = getattr(self, "_tie_stats", None)
+        if not stats or self.ties != "first" or not self.replace:
+            return
+        n_tied = int(stats["targets"])
+        model_info["n_units_with_tied_matches"] = n_tied
+        model_info["n_tied_matches_left_out"] = int(stats["left_out"])
+        if n_tied == 0:
+            return
+        n_target = len(assignment["idx_t"])
+        if self.estimand != "ATT":
+            n_target += len(assignment["idx_c"])
+        used = {int(j) for m in assignment["matches"] for j in np.asarray(m)}
+        warnings.warn(
+            f"sp.match: {n_tied} of {n_target} matched units "
+            f"({100.0 * n_tied / max(n_target, 1):.0f}%) had more equally "
+            f"close matches than the n_matches={self.n_matches} requested; "
+            f"ties='first' kept the first in data order and left out "
+            f"{stats['left_out']} tied candidates"
+            + (
+                f", so the ATT rests on {len(used)} distinct control units"
+                if self.estimand == "ATT"
+                else ""
+            )
+            + ". The estimate therefore depends on the order of the rows. "
+            "Pass ties='all' to average over every tied match (what Stata "
+            "`teffects` and R `Matching::Match` do), or match on a distance "
+            "that separates the units.",
             UserWarning,
             stacklevel=3,
         )
@@ -2770,8 +2818,14 @@ class MatchEstimator:
                 continue
 
             idx = _nearest_indices(d, k)
+            with_ties = self._extend_with_ties(d, idx)
             if self.ties == "all":
-                idx = self._extend_with_ties(d, idx)
+                idx = with_ties
+            elif with_ties.size > idx.size:
+                # ties='first' kept the lowest-index unit(s) and left out
+                # others at exactly the same distance.
+                self._tie_stats["targets"] += 1
+                self._tie_stats["left_out"] += int(with_ties.size - idx.size)
             matches[i] = idx
             weights[i] = np.ones(len(idx), dtype=float) / len(idx)
 

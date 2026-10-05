@@ -1201,25 +1201,40 @@ def _ppml_hdfe_irls(
 # ---------------------------------------------------------------------------
 
 
-def _overdispersion_test(y: np.ndarray, mu: np.ndarray) -> Tuple[float, float]:
+def _overdispersion_test(
+    y: np.ndarray, mu: np.ndarray, df_resid: Optional[int] = None
+) -> Tuple[float, float, float]:
     """
-    Cameron-Trivedi (1990) test for overdispersion.
+    Cameron-Trivedi regression-based test for overdispersion.
 
-    Regresses (y - mu)^2 - y on mu. Under H0 (equidispersion) the coefficient
-    on mu is zero.
+    Against ``Var(y | x) = mu + alpha * mu^2`` (the NB2 alternative) the
+    test is the t statistic on ``mu`` in the regression **without
+    intercept** of ``((y - mu)^2 - y) / mu`` on ``mu``; the coefficient
+    estimates ``alpha`` [@cameron2013regression]. It is the statistic of
+    ``AER::dispersiontest(trafo = 2)`` in R. The p-value is two-sided, from
+    the t distribution with ``n - 1`` degrees of freedom, as an OLS fit of
+    that regression reports it; ``dispersiontest`` gives the one-sided
+    normal p-value by default.
 
-    Returns (test_stat, p_value).
+    Before 1.39 the regression was of ``(y - mu)^2 - y`` on a constant and
+    ``mu``, tested on the slope. With the constant in, the slope picks up
+    only how the excess variance *changes* with the mean: counts with a
+    Pearson dispersion of 12 passed with p = 0.44.
+
+    Returns (t statistic, p-value, alpha).
     """
-    dep = (y - mu) ** 2 - y
-    X_test = np.column_stack([np.ones_like(mu), mu])
-    beta_test = np.linalg.lstsq(X_test, dep, rcond=None)[0]
-    resid_test = dep - X_test @ beta_test
-    se_test = np.sqrt(
-        np.sum(resid_test**2) / (len(y) - 2) * np.linalg.inv(X_test.T @ X_test)[1, 1]
-    )
-    t_stat = beta_test[1] / se_test
-    p_val = 2 * stats.t.sf(abs(t_stat), len(y) - 2)
-    return float(t_stat), float(p_val)
+    aux = ((y - mu) ** 2 - y) / mu
+    sxx = float(mu @ mu)
+    alpha_hat = float(mu @ aux) / sxx
+    resid = aux - alpha_hat * mu
+    n = len(y)
+    s2 = float(resid @ resid) / (n - 1)
+    se = np.sqrt(s2 / sxx)
+    if not np.isfinite(se) or se <= 0:
+        return float("nan"), float("nan"), alpha_hat
+    t_stat = alpha_hat / se
+    p_val = 2 * stats.t.sf(abs(t_stat), n - 1)
+    return float(t_stat), float(p_val), alpha_hat
 
 
 # ===========================================================================
@@ -1380,7 +1395,7 @@ def poisson(
     pearson_chi2 = np.sum((y_arr - mu) ** 2 / mu)
 
     # Overdispersion test
-    od_stat, od_pval = _overdispersion_test(y_arr, mu)
+    od_stat, od_pval, od_alpha = _overdispersion_test(y_arr, mu)
 
     # IRR transform
     if irr:
@@ -1470,8 +1485,13 @@ def poisson(
         "BIC": bic,
         "Deviance": deviance,
         "Pearson chi2": pearson_chi2,
+        # Pearson chi2 over the residual degrees of freedom: 1 for a
+        # Poisson, and the `dispersion` a quasi-Poisson fit would report.
+        "Dispersion (Pearson chi2 / df)": float(pearson_chi2)
+        / max(len(y_arr) - len(beta), 1),
         "Overdispersion test (C-T)": od_stat,
         "Overdispersion p-value": od_pval,
+        "Overdispersion alpha (C-T)": od_alpha,
     }
 
     model_info["alpha"] = alpha

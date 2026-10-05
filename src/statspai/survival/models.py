@@ -17,6 +17,7 @@ from scipy import optimize, stats
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # ---------------------------------------------------------------------------
 # Formula parser (local)
@@ -150,43 +151,166 @@ class CoxResult(EconometricResults):
         return self._baseline_hazard_df.copy()
 
     # -- PH test (Schoenfeld residuals) ------------------------------------
-    def ph_test(self) -> pd.DataFrame:
+    def ph_test(self, transform: Any = "km", method: str = "score") -> pd.DataFrame:
         """
-        Test the proportional hazards assumption via Schoenfeld residuals.
+        Test the proportional hazards assumption (Grambsch and Therneau).
 
-        Computes the correlation of scaled Schoenfeld residuals with time
-        for each covariate and reports a chi-squared test.
+        For each covariate the model is embedded in one whose coefficient
+        varies with time, ``beta_j(t) = beta_j + theta_j * g(t)``, and
+        ``theta_j = 0`` is tested by a score test at the fitted model; the
+        ``GLOBAL`` row tests all the ``theta_j`` jointly. No larger model
+        is fitted. This is the test of ``survival::cox.zph`` in R (version
+        3.0 and later), and the statistics agree with it under either tie
+        rule and with strata.
+
+        Parameters
+        ----------
+        transform : {'km', 'rank', 'identity', 'log'} or callable
+            The function of time ``g``. ``'km'`` (default, as in
+            ``cox.zph``) is one minus the left-continuous Kaplan-Meier
+            estimate of the pooled sample, which spreads the event times
+            evenly and keeps a few late events from dominating;
+            ``'identity'`` is time itself (the default of Stata
+            ``estat phtest``); ``'rank'`` is the rank of the time among all
+            observations (among the failures under ``method='approx'``, as
+            in Stata); ``'log'`` needs positive times. A callable is
+            applied to the array of event times.
+        method : {'score', 'approx'}, default 'score'
+            ``'score'`` is the score test described above. ``'approx'`` is
+            the approximation of Grambsch and Therneau (1994) that Stata
+            ``estat phtest`` and versions of ``survival`` before 3.0 report:
+            it replaces the information matrix at each event time by the
+            average over event times, which turns the test into a
+            regression of the scaled Schoenfeld residuals on ``g(t)``. With
+            ``transform='identity'`` it reproduces ``estat phtest``, and
+            with the other three its ``km``, ``rank`` and ``log`` options.
 
         Returns
         -------
         pd.DataFrame
-            Columns: ``variable``, ``rho``, ``chi2``, ``p_value``.
+            One row per covariate and a final ``GLOBAL`` row, with columns
+            ``variable``, ``rho`` (correlation of the scaled Schoenfeld
+            residuals with ``g(t)``; missing for ``GLOBAL``), ``chi2``,
+            ``df`` and ``p_value``.
+
+        Notes
+        -----
+        The two methods differ most when the covariate distribution of the
+        risk set changes over time, which is when the average information
+        matrix is a poor stand-in for each event time's own.
+
+        Before 1.39 this method returned ``n * rho^2`` with ``rho`` the
+        Spearman correlation between time and the unscaled residuals. That
+        number is not the Grambsch-Therneau statistic and was several times
+        too small in places.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> n = 400
+        >>> x = rng.binomial(1, 0.5, n)
+        >>> t = rng.exponential(1.0, n) ** np.where(x == 1, 2.0, 1.0)
+        >>> df = pd.DataFrame({"t": t, "d": 1, "x": x})
+        >>> fit = sp.cox(data=df, duration="t", event="d", x=["x"])
+        >>> bool(fit.ph_test().loc[0, "p_value"] < 0.01)
+        True
+
+        References
+        ----------
+        [@grambsch1994proportional]
         """
-        if self._schoenfeld_resid is None:
-            raise RuntimeError("Schoenfeld residuals not stored (strata model).")
-
-        resid = self._schoenfeld_resid  # (n_events, p)
-        times = self._durations[self._events == 1]
-        # sort by time
-        order = np.argsort(times)
-        times = times[order]
-        resid = resid[order]
-
-        n = resid.shape[0]
+        beta = np.asarray(self.params.values, dtype=float)
+        X = np.asarray(self._X, dtype=float)
+        T = np.asarray(self._durations, dtype=float)
+        E = np.asarray(self._events)
+        strata = self._strata
+        if strata is None:
+            strata = np.zeros(len(T), dtype=int)
+        breslow = str(self.model_info.get("ties", "efron")).lower() == "breslow"
         names = list(self.params.index)
+        p = len(names)
+
+        times, U_k, V_k, resid_t, resid = _ph_score_pieces(
+            beta, X, T, E, np.asarray(strata), breslow
+        )
+        if len(times) < 2:
+            raise DataInsufficient(
+                "ph_test needs at least two distinct event times.",
+            )
+        method = str(method).lower()
+        if method not in ("score", "approx"):
+            raise MethodIncompatibility(
+                f"ph_test: method must be 'score' or 'approx', got {method!r}",
+                recovery_hint="Use method='score' (cox.zph) or 'approx' (Stata).",
+            )
+        ev_only = method == "approx"
+        g_k = _ph_time_transform(transform, T, E, times, ev_only)
+        g_event = _ph_time_transform(transform, T, E, resid_t, ev_only)
+        if not np.all(np.isfinite(g_k)):
+            raise DataInsufficient(
+                f"ph_test: transform={transform!r} is not finite at every "
+                "event time (the log needs positive times).",
+                recovery_hint="Use transform='km' or 'rank'.",
+            )
+
+        U = np.einsum("k,kj->j", g_k, U_k)
+        I_bb = V_k.sum(axis=0)
+        I_bg = np.einsum("k,kij->ij", g_k, V_k)
+        I_gg = np.einsum("k,kij->ij", g_k**2, V_k)
+        try:
+            I_bb_inv = np.linalg.inv(I_bb)
+        except np.linalg.LinAlgError:
+            I_bb_inv = np.linalg.pinv(I_bb)
+        V_theta = I_gg - I_bg @ I_bb_inv @ I_bg
+
+        # Scaled Schoenfeld residuals: the descriptive correlation, and the
+        # whole of the 1994 approximation.
+        n_dead = resid.shape[0]
+        scaled = resid @ I_bb_inv * n_dead
+        g_c = g_event - g_event.mean()
+        ss_g = float(g_c @ g_c)
+        approx_num = g_c @ scaled  # (p,)
+        approx_raw = g_c @ resid
+
         rows = []
         for j, var in enumerate(names):
-            col = resid[:, j]
-            if np.std(col) < 1e-15 or n < 3:
-                rho, chi2, pv = 0.0, 0.0, 1.0
+            if method == "score":
+                v_j = float(V_theta[j, j])
+                chi2 = float(U[j] ** 2 / v_j) if v_j > 0 else float("nan")
             else:
-                rho, _ = stats.spearmanr(times, col)
-                if np.isnan(rho):
-                    rho, chi2, pv = 0.0, 0.0, 1.0
-                else:
-                    chi2 = n * rho**2
-                    pv = stats.chi2.sf(chi2, df=1)
-            rows.append({"variable": var, "rho": rho, "chi2": chi2, "p_value": pv})
+                chi2 = float(approx_num[j] ** 2 / (n_dead * I_bb_inv[j, j] * ss_g))
+            col = scaled[:, j]
+            if np.std(col) > 0 and np.std(g_event) > 0:
+                rho = float(np.corrcoef(g_event, col)[0, 1])
+            else:
+                rho = float("nan")
+            rows.append(
+                {
+                    "variable": var,
+                    "rho": rho,
+                    "chi2": chi2,
+                    "df": 1,
+                    "p_value": float(stats.chi2.sf(chi2, df=1)),
+                }
+            )
+        if method == "approx":
+            chi2_g = float(approx_raw @ I_bb_inv @ approx_raw * n_dead / ss_g)
+        else:
+            try:
+                chi2_g = float(U @ np.linalg.solve(V_theta, U))
+            except np.linalg.LinAlgError:
+                chi2_g = float(U @ np.linalg.pinv(V_theta) @ U)
+        rows.append(
+            {
+                "variable": "GLOBAL",
+                "rho": float("nan"),
+                "chi2": chi2_g,
+                "df": p,
+                "p_value": float(stats.chi2.sf(chi2_g, df=p)),
+            }
+        )
         return pd.DataFrame(rows)
 
     # -- plot ---------------------------------------------------------------
@@ -941,6 +1065,108 @@ def _concordance_index(
     return (concordant + 0.5 * tied_risk) / total
 
 
+def _ph_score_pieces(
+    beta: np.ndarray,
+    X: np.ndarray,
+    T: np.ndarray,
+    E: np.ndarray,
+    strata_arr: np.ndarray,
+    breslow: bool,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Score and information of the partial likelihood, event time by time.
+
+    For each stratum and distinct event time returns the time, the score
+    contribution (sum over the deaths of ``x - xbar``) and the information
+    contribution (the weighted covariance of ``x`` over the risk set, once
+    per death), under the same tie rule as the fit. Also returns one
+    Schoenfeld residual per death, with its time; under Efron's rule a tied
+    death is compared with the average of the ``d`` risk-set means.
+    """
+    n, p = X.shape
+    r = np.exp(X @ beta)
+    times: List[float] = []
+    scores: List[np.ndarray] = []
+    infos: List[np.ndarray] = []
+    resid_t: List[float] = []
+    resid: List[np.ndarray] = []
+    for s in pd.unique(strata_arr):
+        idx = np.where(strata_arr == s)[0]
+        Ts, Es, rs, Xs = T[idx], E[idx], r[idx], X[idx]
+        for t in np.unique(Ts[Es == 1]):
+            risk = Ts >= t
+            dead = (Ts == t) & (Es == 1)
+            d = int(dead.sum())
+            S0 = rs[risk].sum()
+            S1 = Xs[risk].T @ rs[risk]
+            S2 = (Xs[risk].T * rs[risk]) @ Xs[risk]
+            D0 = rs[dead].sum()
+            D1 = Xs[dead].T @ rs[dead]
+            D2 = (Xs[dead].T * rs[dead]) @ Xs[dead]
+            xbar_sum = np.zeros(p)
+            V = np.zeros((p, p))
+            for ell in range(d):
+                c = 0.0 if breslow else ell / d
+                denom = S0 - c * D0
+                xbar = (S1 - c * D1) / denom
+                xbar_sum += xbar
+                V += (S2 - c * D2) / denom - np.outer(xbar, xbar)
+            times.append(float(t))
+            scores.append(Xs[dead].sum(axis=0) - xbar_sum)
+            infos.append(V)
+            for row in Xs[dead]:
+                resid_t.append(float(t))
+                resid.append(row - xbar_sum / d)
+    return (
+        np.asarray(times),
+        np.asarray(scores).reshape(len(times), p),
+        np.asarray(infos).reshape(len(times), p, p),
+        np.asarray(resid_t),
+        np.asarray(resid).reshape(len(resid_t), p),
+    )
+
+
+def _ph_time_transform(
+    transform: Any,
+    T: np.ndarray,
+    E: np.ndarray,
+    at: np.ndarray,
+    rank_events_only: bool = False,
+) -> np.ndarray:
+    """``g(t)`` of the proportional-hazards test, evaluated at ``at``."""
+    at = np.asarray(at, dtype=float)
+    if callable(transform):
+        return np.asarray(transform(at), dtype=float)
+    name = str(transform).lower()
+    if name == "identity":
+        return at
+    if name == "log":
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.asarray(np.log(at), dtype=float)
+    if name == "rank":
+        # cox.zph ranks the time among all observations; estat phtest
+        # among the failures.
+        pool = T[E == 1] if rank_events_only else T
+        ranks = stats.rankdata(pool)
+        lookup = dict(zip(pool.tolist(), ranks.tolist()))
+        return np.asarray([lookup[t] for t in at.tolist()], dtype=float)
+    if name == "km":
+        # 1 - S(t-): the Kaplan-Meier estimate of the pooled sample just
+        # before each time.
+        left: Dict[float, float] = {}
+        surv = 1.0
+        for t in np.unique(T):
+            left[float(t)] = surv
+            n_risk = int(np.sum(T >= t))
+            n_dead = int(np.sum((T == t) & (E == 1)))
+            surv *= 1.0 - n_dead / n_risk
+        return np.asarray([1.0 - left[t] for t in at.tolist()], dtype=float)
+    raise MethodIncompatibility(
+        "ph_test: transform must be 'km', 'rank', 'identity', 'log' or a "
+        f"callable, got {transform!r}",
+        recovery_hint="Use transform='km' (the default of cox.zph).",
+    )
+
+
 def _schoenfeld_residuals(
     beta: np.ndarray,
     X: np.ndarray,
@@ -1239,6 +1465,7 @@ def cox(
     # recomputing it — best-effort: strata models don't expose the residuals.
     try:
         _ph = _result.ph_test()
+        _ph = _ph[_ph["variable"] != "GLOBAL"].reset_index(drop=True)
         _imin = int(np.asarray(_ph["p_value"].values).argmin())
         _result.model_info["ph_test"] = {
             "min_pvalue": float(_ph["p_value"].iloc[_imin]),

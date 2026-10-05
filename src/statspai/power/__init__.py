@@ -8,21 +8,18 @@ curves, minimum detectable effect (MDE), and sample-size solving.
 """
 
 from .power import (
-    power,
     PowerResult,
-    power_rct,
-    power_did,
-    power_rd,
-    power_iv,
-    power_cluster_rct,
-    power_ols,
     mde,
+    power,
+    power_cluster_rct,
+    power_did,
+    power_iv,
+    power_ols,
+    power_rct,
+    power_rd,
 )
-from .study_designs import (
-    power_two_proportions,
-    power_logrank,
-    power_case_control,
-)
+from .study_designs import power_case_control, power_logrank, power_two_proportions
+from .ttest_power import power_ttest
 
 __all__ = [
     "power",
@@ -37,4 +34,5 @@ __all__ = [
     "power_two_proportions",
     "power_logrank",
     "power_case_control",
+    "power_ttest",
 ]
