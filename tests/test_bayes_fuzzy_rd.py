@@ -183,3 +183,53 @@ def test_bayes_fuzzy_rd_non_binary_treat_raises(partial_compliance_data):
             chains=1,
             progressbar=False,
         )
+
+
+# ---------------------------------------------------------------------------
+# The two reduced-form errors are jointly normal (correctness fix, 1.39)
+# ---------------------------------------------------------------------------
+
+
+def test_bayes_fuzzy_rd_posterior_sd_uses_the_error_covariance():
+    """Known asymptotics for the ratio of two jumps.
+
+    With weak priors the posterior sd of ``itt_Y / itt_D`` is the delta
+    method sd of the Wald ratio, which has a covariance term:
+    ``sqrt(v_Y - 2 LATE c_YD + LATE^2 v_D) / |itt_D|``. Modelling the two
+    equations with independent errors drops ``c_YD``; in this design
+    (positive effect, positive selection) that overstates the sd by about
+    a quarter, which is what ``bayes_fuzzy_rd`` returned before 1.39.
+    """
+    rng = np.random.default_rng(12)
+    n = 1500
+    x = rng.uniform(-1, 1, size=n)
+    side = (x >= 0).astype(float)
+    u = rng.normal(size=n)
+    d = ((0.2 + 0.6 * side + 0.25 * u) > 0.5).astype(float)
+    eps = 0.8 * u + 0.6 * rng.normal(size=n)
+    df = pd.DataFrame({"y": 0.5 * x + 1.0 * d + eps, "d": d, "x": x})
+    r = bayes_fuzzy_rd(
+        df,
+        y="y",
+        treat="d",
+        running="x",
+        cutoff=0.0,
+        bandwidth=1.0,
+        poly=1,
+        draws=1000,
+        tune=1000,
+        chains=2,
+        random_state=4,
+    )
+    W = np.column_stack([np.ones(n), side, x, x * side])
+    xtx_inv = np.linalg.inv(W.T @ W)
+    by, bd = xtx_inv @ W.T @ df["y"].to_numpy(), xtx_inv @ W.T @ d
+    ey, ed = df["y"].to_numpy() - W @ by, d - W @ bd
+    scale = xtx_inv[1, 1] / (n - 4)
+    v_y, v_d, c_yd = ey @ ey * scale, ed @ ed * scale, ey @ ed * scale
+    late = by[1] / bd[1]
+    sd_joint = np.sqrt(v_y - 2 * late * c_yd + late**2 * v_d) / abs(bd[1])
+    sd_indep = np.sqrt(v_y + late**2 * v_d) / abs(bd[1])
+    assert sd_indep / sd_joint > 1.15  # the design separates the two
+    assert r.posterior_median == pytest.approx(late, abs=0.3 * sd_joint)
+    assert r.posterior_sd / sd_joint == pytest.approx(1.0, abs=0.12)

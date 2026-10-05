@@ -155,6 +155,7 @@ _MODULE_CATEGORY_PREFIXES: List[tuple[str, str]] = [
     ("statspai.experimental", "experimental"),
     ("statspai.imputation", "missing"),
     ("statspai.bayes", "bayes"),
+    ("statspai.mcmc", "bayes"),
     ("statspai.postestimation", "postestimation"),
     ("statspai.agent", "agent"),
     ("statspai.utils", "utils"),

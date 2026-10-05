@@ -4,6 +4,120 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Bayesian econometrics without PyMC
+
+Ramirez-Hassan's *Introduction to Bayesian Econometrics* (2026) teaches the
+subject with `MCMCpack`, `bayesm`, `coda` and `BMA`. StatsPAI had Bayesian
+estimators for causal designs (PyMC) and a Minnesota-prior VAR, and nothing
+for the models that book starts with. This pass adds them as NumPy
+samplers, checks every one against an exact posterior, and fixes what the
+comparison turned up in the existing PyMC estimators. Notes are in
+`docs/dev/2026-10-06-ramirez-hassan-bayesian-econometrics-review.md`; the
+user guide is `docs/guides/bayesian_econometrics.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.bayes_iv` and `sp.bayes_hte_iv` understated the uncertainty of the
+  effect when the treatment is endogenous.** The docstring described a
+  joint model of the two equations. The code computed first-stage
+  residuals once by OLS and used them as a regressor, as if they were
+  data. The posterior mean was 2SLS, but the posterior standard deviation
+  was 2SLS times `sqrt(1 - corr(v, eps)^2)`. With an error correlation of
+  0.9 and 400 observations the posterior sd was 0.44 of the 2SLS
+  standard error and the 95% interval covered the true effect in 35 of 60
+  samples. The residual is now `D - E[D | Z, X]` as a
+  function of the first-stage parameters, which is the joint normal model.
+  Same design after the change: ratio 1.02, coverage 58 of 60.
+  Results without endogeneity are unchanged; the stronger the endogeneity,
+  the wider the new interval.
+- **`sp.bayes_iv(prior_first_stage_sigma=)` was accepted and ignored.** The
+  first-stage coefficients used `prior_coef_sigma`. They now use the
+  argument that is named after them (default 5).
+- **`sp.bayes_fuzzy_rd` treated the errors of the outcome and take-up
+  equations as independent.** They are correlated whenever the effect is
+  not zero, and that correlation enters the variance of the ratio of the
+  two jumps. The posterior mean was unaffected; the interval was too wide
+  by 10 to 25 percent in typical designs (coverage 97 to 98 percent at a
+  nominal 95) and slightly too narrow when the effect and the selection
+  have opposite signs. The two errors are now jointly normal.
+
+#### Added
+
+- **`sp.bayes_regress`**: Bayesian regression by MCMC with a normal prior
+  on the coefficients. `model=` is one of `'normal'` (Gibbs),
+  `'conjugate'` (closed form), `'t'` (Student-t errors), `'logit'`,
+  `'probit'`, `'oprobit'`, `'poisson'`, `'negbin'`, `'tobit'` and
+  `'quantile'`. Returns the draws, credible and HPD intervals, effective
+  sample sizes, `prob("x > 0")`, `predict`, convergence diagnostics and
+  the log marginal likelihood (`'exact'`, `'chib'`, `'gelfand-dey'`,
+  `'laplace'`). It warns when the chain mixes badly and when the default
+  prior is not vague at the scale of a regressor.
+- **`sp.bayes_mixed`**: hierarchical models for panel data with random
+  intercepts and slopes; normal outcomes by the blocked Gibbs sampler of
+  Chib and Carlin (1999), logit and Poisson outcomes by Metropolis within
+  Gibbs.
+- **`sp.bma`**: Bayesian model averaging. `method='bic'` with Occam's
+  window for Gaussian, binomial, Poisson and gamma outcomes, and
+  `method='gprior'` with the benchmark g-priors for Gaussian outcomes, by
+  enumeration or MC3. `always=` keeps the regressor of interest in every
+  model. The models inside Occam's window are found by an exact branch
+  and bound.
+- **`sp.bayes_factor`** and **`sp.savage_dickey`**: Bayes factors and
+  posterior model probabilities from marginal likelihoods, and the
+  density-ratio test of a point restriction.
+- **`sp.bayes_bootstrap`**: Rubin's Bayesian bootstrap of a regression or
+  of any weighted statistic.
+- **MCMC diagnostics for any chain**: `sp.mcmc_summary`, `sp.mcmc_ess`,
+  `sp.hpd_interval`, `sp.geweke_diag`, `sp.raftery_diag`,
+  `sp.heidel_diag`, `sp.gelman_rubin`.
+
+#### Evidence
+
+- The diagnostics agree with R `coda` 0.19-4.1 to 1e-9 on committed
+  chains. `sp.bma` agrees with `BMS::bms` to 1e-9 and with `BMA::bic.glm`
+  to 1e-9 in the model probabilities of the logit and Poisson families.
+  `BMA::bicreg` computes BIC from an R-squared rounded to five decimals;
+  rounding ours the same way reproduces its BIC to 1e-9
+  (`tests/reference_parity/test_bayes_mcmc_parity.py`).
+- Every sampler is compared with the exact posterior of a small model,
+  integrated on a grid from `scipy.stats` densities that share no code
+  with the sampler: posterior means within four Monte Carlo standard
+  errors, standard deviations within 5 percent, marginal likelihoods
+  against the exact normalising constant
+  (`test_bayes_regress_exact_posterior.py`,
+  `test_bayes_mixed_exact_posterior.py`).
+- The book's examples on its own data against long runs of `MCMCpack` and
+  `bayesm` are a stochastic screen, not a parity claim
+  (`tests/external_parity/test_ramirez_hassan_bayes.py`).
+
+#### Changed
+
+- `sp.bvar(...).summary()` labels the coefficient rows (`L1.gdp`, ...,
+  `_cons`); `coef_names` and `coef_table()` expose them.
+
+#### Where StatsPAI does not follow the reference packages
+
+- Quantile regression estimates the scale of the asymmetric Laplace
+  likelihood. `MCMCpack::MCMCquantreg` fixes it at one, which makes the
+  width of the credible intervals depend on the units of the outcome.
+  `scale=1.0` reproduces it.
+- The ordered probit always has free cutpoints. The book's example passes
+  a design without a constant to `bayesm::rordprobitGibbs`, whose first
+  cutpoint is fixed at zero; the resulting coefficients are more than
+  three standard errors from maximum likelihood.
+- The multivariate Gelman-Rubin factor uses the number of chains, as in
+  Brooks and Gelman (1998). `coda` has the number of parameters there.
+- `MCMCpack::MCMChregress` reports a posterior sd of 0.008 for the
+  intercept of the book's public-capital panel, below the floor
+  `sqrt(0.106 / 48) = 0.047` that the model's own state-effect variance
+  implies. `sp.bayes_mixed` gives 0.17 under the same prior, and the
+  `lme4` standard errors within 3 percent once the prior is on the right
+  scale.
+- The book's prior for that variance component, `InvWishart(5, 5)`,
+  supplies 91 percent of its sum of squares; the posterior mean is 14
+  times the REML estimate. `sp.bayes_mixed` reports the prior's share of
+  every variance component and warns above 25 percent.
+
 ### What a graph-first causal inference book found
 
 Ness's *Causal AI* builds a DAG, tests it, fits a model on it, intervenes,

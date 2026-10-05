@@ -817,6 +817,28 @@ from .iv.kernel_iv import KernelIVResult, kernel_iv
 # Zero-first-stage exclusion test (van Kippersluis-Rietveld 2018).
 from .iv.zero_first_stage import ZeroFirstStageResult, zero_first_stage
 from .matrix_completion import MCPanel, mc_panel
+
+# Bayesian econometrics by MCMC (NumPy samplers; no PyMC)
+from .mcmc import (
+    BayesFactorResult,
+    BayesMixedResult,
+    BayesRegressResult,
+    BMAResult,
+    MCMCDiagnostic,
+    bayes_bootstrap,
+    bayes_factor,
+    bayes_mixed,
+    bayes_regress,
+    bma,
+    gelman_rubin,
+    geweke_diag,
+    heidel_diag,
+    hpd_interval,
+    mcmc_ess,
+    mcmc_summary,
+    raftery_diag,
+    savage_dickey,
+)
 from .metalearners import (
     AutoCATEResult,
     CATEEvalResult,
@@ -1911,6 +1933,25 @@ __all__ = [
     "fama_macbeth",
     "itcv",
     "RidgeResult",
+    # Bayesian econometrics by MCMC
+    "bayes_regress",
+    "BayesRegressResult",
+    "bayes_mixed",
+    "BayesMixedResult",
+    "bma",
+    "BMAResult",
+    "bayes_factor",
+    "BayesFactorResult",
+    "savage_dickey",
+    "bayes_bootstrap",
+    "mcmc_summary",
+    "mcmc_ess",
+    "hpd_interval",
+    "geweke_diag",
+    "raftery_diag",
+    "heidel_diag",
+    "gelman_rubin",
+    "MCMCDiagnostic",
     "boxcox",
     "BoxCoxResult",
     "shrinkage",

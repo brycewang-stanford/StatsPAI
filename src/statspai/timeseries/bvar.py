@@ -129,27 +129,35 @@ class BVARResult(ResultProtocolMixin):
         z = float(stats.norm.ppf(0.5 + level / 2.0))
         return self.coef - z * self.coef_sd, self.coef + z * self.coef_sd
 
+    @property
+    def coef_names(self) -> list:
+        """Row labels of ``coef``: ``L<lag>.<variable>`` then ``_cons``."""
+        return [
+            f"L{lag}.{name}"
+            for lag in range(1, self.lags + 1)
+            for name in self.var_names
+        ] + ["_cons"]
+
+    def coef_table(self) -> pd.DataFrame:
+        """Posterior means, one column per equation, rows labelled."""
+        return pd.DataFrame(self.coef, index=self.coef_names, columns=self.var_names)
+
     def summary(self) -> str:
         K = len(self.var_names)
+        rows = self.coef_names
+        show = len(rows) if len(rows) <= 12 else 12
+        note = "" if show == len(rows) else f" (first {show} of {len(rows)} rows)"
         lines = [
             "Bayesian VAR (Minnesota prior)",
             f"  lags = {self.lags}, K = {K}, T = {self.n}",
             f"  λ₁ = {self.lambda1}, λ₂ = {self.lambda2}",
             "",
-            "Posterior mean coefficients (first 5 rows):",
-            str(pd.DataFrame(self.coef[:5], columns=self.var_names).round(3)),
+            f"Posterior mean coefficients, one column per equation{note}:",
+            str(self.coef_table().head(show).round(3)),
         ]
         if self.coef_sd is not None:
-            lines += [
-                "",
-                "Posterior SD (first 5 rows):",
-                str(
-                    pd.DataFrame(
-                        self.coef_sd[:5],
-                        columns=self.var_names,
-                    ).round(3)
-                ),
-            ]
+            sd = pd.DataFrame(self.coef_sd, index=rows, columns=self.var_names)
+            lines += ["", f"Posterior SD{note}:", str(sd.head(show).round(3))]
         return "\n".join(lines)
 
     def __repr__(self) -> str:

@@ -208,3 +208,54 @@ def test_bayes_iv_tidy_and_glance(strong_iv_data):
     assert len(r.tidy()) == 1
     assert "late" in r.tidy()["term"].iloc[0]
     assert len(r.glance()) == 1
+
+
+# ---------------------------------------------------------------------------
+# The posterior carries first-stage uncertainty (correctness fix, 1.39)
+# ---------------------------------------------------------------------------
+
+
+def test_bayes_iv_posterior_sd_is_the_2sls_sd_under_strong_endogeneity():
+    """Known asymptotics: strong instrument, weak priors, n = 600.
+
+    The posterior of the LATE is then approximately normal around 2SLS with
+    the 2SLS standard error. A control function with *pre-computed*
+    first-stage residuals has the same centre but a standard deviation
+    smaller by ``sqrt(1 - corr(v, eps)^2)``, 0.44 here, which is what
+    ``bayes_iv`` returned before 1.39.
+    """
+    rng = np.random.default_rng(7)
+    n, corr = 600, 0.9
+    z = rng.normal(size=n)
+    v = rng.normal(size=n)
+    eps = corr * v + np.sqrt(1 - corr**2) * rng.normal(size=n)
+    d = z + v
+    df = pd.DataFrame({"y": 1.0 + 0.5 * d + eps, "d": d, "z": z})
+    r = bayes_iv(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        draws=1000,
+        tune=1000,
+        chains=2,
+        random_state=3,
+    )
+    tsls = sp.ivreg("y ~ (d ~ z)", df)
+    se = float(tsls.std_errors["d"])
+    assert r.posterior_mean == pytest.approx(float(tsls.params["d"]), abs=0.25 * se)
+    # the plug-in version would give a ratio of about 0.44
+    assert 0.85 < r.posterior_sd / se < 1.2
+    assert r.hdi_lower < 0.5 < r.hdi_upper
+
+
+def test_bayes_iv_first_stage_prior_is_used():
+    """``prior_first_stage_sigma`` was accepted and ignored before 1.39."""
+    df = _iv_dgp(300, strength=0.9, rho=0.5, seed=5)
+    kw = dict(
+        y="y", treat="d", instrument="z", draws=300, tune=300, chains=2, random_state=1
+    )
+    loose = bayes_iv(df, prior_first_stage_sigma=5.0, **kw)
+    tight = bayes_iv(df, prior_first_stage_sigma=0.01, **kw)
+    # a first stage shrunk to zero leaves the effect unidentified
+    assert tight.posterior_sd > 3 * loose.posterior_sd

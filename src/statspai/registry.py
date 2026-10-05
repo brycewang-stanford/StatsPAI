@@ -14877,6 +14877,721 @@ def _build_registry() -> None:
         )
     )
 
+    # -- Bayesian econometrics by MCMC (statspai.mcmc) ---------------- #
+    register(
+        FunctionSpec(
+            name="bayes_regress",
+            category="bayes",
+            description=(
+                "Bayesian regression by MCMC with a normal prior on the "
+                "coefficients: Gaussian linear (independent or conjugate "
+                "prior), Student-t errors, logit, probit, ordered probit, "
+                "Poisson, negative binomial, tobit and quantile regression. "
+                "NumPy samplers (Gibbs, data augmentation, random-walk "
+                "Metropolis); no PyMC needed. Returns draws, credible "
+                "intervals, effective sample sizes, convergence "
+                "diagnostics and the log marginal likelihood."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="e.g. 'y ~ x1 + x2'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "normal",
+                    "Likelihood",
+                    [
+                        "normal",
+                        "conjugate",
+                        "t",
+                        "logit",
+                        "probit",
+                        "oprobit",
+                        "poisson",
+                        "negbin",
+                        "tobit",
+                        "quantile",
+                    ],
+                ),
+                ParamSpec(
+                    "prior_mean",
+                    "float | list",
+                    False,
+                    0.0,
+                    "Prior mean of the coefficients (scalar or one per column)",
+                ),
+                ParamSpec(
+                    "prior_var",
+                    "float | list | matrix",
+                    False,
+                    None,
+                    "Prior variance: scalar, vector or covariance matrix. "
+                    "Default 1000 (100 for logit / probit / oprobit)",
+                ),
+                ParamSpec(
+                    "sigma2_prior",
+                    "tuple",
+                    False,
+                    (0.001, 0.001),
+                    "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2)",
+                ),
+                ParamSpec("draws", "int", False, 10000, "Draws kept per chain"),
+                ParamSpec("burnin", "int", False, 2000, "Iterations discarded"),
+                ParamSpec("thin", "int", False, 1, "Keep one draw in thin"),
+                ParamSpec("chains", "int", False, 1, "Independent chains"),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95, "Credible interval mass"),
+                ParamSpec(
+                    "tune",
+                    "float",
+                    False,
+                    None,
+                    "Metropolis proposal scale; default 2.38 / sqrt(dim)",
+                ),
+                ParamSpec("quantile", "float", False, 0.5, "model='quantile'"),
+                ParamSpec(
+                    "scale",
+                    "float",
+                    False,
+                    None,
+                    "model='quantile': fix the asymmetric Laplace scale "
+                    "(1 = MCMCpack::MCMCquantreg); estimated when omitted",
+                ),
+                ParamSpec(
+                    "scale_prior",
+                    "tuple",
+                    False,
+                    (0.001, 0.001),
+                    "(n0, s0): sigma ~ InvGamma(n0/2, s0/2), model='quantile'",
+                ),
+                ParamSpec("lower", "float", False, None, "tobit: left-censoring point"),
+                ParamSpec(
+                    "upper", "float", False, None, "tobit: right-censoring point"
+                ),
+                ParamSpec("dof", "float", False, 5.0, "model='t': degrees of freedom"),
+                ParamSpec(
+                    "size_prior",
+                    "tuple",
+                    False,
+                    (0.5, 0.1),
+                    "negbin: Gamma(shape, rate) prior on the size 1 / alpha",
+                ),
+                ParamSpec(
+                    "cut_prior_var",
+                    "float",
+                    False,
+                    1.0,
+                    "oprobit: prior variance of the log cutpoint increments",
+                ),
+            ],
+            returns="BayesRegressResult",
+            example='sp.bayes_regress("y ~ x1 + x2", df, model="probit", seed=1)',
+            tags=["bayes", "mcmc", "gibbs", "regression", "posterior", "credible"],
+            reference="ramirezhassan2026introduction",
+            assumptions=[
+                "The likelihood chosen with model= is the data-generating " "family",
+                "The prior is proper; its scale is meaningful relative to "
+                "the scale of the regressors",
+            ],
+            pre_conditions=[
+                "More observations than coefficients; regressors not collinear",
+                "logit / probit: 0/1 outcome; poisson / negbin: counts; "
+                "oprobit: at least three ordered categories",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="ConvergenceWarning: low effective sample size "
+                    "or split R-hat above 1.05",
+                    exception="statspai.ConvergenceWarning",
+                    remedy="Increase draws / burnin, set thin, or run "
+                    "chains=4 and inspect result.diagnostics().",
+                    alternative="sp.gelman_rubin",
+                ),
+                FailureMode(
+                    symptom="Warning that the default prior is not vague",
+                    exception="statspai.StatsPAIWarning",
+                    remedy="Set prior_var (and prior_mean) on the scale of "
+                    "the regressors, or rescale the regressors.",
+                ),
+                FailureMode(
+                    symptom="Posterior not locally concave at its mode",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Separation or collinearity: drop the offending "
+                    "regressor or use a tighter prior_var.",
+                ),
+            ],
+            alternatives=["regress", "logit", "probit", "bma", "bayes_bootstrap"],
+            not_recommended_when=[
+                "A causal design (DiD, RD, IV, synthetic control) is the "
+                "target: use sp.bayes_did / sp.bayes_rd / sp.bayes_iv",
+                "Clustered or panel data with unit effects: the likelihood "
+                "here treats rows as independent",
+            ],
+            cost_profile=(
+                "O(iterations x n x k); seconds for n in the thousands with "
+                "the default 12,000 iterations"
+            ),
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_mixed",
+            category="bayes",
+            description=(
+                "Bayesian hierarchical (random-effects) model for "
+                "longitudinal / panel data: random intercepts and slopes "
+                "with an inverse-Wishart prior on their covariance. Normal "
+                "outcomes by the blocked Gibbs sampler of Chib and Carlin "
+                "(1999); logit and Poisson outcomes by Metropolis within "
+                "Gibbs. NumPy only. Returns the posterior of the fixed "
+                "effects, variance components and every group's effects."
+            ),
+            params=[
+                ParamSpec(
+                    "formula", "str", True, description="Fixed part 'y ~ x1 + x2'"
+                ),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("group", "str", True, description="Group (unit) column"),
+                ParamSpec("random", "list", False, None, "Columns with a random slope"),
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    "normal",
+                    "Outcome family",
+                    ["normal", "logit", "poisson"],
+                ),
+                ParamSpec("random_intercept", "bool", False, True),
+                ParamSpec("prior_mean", "float | list", False, 0.0),
+                ParamSpec(
+                    "prior_var",
+                    "float | list | matrix",
+                    False,
+                    None,
+                    "Prior variance of the fixed effects; default 1000 "
+                    "(100 for logit)",
+                ),
+                ParamSpec(
+                    "sigma2_prior",
+                    "tuple",
+                    False,
+                    (0.001, 0.001),
+                    "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2)",
+                ),
+                ParamSpec(
+                    "re_prior",
+                    "tuple",
+                    False,
+                    None,
+                    "(df, scale): D ~ InvWishart(df, df * scale); default "
+                    "df = q + 2, identity scale",
+                ),
+                ParamSpec("draws", "int", False, 10000, "Draws kept per chain"),
+                ParamSpec("burnin", "int", False, 2000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("chains", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95, "Credible interval mass"),
+            ],
+            returns="BayesMixedResult",
+            example='sp.bayes_mixed("y ~ x", df, group="id", random=["x"], seed=1)',
+            tags=["bayes", "mcmc", "panel", "multilevel", "random-effects", "glmm"],
+            reference="chib1999mcmc",
+            assumptions=[
+                "Random effects are independent of the regressors "
+                "(random-effects, not fixed-effects, assumption)",
+                "Random effects are jointly normal across groups",
+            ],
+            pre_conditions=[
+                "At least three groups, some with more than one observation",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="ConvergenceWarning: low effective sample size",
+                    exception="statspai.ConvergenceWarning",
+                    remedy="Increase draws / burnin or thin; variance "
+                    "components mix slowest with few groups.",
+                ),
+                FailureMode(
+                    symptom="Variance components move with re_prior",
+                    exception="",
+                    remedy="With few groups the prior on D matters: report "
+                    "the sensitivity, or use a prior scale near the "
+                    "plausible variance.",
+                ),
+            ],
+            alternatives=["mixed", "melogit", "mepoisson", "panel", "bayes_regress"],
+            not_recommended_when=[
+                "Group effects are correlated with the regressors and the "
+                "target is a within-group effect: use sp.panel(method='fe')",
+            ],
+            cost_profile=(
+                "O(iterations x (n + groups x q^3)); seconds for thousands "
+                "of observations"
+            ),
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bma",
+            category="bayes",
+            description=(
+                "Bayesian model averaging over which regressors enter a "
+                "linear model or GLM: posterior inclusion probabilities and "
+                "model-averaged coefficients. method='bic' (Occam's window; "
+                "R BMA::bicreg / bic.glm) for gaussian, binomial, poisson "
+                "and gamma families; method='gprior' (Zellner g-prior, "
+                "benchmark priors; R BMS::bms) for gaussian, by enumeration "
+                "or MC3."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="All candidate terms"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    "gaussian",
+                    "Outcome family",
+                    ["gaussian", "binomial", "poisson", "gamma"],
+                ),
+                ParamSpec(
+                    "method", "str", False, "bic", "Model weights", ["bic", "gprior"]
+                ),
+                ParamSpec(
+                    "link",
+                    "str",
+                    False,
+                    None,
+                    "Link; default identity / logit / log / inverse",
+                    ["identity", "logit", "probit", "log", "inverse"],
+                ),
+                ParamSpec("always", "list", False, None, "Terms kept in every model"),
+                ParamSpec(
+                    "occam_ratio",
+                    "float",
+                    False,
+                    20.0,
+                    "Drop models this many times less probable than the best",
+                ),
+                ParamSpec(
+                    "strict",
+                    "bool",
+                    False,
+                    False,
+                    "Also drop models with a more probable submodel",
+                ),
+                ParamSpec(
+                    "prior_inclusion",
+                    "float | dict",
+                    False,
+                    0.5,
+                    "Prior probability that a term is included",
+                ),
+                ParamSpec(
+                    "g",
+                    "str | float",
+                    False,
+                    "benchmark",
+                    "g-prior: 'benchmark' max(n, K^2), 'uip' n, 'ric' K^2, "
+                    "or a number",
+                ),
+                ParamSpec(
+                    "search",
+                    "str",
+                    False,
+                    "auto",
+                    "gprior: enumerate all models or sample them",
+                    ["auto", "enumerate", "mc3"],
+                ),
+                ParamSpec("draws", "int", False, 20000, "MC3 iterations kept"),
+                ParamSpec("burnin", "int", False, 2000, "MC3 burn-in"),
+                ParamSpec("seed", "int", False, None, "MC3 seed"),
+                ParamSpec(
+                    "max_nodes", "int", False, 2000000, "Branch-and-bound budget"
+                ),
+            ],
+            returns="BMAResult",
+            example='sp.bma("y ~ x1 + x2 + x3 + x4", df)',
+            tags=["bayes", "bma", "model-averaging", "variable-selection", "bic"],
+            reference="raftery1997bayesian",
+            assumptions=[
+                "The true model is (close to) one of the subsets of the "
+                "candidate terms",
+                "method='bic': samples large enough for the BIC "
+                "approximation to the marginal likelihood",
+            ],
+            pre_conditions=[
+                "More observations than candidate coefficients; candidates "
+                "not collinear",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Search visited more than max_nodes nodes",
+                    exception="statspai.NumericalInstability",
+                    remedy="Lower occam_ratio, raise max_nodes, or use "
+                    "method='gprior' with search='mc3'.",
+                ),
+                FailureMode(
+                    symptom="Full GLM did not converge",
+                    exception="statspai.NumericalInstability",
+                    remedy="Check for separation or outcomes outside the "
+                    "family's support; drop the offending candidates.",
+                ),
+            ],
+            alternatives=["best_subset", "lasso_select", "rlasso", "stepwise"],
+            not_recommended_when=[
+                "A causal effect is the target and the candidates include "
+                "mediators or colliders: inclusion probabilities are about "
+                "prediction, not about which controls are valid",
+                "Far more candidates than observations: use sp.rlasso",
+            ],
+            cost_profile=(
+                "Exact branch and bound; milliseconds to seconds up to "
+                "about 40 candidates when the signal is clear, GLMs refit "
+                "every model in the window"
+            ),
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_factor",
+            category="bayes",
+            description=(
+                "Bayes factors and posterior model probabilities from the "
+                "marginal likelihoods of two or more fitted Bayesian models "
+                "(or from the log marginal likelihoods as numbers), with "
+                "the Kass-Raftery evidence label."
+            ),
+            params=[
+                ParamSpec(
+                    "models",
+                    "BayesRegressResult | float",
+                    True,
+                    description="Two or more fitted models or log marginal "
+                    "likelihoods (positional)",
+                ),
+                ParamSpec("names", "list", False, None, "Model labels"),
+                ParamSpec(
+                    "prior_probs", "list", False, None, "Prior model probabilities"
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    None,
+                    "Marginal likelihood estimator",
+                    ["exact", "chib", "gelfand-dey", "laplace"],
+                ),
+            ],
+            returns="BayesFactorResult",
+            example="sp.bayes_factor(fit_small, fit_large)",
+            tags=["bayes", "bayes-factor", "model-comparison", "marginal-likelihood"],
+            reference="kass1995bayes",
+            assumptions=[
+                "Proper priors in every model",
+                "Same outcome and same observations in every model",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Models fitted on different numbers of observations",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Drop rows with missing values in any model's "
+                    "variables before fitting all models.",
+                ),
+            ],
+            alternatives=["savage_dickey", "bma", "lrtest"],
+            not_recommended_when=[
+                "The priors are default 'vague' priors: the Bayes factor "
+                "then favours the smaller model by an amount set by the "
+                "arbitrary prior variance (Lindley's paradox)",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="savage_dickey",
+            category="bayes",
+            description=(
+                "Savage-Dickey density ratio: the Bayes factor of a point "
+                "restriction on one coefficient (default zero) against the "
+                "fitted model, as posterior density over prior density at "
+                "the restricted value."
+            ),
+            params=[
+                ParamSpec("result", "BayesRegressResult", True),
+                ParamSpec("param", "str", True, description="Coefficient name"),
+                ParamSpec("value", "float", False, 0.0, "Restricted value"),
+            ],
+            returns="dict",
+            example='sp.savage_dickey(fit, "x2")',
+            tags=["bayes", "bayes-factor", "hypothesis-test", "savage-dickey"],
+            reference="dickey1971weighted",
+            assumptions=[
+                "The prior of the remaining parameters under the "
+                "restriction equals their conditional prior given the "
+                "restricted value (true for a diagonal prior covariance)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="estimator reports a normal approximation",
+                    exception="",
+                    remedy="The restricted value is far in the posterior "
+                    "tail; compare marginal likelihoods with "
+                    "sp.bayes_factor for a reliable number.",
+                    alternative="sp.bayes_factor",
+                ),
+            ],
+            alternatives=["bayes_factor"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_bootstrap",
+            category="bayes",
+            description=(
+                "Bayesian bootstrap (Rubin 1981): posterior draws of least "
+                "squares coefficients, or of any weighted statistic, under "
+                "flat Dirichlet weights on the observed rows. No likelihood "
+                "assumed; standard deviations close to robust standard "
+                "errors."
+            ),
+            params=[
+                ParamSpec(
+                    "formula", "str", False, None, "'y ~ x1 + x2' (least squares)"
+                ),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "statistic",
+                    "callable",
+                    False,
+                    None,
+                    "statistic(data, weights) instead of a formula",
+                ),
+                ParamSpec("draws", "int", False, 2000, "Posterior draws"),
+                ParamSpec(
+                    "concentration", "float", False, 1.0, "Dirichlet concentration"
+                ),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95, "Credible interval mass"),
+            ],
+            returns="BayesRegressResult",
+            example='sp.bayes_bootstrap("y ~ x1 + x2", df, seed=1)',
+            tags=["bayes", "bootstrap", "nonparametric", "robust"],
+            reference="rubin1981bayesian",
+            assumptions=["Independent, identically distributed rows"],
+            alternatives=["bootstrap", "bayes_regress", "regress"],
+            not_recommended_when=[
+                "Clustered or serially dependent data: weights are drawn "
+                "per row, so dependence across rows is ignored",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="mcmc_summary",
+            category="bayes",
+            description=(
+                "Posterior summary of MCMC draws: mean, sd, naive and "
+                "time-series standard error, effective sample size, "
+                "quantiles and optionally the HPD interval. Same numbers as "
+                "R summary(coda::mcmc(x))."
+            ),
+            params=[
+                ParamSpec(
+                    "chain",
+                    "array | DataFrame | result",
+                    True,
+                    description="Draws (rows) by parameters (columns)",
+                ),
+                ParamSpec(
+                    "quantiles",
+                    "list",
+                    False,
+                    (0.025, 0.25, 0.5, 0.75, 0.975),
+                    "Quantiles to report",
+                ),
+                ParamSpec("hpd", "float", False, None, "Also report this HPD interval"),
+            ],
+            returns="DataFrame",
+            example="sp.mcmc_summary(fit.draws)",
+            tags=["bayes", "mcmc", "summary", "coda"],
+            reference="plummer2006coda",
+            alternatives=["mcmc_ess", "hpd_interval"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="mcmc_ess",
+            category="bayes",
+            description=(
+                "Effective sample size of each parameter of an MCMC chain, "
+                "from the spectral density at zero of an AR fit "
+                "(coda::effectiveSize)."
+            ),
+            params=[ParamSpec("chain", "array | DataFrame | result", True)],
+            returns="Series",
+            example="sp.mcmc_ess(fit.draws)",
+            tags=["bayes", "mcmc", "convergence", "ess"],
+            reference="plummer2006coda",
+            alternatives=["mcmc_summary", "gelman_rubin"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="hpd_interval",
+            category="bayes",
+            description=(
+                "Highest posterior density interval of each parameter: the "
+                "shortest interval holding the requested share of the draws "
+                "(coda::HPDinterval)."
+            ),
+            params=[
+                ParamSpec("chain", "array | DataFrame | result", True),
+                ParamSpec("prob", "float", False, 0.95, "Posterior mass"),
+            ],
+            returns="DataFrame",
+            example="sp.hpd_interval(fit.draws, prob=0.9)",
+            tags=["bayes", "mcmc", "credible-interval", "hpd"],
+            reference="chen1999monte",
+            not_recommended_when=[
+                "The posterior is multimodal: the HPD region is then a "
+                "union of intervals and one interval misrepresents it",
+            ],
+            alternatives=["mcmc_summary"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="geweke_diag",
+            category="bayes",
+            description=(
+                "Geweke (1992) convergence diagnostic: z-score for equal "
+                "means in an early and a late window of the chain, with "
+                "spectral standard errors (coda::geweke.diag)."
+            ),
+            params=[
+                ParamSpec("chain", "array | DataFrame | result", True),
+                ParamSpec("frac1", "float", False, 0.1, "Early window share"),
+                ParamSpec("frac2", "float", False, 0.5, "Late window share"),
+            ],
+            returns="MCMCDiagnostic",
+            example="sp.geweke_diag(fit.draws)",
+            tags=["bayes", "mcmc", "convergence", "geweke"],
+            reference="geweke1992evaluating",
+            alternatives=["heidel_diag", "raftery_diag", "gelman_rubin"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="raftery_diag",
+            category="bayes",
+            description=(
+                "Raftery-Lewis (1992) run-length diagnostic: thinning, "
+                "burn-in and total length needed to estimate a posterior "
+                "quantile to a given accuracy, and the dependence factor "
+                "(coda::raftery.diag)."
+            ),
+            params=[
+                ParamSpec("chain", "array | DataFrame | result", True),
+                ParamSpec("q", "float", False, 0.025, "Quantile of interest"),
+                ParamSpec("r", "float", False, 0.005, "Margin of error"),
+                ParamSpec("s", "float", False, 0.95, "Probability of the margin"),
+                ParamSpec(
+                    "converge_eps", "float", False, 0.001, "Convergence precision"
+                ),
+            ],
+            returns="MCMCDiagnostic",
+            example="sp.raftery_diag(fit.draws)",
+            tags=["bayes", "mcmc", "convergence", "run-length"],
+            reference="raftery1992how",
+            failure_modes=[
+                FailureMode(
+                    symptom="Chain shorter than the minimum length Nmin",
+                    exception="statspai.DataInsufficient",
+                    remedy="Run a longer chain, or relax q / r / s "
+                    "(e.g. q=0.5, r=0.05).",
+                ),
+            ],
+            alternatives=["geweke_diag", "heidel_diag", "mcmc_ess"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="heidel_diag",
+            category="bayes",
+            description=(
+                "Heidelberger-Welch (1983) diagnostic: Cramer-von Mises "
+                "stationarity test with progressive discarding of the start "
+                "of the chain, then the half-width test of the precision of "
+                "the mean (coda::heidel.diag)."
+            ),
+            params=[
+                ParamSpec("chain", "array | DataFrame | result", True),
+                ParamSpec("eps", "float", False, 0.1, "Half-width to mean target"),
+                ParamSpec("pvalue", "float", False, 0.05, "Stationarity test level"),
+            ],
+            returns="MCMCDiagnostic",
+            example="sp.heidel_diag(fit.draws)",
+            tags=["bayes", "mcmc", "convergence", "stationarity"],
+            reference="heidelberger1983simulation",
+            not_recommended_when=[
+                "The posterior mean is near zero: the half-width test is "
+                "relative to the mean and fails mechanically",
+            ],
+            alternatives=["geweke_diag", "raftery_diag", "gelman_rubin"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="gelman_rubin",
+            category="bayes",
+            description=(
+                "Gelman-Rubin potential scale reduction factor over several "
+                "chains (point estimate, upper limit and the multivariate "
+                "factor; coda::gelman.diag), or over the two halves of one "
+                "chain with split=True."
+            ),
+            params=[
+                ParamSpec(
+                    "chains",
+                    "list | array",
+                    True,
+                    description="List of chains or array chains x draws x "
+                    "parameters",
+                ),
+                ParamSpec("confidence", "float", False, 0.95, "Upper limit coverage"),
+                ParamSpec("split", "bool", False, False, "Split every chain in two"),
+                ParamSpec(
+                    "autoburnin",
+                    "bool",
+                    False,
+                    False,
+                    "Discard the first half of each chain (coda's default)",
+                ),
+            ],
+            returns="MCMCDiagnostic",
+            example="sp.gelman_rubin(fit.chain_list())",
+            tags=["bayes", "mcmc", "convergence", "rhat"],
+            reference="gelman1992inference",
+            pre_conditions=["At least two chains of equal length, or split=True"],
+            alternatives=["geweke_diag", "heidel_diag", "mcmc_ess"],
+        )
+    )
+
     # -- Bayesian Double Machine Learning ---------------------------- #
     register(
         FunctionSpec(

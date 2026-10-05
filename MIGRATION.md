@@ -5,6 +5,33 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.bayes_iv`, `sp.bayes_hte_iv` and `sp.bayes_fuzzy_rd` credible intervals
+
+**What changed.** `sp.bayes_iv` and `sp.bayes_hte_iv` used first-stage
+residuals computed once by OLS as a regressor in the outcome equation. The
+posterior of the effect was centred on 2SLS but its standard deviation was
+too small by the factor `sqrt(1 - corr(v, eps)^2)`, where the correlation
+is the one between the first-stage and the structural error. The first
+stage now enters the outcome equation through its parameters, which is the
+joint normal model the docstring described. Posterior means barely move.
+Posterior standard deviations and intervals grow, by 15 percent at a
+correlation of 0.5 and by a factor of 2.3 at 0.9.
+
+`prior_first_stage_sigma` in `sp.bayes_iv` is now the prior scale of the
+first-stage coefficients. It was ignored (they used `prior_coef_sigma`).
+
+`sp.bayes_fuzzy_rd` models the errors of the outcome and take-up equations
+as jointly normal. They were independent. Posterior means of the effect
+barely move; intervals become narrower in most designs and slightly wider
+when the effect and the selection into treatment have opposite signs.
+
+**Who is affected.** Anyone who reported an interval, a posterior standard
+deviation, `prob_positive` or a ROPE probability from these three
+functions.
+
+**What to do.** Re-run. There is no switch for the earlier numbers; the
+earlier intervals did not have their nominal coverage.
+
 ## 1.38.0 → next: ⚠️ `CoxResult.ph_test()` and the Poisson overdispersion test
 
 **What changed.**

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import List, Optional, Sequence, Tuple, Union
 
-import numpy as np
 import pandas as pd
 
 from ._base import BayesianIVResult, _require_pymc, _sample_model, _summarise_posterior
@@ -96,12 +95,28 @@ def bayes_iv(
         Y_i = alpha + LATE * D_i + beta_X' * X_i + eps_i
         (v_i, eps_i) ~ BivariateNormal(0, Sigma)
 
-    ``Sigma`` is parameterised via an LKJ prior on the correlation
-    matrix and HalfNormal priors on the two scales, which lets the
-    model identify the LATE from *exogenous* variation in Z even when
-    D is endogenous. Under a weak instrument (``pi_Z ≈ 0``) the LATE
-    posterior correctly widens — there's no "weak-instrument F < 10"
-    footgun here; the posterior just gets more uncertain.
+    ``Sigma`` is parameterised through the regression of ``eps`` on
+    ``v``: ``eps_i = rho * v_i + e_i`` with ``e_i ~ N(0, sigma_eps^2)``
+    independent of ``v_i ~ N(0, sigma_v^2)``, a ``Normal`` prior on
+    ``rho`` and ``HalfNormal`` priors on the two scales. The likelihood
+    of the outcome is therefore
+    normal with mean
+    ``alpha + LATE * D_i + beta_X' X_i + rho * (D_i - E[D_i | Z_i, X_i])``
+    and variance ``sigma_eps^2``, given ``D_i``, with the first-stage mean
+    a function of the *parameters* ``pi``, so
+    the posterior of the LATE carries the uncertainty of the first stage
+    and of the error covariance. With a strong instrument and weak
+    priors it is centred on 2SLS with the 2SLS standard deviation; with
+    a weak instrument (``pi_Z`` near 0) it widens and becomes
+    non-normal.
+
+    .. note::
+       Before 1.39 the residuals ``D - E[D | Z, X]`` were computed once
+       by OLS and treated as data. That kept the posterior mean at 2SLS
+       but made the posterior standard deviation too small by the factor
+       ``sqrt(1 - corr(v, eps)^2)``: at a correlation of 0.9 the 95%
+       interval covered the true effect about half the time. See
+       ``MIGRATION.md``.
 
     Parameters
     ----------
@@ -168,31 +183,15 @@ def bayes_iv(
 
     mu_late, sigma_late = prior_late
 
-    # Control-function pre-compute: first-stage residuals from a quick
-    # OLS on (1, Z, X). Feeding the plug-in residuals into the
-    # structural equation as an exogeneity control makes the LATE
-    # posterior coincide (asymptotically) with 2SLS while giving us a
-    # tractable single-likelihood model that PyMC can sample cleanly.
-    W_fs = [np.ones((n, 1)), Z]
-    if X is not None:
-        W_fs.append(X)
-    W_fs_mat = np.hstack(W_fs)
-    pi_ols, *_ = np.linalg.lstsq(W_fs_mat, D, rcond=None)
-    D_hat = W_fs_mat @ pi_ols
-    v_hat = D - D_hat  # first-stage residuals
-
     with pm.Model() as model:
         # ------------------------------------------------------------------
-        # First stage: D ~ Z + X  (modelled so we have a posterior on
-        # pi_Z, but the residuals used in the control function are the
-        # plug-in OLS residuals above, which is a valid 2SLS-equivalent
-        # simplification under homoskedasticity and a linear first stage)
+        # First stage: D = pi_0 + pi_Z'Z + pi_X'X + v,  v ~ N(0, sigma_v^2)
         # ------------------------------------------------------------------
-        pi_intercept = pm.Normal("pi_intercept", mu=0.0, sigma=prior_coef_sigma)
+        pi_intercept = pm.Normal("pi_intercept", mu=0.0, sigma=prior_first_stage_sigma)
         pi_Z = pm.Normal(
             "pi_Z",
             mu=0.0,
-            sigma=prior_coef_sigma,
+            sigma=prior_first_stage_sigma,
             shape=n_instr,
         )
         first_stage = pi_intercept + pm.math.dot(Z, pi_Z)
@@ -200,7 +199,7 @@ def bayes_iv(
             pi_X = pm.Normal(
                 "pi_X",
                 mu=0.0,
-                sigma=prior_coef_sigma,
+                sigma=prior_first_stage_sigma,
                 shape=X.shape[1],
             )
             first_stage = first_stage + pm.math.dot(X, pi_X)
@@ -208,12 +207,18 @@ def bayes_iv(
         pm.Normal("d_obs", mu=first_stage, sigma=sigma_v, observed=D)
 
         # ------------------------------------------------------------------
-        # Structural: Y ~ D + X + rho * v_hat  (control function)
+        # Structural equation given D. With eps = rho * v + e the joint
+        # normal of (v, eps) factorises into the first stage above and
+        # Y | D ~ N(alpha + late * D + X'beta + rho * v, sigma_eps^2),
+        # where v = D - first_stage is a function of the first-stage
+        # parameters, not a pre-computed residual: treating OLS residuals
+        # as data understates the posterior sd of `late` by
+        # sqrt(1 - corr(v, eps)^2).
         # ------------------------------------------------------------------
         alpha = pm.Normal("alpha", mu=0.0, sigma=prior_coef_sigma)
         late = pm.Normal("late", mu=mu_late, sigma=sigma_late)
         rho = pm.Normal("rho_cf", mu=0.0, sigma=prior_coef_sigma)
-        structural = alpha + late * D + rho * v_hat
+        structural = alpha + late * D + rho * (D - first_stage)
         if X is not None:
             beta_X = pm.Normal(
                 "beta_X",

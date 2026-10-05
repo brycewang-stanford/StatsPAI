@@ -425,6 +425,128 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Stata 18 wrote. Stata's logit stops at nrtolerance(1e-5); sp.logit iterates further."
         ),
     },
+    # MCMC diagnostics and Bayesian model averaging (Ramirez-Hassan pass,
+    # 2026-10-06): deterministic functions of committed chains / data against
+    # coda, BMA and BMS in bayes_mcmc_R.json. EXACT is 1e-9 in the test.
+    "mcmc_summary": {
+        "status": "bit-exact",
+        "reference": "summary(coda::mcmc(x))",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "coda": "0.19.4.1"},
+        "tolerance": "mean, sd, naive and time-series SE, quantiles 1e-9 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_bayes_mcmc_parity.py",
+            "tests/reference_parity/_fixtures/bayes_mcmc_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: a 4,000-draw chain of six series and a 1,237-draw prefix."
+        ),
+    },
+    "mcmc_ess": {
+        "status": "bit-exact",
+        "reference": "coda::effectiveSize, coda::spectrum0.ar",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "coda": "0.19.4.1"},
+        "tolerance": "1e-9 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_bayes_mcmc_parity.py",
+            "tests/reference_parity/_fixtures/bayes_mcmc_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: the same two chains; the AR order is chosen by AIC on both sides."
+        ),
+    },
+    "hpd_interval": {
+        "status": "bit-exact",
+        "reference": "coda::HPDinterval",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "coda": "0.19.4.1"},
+        "tolerance": "1e-9 rel at 95 and 80 percent",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_bayes_mcmc_parity.py",
+            "tests/reference_parity/_fixtures/bayes_mcmc_R.json",
+        ],
+        "note": ("Frozen-R fixture: the same two chains."),
+    },
+    "geweke_diag": {
+        "status": "bit-exact",
+        "reference": "coda::geweke.diag",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "coda": "0.19.4.1"},
+        "tolerance": "z-scores 1e-9 rel at (0.1, 0.5) and (0.2, 0.3)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_bayes_mcmc_parity.py",
+            "tests/reference_parity/_fixtures/bayes_mcmc_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: the same two chains; the short one has a length at which the window rounding matters."
+        ),
+    },
+    "raftery_diag": {
+        "status": "bit-exact",
+        "reference": "coda::raftery.diag",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "coda": "0.19.4.1"},
+        "tolerance": "burn-in, total and minimum length equal as integers; dependence factor equal after rounding to coda's three significant digits",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_bayes_mcmc_parity.py",
+            "tests/reference_parity/_fixtures/bayes_mcmc_R.json",
+        ],
+        "note": ("Frozen-R fixture: three settings of (q, r, s) on the two chains."),
+    },
+    "heidel_diag": {
+        "status": "bit-exact",
+        "reference": "coda::heidel.diag",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "coda": "0.19.4.1"},
+        "tolerance": "stationarity decision and start equal; p-value, mean and half-width 1e-9 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_bayes_mcmc_parity.py",
+            "tests/reference_parity/_fixtures/bayes_mcmc_R.json",
+        ],
+        "note": ("Frozen-R fixture: two settings of (eps, pvalue) on the two chains."),
+    },
+    "gelman_rubin": {
+        "status": "bit-exact",
+        "reference": "coda::gelman.diag(transform = FALSE)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "coda": "0.19.4.1"},
+        "tolerance": "point estimate and upper limit 1e-9 rel, with and without autoburnin",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_bayes_mcmc_parity.py",
+            "tests/reference_parity/_fixtures/bayes_mcmc_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: four chains of three series. The multivariate factor follows Brooks and Gelman (number of chains); coda has the number of parameters there, and the test rebuilds coda's value from the same eigenvalue."
+        ),
+    },
+    "bma": {
+        "status": "bit-exact",
+        "reference": "BMS::bms (g-prior, enumeration); BMA::bic.glm; BMA::bicreg",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "BMS": "0.3.5",
+            "BMA": "3.18.21",
+        },
+        "tolerance": "vs BMS: inclusion probabilities, posterior means and sds "
+        "1e-9 abs for g = UIP, BRIC, RIC; vs bic.glm: model probabilities 1e-9 "
+        "(logit, Poisson), 1e-5 (gamma), standard deviations 1e-4 (R's IRLS "
+        "tolerance); vs bicreg: same models, BIC 1e-9 after rounding R-squared "
+        "to bicreg's five decimals",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_bayes_mcmc_parity.py",
+            "tests/reference_parity/_fixtures/bayes_mcmc_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on a committed synthetic file with nine "
+            "candidates. bicreg computes BIC from an R-squared rounded to "
+            "five decimals, so its probabilities agree with the exact ones to "
+            "about three digits; the test shows the rounding is the whole "
+            "difference. Occam's window is also checked by brute force over "
+            "all 512 models."
+        ),
+    },
     # ---- linear-model extensions (Ding, Linear Model and Extensions) ----
     #
     # One synthetic file, two frozen references: R (gee, MASS, leaps) in

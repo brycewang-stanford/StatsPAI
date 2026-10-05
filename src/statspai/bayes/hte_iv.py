@@ -6,7 +6,13 @@ Extends :func:`bayes_iv` with a linear CATE-by-covariate model:
 
     D_i = pi_0 + pi_Z' Z_i + pi_X' X_i + v_i
     tau(M_i) = tau_0 + tau_hte' (M_i - M_bar)                       (CATE)
-    Y_i = alpha + tau(M_i) * D_i + beta_X' X_i + rho * v_hat_i + eps_i
+    Y_i = alpha + tau(M_i) * D_i + beta_X' X_i + rho * v_i + eps_i
+
+with ``v_i = D_i - E[D_i | Z_i, X_i]`` a function of the first-stage
+parameters (the joint model of :func:`bayes_iv`), so the posterior of the
+effects carries the uncertainty of the first stage. Before 1.39 the
+residuals were computed once by OLS and treated as data, which made the
+credible intervals too narrow when the treatment is strongly endogenous.
 
 The posterior gives the average LATE (``tau_0``) and a table of
 slopes on each effect modifier. ``prob_positive`` on any individual
@@ -54,7 +60,7 @@ def _prepare_hte_iv_frame(
     # Reject overlap between effect_modifiers and covariates. If the
     # same column appears in both, the structural equation at fit
     # time includes it as (M - M_bar) * D *and* as plain beta_X * X,
-    # while the first-stage plug-in v_hat only includes it through X.
+    # while the first stage only includes it through X.
     # That asymmetry is confusing and near-certain to be a user bug.
     # Force the caller to pick a lane.
     overlap = set(mod_cols) & set(cov_cols)
@@ -184,15 +190,6 @@ def bayes_hte_iv(
     n_instr = Z.shape[1]
     n_mod = M.shape[1]
 
-    # Pre-compute first-stage residuals (control function plug-in,
-    # same shortcut as bayes_iv).
-    W_fs = [np.ones((n, 1)), Z]
-    if X is not None:
-        W_fs.append(X)
-    W_fs_mat = np.hstack(W_fs)
-    pi_ols, *_ = np.linalg.lstsq(W_fs_mat, D, rcond=None)
-    v_hat = D - W_fs_mat @ pi_ols
-
     modifier_means = M.mean(axis=0)
     M_centered = M - modifier_means
 
@@ -235,7 +232,9 @@ def bayes_hte_iv(
         # tau(M_i) = tau_0 + tau_hte' (M_i - M_bar)
         tau_i = tau_0 + pm.math.dot(M_centered, tau_hte)
         rho = pm.Normal("rho_cf", mu=0.0, sigma=prior_coef_sigma)
-        structural = alpha + tau_i * D + rho * v_hat
+        # v = D - first_stage depends on the first-stage parameters (see
+        # bayes_iv): the joint model, not a plug-in control function
+        structural = alpha + tau_i * D + rho * (D - first_stage)
         if X is not None:
             beta_X = pm.Normal(
                 "beta_X",

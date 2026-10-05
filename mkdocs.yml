@@ -126,6 +126,7 @@ nav:
       - "Facure, Causal Inference in Python: the notebooks, chapter by chapter": guides/facure_causal_inference_in_python.md
       - "Ness, Causal AI: graphs, interventions, counterfactuals, refutation": guides/ness_causal_ai.md
       - "Ding, Linear Model and Extensions: the R programs, chapter by chapter": guides/ding_linear_model.md
+      - "Bayesian econometrics without PyMC: regression, panels, model averaging, diagnostics": guides/bayesian_econometrics.md
       - "Gow and Ding, Empirical Research in Accounting: the R calls, chapter by chapter": guides/empirical_accounting_research.md
       - "Applied Causal Inference Powered by ML and AI: the notebooks, chapter by chapter": guides/applied_causal_ml.md
       - "Causal Inference in R: the propensity-score workflow, step by step": guides/causal_inference_in_r.md
