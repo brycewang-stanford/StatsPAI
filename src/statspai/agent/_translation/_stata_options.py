@@ -239,6 +239,8 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     # [R] cnsreg: constraints(), minimum abbreviation c().
     "cnsreg": (("constraints", 1),),
     "nl": (("initial", 2),),
+    # [XT] xthtaylor: endog(), constant(), varying(), amacurdy.
+    "xthtaylor": (("endog", 4), ("constant", 4), ("varying", 4), ("amacurdy", 3)),
     # [MV] pca: components(), com(); mineigen(), mine(); covariance, cov.
     "pca": (
         ("components", 3),

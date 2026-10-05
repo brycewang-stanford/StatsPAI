@@ -7538,6 +7538,80 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="xthtaylor",
+            category="panel",
+            description=(
+                "Hausman-Taylor estimator for panels with time-invariant "
+                "regressors, some of which (and some time-varying ones) may "
+                "be correlated with the unit effect. Fixed effects cannot "
+                "estimate time-invariant coefficients and random effects "
+                "assumes none of the regressors is correlated with the "
+                "effect; this instruments the endogenous ones with the "
+                "within variation and the unit means of the exogenous "
+                "time-varying regressors. Which regressors vary is read "
+                "from the data. Reproduces Stata xthtaylor, conventional "
+                "and cluster-robust standard errors."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, None, "y ~ x1 + x2 + z1 + z2"),
+                ParamSpec("data", "DataFrame", True, None, "Long panel"),
+                ParamSpec("id", "str", True, None, "Unit identifier"),
+                ParamSpec(
+                    "endog",
+                    "list",
+                    True,
+                    None,
+                    "Regressors that may be correlated with the unit effect",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "conventional",
+                    "Covariance estimator ('robust' clusters on the unit)",
+                    ["conventional", "robust"],
+                ),
+                ParamSpec("cluster", "str", False, None, "Other cluster variable"),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.xthtaylor("lwage ~ exper + union + female + educ", df, '
+                'id="person", endog=["exper", "educ"])'
+            ),
+            tags=[
+                "panel",
+                "hausman-taylor",
+                "instrumental-variables",
+                "time-invariant",
+            ],
+            reference="hausman1981panel",
+            assumptions=[
+                "Every regressor is uncorrelated with the idiosyncratic error",
+                "The regressors not listed in endog= are uncorrelated with the "
+                "unit effect",
+                "At least as many exogenous time-varying regressors as "
+                "endogenous time-invariant ones",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="MethodIncompatibility: the model is under-identified",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Declare fewer time-invariant regressors endogenous "
+                    "or add exogenous time-varying regressors.",
+                ),
+            ],
+            alternatives=["panel", "hausman"],
+            not_recommended_when=[
+                "Only the time-varying coefficients matter — fixed effects "
+                "(sp.panel(method='fe')) needs no exogeneity assumption on the "
+                "regressors",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="model_average",
             category="regression",
             description=(

@@ -5,7 +5,7 @@ The reference numbers are real Stata 18 output on three committed synthetic
 datasets (``_fixtures/_generate_hansen_methods_stata.do`` reads the same CSV
 bytes): ``cnsreg``, ``nl``, ``pca``, ``factor``, ``estat overid`` after 2SLS
 and LIML, collinear instruments, ``jackknife``, ``xtreg, re`` with regressors
-that do not vary within panel, ``var`` / ``varsoc`` with exogenous
+that do not vary within panel, ``xthtaylor``, ``var`` / ``varsoc`` with exogenous
 variables, ``irf table`` and ``dfuller`` p-values of explosive series.
 Model averaging is compared with R's ``quadprog`` on the same bytes.
 
@@ -333,6 +333,70 @@ def test_random_effects_with_time_invariant_regressors(G, panel):
     )  # fmt: skip
     close(robust.std_errors["x1"], G["re.rob_se_x1"])
     close(robust.std_errors["ti"], G["re.rob_se_ti"])
+
+
+# ------------------------------------------------------------ Hausman-Taylor
+@pytest.fixture(scope="module")
+def ht_panel(panel):
+    data = panel.copy()
+    data["zi"] = data.groupby("id")["w"].transform("mean") + 0.3 * data["ti"]
+    return data
+
+
+@pytest.mark.parametrize("tag, kwargs", [("conv", {}), ("rob", {"vce": "robust"})])
+def test_hausman_taylor_matches_stata(G, ht_panel, tag, kwargs):
+    fit = sp.xthtaylor(
+        "y ~ x1 + x2 + w + ti + zi", ht_panel, id="id", endog=["x2", "zi"], **kwargs
+    )
+    for name in ("x1", "w", "x2", "ti", "zi"):
+        close(fit.params[name], G[f"ht.{tag}.b_{name}"])
+    close(fit.params["_cons"], G[f"ht.{tag}.b_cons"])
+    for name in ("x1", "x2", "ti", "zi"):
+        close(fit.std_errors[name], G[f"ht.{tag}.se_{name}"])
+    close(fit.std_errors["_cons"], G[f"ht.{tag}.se_cons"])
+    close(fit.model_info["sigma_u"], G[f"ht.{tag}.sigma_u"])
+    close(fit.model_info["sigma_e"], G[f"ht.{tag}.sigma_e"])
+    if tag == "conv":
+        close(fit.diagnostics["Wald chi2"], G["ht.conv.chi2"])
+    assert fit.model_info["tv_exogenous"] == ["x1", "w"]
+    assert fit.model_info["ti_endogenous"] == ["zi"]
+    # through the translator, with the panel declared by xtset
+    via = sp.stata(
+        "xtset id year\nxthtaylor y x1 x2 w ti zi, endog(x2 zi)"
+        + (" vce(robust)" if kwargs else ""),
+        data=ht_panel,
+    )
+    pd.testing.assert_series_equal(via.std_errors, fit.std_errors)
+
+
+def test_hausman_taylor_does_not_depend_on_the_base_period(G, ht_panel):
+    """With period dummies in an unbalanced panel Stata's estimate of the
+    time-invariant endogenous coefficient moves with the year it leaves out
+    (-0.248 without 2001, +0.015 without 2005 on these data). The fit here
+    is the same for every base."""
+    assert abs(G["ht.base2001.b_zi"] - G["ht.base2005.b_zi"]) > 0.2
+    fits = [
+        sp.xthtaylor(
+            f"y ~ x1 + x2 + ti + zi + C(year, Treatment({base}))",
+            ht_panel, id="id", endog=["x2", "zi"],
+        )  # fmt: skip
+        for base in (2001, 2005, 2008)
+    ]
+    for other in fits[1:]:
+        for name in ("x1", "x2", "ti", "zi"):
+            close(other.params[name], fits[0].params[name], rtol=1e-9)
+            close(other.std_errors[name], fits[0].std_errors[name], rtol=1e-9)
+
+
+def test_hausman_taylor_refuses_what_is_not_identified(ht_panel):
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="under-identified"):
+        sp.xthtaylor("y ~ x2 + ti + zi", ht_panel, id="id", endog=["x2", "zi"])
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="endog"):
+        sp.xthtaylor("y ~ x1 + ti", ht_panel, id="id", endog=[])
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="constant within"):
+        sp.xthtaylor("y ~ x1 + x2", ht_panel, id="id", endog=["x2"])
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="not regressors"):
+        sp.xthtaylor("y ~ x1 + ti", ht_panel, id="id", endog=["nope"])
 
 
 # ------------------------------------------------- VAR with exogenous terms

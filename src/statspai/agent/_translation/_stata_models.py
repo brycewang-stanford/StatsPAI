@@ -273,7 +273,65 @@ def _h_factor(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("factor", args, code, notes or None)
 
 
+def _h_xthtaylor(cmd: StataCommand) -> Dict[str, Any]:
+    """``xthtaylor y x..., endog(varlist) [vce(robust)]`` -> ``sp.xthtaylor``.
+
+    Stata takes the panel variable from ``xtset``; a single line carries it
+    as ``i()``, which ``sp.stata`` appends from the declaration."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None or not xs:
+        return _emit_error(
+            "xthtaylor requires an outcome and regressors", command="xthtaylor"
+        )
+    raw = cmd.options.get("endog")
+    if not raw:
+        return _emit_error(
+            "xthtaylor requires endog()", command="xthtaylor", suggestions=[]
+        )
+    if "amacurdy" in cmd.options:
+        return _emit_error(
+            "xthtaylor, amacurdy (the Amemiya-MaCurdy estimator) is not translated",
+            command="xthtaylor",
+            suggestions=[],
+        )
+    # constant(), varying: Stata's hints about which regressors vary; the
+    # data decide that here
+    cmd.options.pop("constant", None)
+    cmd.options.pop("varying", None)
+    endog = [w[2:] if w.startswith("i.") else w for w in str(raw).split()]
+    endog = [re.sub(r"^C\((\w+)\)$", r"\1", w) for w in endog]
+    unit = cmd.options.get("i") or "<panel_id>"
+    cmd.options.pop("t", None)
+    args: Dict[str, Any] = {
+        "formula": _build_formula(y, xs),
+        "id": None if unit == "<panel_id>" else unit,
+        "endog": endog,
+    }
+    vce = str(cmd.options.get("vce") or "").strip()
+    words = vce.split()
+    if vce.lower() == "robust" or "robust" in cmd.options:
+        args["vce"] = "robust"
+    elif len(words) == 2 and words[0].lower() == "cluster":
+        args["cluster"] = words[1]
+    elif vce.lower() not in ("", "conventional"):
+        return _emit_error(
+            f"xthtaylor: vce({vce}) is not translated", command="xthtaylor",
+            suggestions=[],
+        )  # fmt: skip
+    notes = []
+    if unit == "<panel_id>":
+        notes.append(
+            "Stata's `xtset id [t]` set the panel id; replace <panel_id> "
+            "with your unit-id column."
+        )
+    shown = [repr(args["formula"]), "data=df", f"id={unit!r}"] + [
+        f"{k}={v!r}" for k, v in args.items() if k not in ("formula", "id")
+    ]
+    return _emit("xthtaylor", args, f"sp.xthtaylor({', '.join(shown)})", notes)
+
+
 HANDLERS = {
+    "xthtaylor": _h_xthtaylor,
     "cnsreg": _h_cnsreg,
     "nl": _h_nl,
     "pca": _h_pca,

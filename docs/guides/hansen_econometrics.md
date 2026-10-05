@@ -45,7 +45,7 @@ df["lwage"] = (
 | 14 | Autoregressions, Newey-West | `sp.ardl`, `sp.regress(vce='hac', hac_lags=)` |
 | 15 | VAR, impulse responses, structural VAR | `sp.var`, `sp.varsoc`, `sp.svar`, `fit.irf()`, `fit.fevd()` |
 | 16 | Unit roots, KPSS, cointegration | `sp.unitroot`, `sp.vec`, `sp.johansen` |
-| 17 | Fixed and random effects, dynamic panels | `sp.panel`, `sp.xtabond`, `sp.xtdpdsys` |
+| 17 | Fixed and random effects, Hausman-Taylor, dynamic panels | `sp.panel`, `sp.xthtaylor`, `sp.xtabond`, `sp.xtdpdsys` |
 | 18 | Difference in differences | `sp.did`, `sp.panel(method='fe')` |
 | 19 to 21 | Kernel regression, series, regression discontinuity | `sp.lpoly`, `sp.rdrobust` |
 | 23 | Nonlinear least squares | `sp.nls` |
@@ -55,8 +55,8 @@ df["lwage"] = (
 | 28 | Model selection and averaging | `sp.model_average` |
 | 29 | Lasso, ridge and their relatives | `sp.rlasso`, `sp.lasso_select` |
 
-Not available yet: Hausman-Taylor (chapter 17), multinomial probit
-(chapter 26) and threshold regression with its own inference (chapter 23).
+Not available yet: multinomial probit (chapter 26) and threshold
+regression with its own inference (chapter 23).
 
 ## Constrained regression (chapter 8)
 
@@ -146,6 +146,34 @@ with `estat overid, forcenonrobust`.
 If an excluded instrument is a linear combination of the others and of the
 exogenous regressors, `sp.iv` drops it, warns, and lists it in
 `model_info['omitted_instruments']`.
+
+## Time-invariant regressors in a panel (chapter 17)
+
+```python
+units, periods = 150, 6
+effect = rng.normal(size=units)
+pan = pd.DataFrame({"firm": np.repeat(np.arange(units), periods)})
+pan["sales"] = rng.normal(size=len(pan))
+pan["debt"] = rng.normal(size=len(pan)) + effect[pan.firm]
+pan["sector"] = rng.integers(0, 2, units)[pan.firm].astype(float)
+pan["listed"] = ((rng.normal(size=units) + effect) > 0)[pan.firm].astype(float)
+pan["invest"] = (
+    1 + 0.5 * pan.sales - 0.3 * pan.debt + 0.2 * pan.sector + 0.4 * pan.listed
+    + effect[pan.firm] + rng.normal(size=len(pan))
+)
+ht = sp.xthtaylor("invest ~ sales + debt + sector + listed", pan, id="firm",
+                  endog=["debt", "listed"])
+print(ht.params.round(3).to_dict())
+print(ht.model_info["ti_endogenous"], round(ht.model_info["rho"], 3))
+```
+
+Fixed effects cannot estimate the coefficients of `sector` and `listed`,
+which do not vary within firm. Random effects can, but assumes `debt` and
+`listed` are unrelated to the firm effect. `sp.xthtaylor` lets the
+regressors named in `endog=` be correlated with it and instruments them
+with the within variation of the time-varying regressors and the firm means
+of the exogenous ones. It needs at least as many exogenous time-varying
+regressors as endogenous time-invariant ones.
 
 ## Nonlinear least squares (chapter 23)
 

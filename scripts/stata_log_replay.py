@@ -54,7 +54,7 @@ NUM = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 ESTIMATION = {
     "reg", "regress", "xtreg", "areg", "probit", "logit", "poisson", "nbreg",
     "ivreg", "ivreg2", "ivregress", "tobit", "newey", "reghdfe", "prais",
-    "cnsreg", "nl", "qreg",
+    "cnsreg", "nl", "qreg", "xthtaylor",
 }  # fmt: skip
 SUMMARIZE = {"su", "sum", "summ", "summarize"}
 #: commands compared number by number without naming the numbers
@@ -655,6 +655,8 @@ class Replay:
     # -- one command ------------------------------------------------------
     def run(self, cmd: str, buf: List[str]) -> None:
         def first_word(text: str) -> str:
+            # `xi: xthtaylor ...`: the prefix only expands i.var terms
+            text = re.sub(r"^\s*xi\s*:\s*", "", text)
             return re.split(r"[\s,]", text.strip(), maxsplit=1)[0].lower()
 
         opener = cmd.rstrip().endswith("{")
@@ -866,6 +868,9 @@ class Replay:
                 continue
             if word == "nl":
                 name = name.lstrip("/")  # parameters are printed as /b0
+            xi = re.fullmatch(r"_I([A-Za-z]\w*?)_(\d+)", name)
+            if xi:  # xi's dummy _Iyear_1963 is the level 1963 of year
+                name = f"C({xi.group(1)})[T.{xi.group(2)}]"
             # xtreg, fe prints _cons, which the session derives
             ours_b = params.get(name, stored_b.get(name))
             ours_se = ses.get(name, stored_se.get(name))

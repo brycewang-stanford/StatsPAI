@@ -1160,6 +1160,16 @@ TIER3_ROUND_TRIPS = [
         },
     ),
     (
+        "xthtaylor y x1 x2 z1 z2, endog(x2 z2) i(id) vce(robust)",
+        "xthtaylor",
+        {
+            "formula": "y ~ x1 + x2 + z1 + z2",
+            "id": "id",
+            "endog": ["x2", "z2"],
+            "vce": "robust",
+        },
+    ),
+    (
         "pca x1 x2 x3, components(2)",
         "pca",
         {"variables": ["x1", "x2", "x3"], "n_components": 2},

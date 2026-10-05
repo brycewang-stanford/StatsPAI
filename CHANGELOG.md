@@ -611,6 +611,14 @@ The Stata evidence on committed data is in
 - `sp.jackknife`: the delete-one or delete-one-cluster jackknife for any
   statistic, the counterpart of `sp.bootstrap`. It reproduces Stata's
   `jackknife` prefix and `vce(jackknife)`.
+- `sp.xthtaylor`: the Hausman-Taylor estimator for panels with
+  time-invariant regressors, some of them correlated with the unit effect.
+  It reproduces Stata's `xthtaylor` to 1e-12, conventional and
+  cluster-robust standard errors, and `sp.stata` runs the command. One
+  departure: with period dummies in an unbalanced panel Stata's estimates
+  change with the period it omits (a coefficient of -0.248 or +0.015 on
+  the test panel, depending on the year); here the fit is the same for
+  every base period.
 - `sp.model_average`: selection criteria (AIC, BIC, leave-one-out
   cross-validation) and averaging weights (Mallows, jackknife, smoothed
   AIC and BIC) for candidate regressions, with averaged coefficients, fit

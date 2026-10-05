@@ -160,6 +160,39 @@ emit re.rob_se_ti _se[ti]
 xtreg y x1 x2, fe
 emit re.fe_sigma_e e(sigma_e)
 
+* --- Hausman-Taylor
+bysort id: egen double wbar = mean(w)
+generate double zi = wbar + 0.3 * ti
+foreach v in "" "vce(robust)" {
+    local tag = cond("`v'" == "", "conv", "rob")
+    xthtaylor y x1 x2 w ti zi, endog(x2 zi) `v'
+    emit ht.`tag'.b_x1 _b[x1]
+    emit ht.`tag'.b_w _b[w]
+    emit ht.`tag'.b_x2 _b[x2]
+    emit ht.`tag'.b_ti _b[ti]
+    emit ht.`tag'.b_zi _b[zi]
+    emit ht.`tag'.b_cons _b[_cons]
+    emit ht.`tag'.se_x1 _se[x1]
+    emit ht.`tag'.se_x2 _se[x2]
+    emit ht.`tag'.se_ti _se[ti]
+    emit ht.`tag'.se_zi _se[zi]
+    emit ht.`tag'.se_cons _se[_cons]
+    emit ht.`tag'.sigma_u e(sigma_u)
+    emit ht.`tag'.sigma_e e(sigma_e)
+}
+xthtaylor y x1 x2 w ti zi, endog(x2 zi)
+emit ht.conv.chi2 e(chi2)
+* period dummies: the estimates move with the year that is left out
+forvalues t = 2001/2008 {
+    generate double yr`t' = year == `t'
+}
+xthtaylor y x1 x2 ti zi yr2002 yr2003 yr2004 yr2005 yr2006 yr2007 yr2008, endog(x2 zi)
+emit ht.base2001.b_zi _b[zi]
+emit ht.base2001.b_x1 _b[x1]
+xthtaylor y x1 x2 ti zi yr2001 yr2002 yr2003 yr2004 yr2006 yr2007 yr2008, endog(x2 zi)
+emit ht.base2005.b_zi _b[zi]
+emit ht.base2005.b_x1 _b[x1]
+
 * ============================================================== time series
 import delimited using "textbook_ts.csv", clear asdouble
 tsset t

@@ -49,7 +49,7 @@ REPRODUCED = {
     "Chapter_14.log": 468,
     "Chapter_15.log": 981,
     "Chapter_16.log": 659,
-    "Chapter_17.log": 192,
+    "Chapter_17.log": 206,
     "Chapter_18.log": 415,
     "Chapter_20.log": 32,
     "Chapter_23.log": 16,
@@ -73,6 +73,16 @@ DIFFERENT = {
         "returns 7.866, Hansen's J at the 2SLS residuals. The Sargan and "
         "Basmann statistics of the same call agree."
     ),
+    ("Chapter_17.log", "xi: xthtaylor"): (
+        "Table 17.2, last column. The panel is unbalanced and the model has "
+        "year dummies. Stata's instruments are the unit means of the dummies "
+        "it kept, so its estimates depend on the year it omits (1962 here). "
+        "StatsPAI adds the constant to the instruments, which makes the fit "
+        "the same for every base year; leaving the constant out and "
+        "omitting 1962 reproduces Stata's column to the last printed digit. "
+        "The variance components and the coefficients agree to four or five "
+        "digits either way."
+    ),
 }
 
 #: Commands sp.stata declines on these logs, by their start, with the reason.
@@ -89,7 +99,6 @@ DECLINED = {
     ),
     "testparm i.qob#i.yob": "follows the regression above",
     "matrix list e(Sigma)": "display of a stored matrix",
-    "xi: xthtaylor": "no Hausman-Taylor estimator",
     "xi: xtdpd": "the dgmmiv() / lgmmiv() grammar is not translated",
     "cmset": "choice-model commands are not translated",
     "cmclogit": "choice-model commands are not translated",

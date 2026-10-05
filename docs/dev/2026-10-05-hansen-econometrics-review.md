@@ -31,10 +31,12 @@ changed to imitate an old convention.
 | | Reproduced | Different | Not run |
 | --- | --- | --- | --- |
 | First replay | 1,925 | 112 | 146 |
-| Now | 3,876 | 10 | 54 |
+| Now | 3,890 | 100 | 53 |
 
-Thirty more numbers are bootstrap standard errors, which the replay marks
-`random`. Of the 54 commands not run, 33 are the choice-model commands of
+Ninety of the hundred differences are the Hausman-Taylor column of Table
+17.2, explained below; the other ten are two cases where the reference is
+at fault or the surface is not smooth. Thirty more numbers are bootstrap
+standard errors, which the replay marks `random`. Of the 53 commands not run, 33 are the choice-model commands of
 chapter 26. The opt-in test
 `tests/external_parity/test_hansen_econometrics_logs.py` holds the
 per-chapter numbers and the two ledgers (documented differences, declined
@@ -54,6 +56,7 @@ commands).
 | 8 | No constrained regression (`cnsreg`, chapter 8), no nonlinear least squares (`nl`, chapter 23), no principal components or factor analysis (chapter 11), no general jackknife (chapter 10) | missing | `sp.cnsreg`, `sp.nls`, `sp.pca`, `sp.factor`, `sp.jackknife` |
 | 9 | `var` / `varsoc` / `svar` with `exog()` (Blanchard and Perotti, Blanchard and Quah, chapter 15) | missing option | `sp.var(exog=)`, `sp.varsoc(exog=)` |
 | 11 | Model selection and averaging (chapter 28) existed only for double machine learning | missing | `sp.model_average`: AIC, BIC, cross-validation; Mallows, jackknife and smoothed weights. Checked against `figure28_5.R` and against `quadprog` on committed data |
+| 12 | No Hausman-Taylor estimator (Table 17.2, last column) | missing | `sp.xthtaylor`, and `xthtaylor` in `sp.stata`. Stata's steps reproduced to 1e-12 on committed data |
 | 10 | `irf table`, `estimates stats`, `jackknife:` / `bootstrap:`, `vce(jackknife)`, `L(1/3).D.x`, `lag()` for `lags()`, `perfect`, `forcenonrobust`, `r(sargan)`, `e(rank)`, `nlcom (a)/(b)`, `lincom x + z/5` | translator | run |
 
 ## What agreed without any change
@@ -100,6 +103,19 @@ With the same lines moved above that section, R's `solve.QP` returns our
 weights, and our weights give the lower value of the criterion as the
 program defines it (383.481 against 383.951).
 
+**Hausman-Taylor with year dummies (Table 17.2).** The variance
+components agree with Stata to eight digits; the coefficients agree to four
+or five. The panel is unbalanced and the model has a full set of year
+dummies among the exogenous time-varying regressors. Stata's instruments
+include the unit means of the dummies it kept, and that set depends on the
+year it leaves out: on the committed test panel the coefficient of the
+time-invariant endogenous regressor is -0.248 when 2001 is omitted and
++0.015 when 2005 is. `sp.xthtaylor` adds the constant to the instruments in
+this case, which amounts to using the means of all the dummies, and its fit
+is the same for every base year. With the constant left out and 1962 as the
+omitted year it gives Stata's column to the last printed digit. Without
+period dummies, and in balanced panels, the two programs agree to rounding.
+
 **Standard errors of iterative factor methods.** Stata's `factor, ml` and
 `factor, ipf` stop at a loose tolerance. With `ltolerance(1e-14)` Stata
 prints our loadings to seven digits and our log likelihood to nine.
@@ -117,7 +133,6 @@ point estimate only.
 | Command | Reason |
 | --- | --- |
 | `mata { ... }` (chapter 8) | Not translated. The block computes the efficient minimum distance estimator, which is `sp.cnsreg(method='emd')`; its numbers are reproduced by a direct call |
-| `xthtaylor` (chapter 17) | No Hausman-Taylor estimator yet |
 | `xtdpd` (chapter 17) | `sp.xtabond` / `sp.xtdpdsys` exist; the `dgmmiv()` / `lgmmiv()` grammar is not translated |
 | `cmset`, `cmclogit`, `nlogit`, `cmmprobit`, `cmmixlogit` and their `margins` (chapter 26) | Not translated. `sp.clogit` called directly reproduces `cmclogit` to the last printed digit. There is no multinomial probit |
 | `estat bootstrap, all` | Percentile and BCa intervals of the last bootstrap; the draws are not Stata's |
@@ -127,8 +142,7 @@ point estimate only.
 
 ## Open items
 
-1. Hausman-Taylor (`xthtaylor`). Stata's output for Table 17.2 is in the
-   run folder as the reference.
+1. The Amemiya-MaCurdy variant of Hausman-Taylor (`xthtaylor, amacurdy`).
 2. Translation of the choice-model commands of chapter 26, and a
    multinomial probit.
 3. `xtdpd` grammar.
