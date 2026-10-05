@@ -216,5 +216,9 @@ def test_jackknife_is_reproduced_and_bootstrap_is_marked_random(frame):
 def test_impulse_responses_of_structural_vars(frame):
     rows = frame[(frame.log == "Chapter_15.log") & frame.command.str.startswith("irf table")]
     assert len(rows) > 200 and (rows.status == "ok").all()
-    # Blanchard-Perotti: short-run restrictions with a quadratic trend
-    assert (_rows(frame, "Chapter_15.log", "svar gov tax gdp").status == "ok").all()
+    # Blanchard-Perotti: short-run restrictions with a quadratic trend. The
+    # replay compares no number of the `svar` table itself; the structural
+    # responses computed from it are the check.
+    for shock in ("gov", "tax"):
+        hit = _rows(frame, "Chapter_15.log", f"irf table sirf, impulse({shock})")
+        assert len(hit) >= 17 and (hit.status == "ok").all()
