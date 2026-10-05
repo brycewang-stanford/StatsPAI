@@ -232,25 +232,26 @@ To rerun the book's side: `net get cc_xd_didtextbook` from SSC, run each
     STATSPAI_DCDH_TEXTBOOK_DIR=/path/to/cc_xd_didtextbook \
         pytest tests/external_parity/test_dcdh_did_textbook.py
 
-## Draft note to the authors
+## Reported to the authors
 
-> In `did_multiplegt_dyn` (17 January 2026), on an unbalanced panel with a
-> non-binary treatment, a not-yet-switched group can be dropped from the
-> control group because of its treatment path after it switches.
->
-> Steps: `drop if controls_time_XX==0` removes, for a baseline treatment,
-> any period with no unswitched group, including a period in the middle of
-> the panel when a control is missing that year and back later. A group
-> whose switch falls in such a period loses its switch row. `T_g_XX` still
-> extends past it. If the group's treatment is back at baseline in the
-> later periods, `avg_post_switch_treat_XX==d_sq_XX` holds with
-> `F_g_XX!=T_g_XX+1`, and the group is dropped as a no-first-stage
-> switcher, although the comment above that line says this can only happen
-> with `dont_drop_larger_lower`.
->
-> Example: `gentzkowetal_didtextbook.dta`, county 30093 (3, 3, 3, 3, 4, 3
-> newspapers from 1892 to 1912). It is the only not-yet-switched control in
-> 1904 for counties 38017, 46099 and 53033, which then have no `Effect_1`.
-> Dropping the county by hand changes nothing in the output; keeping it as
-> a control until 1908 gives 1,122 switchers and an effect of 0.014548
-> instead of 1,119 and 0.014424.
+Posted on 2026-10-05 as
+<https://github.com/Credible-Answers/did_multiplegt_dyn/issues/179>, with a
+43-group synthetic example and the textbook data. Everything in the issue
+was rerun in Stata on the repository's version of the command (9 June
+2026) and on the SSC version of 17 January 2026.
+
+What Stata itself shows, without any StatsPAI number:
+
+- Synthetic example. Group 41 switches at t=3 and group 42, same
+  baseline, is unswitched then. As is, group 41 has no `Effect_1` (20
+  switchers). Changing only group 42's treatment at t=5 gives it one (21
+  switchers).
+- Textbook data. Setting county 30093 to 4 newspapers in 1912 moves
+  `Effect_1` from 0.01442443 (1,119 switchers) to 0.01454833 (1,122
+  switchers). The second number is StatsPAI's on the data as distributed.
+
+A correction to an earlier version of this note, which said that dropping
+county 30093 by hand leaves Stata's output unchanged. It does not: Stata
+then returns 0.01451880 with 1,119 switchers, a third number, not traced.
+What holds is the statement in the section above: StatsPAI on the data
+without the county equals Stata on the data with it.
