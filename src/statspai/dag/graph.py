@@ -46,10 +46,21 @@ class DAG:
         - ``"X -> Y; Z -> X; Z -> Y"``  (semicolon-separated)
         - ``"X -> Y\\n Z -> X\\n Z -> Y"``  (newline-separated)
         - ``"X -> Y, Z -> X, Z -> Y"``  (comma-separated)
+        - Arrows may point either way and chain: ``"X <- Z -> Y"``.
         - Bidirected (latent common cause): ``"X <-> Y"`` adds a latent
           node ``_L_X_Y`` with edges to both X and Y.
         - A named node is declared unobserved with ``"F [latent]"`` (the
           dagitty spelling) or through ``latent=``.
+        - A name on its own declares a node with no edges.
+        - Names may be quoted, which is how a name containing ``;`` or
+          ``,`` is written: ``'"Won Items" -> "In-game Purchases"'``.
+        - A Graphviz or dagitty wrapper is read as its body:
+          ``'digraph { "A" -> "B"; }'``, ``"dag { A -> B }"``; so are
+          groups, ``"{A B} -> C"``. Attribute lists other than
+          ``[latent]`` are ignored.
+
+        A statement that is none of these, an undirected edge ``X -- Y``
+        or a cycle raises instead of being skipped.
     latent : iterable of str, optional
         Names of unobserved nodes. They take part in every path, but are
         never offered as adjustment variables, and identification treats
@@ -74,6 +85,18 @@ class DAG:
 
         if spec:
             self._parse(spec)
+            if not self._is_acyclic():
+                from ..exceptions import MethodIncompatibility
+
+                raise MethodIncompatibility(
+                    "dag: the specification contains a directed cycle; a "
+                    "causal DAG must be acyclic.",
+                    recovery_hint=(
+                        "Feedback over time is drawn by indexing the nodes: "
+                        "'X0 -> Y1 -> X2'."
+                    ),
+                    diagnostics={"edges": self.edges},
+                )
         if latent is not None:
             self.set_latent(*([latent] if isinstance(latent, str) else latent))
 
@@ -229,7 +252,7 @@ class DAG:
             neighbours = self.children(current)
         else:
             neighbours = self.children(current) | self.parents(current)
-        for nb in neighbours:
+        for nb in sorted(neighbours):
             if nb not in visited:
                 path.append(nb)
                 self._find_paths(
@@ -253,14 +276,55 @@ class DAG:
 
     def backdoor_paths(self, exposure: str, outcome: str) -> List[List[str]]:
         """
-        All backdoor (non-causal) paths from *exposure* to *outcome*.
+        All backdoor paths from *exposure* to *outcome*.
 
-        A backdoor path is any path that starts with an arrow *into*
-        the exposure (← exposure), creating spurious association.
+        A backdoor path is a path that starts with an arrow *into* the
+        exposure (``exposure <- ...``). A path that leaves the exposure
+        along an arrow and is not directed all the way, such as
+        ``X -> M -> C <- Y``, is neither causal nor backdoor: it is closed
+        at its collider until something on or below the collider is
+        conditioned on. :meth:`noncausal_paths` returns both kinds.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> g = sp.dag('Z -> X; Z -> Y; X -> M -> C; Y -> C')
+        >>> g.backdoor_paths('X', 'Y')
+        [['X', 'Z', 'Y']]
+        >>> g.noncausal_paths('X', 'Y') == [['X', 'Z', 'Y'], ['X', 'M', 'C', 'Y']]
+        True
         """
-        all_p = self.all_paths(exposure, outcome)
+        parents_x = self.parents(exposure)
+        return [p for p in self.noncausal_paths(exposure, outcome) if p[1] in parents_x]
+
+    def noncausal_paths(self, exposure: str, outcome: str) -> List[List[str]]:
+        """
+        Every path from *exposure* to *outcome* that is not directed from
+        one to the other: the backdoor paths, then the paths that leave
+        the exposure along an arrow and meet a collider.
+        """
         causal_p = set(tuple(p) for p in self.causal_paths(exposure, outcome))
-        return [p for p in all_p if tuple(p) not in causal_p]
+        rest = [
+            p for p in self.all_paths(exposure, outcome) if tuple(p) not in causal_p
+        ]
+        parents_x = self.parents(exposure)
+        return sorted(rest, key=lambda p: (p[1] not in parents_x, len(p), p))
+
+    def format_path(self, path: List[str]) -> str:
+        """
+        Write a path with its arrows: ``'X <- Z -> Y'``.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> sp.dag('Z -> X; Z -> Y').format_path(['X', 'Z', 'Y'])
+        'X <- Z -> Y'
+        """
+        out = [str(path[0])]
+        for a, b in zip(path[:-1], path[1:]):
+            out.append("->" if b in self.children(a) else "<-")
+            out.append(str(b))
+        return " ".join(out)
 
     def is_path_open(
         self,
@@ -310,14 +374,18 @@ class DAG:
         Returns
         -------
         list of dict
-            Each dict has keys ``'path'``, ``'type'`` (``'causal'`` or
-            ``'backdoor'``), and ``'open'`` (bool given conditioning set).
+            Each dict has keys ``'path'``, ``'type'``, ``'open'`` (bool
+            given the conditioning set) and ``'arrows'`` (the path written
+            with its arrows). ``'type'`` is ``'causal'`` for a directed
+            path, ``'backdoor'`` for a path that enters the exposure
+            through an arrowhead, and ``'noncausal'`` for the rest: paths
+            that leave the exposure along an arrow and meet a collider.
 
         Examples
         --------
         >>> import statspai as sp
         >>> g = sp.dag('Z -> X; Z -> Y; X -> Y')
-        >>> status = g.path_status('X', 'Y')  # path order is not guaranteed
+        >>> status = g.path_status('X', 'Y')
         >>> sorted((s['type'], s['path'], s['open']) for s in status)
         [('backdoor', ['X', 'Z', 'Y'], True), ('causal', ['X', 'Y'], True)]
         >>> status = g.path_status('X', 'Y', conditioned={'Z'})
@@ -326,15 +394,22 @@ class DAG:
         """
         conditioned = conditioned or set()
         causal_set = {tuple(p) for p in self.causal_paths(exposure, outcome)}
+        parents_x = self.parents(exposure)
         all_p = self.all_paths(exposure, outcome)
         result = []
         for p in all_p:
-            ptype = "causal" if tuple(p) in causal_set else "backdoor"
+            if tuple(p) in causal_set:
+                ptype = "causal"
+            elif p[1] in parents_x:
+                ptype = "backdoor"
+            else:
+                ptype = "noncausal"
             result.append(
                 {
                     "path": p,
                     "type": ptype,
                     "open": self.is_path_open(p, conditioned),
+                    "arrows": self.format_path(p),
                 }
             )
         return result
@@ -356,6 +431,12 @@ class DAG:
         ``'confounder'``, ``'mediator'``, ``'collider'``,
         ``'instrument'``, ``'ancestor_of_treatment'``,
         ``'ancestor_of_outcome'``.
+
+        A ``'confounder'`` lies on a backdoor path that has no collider,
+        so the path carries association until something on it is adjusted
+        for. A ``'collider'`` is one on any path that is not causal. A
+        mediator is not a confounder for sitting on a path such as
+        ``X -> M -> C <- Y``, which does not enter the exposure.
 
         Examples
         --------
@@ -379,8 +460,10 @@ class DAG:
             if node in p and node != exposure and node != outcome:
                 roles.add("mediator")
 
-        # On a backdoor path as non-collider? → confounder
-        for p in self.backdoor_paths(exposure, outcome):
+        # Collider on a non-causal path; confounder when on a backdoor
+        # path that no collider closes.
+        parents_x = self.parents(exposure)
+        for p in self.noncausal_paths(exposure, outcome):
             if node in p:
                 idx = p.index(node)
                 if 0 < idx < len(p) - 1:
@@ -390,7 +473,7 @@ class DAG:
                     )
                     if is_coll:
                         roles.add("collider")
-                    else:
+                    elif p[1] in parents_x and self.is_path_open(p):
                         roles.add("confounder")
 
         # Instrument: causes exposure, with no open path to outcome once the
@@ -460,8 +543,8 @@ class DAG:
                         "descendant_of_treatment — biases the causal " "effect estimate"
                     )
 
-            # 2. Collider on a backdoor path
-            for p in self.backdoor_paths(exposure, outcome):
+            # 2. Collider on a path that is not causal
+            for p in self.noncausal_paths(exposure, outcome):
                 if v in p:
                     idx = p.index(v)
                     if 0 < idx < len(p) - 1:
@@ -471,7 +554,8 @@ class DAG:
                         )
                         if is_coll:
                             reasons.append(
-                                f"collider — conditioning opens " f"{'→'.join(p)}"
+                                "collider — conditioning opens "
+                                f"{self.format_path(p)}"
                             )
                             break
 
@@ -692,7 +776,28 @@ class DAG:
         Returns
         -------
         list of set
-            Each set is a valid adjustment set (possibly empty).
+            Each set is a valid adjustment set (possibly empty). An empty
+            list means no set of observed variables satisfies the
+            criterion.
+
+        Notes
+        -----
+        Whether any valid set exists is decided exactly, at any size: if
+        one does, the observed non-descendants of the exposure that are
+        ancestors of the exposure or the outcome form one
+        [@vanderzander2019separators]. Sets of up to six variables are then
+        enumerated. When none that small exists, that ancestral set is
+        pruned one variable at a time and the result returned, so a graph
+        that needs seven or more adjusters gets one irreducible set rather
+        than all of them.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> spec = '; '.join(f'Z{i} -> X; Z{i} -> Y' for i in range(8))
+        >>> g = sp.dag(spec + '; X -> Y')
+        >>> [sorted(s) for s in g.adjustment_sets('X', 'Y')]
+        [['Z0', 'Z1', 'Z2', 'Z3', 'Z4', 'Z5', 'Z6', 'Z7']]
         """
         if method != "backdoor":
             raise ValueError(
@@ -705,8 +810,27 @@ class DAG:
 
         valid_sets: List[Set[str]] = []
 
-        # Check all subsets (up to reasonable size)
-        max_size = min(len(candidates), 6)  # cap for combinatorial explosion
+        # The exposure's outgoing edges removed, once for every check.
+        modified = DAG()
+        for n in self._nodes:
+            modified.add_node(n)
+        for parent, children in self._edges.items():
+            for child in children:
+                if parent != exposure:
+                    modified.add_edge(parent, child)
+
+        def valid(s: Set[str]) -> bool:
+            return modified.d_separated(exposure, outcome, s)
+
+        # A separator among the candidates exists iff the ancestral one is.
+        ancestral = candidates & (
+            modified.ancestors(exposure) | modified.ancestors(outcome)
+        )
+        if not valid(ancestral):
+            return []
+
+        # Enumerate the small sets; larger ones are beyond enumeration.
+        max_size = min(len(candidates), 6)
         candidate_list = sorted(candidates)
 
         for size in range(0, max_size + 1):
@@ -715,8 +839,18 @@ class DAG:
                 if minimal and any(v <= s for v in valid_sets):
                     # a superset of a valid set is not minimal
                     continue
-                if self._is_valid_adjustment(exposure, outcome, s):
+                if valid(s):
                     valid_sets.append(s)
+
+        if not any(v <= ancestral for v in valid_sets):
+            pruned = set(ancestral)
+            for v in sorted(ancestral):
+                if valid(pruned - {v}):
+                    pruned.discard(v)
+            if pruned not in valid_sets:
+                valid_sets.append(pruned)
+            if not minimal and ancestral not in valid_sets:
+                valid_sets.append(set(ancestral))
 
         return valid_sets
 
@@ -868,31 +1002,51 @@ class DAG:
         self,
         data: "pd.DataFrame",
         max_cond: Optional[int] = None,
+        test: str = "auto",
     ) -> "pd.DataFrame":
         """
         Test the implied conditional independencies on data.
 
-        Each implication ``x _||_ y | Z`` is tested through the partial
-        correlation of ``x`` and ``y`` given ``Z``: zero under the
-        independence if the relations are linear. The test is Fisher's z:
-        ``atanh(r) * sqrt(n - |Z| - 3)`` is standard normal under the
-        null, as in ``dagitty::localTests(type = "cis")``. A small p-value
-        is evidence against the graph; a large one is not evidence for it.
+        A small p-value is evidence against the graph; a large one is not
+        evidence for it. With enough data every such test rejects a graph
+        that is only approximately right, so read the size of the
+        departure next to the p-value.
 
         Parameters
         ----------
         data : pd.DataFrame
-            One numeric column per observed node that appears in an
-            implication.
+            One column per observed node that appears in an implication.
         max_cond : int, optional
             Passed to :meth:`implied_independencies`.
+        test : {'auto', 'fisher-z', 'chi-square', 'g-test'}, default 'auto'
+            - ``'fisher-z'``: the partial correlation of ``x`` and ``y``
+              given ``Z``, zero under the independence if the relations
+              are linear; ``atanh(r) * sqrt(n - |Z| - 3)`` is standard
+              normal under the null, as in
+              ``dagitty::localTests(type = "cis")``. Numeric columns.
+            - ``'chi-square'``: for categorical columns. Pearson's
+              statistic is computed in each stratum of ``Z`` and summed;
+              the degrees of freedom are summed likewise, counting in
+              each stratum only the levels that occur there. Same as
+              ``dagitty::localTests(type = "cis.chisq")`` and
+              ``bnlearn::ci.test(test = "x2-adf")``.
+            - ``'g-test'``: the likelihood-ratio statistic in place of
+              Pearson's (``bnlearn::ci.test(test = "mi-adf")``).
+            - ``'auto'``: ``'chi-square'`` when any column involved is
+              not numeric, ``'fisher-z'`` otherwise.
 
         Returns
         -------
         pd.DataFrame
-            One row per implication: ``x``, ``y``, ``given``,
-            ``partial_corr``, ``p_value`` and ``p_holm`` (Holm-adjusted
-            over all the implications tested).
+            One row per implication, with ``x``, ``y``, ``given``,
+            ``p_value`` and ``p_holm`` (Holm-adjusted over the
+            implications tested). The Fisher z test adds
+            ``partial_corr``; the categorical tests add ``statistic``,
+            ``df`` and ``cramers_v`` (the square root of the statistic
+            over ``n`` times the smaller table dimension less one, a
+            measure of the departure that does not grow with ``n``). An
+            implication no stratum can test has ``df`` zero and a
+            missing p-value.
 
         Examples
         --------
@@ -905,53 +1059,137 @@ class DAG:
         >>> out = sp.dag('Z -> X -> Y').test_implications(df)
         >>> bool(out['p_value'].iloc[0] > 0.05)  # Y _||_ Z | X holds
         True
+
+        Categorical data are tested with the chi-square statistic:
+
+        >>> lab = pd.DataFrame({
+        ...     'Z': np.where(z > 0, 'hi', 'lo'),
+        ...     'X': np.where(x > 0, 'hi', 'lo'),
+        ...     'Y': np.where(y > 0, 'hi', 'lo'),
+        ... })
+        >>> out = sp.dag('Z -> X -> Y').test_implications(lab)
+        >>> list(out.columns)
+        ['x', 'y', 'given', 'statistic', 'df', 'cramers_v', 'p_value', 'p_holm']
         """
         import numpy as np
         import pandas as pd
+        from pandas.api.types import is_bool_dtype, is_numeric_dtype
         from scipy import stats
 
-        rows = []
-        for a, b, z in self.implied_independencies(max_cond=max_cond):
-            cols = [a, b, *sorted(z)]
-            missing = [c for c in cols if c not in data.columns]
-            if missing:
-                from ..exceptions import ColumnNotFound
+        from ..exceptions import ColumnNotFound, MethodIncompatibility
+        from ._ci_tests import discrete_ci_test
 
-                raise ColumnNotFound(
-                    f"test_implications: columns not in data: {missing}",
+        tests = ("auto", "fisher-z", "chi-square", "g-test")
+        if test not in tests:
+            raise MethodIncompatibility(
+                f"test_implications: test={test!r} is not one of {tests}."
+            )
+
+        implications = self.implied_independencies(max_cond=max_cond)
+        used = sorted({v for a, b, z in implications for v in (a, b, *z)})
+        missing = [c for c in used if c not in data.columns]
+        if missing:
+            raise ColumnNotFound(
+                f"test_implications: columns not in data: {missing}",
+                recovery_hint=(
+                    "Supply one column per observed node, or declare the "
+                    "unmeasured ones with sp.dag(..., latent=[...])."
+                ),
+                diagnostics={"missing_columns": missing},
+            )
+        labelled = [
+            c for c in used if is_bool_dtype(data[c]) or not is_numeric_dtype(data[c])
+        ]
+        if test == "auto":
+            test = "chi-square" if labelled else "fisher-z"
+        if test == "fisher-z" and labelled:
+            raise MethodIncompatibility(
+                "test_implications: test='fisher-z' is a partial correlation "
+                f"and needs numeric columns; {labelled} are not.",
+                recovery_hint=(
+                    "Use test='chi-square' (the default for such data), or "
+                    "code the categories as numbers if they are ordered."
+                ),
+                diagnostics={"non_numeric_columns": labelled},
+            )
+        if test != "fisher-z":
+            wide = [c for c in used if c not in labelled and data[c].nunique() > 20]
+            if wide:
+                raise MethodIncompatibility(
+                    f"test_implications: test={test!r} cross-tabulates the "
+                    f"columns, and {wide} take more than 20 distinct values.",
                     recovery_hint=(
-                        "Supply one column per observed node, or declare the "
-                        "unmeasured ones with sp.dag(..., latent=[...])."
+                        "Bin them first, e.g. pd.qcut(df[col], 3), or use "
+                        "test='fisher-z' on numeric data."
                     ),
-                    diagnostics={"missing_columns": missing},
+                    diagnostics={"continuous_columns": wide},
                 )
-            frame = data[cols].dropna().to_numpy(dtype=float)
-            n = frame.shape[0]
-            cond = np.column_stack([np.ones(n), frame[:, 2:]])
-            ra = frame[:, 0] - cond @ np.linalg.lstsq(cond, frame[:, 0], rcond=None)[0]
-            rb = frame[:, 1] - cond @ np.linalg.lstsq(cond, frame[:, 1], rcond=None)[0]
-            r = float(ra @ rb / np.sqrt((ra @ ra) * (rb @ rb)))
-            # Fisher z, as dagitty's localTests(type = "cis") uses
-            zstat = np.arctanh(r) * np.sqrt(max(n - len(z) - 3, 1))
+
+        rows = []
+        for a, b, z in implications:
+            cols = [a, b, *sorted(z)]
+            given = ", ".join(sorted(z))
+            if test == "fisher-z":
+                frame = data[cols].dropna().to_numpy(dtype=float)
+                n = frame.shape[0]
+                cond = np.column_stack([np.ones(n), frame[:, 2:]])
+                ra = (
+                    frame[:, 0]
+                    - cond @ np.linalg.lstsq(cond, frame[:, 0], rcond=None)[0]
+                )
+                rb = (
+                    frame[:, 1]
+                    - cond @ np.linalg.lstsq(cond, frame[:, 1], rcond=None)[0]
+                )
+                r = float(ra @ rb / np.sqrt((ra @ ra) * (rb @ rb)))
+                # Fisher z, as dagitty's localTests(type = "cis") uses
+                zstat = np.arctanh(r) * np.sqrt(max(n - len(z) - 3, 1))
+                rows.append(
+                    {
+                        "x": a,
+                        "y": b,
+                        "given": given,
+                        "partial_corr": r,
+                        "p_value": float(2 * stats.norm.sf(abs(zstat))),
+                    }
+                )
+                continue
+
+            frame = data[cols].dropna()
+            code_a = pd.factorize(frame[a])[0]
+            code_b = pd.factorize(frame[b])[0]
+            strata = (
+                frame.groupby(sorted(z), observed=True).ngroup().to_numpy()
+                if z
+                else None
+            )
+            stat, dof, n_used, width = discrete_ci_test(code_a, code_b, strata, test)
             rows.append(
                 {
                     "x": a,
                     "y": b,
-                    "given": ", ".join(sorted(z)),
-                    "partial_corr": r,
-                    "p_value": float(2 * stats.norm.sf(abs(zstat))),
+                    "given": given,
+                    "statistic": stat if dof else np.nan,
+                    "df": dof,
+                    "cramers_v": (
+                        float(np.sqrt(stat / (n_used * width))) if dof else np.nan
+                    ),
+                    "p_value": float(stats.chi2.sf(stat, dof)) if dof else np.nan,
                 }
             )
-        out = pd.DataFrame(rows, columns=["x", "y", "given", "partial_corr", "p_value"])
-        if len(out):
-            p = out["p_value"].to_numpy()
-            order = np.argsort(p)
-            adj = np.maximum.accumulate(p[order] * (len(p) - np.arange(len(p))))
-            holm = np.empty_like(p)
+
+        middle = (
+            ["partial_corr"] if test == "fisher-z" else ["statistic", "df", "cramers_v"]
+        )
+        out = pd.DataFrame(rows, columns=["x", "y", "given", *middle, "p_value"])
+        holm = np.full(len(out), np.nan)
+        p = out["p_value"].to_numpy(dtype=float)
+        tested = np.flatnonzero(~np.isnan(p))
+        if len(tested):
+            order = tested[np.argsort(p[tested])]
+            adj = np.maximum.accumulate(p[order] * (len(order) - np.arange(len(order))))
             holm[order] = np.minimum(adj, 1.0)
-            out["p_holm"] = holm
-        else:
-            out["p_holm"] = []
+        out["p_holm"] = holm
         return out
 
     # ------------------------------------------------------------------ #
@@ -1492,36 +1730,74 @@ class DAG:
 
     def _parse(self, spec: str) -> None:
         """Parse edge specification string."""
-        # Split by semicolons, newlines, or commas.
-        parts = re.split(r"[;\n]", spec)
-        # Also split by comma if no semicolons/newlines were effective
-        if len(parts) == 1 and "," in spec:
-            parts = spec.split(",")
+        from ..exceptions import MethodIncompatibility
+
+        def fail(statement: str, why: str) -> "MethodIncompatibility":
+            return MethodIncompatibility(
+                f"dag: cannot read {statement!r}: {why}.",
+                recovery_hint=(
+                    "Write edges as 'A -> B', 'A <- B' or 'A <-> B', "
+                    "separated by ';' or new lines; quote a name that "
+                    "contains punctuation."
+                ),
+                diagnostics={"statement": statement},
+            )
+
+        text = spec.strip()
+        # Graphviz / dagitty wrapper: 'digraph G { ... }', 'dag { ... }'.
+        wrapped = re.fullmatch(
+            r"(?:strict\s+)?(?:dag|digraph|graph|pdag|mag)\b[^{]*\{(.*)\}\s*;?",
+            text,
+            flags=re.S | re.I,
+        )
+        if wrapped:
+            text = wrapped.group(1)
+
+        # Split by semicolons or newlines; by commas only when neither
+        # was used. Separators inside quotes or brackets do not count.
+        parts = _split_outside(text, ";\n")
+        if len(parts) == 1 and "," in text:
+            parts = _split_outside(text, ",")
 
         for part in parts:
             part = part.strip()
-            if not part:
+            if not part or part.startswith(("#", "//")):
                 continue
-
-            # Declaration: F [latent]
-            declared = re.fullmatch(r"(\S+)\s*\[\s*latent\s*\]", part)
-            if declared:
-                self.add_node(declared.group(1))
-                self._latent.add(declared.group(1))
+            # Graphviz attribute statements: 'rankdir=LR', 'node [shape=box]'.
+            if re.match(r"(?:node|edge|graph)\s*\[", part, flags=re.I):
                 continue
+            if "->" not in part and "<-" not in part and "=" in part:
+                if re.match(r"[\w.]+\s*=(?![>=])", part):
+                    continue
 
-            # Bidirected edge: X <-> Y
-            if "<->" in part:
-                nodes = [n.strip() for n in part.split("<->")]
-                if len(nodes) == 2:
-                    self.add_bidirected(nodes[0], nodes[1])
-                continue
+            # Trailing attribute list: 'F [latent]', 'A -> B [label="x"]'.
+            attrs = ""
+            bracket = re.fullmatch(r"(.*?)\s*\[([^\[\]]*)\]", part, flags=re.S)
+            if bracket:
+                part, attrs = bracket.group(1).strip(), bracket.group(2)
+            is_latent = bool(re.search(r"\b(?:latent|unobserved)\b", attrs, re.I))
 
-            # Chain: X -> M -> Y
-            nodes = [n.strip() for n in re.split(r"\s*->\s*", part)]
-            if len(nodes) >= 2:
-                for i in range(len(nodes) - 1):
-                    self.add_edge(nodes[i], nodes[i + 1])
+            tokens = [t.strip() for t in _split_arrows(part)]
+            groups = [_node_group(t) for t in tokens[0::2]]
+            if any(not g for g in groups):
+                raise fail(part, "an arrow is missing a node on one side")
+            for name in (n for g in groups for n in g):
+                if re.search(r"--|=>|<=|~>|<~|=", name) or "->" in name:
+                    raise fail(part, "only '->', '<-' and '<->' are edges")
+            for g in groups:
+                for name in g:
+                    self.add_node(name)
+            if len(groups) == 1 and is_latent:
+                self._latent.update(groups[0])
+            for left, op, right in zip(groups[:-1], tokens[1::2], groups[1:]):
+                for a in left:
+                    for b in right:
+                        if op == "->":
+                            self.add_edge(a, b)
+                        elif op == "<-":
+                            self.add_edge(b, a)
+                        else:
+                            self.add_bidirected(a, b)
 
     def summary(self, exposure: str, outcome: str) -> str:
         """
@@ -1545,9 +1821,8 @@ class DAG:
         status = self.path_status(exposure, outcome)
         lines.append(f"\nPaths ({len(status)} total):")
         for s in status:
-            arrow = " → ".join(s["path"])
             open_str = "OPEN" if s["open"] else "CLOSED"
-            lines.append(f"  [{s['type']:>8}] {arrow}  ({open_str})")
+            lines.append(f"  [{s['type']:>9}] {s['arrows']}  ({open_str})")
 
         # Adjustment sets
         adj = self.adjustment_sets(exposure, outcome)
@@ -1590,6 +1865,80 @@ class DAG:
 # ====================================================================== #
 #  Convenience function
 # ====================================================================== #
+
+
+def _split_outside(text: str, separators: str) -> List[str]:
+    """Split on any of *separators* that is not inside quotes or brackets."""
+    parts: List[str] = []
+    buf: List[str] = []
+    quote = ""
+    depth = 0
+    for ch in text:
+        if quote:
+            if ch == quote:
+                quote = ""
+        elif ch in "\"'`":
+            quote = ch
+        elif ch in "[{":
+            depth += 1
+        elif ch in "]}":
+            depth = max(depth - 1, 0)
+        elif ch in separators and depth == 0:
+            parts.append("".join(buf))
+            buf = []
+            continue
+        buf.append(ch)
+    parts.append("".join(buf))
+    return parts
+
+
+def _split_arrows(text: str) -> List[str]:
+    """``'A -> B <- C'`` to ``['A', '->', 'B', '<-', 'C']``, quotes respected."""
+    out: List[str] = []
+    buf: List[str] = []
+    quote = ""
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if quote:
+            if ch == quote:
+                quote = ""
+            buf.append(ch)
+            i += 1
+            continue
+        if ch in "\"'`":
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+        for op in ("<->", "->", "<-"):
+            if text.startswith(op, i):
+                out.extend(["".join(buf), op])
+                buf = []
+                i += len(op)
+                break
+        else:
+            buf.append(ch)
+            i += 1
+    out.append("".join(buf))
+    return out
+
+
+def _node_group(token: str) -> List[str]:
+    """Names in one side of an arrow: ``'A'``, ``'"A b"'`` or ``'{A B}'``."""
+    token = token.strip()
+    if token.startswith("{") and token.endswith("}"):
+        found = re.findall(r"\"[^\"]*\"|'[^']*'|`[^`]*`|[^\s,{}]+", token[1:-1])
+        return [_unquote(t) for t in found if _unquote(t)]
+    name = _unquote(token)
+    return [name] if name else []
+
+
+def _unquote(name: str) -> str:
+    name = name.strip()
+    if len(name) >= 2 and name[0] == name[-1] and name[0] in "\"'`":
+        return name[1:-1].strip()
+    return name
 
 
 def dag(spec: str = "", latent: Optional[Iterable[str]] = None) -> DAG:

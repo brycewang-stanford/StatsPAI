@@ -673,6 +673,7 @@ from .crossval import CrossValidationResult, cross_validate
 from .dag import (
     DAG,
     SCM,
+    BayesNet,
     IdentificationResult,
     LLMCausalAssessResult,
     LLMDAGResult,
@@ -682,6 +683,7 @@ from .dag import (
 )
 from .dag import apply_rules as do_calculus_apply
 from .dag import (
+    bayes_net,
     dag,
     dag_example,
     dag_example_positions,
@@ -1844,6 +1846,8 @@ __all__ = [
     "RobustnessResult",
     "subgroup_analysis",
     "SubgroupResult",
+    "refute",
+    "RefutationResult",
     # Survey Design
     "svydesign",
     "SurveyDesign",
@@ -1857,6 +1861,8 @@ __all__ = [
     "dag_examples",
     "dag_example_positions",
     "dag_simulate",
+    "bayes_net",
+    "BayesNet",
     # Power Analysis
     "power",
     "PowerResult",
@@ -3493,6 +3499,8 @@ _register_lazy(
     "RobustnessResult",
     "subgroup_analysis",
     "SubgroupResult",
+    "refute",
+    "RefutationResult",
     "copula_sensitivity",
     "survival_sensitivity",
     "calibrate_confounding_strength",

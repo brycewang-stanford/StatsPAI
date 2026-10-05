@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 
 from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from .super_learner import SuperLearner
@@ -421,7 +422,7 @@ class TMLE:
 
         clean = self.data[cols].dropna()
         Y = clean[self.y].values.astype(np.float64)
-        A = clean[self.treat].values.astype(np.float64)
+        A = _treatment_as_float(clean[self.treat], function="tmle")
         W = clean[self.covariates].values.astype(np.float64)
         n = len(Y)
         # Observation weights normalised to mean one (R tmle's obsWeights);

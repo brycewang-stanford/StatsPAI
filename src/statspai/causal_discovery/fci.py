@@ -54,6 +54,7 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 # Edge-mark constants used in the mark matrix.
@@ -66,6 +67,14 @@ _MARK_SYMBOL = {
     MARK_NONE: ".",
     MARK_CIRCLE: "o",
     MARK_ARROW: ">",
+    MARK_TAIL: "-",
+}
+
+#: Marks as drawn at the left end of an edge.
+_LEFT_SYMBOL = {
+    MARK_NONE: ".",
+    MARK_CIRCLE: "o",
+    MARK_ARROW: "<",
     MARK_TAIL: "-",
 }
 
@@ -166,28 +175,16 @@ def _learn_skeleton(
     sep_sets: Dict[Tuple[int, int], Set[int]] = {}
     max_k = max_cond_size if max_cond_size is not None else d - 2
 
-    for k in range(max_k + 1):
-        any_removed = False
-        for i in range(d):
-            neigh = [m for m in range(d) if adj[i, m] == 1]
-            for j in list(neigh):
-                if adj[i, j] == 0:
-                    continue
-                others = [m for m in neigh if m != j]
-                if len(others) < k:
-                    continue
-                for S in combinations(others, k):
-                    pval = _fisher_z(X, i, j, list(S), n)
-                    if pval > alpha:
-                        adj[i, j] = 0
-                        adj[j, i] = 0
-                        sep_sets[(i, j)] = set(S)
-                        sep_sets[(j, i)] = set(S)
-                        any_removed = True
-                        break
-        if not any_removed and k > 0:
-            # When nothing changes we can't refine further.
-            break
+    # The same search as sp.pc_algorithm. The loop that stood here stopped
+    # at the first level that removed no edge, so an edge whose separating
+    # set was two sizes larger than anything found so far was never tested
+    # against it: X <- {A, B, C} -> Y kept a spurious X - Y edge at any
+    # sample size.
+    from .pc import stable_skeleton
+
+    stable_skeleton(
+        adj, sep_sets, max_k, alpha, lambda x, y, S: _fisher_z(X, x, y, S, n)
+    )
     return adj, sep_sets
 
 
@@ -436,7 +433,18 @@ def fci(
     n = X.shape[0]
     d = X.shape[1]
     if d < 2:
-        raise ValueError("Need at least 2 variables")
+        dropped = [c for c in data.columns if c not in variables]
+        raise ValueError(
+            "Need at least 2 variables"
+            + (
+                f"; {len(dropped)} non-numeric column(s) were left out "
+                f"({dropped[:6]}). FCI here tests partial correlations: for "
+                "categorical data without latent variables use "
+                "sp.pc_algorithm(df, ci_test='chi-square')."
+                if dropped
+                else "."
+            )
+        )
 
     adj, sep_sets = _learn_skeleton(X, alpha, max_cond_size)
     left, right = _init_pag(adj)
@@ -451,26 +459,10 @@ def fci(
             if not _has_edge(left, right, i, j):
                 continue
             li, lj = _mark_i(left, i, j), _mark_j(right, i, j)
-            label = f"{_MARK_SYMBOL[li]}-{_MARK_SYMBOL[lj]}"
-            # Compact common labels
-            if label == "o-o":
-                arrow = "o-o"
-            elif label == "--":
-                arrow = "---"
-            elif label == "->" or label == "-->":
-                arrow = "-->"
-            elif label == "<-":
-                arrow = "<--"
-            elif label == ">-" or label == "-<":
-                arrow = "<--"
-            elif label == "o->" or label == "o>":
-                arrow = "o->"
-            elif label == "<-o" or label == "<o":
-                arrow = "<-o"
-            elif label == ">>" or label == "->>":
-                arrow = "<->"
-            else:
-                arrow = f"{_MARK_SYMBOL[li]}-{_MARK_SYMBOL[lj]}"
+            # An arrowhead at the left end is drawn '<'. It used to be drawn
+            # '>' like the right one, so a bidirected edge read 'X >-> Y'
+            # and 'X <-- Y' read 'X >-- Y'.
+            arrow = f"{_LEFT_SYMBOL[li]}-{_MARK_SYMBOL[lj]}"
             edges.append((variables[i], arrow, variables[j]))
             seen.add((i, j))
 

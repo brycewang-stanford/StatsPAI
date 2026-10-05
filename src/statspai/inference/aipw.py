@@ -33,6 +33,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, MethodIncompatibility
 
@@ -202,7 +203,7 @@ def aipw(
         )
     df = data[list(dict.fromkeys([y, treat] + list(covariates) + extra))].dropna()
     Y = df[y].values.astype(float)
-    D = df[treat].values.astype(float)
+    D = _treatment_as_float(df[treat], function="aipw")
     X = df[covariates].values.astype(float)
     n = len(Y)
 

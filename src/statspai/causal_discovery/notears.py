@@ -204,7 +204,18 @@ class NOTEARS:
 
         n, d = X.shape
         if d < 2:
-            raise ValueError("At least 2 variables are required for DAG learning")
+            dropped = [c for c in self.data.columns if c not in var_names]
+            raise ValueError(
+                "At least 2 variables are required for DAG learning"
+                + (
+                    f"; {len(dropped)} non-numeric column(s) were left out "
+                    f"({dropped[:6]}). NOTEARS is a linear model of numeric "
+                    "columns: for categorical data use "
+                    "sp.pc_algorithm(df, ci_test='chi-square')."
+                    if dropped
+                    else "."
+                )
+            )
 
         # Standardise
         X = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-8)

@@ -10935,7 +10935,8 @@ def _build_registry() -> None:
             category="causal",
             description=(
                 "Inverse Probability Weighting for ATE/ATT/ATC with propensity score "
-                "trimming."
+                "trimming. Reports each arm's effective sample size and warns "
+                "when the weights leave an arm less than a fifth of its size."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -11009,7 +11010,12 @@ def _build_registry() -> None:
                     "spec",
                     "str",
                     True,
-                    description='Edge spec: "Z -> X; Z -> Y; X -> Y"',
+                    description=(
+                        'Edge spec: "Z -> X; Z -> Y; X -> Y". Arrows may '
+                        'point either way and chain ("X <- Z -> Y"); names '
+                        "may be quoted; a Graphviz digraph { ... } or "
+                        "dagitty dag { ... } wrapper is read as its body"
+                    ),
                 ),
                 ParamSpec(
                     "latent",
@@ -11022,8 +11028,9 @@ def _build_registry() -> None:
             ],
             returns=(
                 "DAG object with .adjustment_sets(), .frontdoor_sets(), "
-                ".backdoor_paths(), "
-                ".bad_controls(), .do(), .summary(), .d_separated(), .plot()"
+                ".backdoor_paths(), .noncausal_paths(), .path_status(), "
+                ".bad_controls(), .do(), .summary(), .d_separated(), "
+                ".implied_independencies(), .test_implications(data), .plot()"
             ),
             example='g = sp.dag("Z -> X; Z -> Y; X -> Y"); print(g.summary("X", "Y"))',
             tags=[
@@ -11336,8 +11343,31 @@ def _build_registry() -> None:
                     "MC integration formulation (continuous M only)",
                     ["marginal", "conditional"],
                 ),
+                ParamSpec(
+                    "outcome_model",
+                    "str",
+                    False,
+                    "by_arm",
+                    "E[Y | D, M]: a regression per arm, or one pooled "
+                    "regression without D-by-M interaction (the linear "
+                    "two-stage front door)",
+                    ["by_arm", "additive"],
+                ),
             ],
             returns="CausalResult",
+            failure_modes=[
+                FailureMode(
+                    symptom=(
+                        "The mediator does not vary within a treatment arm, "
+                        "so E[Y | D, M] cannot be estimated there"
+                    ),
+                    exception="statspai.IdentificationFailure",
+                    remedy=(
+                        "outcome_model='additive' extrapolates under no "
+                        "D-by-M interaction; report it as resting on that"
+                    ),
+                ),
+            ],
             example='sp.front_door(df, y="y", treat="d", mediator="m", covariates=["x"])',
             tags=[
                 "front-door",
@@ -12222,10 +12252,243 @@ def _build_registry() -> None:
                 ParamSpec("treatment", "str | set", True),
                 ParamSpec("outcome", "str | set", True),
             ],
-            returns="IdentificationResult",
+            returns=(
+                "IdentificationResult with .identifiable, .estimand, .hedge, "
+                ".summary() and .estimate(data): the estimand evaluated on "
+                "categorical data, P(outcome | do(treatment)), using only "
+                "the observed columns"
+            ),
             example='sp.identify(sp.dag("Z->X;Z->Y;X->Y"), treatment="X", outcome="Y")',
             tags=["dag", "identification", "scm", "pearl"],
             reference="Shpitser & Pearl (2006); Tian & Pearl (2002)",
+            failure_modes=[
+                FailureMode(
+                    symptom=(
+                        ".estimate(data) warns that positivity fails and "
+                        "returns missing values for some treatment values"
+                    ),
+                    exception="statspai.AssumptionWarning",
+                    remedy=(
+                        "The formula needs a conditional probability whose "
+                        "conditioning event never occurs; coarsen the "
+                        "variables or restrict the treatment values"
+                    ),
+                ),
+                FailureMode(
+                    symptom=".estimate(data) on a query that is not identified",
+                    exception="statspai.IdentificationFailure",
+                    remedy="Bound the effect or find an instrument or proxy",
+                    alternative="sp.manski_bounds",
+                ),
+            ],
+        )
+    )
+    register(
+        FunctionSpec(
+            name="bayes_net",
+            category="dag",
+            description=(
+                "Discrete causal Bayesian network on a DAG: conditional "
+                "probability tables estimated from categorical data or "
+                "written by hand, with exact inference (variable "
+                "elimination) for conditional queries, interventional "
+                "queries P(Y | do(X)) by the truncated factorisation, "
+                "expected utilities, simulation, and counterfactuals by a "
+                "twin network when every non-root node is a deterministic "
+                "function of its parents."
+            ),
+            params=[
+                ParamSpec("dag", "DAG | str", True, None, "Graph or its spec"),
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    False,
+                    None,
+                    "One categorical column per node",
+                ),
+                ParamSpec(
+                    "cpts",
+                    "dict",
+                    False,
+                    None,
+                    "Hand-written tables: {state: p} for a root, "
+                    "{parent states: {state: p}} or a function of the "
+                    "parents otherwise",
+                ),
+                ParamSpec(
+                    "prior",
+                    "float",
+                    False,
+                    0.0,
+                    "Dirichlet pseudo-count per cell; 1 is Laplace smoothing",
+                ),
+            ],
+            returns=(
+                "BayesNet with .query(variables, evidence=, do=), .prob(), "
+                ".expectation(), .do(), .counterfactual(), .simulate(), "
+                ".cpt(), .summary()"
+            ),
+            example=(
+                'net = sp.bayes_net("G -> E; G -> I; E -> I", df); '
+                'net.query("I", do={"E": "high"})'
+            ),
+            tags=[
+                "dag",
+                "bayesian_network",
+                "do_operator",
+                "counterfactual",
+                "categorical",
+                "decision",
+            ],
+            reference="pearl2009causality",
+            assumptions=[
+                "The DAG is the causal graph and every node is observed",
+                "Variables are categorical with a modest number of states",
+                "Counterfactuals: all noise sits in root nodes "
+                "(a structural causal model)",
+            ],
+            pre_conditions=[
+                "One column per node; bin continuous columns first",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="A node of the graph is not a column of the data",
+                    exception="statspai.exceptions.ColumnNotFound",
+                    remedy=(
+                        "With latent variables identify first and evaluate "
+                        "the estimand: sp.identify(dag, x, y).estimate(data)"
+                    ),
+                    alternative="sp.identify",
+                ),
+                FailureMode(
+                    symptom=(
+                        "A query warns that it depends on parent "
+                        "configurations that never occur in the data"
+                    ),
+                    exception="statspai.AssumptionWarning",
+                    remedy=(
+                        "Positivity fails for that query; coarsen the "
+                        "states or make the smoothing explicit with prior="
+                    ),
+                ),
+                FailureMode(
+                    symptom="counterfactual() on a network with noisy kernels",
+                    exception="statspai.AssumptionViolation",
+                    remedy=(
+                        "Move each node's noise into an exogenous root and "
+                        "give the node a function of its parents, or use "
+                        "the interventional query"
+                    ),
+                    alternative="sp.SCM",
+                ),
+            ],
+            alternatives=["identify", "g_computation", "aipw", "SCM"],
+            not_recommended_when=[
+                "Continuous outcomes or covariates that binning would distort",
+                "Unobserved confounders: the tables cannot be estimated",
+                "Very many parents per node: the tables are estimated cell "
+                "by cell and thin out",
+            ],
+        )
+    )
+    register(
+        FunctionSpec(
+            name="refute",
+            category="robustness",
+            description=(
+                "Refutation tests for any effect estimator: rerun it on "
+                "data altered so the answer is known (treatment shuffled, "
+                "outcome replaced by one the treatment does not enter, a "
+                "random covariate added, random subsets) and test whether "
+                "the reruns are centred where they should be. The four "
+                "data-side refuters of DoWhy with Monte Carlo p-values."
+            ),
+            params=[
+                ParamSpec(
+                    "estimator",
+                    "callable",
+                    True,
+                    None,
+                    "Called as estimator(data, y=, treat=, covariates=, **kw); "
+                    "e.g. sp.aipw",
+                ),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec("treat", "str", True, None, "Treatment column"),
+                ParamSpec("covariates", "list", False, None, "Adjustment set"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "placebo_treatment",
+                    "Which alteration",
+                    [
+                        "placebo_treatment",
+                        "dummy_outcome",
+                        "random_common_cause",
+                        "data_subset",
+                    ],
+                ),
+                ParamSpec("n_simulations", "int", False, 100, "Number of reruns"),
+                ParamSpec(
+                    "subset_fraction", "float", False, 0.8, "Rows kept by data_subset"
+                ),
+                ParamSpec(
+                    "outcome_function",
+                    "callable",
+                    False,
+                    None,
+                    "dummy_outcome: a function of the data (not of the "
+                    "treatment) that keeps the confounding in place",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the verdict"),
+                ParamSpec("seed", "int", False, None, "Seed for the alterations"),
+            ],
+            returns=(
+                "RefutationResult with .estimate, .new_effect, .expected, "
+                ".p_value, .refuted, .interval, .permutation_pvalue, .summary()"
+            ),
+            example=(
+                'sp.refute(sp.aipw, df, y="y", treat="d", covariates=["x"], '
+                'method="dummy_outcome", outcome_function=lambda f: 3 * f["x"])'
+            ),
+            tags=[
+                "robustness",
+                "refutation",
+                "placebo",
+                "falsification",
+                "diagnostics",
+            ],
+            reference="sharma2020dowhy",
+            assumptions=[
+                "Passing is necessary, not sufficient: no check here "
+                "detects an unobserved confounder",
+            ],
+            pre_conditions=[
+                "n_simulations >= 2 / alpha - 1 (39 at alpha = 0.05)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="The estimator does not return a scalar effect",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Wrap it in a lambda that returns a number",
+                ),
+                FailureMode(
+                    symptom="Fewer than half of the reruns can be fitted",
+                    exception="statspai.DataInsufficient",
+                    remedy=(
+                        "Check that the estimator runs on a shuffled or "
+                        "subsetted copy of the data"
+                    ),
+                ),
+            ],
+            alternatives=["sensemakr", "evalue", "robustness_report", "spec_curve"],
+            not_recommended_when=[
+                "As evidence against unobserved confounding: use "
+                "sp.sensemakr or sp.evalue",
+                "Estimators whose single fit is slow: every test refits "
+                "n_simulations times",
+            ],
         )
     )
     register(

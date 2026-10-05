@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from .bayes_net import BayesNet, bayes_net
 from .counterfactual import SCM
 from .do_calculus import RuleCheck, apply_rules, rule1, rule2, rule3
 from .graph import (
@@ -82,6 +83,8 @@ __all__ = [
     "swig",
     "SWIGGraph",
     "SCM",
+    "bayes_net",
+    "BayesNet",
     "llm_dag",
     "LLMDAGResult",
     "llm_causal_assess",

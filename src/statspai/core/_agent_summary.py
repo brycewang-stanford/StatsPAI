@@ -66,6 +66,11 @@ _OVERLAP_MIN = 0.05
 #: moderate confounding, which trims essentially nothing.
 _DML_OVERLAP_EXTREME_SHARE = 0.05
 
+#: Kish effective sample size of an arm's inverse-probability weights, as
+#: a share of the arm, below which the weights are flagged. Matches the
+#: fit-time warning of ``sp.ipw``.
+_IPW_ESS_RATIO = 0.2
+
 #: Absolute logit/probit slope coefficient above which (quasi-)complete
 #: separation is the likely cause: an odds ratio of e^15 ≈ 3.3M is not a real
 #: effect, it is the MLE diverging when a predictor perfectly splits the outcome
@@ -866,6 +871,33 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
                     "sp.overlap_weights",
                     "sp.cbps",
                 ],
+            }
+        )
+
+    # --- IPW: weight dispersion ------------------------------------------
+    # The share of extreme propensities above can be small while one arm's
+    # weights are still concentrated on a few units (a 90%-treated sample
+    # whose controls have propensities between 0.8 and 1).
+    ess_ratio = _as_float(mi.get("ess_ratio_min"))
+    if ess_ratio is not None and ess_ratio < _IPW_ESS_RATIO:
+        out.append(
+            {
+                "kind": "assumption",
+                "severity": "warning",
+                "test": "ipw_effective_sample_size",
+                "value": ess_ratio,
+                "threshold": _IPW_ESS_RATIO,
+                "message": (
+                    f"The weights leave one arm an effective sample of "
+                    f"{ess_ratio:.0%} of its size; the estimate rests on a "
+                    "few heavily weighted units."
+                ),
+                "recovery_hint": (
+                    "Compare with sp.aipw, restrict to the overlap region "
+                    "(trim= or sp.trimming), or target the overlap "
+                    "population with estimand='ATO'."
+                ),
+                "alternatives": ["sp.aipw", "sp.trimming", "sp.overlap_weights"],
             }
         )
 

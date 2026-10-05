@@ -16,7 +16,7 @@ methodological area:
 | Multilevel / mixed-effects | [multilevel](multilevel.md) | `mixed`, `melogit`, `mepoisson`, `meglm`, `megamma`, `menbreg`, `meologit`, `icc`, `lrtest` |
 | Double / debiased ML | [dml](dml.md) | `dml` (PLR / IRM / PLIV), cross-fitting, influence-function SEs |
 | Causal ML | [causal](causal.md) | `causal_forest`, `s_learner` … `dr_learner`, `tmle`, `tarnet`, `dragonnet`, `notears`, `policy_tree`, `bcf` |
-| Sensitivity | [sensitivity](sensitivity.md) | `oster`, `sensemakr`, `e_value`, `rosenbaum_bounds`, `manski_bounds`, `spec_curve`, `robustness_report` |
+| Sensitivity | [sensitivity](sensitivity.md) | `oster`, `sensemakr`, `e_value`, `rosenbaum_bounds`, `manski_bounds`, `spec_curve`, `robustness_report`, `refute` |
 | Smart workflow | [smart](smart.md) | `recommend`, `compare_estimators`, `assumption_audit`, `verify`, `verify_benchmark` |
 | Spatial econometrics | [spatial](spatial.md) | `spatial_weights`, `moran_i`, `geary_c`, `sar`, `sem`, `sdm`, `gwr`, `mgwr`, `spatial_panel`, `spatial_did` |
 | Time series | [timeseries](timeseries.md) | `arima`, `var`, `bvar`, `garch`, `cointegration`, `local_projections`, `structural_break` |

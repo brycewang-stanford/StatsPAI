@@ -25,6 +25,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 
 
@@ -147,7 +148,7 @@ def ebalance(
     See Hainmueller (2012, *Political Analysis*).
     """
     df = data[[y, treat] + covariates].dropna()
-    D = df[treat].values.astype(float)
+    D = _treatment_as_float(df[treat], function="ebalance")
     Y = df[y].values.astype(float)
     X = df[covariates].values.astype(float)
 
@@ -305,7 +306,7 @@ def ebalance_weights(
     """
     from ..exceptions import NumericalInstability
 
-    D = data[treat].to_numpy(dtype=float)
+    D = _treatment_as_float(data[treat], function="ebalance_weights")
     X = data[covariates].to_numpy(dtype=float)
     t_mask = D == 1
     c_mask = D == 0

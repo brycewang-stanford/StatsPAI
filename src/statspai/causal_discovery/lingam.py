@@ -27,6 +27,7 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 # --------------------------------------------------------------------- #
@@ -227,6 +228,20 @@ def lingam(
     """
     if isinstance(data, pd.DataFrame):
         names = list(data.columns)
+        labelled = [c for c in names if not pd.api.types.is_numeric_dtype(data[c])]
+        if labelled:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                "lingam: the model is linear with non-Gaussian noise and "
+                f"needs numeric columns; {labelled} are not.",
+                recovery_hint=(
+                    "For categorical data use "
+                    "sp.pc_algorithm(df, ci_test='chi-square')."
+                ),
+                diagnostics={"non_numeric_columns": labelled},
+                alternative_functions=["sp.pc_algorithm"],
+            )
         X = data.to_numpy(dtype=float).copy()
     else:
         X = np.asarray(data, dtype=float).copy()

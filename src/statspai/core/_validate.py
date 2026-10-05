@@ -201,3 +201,43 @@ def require_binary_treatment(
             "values": [repr(v) for v in shown],
         },
     )
+
+
+def treatment_as_float(
+    values: Any, *, function: str, argument: str = "treat"
+) -> np.ndarray:
+    """A treatment column as floats, or a named error when it holds labels.
+
+    ``np.asarray(labels, dtype=float)`` fails with ``could not convert
+    string to float: 'high'``, which names neither the function nor the
+    column nor the way out. Which label is the treated one is the
+    caller's to say, so the column is not recoded here.
+    """
+    import pandas as pd
+    from pandas.api.types import is_bool_dtype, is_numeric_dtype
+
+    column = pd.Series(values)
+    if is_bool_dtype(column) or is_numeric_dtype(column):
+        return np.asarray(column.to_numpy(dtype=float), dtype=float)
+    try:
+        return np.asarray(column.to_numpy(dtype=float), dtype=float)
+    except (TypeError, ValueError):
+        pass
+    levels = sorted(pd.unique(column.dropna()), key=repr)
+    shown = [repr(v) for v in levels[:6]]
+    if len(levels) == 2:
+        hint = (
+            f"Say which label is the treated one and recode, e.g. "
+            f"df[col] = (df[col] == {levels[1]!r}).astype(int)."
+        )
+    else:
+        hint = (
+            "Recode the treated arm to 1 and the control arm to 0; with "
+            "several arms, compare one arm with the control at a time."
+        )
+    raise MethodIncompatibility(
+        f"{function}: {argument} holds labels, not numbers "
+        f"({len(levels)} distinct: {', '.join(shown)}).",
+        recovery_hint=hint,
+        diagnostics={"n_values": int(len(levels)), "values": shown},
+    )

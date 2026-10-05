@@ -108,20 +108,45 @@ def recommend_estimator(
     adjustment_sets = dag.adjustment_sets(exposure, outcome, minimal=True)
     if adjustment_sets:
         s = adjustment_sets[0]
+        # The graph may license other strategies too. They rest on
+        # different assumptions, so agreement between them is evidence
+        # for the graph and disagreement is evidence against it.
+        others: List[str] = []
+        fd_other = _frontdoor_set(dag, exposure, outcome)
+        if fd_other:
+            others.append(
+                f"sp.front_door(df, y={outcome!r}, treat={exposure!r}, "
+                f"mediator={sorted(fd_other)[0]!r}): the front door through "
+                f"{sorted(fd_other)} also identifies the effect, without the "
+                "adjustment set."
+            )
+        iv_other = _find_instrument(dag, exposure, outcome, candidate_instruments)
+        if iv_other is not None:
+            z_other, z_controls = iv_other
+            ctrl = "".join(f"{_term(c)} + " for c in sorted(z_controls))
+            others.append(
+                f"sp.iv('{_term(outcome)} ~ {ctrl}({_term(exposure)} ~ "
+                f"{_term(z_other)})', data=df): {z_other} is an instrument"
+                + (f" given {sorted(z_controls)}" if z_controls else "")
+                + "; check its first stage before relying on it."
+            )
         if not s:
             return EstimatorRecommendation(
                 estimator="regress",
-                sp_call=f"sp.regress('{outcome} ~ {exposure}', data=df)",
+                sp_call=(
+                    f"sp.regress('{_term(outcome)} ~ {_term(exposure)}', data=df)"
+                ),
                 identification="No open backdoor path — direct regression OK.",
                 adjustment_set=set(),
                 mediators=mediators,
-                alternatives=alternatives,
+                alternatives=others + alternatives,
             )
-        s_str = " + ".join(sorted(s))
+        s_str = " + ".join(_term(v) for v in sorted(s))
         return EstimatorRecommendation(
             estimator="regress",
             sp_call=(
-                f"sp.regress('{outcome} ~ {exposure} + {s_str}', data=df)"
+                f"sp.regress('{_term(outcome)} ~ {_term(exposure)} + {s_str}', "
+                "data=df)"
                 f"  # or sp.ipw(df, y='{outcome}', treat='{exposure}', "
                 f"covariates={sorted(s)!r})"
             ),
@@ -141,6 +166,7 @@ def recommend_estimator(
                     "propensity-score matching"
                 ),
             ]
+            + others
             + alternatives,
         )
 
@@ -153,13 +179,13 @@ def recommend_estimator(
     )
     if iv_found is not None:
         iv_candidate, iv_controls = iv_found
-        controls_str = "".join(f"{c} + " for c in sorted(iv_controls))
+        controls_str = "".join(f"{_term(c)} + " for c in sorted(iv_controls))
         given = f" given {sorted(iv_controls)}" if iv_controls else ""
         return EstimatorRecommendation(
             estimator="iv",
             sp_call=(
-                f"sp.iv('{outcome} ~ {controls_str}"
-                f"({exposure} ~ {iv_candidate})', data=df)"
+                f"sp.iv('{_term(outcome)} ~ {controls_str}"
+                f"({_term(exposure)} ~ {_term(iv_candidate)})', data=df)"
             ),
             identification=(
                 f"Unobserved confounding blocks backdoor adjustment, but "
@@ -235,6 +261,14 @@ def recommend_estimator(
 # --------------------------------------------------------------------------- #
 #  Helpers
 # --------------------------------------------------------------------------- #
+
+
+def _term(name: str) -> str:
+    """A column name as a formula term: quoted when it is not an identifier."""
+    if str(name).isidentifier():
+        return str(name)
+    escaped = str(name).replace("\\", "\\\\").replace('"', '\\"')
+    return f'Q("{escaped}")'
 
 
 def _causal_mediators(dag: Any, x: str, y: str) -> List[str]:

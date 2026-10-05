@@ -120,6 +120,192 @@ class IdentificationResult(ResultProtocolMixin):
         lines.append("=" * width)
         return "\n".join(lines)
 
+    def estimate(
+        self,
+        data: Any,
+        *,
+        n_boot: int = 0,
+        alpha: float = 0.05,
+        seed: int | None = None,
+    ) -> Any:
+        """
+        Evaluate the estimand on categorical data: ``P(Y | do(X))``.
+
+        Each probability in the formula is replaced by the matching
+        frequency in the data and the sums are carried out. Only the
+        observed variables are used, so this works where a latent
+        confounder rules out fitting the whole graph (the front door, for
+        one).
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            One column for every variable in the estimand, each treated
+            as categorical.
+        n_boot : int, default 0
+            Nonparametric bootstrap replications. When positive, ``se``,
+            ``ci_lower`` and ``ci_upper`` (percentile) are added.
+        alpha : float, default 0.05
+            Level of the bootstrap interval.
+        seed : int, optional
+            Seed for the bootstrap.
+
+        Returns
+        -------
+        pd.DataFrame
+            One row per combination of treatment and outcome values, with
+            ``prob``, the estimate of ``P(outcome | do(treatment))``.
+
+        Notes
+        -----
+        A term such as ``P(y | x', m)`` is undefined where ``(x', m)``
+        never occurs. When the answer for a treatment value depends on
+        such a term, the data do not determine it: those rows are
+        returned as missing and an
+        :class:`~statspai.exceptions.AssumptionWarning` says which. This
+        is the positivity condition of the estimand, checked on the data.
+
+        When the formula keeps a variable free that is neither treatment
+        nor outcome (the algorithm may intervene on variables that cannot
+        affect the outcome, and the result does not depend on their
+        value in the population), it is averaged over that variable's
+        observed distribution.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd, statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> n = 20000
+        >>> u = rng.random(n) < 0.5                         # unobserved
+        >>> x = rng.random(n) < np.where(u, 0.8, 0.2)
+        >>> m = rng.random(n) < np.where(x, 0.9, 0.2)
+        >>> y = rng.random(n) < 0.1 + 0.5 * m + 0.3 * u
+        >>> df = pd.DataFrame({"X": x, "M": m, "Y": y})
+        >>> g = sp.dag("X -> M -> Y; U -> X; U -> Y", latent=["U"])
+        >>> res = sp.identify(g, "X", "Y")
+        >>> est = res.estimate(df)
+        >>> p1 = est.query("X == True and Y == True")["prob"].item()
+        >>> p0 = est.query("X == False and Y == True")["prob"].item()
+        >>> round(p1 - p0, 2)        # true effect 0.5 * (0.9 - 0.2)
+        0.35
+        """
+        import itertools
+        import warnings
+
+        import numpy as np
+        import pandas as pd
+
+        from ..exceptions import (
+            AssumptionWarning,
+            ColumnNotFound,
+            IdentificationFailure,
+            MethodIncompatibility,
+        )
+
+        expr = getattr(self, "_expression", None)
+        if not self.identifiable or expr is None:
+            raise IdentificationFailure(
+                "identify(...).estimate: the query is not identified, so "
+                "there is no formula to evaluate.",
+                recovery_hint=(
+                    "Bound the effect instead (sp.manski_bounds), or look "
+                    "for an instrument or a proxy."
+                ),
+            )
+        X: tuple[str, ...] = getattr(self, "_treatment")
+        Y: tuple[str, ...] = getattr(self, "_outcome")
+        used = sorted(_all_vars(expr) | set(X) | set(Y))
+        missing = [v for v in used if v not in data.columns]
+        if missing:
+            raise ColumnNotFound(
+                f"identify(...).estimate: the estimand uses {missing}, which "
+                "are not columns of the data.",
+                diagnostics={"missing_columns": missing},
+            )
+        frame = data[used].dropna()
+        states: dict[str, list[Any]] = {}
+        codes: dict[str, Any] = {}
+        for v in used:
+            col = frame[v]
+            if isinstance(col.dtype, pd.CategoricalDtype):
+                col = col.cat.remove_unused_categories()
+                levels = list(col.cat.categories)
+                code = col.cat.codes.to_numpy()
+            else:
+                code, uniques = pd.factorize(col, sort=True)
+                levels = list(uniques)
+            if len(levels) > 50:
+                raise MethodIncompatibility(
+                    f"identify(...).estimate: column {v!r} takes "
+                    f"{len(levels)} distinct values; the plug-in is for "
+                    "categorical variables.",
+                    recovery_hint=(
+                        f"Bin it first, e.g. pd.qcut(df[{v!r}], 3). For a "
+                        "continuous outcome under a backdoor or front-door "
+                        "estimand use sp.aipw / sp.front_door."
+                    ),
+                    diagnostics={"column": v, "n_values": len(levels)},
+                )
+            states[v] = [s.item() if isinstance(s, np.generic) else s for s in levels]
+            codes[v] = np.asarray(code)
+        emp = _Empirical(codes, states)
+        target = (*X, *Y)
+
+        def value(e: _Empirical, uniform: bool) -> Any:
+            scope, arr = _array(expr, e, uniform)
+            parts = [(scope, arr)]
+            extra = tuple(v for v in scope if v not in target)
+            if extra:
+                parts.append((extra, e.marginal(extra)))
+            # A treatment the outcome does not respond to is not in the
+            # formula: P(y | do(x)) = P(y), the same for every x.
+            for v in target:
+                if v not in scope:
+                    parts.append(((v,), np.ones(len(e.states[v]))))
+            return _contract(parts, target)
+
+        point = value(emp, False)
+        other = value(emp, True)
+        shaky = np.abs(point - other) > 1e-10
+        if shaky.any():
+            # Any outcome cell that moves marks the whole treatment value.
+            bad = shaky.reshape(shaky.shape[: len(X)] + (-1,)).any(axis=-1)
+            point = np.where(bad.reshape(bad.shape + (1,) * len(Y)), np.nan, point)
+            bad_x = [
+                {v: states[v][i] for v, i in zip(X, idx)}
+                for idx in zip(*np.nonzero(bad))
+            ]
+            warnings.warn(
+                AssumptionWarning(
+                    "identify(...).estimate: for treatment values "
+                    f"{bad_x} the estimand needs a conditional probability "
+                    "whose conditioning event never occurs in the data, so "
+                    "the data do not determine it (positivity fails). Those "
+                    "rows are returned as missing.",
+                    recovery_hint=(
+                        "Coarsen the variables involved so that every "
+                        "combination the formula sums over is observed."
+                    ),
+                    diagnostics={"treatment_values": bad_x},
+                ),
+                stacklevel=2,
+            )
+
+        rows = list(itertools.product(*[states[v] for v in target]))
+        out = pd.DataFrame(rows, columns=list(target))
+        out["prob"] = point.reshape(-1)
+        if n_boot > 0:
+            rng = np.random.default_rng(seed)
+            draws = np.empty((n_boot, point.size))
+            for b in range(n_boot):
+                again = emp.resample(rng.integers(0, emp.n, emp.n))
+                draws[b] = value(again, False).reshape(-1)
+            out["se"] = draws.std(axis=0, ddof=1)
+            out["ci_lower"] = np.quantile(draws, alpha / 2, axis=0)
+            out["ci_upper"] = np.quantile(draws, 1 - alpha / 2, axis=0)
+            out.loc[out["prob"].isna(), ["se", "ci_lower", "ci_upper"]] = np.nan
+        return out
+
 
 @accepts_aliases(treat="treatment", y="outcome")
 def identify(
@@ -181,7 +367,7 @@ def identify(
     ccs = _c_components(dag, observable)
 
     try:
-        expr = _ID(Y, X, _subgraph(dag, observable), observable)
+        expr = _simplify(_ID(Y, X, _subgraph(dag, observable), observable), dag)
         result = IdentificationResult(
             identifiable=True,
             estimand=_render(expr),
@@ -193,8 +379,10 @@ def identify(
                 f"expression involves only observed joint distributions."
             ),
         )
-        # The expression tree behind the string, for numeric checks.
+        # The expression tree behind the string, for numeric evaluation.
         object.__setattr__(result, "_expression", expr)
+        object.__setattr__(result, "_treatment", _tup(X))
+        object.__setattr__(result, "_outcome", _tup(Y))
         return result
     except _NotIdentifiable as exc:
         return IdentificationResult(
@@ -345,6 +533,19 @@ def _free_vars(expr: Any) -> frozenset[str]:
     raise TypeError(f"unknown expression node {type(expr).__name__}")
 
 
+def _all_vars(expr: Any) -> set[str]:
+    """Every variable an expression mentions, bound or free."""
+    if isinstance(expr, _Prob):
+        return set(expr.vars) | set(expr.given)
+    if isinstance(expr, _Prod):
+        return set().union(*[_all_vars(t) for t in expr.terms])
+    if isinstance(expr, _Frac):
+        return _all_vars(expr.num) | _all_vars(expr.den)
+    if isinstance(expr, _Sum):
+        return _all_vars(expr.body) | set(expr.over)
+    raise TypeError(f"unknown expression node {type(expr).__name__}")
+
+
 def _evaluate(expr: Any, joint: Any, values: dict[str, int]) -> float:
     """Numeric value of ``expr`` under an observational joint.
 
@@ -385,6 +586,123 @@ def _evaluate(expr: Any, joint: Any, values: dict[str, int]) -> float:
             )
         return total
     raise TypeError(f"unknown expression node {type(expr).__name__} ({variables})")
+
+
+def _simplify(expr: Any, dag: Any) -> Any:
+    """Drop conditioning variables the graph makes irrelevant.
+
+    Every ``_Prob`` leaf is a conditional of the observational
+    distribution, so ``P(v | a, b) = P(v | b)`` whenever ``v`` and ``a``
+    are d-separated given ``b`` in the full graph. The algorithm
+    conditions each factor on all its predecessors in a topological
+    order; most of them are usually not parents.
+    """
+    if isinstance(expr, _Prob):
+        given = list(expr.given)
+        changed = True
+        while changed:
+            changed = False
+            for g in sorted(given):
+                rest = set(given) - {g}
+                if all(dag.d_separated(v, g, rest) for v in expr.vars):
+                    given.remove(g)
+                    changed = True
+                    break
+        return _Prob(expr.vars, tuple(sorted(given)))
+    if isinstance(expr, _Prod):
+        return _Prod(tuple(_simplify(t, dag) for t in expr.terms))
+    if isinstance(expr, _Sum):
+        return _Sum(expr.over, _simplify(expr.body, dag))
+    if isinstance(expr, _Frac):
+        return _Frac(_simplify(expr.num, dag), _simplify(expr.den, dag))
+    raise TypeError(f"unknown expression node {type(expr).__name__}")
+
+
+class _Empirical:
+    """Marginal frequency tables of a categorical data frame."""
+
+    def __init__(self, codes: dict[str, Any], states: dict[str, list[Any]]) -> None:
+        self.codes = codes
+        self.states = states
+        self.n = len(next(iter(codes.values())))
+
+    def marginal(self, names: tuple[str, ...]) -> Any:
+        import numpy as np
+
+        shape = tuple(len(self.states[v]) for v in names)
+        out = np.zeros(shape)
+        if names:
+            np.add.at(out, tuple(self.codes[v] for v in names), 1.0)
+        else:
+            out += self.n
+        return out / self.n
+
+    def resample(self, idx: Any) -> "_Empirical":
+        return _Empirical({v: c[idx] for v, c in self.codes.items()}, self.states)
+
+
+def _array(expr: Any, emp: _Empirical, uniform: bool) -> tuple[tuple[str, ...], Any]:
+    """Value of ``expr`` as an array over its free variables.
+
+    A conditional probability whose conditioning event never occurs is
+    undefined. It is filled with zero, or with a uniform distribution when
+    ``uniform``; a result that differs between the two depends on it.
+    """
+    import numpy as np
+
+    if isinstance(expr, _Prob):
+        scope = (*expr.given, *expr.vars)
+        joint = emp.marginal(scope)
+        if not expr.given:
+            return scope, joint
+        k = len(expr.given)
+        den = emp.marginal(expr.given).reshape(joint.shape[:k] + (1,) * len(expr.vars))
+        fill = 1.0 / float(np.prod(joint.shape[k:])) if uniform else 0.0
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return scope, np.where(den > 0, joint / den, fill)
+    if isinstance(expr, _Prod):
+        parts = [_array(t, emp, uniform) for t in expr.terms]
+        scope = tuple(sorted({v for vs, _ in parts for v in vs}))
+        return scope, _contract(parts, scope)
+    if isinstance(expr, _Sum):
+        scope, arr = _array(expr.body, emp, uniform)
+        keep = tuple(v for v in scope if v not in expr.over)
+        out = _contract([(scope, arr)], keep)
+        for v in expr.over:  # a body constant in v sums to card(v) times it
+            if v not in scope:
+                out = out * len(emp.states[v])
+        return keep, out
+    if isinstance(expr, _Frac):
+        ns, num = _array(expr.num, emp, uniform)
+        ds, den = _array(expr.den, emp, uniform)
+        scope = tuple(sorted(set(ns) | set(ds)))
+        num_b = _lay_out(ns, num, scope)
+        den_b = _lay_out(ds, den, scope)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return scope, np.where(den_b > 0, num_b / den_b, 0.0)
+    raise TypeError(f"unknown expression node {type(expr).__name__}")
+
+
+def _lay_out(scope: tuple[str, ...], arr: Any, target: tuple[str, ...]) -> Any:
+    """``arr`` on the axes of ``target``, size one where it has no variable."""
+    import numpy as np
+
+    order = [v for v in target if v in scope]
+    arr = np.transpose(arr, [scope.index(v) for v in order])
+    return arr.reshape([arr.shape[order.index(v)] if v in order else 1 for v in target])
+
+
+def _contract(parts: list[tuple[tuple[str, ...], Any]], keep: tuple[str, ...]) -> Any:
+    """Product of factors, summed down to the variables in ``keep``."""
+    import numpy as np
+
+    letters: dict[str, int] = {}
+    operands: list[Any] = []
+    for scope, arr in parts:
+        operands.append(arr)
+        operands.append([letters.setdefault(v, len(letters)) for v in scope])
+    operands.append([letters[v] for v in keep])
+    return np.einsum(*operands)
 
 
 # --------------------------------------------------------------------------- #
@@ -466,7 +784,11 @@ def _ID(
 
 
 def _is_latent(node: str) -> bool:
-    return node.startswith("_L_") or node.startswith("U_")
+    # Only the nodes a bidirected edge or the latent projection creates.
+    # A ``U_`` prefix used to count as well, which nothing documented: an
+    # observed confounder named ``U_rate`` was offered as an adjustment
+    # variable by ``adjustment_sets`` and treated as unmeasured here.
+    return node.startswith("_L_")
 
 
 def _observed_parents(dag: Any, node: str) -> NodeSet:

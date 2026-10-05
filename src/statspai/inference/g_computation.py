@@ -40,6 +40,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 
@@ -205,7 +206,7 @@ def g_computation(
 
     df = data[[y, treat] + list(covariates)].dropna().reset_index(drop=True)
     Y = df[y].values.astype(float)
-    D = df[treat].values.astype(float)
+    D = _treatment_as_float(df[treat], function="g_computation")
     X = df[covariates].values.astype(float)
     n = len(Y)
 
@@ -441,7 +442,7 @@ def _by_arm(
     columns = list(dict.fromkeys([y, treat, *covariates, *(ps or [])]))
     df = data[columns].dropna().reset_index(drop=True)
     Y = df[y].to_numpy(dtype=float)
-    D = df[treat].to_numpy(dtype=float)
+    D = _treatment_as_float(df[treat], function="g_computation")
     if not set(np.unique(D)).issubset({0.0, 1.0}):
         raise ValueError(
             f"estimand='{estimand}' requires binary treatment (0/1) in " f"'{treat}'."

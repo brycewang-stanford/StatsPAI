@@ -49,6 +49,47 @@ The same holds for the keys of `diagnostics` that embed a name
 **What to do.** Use the formula name, `iv.params["np.log(x)"]`. In
 `sp.test` and `sp.lincom` both spellings are read. Plain column names
 were never affected. `sp.panel` still reports the bracket names.
+## 1.38.0 → next: ⚠️ graphs: `sp.dag` parsing, adjustment sets, backdoor paths, `sp.identify`, `sp.pc_algorithm`, `sp.fci`, `sp.front_door`
+
+Found by working through Ness's *Causal AI*
+(`docs/dev/2026-10-06-ness-causal-ai-review.md`). Results that can change:
+
+| call | before | now |
+| --- | --- | --- |
+| `sp.dag("X <- Z; ...")` | the right-to-left arrow was dropped | read as `Z -> X` |
+| `sp.dag("A -> B <- C")` | a node named `"B <- C"` | two edges into `B` |
+| `sp.dag` with `X -- Y`, `X => Y`, a cycle | skipped or accepted | `MethodIncompatibility` |
+| `DAG.adjustment_sets` needing 7+ variables | `[]` | the set |
+| `DAG.backdoor_paths` | every non-causal path | paths that enter the exposure; `noncausal_paths` has the rest |
+| `DAG.path_status(...)[i]['type']` | `'causal'` or `'backdoor'` | also `'noncausal'` |
+| `DAG.classify_variable` | a mediator on `X -> M -> C <- Y` was a `'confounder'` | it is not |
+| `sp.identify` with a node named `U_...` | treated as latent | observed unless declared latent |
+| `sp.identify(...).estimand` | conditioned on all predecessors | redundant conditioning variables dropped; same value |
+| `sp.pc_algorithm` | edges lost to clashing colliders; union-of-neighbours search | PC-stable; clashes in `orientation_conflicts` |
+| `sp.fci` | search stopped at the first level without a removal | full PC-stable skeleton |
+| `sp.fci(...).edges` labels | `'>->'`, `'>--'`, `'>-o'` for an arrowhead at the left end | `'<->'`, `'<--'`, `'<-o'` |
+| `sp.front_door`, mediator constant in an arm | an estimate scaled by the other arm's share | `IdentificationFailure`; `outcome_model='additive'` to extrapolate |
+
+What to do.
+
+- Re-read any graph specified with `<-`: the arrow was not in the graph
+  before, so adjustment sets, paths and identification results computed
+  from it were for a different graph.
+- If code tests `path['type'] == 'backdoor'` to mean "not causal", test
+  `!= 'causal'` instead.
+- If a node name starts with `U_` and you meant it to be unobserved,
+  declare it: `sp.dag(spec, latent=['U_x'])`.
+- Rerun causal discovery. A graph from `sp.pc_algorithm` or `sp.fci` may
+  gain edges it was losing and lose edges the old search could not
+  separate. On Gaussian data the result now equals `pcalg::pc(...,
+  skel.method = "stable")`.
+- A `sp.front_door` call that now raises was returning a number that
+  assumed the mediator has no effect in one arm. Use
+  `outcome_model='additive'` if a no-interaction model is defensible, and
+  say so.
+
+`sp.ipw` now warns when the weights leave an arm an effective sample
+under a fifth of its size. The estimate is unchanged.
 
 ## 1.38.0 → next: ⚠️ `sp.arima` on differenced series, and `auto=True` with a drift
 

@@ -4,6 +4,124 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### What a graph-first causal inference book found
+
+Ness's *Causal AI* builds a DAG, tests it, fits a model on it, intervenes,
+identifies an estimand and only then estimates, with pgmpy, y0, DoWhy and
+Pyro. Each step was redone with StatsPAI on the book's data and compared
+with the numbers the notebooks print and with independent R packages
+(dagitty, bnlearn, pcalg, causaleffect). The econometrics textbooks probed
+estimators. This one probed the layer that says which estimator a graph
+licenses, and most of the fixes are there. Notes are in
+`docs/dev/2026-10-06-ness-causal-ai-review.md`; the user-facing map is
+`docs/guides/ness_causal_ai.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.dag` dropped every arrow written right to left.** `"X <- Z"` was
+  skipped, so `sp.dag("X <- Z; Z -> Y; X -> Y")` had no confounding arrow
+  and `adjustment_sets` returned the empty set as valid. `"A -> B <- C"`
+  made a node called `"B <- C"`. Arrows now read either way and chain. A
+  name alone declares a node. An undirected edge, an unreadable statement
+  or a cycle raises; all three used to be skipped.
+- **`DAG.adjustment_sets` returned no set when the smallest had seven or
+  more variables.** The search stopped at six, and an empty list means
+  "not identified by adjustment": with eight observed confounders
+  `sp.dag_recommend_estimator` answered "Not identifiable under the
+  declared DAG". Existence is now decided exactly at any size
+  [@vanderzander2019separators]; larger sets are found by pruning the
+  ancestral one. Same sets as dagitty on the reference graphs.
+- **`DAG.backdoor_paths` listed paths that do not enter the exposure.** It
+  returned every non-causal path, including `X -> M -> C <- Y`. As a
+  result `classify_variable` called mediators and the parents of an M-bias
+  collider confounders, and `summary` drew every edge as `→`.
+  `backdoor_paths` now returns backdoor paths, `noncausal_paths` the rest
+  too, and `path_status` has a third type, `'noncausal'`, and an `'arrows'`
+  field with the path as drawn.
+- **`sp.identify` treated nodes named `U_...` as unobserved.** Nothing
+  documented it. `adjustment_sets` offered such a node as an adjustment
+  variable while `identify` reported the same graph as not identifiable.
+- **`sp.front_door` returned a shrunken estimate when the mediator did not
+  vary within a treatment arm.** The regression of Y on M in that arm has
+  no M coefficient, least squares set it to zero, and the effect was
+  scaled by the other arm's share (153.81 on the book's data, where
+  nobody untreated has `M = 1`). It now raises `IdentificationFailure`.
+  `outcome_model='additive'` extrapolates explicitly under no D-by-M
+  interaction and reproduces DoWhy's `frontdoor.two_stage_regression`
+  (170.20560581290403) to 1e-12.
+- **`sp.pc_algorithm` lost edges and searched the wrong conditioning
+  sets.** When two colliders claimed one edge in opposite directions the
+  edge was deleted from the CPDAG: 85 of 200 draws of a six-variable
+  design at n = 120 lost at least one. Conditioning sets were drawn from
+  the union of both neighbourhoods, updated within a level, which is
+  neither PC nor PC-stable and depended on column order. The search is
+  now PC-stable [@colombo2014order] and returns the skeleton, separating
+  sets and (absent clashes) CPDAG of `pcalg::pc`. Clashes are kept in
+  node order and returned in `orientation_conflicts`. Meek's third rule
+  was missing and is applied. **Graphs learned with earlier versions can
+  differ.**
+- **`sp.fci` stopped its skeleton search at the first level that removed
+  no edge.** With three common causes of X and Y the spurious `X - Y` edge
+  survived at any sample size. It now uses the same search as
+  `sp.pc_algorithm`. Edge labels were also wrong at the left end: a
+  bidirected edge read `X >-> Y` (now `X <-> Y`) and `X <-- Y` read
+  `X >-- Y`. The graph now equals `pcalg::fci` mark for mark on three
+  designs, one with unobserved common causes.
+
+#### Added
+
+- **`sp.bayes_net`**: a discrete causal Bayesian network. Tables are
+  estimated from categorical data (with an optional Dirichlet prior),
+  written by hand, or given as functions of the parents. Exact inference
+  by variable elimination: `query(variables, evidence=, do=)`, `prob`,
+  `expectation` (with a utility per state), `do`, `simulate`, `cpt`, and
+  `counterfactual` by a twin network when every non-root node is
+  deterministic. A query that depends on a parent configuration with no
+  data warns that positivity fails. Reproduces the book's kernels,
+  queries, expected utilities and Monty Hall counterfactuals, bnlearn's
+  kernels, and enumeration to 1e-13.
+- **`sp.identify(...).estimate(data)`**: the ID estimand evaluated on
+  categorical data, using observed columns only, with an optional
+  bootstrap. Treatment values whose formula needs a conditional
+  probability with no data come back missing with a warning.
+- **`sp.refute`**: refutation tests for any effect estimator (placebo
+  treatment, dummy outcome, random common cause, data subset), with Monte
+  Carlo p-values that the reruns are centred where they should be.
+- **Categorical conditional-independence tests.**
+  `DAG.test_implications(df)` uses a chi-square test when the columns are
+  labels (`test='g-test'` for the likelihood ratio) and reports Cramer's
+  V. `sp.pc_algorithm(ci_test='chi-square' | 'g-test')` learns from
+  categorical columns. Statistics, degrees of freedom and p-values equal
+  `dagitty::localTests(type='cis.chisq')` and `bnlearn::ci.test`
+  (`x2-adf`, `mi-adf`).
+- `sp.front_door(outcome_model='additive')`.
+- `DAG.noncausal_paths`, `DAG.format_path`.
+
+#### Changed
+
+- `sp.dag` reads quoted names, Graphviz `digraph { ... }` and dagitty
+  `dag { ... }` wrappers, and `{A B} -> C` groups. A DOT string used to
+  yield node names with the quotation marks in them.
+- The estimand `sp.identify` prints no longer conditions on variables the
+  graph d-separates from the factor. For the book's gaming graph
+  `P(Purchases | seven variables)` became `P(Purchases | four parents)`.
+  The value is the same.
+- `sp.dag_recommend_estimator` lists every strategy the graph licenses
+  (the front door and an instrument next to the backdoor), and writes
+  column names that are not identifiers as `Q("...")` so the call runs.
+- `sp.ipw` stores `ess_treated`, `ess_control` and `ess_ratio_min` and
+  raises an `AssumptionWarning` when an arm's effective sample size is
+  under a fifth of the arm; `result.violations()` reports the same.
+- A treatment column of labels (`'high'` / `'low'`) raises an error that
+  names the column and the recode, in `sp.ipw`, `sp.aipw`,
+  `sp.g_computation`, `sp.tmle`, `sp.metalearner`, `sp.front_door`,
+  `sp.ebalance`, `sp.cbps` and `sp.dml`. It was numpy's "could not convert
+  string to float".
+- `sp.pc_algorithm`, `sp.ges`, `sp.notears`, `sp.lingam` and `sp.fci` say
+  that non-numeric columns are the reason they cannot run and point to
+  `ci_test='chi-square'`. `sp.pc_algorithm` refuses a `ci_test` it does
+  not implement (the docstring advertised `'hsic'`).
+- `DAG.path_status` and `DAG.all_paths` return paths in a fixed order.
 ### What a statsmodels time-series textbook found
 
 Maitra's *A Practical Guide to Static and Dynamic Econometric Modelling*

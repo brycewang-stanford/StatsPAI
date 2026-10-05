@@ -30,6 +30,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -213,7 +214,7 @@ def _prepare_data(
             raise ValueError(f"Column '{c}' not found in data")
     clean = data[cols].dropna()
     Y = clean[y].values.astype(float)
-    D = clean[treat].values.astype(float)
+    D = _treatment_as_float(clean[treat], function="metalearner")
     X = clean[covariates].values.astype(float)
     return Y, D, X, len(Y)
 

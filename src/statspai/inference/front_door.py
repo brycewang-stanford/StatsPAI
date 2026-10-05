@@ -55,7 +55,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
+from ..exceptions import IdentificationFailure
 
 
 def front_door(
@@ -70,6 +72,7 @@ def front_door(
     n_mc: int = 200,
     alpha: float = 0.05,
     seed: Optional[int] = None,
+    outcome_model: str = "by_arm",
 ) -> CausalResult:
     """
     Front-door ATE via Pearl's front-door formula.
@@ -116,6 +119,22 @@ def front_door(
         Significance level.
     seed : int, optional
         Random seed.
+    outcome_model : {'by_arm', 'additive'}, default 'by_arm'
+        How ``E[Y | D=d', M=m, X]`` is modelled.
+
+        - ``'by_arm'``: a separate regression of Y on M (and X) in each
+          treatment arm, so the mediator's effect may differ by arm. It
+          needs the mediator to vary within **each** arm; when it does
+          not (say nobody untreated has ``M = 1``), ``E[Y | D=0, M=1]``
+          is not estimable and the call raises
+          :class:`~statspai.exceptions.IdentificationFailure`.
+        - ``'additive'``: one pooled regression of Y on D, M (and X) with
+          no D-by-M interaction. With a binary mediator and no covariates
+          the ATE is the product of two coefficients, ``M ~ D`` times the
+          M coefficient of ``Y ~ M + D`` -- the linear-model front door,
+          DoWhy's ``frontdoor.two_stage_regression``. It extrapolates
+          into an arm where the mediator does not vary, on the strength
+          of the no-interaction assumption.
 
     Returns
     -------
@@ -128,7 +147,9 @@ def front_door(
 
     1. No direct effect of D on Y (all effect routed through M).
     2. No unobserved confounder of the M-Y relationship.
-    3. Positivity on M | D.
+    3. Positivity on M | D: every mediator value that occurs must occur in
+       both arms. ``outcome_model='by_arm'`` checks the part of this the
+       outcome regression depends on and refuses when it fails.
 
     Violations of (1) or (2) are **not** detected from data alone — the
     front-door criterion is a DAG assumption. Use :func:`sp.dag` with
@@ -170,7 +191,7 @@ def front_door(
     covariates = list(covariates or [])
     df = data[[y, treat, mediator] + covariates].dropna().reset_index(drop=True)
     Y = df[y].values.astype(float)
-    D = df[treat].values.astype(float)
+    D = _treatment_as_float(df[treat], function="front_door")
     M = df[mediator].values.astype(float)
     X = df[covariates].values.astype(float) if covariates else None
     n = len(Y)
@@ -195,6 +216,11 @@ def front_door(
             f"mediator_type must be 'binary' or 'continuous'; got '{mediator_type}'"
         )
 
+    if outcome_model not in ("by_arm", "additive"):
+        raise ValueError(
+            f"outcome_model must be 'by_arm' or 'additive'; got '{outcome_model}'"
+        )
+
     rng = np.random.default_rng(seed)
 
     def _point(
@@ -203,7 +229,9 @@ def front_door(
         M_: np.ndarray,
         X_: Optional[np.ndarray],
     ) -> Tuple[float, int]:
-        return _front_door_ate(Y_, D_, M_, X_, mediator_type, n_mc, rng, integrate_by)
+        return _front_door_ate(
+            Y_, D_, M_, X_, mediator_type, n_mc, rng, integrate_by, outcome_model
+        )
 
     point, point_logit_fallback = _point(Y, D, M, X)
 
@@ -286,6 +314,7 @@ def front_door(
         "n_treated": int((D == 1).sum()),
         "n_control": int((D == 0).sum()),
         "covariates": covariates,
+        "outcome_model": outcome_model,
         "mediator_model_degraded": bool(point_logit_fallback > 0),
         "mediator_model_fallback_arms": int(point_logit_fallback),
         "n_boot_mediator_fallback": int(n_boot_logit_fallback),
@@ -324,6 +353,7 @@ def front_door(
                 "n_mc": n_mc,
                 "alpha": alpha,
                 "seed": seed,
+                "outcome_model": outcome_model,
             },
             data=data,
             overwrite=False,
@@ -342,6 +372,17 @@ def _ols_fit(
     beta, *_ = np.linalg.lstsq(design, y, rcond=None)
     resid = y - design @ beta
     return beta, resid, design
+
+
+def _mediator_varies(M: np.ndarray, X: Optional[np.ndarray]) -> bool:
+    """Whether M has variation left once an intercept and X are partialled out."""
+    design = (
+        np.ones((len(M), 1)) if X is None else np.column_stack([np.ones(len(M)), X])
+    )
+    coef, *_ = np.linalg.lstsq(design, M, rcond=None)
+    resid = M - design @ coef
+    scale = max(float(np.max(np.abs(M))), 1.0) if len(M) else 1.0
+    return bool(len(M) > 0 and float(np.max(np.abs(resid))) > 1e-9 * scale)
 
 
 def _ols_predict(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
@@ -375,6 +416,7 @@ def _front_door_ate(
     n_mc: int,
     rng: np.random.Generator,
     integrate_by: str = "marginal",
+    outcome_model: str = "by_arm",
 ) -> Tuple[float, int]:
     """
     Compute front-door ATE on a single (bootstrap or original) sample.
@@ -399,8 +441,53 @@ def _front_door_ate(
     if mask1.sum() < 2 or mask0.sum() < 2:
         raise RuntimeError("Insufficient support on D=0 or D=1 for outcome regression.")
 
-    beta_y1, _, _ = _ols_fit(Y[mask1], feat_ym[mask1])
-    beta_y0, _, _ = _ols_fit(Y[mask0], feat_ym[mask0])
+    if outcome_model == "additive":
+        # Pooled Y ~ D + M (+ X): one mediator slope for both arms.
+        if not _mediator_varies(M, np.column_stack([D] if X is None else [D, X])):
+            raise IdentificationFailure(
+                "front_door: the mediator is an exact linear function of the "
+                "treatment (and covariates), so its coefficient in the outcome "
+                "regression is not identified.",
+                recovery_hint=(
+                    "The front-door formula needs variation in the mediator "
+                    "that the treatment does not determine; with none, the "
+                    "data cannot separate the mediator's effect from the "
+                    "treatment's."
+                ),
+                diagnostics={"outcome_model": outcome_model},
+            )
+        beta_pool, _, _ = _ols_fit(Y, np.column_stack([D, feat_ym]))
+        beta_y0 = np.concatenate([[beta_pool[0]], beta_pool[2:]])
+        beta_y1 = np.concatenate([[beta_pool[0] + beta_pool[1]], beta_pool[2:]])
+    else:
+        # A regression of Y on M inside an arm where M does not vary has no
+        # M coefficient. Least squares would return the minimum-norm
+        # solution, which sets it to zero: E[Y | D=d, M=m] would be taken
+        # not to depend on m in that arm, and the estimate would shrink by
+        # that arm's share without a word.
+        flat = [
+            int(arm)
+            for arm, mask in ((0, mask0), (1, mask1))
+            if not _mediator_varies(M[mask], None if X is None else X[mask])
+        ]
+        if flat:
+            raise IdentificationFailure(
+                "front_door: the mediator does not vary among units with "
+                f"treatment = {flat} (given the covariates), so "
+                "E[Y | D, M] cannot be estimated there for the other "
+                "mediator values. Positivity of M given D fails and the "
+                "front-door formula is not identified without a functional "
+                "form to extrapolate with.",
+                recovery_hint=(
+                    "outcome_model='additive' fits one pooled regression of "
+                    "Y on D and M and extrapolates under no D-by-M "
+                    "interaction (the linear two-stage front door). Report "
+                    "it as resting on that assumption."
+                ),
+                diagnostics={"arms_without_mediator_variation": flat},
+            )
+        beta_y1, _, _ = _ols_fit(Y[mask1], feat_ym[mask1])
+        beta_y0, _, _ = _ols_fit(Y[mask0], feat_ym[mask0])
 
     # Helper: E[Y | D=d', M=m_grid, X=x_row] for each obs
     def mu_dprime(

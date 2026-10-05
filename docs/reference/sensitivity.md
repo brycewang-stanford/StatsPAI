@@ -50,6 +50,21 @@ report = sp.robustness_report(
 report.summary(); report.plot(); report.to_latex()
 ```
 
+## Refutation tests for any estimator
+
+```python
+# Rerun the estimator on data altered so the answer is known.
+sp.refute(sp.aipw, df, y='y', treat='d', covariates=['x1', 'x2'],
+          method='placebo_treatment')        # also 'dummy_outcome',
+                                             # 'random_common_cause', 'data_subset'
+# The check that catches a missing adjustment keeps the confounding in place:
+sp.refute(sp.aipw, df, y='y', treat='d', covariates=['x1', 'x2'],
+          method='dummy_outcome', outcome_function=lambda f: 3 * f['x1'])
+```
+
+Passing is necessary, not sufficient: none of these detects an unobserved
+confounder. For that see `sp.sensemakr` and `sp.evalue` above.
+
 ## Honest parallel-trends (DID)
 
 ```python

@@ -239,6 +239,8 @@ from .core.ssc_presets import ssc as ssc
 from .crossval._result import CrossValidationResult as CrossValidationResult
 from .crossval.cross_validate import cross_validate as cross_validate
 from .dag import recommend_estimator as dag_recommend_estimator
+from .dag.bayes_net import BayesNet as BayesNet
+from .dag.bayes_net import bayes_net as bayes_net
 from .dag.counterfactual import SCM as SCM
 from .dag.do_calculus import RuleCheck as RuleCheck
 from .dag.do_calculus import apply_rules as do_calculus_apply
@@ -1195,6 +1197,8 @@ from .rlasso.learner import RlassologitClassifier as RlassologitClassifier
 from .rlasso.learner import RlassoRegressor as RlassoRegressor
 from .rlasso.logit_effect import rlassologit_effect as rlassologit_effect
 from .rlasso.logit_effect import rlassologit_effects as rlassologit_effects
+from .robustness.refute import RefutationResult as RefutationResult
+from .robustness.refute import refute as refute
 from .robustness.robustness_report import RobustnessResult as RobustnessResult
 from .robustness.robustness_report import robustness_report as robustness_report
 from .robustness.sensitivity_frontier import (

@@ -9,7 +9,8 @@ Steps:
 1. Start with a complete undirected graph.
 2. For increasing conditioning set size k = 0, 1, 2, ...:
    - For each adjacent pair (X, Y), test X _||_ Y | S for all
-     subsets S of size k from adj(X) \\ {Y}.
+     subsets S of size k from adj(X) \\ {Y}, then from adj(Y) \\ {X},
+     with the neighbourhoods fixed at the start of the level (PC-stable).
    - If any test yields independence, remove the edge X—Y and
      record S as the separating set.
 3. Orient edges using three rules (v-structures, acyclicity, completeness).
@@ -21,7 +22,7 @@ Causation, Prediction, and Search (2nd ed.). MIT Press. [@spirtes2000causation]
 
 Colombo, D. & Maathuis, M. H. (2014).
 Order-independent constraint-based causal structure learning.
-JMLR, 15, 3921-3962.
+JMLR, 15, 3921-3962. [@colombo2014order]
 """
 
 from itertools import combinations
@@ -30,6 +31,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
+
+from ..dag._ci_tests import discrete_ci_test
+from ..exceptions import MethodIncompatibility
+
+#: Tests that cross-tabulate their columns.
+_DISCRETE_TESTS = ("chi-square", "g-test")
 
 # ======================================================================
 # Public API
@@ -53,15 +60,26 @@ def pc_algorithm(
     data : pd.DataFrame
         Observational data (n_samples x d_variables).
     variables : list of str, optional
-        Column names to use. If None, uses all numeric columns.
+        Column names to use. If None: all numeric columns under
+        ``ci_test='fisherz'``, all columns under the categorical tests.
     alpha : float, default 0.05
         Significance level for conditional independence tests.
         Lower alpha = sparser graph (fewer edges).
     max_cond_size : int, optional
         Maximum conditioning set size. If None, goes up to d-2.
-    ci_test : str, default 'fisherz'
-        Conditional independence test: 'fisherz' (partial correlation)
-        or 'hsic' (kernel-based, non-linear).
+    ci_test : {'fisherz', 'chi-square', 'g-test'}, default 'fisherz'
+        Conditional independence test.
+
+        - ``'fisherz'``: partial correlation, for numeric columns with
+          linear relations.
+        - ``'chi-square'`` / ``'g-test'``: for categorical columns.
+          Pearson's statistic (or the likelihood ratio) is summed over
+          the strata of the conditioning set, with degrees of freedom
+          counted from the levels present in each stratum
+          (``bnlearn``'s ``"x2-adf"`` / ``"mi-adf"``). An independence
+          no stratum can test is not rejected, so with little data per
+          stratum edges are removed for lack of evidence: keep
+          ``max_cond_size`` small on small samples.
     forbidden : list of (str, str), optional
         Background knowledge: edges that must NOT appear in the final
         graph (treated as undirected — both ``(a, b)`` and ``(b, a)`` are
@@ -92,6 +110,12 @@ def pc_algorithm(
         'n_obs' : int
         'alpha' : float
         'ci_test' : str
+        'orientation_conflicts' : list of tuples
+            Colliders ``(a, b, c)``, meaning ``a -> b <- c``, that the
+            tests imply but that could not be drawn because an earlier
+            collider had already oriented one of the two edges the other
+            way. Empty when the tests are mutually consistent; anything
+            else says the sample contradicts itself about those edges.
 
     Examples
     --------
@@ -119,6 +143,57 @@ def pc_algorithm(
         required=required,
     )
     return est.fit()
+
+
+def stable_skeleton(
+    adj: np.ndarray,
+    sep_sets: Dict[Tuple[int, int], set],
+    max_k: int,
+    alpha: float,
+    pvalue: Any,
+    required: Any = frozenset(),
+) -> None:
+    """Remove from ``adj`` every edge some conditional independence explains.
+
+    PC-stable [@colombo2014order]: within a level the
+    neighbourhoods are those at its start, so the skeleton does not depend
+    on the order of the variables. Each edge x - y is tested given subsets
+    of adj(x) minus y and, separately, of adj(y) minus x: a separating
+    set, if one exists, lies inside one of the two. Ordered pairs run by x
+    then y and subsets in lexicographic order, as in ``pcalg::skeleton``,
+    so the separating sets recorded are the same ones. The search goes on
+    until no node has enough neighbours for the next level, not until a
+    level happens to remove nothing.
+
+    ``adj`` and ``sep_sets`` are updated in place. ``pvalue(x, y, S)``
+    returns the p-value of ``x _||_ y | S``; an edge in ``required`` is
+    never removed.
+    """
+    d = adj.shape[0]
+    for k in range(max_k + 1):
+        frozen = adj.copy()
+        if not any(
+            frozen[x, y] and frozen[x].sum() - 1 >= k
+            for x in range(d)
+            for y in range(d)
+        ):
+            break
+        for x in range(d):
+            for y in range(d):
+                if x == y or adj[x, y] == 0 or frozen[x, y] == 0:
+                    continue
+                if (x, y) in required:
+                    continue
+                nbrs = [int(v) for v in np.flatnonzero(frozen[x]) if v != y]
+                if len(nbrs) < k:
+                    continue
+                for S in combinations(nbrs, k):
+                    if pvalue(x, y, list(S)) > alpha:
+                        adj[x, y] = 0
+                        adj[y, x] = 0
+                        sep_sets[(x, y)] = set(S)
+                        sep_sets[(y, x)] = set(S)
+                        break
 
 
 # ======================================================================
@@ -188,16 +263,63 @@ class PCAlgorithm:
             missing = [v for v in self.variables if v not in self.data.columns]
             if missing:
                 raise ValueError(f"Variables not found in data: {missing}")
-            X = self.data[self.variables].dropna().values.astype(np.float64)
-            var_names = list(self.variables)
+            frame = self.data[self.variables].dropna()
+        elif self.ci_test in _DISCRETE_TESTS:
+            frame = self.data.dropna()
         else:
-            numeric = self.data.select_dtypes(include=[np.number])
-            X = numeric.dropna().values.astype(np.float64)
-            var_names = list(numeric.columns)
+            frame = self.data.select_dtypes(include=[np.number]).dropna()
+        var_names = list(frame.columns)
+
+        if self.ci_test not in ("fisherz",) + _DISCRETE_TESTS:
+            raise MethodIncompatibility(
+                f"pc_algorithm: ci_test={self.ci_test!r} is not one of "
+                f"{('fisherz',) + _DISCRETE_TESTS}."
+            )
+        if self.ci_test in _DISCRETE_TESTS:
+            wide = [c for c in var_names if frame[c].nunique() > 20]
+            if wide:
+                raise MethodIncompatibility(
+                    f"pc_algorithm: ci_test={self.ci_test!r} cross-tabulates "
+                    f"the columns, and {wide} take more than 20 distinct "
+                    "values.",
+                    recovery_hint=(
+                        "Bin them first (pd.qcut), drop them with "
+                        "variables=[...], or use ci_test='fisherz' on "
+                        "numeric data."
+                    ),
+                    diagnostics={"continuous_columns": wide},
+                )
+            X = np.empty((len(frame), len(var_names)), dtype=np.int64)
+            for k, c in enumerate(var_names):
+                X[:, k] = pd.factorize(frame[c], sort=True)[0]
+        else:
+            labelled = [
+                c for c in var_names if not pd.api.types.is_numeric_dtype(frame[c])
+            ]
+            if labelled:
+                raise MethodIncompatibility(
+                    "pc_algorithm: ci_test='fisherz' is a partial correlation "
+                    f"and needs numeric columns; {labelled} are not.",
+                    recovery_hint="Use ci_test='chi-square' for categorical data.",
+                    diagnostics={"non_numeric_columns": labelled},
+                )
+            X = frame.values.astype(np.float64)
 
         n, d = X.shape
         if d < 2:
-            raise ValueError("At least 2 variables are required")
+            dropped = [c for c in self.data.columns if c not in var_names]
+            raise MethodIncompatibility(
+                "pc_algorithm: At least 2 variables are required; "
+                f"{d} numeric column(s) found"
+                + (f" ({len(dropped)} non-numeric left out)" if dropped else "")
+                + ".",
+                recovery_hint=(
+                    "For categorical columns use ci_test='chi-square'."
+                    if dropped
+                    else "Pass a data frame with at least two columns."
+                ),
+                diagnostics={"non_numeric_columns": dropped},
+            )
 
         max_k = self.max_cond_size if self.max_cond_size is not None else d - 2
 
@@ -288,6 +410,10 @@ class PCAlgorithm:
                 "n_obs": n,
                 "alpha": self.alpha,
                 "ci_test": self.ci_test,
+                "orientation_conflicts": [
+                    (var_names[a], var_names[b], var_names[c])
+                    for a, b, c in getattr(self, "_conflicts", [])
+                ],
             }
         )
 
@@ -315,56 +441,21 @@ class PCAlgorithm:
         # Separating sets
         sep_sets: dict[tuple[int, int], set[int]] = {}
 
-        for k in range(max_k + 1):
-            # For each pair of adjacent nodes
-            edges_to_test = []
-            for i in range(d):
-                for j in range(i + 1, d):
-                    if adj[i, j] == 1:
-                        edges_to_test.append((i, j))
-
-            for i, j in edges_to_test:
-                if adj[i, j] == 0:
-                    continue  # already removed
-
-                # Neighbours of i excluding j
-                nbrs_i = set(np.where(adj[i] == 1)[0]) - {j}
-                # Neighbours of j excluding i
-                nbrs_j = set(np.where(adj[j] == 1)[0]) - {i}
-
-                # Union of neighbours (order-independent variant)
-                candidates = nbrs_i | nbrs_j
-
-                if len(candidates) < k:
-                    continue
-
-                # Test all subsets of size k
-                found_independent = False
-                # Required edges are immune to skeleton-phase removal —
-                # background knowledge takes precedence over CI-test
-                # independence calls. We still skip the test loop so
-                # we don't waste compute on edges we won't drop.
-                if (i, j) in getattr(
-                    self,
-                    "_required_idx_undirected",
-                    set(),
-                ):
-                    continue
-                for S in combinations(candidates, k):
-                    S_set = set(S)
-                    pval = self._ci_test_pval(X, i, j, list(S_set), n)
-
-                    if pval > self.alpha:
-                        # Independent: remove edge
-                        adj[i, j] = 0
-                        adj[j, i] = 0
-                        sep_sets[(i, j)] = S_set
-                        sep_sets[(j, i)] = S_set
-                        found_independent = True
-                        break
-
-                if found_independent:
-                    continue
+        # Through 1.38.0 the conditioning sets were drawn from the *union* of
+        # the two neighbourhoods, which were updated as edges fell. That ran
+        # tests no version of PC runs and made the result depend on column
+        # order.
+        required: set[tuple[int, int]] = getattr(
+            self, "_required_idx_undirected", set()
+        )
+        stable_skeleton(
+            adj,
+            sep_sets,
+            max_k,
+            self.alpha,
+            lambda x, y, S: self._ci_test_pval(X, x, y, S, n),
+            required,
+        )
 
         return adj, sep_sets
 
@@ -392,7 +483,21 @@ class PCAlgorithm:
             cpdag[ia, ib] = 1
             cpdag[ib, ia] = 0
 
-        # Rule 1: Orient v-structures (colliders)
+        # Rule 1: Orient v-structures (colliders).
+        #
+        # In a finite sample two colliders can claim one edge in opposite
+        # directions (A -> T <- R and E -> R <- T both use R - T). Zeroing
+        # the reverse entry for each in turn zeroed both, and the edge left
+        # the graph: the skeleton had it, the CPDAG did not. An arrowhead
+        # is now placed only on an edge that is still undirected or already
+        # points that way; the first collider in node order keeps the edge
+        # and the clash is recorded.
+        conflicts: list[tuple[int, int, int]] = []
+
+        def can_point(a: int, b: int) -> bool:
+            """Whether a -> b is compatible with what is already oriented."""
+            return bool(cpdag[a, b] == 1)
+
         for j in range(d):
             # Find all pairs of non-adjacent nodes connected through j
             nbrs = list(np.where(adj[j] == 1)[0])
@@ -409,10 +514,15 @@ class PCAlgorithm:
                     sep_key = (min(i, k), max(i, k))
                     if sep_key in sep_sets:
                         if j not in sep_sets[sep_key]:
-                            # Orient as i -> j <- k (v-structure)
-                            cpdag[j, i] = 0  # remove j -> i
-                            cpdag[j, k] = 0  # remove j -> k
-                            # Keep i -> j and k -> j
+                            # Orient as i -> j <- k (v-structure), unless
+                            # an earlier collider has already pointed one
+                            # of the two edges away from j.
+                            if can_point(i, j) and can_point(k, j):
+                                cpdag[j, i] = 0  # remove j -> i
+                                cpdag[j, k] = 0  # remove j -> k
+                            else:
+                                conflicts.append((int(i), int(j), int(k)))
+        self._conflicts = conflicts
 
         # Meek's rules (iterate until no changes)
         changed = True
@@ -455,6 +565,26 @@ class PCAlgorithm:
                                 changed = True
                                 break
 
+                    # Rule 4 (Meek's third): i -- j, and two non-adjacent
+                    # nodes k, l with i -- k -> j and i -- l -> j: i -> j.
+                    if cpdag[i, j] == 1 and cpdag[j, i] == 1:
+                        into_j = [
+                            k
+                            for k in range(d)
+                            if k not in (i, j)
+                            and cpdag[k, j] == 1
+                            and cpdag[j, k] == 0
+                            and cpdag[i, k] == 1
+                            and cpdag[k, i] == 1
+                        ]
+                        if any(
+                            cpdag[k, m] == 0 and cpdag[m, k] == 0
+                            for a, k in enumerate(into_j)
+                            for m in into_j[a + 1 :]
+                        ):
+                            cpdag[j, i] = 0  # orient i -> j
+                            changed = True
+
         return cpdag
 
     def _ci_test_pval(
@@ -472,8 +602,17 @@ class PCAlgorithm:
         """
         if self.ci_test == "fisherz":
             return _fisher_z_test(X, i, j, S, n)
-        else:
-            raise ValueError(f"Unknown CI test: {self.ci_test}. Use 'fisherz'.")
+        if self.ci_test in _DISCRETE_TESTS:
+            strata = None
+            if S:
+                strata = np.unique(X[:, S], axis=0, return_inverse=True)[1].reshape(-1)
+            stat, dof, _, _ = discrete_ci_test(X[:, i], X[:, j], strata, self.ci_test)
+            # Untestable on these data: not rejected.
+            return float(sp_stats.chi2.sf(stat, dof)) if dof else 1.0
+        raise MethodIncompatibility(
+            f"pc_algorithm: ci_test={self.ci_test!r} is not one of "
+            f"{('fisherz',) + _DISCRETE_TESTS}."
+        )
 
     def summary(self) -> str:
         """Print a summary of the learned structure."""

@@ -25,6 +25,7 @@ Crump, R.K., Hotz, V.J., Imbens, G.W. and Mitnik, O.A. (2009).
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, List, Optional
 
 import numpy as np
@@ -33,8 +34,9 @@ from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import AssumptionWarning, MethodIncompatibility
 
 
 @accepts_aliases(_strict=True, controls="covariates")
@@ -126,7 +128,11 @@ def ipw(
     -------
     CausalResult
         With `.estimate`, `.se`, `.ci`, `.pvalue`, and propensity score
-        diagnostics in `.model_info`.
+        diagnostics in `.model_info`, among them ``ess_treated`` and
+        ``ess_control``: Kish's effective sample size of each arm's
+        weights. When either falls below a fifth of the arm's size an
+        :class:`~statspai.exceptions.AssumptionWarning` is raised: the
+        estimate then rests on a few heavily weighted units.
 
     Examples
     --------
@@ -200,7 +206,7 @@ def ipw(
         )
     df = data[list(dict.fromkeys([y, treat] + list(covariates) + extra))].dropna()
     Y = df[y].values.astype(np.float64)
-    T = df[treat].values.astype(np.float64)
+    T = _treatment_as_float(df[treat], function="ipw")
     X = df[covariates].values.astype(np.float64)
     n = len(Y)
     # Sampling weights normalised to mean one; None keeps the unweighted
@@ -245,6 +251,42 @@ def ipw(
     # --- Point estimate ---
     estimate = float(np.sum(weights_1 * Y) - np.sum(weights_0 * Y))
 
+    # --- How many observations the weights leave each arm with ---
+    ess_treated = _kish_ess(weights_1[T == 1])
+    ess_control = _kish_ess(weights_0[T == 0])
+    n1_arm, n0_arm = int(T.sum()), int(n - T.sum())
+    ess_ratio_min = min(ess_treated / n1_arm, ess_control / n0_arm)
+    if ess_ratio_min < _ESS_RATIO_WARN:
+        thin = "control" if ess_control / n0_arm <= ess_treated / n1_arm else "treated"
+        thin_ess, thin_n = (
+            (ess_control, n0_arm) if thin == "control" else (ess_treated, n1_arm)
+        )
+        warnings.warn(
+            AssumptionWarning(
+                f"ipw: the weights leave the {thin} arm an effective sample "
+                f"of {thin_ess:.0f} out of {thin_n} ({thin_ess / thin_n:.0%}); "
+                f"propensity scores run from {float(pscore.min()):.3f} to "
+                f"{float(pscore.max()):.3f}. The estimate rests on a few "
+                "heavily weighted units and can move far from estimators "
+                "that model the outcome.",
+                recovery_hint=(
+                    "Compare with sp.aipw; restrict to the overlap region "
+                    "with trim= or sp.trimming; or target the overlap "
+                    "population with estimand='ATO'."
+                ),
+                diagnostics={
+                    "ess_treated": ess_treated,
+                    "ess_control": ess_control,
+                    "n_treated": n1_arm,
+                    "n_control": n0_arm,
+                    "pscore_min": float(pscore.min()),
+                    "pscore_max": float(pscore.max()),
+                },
+                alternative_functions=["sp.aipw", "sp.trimming", "sp.overlap_weights"],
+            ),
+            stacklevel=3,
+        )
+
     if se_method == "sandwich":
         se = _ipw_sandwich_se(X, T, Y, pscore, estimand, sw, groups, ps_model)
         boot_estimates = None
@@ -285,6 +327,9 @@ def ipw(
         "pscore_mean_control": float(pscore[T == 0].mean()),
         "pscore_min": float(pscore.min()),
         "pscore_max": float(pscore.max()),
+        "ess_treated": ess_treated,
+        "ess_control": ess_control,
+        "ess_ratio_min": float(ess_ratio_min),
         "trim": trim,
         # Raw propensity distribution so result.violations() can assess overlap
         # (IPW is the most overlap-sensitive estimator). Read via the shared
@@ -343,6 +388,18 @@ def ipw(
 # ====================================================================== #
 #  Internal helpers
 # ====================================================================== #
+
+#: An arm whose Kish effective sample size is below this share of its
+#: size draws a warning. Under a constant propensity the share is one; at
+#: 0.2 four fifths of the arm's information is gone to weight dispersion.
+_ESS_RATIO_WARN = 0.2
+
+
+def _kish_ess(w: np.ndarray) -> float:
+    """Kish's effective sample size of a weight vector, ``(sum w)^2 / sum w^2``."""
+    total = float(np.sum(w))
+    squares = float(np.sum(w**2))
+    return total * total / squares if squares > 0 else 0.0
 
 
 def _binomial_family(ps_model: str) -> Any:

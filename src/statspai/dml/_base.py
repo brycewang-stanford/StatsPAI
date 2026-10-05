@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _oof_retention as _retention
@@ -880,7 +881,7 @@ class _DoubleMLBase:
                 )
             clean = work.dropna()
             Y = clean[self.y].values.astype(float)
-            D = clean[self.treat].values.astype(float)
+            D = _treatment_as_float(clean[self.treat], function="dml")
             X = clean[self.covariates].values.astype(float)
             Z = (
                 clean[self.instrument[0]].values.astype(float)

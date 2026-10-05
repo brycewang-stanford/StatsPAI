@@ -204,6 +204,20 @@ def ges(
     """
     if isinstance(data, pd.DataFrame):
         names = list(data.columns)
+        labelled = [c for c in names if not pd.api.types.is_numeric_dtype(data[c])]
+        if labelled:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                "ges: the score is the Gaussian BIC and needs numeric "
+                f"columns; {labelled} are not.",
+                recovery_hint=(
+                    "For categorical data use "
+                    "sp.pc_algorithm(df, ci_test='chi-square')."
+                ),
+                diagnostics={"non_numeric_columns": labelled},
+                alternative_functions=["sp.pc_algorithm"],
+            )
         X = data.to_numpy(dtype=float)
     else:
         X = np.asarray(data, dtype=float)

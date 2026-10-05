@@ -58,9 +58,26 @@ sp.deepiv(df, y='y', treat='d', instruments='z',    # Hartford et al. (2017)
 
 ```python
 sp.notears(df, w_threshold=0.3, lambda1=0.1)        # Zheng et al. 2018
-sp.pc_algorithm(df, alpha=0.05)                     # Spirtes-Glymour-Scheines
+sp.pc_algorithm(df, alpha=0.05)                     # PC-stable; ci_test='chi-square' for categorical data
 sp.lingam(df)                                       # Shimizu 2006
 sp.ges(df)                                          # Chickering 2002
+```
+
+## Graphs: declare, test, intervene, identify
+
+```python
+g = sp.dag("Z -> X; Z -> Y; X -> M -> Y")           # also 'X <- Z', quoted names, digraph { ... }
+g.adjustment_sets("X", "Y"); g.frontdoor_sets("X", "Y"); g.bad_controls("X", "Y")
+g.test_implications(df)                             # chi-square for labels, Fisher z for numbers
+g.recommend_estimator("X", "Y")                     # every strategy the graph licenses
+
+net = sp.bayes_net(g, df)                           # discrete causal Bayesian network
+net.query("Y", evidence={"X": 1})                   # seeing
+net.query("Y", do={"X": 1})                         # doing
+net.counterfactual("Y", evidence={...}, do={...})   # structural models only
+
+res = sp.identify(g, "X", "Y")                      # Shpitser-Pearl ID
+res.estimand; res.estimate(df)                      # works with latent confounders
 ```
 
 ## Policy learning

@@ -6877,6 +6877,111 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "the critical value the band is deterministic and is built on the "
         "covariance that sp.event_study_vcov pins against R.",
     },
+    # ---- graphs (Ness, Causal AI) ----
+    #
+    # One R script, _generate_ness_causal_ai.R, on data it simulates:
+    # ness_categorical.csv (600 rows, six categorical columns),
+    # ness_gaussian.csv (500 rows, eight columns), ness_three_causes.csv and
+    # ness_latent.csv.
+    # The tolerance is the TIGHT (1e-10) constant of the asserting test;
+    # graph-valued results are compared for equality.
+    "pc_algorithm": {
+        "status": "bit-exact",
+        "reference": "pcalg::pc(skel.method = 'stable') with gaussCItest, and "
+        "with bnlearn::ci.test(test = 'x2-adf') as its independence test",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "pcalg": "2.7.12",
+            "bnlearn": "5.2.1",
+        },
+        "tolerance": "graphs compared for equality: Gaussian data, every "
+        "directed and undirected edge of the CPDAG and every separating set; "
+        "categorical data, skeleton and every separating set",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_ness_causal_ai_parity.py",
+            "tests/reference_parity/_fixtures/ness_causal_ai_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture. On the categorical file two colliders claim "
+            "one edge in opposite directions; which keeps it is an "
+            "implementation's choice (pcalg's result has the later one, "
+            "StatsPAI keeps the earlier and returns the clash in "
+            "orientation_conflicts), so the orientation of that file is not "
+            "compared. The result is also checked to be invariant to column "
+            "order."
+        ),
+    },
+    "fci": {
+        "status": "bit-exact",
+        "reference": "pcalg::fci(skel.method = 'stable') with gaussCItest",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "pcalg": "2.7.12",
+        },
+        "tolerance": "partial ancestral graphs compared for equality, every "
+        "edge with the mark at each end, on three designs",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_ness_causal_ai_parity.py",
+            "tests/reference_parity/_fixtures/ness_causal_ai_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: an eight-variable DAG, two variables with "
+            "three common causes, and a six-variable design with two "
+            "unobserved common causes whose graph has a bidirected edge. "
+            "Three designs do not exercise every orientation rule; the "
+            "discriminating-path rule in particular has no row."
+        ),
+    },
+    "bayes_net": {
+        "status": "bit-exact",
+        "reference": "bnlearn::bn.fit(method = 'mle') for the conditional "
+        "probability tables; base R table arithmetic for a Dirichlet-smoothed "
+        "table, an interventional distribution written as the truncated "
+        "factorisation, and a conditional query by full enumeration",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "bnlearn": "5.2.1",
+        },
+        "tolerance": "1e-10 rel on every table cell and every probability",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_ness_causal_ai_parity.py",
+            "tests/reference_parity/_fixtures/ness_causal_ai_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture. Variable elimination is also checked against "
+            "enumeration on a random six-node network to 1e-13, and the "
+            "counterfactual and expected-utility queries against the numbers "
+            "printed in the book (tests/test_ness_causal_ai_pass.py)."
+        ),
+    },
+    "identify": {
+        "status": "bit-exact",
+        "reference": "causaleffect::causal.effect (Shpitser-Pearl ID) for "
+        "identifiability; base R table arithmetic for the value of the "
+        "estimand",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "causaleffect": "1.3.15",
+        },
+        "tolerance": "identifiable or not: equal on seven graphs (backdoor, "
+        "bow, front door, instrument, napkin, M-bias, broken front door); "
+        ".estimate(data): 1e-10 rel against the truncated factorisation",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_ness_causal_ai_parity.py",
+            "tests/reference_parity/_fixtures/ness_causal_ai_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture. The printed estimand is not compared as a "
+            "string: the two implementations write equivalent formulas "
+            "differently. Its value on data is compared instead, and the "
+            "front-door formula is checked against a known effect on an "
+            "exact population in tests/test_ness_causal_ai_pass.py."
+        ),
+    },
 }
 
 
