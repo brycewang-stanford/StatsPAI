@@ -1752,3 +1752,21 @@ only the recorded source hashes move.
   this file.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces of modules 68 and 75 re-recorded after `absorb_dof`
+
+- **Commits.** `1286f507` re-recorded the entries of Track A modules 68 and 75
+  in `tests/r_parity/results/_implementation_trace.json`. The source that
+  staled them is in the same commit: `src/statspai/panel/hdfe.py`
+  (`sp.absorb_ols` takes `absorb_dof=`; the default, `'reghdfe'`, is
+  the behaviour it had).
+- **Reason.** `areg` is translated to the absorbing path
+  (`docs/dev/2026-10-05-xu-lan-causal-econometrics-review.md`, third
+  round). No default changed:
+  `python tests/r_parity/verify_reproduce_py.py --no-report` on 03, 15,
+  37, 68 and 75 reported 5 reproduce, 0 drift.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` differ; no implementation classification moved. No estimate,
+  standard error or table cell is read from this file.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
