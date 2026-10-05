@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ...exceptions import StatsPAIError
 from ._stata_datastep import _numlist, _split_options, row_mask
 from ._stata_expr import StataExprError, sample_mask
 from ._stata_lexer import StataParseError
@@ -652,6 +653,7 @@ def _store_estimates(
     Stata gives the estimates (``income``, ``c.income@1.sex``, ``1.pia``)."""
     b: Dict[str, float] = {}
     se: Dict[str, float] = {}
+    names: List[str] = []
 
     def number(v: Any) -> str:
         return str(int(v)) if float(v) == int(v) else repr(float(v))
@@ -670,6 +672,8 @@ def _store_estimates(
             keys = [f"{head}@{where}"]
         for k in keys:
             b[k], se[k] = float(row["estimate"]), float(row["se"])
+        names.append(keys[0])
+    table.info["names"] = names
     session.stored["_b"], session.stored["_se"] = b, se
     e = {"N": table.info["N"], "df_r": table.info["df"]}
     for key in ("N_psu", "N_strata", "N_pop", "N_sub", "N_subpop"):
@@ -1245,8 +1249,10 @@ def _cii(session: "StataSession", rest: str) -> bool:
         _leftover(options, "cii proportions")
         n, k = numbers
         frame = pd.DataFrame({"y": np.r_[np.ones(int(k)), np.zeros(int(n - k))]})
-        session.output = getattr(sp, "ci")(frame, ["y"], stat="proportions", method=method,
-                               alpha=alpha)  # fmt: skip
+        interval = getattr(sp, "ci")
+        session.output = interval(
+            frame, ["y"], stat="proportions", method=method, alpha=alpha
+        )
         return True
     raise StataExprError(f"`cii {rest}` is not implemented")
 
@@ -1368,6 +1374,269 @@ def _table(session: "StataSession", rest: str, raw: str) -> Optional[bool]:
     return True
 
 
+def _linear_after_estimates(session: "StataSession", word: str, rest: str) -> bool:
+    """``lincom exp`` and ``test exp = exp`` after ``mean`` / ``proportion``
+    / ``total`` / ``ratio``: a linear combination of the estimates, with
+    the covariance matrix of the command and its degrees of freedom."""
+    table = session.last
+    info: Any = table.info
+    names: List[str] = info["names"]
+    cov = np.asarray(info["vcov"], dtype=float)
+    body = rest.split(",")[0].strip()
+    if word == "test":
+        if body.startswith("(") or body.count("=") != 1:
+            raise StataExprError(
+                "after mean / proportion one equality is tested: "
+                "`test _b[a] = _b[b]`"
+            )
+        left, right = body.split("=")
+        body = f"({left}) - ({right})"
+    for name in sorted(names, key=len, reverse=True):
+        # a bare name is the estimate: c.y@1.g is _b[c.y@1.g]
+        body = re.sub(
+            rf"(?<![\w\[.@]){re.escape(name)}(?![\w\].@])", f"_b[{name}]", body
+        )
+    kept = dict(session.stored.get("_b") or {})
+
+    def at(values: Dict[str, float]) -> float:
+        session.stored["_b"] = values
+        try:
+            return session.value(body)
+        finally:
+            session.stored["_b"] = kept
+
+    zero = {k: 0.0 for k in kept}
+    constant = at(zero)
+    weights = np.array([at({**zero, n: 1.0}) - constant for n in names])
+    scaled = at({k: 2.0 * v for k, v in kept.items()}) - constant
+    estimate = at(kept)
+    if not np.isclose(scaled, 2.0 * (estimate - constant), rtol=1e-9, atol=1e-12):
+        raise StataExprError(f"{word}: the expression is not linear in the estimates")
+    variance = float(weights @ cov @ weights)
+    se = float(np.sqrt(variance)) if variance >= 0 else np.nan
+    df = float(info["df"])
+    if word == "test":
+        stat = estimate**2 / variance if variance > 0 else np.nan
+        p_value = float(stats.f.sf(stat, 1, df))
+        # the keys of sp.test's result, and Stata's r() names
+        out = {
+            "statistic": float(stat),
+            "pvalue": p_value,
+            "df": (1, df),
+            "distribution": "F",
+            "F": float(stat),
+            "df_r": df,
+            "p": p_value,
+        }
+    else:
+        crit = stats.t.ppf(0.975, df)
+        t = estimate / se
+        out = {
+            "estimate": float(estimate),
+            "se": se,
+            "t": float(t),
+            "p": float(2 * stats.t.sf(abs(t), df)),
+            "df": df,
+            "lb": float(estimate - crit * se),
+            "ub": float(estimate + crit * se),
+        }
+    session.output = out
+    session.stored["r"] = {k: v for k, v in out.items() if isinstance(v, float)}
+    if word == "test":
+        session.stored["r"]["df"] = 1.0
+    return True
+
+
+def _exact_odds_limits(
+    a: float, b: float, c: float, d: float, alpha: float
+) -> Tuple[float, float]:
+    """Exact confidence limits of the odds ratio of a 2 x 2 table: the odds
+    ratios at which the conditional (Fisher noncentral hypergeometric)
+    probability of a table at least as extreme is alpha / 2 on each side."""
+    from scipy.optimize import brentq
+
+    x, row, col, n = (
+        int(round(a)),
+        int(round(a + b)),
+        int(round(a + c)),
+        int(round(a + b + c + d)),
+    )
+
+    def tail(log_odds: float, upper: bool) -> float:
+        dist = stats.nchypergeom_fisher(n, col, row, np.exp(log_odds))
+        return float(dist.sf(x - 1) if upper else dist.cdf(x))
+
+    lowest, highest = max(0, row + col - n), min(row, col)
+    low = 0.0
+    if x > lowest:
+        low = float(np.exp(brentq(lambda t: tail(t, True) - alpha / 2, -30, 30,
+                                  xtol=1e-13, rtol=1e-13)))  # fmt: skip
+    high = np.inf
+    if x < highest:
+        high = float(np.exp(brentq(lambda t: tail(t, False) - alpha / 2, -30, 30,
+                                   xtol=1e-13, rtol=1e-13)))  # fmt: skip
+    return low, high
+
+
+def _epitab(session: "StataSession", word: str, rest: str) -> bool:
+    """``cc case exposed`` (case-control: the odds ratio with its exact
+    confidence interval) and ``cs case exposed`` (cohort: risk difference
+    and risk ratio), with the attributable fractions and Pearson's
+    chi-squared. Both variables are 0 / 1."""
+    rest, kind, w = _split_weight(session, rest)
+    steps = _steps(session)
+    cmd = _cmd(f"{word} {rest}")
+    options = dict(cmd.options)
+    level = float(_valued(options, "level", 1) or 95)
+    _flag(options, "exact", 1)
+    _leftover(options, word)
+    if kind not in (None, "fw"):
+        raise StataExprError(f"{word} takes frequency weights")
+    names = steps.expand_varlist(list(cmd.varlist))
+    if len(names) != 2:
+        raise StataExprError(f"{word}: expected `{word} case exposed`")
+    data = steps.data
+    mask = row_mask(data, cmd.if_cond, cmd.in_range, session.stored)
+    case, exposed = _numeric(data, names[0]), _numeric(data, names[1])
+    keep = mask & ~np.isnan(case) & ~np.isnan(exposed)
+    weight = np.ones(len(data)) if w is None else np.where(np.isnan(w), 0.0, w)
+    case, exposed, weight = case[keep] != 0, exposed[keep] != 0, weight[keep]
+    a = float(weight[case & exposed].sum())
+    b = float(weight[case & ~exposed].sum())
+    c = float(weight[~case & exposed].sum())
+    d = float(weight[~case & ~exposed].sum())
+    n = a + b + c + d
+    if min(a + b, c + d, a + c, b + d) <= 0:
+        raise StataExprError(f"{word}: a margin of the 2 x 2 table is empty")
+    chi2 = n * (a * d - b * c) ** 2 / ((a + b) * (c + d) * (a + c) * (b + d))
+    out: Dict[str, Any] = {"N": n, "chi2": float(chi2),
+                           "p": float(stats.chi2.sf(chi2, 1))}  # fmt: skip
+    z = stats.norm.ppf(1 - (1 - level / 100) / 2)
+    if word == "cc":
+        ratio = a * d / (b * c) if b * c > 0 else np.nan
+        low, high = _exact_odds_limits(a, b, c, d, 1 - level / 100)
+        out.update(
+            **{"or": float(ratio)}, lb_or=low, ub_or=high,
+            p1_exposed=a / (a + b), p0_exposed=c / (c + d),
+        )  # fmt: skip
+        if ratio >= 1:
+            afe = (ratio - 1) / ratio
+            out.update(afe=float(afe), afp=float(afe * a / (a + b)),
+                       lb_afe=float((low - 1) / low) if low > 0 else np.nan,
+                       ub_afe=float((high - 1) / high))  # fmt: skip
+        else:
+            out.update(pfe=float(1 - ratio), pfp=float((1 - ratio) * c / (c + d)),
+                       lb_pfe=float(1 - high), ub_pfe=float(1 - low))  # fmt: skip
+        out["p_exposed"] = (a + c) / n
+    else:
+        n1, n0 = a + c, b + d
+        r1, r0 = a / n1, b / n0
+        rd = r1 - r0
+        se_rd = np.sqrt(r1 * (1 - r1) / n1 + r0 * (1 - r0) / n0)
+        rr = r1 / r0 if r0 > 0 else np.nan
+        se_log = np.sqrt(1 / a - 1 / n1 + 1 / b - 1 / n0) if a > 0 and b > 0 else np.nan
+        lo, hi = rr * np.exp(-z * se_log), rr * np.exp(z * se_log)
+        out.update(
+            risk1=float(r1), risk0=float(r0), risk=float((a + b) / n),
+            rd=float(rd), lb_rd=float(rd - z * se_rd), ub_rd=float(rd + z * se_rd),
+            rr=float(rr), lb_rr=float(lo), ub_rr=float(hi),
+        )  # fmt: skip
+        if rr >= 1:
+            out.update(afe=float((rr - 1) / rr), lb_afe=float((lo - 1) / lo),
+                       ub_afe=float((hi - 1) / hi),
+                       afp=float(((a + b) / n - r0) / ((a + b) / n)))  # fmt: skip
+        else:
+            out.update(pfe=float(1 - rr), lb_pfe=float(1 - hi), ub_pfe=float(1 - lo),
+                       pfp=float((r0 - (a + b) / n) / r0))  # fmt: skip
+    counts = pd.DataFrame([[a, b], [c, d]], index=["cases", "noncases"],
+                          columns=["exposed", "unexposed"])  # fmt: skip
+    counts["total"] = counts.sum(axis=1)
+    counts.loc["total"] = counts.sum(axis=0)
+    out["table"] = counts
+    session.output = out
+    session.stored["r"] = {k: v for k, v in out.items() if isinstance(v, float)}
+    return True
+
+
+def _anova(session: "StataSession", rest: str) -> bool:
+    """``anova y g``: the one-way layout, which is ``oneway``. Models with
+    several factors or interactions are ``regress`` with ``testparm``."""
+    from ...inference.rank_tests import oneway
+
+    steps = _steps(session)
+    cmd = _cmd("anova " + rest)
+    names = list(cmd.varlist)
+    if len(names) != 2 or cmd.options or any(ch in names[1] for ch in "#|."):
+        raise StataExprError(
+            "anova with several terms is not implemented; fit it with "
+            "`regress y i.a i.b` and test each factor with `testparm`"
+        )
+    names = steps.expand_varlist(names)
+    data = steps.data.loc[
+        row_mask(steps.data, cmd.if_cond, cmd.in_range, session.stored)
+    ]
+    out = oneway(data, names[0], by=names[1])
+    session.output = out
+    session.stored["r"] = {}
+    session.stored["e"] = {
+        "N": float(out.n_obs), "F": out.statistic, "r2": out.estimates["r2"],
+        "rmse": out.estimates["rmse"], "mss": out.estimates["ss_between"],
+        "rss": out.estimates["ss_within"], "df_m": float(out.estimates["df_between"]),
+        "df_r": float(out.estimates["df_within"]),
+    }  # fmt: skip
+    return True
+
+
+def _statsby(session: "StataSession", rest: str) -> bool:
+    """``statsby name = exp ..., by(varlist) clear: command``: the command
+    run in each group, and a dataset of the named results by group."""
+    head, colon, command = rest.partition(":")
+    if not colon:
+        raise StataExprError(
+            "statsby: expected `statsby exps, by(vars) clear: command`"
+        )
+    spec, _, option_text = head.partition(",")
+    cmd = _cmd("statsby _x ," + option_text)
+    options = dict(cmd.options)
+    by = _valued(options, "by", 2)
+    clear = _flag(options, "clear", 5)
+    for display_only in ("nodots", "nolegend", "noisily", "verbose", "total"):
+        if _flag(options, display_only, 4) and display_only == "total":
+            raise StataExprError("statsby, total is not implemented")
+    _leftover(options, "statsby")
+    pairs = re.findall(r"([A-Za-z_]\w*)\s*=\s*(\([^)]*\)|\S+)", spec)
+    if not pairs or not by or not clear:
+        raise StataExprError(
+            "statsby needs named results (`name = exp`), by() and clear"
+        )
+    steps = _steps(session)
+    keys = steps.expand_varlist(by.split())
+    full, owned = steps.data, steps._owned
+    rows = []
+    try:
+        for level, part in full.groupby(keys if len(keys) > 1 else keys[0], sort=True):
+            steps.data = part.reset_index(drop=True)
+            steps.data.attrs.update(full.attrs)
+            steps._owned = False
+            steps._original = steps.data
+            row = dict(zip(keys, level if isinstance(level, tuple) else (level,)))
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    session.run(command.strip())
+                for name, expr in pairs:
+                    row[name] = session.value(expr)
+            except (StatsPAIError, StataExprError):
+                # a group the command cannot fit: Stata posts missing values
+                for name, _ in pairs:
+                    row[name] = np.nan
+            rows.append(row)
+    finally:
+        steps.data, steps._owned = full, owned
+    steps.replace_data(pd.DataFrame(rows, columns=keys + [n for n, _ in pairs]))
+    return False
+
+
 def _covariance(session: "StataSession", rest: str) -> bool:
     """``correlate varlist, covariance``: the covariance matrix on the
     rows where every variable is observed."""
@@ -1471,6 +1740,14 @@ def run_describe(session: "StataSession", line: str) -> Optional[bool]:
         if kind == "total" and rest.lstrip().startswith("="):
             return None
         return _run_estimate(session, kind, rest, svy=False, subpop=None)
+    if word in ("test", "lincom") and isinstance(session.last, Estimates):
+        return _linear_after_estimates(session, word, rest)
+    if word in ("cc", "cs") and session._steps is not None:
+        return _epitab(session, word, rest)
+    if word == "anova" and session._steps is not None:
+        return _anova(session, rest)
+    if word == "statsby":
+        return _statsby(session, rest)
     if word == "table" and session._steps is not None:
         from ._stata import from_stata
 

@@ -445,3 +445,71 @@ def test_command_line_tools_and_one_line_if(df):
     s.run("if `k' > 5 display 30")
     s.run("else display 40")
     assert s.output == 40
+
+
+# ------------------------------------------------- the second round
+def test_linear_combinations_after_mean(df):
+    s = session(df, "mean y, over(g)", "lincom _b[c.y@1.g] - _b[c.y@3.g]")
+    d = df.dropna(subset=["y"])
+    a, b = d.y[d.g == 1], d.y[d.g == 3]
+    se = np.sqrt(a.var() / len(a) + b.var() / len(b))
+    assert s.output["estimate"] == pytest.approx(a.mean() - b.mean())
+    assert s.output["se"] == pytest.approx(se)  # independent groups
+    s.run("test _b[c.y@1.g] = _b[c.y@3.g]")
+    assert s.output["F"] == pytest.approx(((a.mean() - b.mean()) / se) ** 2)
+    assert s.output["df_r"] == len(d) - 1
+    with pytest.raises(MethodIncompatibility, match="not linear"):
+        s.run("lincom _b[c.y@1.g] * _b[c.y@3.g]")
+
+
+def test_nested_blocks_and_one_way_anova(df):
+    s = session(df, "nestreg: regress y (x) (f w)")
+    d = df.dropna(subset=["y"])
+    small, big = sp.regress("y ~ x", data=d), sp.regress("y ~ x + f + w", data=d)
+    rss0, rss1 = small.data_info["rss"], big.data_info["rss"]
+    f2 = (rss0 - rss1) / 2 / (rss1 / big.data_info["df_resid"])
+    assert s.output.loc[2, "F"] == pytest.approx(f2)
+    assert s.output.loc[2, "change_r2"] == pytest.approx(
+        (rss0 - rss1) / small.data_info["tss"]
+    )
+    s.run("display _b[w]")  # the full model is the last estimates
+    assert s.output == pytest.approx(big.params["w"])
+    s.run("anova y g")
+    assert s.output.statistic == pytest.approx(sp.oneway(df, "y", by="g").statistic)
+    with pytest.raises(MethodIncompatibility, match="testparm"):
+        s.run("anova y g f")
+
+
+def test_epidemiological_tables(df):
+    s = session(df, "cc d f")
+    t = pd.crosstab(df.d, df.f)
+    a, b, c, d_ = t.loc[1, 1], t.loc[1, 0], t.loc[0, 1], t.loc[0, 0]
+    out = s.output
+    assert out["or"] == pytest.approx(a * d_ / (b * c))
+    assert out["lb_or"] < out["or"] < out["ub_or"]
+    # the exact limits put alpha / 2 in each tail of the conditional law
+    from scipy import stats
+
+    low = stats.nchypergeom_fisher(len(df), a + c, a + b, out["lb_or"])
+    assert low.sf(a - 1) == pytest.approx(0.025, abs=1e-9)
+    s.run("cs d f")
+    r1, r0 = a / (a + c), b / (b + d_)
+    assert s.output["rd"] == pytest.approx(r1 - r0)
+    assert s.output["rr"] == pytest.approx(r1 / r0)
+
+
+def test_statsby_and_outcome_probabilities(df):
+    s = session(df, "statsby m = r(mean) n = r(N), by(g) clear: summarize y")
+    assert s.data["g"].tolist() == [1, 2, 3]
+    assert s.data["m"].tolist() == pytest.approx(df.groupby("g").y.mean().tolist())
+    assert s.data["n"].sum() == df.y.notna().sum()
+    d = df.assign(o=pd.qcut(df.x, 3, labels=False) + 1)
+    s = session(d, "ologit o w f", "predict p1 p2 p3")
+    total = s.data[["p1", "p2", "p3"]].sum(axis=1)
+    assert np.allclose(total, 1.0)
+    s = session(d, "mlogit o w f", "predict q1 q2 q3")
+    assert np.allclose(s.data[["q1", "q2", "q3"]].sum(axis=1), 1.0)
+    # the average probability of an outcome is its share (the score equations)
+    assert s.data["q2"].mean() == pytest.approx((d.o == 2).mean(), abs=1e-6)
+    with pytest.raises(MethodIncompatibility, match="one new variable per outcome"):
+        s.run("predict only")

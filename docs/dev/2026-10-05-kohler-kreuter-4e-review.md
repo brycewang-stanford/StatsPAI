@@ -50,9 +50,9 @@ what StatsPAI returned, and one for the text `display` prints.
 
 | | Before | After |
 | --- | --- | --- |
-| Numbers compared and reproduced | 1,619 | 5,272 |
-| Numbers that differ | 101 | 24 |
-| Commands declined | 375 | 56 |
+| Numbers compared and reproduced | 1,619 | 5,442 |
+| Numbers that differ | 101 | 25 |
+| Commands declined | 375 | 45 |
 | Commands that ran without the printed number | 54 | 34 |
 
 The first column is the state at the start, after a crash of the replay
@@ -62,13 +62,14 @@ missing codes that way). Most of its 101 differences came after a declined
 
 What was added or corrected is pinned without the book's data. A synthetic
 dataset of 420 rows (`tests/reference_parity/_fixtures/kk_syllabus.csv`)
-went through a reference do-file in Stata 18, which wrote 165 numbers at
+went through a reference do-file in Stata 18, which wrote 196 numbers at
 full precision. `tests/reference_parity/test_kohler_kreuter_stata_parity.py`
-runs the same do-file through `sp.stata`. 130 numbers are held to 1e-9. The
-other 35 are held to 1e-5 and are of two kinds, both named in the test: 25
+runs the same do-file through `sp.stata`. 153 numbers are held to 1e-9.
+41 are held to 1e-5 and are of two kinds, both named in the test: 29
 values behind a maximum-likelihood fit, where Stata stops iterating
-earlier, and 10 values Stata passes through a single-precision variable
-(`kwallis`, `estat ovtest`, `dfbeta`, `collapse`).
+earlier, and 12 values Stata passes through a single-precision variable
+(`kwallis`, `estat ovtest`, `dfbeta`, `collapse`, `statsby`). The two
+exact confidence limits of the odds ratio are held to 1e-4 (see below).
 
 ## What was wrong
 
@@ -175,6 +176,29 @@ In `sp.stata`:
   `exit`, `if exp command` on one line, `_rc` after `capture`, and
   `display` with text, formats and several items.
 
+## Second round: the open decisions
+
+The first round left eight items open. The owner asked for them to be
+decided. What was decided and done:
+
+| Item | Decision |
+| --- | --- |
+| `test` / `lincom` after `mean`, `proportion`, `total`, `ratio` | Done. Any expression linear in the estimates, with the command's covariance matrix and degrees of freedom. A nonlinear one is refused. |
+| `nestreg: regress y (a) (b) ...` | Done: each block's F test given the blocks before it, on the rows complete on all blocks. |
+| `anova` | `anova y g` is the one-way layout and runs `sp.oneway`. With more terms it is refused with the advice to fit `regress y i.a i.b` and use `testparm`: a second analysis-of-variance engine beside the regression one would have to agree with it in every unbalanced case. |
+| `cc`, `cs` | Done: odds ratio with exact limits, risk difference and risk ratio, attributable and prevented fractions. `tabodds` stays declined. |
+| `predict p1 ... pk` after `mlogit` / `ologit` / `oprobit` | Done: the probability of each outcome. |
+| `statsby` | Done for named results with `by()` and `clear`. |
+| `margins` after `mlogit` / `ologit`, tests across equations | Declined. `sp.margins` has no prediction scale for these models; that is a change to the function, not to the translation. |
+| `mi` | Declined. Imputations are random draws, so no number could be checked against Stata, and Stata's `mi` data styles (`wide`, `mlong`, `flong`) have no counterpart in one DataFrame. `sp.mice` and `sp.mi_estimate` do the work in Python. |
+| `infile`, `infix`, `import` | Declined, on purpose. `sp.stata` runs on data it is given and never reads a file; that is what keeps a session free of side effects. |
+
+One finding came with it. **Stata's exact limits for the odds ratio are
+not exact to the printed digits.** `cc` solves for them by iteration and
+stops early: at its lower and upper limit the tail probability of the
+conditional distribution is 0.024993, not 0.025. StatsPAI solves the same
+two equations to 1e-13; the limits differ from Stata's in the fifth digit.
+
 ## What differs and stays
 
 - **Stata's `logit` with probability weights did not converge on the
@@ -202,32 +226,25 @@ In `sp.stata`:
 
 ## Declined, and why
 
-56 commands of the logs are declined. The opt-in test lists each with its
-reason. The groups:
+45 commands of the logs are declined (41 distinct ones). The opt-in test
+lists each with its reason. The groups:
 
 - extended missing values where the kinds matter (6 commands);
-- `mi` (multiple imputation draws random numbers; `sp.mice` and
-  `sp.mi_estimate` exist but the `mi` data layout is not translated);
-- `test` and `lincom` after `mean` / `proportion`; `nestreg`; `anova`
-  beyond one factor; `margins, pwcompare`;
-- `mlogit` / `ologit` post-estimation (`predict` of every outcome,
-  `margins, predict(outcome())`, tests across equations);
-- `cc`, `cs`, `tabodds` (epidemiological tables);
+- `mi` (see the decisions above);
+- `margins, pwcompare`; `margins` and tests across equations after
+  `mlogit` / `ologit`; `tabodds`;
 - `import`, `infile`, `infix`: `sp.stata` does not read files;
-- `merge, update`, `statsby`, `xi, noomit`, `teffects ra, pomeans`,
-  `tebalance summarize` after `teffects ipw`.
+- `merge, update`, `xi, noomit`, `teffects ra, pomeans`,
+  `tebalance summarize` after `teffects ipw`, `misstable patterns`,
+  `tabstat, by() missing`, `egen rank(), unique`.
 
 ## Open items
 
 | Item | Why it is open |
 | --- | --- |
-| `mi set` / `mi impute chained` / `mi estimate` in `sp.stata` | needs a decision on how the session holds imputed datasets |
-| `test` / `lincom` after `mean`, `proportion`, `ratio` | the covariance matrix is stored; the translation of `_b[c.y@1.g]` into `sp.test` is not written |
 | model F test of `svy: regress` | `sp.svyglm` does not expose the coefficient covariance |
-| `margins` after `mlogit` / `ologit`, `predict` of all outcomes | `sp.margins` has no prediction scale for these models |
-| `nestreg`, `anova` with several factors, `pwcompare` | not implemented |
-| epitab commands (`cc`, `cs`, `tabodds`) | `sp.odds_ratio` exists; the tables are not translated |
-| a translation of `infile` / `infix` / dictionaries into pandas readers | `sp.from_stata` could emit `pd.read_fwf(...)` |
+| `margins` after `mlogit` / `ologit` | `sp.margins` has no prediction scale for these models |
+| `margins, pwcompare`; `tabodds` | not implemented |
 | storage types of numeric variables | the frame does not keep `byte` / `int` / `long` once a value is missing |
 
 ## How to rerun

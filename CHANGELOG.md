@@ -68,11 +68,11 @@ map is `docs/guides/migration-from-statsmodels.md`.
 regression: variables, labels, tables, weights, survey data, programs.
 Its commands were run in Stata 18 on the book's datasets and replayed
 through `sp.stata`. At the start 1,619 printed numbers were reproduced,
-101 differed and 375 commands were declined; now 5,272 are reproduced, 24
-differ for stated reasons and 56 are declined. The notes are in
+101 differed and 375 commands were declined; now 5,442 are reproduced, 25
+differ for stated reasons and 45 are declined. The notes are in
 `docs/dev/2026-10-05-kohler-kreuter-4e-review.md`. Stata 18 reference
 numbers on committed synthetic data are in
-`tests/reference_parity/test_kohler_kreuter_stata_parity.py` (165 numbers).
+`tests/reference_parity/test_kohler_kreuter_stata_parity.py` (196 numbers).
 
 #### ⚠️ Correctness
 
@@ -137,6 +137,10 @@ numbers on committed synthetic data are in
   margins, factor levels and grids in `at()`; `e(sample)`; the `by` prefix
   before any command; extended macro functions, `syntax`, `marksample`,
   `tokenize`, `gettoken`, `macro shift`, `_rc`, one-line `if`.
+- In `sp.stata`, second round: `test` and `lincom` after `mean` /
+  `proportion` / `total` / `ratio`; `nestreg: regress`; `anova y g` (the
+  one-way layout); `cc` and `cs` with exact limits for the odds ratio;
+  `predict p1 ... pk` after `mlogit` / `ologit` / `oprobit`; `statsby`.
 
 #### Changed
 

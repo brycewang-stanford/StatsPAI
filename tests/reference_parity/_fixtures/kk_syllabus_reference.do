@@ -235,6 +235,56 @@ logit d x1 if e(sample)
 lrtest full .
 emit lrtest_chi2 r(chi2)
 
+* --- tests after mean, nested blocks, epidemiological tables, outcomes
+mean y, over(g)
+test _b[c.y@1.g] = _b[c.y@3.g]
+emit meantest_F r(F)
+emit meantest_p r(p)
+lincom _b[c.y@1.g] - _b[c.y@3.g]
+emit lincom_est r(estimate)
+emit lincom_se r(se)
+emit lincom_p r(p)
+nestreg: regress y (x1) (x2 f)
+matrix W = r(wald)
+emit nest_F1 W[1,1]
+emit nest_F2 W[2,1]
+emit nest_p2 W[2,4]
+emit nest_r2 W[2,5]
+emit nest_change W[2,6]
+anova y g
+emit anova_F e(F)
+emit anova_r2 e(r2)
+cc d f
+emit cc_or r(or)
+emit cc_lb r(lb_or)
+emit cc_ub r(ub_or)
+emit cc_chi2 r(chi2)
+emit cc_afe r(afe)
+emit cc_afp r(afp)
+cs d f
+emit cs_rd r(rd)
+emit cs_lb_rd r(lb_rd)
+emit cs_rr r(rr)
+emit cs_lb_rr r(lb_rr)
+emit cs_ub_rr r(ub_rr)
+emit cs_afe r(afe)
+emit cs_afp r(afp)
+mlogit o x1 f
+predict double pm1 pm2 pm3 pm4
+summarize pm2
+emit mlogit_p2_mean r(mean)
+emit mlogit_p2_sd r(sd)
+ologit o x1 f
+predict double po1 po2 po3 po4
+summarize po3
+emit ologit_p3_mean r(mean)
+emit ologit_p3_sd r(sd)
+preserve
+statsby m = r(mean) s = r(sd), by(g) clear: summarize y
+emit statsby_m2 m[2]
+emit statsby_s3 s[3]
+restore
+
 * --- data management
 generate double a1 = recode(x1, 40, 50, 60, 100)
 generate double a2 = irecode(x1, 40, 50, 60)

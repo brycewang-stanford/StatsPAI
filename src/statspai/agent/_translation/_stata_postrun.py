@@ -116,8 +116,6 @@ def estimation_sample(session: "StataSession") -> np.ndarray:
 
 
 def _predict(session: "StataSession", line: str) -> Optional[bool]:
-    import statspai as sp
-
     try:
         cmd = _parse(line)
     except StataParseError:
@@ -125,6 +123,8 @@ def _predict(session: "StataSession", line: str) -> Optional[bool]:
     if cmd.command != "predict" or session.last is None or session._steps is None:
         return None
     tool = (session._last_call or {}).get("tool")
+    if tool in ("mlogit", "ologit", "oprobit") and not [k for k in cmd.options if k]:
+        return _predict_outcomes(session, cmd, str(tool))
     options = [k for k in cmd.options if k]
     if len(options) != 1 or cmd.options[options[0]] is not None:
         return None
@@ -220,11 +220,155 @@ def _predict_stdp(session: "StataSession", name: str, kind: str, cmd: Any) -> bo
     return False
 
 
+def _predict_outcomes(session: "StataSession", cmd: Any, tool: str) -> bool:
+    """``predict p1 p2 ... pk`` after ``mlogit`` / ``ologit`` / ``oprobit``:
+    the probability of each outcome, on every row whose regressors are
+    observed."""
+    names = [n for n in cmd.varlist if n not in ("float", "double")]
+    result = session.last
+    model = getattr(result, "model_info", None) or {}
+    categories = list(model.get("categories") or [])
+    if len(names) != len(categories):
+        raise StataExprError(
+            f"predict after {tool}: give one new variable per outcome "
+            f"({len(categories)}), or use outcome()"
+        )
+    data = _steps(session).data
+    params = getattr(result, "params")
+    formula = str(((session._last_call or {}).get("arguments") or {}).get("formula"))
+    terms = [t.strip() for t in formula.split("~", 1)[1].split("+")]
+    if any(t not in data.columns for t in terms):
+        raise StataExprError(f"predict after {tool}: only plain covariates are covered")
+    x = np.column_stack([data[t].to_numpy(dtype=float, na_value=np.nan) for t in terms])
+    if tool == "mlogit":
+        base = model.get("base_category")
+        index = np.zeros((len(data), len(categories)))
+        for j, category in enumerate(categories):
+            if category == base:
+                continue
+            # the equation is named by the outcome as the estimator wrote it
+            label = next(
+                (
+                    lab
+                    for lab in (category, int(float(category)), float(category))
+                    if f"[{lab}]_cons" in params.index
+                ),
+                None,
+            )
+            if label is None:
+                raise StataExprError(
+                    f"predict after mlogit: no equation for outcome {category}"
+                )
+            beta = np.array([float(params[f"[{label}]{t}"]) for t in terms])
+            index[:, j] = x @ beta + float(params[f"[{label}]_cons"])
+        index -= index.max(axis=1, keepdims=True)
+        prob = np.exp(index)
+        prob /= prob.sum(axis=1, keepdims=True)
+    else:
+        beta = np.array([float(params[t]) for t in terms])
+        cuts = np.array([float(params[f"/cut{k}"]) for k in range(1, len(categories))])
+        cdf = stats.logistic.cdf if tool == "ologit" else stats.norm.cdf
+        upper = np.column_stack(
+            [cdf(c - x @ beta) for c in cuts] + [np.ones(len(data))]
+        )
+        prob = np.diff(np.column_stack([np.zeros(len(data)), upper]), axis=1)
+    prob[np.isnan(x).any(axis=1)] = np.nan
+    if cmd.if_cond or cmd.in_range:
+        keep = row_mask(data, cmd.if_cond, cmd.in_range, session.stored)
+        prob[~keep] = np.nan
+    for j, name in enumerate(names):
+        _steps(session).add_column(name, prob[:, j], double="double" in cmd.varlist)
+    return False
+
+
+_NESTREG = re.compile(
+    r"\s*nestreg\s*(?:,[^:]*)?:\s*reg(?:r(?:e(?:s(?:s)?)?)?)?\s+(\S+)\s+(.+)\Z",
+    re.S | re.I,
+)
+
+
+def _nestreg(session: "StataSession", m: "re.Match[str]") -> bool:
+    """``nestreg: regress y (block 1) (block 2) ...``: the regression with
+    the blocks added one after the other on the rows complete on all of
+    them, and the F test of each block given the ones before it."""
+    import statspai as sp
+
+    from ._stata import from_stata
+
+    outcome, tail = m.group(1), m.group(2)
+    if "," in tail or " if " in f" {tail} " or " in " in f" {tail} ":
+        raise StataExprError("nestreg with options or qualifiers is not implemented")
+    blocks = re.findall(r"\(([^)]*)\)|(\S+)", tail)
+    blocks = [a.strip() or b for a, b in blocks]
+    data = _steps(session).data
+    columns = list(data.columns)
+    formulas = []
+    for k in range(1, len(blocks) + 1):
+        out = from_stata(f"regress {outcome} " + " ".join(blocks[:k]), columns=columns)
+        if not out.get("ok"):
+            raise StataExprError(f"nestreg: {out.get('error')}")
+        formulas.append(str(out["arguments"]["formula"]))
+    used = [n for n in dict.fromkeys(re.findall(r"[A-Za-z_]\w*", formulas[-1]))
+            if n in data.columns]  # fmt: skip
+    sample = data.loc[data[used].notna().all(axis=1)]
+    rows, previous = [], None
+    models = []
+    fit: Any = None
+    for k, formula in enumerate(formulas, 1):
+        fit = sp.regress(formula, data=sample)
+        info = fit.data_info
+        # what Stata prints for each block: the regression itself
+        models.append(
+            {
+                "b": dict(fit.params),
+                "se": dict(fit.std_errors),
+                "t": dict(fit.params / fit.std_errors),
+                "ci": fit.conf_int() if hasattr(fit, "conf_int") else None,
+                "N": float(len(sample)),
+                "rss": float(info["rss"]),
+                "mss": float(info["tss"]) - float(info["rss"]),
+                "tss": float(info["tss"]),
+                "r2": 1 - float(info["rss"]) / float(info["tss"]),
+                "r2_a": 1
+                - (float(info["rss"]) / float(info["df_resid"]))
+                / (float(info["tss"]) / (len(sample) - 1)),
+                "rmse": float(np.sqrt(float(info["rss"]) / float(info["df_resid"]))),
+                "ms": [
+                    (float(info["tss"]) - float(info["rss"])) / (len(fit.params) - 1),
+                    float(info["rss"]) / float(info["df_resid"]),
+                    float(info["tss"]) / (len(sample) - 1),
+                ],
+                "F": (float(info["tss"]) - float(info["rss"]))
+                / (len(fit.params) - 1)
+                / (float(info["rss"]) / float(info["df_resid"])),
+            }
+        )
+        rss, df_r = float(info["rss"]), float(info["df_resid"])
+        r2 = 1 - rss / float(info["tss"])
+        if previous is None:
+            block_df = float(len(fit.params) - 1)
+            stat = (float(info["tss"]) - rss) / block_df / (rss / df_r)
+            change = np.nan
+        else:
+            block_df = previous[1] - df_r
+            stat = (previous[0] - rss) / block_df / (rss / df_r)
+            change = r2 - previous[2]
+        rows.append({"block": k, "F": stat, "block_df": block_df, "residual_df": df_r,
+                     "p": float(stats.f.sf(stat, block_df, df_r)), "r2": r2,
+                     "change_r2": change})  # fmt: skip
+        previous = (rss, df_r, r2)
+    table = pd.DataFrame(rows).set_index("block")
+    table.attrs["models"] = models
+    session.output = table
+    session.last, session.last_data = fit, sample
+    session._last_call = {"tool": "regress", "arguments": {"formula": formulas[-1]}}
+    session._store_estimates(fit)
+    return True
+
+
 def _dfbeta(session: "StataSession", rest: str) -> bool:
     """``dfbeta [varlist]``: ``_dfbeta_1``, ``_dfbeta_2`` ... for the
     regressors of the last ``regress`` (or the ones named)."""
-    import statspai as sp
-
     if (session._last_call or {}).get("tool") != "regress":
         raise StataExprError("dfbeta follows regress")
     table = influence_measures(session.last)
@@ -306,8 +450,6 @@ def _lrtest(session: "StataSession", rest: str) -> bool:
 
 
 def _gof(session: "StataSession", rest: str) -> bool:
-    import statspai as sp
-
     m = re.search(r"group\(\s*(\d+)\s*\)", rest)
     out = logit_gof(session.last, groups=int(m.group(1)) if m else None)
     session.output = out
@@ -382,6 +524,9 @@ _HEAD = re.compile(r"\s*([A-Za-z_]\w*)\b\s*(.*)\Z", re.S)
 
 def run_postestimation(session: "StataSession", line: str) -> Optional[bool]:
     """Run ``line`` if it is one of the commands of this module."""
+    nested = _NESTREG.match(line)
+    if nested is not None and session._steps is not None:
+        return _nestreg(session, nested)
     m = _HEAD.match(line)
     if m is None:
         return None

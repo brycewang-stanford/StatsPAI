@@ -33,9 +33,9 @@ REPRODUCED = {
     "ch03.log": 378,
     "ch05.log": 583,
     "ch07.log": 1108,
-    "ch08.log": 870,
-    "ch09.log": 1275,
-    "ch10.log": 589,
+    "ch08.log": 872,
+    "ch09.log": 1384,
+    "ch10.log": 648,
     "ch11.log": 178,
     "ch12.log": 115,
 }
@@ -57,6 +57,8 @@ DIFFERENT = {
         "approximation of W is defined; V differs in the sixth digit"
     ),
     "svy: regress": "the model F test of svy: regress is not computed",
+    "nestreg": "the adjusted R-squared and F of each block's regression header",
+    "cc owner east": "the header's number of observations",
     "linktest": (
         "Stata stores _hat in single precision before refitting, so its "
         "coefficients move in the seventh digit; p-values are not compared"
@@ -90,22 +92,14 @@ DECLINED = {
     "collapse (mean) income [aweight = xweights], by(sex edu)": "by(edu) as above",
     "misstable": "counts `.` apart from .a-.z; `patterns` is not implemented",
     "egen inc_rank_u": "rank(), unique breaks ties arbitrarily in Stata",
-    "anova": "only the one-way layout (oneway) is implemented",
     "tabstat income, statistics(mean sd) by(state) missing": "by() missing group",
     "mi ": "multiple imputation by chained equations draws random numbers",
-    "test _b[c.income": "tests after mean / proportion are not implemented",
-    "lincom _b[c.income": "tests after mean / proportion are not implemented",
     "svy: logit pia": "the outcome does not vary: Stata stops too (r(2000))",
     "teffects ra (survived men age) (third), pomeans": "pomeans is not translated",
     "tebalance summarize": "after teffects ipw: implemented after psmatch only",
-    "nestreg": "nested-model F tests are not implemented",
-    "cc ": "epitab tables are not translated",
-    "cs ": "epitab tables are not translated",
-    "tabodds": "epitab tables are not translated",
+    "tabodds": "the score test for trend of odds is not translated",
     "margins east, pwcompare": "pairwise comparisons of margins",
     "margins, dydx(yedu)": "margins after mlogit / ologit",
-    "predict pm1": "predicted probabilities of every outcome after mlogit",
-    "predict po1": "predicted probabilities of every outcome after ologit",
     "test [1]yedu": "tests across equations of mlogit",
     "import ": "sp.stata does not read files; pass the DataFrame",
     "infile": "sp.stata does not read files; pass the DataFrame",
@@ -114,14 +108,11 @@ DECLINED = {
     "merge 1:1 pid using _m_income, keep(match) nogenerate keepusing(yedu) update": (
         "merge, update is not implemented"
     ),
-    "statsby": "the statsby prefix is not implemented",
     "p2": "an ado-file of the book; programs are run when they are defined in the text",
     "xi i.edu, noomit": "xi, noomit is not implemented",
     # variables or data an earlier declined command would have made
     "summarize$": "follows a declined import",
     "summarize kx kd": "kdensity, generate() draws no graph and makes no variable",
-    "summarize pm1-pm6": "follows the declined predict",
-    "summarize po1-po4": "follows the declined predict",
     "summarize _Iedu*": "follows the declined xi",
     "summarize score": "follows the declined input",
     "summarize nosuchvar": "no such variable: Stata stops too (r(111))",

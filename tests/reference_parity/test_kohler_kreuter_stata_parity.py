@@ -15,9 +15,9 @@ each for a documented reason that bounds the gap:
   stops at ``nrtolerance(1e-5)``; ``sp.logit`` iterates further.
 * ``SINGLE``: numbers Stata passes through a single-precision variable on
   the way. ``kwallis`` and ``estat ovtest`` build their working variables
-  as ``float``; ``dfbeta`` and ``collapse`` store their results as
-  ``float`` (``collapse`` because ``import delimited`` typed the integer
-  source as ``int``). The do-file reads and predicts in double precision
+  as ``float``; ``dfbeta``, ``statsby`` and ``collapse`` store their
+  results as ``float`` (``collapse`` because ``import delimited`` typed
+  the integer source as ``int``). The do-file reads and predicts in double precision
   everywhere it can, so nothing else is affected.
 """
 
@@ -37,9 +37,9 @@ from statspai.agent._translation._stata_script import split_commands
 FIXTURES = Path(__file__).parent / "_fixtures"
 
 #: names whose value depends on where an iterative fit stopped
-ML = re.compile(r"^(logit_|gof_|hl_|roc_|linfl_|linktest_|lrtest_)")
+ML = re.compile(r"^(logit_|gof_|hl_|roc_|linfl_|linktest_|lrtest_|mlogit_|ologit_)")
 #: names Stata computes through a single-precision variable
-SINGLE = re.compile(r"^(kwallis_|reset_rhs_|infl__dfbeta_|collapse_)")
+SINGLE = re.compile(r"^(kwallis_|reset_rhs_|infl__dfbeta_|collapse_|statsby_)")
 #: read from the output of the command before the `emit`, not from r()
 FROM_OUTPUT = {
     "prop_ll2": lambda out: out["ci_lower"].iloc[1],
@@ -52,6 +52,11 @@ FROM_OUTPUT = {
     "margins_f_se4": lambda out: out["se"].iloc[3],
     "margins_dydx_b2": lambda out: out["dy/dx"].iloc[1],
     "margins_dydx_se2": lambda out: out["se"].iloc[1],
+    "nest_F1": lambda out: out["F"].iloc[0],
+    "nest_F2": lambda out: out["F"].iloc[1],
+    "nest_p2": lambda out: out["p"].iloc[1],
+    "nest_r2": lambda out: out["r2"].iloc[1],
+    "nest_change": lambda out: out["change_r2"].iloc[1],
 }
 
 
@@ -120,7 +125,7 @@ def numbers() -> tuple:
 def test_every_reference_number_is_computed(numbers: tuple) -> None:
     reference, ours = numbers
     assert set(reference) == set(ours)
-    assert len(reference) > 150
+    assert len(reference) > 190
 
 
 def test_numbers_match_stata(numbers: tuple) -> None:
@@ -128,6 +133,8 @@ def test_numbers_match_stata(numbers: tuple) -> None:
     wrong = []
     for name, value in reference.items():
         rtol = 1e-5 if ML.match(name) or SINGLE.match(name) else 1e-9
+        if name in ("cc_lb", "cc_ub"):
+            rtol = 1e-4
         if not np.isclose(ours[name], value, rtol=rtol, atol=1e-10):
             wrong.append(f"{name}: Stata {value!r}, ours {ours[name]!r}")
     assert not wrong, "\n".join(wrong)
