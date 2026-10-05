@@ -25,6 +25,7 @@ from scipy.spatial.distance import cdist
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 
 
 @dataclass
@@ -170,6 +171,7 @@ def _distance_matrix(
 
 
 @accepts_aliases(treat="treatment", y="outcome")
+@_expands_categorical("covariates")
 def optimal_match(
     data: pd.DataFrame,
     treatment: str,
@@ -373,6 +375,7 @@ class CardinalityMatchResult(ResultProtocolMixin):
 
 
 @accepts_aliases(treat="treatment", y="outcome")
+@_expands_categorical("covariates")
 def cardinality_match(
     data: pd.DataFrame,
     treatment: str,

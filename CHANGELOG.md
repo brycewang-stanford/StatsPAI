@@ -255,6 +255,32 @@ OpenAlex and arXiv.
 - `sp.iv` and `sp.ivreg` read the linearmodels block
   `y ~ 1 + [endog ~ instruments] + exog`.
 
+- **`sp.gardner_did` with a date-typed time column returned a wrong
+  estimate** (3.13 for 1.93 on a simulated daily panel) and said nothing.
+  `sp.gardner_did`, `sp.stacked_did`, `sp.wooldridge_did`,
+  `sp.twfe_decomposition`, `sp.bacon_decomposition` and `sp.did_forest`
+  now number dates the same way as the estimators above; the last five
+  failed with `TypeError`.
+
+#### Added in the second round
+
+- `sp.cate_gain_curve(n_boot=, cluster=, seed=)`: bootstrap standard error
+  and percentile interval of the area (`auc_se`, `auc_ci`). On rankings
+  with no information the 95% interval covers zero in 95% of 60 draws on
+  the book's test set.
+- `sp.synth_experimental_design(criterion='population')`: the design
+  question of the book's chapter 10. A random search over treated sets for
+  the one whose weighted average, and the weighted average of the
+  remaining units, both track the population average over the pre-period
+  (`population_weights=` for a size-weighted average). The default
+  criterion is unchanged.
+- Text, `category` and `C(col)` covariates or controls are also expanded in
+  `sp.sbw`, `sp.genmatch`, `sp.optimal_match`, `sp.cardinality_match`,
+  `sp.psmatch2`, `sp.auto_cate`, `sp.policy_tree`, `sp.event_study`,
+  `sp.sun_abraham`, `sp.did_imputation`, `sp.etwfe`, `sp.wooldridge_did`,
+  `sp.gardner_did`, `sp.stacked_did`, `sp.lp_did`, `sp.did_multiplegt`,
+  `sp.did_few_treated`, `sp.overlap_weighted_did` and `sp.continuous_did`.
+
 #### Changed
 
 - Every `sp_call` string of `sp.dag_recommend_estimator` now runs as

@@ -43,6 +43,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult, SummaryText
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _matched_frame as _mf
@@ -1022,6 +1023,7 @@ def _apply_ties_ate(
 
 
 @accepts_aliases(_strict=True, controls="covariates")
+@_expands_categorical("covariates")
 def psmatch2(
     data: pd.DataFrame,
     *,

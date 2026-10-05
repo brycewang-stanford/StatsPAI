@@ -56,8 +56,10 @@ from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._core import calendar_time_aware as _calendar_time_aware
 
 __all__ = ["gardner_did", "did_2stage"]
 
@@ -335,6 +337,8 @@ def _sparse_normal_solve(
 
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@_expands_categorical("controls")
+@_calendar_time_aware(time="time", cohort="first_treat")
 def gardner_did(
     data: pd.DataFrame,
     y: str,

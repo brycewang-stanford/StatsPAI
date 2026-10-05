@@ -14583,6 +14583,39 @@ def _build_registry() -> None:
                 ParamSpec("concentration_weight", "float", False, 0.0),
                 ParamSpec("penalization", "float", False, 0.0),
                 ParamSpec("n_random", "int", False, 500),
+                ParamSpec(
+                    "criterion",
+                    "str",
+                    False,
+                    "loo_fit",
+                    enum=["loo_fit", "population"],
+                    description=(
+                        "'loo_fit' ranks each candidate by how well the other "
+                        "units reproduce it. 'population' searches random "
+                        "treated sets for the one whose weighted average, and "
+                        "the weighted average of the remaining units, both "
+                        "track the population average over the pre-period"
+                    ),
+                ),
+                ParamSpec(
+                    "population_weights",
+                    "str",
+                    False,
+                    description=(
+                        "Column, constant within unit, whose shares define the "
+                        "population average under criterion='population' "
+                        "(default: equal shares)"
+                    ),
+                ),
+                ParamSpec(
+                    "n_search",
+                    "int",
+                    False,
+                    500,
+                    description=(
+                        "Random treated sets tried under criterion='population'"
+                    ),
+                ),
             ],
             returns="SynthExperimentalDesignResult",
             example=(

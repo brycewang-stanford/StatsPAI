@@ -28,6 +28,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import require_columns
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient
 
@@ -40,6 +41,7 @@ from ..exceptions import DataInsufficient
 __all__ = ["overlap_weighted_did", "dl_propensity_score"]
 
 
+@_expands_categorical("covariates")
 def overlap_weighted_did(
     data: pd.DataFrame,
     *,

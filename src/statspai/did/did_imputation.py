@@ -24,6 +24,7 @@ from scipy.sparse.linalg import lsqr
 
 from .._aliases import accepts_aliases
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ._bjs_pretrends import EVENT_STUDY_CONVENTION as _EVENT_STUDY_CONVENTION
@@ -96,6 +97,7 @@ def _didimp_cluster_bootstrap(
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
 @_calendar_time_aware(time="time", cohort="first_treat")
+@_expands_categorical("controls")
 def did_imputation(
     data: pd.DataFrame,
     y: str,

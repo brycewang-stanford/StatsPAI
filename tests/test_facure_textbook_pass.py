@@ -783,3 +783,185 @@ def test_margins_says_to_pass_data_for_factor_terms(obs):
         sp.margins(fit, variables=["x"])
     assert "pass data=" in str(getattr(err.value, "recovery_hint", "")) + str(err.value)
     assert len(sp.margins(fit, data=obs, variables=["x"])) == 1
+
+
+# --------------------------------------------------------------------- #
+#  Second round: the remaining estimators, bootstrap, population design
+# --------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "fn, numeric, dated",
+    [
+        (
+            "gardner_did",
+            dict(group="unit", time="t", first_treat="g"),
+            dict(group="unit", time="date", first_treat="cohort"),
+        ),
+        (
+            "stacked_did",
+            dict(group="unit", time="t", first_treat="g", window=(-3, 3)),
+            dict(group="unit", time="date", first_treat="cohort", window=(-3, 3)),
+        ),
+        (
+            "wooldridge_did",
+            dict(group="unit", time="t", first_treat="g"),
+            dict(group="unit", time="date", first_treat="cohort"),
+        ),
+        (
+            "twfe_decomposition",
+            dict(group="unit", time="t", first_treat="g"),
+            dict(group="unit", time="date", first_treat="cohort"),
+        ),
+    ],
+)
+def test_more_staggered_estimators_take_dates(staggered, fn, numeric, dated):
+    # gardner_did returned 3.13 for 1.93 on a date-typed panel before this.
+    f = getattr(sp, fn)
+    a = _quiet(f, staggered, y="y", **numeric)
+    b = _quiet(f, staggered, y="y", **dated)
+    assert b.estimate == pytest.approx(a.estimate, rel=1e-12)
+    assert b.se == pytest.approx(a.se, rel=1e-12)
+
+
+def test_bacon_decomposition_takes_dates(staggered):
+    d = staggered.assign(
+        d=((staggered["g"] > 0) & (staggered["t"] >= staggered["g"])).astype(int)
+    )
+    a = _quiet(sp.bacon_decomposition, d, y="y", treat="d", time="t", id="unit")
+    b = _quiet(sp.bacon_decomposition, d, y="y", treat="d", time="date", id="unit")
+    assert b["beta_twfe"] == pytest.approx(a["beta_twfe"], rel=1e-12)
+
+
+@pytest.mark.parametrize(
+    "fn, kwargs, key",
+    [
+        ("gardner_did", dict(group="unit", time="t", first_treat="g"), "controls"),
+        ("did_imputation", dict(group="unit", time="t", first_treat="g"), "controls"),
+        ("etwfe", dict(group="unit", time="t", first_treat="g"), "controls"),
+        ("event_study", dict(treat_time="g", time="t", unit="unit"), "covariates"),
+    ],
+)
+def test_did_controls_expand_text_columns(staggered, fn, kwargs, key):
+    d = staggered.assign(
+        shift=np.where((staggered["unit"] + staggered["t"]) % 2 == 0, "day", "night")
+    )
+    d["shift_night"] = (d["shift"] == "night").astype(float)
+    f = getattr(sp, fn)
+    a = _quiet(f, d, y="y", **kwargs, **{key: ["shift_night"]})
+    b = _quiet(f, d, y="y", **kwargs, **{key: ["shift"]})
+    assert b.estimate == pytest.approx(a.estimate, rel=1e-10)
+
+
+def test_matching_family_expands_text_columns(obs):
+    dummies = pd.get_dummies(obs, columns=["g_str"], drop_first=True, dtype=float)
+    ref = _quiet(
+        sp.psmatch2,
+        dummies,
+        treat="d",
+        outcome="y",
+        covariates=["x", "g_str_b", "g_str_c"],
+    )
+    res = _quiet(sp.psmatch2, obs, treat="d", outcome="y", covariates=["x", "g_str"])
+    assert res.att == pytest.approx(ref.att, rel=1e-10)
+    tree = _quiet(
+        sp.policy_tree, obs, y="y", treat="d", covariates=["x", "g_str"], depth=1
+    )
+    assert tree is not None
+
+
+def test_cate_gain_curve_bootstrap():
+    rng = np.random.default_rng(0)
+    n = 3000
+    x = rng.uniform(0, 1, n)
+    dose = rng.uniform(0, 10, n)
+    df = pd.DataFrame(
+        {
+            "x": x,
+            "dose": dose,
+            "store": np.arange(n) % 60,
+            "y": (1 + 2 * x) * dose + rng.normal(size=n),
+        }
+    )
+    plain = sp.cate_gain_curve(df, cate="x", y="y", treat="dose")
+    assert plain.auc_se is None and plain.auc_ci is None
+    res = sp.cate_gain_curve(df, cate="x", y="y", treat="dose", n_boot=200, seed=1)
+    assert res.auc == plain.auc and res.auc_se > 0
+    assert res.auc_ci[0] < res.auc < res.auc_ci[1] and res.auc_ci[0] > 0
+    again = sp.cate_gain_curve(df, cate="x", y="y", treat="dose", n_boot=200, seed=1)
+    assert again.auc_ci == res.auc_ci
+    clustered = sp.cate_gain_curve(
+        df, cate="x", y="y", treat="dose", n_boot=50, seed=1, cluster="store"
+    )
+    assert clustered.auc_se > 0
+    # A ranking with no information: the interval covers zero in most draws.
+    covered = 0
+    for s in range(40):
+        noise = np.random.default_rng(100 + s).normal(size=n)
+        r = sp.cate_gain_curve(df, cate=noise, y="y", treat="dose", n_boot=80, seed=s)
+        covered += r.auc_ci[0] <= 0.0 <= r.auc_ci[1]
+    assert covered >= 34  # nominal 38 of 40; binomial slack
+
+
+def test_population_design_recovers_a_representative_set():
+    """Three latent markets; the population average loads on all three.
+
+    A treated set that tracks the average needs a unit from each market,
+    and the remaining units must still cover all three.
+    """
+    rng = np.random.default_rng(7)
+    T, per = 40, 6
+    factors = rng.normal(size=(T, 3)).cumsum(axis=0)
+    rows = []
+    for j in range(3 * per):
+        series = factors[:, j // per] + rng.normal(scale=0.05, size=T)
+        rows += [
+            {"unit": f"u{j:02d}", "t": t, "y": series[t], "pop": 1.0 + j // per}
+            for t in range(T)
+        ]
+    df = pd.DataFrame(rows)
+    res = sp.synth_experimental_design(
+        df,
+        unit="unit",
+        time="t",
+        outcome="y",
+        k=3,
+        criterion="population",
+        n_search=400,
+        random_state=0,
+    )
+    markets = {int(u[1:]) // per for u in res.selected}
+    assert markets == {0, 1, 2}
+    assert res.method == "population_matching_search"
+    assert res.expected_variance < 0.05 * res.baseline_variance
+    assert res.weights["treated"].sum() == pytest.approx(1.0, abs=1e-6)
+    assert res.weights["control"].sum() == pytest.approx(1.0, abs=1e-6)
+    assert not np.any((res.weights["treated"] > 0) & (res.weights["control"] > 0))
+    assert "population average" in res.summary()
+
+    weighted = sp.synth_experimental_design(
+        df,
+        unit="unit",
+        time="t",
+        outcome="y",
+        k=3,
+        criterion="population",
+        population_weights="pop",
+        n_search=50,
+        random_state=0,
+    )
+    shares = weighted.ranking.groupby("unit")["population_share"].first()
+    assert shares["u17"] == pytest.approx(3 * shares["u00"])
+
+    default = sp.synth_experimental_design(
+        df, unit="unit", time="t", outcome="y", k=3, random_state=0
+    )
+    assert default.method == "loo_sc_fit_ranking"
+    with pytest.raises(MethodIncompatibility, match="criterion"):
+        sp.synth_experimental_design(
+            df, unit="unit", time="t", outcome="y", k=3, criterion="best"
+        )
+    with pytest.raises(MethodIncompatibility, match="criterion='population' only"):
+        sp.synth_experimental_design(
+            df, unit="unit", time="t", outcome="y", k=3, population_weights="pop"
+        )

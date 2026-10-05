@@ -49,6 +49,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 
 # sklearn imports moved to function bodies — keeps ``import statspai``
@@ -381,6 +382,7 @@ def _validate_learners(learners: Sequence[str]) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
+@_expands_categorical("covariates")
 def auto_cate(
     data: pd.DataFrame,
     y: str,

@@ -43,10 +43,12 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 
 
 @accepts_aliases(_strict=True, unit="id", covariates="controls")
+@_expands_categorical("controls")
 def continuous_did(
     data: pd.DataFrame,
     y: str,

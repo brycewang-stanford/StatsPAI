@@ -50,6 +50,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
@@ -283,6 +284,7 @@ def _resolve_control_cohort(
     controls="covariates",
 )
 @_calendar_time_aware(time="t", cohort="g")
+@_expands_categorical("covariates")
 def sun_abraham(
     data: pd.DataFrame,
     y: str,

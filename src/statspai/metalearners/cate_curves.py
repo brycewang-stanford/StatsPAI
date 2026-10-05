@@ -11,7 +11,7 @@ ranking, an outcome and a randomized treatment.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -29,6 +29,24 @@ def _slope(y: np.ndarray, t: np.ndarray) -> float:
     if denom <= 0:
         return float("nan")
     return float(np.sum(tc * y) / denom)
+
+
+def _gain(
+    score: np.ndarray,
+    y: np.ndarray,
+    t: np.ndarray,
+    n_steps: int,
+    normalize: bool,
+    ascending: bool,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Step sizes, cumulative effects and gains of one ranking."""
+    n = score.shape[0]
+    order = np.argsort(score if ascending else -score, kind="stable")
+    y_s, t_s = y[order], t[order]
+    sizes = np.clip(np.round(np.linspace(n / n_steps, n, n_steps)).astype(int), 2, n)
+    effects = np.array([_slope(y_s[:k], t_s[:k]) for k in sizes])
+    base = _slope(y, t) if normalize else 0.0
+    return sizes, effects, (effects - base) * (sizes / n)
 
 
 @dataclass(repr=False)
@@ -50,6 +68,9 @@ class CATEGainCurveResult(ResultProtocolMixin):
         times ``ate`` when normalized).
     by_quantile : pd.DataFrame
         Slope within each quantile group of the ranking, lowest first.
+    auc_se, auc_ci : float and (float, float), or None
+        Bootstrap standard error and percentile interval of ``auc``; ``None``
+        unless ``n_boot`` was set.
 
     Examples
     --------
@@ -72,6 +93,8 @@ class CATEGainCurveResult(ResultProtocolMixin):
     by_quantile: pd.DataFrame
     normalize: bool = True
     n_obs: int = 0
+    auc_se: Optional[float] = None
+    auc_ci: Optional[Tuple[float, float]] = None
     diagnostics: Dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self) -> str:
@@ -87,7 +110,13 @@ class CATEGainCurveResult(ResultProtocolMixin):
             f"  N                 : {self.n_obs:,}",
             f"  Average effect    : {self.ate:.6g}",
             f"  Area under curve  : {self.auc:.6g}"
-            + ("  (normalized)" if self.normalize else ""),
+            + ("  (normalized)" if self.normalize else "")
+            + (
+                f"  [SE {self.auc_se:.4g}, CI {self.auc_ci[0]:.4g} to "
+                f"{self.auc_ci[1]:.4g}]"
+                if self.auc_se is not None and self.auc_ci is not None
+                else ""
+            ),
             "",
             "  Effect by quantile of the ranking (lowest first):",
             self.by_quantile.to_string(index=False),
@@ -97,6 +126,8 @@ class CATEGainCurveResult(ResultProtocolMixin):
     def to_dict(self) -> Dict[str, Any]:
         return {
             "auc": float(self.auc),
+            "auc_se": self.auc_se,
+            "auc_ci": None if self.auc_ci is None else list(self.auc_ci),
             "ate": float(self.ate),
             "normalize": bool(self.normalize),
             "n_obs": int(self.n_obs),
@@ -125,6 +156,10 @@ def cate_gain_curve(
     n_quantiles: int = 10,
     normalize: bool = True,
     ascending: bool = False,
+    n_boot: int = 0,
+    cluster: Optional[str] = None,
+    alpha: float = 0.05,
+    seed: Optional[int] = None,
 ) -> CATEGainCurveResult:
     """Cumulative gain curve of a CATE ranking on randomized data.
 
@@ -157,6 +192,16 @@ def cate_gain_curve(
     ascending : bool, default False
         Rank the smallest predictions first (for an effect where lower is
         better).
+    n_boot : int, default 0
+        Bootstrap replications for the standard error and the percentile
+        interval of the area. ``0`` computes neither.
+    cluster : str, optional
+        Column whose groups are resampled whole (repeated days of one
+        store, say). Default: rows are resampled.
+    alpha : float, default 0.05
+        Level of the bootstrap interval.
+    seed : int, optional
+        Seed for the bootstrap.
 
     Returns
     -------
@@ -169,8 +214,10 @@ def cate_gain_curve(
     delivers and observational data does not. On observational data the
     curve ranks units by a confounded association. The slope also averages
     a nonlinear dose response with weights that depend on the distribution
-    of the dose in the subset. No standard errors are computed; to compare
-    two rankings resample the evaluation data and recompute both areas.
+    of the dose in the subset. The bootstrap of ``n_boot`` resamples the
+    evaluation data with the predictions held fixed, so it describes the
+    sampling error of the evaluation, not that of the model behind the
+    predictions.
 
     Examples
     --------
@@ -225,13 +272,8 @@ def cate_gain_curve(
     if not np.isfinite(ate):
         raise DataInsufficient("cate_gain_curve: the treatment does not vary.")
 
-    order = np.argsort(-score if not ascending else score, kind="stable")
-    y_s, t_s = y_arr[order], t_arr[order]
-    sizes = np.round(np.linspace(n / n_steps, n, n_steps)).astype(int)
-    sizes = np.clip(sizes, 2, n)
-    effects = np.array([_slope(y_s[:k], t_s[:k]) for k in sizes])
+    sizes, effects, gain = _gain(score, y_arr, t_arr, n_steps, normalize, ascending)
     share = sizes / n
-    gain = (effects - (ate if normalize else 0.0)) * share
     curve = pd.DataFrame(
         {
             "share": share,
@@ -257,6 +299,36 @@ def cate_gain_curve(
         )
     by_quantile = pd.DataFrame(rows)
 
+    auc_se: Optional[float] = None
+    auc_ci: Optional[Tuple[float, float]] = None
+    n_boot = int(n_boot)
+    if n_boot > 0:
+        if not 0.0 < alpha < 1.0:
+            raise MethodIncompatibility("alpha must lie strictly between 0 and 1.")
+        rng = np.random.default_rng(seed)
+        blocks: Optional[List[np.ndarray]] = None
+        if cluster is not None:
+            if cluster not in data.columns:
+                raise MethodIncompatibility(
+                    f"cate_gain_curve: column {cluster!r} not found in data."
+                )
+            codes = pd.factorize(data[cluster].to_numpy()[ok])[0]
+            blocks = [np.flatnonzero(codes == g) for g in range(codes.max() + 1)]
+        draws = np.empty(n_boot)
+        for b in range(n_boot):
+            if blocks is None:
+                idx = rng.integers(0, n, n)
+            else:
+                pick = rng.integers(0, len(blocks), len(blocks))
+                idx = np.concatenate([blocks[g] for g in pick])
+            _, _, g_b = _gain(
+                score[idx], y_arr[idx], t_arr[idx], n_steps, normalize, ascending
+            )
+            draws[b] = np.nansum(g_b)
+        auc_se = float(np.std(draws, ddof=1))
+        lo, hi = np.quantile(draws, [alpha / 2, 1 - alpha / 2])
+        auc_ci = (float(lo), float(hi))
+
     n_flat: Optional[int] = int(np.sum(~np.isfinite(effects)))
     return CATEGainCurveResult(
         auc=auc,
@@ -265,6 +337,8 @@ def cate_gain_curve(
         by_quantile=by_quantile,
         normalize=bool(normalize),
         n_obs=n,
+        auc_se=auc_se,
+        auc_ci=auc_ci,
         diagnostics={
             "n_dropped": int((~ok).sum()),
             "n_steps_without_treatment_variation": n_flat,

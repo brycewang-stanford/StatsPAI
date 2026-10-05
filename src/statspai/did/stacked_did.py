@@ -21,11 +21,15 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._core import calendar_time_aware as _calendar_time_aware
 
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@_expands_categorical("controls")
+@_calendar_time_aware(time="time", cohort="first_treat")
 def stacked_did(
     data: pd.DataFrame,
     y: str,

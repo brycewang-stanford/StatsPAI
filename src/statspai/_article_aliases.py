@@ -950,6 +950,7 @@ def evalue_rr(
     )
 
 
+@_expands_categorical("covariates", "X")
 def policy_tree(
     data: pd.DataFrame,
     y: str,

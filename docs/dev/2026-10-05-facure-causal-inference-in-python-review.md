@@ -168,21 +168,48 @@ those were not adopted (see "Where StatsPAI differs on purpose").
   market). `sp.synth_experimental_design` ranks candidates by a different
   criterion. This is an open item.
 
+## Second round (same day)
+
+The open items of the first round were decided and closed as follows.
+
+- **Dates in the remaining staggered estimators.** Probing them found one
+  more silent error: `sp.gardner_did` on a date-typed panel returned 3.13
+  where the period-numbered panel gives 1.93. `sp.stacked_did`,
+  `sp.wooldridge_did`, `sp.twfe_decomposition`, `sp.bacon_decomposition`
+  and `sp.did_forest` failed with `TypeError`. All six now go through
+  `calendar_time_aware`. `sp.lp_did`, `sp.did_multiplegt`,
+  `sp.did_multiplegt_dyn` and `sp.event_study` already gave the same
+  numbers with dates.
+- **Categorical covariates in the remaining estimators.** The decorator is
+  on the rest of the matching family, `sp.auto_cate`, `sp.policy_tree` and
+  the `controls=` / `covariates=` of the DiD estimators. `sp.causal_forest`
+  keeps its own explicit error for non-numeric inputs.
+- **Standard errors for the gain curve.** `sp.cate_gain_curve(n_boot=)`
+  resamples the evaluation data (rows, or whole clusters) with the
+  predictions held fixed. Sixty uninformative rankings on the book's test
+  set have a mean area of -0.6 and a standard deviation of 9.3; the
+  bootstrap standard error is 11.5 and the 95% interval covers zero in 95%
+  of them.
+- **The design of chapter 10.** `sp.synth_experimental_design(
+  criterion='population')` searches random treated sets for the one whose
+  weighted average and whose complement's weighted average both track the
+  population average. On the book's data with five cities the chosen set
+  changes with the seed, as a random search will, and its loss is a small
+  fraction of the average over the sets tried (7.1e3 against 1.9e5 with 300
+  draws). The book adds an
+  intercept to both fits; here the weights are on the simplex without one,
+  so outcomes of units of very different size should be put on a per-capita
+  scale first.
+- **A variance for switchback designs other than the optimal one: not
+  added.** The paper derives the variance and its estimator for the
+  optimal design only. Other regular designs keep the exact randomization
+  p-value and no interval.
+
 ## Open items
 
-- A market-representativeness criterion for
-  `sp.synth_experimental_design`, as in chapter 10.
-- `sp.switchback` reports a variance only under the optimal design, which
-  is what the paper derives. Other regular designs get the randomization
-  p-value alone.
-- `sp.cate_gain_curve` has no standard errors.
-- Categorical covariates are expanded in the selection-on-observables
-  family, `sp.dml`, `sp.metalearner`, `sp.drdid` and
-  `sp.callaway_santanna`. The forests and the remaining estimators that take
-  a covariate list still need numeric columns.
-- Date-typed time columns are handled in the four staggered estimators
-  above. `sp.gardner_did`, `sp.stacked_did`, `sp.lp_did` and the
-  de Chaisemartin-D'Haultfoeuille family still need period numbers.
+- `sp.causal_forest` and the other forests need numeric covariates.
+- The population design is a random search, not the mixed-integer optimum.
+- `sp.switchback` has no interval outside the optimal design.
 
 ## Rerun
 

@@ -50,6 +50,7 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
+from ._core import calendar_time_aware as _calendar_time_aware
 
 __all__ = ["did_forest", "DIDForestResult"]
 
@@ -276,6 +277,7 @@ def _aggregate_variance(
 
 
 @accepts_aliases(unit="id")
+@_calendar_time_aware(time="time", cohort="cohort")
 def did_forest(
     data: pd.DataFrame,
     y: str,

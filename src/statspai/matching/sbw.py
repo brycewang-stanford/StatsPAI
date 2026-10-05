@@ -50,6 +50,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 
 
@@ -121,6 +122,7 @@ class SBWResult(CausalResult):
         self.solver_status = str(solver_status)
 
 
+@_expands_categorical("covariates")
 def sbw(
     data: pd.DataFrame,
     treat: str,

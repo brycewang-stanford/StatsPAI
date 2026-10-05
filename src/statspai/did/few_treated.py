@@ -61,6 +61,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -102,6 +103,7 @@ def _residualise_covariates(
 
 
 @accepts_aliases(_strict=True, unit="id", group="id", controls="covariates")
+@_expands_categorical("covariates")
 def did_few_treated(
     data: pd.DataFrame,
     y: str,

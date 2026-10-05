@@ -339,6 +339,8 @@ def _cohort_atts_from_cells(
 
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@_expands_categorical("controls")
+@_calendar_time_aware(time="time", cohort="first_treat")
 def wooldridge_did(
     data: pd.DataFrame,
     y: str,
@@ -713,6 +715,7 @@ def _etwfe_glm(
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
 @_calendar_time_aware(time="time", cohort="first_treat")
+@_expands_categorical("controls")
 def etwfe(
     data: pd.DataFrame,
     y: str,
@@ -3223,6 +3226,7 @@ def _drdid_imp_panel_core(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@_calendar_time_aware(time="time", cohort="first_treat")
 def twfe_decomposition(
     data: pd.DataFrame,
     y: str,

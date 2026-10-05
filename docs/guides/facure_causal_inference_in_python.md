@@ -35,7 +35,7 @@ from `data/`.
 | 9 | synthetic control of several treated units | `sp.geolift` |
 | 9 | debiasing and the t-test | `sp.synth(inference='ttest')`, `sp.synth_ttest` |
 | 9 | synthetic difference-in-differences | `sp.sdid` |
-| 10 | sample size for a geo experiment | `sp.power('cluster_rct', ...)` |
+| 10 | sample size for a geo experiment; which units to treat | `sp.power('cluster_rct', ...)`; `sp.synth_experimental_design(criterion='population')` |
 | 10 | switchback experiments | `sp.switchback_design`, `sp.switchback` |
 | 11 | Wald estimator, 2SLS, first stage | `sp.iv` (diagnostics in `.diagnostics`) |
 | 11 | fuzzy discontinuity, bunching at the threshold | `sp.rdrobust(fuzzy=)`; `sp.rddensity` |
@@ -165,6 +165,10 @@ curve = sp.cate_gain_curve(test.assign(cate=cate_test),
 curve.auc           # area under the normalized cumulative gain curve
 curve.by_quantile   # effect within each decile of the prediction
 curve.plot()
+
+sp.cate_gain_curve(test.assign(cate=cate_test), cate="cate", y="sales",
+                   treat="discounts", n_boot=500, cluster="rest_id",
+                   seed=0).auc_ci      # bootstrap interval, restaurants resampled
 ```
 
 A ranking that carries no information has an area near zero. The curve is
@@ -205,6 +209,30 @@ res.estimate, res.ci        # -9.9210, (-18.49, -1.35)
 The design you pass must be the one that generated the assignment. If the
 assignment changes at a period that is not a randomization point of that
 design, the function stops.
+
+### Choosing which cities to treat
+
+The first half of chapter 10 asks which cities to treat so that the
+experiment speaks for the whole market. `sp.synth_experimental_design`
+with `criterion='population'` searches for a treated set whose weighted
+average tracks the population average of the outcome before the
+experiment, while the remaining cities can still build a synthetic control
+for that same average:
+
+```python
+pre = pd.read_csv("data/online_mkt.csv").query("post == 0")
+design = sp.synth_experimental_design(
+    pre, unit="city", time="date", outcome="app_download", k=5,
+    criterion="population", population_weights="population",
+    n_search=1000, random_state=0)
+design.selected              # the cities to treat
+design.weights["treated"]    # their weights; design.weights["control"] for the rest
+print(design.summary())
+```
+
+It is a random search, so a larger `n_search` can only improve the set.
+The weights have no intercept; with units of very different size, use a
+per-capita outcome.
 
 ## Where the numbers differ from the book
 

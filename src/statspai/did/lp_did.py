@@ -58,11 +58,13 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from . import _core as _dc
 
 
 @accepts_aliases(_strict=True, id="unit", treat="treatment", covariates="controls")
+@_expands_categorical("controls")
 def lp_did(
     data: pd.DataFrame,
     y: str,

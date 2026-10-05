@@ -46,6 +46,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 
 # ======================================================================
@@ -56,6 +57,7 @@ from ..core.results import CausalResult
 @accepts_aliases(
     _strict=True, id="group", unit="group", treat="treatment", covariates="controls"
 )
+@_expands_categorical("controls")
 def did_multiplegt(
     data: pd.DataFrame,
     y: str,

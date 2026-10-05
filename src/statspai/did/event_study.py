@@ -36,6 +36,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
@@ -222,6 +223,7 @@ def _build_bins(
 
 
 @accepts_aliases(_strict=True, id="unit", controls="covariates")
+@_expands_categorical("covariates")
 def event_study(
     data: pd.DataFrame,
     y: str,

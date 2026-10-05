@@ -27,6 +27,7 @@ import pandas as pd
 
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._core import calendar_time_aware as _calendar_time_aware
 
 
 def _summary_by_type(decomp: pd.DataFrame) -> pd.DataFrame:
@@ -46,6 +47,7 @@ def _summary_by_type(decomp: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
+@_calendar_time_aware(time="time")
 def bacon_decomposition(
     data: pd.DataFrame,
     y: str,
