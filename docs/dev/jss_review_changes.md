@@ -1867,3 +1867,33 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the *Linear Model and Extensions* pass
+
+- **Commits.** `9621744d` re-recorded the entries of Track A modules 01 02
+  03 04 05 07 13 14 15 16 17 18 24 25 26 27 35 37 40 41 42 43 44 45 46 47
+  48 49 51 52 53 54 55 56 57 58 59 61 62 63 64 65 66 67 69 78 79 83 84 85
+  in `tests/r_parity/results/_implementation_trace.json` and all 12
+  modules of `tests/orig_parity/results/_implementation_trace.json`. The
+  source that staled them is in `8d9ba5a3`: `src/statspai/__init__.py`
+  (six new exports), `src/statspai/core/utils.py` (`I(x^2)` read as a
+  power), `src/statspai/core/_vcov_spec.py` and
+  `src/statspai/regression/ols.py` (`robust='hc4'`; the collinearity
+  check of models without an intercept), `src/statspai/regression/iv.py`,
+  `src/statspai/regression/glm.py`, `src/statspai/regression/quantile.py`,
+  `src/statspai/did/_core.py`, `src/statspai/panel/panel_reg.py`,
+  `src/statspai/survival/models.py`.
+- **Reason.** The audit in
+  `docs/dev/2026-10-05-ding-linear-model-review.md`. No default on a
+  Track A path changed: `python tests/r_parity/verify_reproduce_py.py
+  --no-report` on the 50 modules reported 50 reproduce, 0 drift. The one
+  correctness fix that touches a traced estimator, the Efron score
+  residuals behind `sp.cox(robust=)`, does not reach module 24, which
+  compares model-based standard errors.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves from
+  1,327 to 1,333 registered functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
