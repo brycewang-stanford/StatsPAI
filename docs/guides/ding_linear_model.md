@@ -24,9 +24,11 @@ StatsPAI. The examples below read them from `files/`.
 | 6, 24 | `hccm` / `vcovHC`, HC0 to HC4 | `sp.regress(robust='hc0' ... 'hc4')` |
 | 11 | `hatvalues`, `rstandard`, `rstudent`, `cooks.distance` | `sp.estat(fit, "leverage")` |
 | 12 | leave-one-out prediction intervals | `sp.estat(fit, "leverage")["loo_residuals"]`, `["loo_interval_halfwidth"]`, `["press"]` |
-| 13 | `leaps::regsubsets` | `sp.best_subset(df, y, x, criterion='bic')` |
+| 12 | conformal prediction intervals | `sp.conformal_regression(formula, df, method='full')` |
+| 13 | `leaps::regsubsets`; `step` | `sp.best_subset(df, y, x, criterion='bic')`; `sp.stepwise(start='full')` |
 | 14, 15 | `MASS::lm.ridge`, `glmnet` | `sp.ridge`; `sp.lasso_select` |
 | 16 | `MASS::boxcox`; polynomial terms | `sp.boxcox`; `I(exper^2)` in any formula |
+| 16 | `mgcv::gam(y ~ s(x) + ...)` | `sp.gam("y ~ s(x) + ...", df)` |
 | 19 | `lm(weights=)`, feasible GLS, Goodman's regression | `sp.regress(weights=)`; `"t ~ 0 + x + I(1 - x)"` |
 | 19 | `KernSmooth::locpoly` | `sp.lpoly(kernel='gaussian', degree=1)` |
 | 20 | logit, probit, cloglog, cauchit | `sp.glm(family='binomial', link=...)` |
@@ -62,6 +64,17 @@ best.history[["size", "rss", "bic"]]
 penn = pd.read_csv("files/pennbonus.txt", sep=r"\s+")
 bc = sp.boxcox("duration ~ " + " + ".join(c for c in penn if c != "duration"), penn)
 bc.lambda_, bc.ci        # 0.317, (0.291, 0.342): neither the log nor the level
+
+# Chapter 16: wages as smooth functions of schooling and experience
+census00 = pd.read_stata("files/census00.dta")
+wage = sp.gam("logwk ~ s(educ) + s(exper) + black", census00)
+wage.smooth_terms               # effective degrees of freedom of each curve
+wage.partial("s(exper)")        # the estimated function, with a band
+wage.plot("s(exper)")
+
+# Chapter 12: prediction intervals that do not lean on normal errors
+new = boston.sample(5, random_state=0)
+sp.conformal_regression("medv ~ rm + lstat + ptratio", boston, new, alpha=0.1)
 
 # Chapter 25: a cluster-randomised trial, 107 villages
 hyg = pd.read_csv("files/_statspai/hygaccess_analysis.csv")
@@ -101,6 +114,12 @@ ours by the stated rule.
 
 One difference is not a convention: `KernSmooth::locpoly` bins the data
 before smoothing and is an approximation; `sp.lpoly` is exact.
+
+`sp.gam` uses P-splines, mgcv's `s(x, bs = "ps")`, and picks smoothing
+parameters by REML. The book calls `gam` with mgcv's defaults, a thin
+plate basis and GCV. The curves are close and not identical; `method=
+'gcv'` gives mgcv's criterion, and with `bs = "ps"` on the R side the two
+agree to the digit.
 
 For an AR(1) working correlation R and Stata estimate the parameter with
 different moments. `sp.gee(corstr='ar1')` is Stata's `xtgee, corr(ar 1)`

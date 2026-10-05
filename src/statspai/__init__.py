@@ -996,6 +996,7 @@ from .regression.et_count import etpoisson
 
 # Fractional Response & Beta Regression
 from .regression.fracreg import betareg, fracreg
+from .regression.gam import GAMResult, gam
 from .regression.gee import gee
 from .regression.glm import GLMEstimator, GLMRegression, glm
 
@@ -1867,6 +1868,8 @@ __all__ = [
     "stepwise",
     "lasso_select",
     "best_subset",
+    "gam",
+    "GAMResult",
     "gee",
     "ridge",
     "RidgeResult",
@@ -2628,6 +2631,7 @@ __all__ = [
     "peer_effects",
     "PeerEffectsResult",
     "weighted_conformal_prediction",
+    "conformal_regression",
     "conformal_counterfactual",
     "ConformalCounterfactualResult",
     "conformal_ite_interval",
@@ -3198,6 +3202,7 @@ _register_lazy(
     "conformal_cate",
     "ConformalCATE",
     "weighted_conformal_prediction",
+    "conformal_regression",
     "conformal_counterfactual",
     "ConformalCounterfactualResult",
     "conformal_ite_interval",

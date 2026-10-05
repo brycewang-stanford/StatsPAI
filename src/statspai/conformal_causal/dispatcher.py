@@ -68,6 +68,14 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
         "statspai.conformal_causal.counterfactual",
         "conformal_ite_interval",
     ),
+    "regression": (
+        "statspai.conformal_causal.regression",
+        "conformal_regression",
+    ),
+    "conformal_regression": (
+        "statspai.conformal_causal.regression",
+        "conformal_regression",
+    ),
     "weighted": (
         "statspai.conformal_causal.counterfactual",
         "weighted_conformal_prediction",

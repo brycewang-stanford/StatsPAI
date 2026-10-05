@@ -15,36 +15,39 @@ An Exact and Robust Conformal Inference Method for Counterfactual and
 Synthetic Controls. JASA, 116(536), 1849-1864. [@chernozhukov2021exact]
 """
 
-from .conformal_ite import conformal_cate, ConformalCATE
-from .counterfactual import (
-    weighted_conformal_prediction,
-    conformal_counterfactual,
-    conformal_ite_interval,
-    ConformalCounterfactualResult,
-    ConformalITEResult,
-)
+from .conformal_debiased import DebiasedConformalResult, conformal_debiased_ml
 
 # v0.10 conformal frontier: density / multidp / debiased / fair
-from .conformal_density import conformal_density_ite, ConformalDensityResult
-from .conformal_multidp import conformal_ite_multidp, MultiDPConformalResult
-from .conformal_debiased import conformal_debiased_ml, DebiasedConformalResult
-from .conformal_fair import conformal_fair_ite, FairConformalResult
-
-# v1.0 conformal frontier: continuous-treatment + interference
-from .extended import (
-    conformal_continuous,
-    conformal_interference,
-    ContinuousConformalResult,
-    InterferenceConformalResult,
+from .conformal_density import ConformalDensityResult, conformal_density_ite
+from .conformal_fair import FairConformalResult, conformal_fair_ite
+from .conformal_ite import ConformalCATE, conformal_cate
+from .conformal_multidp import MultiDPConformalResult, conformal_ite_multidp
+from .counterfactual import (
+    ConformalCounterfactualResult,
+    ConformalITEResult,
+    conformal_counterfactual,
+    conformal_ite_interval,
+    weighted_conformal_prediction,
 )
 
 # v1.5 unified dispatcher
-from .dispatcher import conformal, available_kinds as conformal_available_kinds
+from .dispatcher import available_kinds as conformal_available_kinds
+from .dispatcher import conformal
+
+# v1.0 conformal frontier: continuous-treatment + interference
+from .extended import (
+    ContinuousConformalResult,
+    InterferenceConformalResult,
+    conformal_continuous,
+    conformal_interference,
+)
+from .regression import conformal_regression
 
 __all__ = [
     "conformal_cate",
     "ConformalCATE",
     "weighted_conformal_prediction",
+    "conformal_regression",
     "conformal_counterfactual",
     "ConformalCounterfactualResult",
     "conformal_ite_interval",

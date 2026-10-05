@@ -50,6 +50,51 @@ from ._optim_helpers import (
     se_from_vcov,
 )
 
+
+class _FittedArraysDict(Dict[str, Any]):
+    """``diagnostics`` of the zero-inflated and hurdle fits.
+
+    Through 1.38 it also held three vectors of fitted values, one entry
+    per observation, which every summary, JSON export and agent payload
+    then carried along. They live in ``data_info`` now. The old keys still
+    answer here, with a ``DeprecationWarning``, but are no longer listed
+    when the dictionary is iterated or printed.
+    """
+
+    def __init__(self, scalars: Dict[str, Any], arrays: Dict[str, Any]):
+        super().__init__(scalars)
+        self._arrays = dict(arrays)
+
+    def _legacy(self, key: Any) -> Any:
+        import warnings
+
+        warnings.warn(
+            f"diagnostics[{key!r}] is deprecated and will be removed in "
+            f"StatsPAI 1.41; read data_info[{key!r}] instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return self._arrays[key]
+
+    def __missing__(self, key: Any) -> Any:
+        if key in self._arrays:
+            return self._legacy(key)
+        raise KeyError(key)
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        if dict.__contains__(self, key):
+            return dict.__getitem__(self, key)
+        if key in self._arrays:
+            return self._legacy(key)
+        return default
+
+    def __contains__(self, key: object) -> bool:
+        return dict.__contains__(self, key) or key in self._arrays
+
+    def __reduce__(self) -> Any:
+        return (_FittedArraysDict, (dict(self), self._arrays))
+
+
 # ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
@@ -494,20 +539,26 @@ def zip_model(
         "inflate_names": inflate_names,
     }
 
-    diagnostics = {
+    fitted_arrays = {
         "predicted_structural_zero": pred_structural_zero,
         "predicted_count": pred_count,
         "predicted_overall": pred_overall,
-        "vuong_stat": vuong["vuong_stat"],
-        "vuong_p": vuong["vuong_p"],
-        "ll": ll_zip,
-        "aic": model_info["aic"],
-        "bic": model_info["bic"],
-        # the same three under the names the other count models use
-        "Log-Likelihood": ll_zip,
-        "AIC": model_info["aic"],
-        "BIC": model_info["bic"],
     }
+    data_info.update(fitted_arrays)
+    diagnostics = _FittedArraysDict(
+        {
+            "vuong_stat": vuong["vuong_stat"],
+            "vuong_p": vuong["vuong_p"],
+            "ll": ll_zip,
+            "aic": model_info["aic"],
+            "bic": model_info["bic"],
+            # the same three under the names the other count models use
+            "Log-Likelihood": ll_zip,
+            "AIC": model_info["aic"],
+            "BIC": model_info["bic"],
+        },
+        fitted_arrays,
+    )
 
     model_info["alpha"] = alpha
     return EconometricResults(
@@ -830,21 +881,27 @@ def zinb(
         "inflate_names": inflate_names,
     }
 
-    diagnostics = {
+    fitted_arrays = {
         "predicted_structural_zero": pred_structural_zero,
         "predicted_count": pred_count,
         "predicted_overall": pred_overall,
-        "alpha_dispersion": float(alpha_hat),
-        "vuong_stat": vuong["vuong_stat"],
-        "vuong_p": vuong["vuong_p"],
-        "ll": ll_zinb,
-        "aic": model_info["aic"],
-        "bic": model_info["bic"],
-        # the same three under the names the other count models use
-        "Log-Likelihood": ll_zinb,
-        "AIC": model_info["aic"],
-        "BIC": model_info["bic"],
     }
+    data_info.update(fitted_arrays)
+    diagnostics = _FittedArraysDict(
+        {
+            "alpha_dispersion": float(alpha_hat),
+            "vuong_stat": vuong["vuong_stat"],
+            "vuong_p": vuong["vuong_p"],
+            "ll": ll_zinb,
+            "aic": model_info["aic"],
+            "bic": model_info["bic"],
+            # the same three under the names the other count models use
+            "Log-Likelihood": ll_zinb,
+            "AIC": model_info["aic"],
+            "BIC": model_info["bic"],
+        },
+        fitted_arrays,
+    )
 
     model_info["alpha"] = alpha
     return EconometricResults(
@@ -1166,18 +1223,24 @@ def hurdle(
         "count_names": count_names_from_vars(var_names),
     }
 
-    diagnostics = {
+    fitted_arrays = {
         "predicted_hurdle_prob": pred_hurdle_prob,
         "predicted_count_mean": mu_hat,
         "predicted_overall": pred_overall,
-        "ll": ll_hurdle,
-        "aic": model_info["aic"],
-        "bic": model_info["bic"],
-        # the same three under the names the other count models use
-        "Log-Likelihood": ll_hurdle,
-        "AIC": model_info["aic"],
-        "BIC": model_info["bic"],
     }
+    data_info.update(fitted_arrays)
+    diagnostics = _FittedArraysDict(
+        {
+            "ll": ll_hurdle,
+            "aic": model_info["aic"],
+            "bic": model_info["bic"],
+            # the same three under the names the other count models use
+            "Log-Likelihood": ll_hurdle,
+            "AIC": model_info["aic"],
+            "BIC": model_info["bic"],
+        },
+        fitted_arrays,
+    )
     if use_negbin:
         assert alpha_hat is not None
         diagnostics["alpha_dispersion"] = float(alpha_hat)

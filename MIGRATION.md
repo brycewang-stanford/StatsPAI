@@ -198,6 +198,21 @@ model-based standard errors, or fits with `ties='breslow'`.
 standard errors on data with ties. There is no switch for the old numbers;
 they did not correspond to either tie rule.
 
+## 1.38.0 → next: fitted values of zero-inflated models moved from `diagnostics` to `data_info`
+
+`sp.zip_model`, `sp.zinb` and `sp.hurdle` stored one fitted value per
+observation, three times over, in `result.diagnostics`, so every summary
+and JSON export of the fit carried them.
+
+```python
+fit.diagnostics["predicted_overall"]   # still works, DeprecationWarning; removed in 1.41
+fit.data_info["predicted_overall"]     # where it lives now
+```
+
+`for key in fit.diagnostics` and `fit.diagnostics.items()` no longer
+return those keys. Scalars (`ll`, `aic`, `bic`, `vuong_stat`, ...) are
+unchanged, and `Log-Likelihood`, `AIC`, `BIC` are added.
+
 ## 1.38.0 → next: `sp.kaplan_meier` asks for `conf_type`; the default changes in 1.40
 
 `sp.kaplan_meier` builds its confidence interval as `S(t) +/- z se`, cut

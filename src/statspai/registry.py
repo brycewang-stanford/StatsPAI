@@ -9276,6 +9276,181 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="gam",
+            category="regression",
+            description=(
+                "Generalized additive model: g(E[y]) = linear terms + smooth "
+                "functions s(x) of numeric columns, each a penalised cubic "
+                "B-spline (P-spline) with its own smoothing parameter chosen "
+                "by REML (default) or GCV / UBRE. Same basis, penalty and "
+                "criteria as R mgcv::gam with s(x, bs='ps'). Returns "
+                "parametric coefficients with standard errors, the effective "
+                "degrees of freedom of each curve, partial(term) for the "
+                "estimated functions with bands, predict() and plot()."
+            ),
+            params=[
+                ParamSpec(
+                    "formula",
+                    "str",
+                    True,
+                    description="e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; "
+                    "s(x) marks a smooth of one numeric column",
+                ),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    "gaussian",
+                    "Response family",
+                    ["gaussian", "binomial", "poisson", "gamma"],
+                ),
+                ParamSpec("link", "str", False, None, "Link; canonical if omitted"),
+                ParamSpec(
+                    "k",
+                    "int",
+                    False,
+                    10,
+                    "Basis functions per smooth unless the term sets k=",
+                ),
+                ParamSpec(
+                    "lambda_",
+                    "float | list",
+                    False,
+                    None,
+                    "Fixed smoothing parameter(s), one per smooth; chosen by "
+                    "method when omitted",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "reml",
+                    "Smoothing-parameter selection; 'gcv' is mgcv's default " "GCV.Cp",
+                    ["reml", "gcv"],
+                ),
+                ParamSpec(
+                    "gamma",
+                    "float",
+                    False,
+                    1.0,
+                    "Under method='gcv', factor on the degrees of freedom "
+                    "(1.4 asks for smoother curves)",
+                ),
+                ParamSpec("maxiter", "int", False, 100),
+                ParamSpec("tol", "float", False, 1e-9),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="GAMResult",
+            example='sp.gam("logwk ~ s(educ) + s(exper) + black", df)',
+            tags=["regression", "nonparametric", "smoothing", "glm", "splines"],
+            reference="wood2017generalized",
+            assumptions=[
+                "The predictor is additive: each smoothed variable enters "
+                "through its own function, with no interaction between them",
+                "Each function is smooth (no jumps or kinks)",
+                "Independent observations with the stated family",
+            ],
+            pre_conditions=[
+                "Each smoothed column is numeric with at least k distinct values",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="A smooth uses nearly all of its k - 1 degrees of "
+                    "freedom",
+                    exception="UserWarning",
+                    remedy="Raise k for that term; if it persists under "
+                    "method='gcv', the criterion is undersmoothing: use "
+                    "method='reml' or gamma=1.4.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="Fewer distinct values than basis functions",
+                    exception="DataInsufficient",
+                    remedy="Lower k, or enter the variable as a factor.",
+                    alternative="",
+                ),
+            ],
+            not_recommended_when=[
+                "The target is a treatment effect with many controls — the "
+                "standard error of a linear term does not account for the "
+                "choice of smoothing parameters; use sp.dml",
+                "The regression function has a jump at a known point — use "
+                "sp.rdrobust",
+                "Clustered or panel data — standard errors assume " "independence",
+            ],
+            alternatives=["glm", "lpoly", "regress", "dml"],
+            typical_n_min=100,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="conformal_regression",
+            category="regression",
+            description=(
+                "Distribution-free prediction intervals for a least-squares "
+                "regression: split conformal, jackknife+ or exact full "
+                "conformal. Each covers a new exchangeable outcome with "
+                "probability at least 1 - alpha (1 - 2 alpha worst case for "
+                "jackknife+) without assuming normal or homoskedastic errors "
+                "or a correct mean. All three are computed without refitting "
+                "in a loop. Without newdata, every row is predicted from the "
+                "others."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="e.g. 'y ~ x1 + x2'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "newdata",
+                    "DataFrame",
+                    False,
+                    None,
+                    "Rows to predict; each training row from the others when "
+                    "omitted",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "jackknife+",
+                    "Construction of the interval",
+                    ["jackknife+", "split", "full"],
+                ),
+                ParamSpec("alpha", "float", False, 0.1, "1 - target coverage"),
+                ParamSpec(
+                    "train_frac", "float", False, 0.5, "Fitting share (split only)"
+                ),
+                ParamSpec("seed", "int", False, None, "Seed of the split"),
+            ],
+            returns="DataFrame",
+            example='sp.conformal_regression("y ~ x1 + x2", df, new, alpha=0.1)',
+            tags=["prediction", "conformal", "regression", "intervals"],
+            reference="lei2018distribution",
+            assumptions=[
+                "The new observation is exchangeable with the sample (in "
+                "particular, independent draws from one population)",
+            ],
+            not_recommended_when=[
+                "Time series or a new cluster of a clustered sample — "
+                "exchangeability fails",
+                "An interval for a mean, a coefficient or a treatment effect "
+                "is wanted — this covers an individual outcome; see "
+                "sp.conformal('cate', ...) for effects",
+                "Coverage is needed at each value of the regressors — the "
+                "guarantee is on average over new points",
+            ],
+            cost_profile=(
+                "split and jackknife+ are one least-squares fit; full grows "
+                "with n squared per new point (about 3 s for 600 points "
+                "predicted in sample)."
+            ),
+            alternatives=["regress", "conformal", "weighted_conformal_prediction"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="ridge",
             category="regression",
             description=(

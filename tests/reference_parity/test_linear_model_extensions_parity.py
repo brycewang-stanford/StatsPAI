@@ -707,6 +707,268 @@ def test_zero_inflated_fits_name_their_likelihood_like_the_rest(df):
         assert diag["AIC"] == diag["aic"] and diag["BIC"] == diag["bic"]
 
 
+# ---------------------------------------------------------------- GAM
+
+GAM_RHS = "s(x1, k=10) + s(x3, k=8) + treat"
+
+
+@pytest.mark.parametrize(
+    "key,dep,family",
+    [
+        ("gaussian_fixed", "ly", "gaussian"),
+        ("binomial_fixed", "d", "binomial"),
+        ("poisson_fixed", "c", "poisson"),
+    ],
+)
+def test_gam_at_given_smoothing_parameters_matches_mgcv(df, R, key, dep, family):
+    ref = R["gam"][key]
+    # mgcv applies its sp to the difference penalty divided by S.scale
+    lam = np.asarray(ref["sp"]) / np.asarray(ref["s_scale"])
+    fit = sp.gam(
+        f"{dep} ~ {GAM_RHS}", df, family=family, lambda_=lam, method="gcv", tol=1e-13
+    )
+    close(fit.params, ref["par"], EXACT)
+    close(fit.std_errors, ref["par_se"], EXACT)
+    close(fit.smooth_terms["edf"], ref["edf"], EXACT)
+    close(fit.gcv, ref["score"], EXACT)
+    close(fit.scale, ref["scale"], EXACT)
+    close(fit.deviance, ref["deviance"], EXACT)
+    close(fit.fitted_values, ref["fitted"], EXACT)
+    new = df.iloc[[i - 1 for i in R["gam"]["new_rows"]]]
+    pred = fit.predict(new, what="confidence")
+    close(pred["yhat"], ref["pred"], EXACT)
+    close(pred["se"], ref["pred_se"], 1e-8)
+    curve = fit.partial("s(x1)", grid=new["x1"].to_numpy())
+    close(curve["fit"], ref["term_x1"], 1e-8)
+    close(curve["se"], ref["term_x1_se"], 1e-8)
+
+
+def test_gam_criteria_are_mgcvs(df, R):
+    ref = R["gam"]["criteria"]
+    scale = np.asarray(R["gam"]["gaussian_fixed"]["s_scale"])
+
+    def score(dep, sp_, **kw):
+        return sp.gam(
+            f"{dep} ~ {GAM_RHS}", df, lambda_=np.asarray(sp_) / scale, tol=1e-13, **kw
+        ).gcv
+
+    # REML is defined up to a constant: compare the change between two fits
+    ours = score("ly", [20, 0.5]) - score("ly", [2, 5])
+    assert ours == pytest.approx(
+        ref["reml_gaussian"][1] - ref["reml_gaussian"][0], abs=1e-8
+    )
+    ours = score("c", [20, 0.5], family="poisson") - score(
+        "c", [2, 5], family="poisson"
+    )
+    assert ours == pytest.approx(
+        ref["reml_poisson"][1] - ref["reml_poisson"][0], abs=1e-8
+    )
+    assert score("ly", [2, 5], method="gcv", gamma=1.4) == pytest.approx(
+        ref["gcv_gamma"], rel=EXACT
+    )
+    assert score(
+        "c", [1, 10], family="poisson", method="gcv", gamma=1.4
+    ) == pytest.approx(ref["ubre_gamma"], rel=EXACT)
+
+
+@pytest.mark.parametrize(
+    "key,formula,kw",
+    [
+        ("reml", "nl ~ s(x1, k=12) + s(x3, k=10) + treat", {}),
+        ("gcv", "nl ~ s(x1, k=12) + s(x3, k=10) + treat", {"method": "gcv"}),
+        ("poisson_reml", "cn ~ s(x1, k=12) + treat", {"family": "poisson"}),
+    ],
+)
+def test_gam_selected_smoothing_parameters_match_mgcv(df, R, key, formula, kw):
+    ref = R["gam"]["selected"][key]
+    data = df.assign(
+        nl=df["ly"] + np.sin(2 * df["x1"]) + 0.3 * df["x3"] ** 2,
+        cn=np.round(np.exp(0.3 + 0.8 * np.sin(2 * df["x1"])) * (1 + df["c"])).astype(
+            int
+        ),
+    )
+    fit = sp.gam(formula, data, **kw)
+    # two optimisers on a smooth criterion: the optimum to 1e-4 in lambda,
+    # which moves the fit in the sixth digit
+    close(fit.smooth_terms["lambda"] * 16.0, ref["sp"], 1e-4)
+    close(fit.smooth_terms["edf"], ref["edf"], 1e-5)
+    close(fit.params, ref["par"], 1e-5)
+    close(fit.fitted_values, ref["fitted"], 1e-5)
+    if "family" not in kw:
+        close(fit.scale, ref["scale"], 1e-6)
+
+
+def test_gam_recovers_a_curve_and_a_linear_effect():
+    rng = np.random.default_rng(4)
+    n = 800
+    x = rng.uniform(0, 1, n)
+    z = rng.normal(size=n)
+    d = rng.integers(0, 2, n)
+    data = pd.DataFrame({"x": x, "z": z, "d": d})
+    data["y"] = 0.5 * d + np.sin(2 * np.pi * x) + 0.4 * z + rng.normal(0, 0.3, n)
+    fit = sp.gam("y ~ d + s(x) + s(z)", data)
+    assert fit.params["d"] == pytest.approx(0.5, abs=4 * fit.std_errors["d"])
+    edf = fit.smooth_terms.set_index("term")["edf"]
+    assert edf["s(x)"] > 4 and edf["s(z)"] < 1.5  # a wave and a straight line
+    grid = np.linspace(0.05, 0.95, 19)
+    curve = fit.partial("x", grid=grid)
+    truth = np.sin(2 * np.pi * grid)
+    assert np.max(np.abs(curve["fit"] - (truth - np.sin(2 * np.pi * x).mean()))) < 0.12
+    inside = (curve["lower"] - 0.05 <= truth - np.sin(2 * np.pi * x).mean()) & (
+        truth - np.sin(2 * np.pi * x).mean() <= curve["upper"] + 0.05
+    )
+    assert inside.mean() > 0.85
+    # in-sample predictions are the fitted values; pickling keeps predict
+    import pickle
+
+    again = pickle.loads(pickle.dumps(fit))
+    close(again.predict(data), fit.fitted_values, 1e-10)
+
+
+def test_gam_limits_and_refusals(df):
+    # a huge penalty leaves a straight line: the GLM with linear terms
+    lin = sp.gam("ly ~ s(x1) + treat", df, lambda_=1e12)
+    ols = sp.regress("ly ~ x1 + treat", df)
+    close(lin.fitted_values, ols.predict(df), 1e-6)
+    assert lin.smooth_terms["edf"].iloc[0] == pytest.approx(1.0, abs=1e-6)
+    with pytest.raises(sp.MethodIncompatibility, match="no s\\(\\) term"):
+        sp.gam("ly ~ x1", df)
+    with pytest.raises(sp.MethodIncompatibility, match="only"):
+        sp.gam("ly ~ s(x1, bs='tp')", df)
+    with pytest.raises(sp.DataInsufficient, match="distinct values"):
+        sp.gam("ly ~ s(x4)", df)
+    with pytest.raises(sp.MethodIncompatibility, match="intercept"):
+        sp.gam("ly ~ 0 + s(x1)", df)
+    with pytest.raises(sp.MethodIncompatibility, match="method"):
+        sp.gam("ly ~ s(x1)", df, method="aic")
+    with pytest.warns(UserWarning, match="basis may be too small"):
+        sp.gam("ly ~ s(x1, k=6)", df, lambda_=1e-9)
+
+
+# ---------------------------------------------------------------- conformal
+
+
+@pytest.fixture(scope="module")
+def heavy():
+    rng = np.random.default_rng(12)
+    n = 150
+    data = pd.DataFrame({"x": rng.normal(size=n), "z": rng.normal(size=n)})
+    data["y"] = 1 + data["x"] - 0.5 * data["z"] + rng.standard_t(3, size=n)
+    return data
+
+
+def test_full_conformal_interval_is_the_exact_set(heavy):
+    # brute force: refit with every candidate outcome on a fine grid
+    X = np.column_stack([np.ones(len(heavy)), heavy["x"], heavy["z"]])
+    y = heavy["y"].to_numpy()
+    n = len(y)
+    new = pd.DataFrame({"x": [0.0, 2.0], "z": [0.0, -1.5]})
+    out = sp.conformal_regression("y ~ x + z", heavy, new, method="full", alpha=0.1)
+    step = 0.005
+    grid = np.arange(-12.0, 12.0, step)
+    for j in range(2):
+        x0 = np.array([1.0, new["x"][j], new["z"][j]])
+        Xa = np.vstack([X, x0])
+        resid_maker = np.eye(n + 1) - Xa @ np.linalg.solve(Xa.T @ Xa, Xa.T)
+        keep = []
+        for g in grid:
+            r = np.abs(resid_maker @ np.append(y, g))
+            keep.append((np.sum(r[:-1] >= r[-1]) + 1) > 0.1 * (n + 1))
+        kept = grid[np.asarray(keep)]
+        assert out["lower"][j] == pytest.approx(kept.min(), abs=step)
+        assert out["upper"][j] == pytest.approx(kept.max(), abs=step)
+
+
+def test_jackknife_plus_equals_leave_one_out_refits(heavy):
+    X = np.column_stack([np.ones(len(heavy)), heavy["x"], heavy["z"]])
+    y = heavy["y"].to_numpy()
+    n = len(y)
+    new = pd.DataFrame({"x": [0.3], "z": [1.0]})
+    out = sp.conformal_regression("y ~ x + z", heavy, new, alpha=0.2)
+    x0 = np.array([1.0, 0.3, 1.0])
+    lo, hi = [], []
+    for i in range(n):
+        rest = np.arange(n) != i
+        b = np.linalg.lstsq(X[rest], y[rest], rcond=None)[0]
+        r = abs(y[i] - X[i] @ b)
+        lo.append(x0 @ b - r)
+        hi.append(x0 @ b + r)
+    assert out["lower"][0] == pytest.approx(
+        np.sort(lo)[int(np.floor(0.2 * (n + 1))) - 1]
+    )
+    assert out["upper"][0] == pytest.approx(
+        np.sort(hi)[int(np.ceil(0.8 * (n + 1))) - 1]
+    )
+    assert out["yhat"][0] == pytest.approx(x0 @ np.linalg.lstsq(X, y, rcond=None)[0])
+
+
+def test_conformal_intervals_cover_where_the_normal_one_need_not():
+    # skewed, heteroskedastic errors; each row predicted from the others
+    rng = np.random.default_rng(21)
+    n = 700
+    x = rng.uniform(0, 3, n)
+    data = pd.DataFrame(
+        {"x": x, "y": 1 + x + (0.3 + x) * (rng.exponential(size=n) - 1)}
+    )
+    for method in ("split", "jackknife+", "full"):
+        out = sp.conformal_regression("y ~ x", data, method=method, alpha=0.1, seed=3)
+        covered = ((data["y"] >= out["lower"]) & (data["y"] <= out["upper"])).mean()
+        # binomial(700, 0.9) has standard deviation 0.011
+        assert 0.865 <= covered <= 0.94, (method, covered)
+        assert out.attrs["method"] == method and out.attrs["alpha"] == 0.1
+
+
+def test_conformal_regression_small_samples_and_refusals(heavy):
+    tiny = heavy.head(12)
+    out = sp.conformal_regression(
+        "y ~ x", tiny, tiny.head(2), method="jackknife+", alpha=0.05
+    )
+    assert np.isinf(out["upper"]).all() and np.isinf(out["lower"]).all()
+    via = sp.conformal("regression", formula="y ~ x", data=heavy, newdata=heavy.head(3))
+    pd.testing.assert_frame_equal(
+        via, sp.conformal_regression("y ~ x", heavy, heavy.head(3))
+    )
+    with pytest.raises(sp.MethodIncompatibility, match="method"):
+        sp.conformal_regression("y ~ x", heavy, method="cv+")
+    with pytest.raises(sp.MethodIncompatibility, match="alpha"):
+        sp.conformal_regression("y ~ x", heavy, alpha=1.5)
+
+
+# ---------------------------------------------------------------- stepwise
+
+
+def test_stepwise_from_either_end_matches_r_step(df, R):
+    cand = ["x1", "x2", "x3", "x4", "x5", "x6", "treat"]
+    kw = dict(criterion="bic", verbose=False)
+    full = sp.stepwise(df, "y", cand, method="both", start="full", **kw)
+    empty = sp.stepwise(df, "y", cand, method="both", **kw)
+    assert sorted(full.selected) == sorted(R["step"]["from_full"])
+    assert sorted(empty.selected) == sorted(R["step"]["from_empty"])
+    back = sp.stepwise(df, "y", cand, method="backward", **kw)
+    assert sorted(back.selected) == sorted(
+        sp.stepwise(df, "y", cand, method="backward", start="full", **kw).selected
+    )
+    with pytest.raises(sp.MethodIncompatibility, match="cannot move"):
+        sp.stepwise(df, "y", cand, method="forward", start="full", **kw)
+
+
+def test_zero_inflated_fitted_vectors_moved_out_of_diagnostics(df):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.zip_model("c ~ x1 + treat", df)
+    assert "predicted_overall" not in list(fit.diagnostics)
+    assert all(np.ndim(v) == 0 for v in fit.diagnostics.values())
+    assert len(fit.data_info["predicted_overall"]) == len(df)
+    with pytest.warns(DeprecationWarning, match="data_info"):
+        old = fit.diagnostics["predicted_overall"]
+    close(old, fit.data_info["predicted_overall"], 1e-12)
+    import pickle
+
+    again = pickle.loads(pickle.dumps(fit))
+    with pytest.warns(DeprecationWarning):
+        assert len(again.diagnostics.get("predicted_count")) == len(df)
+
+
 # ---------------------------------------------------------------- sp.stata
 
 

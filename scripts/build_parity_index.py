@@ -369,6 +369,29 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "against gee's AR-M."
         ),
     },
+    "gam": {
+        "status": "bit-exact",
+        "reference": "mgcv::gam with s(x, bs = 'ps'), methods GCV.Cp and REML",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "mgcv": "1.9.3",
+        },
+        "tolerance": "at given smoothing parameters, Gaussian, binomial and "
+        "Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and "
+        "fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; "
+        "selected smoothing parameters 1e-4 rel, the resulting fit 1e-5",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_linear_model_extensions_parity.py",
+            "tests/reference_parity/_fixtures/linear_model_extensions_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on the committed synthetic file. mgcv applies "
+            "its sp to the difference penalty divided by S.scale; the test "
+            "converts. REML scores are compared through the change between "
+            "two parameter values, since they are defined up to a constant."
+        ),
+    },
     "ridge": {
         "status": "bit-exact",
         "reference": "MASS::lm.ridge",

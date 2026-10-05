@@ -186,29 +186,73 @@ Bryce asked for the open decisions to be made and the work continued.
 - The Cook (1977) line in `diagnostics/estat.py` cites its own, verified
   entry (`cook1977detection`).
 
+## Third round: the rest of the list
+
+Bryce asked for what was left to be finished.
+
+- **`sp.gam`** (chapter 16). Additive models with penalised cubic
+  B-splines, one smoothing parameter per term, for Gaussian, binomial,
+  Poisson and gamma responses. The basis, penalty, constraint and
+  selection criteria are those of `mgcv::gam` with `s(x, bs = "ps")`, which
+  makes it testable to the digit. At given smoothing parameters the
+  coefficients, standard errors, effective degrees of freedom, criterion,
+  predictions and term-wise curves match mgcv to 1e-9 in all three
+  families. The selected parameters match to 1e-4 under both REML and
+  GCV on curved outcomes. mgcv was used as a black box (`smoothCon` for
+  the knots and penalty, `S.scale` for its rescaling); its source was not
+  read.
+
+  Two things came out of the comparison. First, the default. On the
+  committed file, where every true effect is linear, GCV gives the first
+  smooth 8.6 of its 9 degrees of freedom and UBRE does the same to the
+  Poisson model; REML returns a straight line in both. mgcv's default is
+  still `GCV.Cp` and its author's advice is REML, so `sp.gam` defaults to
+  `method='reml'`; `method='gcv'` (with `gamma=`) reproduces mgcv's
+  default. Second, the Poisson UBRE surface has two local minima. mgcv
+  stops at 0.4320 and the grid-then-polish search here at 0.4295, the
+  lower one, which mgcv confirms when handed those parameters. Where the
+  two programs disagree on a GCV / UBRE choice, compare the criterion, not
+  the curve.
+
+  The solves go through the QR factor of the design stacked on the root of
+  the penalty. With the normal equations a smooth pushed to a straight
+  line (penalty of order 1e13) lost five digits.
+- **`sp.conformal_regression`** (chapter 12). Split conformal, jackknife+
+  and exact full conformal intervals for least squares, none of them by
+  refitting in a loop. The full-conformal set is found exactly: with the
+  new point appended, residuals are linear in its candidate outcome, so
+  the set changes only at 2n crossings. It agrees with a brute-force grid
+  to the grid step, the jackknife+ with n refits to 1e-12, and all three
+  cover 90% on skewed heteroskedastic errors. `sp.conformal("regression",
+  ...)` reaches it through the dispatcher.
+- **`sp.stepwise(start=)`**. `method='both', start='full'` begins from the
+  model with every candidate, as R's `step()` does. On Boston with BIC it
+  reaches the best-subset optimum where the default start stops 8 points
+  short. Both starts select what `step()` selects on the committed file.
+- **Zero-inflated diagnostics.** The three n-length vectors of fitted
+  values that `sp.zip_model`, `sp.zinb` and `sp.hurdle` kept in
+  `diagnostics` are in `data_info`. The old keys still answer, with a
+  `DeprecationWarning`, and are no longer listed when the dictionary is
+  printed or exported. They go in 1.41.
+
 ## Open items
 
-- **Generalized additive models** (chapter 16, `mgcv::gam`). Not
-  implemented; see above.
-- **`sp.zip_model` and `sp.zinb` keep n-length arrays in `diagnostics`.**
-  Moving them would break code that reads them.
-- **`sp.stepwise(method='both')` starts from the empty model** and can stop
-  short of what backward elimination finds (Boston, BIC). `sp.best_subset`
-  is the exact answer when the candidates are few.
-- **Conformal prediction intervals for regression** (chapter 12). The
-  `sp.conformal` family targets treatment effects; there is no plain
-  regression version.
+- **`sp.gam`** has univariate P-spline smooths only: no tensor products or
+  smooths of two variables, no thin plate basis, no random-effect terms,
+  and independence-based standard errors. Its bands are pointwise.
+- **`sp.kaplan_meier`**: flip the default interval to `'log-log'` in 1.40.
+- **Zero-inflated `diagnostics`**: remove the deprecated keys in 1.41.
 
 ## Evidence
 
-- `tests/reference_parity/test_linear_model_extensions_parity.py`: 73
+- `tests/reference_parity/test_linear_model_extensions_parity.py`: 88
   tests on the committed synthetic file. R (`sandwich`, `MASS`, `leaps`,
   `gee`, `quantreg`, `survival`) to 1e-9 on closed forms and convex
   problems; Stata 18 (`xtgee`, `boxcox`, `stcox`, `sts`) to 1e-6, its own
   convergence tolerance. Also known-truth checks, brute-force checks of the
   subset search, and refits for the leave-one-out quantities.
 - `tests/external_parity/test_ding_linear_model.py`: the book chapter by
-  chapter, 36 tests, skipped without the data.
+  chapter, 38 tests, skipped without the data.
 
 Rerun:
 

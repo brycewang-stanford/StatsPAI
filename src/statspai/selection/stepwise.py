@@ -312,6 +312,7 @@ def stepwise(
     alpha_in: float = 0.05,
     alpha_out: float = 0.10,
     verbose: bool = True,
+    start: Optional[Literal["empty", "full"]] = None,
 ) -> SelectionResult:
     """Stepwise variable selection for OLS regression.
 
@@ -333,6 +334,15 @@ def stepwise(
         p-value threshold for variable removal (when ``criterion="pvalue"``).
     verbose : bool
         Print step-by-step progress.
+    start : {"empty", "full"}, optional
+        The model the search starts from. By default ``"forward"`` and
+        ``"both"`` start from the intercept-only model and ``"backward"``
+        from the model with every candidate. ``method="both",
+        start="full"`` is what R's ``step()`` does when handed the full
+        model: it can add and drop at every step but begins by dropping.
+        A greedy search stops at the first model no single move improves,
+        so the two starting points can end in different places; when the
+        candidates are few, ``sp.best_subset`` gives the exact answer.
 
     Returns
     -------
@@ -394,10 +404,20 @@ def stepwise(
         return float(st[criterion])
 
     # Initialise
-    if method == "backward":
-        included = list(candidates)
-    else:
-        included = []
+    if start is None:
+        start = "full" if method == "backward" else "empty"
+    if start not in ("empty", "full"):
+        raise MethodIncompatibility(
+            f"stepwise: start={start!r} is not 'empty' or 'full'.",
+            diagnostics={"start": start},
+        )
+    if (method, start) in (("forward", "full"), ("backward", "empty")):
+        raise MethodIncompatibility(
+            f"stepwise: method={method!r} cannot move from the {start} model.",
+            recovery_hint="Use method='both' to start from either end.",
+            diagnostics={"method": method, "start": start},
+        )
+    included = list(candidates) if start == "full" else []
 
     history_rows: List[Dict[str, Any]] = []
     step = 0

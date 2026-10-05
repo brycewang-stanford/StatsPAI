@@ -7,7 +7,7 @@
 #   Rscript tests/reference_parity/_fixtures/_generate_linear_model_extensions_R.R
 suppressMessages({
   library(sandwich); library(MASS); library(leaps); library(gee)
-  library(quantreg); library(survival); library(jsonlite)
+  library(quantreg); library(survival); library(jsonlite); library(mgcv)
 })
 here = dirname(sub("--file=", "", grep("--file=", commandArgs(FALSE), value = TRUE)))
 d = read.csv(file.path(here, "linear_model_extensions.csv"))
@@ -16,6 +16,7 @@ tight = glm.control(epsilon = 1e-14, maxit = 200)
 out = list(versions = list(R = R.version.string, sandwich = as.character(packageVersion("sandwich")),
   MASS = as.character(packageVersion("MASS")), leaps = as.character(packageVersion("leaps")),
   gee = as.character(packageVersion("gee")), quantreg = as.character(packageVersion("quantreg")),
+  mgcv = as.character(packageVersion("mgcv")),
   survival = as.character(packageVersion("survival"))))
 
 ## OLS: HC4, influence, regression through the origin
@@ -97,6 +98,59 @@ out$cox_tests = list(lr = unname(sc$logtest[1]), score = unname(sc$sctest[1]),
 gl = glm(d ~ x1 + x2 + x4 + treat, family = binomial, data = d, control = tight)
 pr = predict(gl, newdata = d[1:8, ], type = "response", se.fit = TRUE)
 out$logit_predict = list(fit = unname(pr$fit), se = unname(pr$se.fit))
+
+## stepwise from both ends (BIC), as step() runs it
+big = lm(f, data = d)
+out$step = list(
+  from_full = names(coef(step(big, direction = "both", k = log(nrow(d)), trace = 0)))[-1],
+  from_empty = names(coef(step(lm(y ~ 1, data = d), scope = f, direction = "both", k = log(nrow(d)), trace = 0)))[-1])
+
+## generalized additive models with P-splines (mgcv, method GCV.Cp)
+gam_key = function(m, new, sp = NULL) {
+  st = summary(m); pr = predict(m, newdata = new, type = "response", se.fit = TRUE)
+  tm = predict(m, newdata = new, type = "terms", se.fit = TRUE)
+  list(par = unname(st$p.coeff), par_se = unname(st$se[seq_along(st$p.coeff)]), edf = unname(st$s.table[, 1]),
+       sp = if (is.null(sp)) unname(m$sp) else sp, s_scale = unname(sapply(m$smooth, function(s) s$S.scale)),
+       score = unname(m$gcv.ubre), scale = m$sig2, deviance = deviance(m), fitted = unname(fitted(m)),
+       pred = unname(pr$fit), pred_se = unname(pr$se.fit),
+       term_x1 = unname(tm$fit[, "s(x1)"]), term_x1_se = unname(tm$se.fit[, "s(x1)"]))
+}
+new = d[c(1, 50, 100, 200, 300, 400), ]
+fg = ly ~ s(x1, bs = "ps", k = 10) + s(x3, bs = "ps", k = 8) + treat
+out$gam = list(
+  gaussian_fixed = gam_key(gam(fg, data = d, sp = c(2, 5)), new, c(2, 5)),
+  gaussian_gcv = gam_key(gam(fg, data = d, method = "GCV.Cp", control = gam.control(epsilon = 1e-12)), new),
+  binomial_fixed = gam_key(gam(d ~ s(x1, bs = "ps", k = 10) + s(x3, bs = "ps", k = 8) + treat, family = binomial,
+                               data = d, sp = c(3, 40), control = gam.control(epsilon = 1e-13)), new, c(3, 40)),
+  poisson_fixed = gam_key(gam(c ~ s(x1, bs = "ps", k = 10) + s(x3, bs = "ps", k = 8) + treat, family = poisson,
+                              data = d, sp = c(1, 10), control = gam.control(epsilon = 1e-13)), new, c(1, 10)),
+  poisson_ubre = gam_key(gam(c ~ s(x1, bs = "ps", k = 10) + s(x3, bs = "ps", k = 8) + treat, family = poisson,
+                             data = d, method = "GCV.Cp", control = gam.control(epsilon = 1e-12)), new),
+  new_rows = c(1, 50, 100, 200, 300, 400))
+## the criteria themselves, at given smoothing parameters: REML scores are
+## defined up to a constant, so two of them are stored and compared by
+## their difference; gamma inflates the degrees of freedom in GCV / UBRE
+fpz = c ~ s(x1, bs = "ps", k = 10) + s(x3, bs = "ps", k = 8) + treat
+tightg = gam.control(epsilon = 1e-13)
+out$gam$criteria = list(
+  reml_gaussian = c(gam(fg, data = d, sp = c(2, 5), method = "REML")$gcv.ubre,
+                    gam(fg, data = d, sp = c(20, 0.5), method = "REML")$gcv.ubre),
+  reml_poisson = c(gam(fpz, data = d, sp = c(2, 5), family = poisson, method = "REML", control = tightg)$gcv.ubre,
+                   gam(fpz, data = d, sp = c(20, 0.5), family = poisson, method = "REML", control = tightg)$gcv.ubre),
+  gcv_gamma = gam(fg, data = d, sp = c(2, 5), gamma = 1.4)$gcv.ubre,
+  ubre_gamma = gam(fpz, data = d, sp = c(1, 10), family = poisson, gamma = 1.4, control = tightg)$gcv.ubre)
+## curved outcomes built from the committed columns, so that the selected
+## smoothing parameters are interior
+d$nl = d$ly + sin(2 * d$x1) + 0.3 * d$x3^2
+d$cn = as.integer(round(exp(0.3 + 0.8 * sin(2 * d$x1)) * (1 + d$c)))
+sel = function(m) list(sp = unname(m$sp), edf = unname(summary(m)$s.table[, 1]), scale = m$sig2,
+                       par = unname(summary(m)$p.coeff), fitted = unname(fitted(m)))
+fn = nl ~ s(x1, bs = "ps", k = 12) + s(x3, bs = "ps", k = 10) + treat
+ctl = gam.control(epsilon = 1e-12)
+out$gam$selected = list(
+  reml = sel(gam(fn, data = d, method = "REML", control = ctl)),
+  gcv = sel(gam(fn, data = d, method = "GCV.Cp", control = ctl)),
+  poisson_reml = sel(gam(cn ~ s(x1, bs = "ps", k = 12) + treat, family = poisson, data = d, method = "REML", control = ctl)))
 
 ## Kaplan-Meier with survfit's default (log) interval
 skm = summary(survfit(Surv(time, event) ~ 1, data = d), times = c(5, 15, 30, 60))

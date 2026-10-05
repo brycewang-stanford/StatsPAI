@@ -598,3 +598,63 @@ def test_ch26_star_median_regression_clustered_by_class(R):
     book = np.asarray(key["se_boot_cluster"]) / np.asarray(key["se_boot"])
     assert ours[0] > 1.4 and book[0] > 1.4
     np.testing.assert_allclose(clustered.std_errors[key["names"]], key["se_boot_cluster"], rtol=0.15)
+
+
+def test_ch12_conformal_intervals_on_boston(boston):
+    # the chapter's exercise: predict each house from the others and count
+    # how often the 95% interval holds its price
+    formula = "medv ~ " + _rhs(boston, "medv")
+    full = sp.conformal_regression(formula, boston, method="full", alpha=0.05)
+    covered = ((boston["medv"] >= full["lower"]) & (boston["medv"] <= full["upper"])).mean()
+    assert 0.93 <= covered <= 0.97
+    # the rank rule of the book's program, on one house, by brute force
+    i = 100
+    rest = boston.drop(index=i)
+    X = np.column_stack([np.ones(len(rest)), rest.drop(columns="medv").to_numpy(float)])
+    x0 = np.append(1.0, boston.drop(columns="medv").iloc[i].to_numpy(float))
+    Xa = np.vstack([X, x0])
+    maker = np.eye(len(Xa)) - Xa @ np.linalg.solve(Xa.T @ Xa, Xa.T)
+    grid = np.arange(-20.0, 70.0, 0.02)
+    y = rest["medv"].to_numpy()
+    n = len(y)
+    keep = []
+    for g in grid:
+        r = np.abs(maker @ np.append(y, g))
+        keep.append((np.sum(r[:-1] >= r[-1]) + 1) > 0.05 * (n + 1))
+    kept = grid[np.asarray(keep)]
+    assert full["lower"].iloc[i] == pytest.approx(kept.min(), abs=0.02)
+    assert full["upper"].iloc[i] == pytest.approx(kept.max(), abs=0.02)
+    # prices are skewed: the distribution-free interval is not the normal one
+    jack = sp.conformal_regression(formula, boston, method="jackknife+", alpha=0.05)
+    assert abs((jack["upper"] - jack["lower"]).mean() / (full["upper"] - full["lower"]).mean() - 1) < 0.1
+
+
+def test_ch16_additive_model_for_wages(R):
+    key = R.get("ch16_gam")
+    if key is None:
+        pytest.skip("the R key predates the additive-model entry; rerun the R script")
+    census = pd.read_stata(_p("census00.dta"))
+    formula = "logwk ~ s(educ, k=10) + s(exper, k=10) + black"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.gam(formula, census)
+        at_theirs = sp.gam(formula, census, lambda_=np.asarray(key["sp"]) / 16.0)
+    # same basis and criterion as mgcv with bs = "ps", method = "REML": at
+    # mgcv's smoothing parameters the fit is mgcv's, on 65,000 workers
+    close(at_theirs.smooth_terms["edf"], key["edf"], EXACT)
+    close(at_theirs.params, key["par"], EXACT)
+    close(at_theirs.std_errors, key["par_se"], EXACT)
+    close(at_theirs.fitted_values[:20], key["fitted_head"], EXACT)
+    assert at_theirs.scale == pytest.approx(key["scale"], rel=EXACT)
+    # the schooling curve uses nearly all of its basis, where the REML
+    # surface is flat: the two optimisers stop 2% apart in lambda, ours at
+    # the (slightly) lower criterion, and the fits agree to five digits
+    assert fit.gcv <= at_theirs.gcv + 1e-6
+    close(fit.smooth_terms["lambda"] * 16.0, key["sp"], 0.05)
+    close(fit.smooth_terms["edf"], key["edf"], 1e-3)
+    close(fit.params, key["par"], 1e-5)
+    close(fit.fitted_values[:20], key["fitted_head"], 1e-4)
+    # the book's own call uses a thin plate basis and GCV: a different
+    # curve from the same data, close on the fitted values
+    np.testing.assert_allclose(fit.fitted_values[:20], key["tp_fitted_head"], rtol=0.01)
+    assert fit.params["black"] == pytest.approx(key["tp_black"], abs=0.005)

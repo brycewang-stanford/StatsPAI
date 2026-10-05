@@ -512,8 +512,27 @@ chapter map in `docs/guides/ding_linear_model.md`.
   likelihood and information criteria as `Log-Likelihood`, `AIC` and
   `BIC`, the names the other count models use.
 
+- **`sp.gam`**: generalized additive models, `"y ~ s(x1) + s(x2, k=15) +
+  z"`, with penalised cubic B-spline smooths for Gaussian, binomial,
+  Poisson and gamma responses. Smoothing parameters by REML (default) or
+  GCV / UBRE. Returns parametric coefficients with standard errors, the
+  effective degrees of freedom of each curve, `partial(term)` with a
+  band, `predict` and `plot`. Same basis, penalty and criteria as
+  `mgcv::gam` with `s(x, bs = "ps")`: 1e-9 at given smoothing parameters
+  in three families, 1e-4 on the parameters it selects.
+- **`sp.conformal_regression`**: distribution-free prediction intervals
+  for least squares by split conformal, jackknife+ or exact full
+  conformal, also as `sp.conformal("regression", ...)`.
+- `sp.stepwise(start='full')`: bidirectional search from the full model,
+  as R's `step()`.
+
 #### Deprecated
 
+- **`diagnostics` of `sp.zip_model`, `sp.zinb` and `sp.hurdle` no longer
+  lists the fitted-value vectors** (`predicted_structural_zero`,
+  `predicted_count`, `predicted_overall`, `predicted_hurdle_prob`,
+  `predicted_count_mean`). They are in `data_info`. Reading them from
+  `diagnostics` still works and warns; the keys go in 1.41.
 - **The default interval of `sp.kaplan_meier` will change from `'plain'`
   to `'log-log'` in 1.40.** The plain interval is the only one of the
   three that leaves [0, 1] and has to be cut off, and it is the default
@@ -531,7 +550,8 @@ chapter map in `docs/guides/ding_linear_model.md`.
 refs verified via Crossref REST and doi.org content negotiation:
 hoerl1970ridge, golub1979generalized, box1964analysis,
 furnival1974regressions, cribari2004asymptotic, lin1989robust,
-cook1977detection.
+cook1977detection, lei2018distribution, barber2021predictive,
+eilers1996flexible, wood2017generalized.
 
 ### What the programs of Hansen's *Econometrics* found
 

@@ -7,7 +7,7 @@
 # simulates, one draw is stored so both sides see the same numbers) and
 # writes what R reports. Neither the programs nor the data are redistributed.
 #
-# Requires: R with car, sandwich, lmtest, MASS, glmnet, leaps, KernSmooth,
+# Requires: R with car, sandwich, lmtest, MASS, mgcv, glmnet, leaps, KernSmooth,
 #           margins, nnet, mlogit, pscl, gee, quantreg, survival, timereg,
 #           mlbench, Matching, mediation, foreign, jsonlite.
 # Run:      STATSPAI_DING_LM_DIR=/path/to/unzipped/dataverse_files \
@@ -158,6 +158,17 @@ census00 = read.dta(paste0(D, "census00.dta"))
 out$ch16_census1 = ct(lm(logwk ~ educ + exper + black, data = census00))
 out$ch16_census2 = ct(lm(logwk ~ educ + exper + I(exper^2) + black, data = census00))
 
+## additive model for log wages: P-splines so that both sides use one basis
+## (the book's call uses mgcv's default thin plate basis, stored for contrast)
+suppressMessages(library(mgcv))
+gp = gam(logwk ~ s(educ, bs = "ps", k = 10) + s(exper, bs = "ps", k = 10) + black, data = census00,
+         method = "REML", control = gam.control(epsilon = 1e-12))
+gt = gam(logwk ~ s(educ) + s(exper) + black, data = census00)
+out$ch16_gam = list(sp = unname(gp$sp), edf = unname(summary(gp)$s.table[, 1]), par = unname(summary(gp)$p.coeff),
+                    par_se = unname(summary(gp)$se[1:2]), scale = gp$sig2, fitted_head = unname(fitted(gp)[1:20]),
+                    tp_edf = unname(summary(gt)$s.table[, 1]), tp_black = unname(coef(gt)["black"]),
+                    tp_fitted_head = unname(fitted(gt)[1:20]))
+
 ## ---- chapter 17: interactions -------------------------------------------
 message("chapter 17: interactions")
 hsb = read.table(paste0(D, "hsbdemo.txt"))
@@ -208,7 +219,7 @@ kar = read.table(paste0(D, "karolinska.txt"), header = TRUE)
 kar = kar[, c("highdiag", "hightreat", "age", "rural", "male", "survival")]
 kar$loneyear = as.numeric(kar$survival != "1")
 out$ch21_logit_diag = ct(glm(loneyear ~ highdiag + age + rural + male, data = kar, family = binomial, control = tight))
-mn = multinom(survival ~ highdiag + age + rural + male, data = kar, trace = FALSE, abstol = 1e-14, reltol = 1e-14, maxit = 2000)
+mn = nnet::multinom(survival ~ highdiag + age + rural + male, data = kar, trace = FALSE, abstol = 1e-14, reltol = 1e-14, maxit = 2000)
 smn = summary(mn)
 out$ch21_multinom = list(levels = mn$lev, names = colnames(smn$coefficients), est = unname(smn$coefficients),
                          se = unname(smn$standard.errors), deviance = mn$deviance,
