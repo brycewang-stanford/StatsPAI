@@ -627,7 +627,15 @@ def tool_line(session: "StataSession", line: str) -> Optional[bool]:
         table = (
             session._macros.globals if m.group(1).lower().startswith("g") else locals_
         )
-        table[m.group(2)] = extended_function(session, body)
+        try:
+            table[m.group(2)] = extended_function(session, body)
+        except StataExprError as exc:
+            if "is not implemented" not in str(exc):
+                raise
+            # a function only a running Stata can answer (`: dir`,
+            # `: sysdir`): the macro table records the macro as unknown and
+            # refuses the line that uses it
+            return None
         return False
     if session._program_depth:
         m = _SYNTAX.match(line)
