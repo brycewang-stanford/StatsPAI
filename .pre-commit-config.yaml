@@ -293,6 +293,22 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      # An argument added to a registered function without a ParamSpec is
+      # invisible to sp.function_schema() and so to every agent. The test
+      # was CI-only: lm_lin(blocks=) and tobit(formula=) reached main that
+      # way on 2026-10-05. About 2 s. The fix is a ParamSpec in registry.py
+      # whose description is the agent-facing documentation, then
+      # `python scripts/dump_schemas.py`.
+      - id: registry-params
+        name: every argument of a registered function is in its schema
+        entry: >-
+          python3 -m pytest -q --no-header -o addopts= -p no:cacheprovider
+          tests/test_registry_param_drift.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: import-budget
         name: cold-import budget (lazy-import contract — 0 heavy submodules)
         entry: python3 -m pytest tests/test_import_budget.py -q --no-header -o addopts=
