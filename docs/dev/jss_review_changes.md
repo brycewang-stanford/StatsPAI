@@ -31,6 +31,21 @@ Rules:
 
 ## Entries
 
+### 2026-10-05 — call traces re-recorded after two error classes changed in `sp.fect` and `sp.interflex`
+
+Commit `2df681ff`. Four precondition errors (`method='ife'` without `r=`,
+`method='mc'` without `lam=`, `estimator='kernel'` without `bw=`,
+`vce='bootstrap'` with another estimator) now raise
+`MethodIncompatibility` with a recovery hint instead of a bare
+`ValueError`. The edits are in `synth/fect.py` and
+`regression/interflex.py`, which Track A modules 86 and 87 execute, so
+their source hashes in the trace changed.
+
+Effect on the paper: none. The two modules were run on the source before
+and after the change and their result files are byte-identical.
+
+- `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-05 — traces of modules 24, 41 and 62 re-recorded for the second Wooldridge round
 
 Commit `208af7fd`. `regression/tobit.py` and `regression/truncreg.py` gain a
