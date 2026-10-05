@@ -188,7 +188,26 @@ FALSE_FRIENDS: Dict[str, Tuple[str, ...]] = {
     # A test option, not an SE type: Stata `xtunitroot hadri, robust` makes the
     # Hadri LM statistic robust to cross-unit heteroskedasticity. Spelling it
     # vce= would promise vce="cluster" on a unit-root test.
-    "robust": ("panel_unitroot",),
+    # Also not an SE type: the robustness iterations of the STL loess, which
+    # down-weight outliers in the decomposition.
+    "robust": ("panel_unitroot", "stl"),
+    # The length of the seasonal cycle (4 quarterly, 12 monthly), not the
+    # column that identifies time in a panel. `time=` here would read as a
+    # column name; R's forecast/fable and statsforecast call it the period
+    # (or season length).
+    "period": (
+        "ets",
+        "simple_forecast",
+        "forecast_accuracy",
+        "tscv",
+        "stl",
+        "classical_decompose",
+        "ljungbox",
+        "nsdiffs",
+        "boxcox_lambda",
+        "fourier_terms",
+        "arima",
+    ),
     # Random-effects covariance *structure*, not an SE type.
     "cov_type": (
         "mixed",

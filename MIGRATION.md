@@ -28,6 +28,44 @@ switch for the earlier numbers: neither was the statistic it was named
 after. `ph_test(method='approx', transform='identity')` reproduces
 Stata's `estat phtest`.
 
+## 1.38.0 → next: ⚠️ `sp.arima` optimiser, automatic search and regressor names
+
+**What changed.**
+
+1. A fit is no longer one quasi-Newton search. It is followed by simplex
+   searches and a polish. Where the single search had stopped at an
+   inferior local maximum, or at its limit of 50 iterations, the
+   estimates change and the log likelihood rises. A model with
+   differences is estimated on the differenced series; where the old
+   search had found the maximum this moves the log likelihood by less
+   than `1e-3` and coefficients by at most `2e-3`.
+2. `aicc` of a model with a seasonal difference uses `n - d - D s`
+   observations in its correction. It used `n - d`.
+3. `auto=True` searches stepwise, decides by AICc whether to include a
+   mean or a drift, and does not return a model with a root of modulus
+   below 1.01. It used to fit the full `(p, q)` grid with the default
+   constant.
+4. Regressors are named after their columns in `params` and `se`. They
+   were `x1`, `x2`, ...
+5. `forecast()` returns a table indexed by the forecast periods when the
+   series had a date or period index. With `level=` the columns are
+   `forecast`, `lower_<level>`, `upper_<level>`.
+
+**Who is affected.** Anyone who reported `sp.arima` estimates of mixed or
+seasonal models, where the old search failed most often. Anyone who
+relied on the order `auto=True` returned. Code that reads
+`result.params["x1"]`.
+
+**What to do.**
+
+- Refit. A higher `log_likelihood` than before means the old estimates
+  were not the maximum.
+- For the old search over every `(p, q)`, pass `stepwise=False`. For the
+  old treatment of the constant, pass `trend='c'` or `trend='n'`.
+- Index regressor coefficients by column name.
+- `forecast(horizon, alpha)` without `level=` keeps its three columns
+  `forecast`, `lower`, `upper`.
+
 ## 1.38.0 → next: `sp.ivreg` / `sp.iv` name formula terms as `sp.regress` does
 
 **What changed.** A transformed, categorical or interacted term in an IV

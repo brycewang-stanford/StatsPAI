@@ -8103,6 +8103,775 @@ def _build_registry() -> None:
         )
     )
 
+    # ------------------------------------------------------------------
+    # Forecasting toolkit (Hyndman & Athanasopoulos, Forecasting:
+    # Principles and Practice): exponential smoothing, benchmarks,
+    # decomposition, evaluation, reconciliation.
+    # ------------------------------------------------------------------
+    register(
+        FunctionSpec(
+            name="ets",
+            category="timeseries",
+            description=(
+                "Exponential smoothing state space model ETS(error, trend, "
+                "season): simple exponential smoothing, Holt's linear and "
+                "damped trend, Holt-Winters additive and multiplicative, "
+                "each with an additive or multiplicative error, fitted by "
+                "maximum likelihood with the initial states estimated; "
+                "model='ZZZ' chooses the form by AICc. Forecasts with "
+                "analytic prediction intervals (simulated ones for the "
+                "models that have none). The likelihood, parameter region, "
+                "model search and forecast variances are those of R "
+                "forecast::ets and fable::ETS; the optimiser is restarted, "
+                "so the likelihood is at least as high as theirs. "
+                "statsforecast AutoETS, statsmodels ETSModel."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "The series, in time order"
+                ),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "ZZZ",
+                    "Error, trend, season letters: N none, A additive, M "
+                    "multiplicative, Z automatic; 'AAdN' damps the trend",
+                ),
+                ParamSpec("period", "int", False, 1, "Seasonal period (4, 12, 7 ...)"),
+                ParamSpec(
+                    "damped", "bool", False, None, "Damp the trend; None tries both"
+                ),
+                ParamSpec(
+                    "alpha", "float", False, None, "Fix the level smoothing parameter"
+                ),
+                ParamSpec(
+                    "beta", "float", False, None, "Fix the trend smoothing parameter"
+                ),
+                ParamSpec(
+                    "gamma",
+                    "float",
+                    False,
+                    None,
+                    "Fix the seasonal smoothing parameter",
+                ),
+                ParamSpec("phi", "float", False, None, "Fix the damping parameter"),
+                ParamSpec(
+                    "ic",
+                    "str",
+                    False,
+                    "aicc",
+                    "Selection criterion",
+                    ["aicc", "aic", "bic"],
+                ),
+                ParamSpec(
+                    "additive_only", "bool", False, False, "Only additive models"
+                ),
+                ParamSpec(
+                    "allow_multiplicative_trend",
+                    "bool",
+                    False,
+                    False,
+                    "Let the search consider a multiplicative trend",
+                ),
+                ParamSpec(
+                    "restrict", "bool", False, True, "Leave out unstable combinations"
+                ),
+                ParamSpec(
+                    "bounds",
+                    "str",
+                    False,
+                    "both",
+                    "Parameter region",
+                    ["both", "usual", "admissible"],
+                ),
+                ParamSpec(
+                    "maxiter", "int", False, 2000, "Iteration limit per simplex run"
+                ),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="ETSResult",
+            example='sp.ets(df["sales"], period=12).forecast(24, level=(80, 95))',
+            tags=[
+                "timeseries",
+                "forecasting",
+                "exponential-smoothing",
+                "holt-winters",
+                "ets",
+            ],
+            reference="hyndman2002state; hyndman2008forecasting",
+            assumptions=[
+                "Innovations are uncorrelated with constant variance (relative "
+                "variance under a multiplicative error); normal for the intervals",
+                "The intervals take the estimated parameters as known",
+                "Multiplicative components need a strictly positive series",
+            ],
+            pre_conditions=[
+                "No missing values inside the series",
+                "period > 1 for a seasonal model; at most 24",
+            ],
+            failure_modes=[
+                FailureMode(
+                    "Seasonal period above 24 (daily data with a yearly cycle, "
+                    "hourly data)",
+                    "statspai.MethodIncompatibility",
+                    "Decompose with sp.stl and model the seasonally adjusted "
+                    "series, or use sp.fourier_terms in sp.arima",
+                    "stl",
+                ),
+                FailureMode(
+                    "sp.ljungbox(result) rejects: residuals autocorrelated",
+                    "statspai.ConvergenceWarning",
+                    "Compare with sp.arima(auto=True) by sp.tscv",
+                    "arima",
+                ),
+            ],
+            alternatives=["arima", "simple_forecast", "stl"],
+            typical_n_min=10,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="simple_forecast",
+            category="timeseries",
+            description=(
+                "Benchmark forecasting methods: mean, naive (random walk), "
+                "seasonal naive and drift, with normal or bootstrapped "
+                "prediction intervals. The yardstick any forecasting model "
+                "has to beat out of sample. R forecast::meanf / naive / "
+                "snaive / rwf(drift=TRUE); statsforecast HistoricAverage / "
+                "Naive / SeasonalNaive / RandomWalkWithDrift."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "The series, in time order"
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "naive",
+                    "Which benchmark",
+                    ["naive", "snaive", "drift", "mean"],
+                ),
+                ParamSpec("period", "int", False, 1, "Seasonal period, for 'snaive'"),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="SimpleForecastResult",
+            example='sp.simple_forecast(df["beer"], "snaive", period=4).forecast(8)',
+            tags=["timeseries", "forecasting", "benchmark", "naive", "random-walk"],
+            reference="hyndman2026fpppy",
+            assumptions=[
+                "Intervals assume uncorrelated, homoscedastic, normal one-step errors "
+                "(bootstrap=True drops normality)",
+            ],
+            alternatives=["ets", "arima"],
+            typical_n_min=3,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="forecast_accuracy",
+            category="timeseries",
+            description=(
+                "Accuracy of one or several forecasts against the outcomes: "
+                "ME, RMSE, MAE, MPE, MAPE, the scaled errors MASE and RMSSE "
+                "(relative to the in-sample naive or seasonal naive "
+                "forecast), first autocorrelation of the errors, and for "
+                "forecast tables with intervals the Winkler interval score, "
+                "empirical coverage and, on request, the CRPS. R "
+                "forecast::accuracy, fabletools::accuracy, utilsforecast "
+                "evaluate."
+            ),
+            params=[
+                ParamSpec(
+                    "actual",
+                    "array",
+                    True,
+                    None,
+                    "Observed values of the forecast periods",
+                ),
+                ParamSpec(
+                    "forecast",
+                    "array|DataFrame|dict",
+                    True,
+                    None,
+                    "Point forecasts, a .forecast() table, or a dict of them by "
+                    "method name",
+                ),
+                ParamSpec(
+                    "train", "array", False, None, "Training series, for MASE / RMSSE"
+                ),
+                ParamSpec("period", "int", False, 1, "Seasonal period of the scaling"),
+                ParamSpec(
+                    "crps", "bool", False, False, "Add the normal-approximation CRPS"
+                ),
+            ],
+            returns="DataFrame",
+            example=(
+                "sp.forecast_accuracy(test, {'ets': fc_ets, 'snaive': fc_sn}, "
+                "train=train, period=12)"
+            ),
+            tags=[
+                "timeseries",
+                "forecasting",
+                "accuracy",
+                "mase",
+                "rmse",
+                "crps",
+                "winkler",
+            ],
+            reference="hyndman2006another; gneiting2007strictly; winkler1972decision",
+            assumptions=[
+                "Percentage errors need outcomes away from zero",
+                "The forecasts were made without the outcomes they are scored on",
+            ],
+            alternatives=["tscv"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="tscv",
+            category="timeseries",
+            description=(
+                "Time series cross-validation on a rolling forecast origin: "
+                "refit at each origin on the observations up to it (expanding "
+                "or rolling window), forecast up to `horizon` steps and "
+                "collect the errors; .accuracy() gives RMSE / MAE / MAPE by "
+                "horizon. Built-in forecasters (naive, snaive, drift, mean, "
+                "ets, arima) or any function f(train, horizon). The error "
+                "matrix has the layout of R forecast::tsCV; statsforecast "
+                "cross_validation."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "The series, in time order"
+                ),
+                ParamSpec(
+                    "forecaster",
+                    "str|callable",
+                    False,
+                    "naive",
+                    "Method name or f(train, horizon) returning forecasts",
+                ),
+                ParamSpec("horizon", "int", False, 1, "Longest forecast horizon"),
+                ParamSpec(
+                    "initial", "int", False, None, "Size of the first training window"
+                ),
+                ParamSpec("step", "int", False, 1, "Periods between origins"),
+                ParamSpec(
+                    "window", "int", False, None, "Rolling window length; None expands"
+                ),
+                ParamSpec(
+                    "period", "int", False, 1, "Seasonal period for built-in methods"
+                ),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="TSCVResult",
+            example=(
+                'sp.tscv(df["y"], "ets", horizon=4, initial=60, period=4)' ".accuracy()"
+            ),
+            tags=[
+                "timeseries",
+                "forecasting",
+                "cross-validation",
+                "rolling-origin",
+                "backtest",
+            ],
+            reference="hyndman2026fpppy",
+            assumptions=[
+                "The forecaster uses only the training window it is handed",
+                "Errors at long horizons overlap across origins and are serially "
+                "correlated",
+            ],
+            alternatives=["forecast_accuracy"],
+            typical_n_min=20,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="stl",
+            category="timeseries",
+            description=(
+                "STL decomposition of a series into trend, seasonal and "
+                "remainder by loess, optionally robust to outliers, with a "
+                "periodic seasonal option; several seasonal periods give "
+                "MSTL. The result carries the seasonally adjusted series, "
+                "the strength of trend and of seasonality, and forecasts "
+                "that model the seasonally adjusted series (ETS, ARIMA, "
+                "naive, drift) and add the seasonal pattern back. Defaults "
+                "and numbers of R stats::stl / forecast::mstl / stlf; "
+                "statsmodels STL runs the same algorithm with other defaults."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "The series, in time order"
+                ),
+                ParamSpec("period", "int|list", True, None, "Seasonal period(s)"),
+                ParamSpec(
+                    "seasonal",
+                    "int|str",
+                    False,
+                    None,
+                    "Seasonal window (odd), or 'periodic'; default 11",
+                ),
+                ParamSpec("trend", "int", False, None, "Trend window (odd)"),
+                ParamSpec("low_pass", "int", False, None, "Low-pass window (odd)"),
+                ParamSpec(
+                    "seasonal_deg",
+                    "int",
+                    False,
+                    0,
+                    "Degree of the seasonal loess: 0 or 1",
+                ),
+                ParamSpec(
+                    "trend_deg", "int", False, 1, "Degree of the trend loess: 0 or 1"
+                ),
+                ParamSpec(
+                    "low_pass_deg",
+                    "int",
+                    False,
+                    1,
+                    "Degree of the low-pass loess: 0 or 1",
+                ),
+                ParamSpec(
+                    "robust",
+                    "bool",
+                    False,
+                    False,
+                    "Robustness iterations against outliers",
+                ),
+                ParamSpec("inner_iter", "int", False, None, "Loess passes"),
+                ParamSpec("outer_iter", "int", False, None, "Robustness iterations"),
+                ParamSpec(
+                    "seasonal_jump",
+                    "int",
+                    False,
+                    None,
+                    "Interpolation step of the seasonal loess",
+                ),
+                ParamSpec(
+                    "trend_jump",
+                    "int",
+                    False,
+                    None,
+                    "Interpolation step of the trend loess",
+                ),
+                ParamSpec(
+                    "low_pass_jump",
+                    "int",
+                    False,
+                    None,
+                    "Interpolation step of the low-pass loess",
+                ),
+                ParamSpec("iterate", "int", False, 2, "Passes over the periods (MSTL)"),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="DecompositionResult",
+            example='sp.stl(df["employment"], period=12, robust=True).to_frame()',
+            tags=[
+                "timeseries",
+                "decomposition",
+                "stl",
+                "seasonal-adjustment",
+                "mstl",
+                "loess",
+            ],
+            reference="cleveland1990stl; bandara2025mstl",
+            assumptions=[
+                "Additive components; take logs (or a Box-Cox transform) first "
+                "when the seasonal swings grow with the level",
+                "At least two full cycles of each period",
+            ],
+            alternatives=["classical_decompose", "ets"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="classical_decompose",
+            category="timeseries",
+            description=(
+                "Classical additive or multiplicative decomposition by "
+                "centred moving averages: a 2 x m moving-average trend and a "
+                "fixed seasonal figure. The textbook baseline; sp.stl has no "
+                "missing ends, lets the seasonal pattern evolve and resists "
+                "outliers. R stats::decompose, statsmodels seasonal_decompose."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "The series, in time order"
+                ),
+                ParamSpec("period", "int", True, None, "Seasonal period"),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "additive",
+                    "How the components combine",
+                    ["additive", "multiplicative"],
+                ),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="DecompositionResult",
+            example=(
+                'sp.classical_decompose(df["sales"], period=12, '
+                'model="multiplicative")'
+            ),
+            tags=[
+                "timeseries",
+                "decomposition",
+                "moving-average",
+                "seasonal-adjustment",
+            ],
+            reference="hyndman2026fpppy",
+            alternatives=["stl"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ljungbox",
+            category="timeseries",
+            description=(
+                "Ljung-Box or Box-Pierce portmanteau test that the first "
+                "`lags` autocorrelations are zero, with the degrees of "
+                "freedom reduced by the number of ARMA parameters estimated "
+                "(model_df). Accepts a series of residuals or a fitted "
+                "sp.arima / sp.ets / sp.simple_forecast result. R Box.test("
+                "fitdf=), Stata wntestq, statsmodels acorr_ljungbox(model_df=)."
+            ),
+            params=[
+                ParamSpec(
+                    "x",
+                    "Series|array|str|result",
+                    True,
+                    None,
+                    "Residuals or a fitted model",
+                ),
+                ParamSpec(
+                    "lags",
+                    "int|list",
+                    False,
+                    None,
+                    "Lag(s) of the test; default 10 or 2 x period",
+                ),
+                ParamSpec("model_df", "int", False, None, "Estimated ARMA parameters"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "ljung-box",
+                    "Statistic",
+                    ["ljung-box", "box-pierce"],
+                ),
+                ParamSpec(
+                    "period", "int", False, 1, "Seasonal period, for the default lags"
+                ),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding x"),
+            ],
+            returns="DataFrame",
+            example="sp.ljungbox(sp.arima(y, order=(2, 1, 0)), lags=10)",
+            tags=[
+                "timeseries",
+                "diagnostics",
+                "autocorrelation",
+                "portmanteau",
+                "white-noise",
+            ],
+            reference="ljung1978measure; box1970distribution",
+            assumptions=[
+                "Under H0 the series is white noise; the chi-squared reference "
+                "is asymptotic",
+                "After a regression with lagged dependent variables use "
+                "sp.estat(result, 'bgodfrey') instead",
+            ],
+            alternatives=["corrgram", "estat"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ndiffs",
+            category="timeseries",
+            description=(
+                "Number of first differences that make a series stationary: "
+                "difference until a KPSS test no longer rejects level "
+                "stationarity (Hyndman-Khandakar rule). R forecast::ndiffs("
+                "test='kpss'), statsforecast ndiffs."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "The series, in time order"
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Level of each KPSS test: 0.10, 0.05, 0.025 or 0.01",
+                ),
+                ParamSpec("max_d", "int", False, 2, "Most differences considered"),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="int",
+            example='sp.ndiffs(df["log_gdp"])',
+            tags=["timeseries", "unit-root", "differencing", "kpss", "arima"],
+            reference="hyndman2008automatic; kwiatkowski1992testing",
+            alternatives=["unitroot", "nsdiffs"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="nsdiffs",
+            category="timeseries",
+            description=(
+                "Number of seasonal differences a series needs: one while "
+                "the strength of seasonality of an STL decomposition "
+                "exceeds 0.64. R forecast::nsdiffs(test='seas'), feasts "
+                "unitroot_nsdiffs."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "The series, in time order"
+                ),
+                ParamSpec("period", "int", True, None, "Seasonal period"),
+                ParamSpec(
+                    "threshold",
+                    "float",
+                    False,
+                    0.64,
+                    "Seasonal strength that triggers a difference",
+                ),
+                ParamSpec(
+                    "max_D", "int", False, 1, "Most seasonal differences considered"
+                ),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="int",
+            example='sp.nsdiffs(df["log_turnover"], period=12)',
+            tags=["timeseries", "seasonality", "differencing", "arima"],
+            reference="wang2006characteristic; hyndman2008automatic",
+            alternatives=["ndiffs", "stl"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="boxcox_lambda",
+            category="timeseries",
+            description=(
+                "Box-Cox parameter that stabilises the variance of a series "
+                "across its level, by Guerrero's method (minimum coefficient "
+                "of variation of sd / mean^(1 - lambda) across cycles). "
+                "lambda = 0 is the logarithm. R forecast::BoxCox.lambda, "
+                "fabletools guerrero, coreforecast boxcox_lambda. For the "
+                "Box-Cox transform of a regression outcome see sp.boxcox."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "A strictly positive series"
+                ),
+                ParamSpec("period", "int", False, 1, "Seasonal period"),
+                ParamSpec("lower", "float", False, -1.0, "Lower end of the search"),
+                ParamSpec("upper", "float", False, 2.0, "Upper end of the search"),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="float",
+            example='lam = sp.boxcox_lambda(df["gas"], period=4)',
+            tags=["timeseries", "transformation", "box-cox", "variance-stabilisation"],
+            reference="guerrero1993time",
+            alternatives=["boxcox"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="fourier_terms",
+            category="timeseries",
+            description=(
+                "Sine and cosine regressors sin(2 pi k t / period), "
+                "cos(2 pi k t / period), k = 1..K, for smooth, long, "
+                "non-integer or multiple seasonal patterns: regressors of "
+                "sp.arima (dynamic harmonic regression) or sp.regress. "
+                "start= gives the rows of the forecast periods. R "
+                "forecast::fourier, utilsforecast fourier."
+            ),
+            params=[
+                ParamSpec(
+                    "n",
+                    "int|Series|Index",
+                    True,
+                    None,
+                    "Number of rows, or an indexed object",
+                ),
+                ParamSpec(
+                    "period", "float", True, None, "Length of the cycle in observations"
+                ),
+                ParamSpec(
+                    "K", "int", True, None, "Number of harmonics, at most period / 2"
+                ),
+                ParamSpec("start", "int", False, 1, "Time of the first row"),
+            ],
+            returns="DataFrame",
+            example="X = sp.fourier_terms(len(y), period=52.18, K=3)",
+            tags=["timeseries", "seasonality", "fourier", "harmonic-regression"],
+            reference="hyndman2026fpppy",
+            alternatives=["stl"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="hierarchy",
+            category="timeseries",
+            description=(
+                "Build a hierarchical or grouped time series structure from "
+                "a long table: aggregate the bottom-level series along the "
+                "key columns of each level and return every series (wide), "
+                "the summing matrix S and the level tags. Input of "
+                "sp.reconcile. hierarchicalforecast aggregate, R hts / "
+                "fabletools aggregate_key."
+            ),
+            params=[
+                ParamSpec(
+                    "data", "DataFrame", True, None, "Long table of bottom-level series"
+                ),
+                ParamSpec(
+                    "spec",
+                    "list",
+                    True,
+                    None,
+                    "Key columns of each level; the last is the bottom",
+                ),
+                ParamSpec("time", "str", True, None, "Period column"),
+                ParamSpec("value", "str", True, None, "Value column"),
+                ParamSpec("sep", "str", False, "/", "Separator in series identifiers"),
+            ],
+            returns="Hierarchy",
+            example=(
+                'sp.hierarchy(df, [["country"], ["country", "state"]], '
+                'time="quarter", value="trips")'
+            ),
+            tags=[
+                "timeseries",
+                "forecasting",
+                "hierarchical",
+                "grouped",
+                "aggregation",
+            ],
+            reference="hyndman2011optimal",
+            pre_conditions=["Balanced bottom level: every series in every period"],
+            alternatives=["reconcile"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="reconcile",
+            category="timeseries",
+            description=(
+                "Reconcile base forecasts of a hierarchical or grouped "
+                "structure so that they add up: bottom-up, top-down, OLS, "
+                "structural or variance-weighted least squares, and "
+                "minimum trace (MinT) with a shrunk or sample residual "
+                "covariance. Returns coherent forecasts and the projection "
+                "G. Numbers of R hts::MinT / combinef and fabletools "
+                "min_trace; hierarchicalforecast MinTrace (which centres "
+                "the residual covariance, a small difference for "
+                "mint_shrink)."
+            ),
+            params=[
+                ParamSpec(
+                    "base",
+                    "DataFrame|array",
+                    True,
+                    None,
+                    "Base forecasts, periods by series",
+                ),
+                ParamSpec(
+                    "S",
+                    "DataFrame|Hierarchy",
+                    True,
+                    None,
+                    "Summing matrix or sp.hierarchy result",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "mint_shrink",
+                    "Reconciliation method",
+                    [
+                        "bottom_up",
+                        "top_down",
+                        "ols",
+                        "wls_struct",
+                        "wls_var",
+                        "mint_shrink",
+                        "mint_cov",
+                    ],
+                ),
+                ParamSpec(
+                    "residuals",
+                    "DataFrame|array",
+                    False,
+                    None,
+                    "In-sample one-step errors of every series",
+                ),
+                ParamSpec(
+                    "history",
+                    "DataFrame|array",
+                    False,
+                    None,
+                    "Observed series, for top_down",
+                ),
+                ParamSpec(
+                    "proportions",
+                    "str",
+                    False,
+                    "average",
+                    "Top-down proportions",
+                    ["average", "of_averages"],
+                ),
+            ],
+            returns="ReconcileResult",
+            example=(
+                'sp.reconcile(base_fc, h, method="mint_shrink", residuals=resid)'
+                ".forecasts"
+            ),
+            tags=[
+                "timeseries",
+                "forecasting",
+                "hierarchical",
+                "reconciliation",
+                "mint",
+            ],
+            reference=(
+                "wickramasuriya2019optimal; hyndman2011optimal; " "schafer2005shrinkage"
+            ),
+            assumptions=[
+                "Unbiased base forecasts (top-down is biased even then)",
+                "MinT: the h-step error covariance is proportional to the "
+                "one-step covariance estimated from the residuals",
+            ],
+            failure_modes=[
+                FailureMode(
+                    "More series than residual periods with mint_cov",
+                    "statspai.DataInsufficient",
+                    "Use method='mint_shrink'",
+                    "reconcile",
+                ),
+            ],
+            alternatives=["hierarchy"],
+        )
+    )
+
     register(
         FunctionSpec(
             name="vec",

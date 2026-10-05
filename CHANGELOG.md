@@ -367,6 +367,117 @@ against R and Stata 18. Notes are in
   and `newey` on `xtset` data.
 
 
+### What a forecasting textbook found
+
+Hyndman, Athanasopoulos, Garza, Challu, Mergenthaler and Olivares,
+*Forecasting: Principles and Practice, the Pythonic Way*, runs on
+statsforecast, statsmodels and hierarchicalforecast. Its methods come from
+the first author's R packages. Chapters 3 to 13 were rerun on the book's
+data three ways: with the book's libraries, with R (`forecast` 9.0.2,
+`hts` 6.0.3) and with StatsPAI. Notes are in
+`docs/dev/2026-10-06-hyndman-fpp-pythonic-review.md`; the user-facing map
+is `docs/guides/forecasting_fpp.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.arima` could return an inferior local maximum without a warning.**
+  The fit was one quasi-Newton search. Over 32 models on nine of the book's
+  series it ended more than `1e-3` log-likelihood units below the maximum
+  in 13: an MA(3) for Egyptian exports at -186.84 where the maximum is
+  -183.35, an ARIMA(1,1,1) with drift for egg prices at 58.17 where R
+  reports 59.00, a seasonal model stopped on the invertibility boundary.
+  The search also ran at most 50 iterations, and an ARIMA(3,1,3)(0,1,1)[4]
+  stopped at 323.81 where the maximum is 326.47. Every fit now starts
+  twice, the second time from conditional-sum-of-squares estimates as R's
+  `CSS-ML` does, and is checked by simplex searches followed by a
+  quasi-Newton polish. A fit
+  that still does not converge raises `ConvergenceWarning`. Estimates of
+  models where the single search had found the maximum are unchanged.
+  `method='innovations_mle'` is unchanged.
+- **AICc of a seasonally differenced `sp.arima` model** used `n - d`
+  observations in its small-sample term. It uses `n - d - D s`, as
+  `forecast::Arima` does. AIC and BIC were right.
+- **`sp.arima(auto=True)`** ranked candidates fitted with at most 50
+  iterations and had no seasonal search. It now follows Hyndman and
+  Khandakar (2008); see Changed.
+
+#### Added
+
+- **`sp.ets`**: exponential smoothing as innovations state space models.
+  Simple exponential smoothing, Holt's linear and damped trend,
+  Holt-Winters additive and multiplicative, each with an additive or a
+  multiplicative error, fitted by maximum likelihood with the initial
+  states estimated. `model="ZZZ"` chooses the form by AICc. Forecasts carry
+  analytic prediction intervals, and simulated ones for the models that
+  have none. At the parameters `forecast::ets` estimates, the log
+  likelihood, fitted values and intervals equal R's to `1e-13` on 15
+  models. The optimiser is restarted, so the likelihood reached is at
+  least as high as R's on every model tested. R's forecast variance for
+  ETS(A,N,A) and ETS(M,N,A) enters `gamma` one lag late; `sp.ets` follows
+  the formula of Hyndman, Koehler, Ord and Snyder (2008), which a
+  simulation confirms.
+- **`sp.simple_forecast`**: the mean, naive, seasonal naive and drift
+  methods with normal or bootstrapped intervals. Equal to `naive`,
+  `snaive` and `rwf(drift=TRUE)` to `1e-14`.
+- **`sp.forecast_accuracy`**: ME, RMSE, MAE, MPE, MAPE, MASE, RMSSE and
+  the first autocorrelation of the errors for one or several forecasts.
+  Forecast tables with intervals add the Winkler score and coverage, and
+  the CRPS on request. Equal to `forecast::accuracy` to `1e-14`.
+- **`sp.tscv`**: cross-validation on a rolling forecast origin with an
+  expanding or rolling window, for the built-in methods or any function of
+  the training window. The error matrix equals `forecast::tsCV`. Origins
+  where the forecaster fails are reported, not dropped.
+- **`sp.stl`** and **`sp.classical_decompose`**: STL with R's settings, a
+  periodic seasonal option, robustness iterations and MSTL for several
+  seasonal periods. The result has the seasonally adjusted series, the
+  strength of trend and of seasonality, and forecasts that model the
+  adjusted series. Components equal `stats::stl` and `forecast::mstl` to
+  `1e-10`.
+- **`sp.ljungbox`**: Ljung-Box and Box-Pierce tests with the degrees of
+  freedom reduced by the number of fitted ARMA parameters. It accepts
+  residuals or a fitted `sp.arima`, `sp.ets` or `sp.simple_forecast`
+  result. Equal to `Box.test(fitdf=)`.
+- **`sp.ndiffs`**, **`sp.nsdiffs`**: the number of regular and seasonal
+  differences, by KPSS tests and by seasonal strength.
+- **`sp.boxcox_lambda`**: Guerrero's variance-stabilising Box-Cox
+  parameter.
+- **`sp.fourier_terms`**: sine and cosine regressors for long, non-integer
+  or multiple seasonal periods.
+- **`sp.hierarchy`** and **`sp.reconcile`**: build a hierarchical or
+  grouped structure with its summing matrix, and reconcile base forecasts
+  bottom-up, top-down, by OLS, structural or variance weights, or by
+  minimum trace with a shrunk or sample covariance. Equal to `hts::MinT`
+  and `combinef` to `1e-14`.
+- `ARIMAResult.forecast(level=(80, 95), exog=..., dof_adjust=...)`:
+  several coverage levels, future values of the regressors, and the
+  degrees-of-freedom adjusted variance that `forecast::Arima` uses.
+  Forecasting a model with regressors used to raise a statsmodels error.
+  `ARIMAResult.candidates` lists the models an automatic search compared.
+
+#### Changed
+
+- **`sp.arima(auto=True)`** is the search of Hyndman and Khandakar.
+  `period=` adds seasonal orders, with the seasonal difference set by
+  seasonal strength. A mean (no differencing) or a drift (one difference)
+  is included when AICc prefers it. The search is stepwise from four
+  standard models; `stepwise=False` fits every model up to total order
+  five. A model with a root of modulus below 1.01 is not returned. On the
+  fifteen series of the book compared, it returns the model R's
+  `auto.arima(approximation=FALSE)` returns.
+- **`sp.arima`** estimates a differenced model on the differenced series
+  and then computes fitted values and forecasts from the level model with
+  the exact diffuse start described under the dynamic-modelling audit
+  below. The likelihood is the same one; the search is several times
+  faster. It is the likelihood Stata maximises and the one R's `arima`
+  gives for the differenced series. On ten models of the book's series where
+  the old search had converged, log likelihoods move by less than `1e-3`
+  and coefficients by at most `2e-3`. Forecasts now agree with
+  `forecast::Arima` to about `1e-6`.
+- Regressors of `sp.arima` keep their names in `params`. They were
+  `x1`, `x2`.
+- `ARIMAResult.forecast()` is indexed by the forecast periods when the
+  series had a date or period index.
+
 ### What a Python econometrics textbook found
 
 Dogan's *Introduction to Econometrics with Python* follows Stock & Watson
