@@ -30,13 +30,13 @@ StatsPAI. The examples below read them from `files/`.
 | 19 | `lm(weights=)`, feasible GLS, Goodman's regression | `sp.regress(weights=)`; `"t ~ 0 + x + I(1 - x)"` |
 | 19 | `KernSmooth::locpoly` | `sp.lpoly(kernel='gaussian', degree=1)` |
 | 20 | logit, probit, cloglog, cauchit | `sp.glm(family='binomial', link=...)` |
-| 20 | `predict(se.fit=TRUE)`, `margins` | `sp.glm(...).predict(new, what='confidence')`; `sp.margins` |
+| 20 | `predict(se.fit=TRUE)`, `margins` | `sp.logit(...).predict(new, what='confidence')`; `sp.margins` |
 | 21 | `nnet::multinom`, `MASS::polr`, `mlogit` | `sp.mlogit`, `sp.ologit`, `sp.clogit`; `.predict()` for probabilities |
 | 22 | Poisson, `glm.nb`, `pscl::zeroinfl` | `sp.poisson`, `sp.nbreg`, `sp.zip_model`, `sp.zinb` |
 | 24 | `sandwich` after `glm` | `robust='hc0'` in the same functions |
 | 25 | `gee::gee` | `sp.gee(formula, df, id=, family=, corstr=)` |
 | 26 | `quantreg::rq`, weights, clustered bootstrap | `sp.qreg(quantile=, weights=, vce=, cluster=)` |
-| 27 | `survfit`, `survdiff`, `coxph` | `sp.kaplan_meier`, `sp.logrank_test`, `sp.cox` |
+| 27 | `survfit`, `survdiff`, `coxph` | `sp.kaplan_meier(conf_type='log')`, `sp.logrank_test`, `sp.cox` |
 
 ## A few of them in full
 
@@ -97,7 +97,7 @@ ours by the stated rule.
 | GEE scale for binomial and Poisson | estimated | estimated | Stata fixes it at 1, `scale=1` |
 | AIC of a linear model | counts the error variance | does not (Stata) | add 2 |
 | negative binomial standard errors | theta held fixed (`glm.nb`) | joint observed information (Stata `nbreg`) | differ by 2 to 4% |
-| Kaplan-Meier interval | symmetric for log S | symmetric for S | `conf_type='log'`; Stata is `'log-log'` |
+| Kaplan-Meier interval | symmetric for log S | symmetric for S until 1.40, then for log(-log S) as in Stata | `conf_type='log'` |
 
 Two differences are not conventions. `KernSmooth::locpoly` bins the data
 before smoothing and is an approximation; `sp.lpoly` is exact. And R

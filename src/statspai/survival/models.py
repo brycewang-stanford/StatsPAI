@@ -280,7 +280,8 @@ class KMResult(ResultProtocolMixin):
     ...     "time": rng.exponential(10, n).round(2),
     ...     "status": (rng.random(n) < 0.7).astype(int),
     ... })
-    >>> km = sp.kaplan_meier(data=df, duration="time", event="status")
+    >>> km = sp.kaplan_meier(data=df, duration="time", event="status",
+    ...                      conf_type="log-log")
     >>> type(km).__name__
     'KMResult'
     >>> "survival" in km.survival_table.columns
@@ -472,7 +473,7 @@ def kaplan_meier(
     event: str,
     group: Optional[str] = None,
     alpha: float = 0.05,
-    conf_type: str = "plain",
+    conf_type: Optional[str] = None,
 ) -> KMResult:
     """
     Kaplan-Meier non-parametric survival function estimator.
@@ -489,7 +490,7 @@ def kaplan_meier(
         Column name for group variable (stratification).
     alpha : float
         Significance level for confidence intervals (Greenwood formula).
-    conf_type : {"plain", "log", "log-log"}, default "plain"
+    conf_type : {"plain", "log", "log-log"}, optional
         Scale on which the interval is symmetric. ``"plain"`` is ``S(t)
         +/- z se`` truncated to [0, 1]; ``"log"`` is symmetric for ``log
         S(t)`` (the default of R ``survival::survfit``); ``"log-log"`` for
@@ -497,6 +498,13 @@ def kaplan_meier(
         always stays inside (0, 1) and has the best coverage in the
         tails. The estimate and its standard error are the same under all
         three.
+
+        .. deprecated:: 1.39
+            Leaving it out still gives ``"plain"`` and warns. From 1.40
+            the default is ``"log-log"``: the plain interval is the one of
+            the three that leaves [0, 1] and has to be truncated, and it
+            is neither reference package's default. Pass
+            ``conf_type="plain"`` to keep today's numbers.
 
     Returns
     -------
@@ -514,12 +522,25 @@ def kaplan_meier(
     ...     "time": rng.exponential(10, n).round(2),
     ...     "status": (rng.random(n) < 0.7).astype(int),
     ... })
-    >>> km = sp.kaplan_meier(data=df, duration="time", event="status")
+    >>> km = sp.kaplan_meier(data=df, duration="time", event="status",
+    ...                      conf_type="log-log")
     >>> bool("survival" in km.survival_table.columns)
     True
     >>> bool(isinstance(km.median_survival, float))
     True
     """
+    if conf_type is None:
+        import warnings
+
+        warnings.warn(
+            "sp.kaplan_meier: the default confidence interval changes from "
+            "conf_type='plain' to conf_type='log-log' in StatsPAI 1.40. Pass "
+            "conf_type='log-log' to adopt it now (Stata's sts default), "
+            "'log' for R survfit's, or 'plain' to keep the current interval.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        conf_type = "plain"
     conf_type = str(conf_type).lower().replace("loglog", "log-log")
     if conf_type not in ("plain", "log", "log-log"):
         raise ValueError(
@@ -1166,11 +1187,31 @@ def cox(
         "df_resid": np.inf,  # use normal distribution for Cox
     }
 
+    # The other two tests of beta = 0 that survival::coxph prints. The Wald
+    # statistic uses the reported covariance (robust when one was asked
+    # for); the score statistic is evaluated at zero and, without
+    # covariates beyond a group indicator, is the log-rank test.
+    try:
+        wald = float(beta @ np.linalg.solve(var_beta, beta))
+    except np.linalg.LinAlgError:
+        wald = float("nan")
+    score0, hess0 = _cox_score_hessian_efron(
+        np.zeros(p), X, T, E, strata_arr, breslow=breslow
+    )
+    try:
+        score_stat = float(score0 @ np.linalg.solve(-hess0, score0))
+    except np.linalg.LinAlgError:
+        score_stat = float("nan")
+
     diagnostics = {
         "Log-likelihood": loglik,
         "Log-likelihood (null)": loglik0,
         "LR chi2": 2 * (loglik - loglik0),
         "LR chi2 p-value": stats.chi2.sf(2 * (loglik - loglik0), df=p),
+        "Wald chi2": wald,
+        "Wald chi2 p-value": float(stats.chi2.sf(wald, df=p)),
+        "Score chi2": score_stat,
+        "Score chi2 p-value": float(stats.chi2.sf(score_stat, df=p)),
         "Concordance (C)": c_index,
         "AIC": -2 * loglik + 2 * p,
         "BIC": -2 * loglik + np.log(E.sum()) * p,

@@ -23,7 +23,7 @@ causal-survival surface (`sp.ipcw`, `sp.causal_survival_forest`,
 ```python
 import statspai as sp
 
-km = sp.kaplan_meier(data=df, duration="time", event="event", group="arm")
+km = sp.kaplan_meier(data=df, duration="time", event="event", group="arm", conf_type="log-log")
 print(km.median_survival)     # median survival per group
 print(km.survival_table)      # risk table: n.risk, n.event, S(t), CI
 km.plot()                     # step survival curves with at-risk counts

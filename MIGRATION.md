@@ -176,6 +176,23 @@ model-based standard errors, or fits with `ties='breslow'`.
 standard errors on data with ties. There is no switch for the old numbers;
 they did not correspond to either tie rule.
 
+## 1.38.0 → next: `sp.kaplan_meier` asks for `conf_type`; the default changes in 1.40
+
+`sp.kaplan_meier` builds its confidence interval as `S(t) +/- z se`, cut
+off at 0 and 1. From 1.40 the default is the log-log interval, the one
+Stata's `sts list` prints, which never leaves (0, 1). The survival
+estimate, its standard error and the median are the same either way.
+
+```python
+sp.kaplan_meier(df, "time", "event")                        # 'plain' today, warns
+sp.kaplan_meier(df, "time", "event", conf_type="plain")     # today's interval, for good
+sp.kaplan_meier(df, "time", "event", conf_type="log-log")   # the 1.40 default (Stata)
+sp.kaplan_meier(df, "time", "event", conf_type="log")       # R survfit's default
+```
+
+Nothing changes in 1.39 except the `DeprecationWarning`. To keep reported
+intervals fixed across the change, pass `conf_type` explicitly now.
+
 ## 1.38.0 → next: `sp.regress` accepts regressions through the origin it used to refuse
 
 `sp.regress("y ~ 0 + x + I(1 - x)", df)` and `sp.regress("y ~ 0 + one +

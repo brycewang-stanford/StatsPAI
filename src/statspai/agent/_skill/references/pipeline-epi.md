@@ -83,7 +83,7 @@ fig.savefig("figures/figA1_ps_overlap.png", dpi=300)
 
 # 2.3 Crude KM curves by exposure (descriptive identification graphic).
 # KMResult.plot() returns a bare Axes (NOT a (fig, ax) tuple) — save via ax.figure.
-km = sp.kaplan_meier(cohort, duration="followup_days", event="mace", group="statin_initiation")
+km = sp.kaplan_meier(cohort, duration="followup_days", event="mace", group="statin_initiation", conf_type="log-log")
 ax = km.plot()
 ax.figure.savefig("figures/figA2_km.png", dpi=300)
 ```

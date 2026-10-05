@@ -428,6 +428,25 @@ chapter map in `docs/guides/ding_linear_model.md`.
 
 - `sp.stata` / `sp.from_stata` translate `xtgee` (to `sp.gee`, with
   Stata's defaults written into the call) and `boxcox` (to `sp.boxcox`).
+- `.predict(data, what='confidence')` on `sp.logit`, `sp.probit` and
+  `sp.cloglog` results: the probability, its delta-method standard error
+  (R's `predict(se.fit = TRUE)`) and an interval that stays inside
+  (0, 1). The same call already worked on `sp.glm` results.
+- `sp.cox` reports the Wald and score tests of all coefficients next to
+  the likelihood-ratio test (`diagnostics["Wald chi2"]`, `["Score
+  chi2"]`), as `survival::coxph` prints them.
+- `sp.zip_model`, `sp.zinb` and `sp.hurdle` also store their log
+  likelihood and information criteria as `Log-Likelihood`, `AIC` and
+  `BIC`, the names the other count models use.
+
+#### Deprecated
+
+- **The default interval of `sp.kaplan_meier` will change from `'plain'`
+  to `'log-log'` in 1.40.** The plain interval is the only one of the
+  three that leaves [0, 1] and has to be cut off, and it is the default
+  of neither R (`'log'`) nor Stata (`'log-log'`). Until then a call
+  without `conf_type=` returns what it always did and raises a
+  `DeprecationWarning`. See `MIGRATION.md`.
 
 #### Changed
 
@@ -438,7 +457,8 @@ chapter map in `docs/guides/ding_linear_model.md`.
 
 refs verified via Crossref REST and doi.org content negotiation:
 hoerl1970ridge, golub1979generalized, box1964analysis,
-furnival1974regressions, cribari2004asymptotic, lin1989robust.
+furnival1974regressions, cribari2004asymptotic, lin1989robust,
+cook1977detection.
 
 ### `rdlocrand` 3.0
 

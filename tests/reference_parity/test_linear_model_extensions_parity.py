@@ -566,8 +566,13 @@ def test_kaplan_meier_loglog_interval_matches_stata_sts(df, stata):
         )
 
 
-def test_kaplan_meier_default_interval_is_unchanged(df):
-    plain = sp.kaplan_meier(df, "time", "event").survival_table
+def test_kaplan_meier_default_interval_is_unchanged_and_announced(df):
+    with pytest.warns(DeprecationWarning, match="log-log"):
+        default = sp.kaplan_meier(df, "time", "event").survival_table
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        plain = sp.kaplan_meier(df, "time", "event", conf_type="plain").survival_table
+    pd.testing.assert_frame_equal(default, plain)
     row = _km_at(plain, 30)
     half = 1.959963984540054 * row["std_err"]
     assert row["ci_lower"] == pytest.approx(row["survival"] - half)
@@ -612,6 +617,67 @@ def test_string_outcome_with_a_built_formula_keeps_every_category(df):
     assert built.model_info["log_likelihood"] == pytest.approx(
         by_hand.model_info["log_likelihood"], rel=1e-10
     )
+
+
+# ---------------------------------------------------------------- follow-ups
+
+
+def test_cox_wald_and_score_tests_match_survival(df, R):
+    ref = R["cox_tests"]
+    kw = dict(data=df, duration="time", event="event", x=COX_X)
+    diag = sp.cox(**kw).diagnostics
+    assert diag["LR chi2"] == pytest.approx(ref["lr"], rel=EXACT)
+    assert diag["Wald chi2"] == pytest.approx(ref["wald"], rel=1e-8)
+    assert round(diag["Wald chi2"], 2) == ref["wald_printed"]
+    assert diag["Score chi2"] == pytest.approx(ref["score"], rel=EXACT)
+    robust = sp.cox(robust="hc0", **kw).diagnostics
+    assert robust["Wald chi2"] == pytest.approx(ref["wald_robust"], rel=1e-8)
+    assert robust["Score chi2"] == pytest.approx(ref["score"], rel=EXACT)
+
+
+def test_score_test_of_a_group_indicator_is_the_logrank_test(df):
+    # with no shared event times the two are the same statistic; ties add
+    # the hypergeometric factor (n - d) / (n - 1) to the log-rank variance
+    untied = df.assign(time=df["time"] + np.arange(len(df)) / (10.0 * len(df)))
+    fit = sp.cox(data=untied, duration="time", event="event", x=["treat"])
+    logrank = sp.logrank_test(untied, "time", "event", "treat")
+    assert fit.diagnostics["Score chi2"] == pytest.approx(
+        logrank["test_statistic"], rel=1e-9
+    )
+
+
+def test_binary_predictions_carry_a_standard_error(df, R):
+    ref = R["logit_predict"]
+    fit = sp.logit("d ~ x1 + x2 + x4 + treat", df, tol=1e-13)
+    out = fit.predict(df.head(8), what="confidence")
+    close(out["yhat"], ref["fit"], ITER)
+    close(out["se"], ref["se"], ITER)
+    assert (
+        (out["lower"] > 0) & (out["upper"] < 1) & (out["lower"] < out["yhat"])
+    ).all()
+    close(fit.predict(df.head(8)), ref["fit"], ITER)  # the old call is unchanged
+    for fn, link in [(sp.probit, "probit"), (sp.cloglog, "cloglog")]:
+        ours = fn("d ~ x1 + I(x2^2)", df).predict(df.head(5), what="confidence")
+        glm = sp.glm("d ~ x1 + I(x2^2)", df, family="binomial", link=link)
+        close(
+            ours.to_numpy(), glm.predict(df.head(5), what="confidence").to_numpy(), 1e-6
+        )
+    with pytest.raises(sp.MethodIncompatibility, match="prediction interval"):
+        fit.predict(df.head(3), what="prediction")
+
+
+def test_zero_inflated_fits_name_their_likelihood_like_the_rest(df):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fits = [
+            sp.zip_model("c ~ x1 + treat", df),
+            sp.zinb("c ~ x1 + treat", df),
+            sp.hurdle("c ~ x1 + treat", df),
+        ]
+    for fit in fits:
+        diag = fit.diagnostics
+        assert diag["Log-Likelihood"] == diag["ll"]
+        assert diag["AIC"] == diag["aic"] and diag["BIC"] == diag["bic"]
 
 
 # ---------------------------------------------------------------- sp.stata

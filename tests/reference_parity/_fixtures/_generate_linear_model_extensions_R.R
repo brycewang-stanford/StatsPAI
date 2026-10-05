@@ -87,6 +87,17 @@ out$cox = list(
   efron_strata = cx(coxph(Surv(time, event) ~ treat + x1 + x2 + x4 + strata(site), data = d, robust = TRUE)),
   n_tied_times = sum(table(d$time[d$event == 1]) > 1))
 
+## the three tests of beta = 0, and predictions with standard errors
+## (summary.coxph rounds its Wald statistic to two decimals; it is
+## recomputed here from the coefficients and the covariance it used)
+mc = coxph(fs, data = d); mr = coxph(fs, data = d, robust = TRUE); sc = summary(mc)
+wald = function(m) drop(coef(m) %*% solve(vcov(m)) %*% coef(m))
+out$cox_tests = list(lr = unname(sc$logtest[1]), score = unname(sc$sctest[1]),
+                     wald = wald(mc), wald_robust = wald(mr), wald_printed = unname(sc$waldtest[1]))
+gl = glm(d ~ x1 + x2 + x4 + treat, family = binomial, data = d, control = tight)
+pr = predict(gl, newdata = d[1:8, ], type = "response", se.fit = TRUE)
+out$logit_predict = list(fit = unname(pr$fit), se = unname(pr$se.fit))
+
 ## Kaplan-Meier with survfit's default (log) interval
 skm = summary(survfit(Surv(time, event) ~ 1, data = d), times = c(5, 15, 30, 60))
 out$km = list(time = skm$time, surv = skm$surv, se = skm$std.err, lower = skm$lower, upper = skm$upper)

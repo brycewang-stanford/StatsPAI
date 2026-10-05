@@ -503,6 +503,10 @@ def zip_model(
         "ll": ll_zip,
         "aic": model_info["aic"],
         "bic": model_info["bic"],
+        # the same three under the names the other count models use
+        "Log-Likelihood": ll_zip,
+        "AIC": model_info["aic"],
+        "BIC": model_info["bic"],
     }
 
     model_info["alpha"] = alpha
@@ -836,6 +840,10 @@ def zinb(
         "ll": ll_zinb,
         "aic": model_info["aic"],
         "bic": model_info["bic"],
+        # the same three under the names the other count models use
+        "Log-Likelihood": ll_zinb,
+        "AIC": model_info["aic"],
+        "BIC": model_info["bic"],
     }
 
     model_info["alpha"] = alpha
@@ -1165,6 +1173,10 @@ def hurdle(
         "ll": ll_hurdle,
         "aic": model_info["aic"],
         "bic": model_info["bic"],
+        # the same three under the names the other count models use
+        "Log-Likelihood": ll_hurdle,
+        "AIC": model_info["aic"],
+        "BIC": model_info["bic"],
     }
     if use_negbin:
         assert alpha_hat is not None

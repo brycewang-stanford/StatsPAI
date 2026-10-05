@@ -83273,8 +83273,8 @@
       "Cross-language parity (bit-exact) vs pscl::zeroinfl(dist=\"poisson\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=1e-06, rel_se<=0.0001; parity module 63_zip -- tests/r_parity/63_zip.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py",
-      "tests/reference_parity/test_vuong_pscl_parity.py"
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/reference_parity/test_vce_grammar_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -83435,8 +83435,8 @@
       "Cross-language parity (aligned) vs pscl::zeroinfl(dist=\"negbin\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=1e-05, rel_se<=0.001; parity module 64_zinb -- tests/r_parity/64_zinb.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py",
-      "tests/reference_parity/test_vuong_pscl_parity.py"
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/reference_parity/test_vce_grammar_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -83599,6 +83599,7 @@
     "typical_n_min": 100,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs pscl::hurdle(dist='poisson', zero.dist='binomial') [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance count + zero coefficients 1e-6 abs (observed ~2e-8) -- tests/reference_parity/test_glm_ext_parity.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
       "tests/reference_parity/test_vuong_pscl_parity.py"
     ],
     "validation_status": "certified"
@@ -85931,7 +85932,7 @@
       ],
       "tolerance": "S(t) at every event time 1e-12 (observed ~3e-17); median exact"
     },
-    "example": "km = sp.kaplan_meier(data=df, duration=\"time\", event=\"status\")",
+    "example": "km = sp.kaplan_meier(data=df, duration=\"time\", event=\"status\",\n conf_type=\"log-log\")",
     "failure_modes": [
       {
         "exception": "(none -- informational)",
@@ -85985,8 +85986,7 @@
             "type": "number"
           },
           "conf_type": {
-            "default": "plain",
-            "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three.",
+            "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three. .. deprecated:: 1.39 Leaving it out still gives ``\"plain\"`` and warns. From 1.40 the default is ``\"log-log\"``: the plain interval is the one of the three that leaves [0, 1] and has to be truncated, and it is neither reference package's default. Pass ``conf_type=\"plain\"`` to keep today's numbers.",
             "enum": [
               "plain",
               "log",
@@ -86294,7 +86294,8 @@
     "typical_n_min": 50,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survival::survdiff [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance chi-square 1e-10 rel (observed ~8e-16); p-value 1e-10 abs -- tests/reference_parity/test_survival_km_parity.py",
-      "tests/external_parity/test_ding_linear_model.py"
+      "tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py"
     ],
     "validation_status": "certified"
   },

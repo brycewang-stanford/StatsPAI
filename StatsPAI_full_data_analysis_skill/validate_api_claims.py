@@ -302,7 +302,7 @@ def check_attributes(failures: list[str]) -> None:
         d = df.copy()
         d["dur"] = rng.exponential(size=len(d)) + 0.1
         d["event"] = (rng.uniform(size=len(d)) < 0.7).astype(int)
-        km = sp.kaplan_meier(d, duration="dur", event="event")
+        km = sp.kaplan_meier(d, duration="dur", event="event", conf_type="log-log")
         kmr = km.plot()
         pt = sp.policy_tree(df, y="y", d="t", X=["x1", "x2"], max_depth=2)
         ok = (

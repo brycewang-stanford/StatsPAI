@@ -8179,6 +8179,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
@@ -9942,6 +9943,7 @@
         "tests/reference_parity/test_cmtest_micsr_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
@@ -10003,7 +10005,8 @@
     },
     {
       "additional_tests": [
-        "tests/external_parity/test_ding_linear_model.py"
+        "tests/external_parity/test_ding_linear_model.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -21149,6 +21152,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_count_quantile_parity.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
@@ -21209,6 +21213,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_count_quantile_parity.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],

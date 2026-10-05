@@ -8,7 +8,7 @@ risks.
 
 ```python
 # Kaplan-Meier
-km = sp.kaplan_meier(df, duration='t', event='d', group='arm')
+km = sp.kaplan_meier(df, duration='t', event='d', group='arm', conf_type='log-log')
 km.plot(ci=True, at_risk_table=True)
 km.median_survival
 

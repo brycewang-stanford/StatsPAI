@@ -1651,7 +1651,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "kaplan_meier": {
-        "example": 'sp.kaplan_meier(data=df, duration="time", event="status")',
+        "example": (
+            'sp.kaplan_meier(data=df, duration="time", event="status", '
+            'conf_type="log-log")'
+        ),
         "tags": ["survival"],
     },
     "kdensity": {

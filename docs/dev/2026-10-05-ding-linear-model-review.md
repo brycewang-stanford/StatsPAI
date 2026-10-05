@@ -157,30 +157,48 @@ quantile are each off by one degree of freedom. The printed limits are
 within 0.1% of the exact ones. `sp.estat(..., "leverage")` returns the
 exact ones and was checked against forty refits.
 
+## Second round
+
+Bryce asked for the open decisions to be made and the work continued.
+
+- **Kaplan-Meier default.** Decided: move it to `'log-log'`, through the
+  deprecation process. In this release a call without `conf_type=` still
+  returns the plain interval and raises a `DeprecationWarning`; the
+  default changes in 1.40. Every documented call now names its interval.
+- **GAM.** Decided: not now. A penalised-spline GAM with automatic
+  smoothness selection that can be held to `mgcv` is a project of its
+  own, and nothing else in the package depends on it. It stays on the
+  list below.
+- `sp.logit` / `sp.probit` / `sp.cloglog` results take
+  `predict(data, what='confidence')`, like `sp.glm` results: probability,
+  delta-method standard error, interval mapped through the link. Matches
+  R's `predict(se.fit = TRUE)` to 1e-6.
+- `sp.cox` reports the Wald and score tests. Both match `survival::coxph`
+  (`summary.coxph` prints the Wald statistic rounded to two decimals; the
+  reference is recomputed unrounded). Without ties the score test of a
+  group indicator is the log-rank statistic to 1e-9.
+- `sp.zip_model`, `sp.zinb` and `sp.hurdle` name their log likelihood,
+  AIC and BIC like the other count models; the old keys stay.
+- The Cook (1977) line in `diagnostics/estat.py` cites its own, verified
+  entry (`cook1977detection`).
+
 ## Open items
 
 - **Generalized additive models** (chapter 16, `mgcv::gam`). Not
-  implemented. A penalised-spline GAM with automatic smoothness selection
-  is a project of its own.
-- **`sp.logit(...).predict` has no standard error.** `sp.glm(...,
-  family='binomial').predict(data, what='confidence')` does, and matches
-  R's `predict(se.fit = TRUE)`; the two entry points should agree.
-- **`sp.zip_model` and `sp.zinb` keep n-length arrays in `diagnostics`**
-  and name the log likelihood `ll` where the other count models say
-  `Log-Likelihood`.
-- **`sp.cox` reports the likelihood-ratio test only.** R also prints the
-  Wald and score tests.
+  implemented; see above.
+- **`sp.zip_model` and `sp.zinb` keep n-length arrays in `diagnostics`.**
+  Moving them would break code that reads them.
 - **`sp.stepwise(method='both')` starts from the empty model** and can stop
-  short of what backward elimination finds (Boston, BIC).
+  short of what backward elimination finds (Boston, BIC). `sp.best_subset`
+  is the exact answer when the candidates are few.
 - **Conformal prediction intervals for regression** (chapter 12). The
   `sp.conformal` family targets treatment effects; there is no plain
   regression version.
-- The `References` block of `diagnostics/estat.py` attaches a Breusch-Pagan
-  bib key to the Cook (1977) line.
+- **R `gee`'s `"AR-M"`** is not reproduced (see above).
 
 ## Evidence
 
-- `tests/reference_parity/test_linear_model_extensions_parity.py`: 65
+- `tests/reference_parity/test_linear_model_extensions_parity.py`: 69
   tests on the committed synthetic file. R (`sandwich`, `MASS`, `leaps`,
   `gee`, `quantreg`, `survival`) to 1e-9 on closed forms and convex
   problems; Stata 18 (`xtgee`, `boxcox`, `stcox`, `sts`) to 1e-6, its own

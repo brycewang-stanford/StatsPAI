@@ -897,6 +897,8 @@ def _fit_binary(
             cdf_func,
             _names=tuple(str(n) for n in var_names),
             _formula=formula,
+            _vcov=np.asarray(vcov, dtype=float),
+            _alpha=alpha,
         ),
     )
     setattr(
@@ -919,9 +921,13 @@ def _bound_result_predict(
     cutoff: float = 0.5,
     *,
     data: Optional[pd.DataFrame] = None,
+    what: Optional[str] = None,
+    alpha: Optional[float] = None,
     _names: Tuple[str, ...] = (),
     _formula: Optional[str] = None,
-) -> np.ndarray:
+    _vcov: Optional[np.ndarray] = None,
+    _alpha: float = 0.05,
+) -> Any:
     """``result.predict`` for binary-response fits (picklable via partial).
 
     ``X_new`` (or ``data=``) is a DataFrame holding the variables of the
@@ -929,7 +935,26 @@ def _bound_result_predict(
     included -- is rebuilt, or an array that already is the design matrix.
     ``pred_type`` is ``'response'`` (probabilities), ``'link'`` (the index)
     or ``'class'`` (0/1 at ``cutoff``).
+
+    ``what='confidence'`` returns a DataFrame instead, as ``sp.regress``
+    and ``sp.glm`` results do: ``yhat`` (the probability), its delta-method
+    standard error ``se`` (R ``predict(type = "response", se.fit = TRUE)``)
+    and an interval ``lower`` / ``upper`` formed on the index and mapped
+    through the link, so it stays inside (0, 1). ``what='mean'`` and
+    ``what='link'`` are the probability and the index.
     """
+    if what is not None:
+        key = str(what).lower()
+        if key == "mean":
+            pred_type = "response"
+        elif key == "link":
+            pred_type = "link"
+        elif key != "confidence":
+            raise MethodIncompatibility(
+                f"predict(): what={what!r} is not available for a binary "
+                "outcome; use 'mean', 'link' or 'confidence'.",
+                recovery_hint="A 0/1 outcome has no prediction interval.",
+            )
     if data is not None:
         X_new = data
     if isinstance(X_new, pd.DataFrame):
@@ -958,6 +983,31 @@ def _bound_result_predict(
             f"{np.asarray(beta).shape[0]} coefficients.",
             recovery_hint="Pass a DataFrame with the variables of the model, "
             "or the full design matrix including the constant.",
+        )
+    if what is not None and str(what).lower() == "confidence":
+        if _vcov is None:
+            raise MethodIncompatibility(
+                "predict(what='confidence'): the fit did not keep its "
+                "covariance matrix.",
+            )
+        from scipy import stats as _stats
+
+        level = _alpha if alpha is None else float(alpha)
+        xb = X_pred @ np.asarray(beta, dtype=float)
+        V = np.asarray(_vcov, dtype=float)
+        se_link = np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", X_pred, V, X_pred), 0.0))
+        step = 1e-6
+        density = (cdf_func(xb + step) - cdf_func(xb - step)) / (2.0 * step)
+        z = float(_stats.norm.ppf(1.0 - level / 2.0))
+        index = X_new.index if isinstance(X_new, pd.DataFrame) else None
+        return pd.DataFrame(
+            {
+                "yhat": _as_float_array(cdf_func(xb)),
+                "se": _as_float_array(density * se_link),
+                "lower": _as_float_array(cdf_func(xb - z * se_link)),
+                "upper": _as_float_array(cdf_func(xb + z * se_link)),
+            },
+            index=index,
         )
     return _predict(beta, X_pred, cdf_func, pred_type, cutoff)
 
