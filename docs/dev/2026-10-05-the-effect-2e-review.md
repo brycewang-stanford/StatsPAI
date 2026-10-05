@@ -192,9 +192,12 @@ places, with what StatsPAI offers.
 
 - `table` beyond one row variable and one `statistic()`. That form is
   translated to `sp.sumstats(by=)` and reproduces the book's two tables
-  (3.583539 and 5.343309 by college attendance). `sp.sumstats` labels the
-  two levels of any binary `by` variable "Control" and "Treated", which
-  reads oddly for a variable that is not a treatment; left as it is.
+  (3.583539 and 5.343309 by college attendance). `sp.sumstats` heads the
+  two levels of a 0/1 `by` variable "Control" and "Treated", its
+  documented default for a balance table. A college indicator is not a
+  treatment, so the translations of `table` and `tabstat, by()` pass
+  `by_labels={}` and the groups are headed by their values, as in Stata.
+  The default of the direct call is unchanged.
 - `lasso linear ..., sel(cv)` and `lassocoef`. Cross-validation folds come
   from Stata's random-number generator. `sp.lasso_select` and `sp.rlasso`
   exist for direct use.

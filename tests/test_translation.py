@@ -558,7 +558,13 @@ TIER2_ROUND_TRIPS = [
     (
         "table g, statistic(mean y x)",
         "sumstats",
-        {"stats": ["mean"], "output": "numeric", "vars": ["y", "x"], "by": "g"},
+        {
+            "stats": ["mean"],
+            "output": "numeric",
+            "vars": ["y", "x"],
+            "by": "g",
+            "by_labels": {},
+        },
     ),
     # sensemakr -> sp.sensemakr: the treatment is listed among the
     # regressors, the group benchmark becomes a labelled dict

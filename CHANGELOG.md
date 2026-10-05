@@ -232,7 +232,9 @@ for chapters 4 and 13 to 21 was run in Stata 18 and replayed through
   zero (the observation is dropped, as in Stata); `[iw = w]` in `regress`
   when the weights sum to the number of observations; `i.` covariates in
   `psmatch2` and `teffects`; `program def`, `return scalar` of a local
-  macro and nested programs.
+  macro and nested programs. Translated `tabstat, by()` and `table` head
+  the groups by their values; they used to read "Control" and "Treated"
+  for any 0/1 grouping variable.
 
 Seven functions from a pass over Croissant (2025), *Microeconometrics with
 R*, and its companion package `micsr`. The book's chapters on binary,

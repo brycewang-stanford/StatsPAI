@@ -249,6 +249,7 @@ def test_table_statistic_by_one_row_variable():
         "output": "numeric",
         "vars": ["earn"],
         "by": "wc",
+        "by_labels": {},
     }
     assert out["untranslated_options"] == []
     # two dimensions, or no statistic, are other tables
@@ -283,3 +284,15 @@ def test_program_def_returns_a_local_and_may_call_another_program():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         assert sp.stata(PROGRAM, data=data) == 3.5
+
+
+def test_translated_group_tables_are_headed_by_the_group_values():
+    """sp.sumstats calls the levels of a 0/1 `by` variable "Control" and
+    "Treated"; a college indicator is not a treatment, and Stata prints the
+    values."""
+    data = pd.DataFrame({"wc": [0, 0, 1, 1], "earn": [1.0, 3.0, 5.0, 9.0]})
+    for line in ("table wc, stat(mean earn)", "tabstat earn, by(wc) nototal"):
+        session = StataSession(data)
+        session.run(line)
+        assert [c[0] for c in session.output.columns] == ["0", "1"], line
+        assert list(session.output.iloc[0]) == [2.0, 7.0], line

@@ -663,6 +663,9 @@ def _h_tabstat(cmd: StataCommand) -> Dict[str, Any]:
     by = cmd.options.get("by")
     if by:
         args["by"] = by.split()[0]
+        # Stata heads each group with its value; without this sp.sumstats
+        # calls the levels of any 0/1 variable "Control" and "Treated"
+        args["by_labels"] = {}
         if "nototal" not in cmd.options:
             semantics.append(
                 "tabstat, by() also prints a Total row; sp.sumstats(by=) "
@@ -697,6 +700,8 @@ def _h_table(cmd: StataCommand) -> Dict[str, Any]:
         args["percentile_method"] = "stata"
     args["vars"] = words[1:]
     args["by"] = rows[0]
+    # the groups are headed by their values, not "Control" / "Treated"
+    args["by_labels"] = {}
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
     return _emit(
         "sumstats",
