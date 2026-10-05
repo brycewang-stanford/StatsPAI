@@ -86,3 +86,21 @@ def test_dataset_module_declares_no_remote_urls():
             f"{needle!r} appeared in datasets/_canonical.py — bundled "
             "loaders must not reach the network"
         )
+
+
+def test_real_nsw_psid_sample_is_bundled(no_network):
+    """``nsw_dw(simulated=False)`` is the Dehejia-Wahba NSW + PSID-1 sample;
+    the bare call stays the replica that parity fixtures are built on."""
+    real = sp.datasets.nsw_dw(simulated=False)
+    assert real.shape == (2675, 10)
+    assert real.attrs["simulated"] is False
+    assert int(real["treat"].sum()) == 185
+    naive = (
+        real.loc[real.treat == 1, "re78"].mean()
+        - real.loc[real.treat == 0, "re78"].mean()
+    )
+    # Dehejia and Wahba (1999), Table 3: -15,205.
+    assert round(naive) == -15205
+    replica = sp.datasets.nsw_dw()
+    assert replica.attrs["simulated"] is True
+    assert list(replica.columns) == list(real.columns)

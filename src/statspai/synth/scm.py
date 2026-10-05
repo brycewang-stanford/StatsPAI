@@ -447,14 +447,19 @@ def _dispatch_synth_impl(
           among itself and its placebos divided by ``J+1`` (so the floor is
           ``1/(J+1)``).
         * ``ci`` : tuple[float, float] — ``(1-alpha)`` confidence interval.
-          For ``method='classic'`` with placebos this is
-          ``estimate -/+ z * sd(placebo ATTs)``, a normal approximation
-          that need not agree with the rank-based ``pvalue``.
-          ``model_info['ci_permutation']`` holds the interval that does:
-          the constant effects not rejected by the same RMSPE-ratio rank
-          test (:func:`statspai.synth._core.placebo_inversion_ci`,
-          [@firpo2018synthetic]). Its ends are infinite when
-          ``1 / (J + 1) > alpha``.
+          For ``method='classic'`` with placebos it is the interval dual
+          to ``pvalue``: the constant effects not rejected by the same
+          RMSPE-ratio rank test
+          (:func:`statspai.synth._core.placebo_inversion_ci`,
+          [@firpo2018synthetic]). It excludes zero exactly when
+          ``pvalue < alpha``, is not symmetric around the estimate, is not
+          ``estimate -/+ z * se``, and has infinite ends when
+          ``1 / (J + 1) > alpha`` (fewer than ``1 / alpha - 1`` donors).
+          ``model_info['ci_method']`` is then ``'placebo_inversion'``.
+          Through 1.38.0 ``ci`` was ``estimate -/+ z * sd(placebo ATTs)``;
+          that interval is in ``model_info['ci_normal']`` and is still
+          returned (``ci_method='placebo_sd'``) when the inversion is
+          empty or undefined.
         * ``detail`` : pd.DataFrame — one row per post-treatment period with
           columns ``time, treated, counterfactual, effect``.
         * ``model_info`` : dict — method-specific diagnostics. Keys present
@@ -1834,7 +1839,17 @@ class SyntheticControl:
             se = float(np.std(gap_post)) / max(np.sqrt(len(gap_post)), 1)
 
         z_crit = stats.norm.ppf(1 - self.alpha / 2)
-        ci = (att - z_crit * se, att + z_crit * se)
+        ci_normal = (att - z_crit * se, att + z_crit * se)
+        # Report the interval that the reported p-value implies. The normal
+        # approximation around the placebo spread is kept as a fallback
+        # (no usable placebos, perfect pre-fit, or every constant effect
+        # rejected) and in ``model_info['ci_normal']``.
+        if ci_permutation is not None and not np.isnan(ci_permutation).any():
+            ci = (float(ci_permutation[0]), float(ci_permutation[1]))
+            ci_method = "placebo_inversion"
+        else:
+            ci = ci_normal
+            ci_method = "placebo_sd"
 
         # --- Weight table ---
         weight_df = (
@@ -2037,6 +2052,8 @@ class SyntheticControl:
             ]
             model_info["treated_ratio"] = ratio_treated
             model_info["n_placebos"] = len(placebo_atts)
+            model_info["ci_normal"] = ci_normal
+            model_info["ci_method"] = ci_method
             if ci_permutation is not None:
                 model_info["ci_permutation"] = ci_permutation
                 model_info["ci_permutation_lower"] = ci_permutation[0]

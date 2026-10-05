@@ -2117,6 +2117,17 @@ def _format_pair(*values: Any, fmt: Any) -> Tuple[str, ...]:
     return format_pair(*values, fmt=fmt)
 
 
+def _unbounded_label(value: Any, text: str) -> str:
+    """``-inf`` / ``inf`` for an infinite bound, else ``text`` unchanged."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return text
+    if np.isinf(v):
+        return "-inf" if v < 0 else "inf"
+    return text
+
+
 def _latex_escape(value: Any) -> str:
     """Escape LaTeX specials in a data cell (lazy import)."""
     from ..output._format import latex_escape
@@ -3769,6 +3780,10 @@ class CausalResult:
         point, se, lo, hi = _format_pair(
             self.estimate, self.se, self.ci[0], self.ci[1], fmt=fmt
         )
+        # An unbounded end (test-inversion intervals can have one) is an
+        # answer, not a missing value: print it rather than a blank.
+        lo = _unbounded_label(self.ci[0], lo)
+        hi = _unbounded_label(self.ci[1], hi)
         # Keep the sign column that " .6f" used to provide.
         signed = point if point.startswith("-") else f" {point}"
         lines.append(f"  {self.estimand}:      {signed} {stars}")

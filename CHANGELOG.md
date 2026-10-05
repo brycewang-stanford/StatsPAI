@@ -14,6 +14,22 @@ or R on the book's datasets. Most of it agreed to 1e-12. The notes are in
 
 #### ⚠️ Correctness
 
+- **`sp.synth(method='classic')` reported a confidence interval that could
+  contradict its own p-value.** `pvalue` is the rank of the treated
+  post/pre RMSPE ratio among the placebos; `ci` was the estimate plus or
+  minus a normal quantile times the standard deviation of the placebo
+  ATTs, a different procedure with no guarantee of agreeing with the test.
+  `ci` is now the interval the test implies: the constant effects that
+  the same rank test does not reject (Firpo and Possebom 2018), with exact
+  ends. It excludes zero exactly when `pvalue < alpha`. On Proposition 99
+  without covariates (p = 3/39 = 0.077) the 95% interval goes from
+  [-40.7, 1.6] to [-58.6, 19.6] and the 90% one from [-37.3, -1.8] to
+  [-33.0, -5.3]. With fewer than `1 / alpha - 1` donors no effect can be
+  rejected and the interval is `(-inf, inf)`; it used to be finite. The
+  estimate, `se` and `pvalue` are unchanged, the old interval is in
+  `model_info['ci_normal']`, and `model_info['ci_method']` says which one
+  `ci` is. `summary()` now prints an infinite end as `-inf` / `inf`
+  instead of leaving it blank, for every estimator. See `MIGRATION.md`.
 - **DFBETAS from `sp.estat(result, 'leverage')` were on the wrong scale.**
   The division by the square root of the diagonal of `(X'X)^-1` was
   missing, so each value was the change in the coefficient over the
@@ -484,27 +500,26 @@ coverage 0.949 against the book's 0.012 and 0.942). Three things did not.
   at different supports. The test shows that both are fixed points of the
   loading iteration under StatsPAI's cluster loadings, so the difference
   is the path and not the penalty; this also happens without clustering.
-- **A confidence interval for classic synthetic control that agrees with
-  its p-value (chapter 10).** `sp.synth(method='classic')` reports the
-  rank p-value of the post/pre RMSPE ratio, and as `ci` the estimate plus
-  or minus a normal quantile times the standard deviation of the placebo
-  ATTs. The two can disagree, which the book's end-of-chapter question 5
-  rules out for a test and the interval that inverts it.
-  `model_info['ci_permutation']` now holds the interval dual to the
-  p-value: the constant effects that the same rank test does not reject
-  (Firpo and Possebom 2018). Under `H0: effect = C` the weights do not
-  move, the treated gap becomes `gap - C` and the gap of a placebo whose
-  donor pool holds the treated unit with weight `w` becomes `gap + w C`,
-  so each comparison is a quadratic inequality in `C` and the ends are
-  exact (`statspai.synth._core.placebo_inversion_ci`, checked against a
-  brute-force grid). On Proposition 99 without covariates (p = 3/39) the
-  90% interval is [-33.0, -5.3] and the 95% one [-58.6, 19.6]; the normal
-  95% interval is [-40.7, 1.6]. `ci`, `se` and `pvalue` are unchanged.
+- **Classic synthetic control: interval and p-value from one procedure
+  (chapter 10).** The book's end-of-chapter question 5 is that a test
+  which rejects and an interval containing zero cannot come from the same
+  procedure. In `sp.synth(method='classic')` they did not. See the
+  correctness entry above; the inversion is
+  `statspai.synth._core.placebo_inversion_ci`, checked against a
+  brute-force grid. Under `H0: effect = C` the weights do not move, the
+  treated gap becomes `gap - C` and the gap of a placebo whose donor pool
+  holds the treated unit with weight `w` becomes `gap + w C`, so each
+  comparison is a quadratic inequality in `C`.
 - **`sp.datasets.nsw_dw()` said it was the Dehejia-Wahba data.** It is a
-  simulated replica with a built-in latent effect of $1,794 (the treated mean of
-  `re78` is 5,508; in the real file it is 6,349). The catalogue already
-  listed it as simulated; the docstring now opens with that, and the frame
-  carries `attrs['simulated'] = True`. The rows are unchanged.
+  simulated replica with a built-in latent effect of $1,794 (the treated
+  mean of `re78` is 5,508; in the real file it is 6,349). The docstring
+  now opens with that and the frame carries `attrs['simulated'] = True`.
+  `sp.datasets.nsw_dw(simulated=False)` returns the real sample: the 185
+  NSW treated and the 2,490 PSID-1 comparison men, bundled, no network.
+  Its naive difference in 1978 earnings is -$15,205, Table 3 of Dehejia
+  and Wahba (1999), and it agrees row by row with the files on Dehejia's
+  NBER page to the rounding of earnings. The bare call is still the
+  replica, rows unchanged, because parity fixtures are built on it.
 
 ### Changed
 

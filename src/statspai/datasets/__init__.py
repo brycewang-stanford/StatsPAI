@@ -14,6 +14,9 @@ single import path ``sp.datasets``:
 **One rule:** if StatsPAI ships the real published data for a dataset,
 a bare call returns it. ``simulated=True`` asks for the calibrated
 replica instead. ``list_datasets()['source']`` says which you get.
+The one exception is ``nsw_dw()``, whose bare call is the replica
+(parity fixtures are built on it); ``nsw_dw(simulated=False)`` is the
+real sample.
 Nothing here touches the network — the whole catalogue works offline.
 
 Each function returns a ``pd.DataFrame`` with:
@@ -49,7 +52,8 @@ Matching / SOO
     ``nsw_lalonde()``           — LaLonde NSW job training (real MatchIt
                                   extract n=614)
     ``nsw_dw()``                — simulated replica of the Dehejia-Wahba
-                                  NSW + PSID comparison (known ATT)
+                                  NSW + PSID comparison; the real sample
+                                  with ``simulated=False``
 
 Synthetic control
     ``california_prop99()``     — ADH tobacco (re-exported from synth)
@@ -241,8 +245,9 @@ def list_datasets() -> pd.DataFrame:
             "SOO",
             2675,
             "Dehejia-Wahba (1999)",
-            "Naive OLS ≈ -$8,498; PSM ≈ $1,794 (DW 1999)",
-            "Naive OLS ≈ -$8,387; covariate-adjusted ≈ $2,313 on replica",
+            "Naive difference -$15,205; experimental $1,794 (DW 1999)",
+            "Naive OLS ≈ -$8,387; covariate-adjusted ≈ $2,313 on replica; "
+            "simulated=False returns the real sample",
         ),
         (
             "lee_2008_senate",

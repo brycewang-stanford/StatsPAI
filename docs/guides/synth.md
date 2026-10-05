@@ -70,6 +70,16 @@ of the 20 variants with the same API and return type.
 - **p-value.** The in-space placebo p-value is the treated unit's rank among
   itself and its `J` placebos, divided by `J + 1`: a treated unit ranked 3rd
   of 39 gets `3/39`.
+- **Confidence interval.** `ci` is the interval that p-value implies: the
+  constant effects `C` for which the same rank test, applied after
+  subtracting `C` from the treated unit's post-treatment outcomes, does
+  not reject (Firpo and Possebom 2018). Zero is outside it exactly when
+  the p-value is below `alpha`. It is not symmetric around the estimate
+  and is not `estimate -/+ z * se`. With fewer than `1 / alpha - 1`
+  donors (19 at 5%) the test cannot reject anything and the interval is
+  `(-inf, inf)`; that is the information in the data, not a failure.
+  The normal interval around the placebo spread that `ci` held through
+  1.38.0 is in `model_info['ci_normal']`.
 - **Speed.** With `covariates=` / `special_predictors=` every placebo
   re-solves the nested V-W problem. Pass `n_jobs=-1` to fit placebos in
   parallel; results are bit-identical to the serial loop.

@@ -318,7 +318,7 @@ PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
 ## 11. 分领域须知
 
 - **`rd/`**：kernel / 局部多项式 / sandwich 走 `rd/_core.py`，不要重新实现。
-- **`synth/`**：20+ 估计器全部经 `sp.synth(method=...)` 分发。新增方法要同时加到 dispatcher 和 `synth_compare()`。
+- **`synth/`**：20+ 估计器全部经 `sp.synth(method=...)` 分发。新增方法要同时加到 dispatcher 和 `synth_compare()`。`method='classic'` 的 `ci` 是与安慰剂秩检验 p 值对偶的常数效应反演区间（`_core.placebo_inversion_ci`，Firpo-Possebom 2018；供体少于 `1/alpha - 1` 个时为 `(-inf, inf)`），旧的 `estimate ± z·sd(placebo ATT)` 只留在 `model_info['ci_normal']`——**不要**再让 p 值和区间出自两套程序（2026-10 Gaillac-L'Hour 教材第 10 章查出）。
 - **`decomposition/`**：影响函数 / statistic-value / WLS 在 `_common.py`。RIF / FFL / inequality / Oaxaca 都委托到该文件。
 - **`multilevel/` / `frontier/` / GLMM**：v0.9.3–v0.9.4 有含正确性修复的大重构——用户引用旧数值时主动提示。
 - **`bayes/`**：默认 NUTS (`draws=2000 tune=1000 chains=4 target_accept=0.9`)；必带 `rhat` / `ess_bulk` / `ess_tail` / `divergences`；`rhat > 1.01` 或 `ess < 400` 发 `ConvergenceWarning`；HDI 94%（arviz 约定）。

@@ -140,8 +140,13 @@ placebo donor pools contain the treated unit, so under `H0: C` placebo
 `j`'s gap moves by `w_j1 C`. Each comparison is a quadratic in `C`; the
 ends are exact and match a brute-force grid.
 
-`ci`, `se` and `pvalue` were left alone. Whether `ci` should become the
-permutation interval is a decision for Bryce; see below.
+`ci` is now that interval. `se` and `pvalue` are unchanged and the normal
+interval stays in `model_info['ci_normal']`. Bryce delegated the choice.
+The reasons for switching: a reported interval should be the one the
+reported test implies, and with fewer than `1 / alpha - 1` donors the
+honest answer is that nothing can be rejected, which the normal interval
+hid behind finite numbers. `summary()` printed an infinite end as a
+blank; it now prints `-inf` / `inf`.
 
 ### 4. `sp.datasets.nsw_dw()` (chapter 5)
 
@@ -152,19 +157,24 @@ non-experimental PSID males". It is simulated. The docstring now says so
 in its first line and `attrs['simulated']` is set. Rows unchanged, so the
 Track A modules that use it (11, 22 and others) are unaffected.
 
+`sp.datasets.nsw_dw(simulated=False)` now returns the real sample (the
+file of the original-data ledger, module 04b, which agrees row by row
+with Dehejia's NBER files to the rounding of earnings). The bare call
+stays the replica. Making the real data the default would follow the
+datasets rule but would move the fixtures of Track A modules 11 and 22;
+that belongs to the next re-anchor of the JSS paper, not to this pass.
+
 ## Left open
 
-1. **Should `sp.synth(method='classic').ci` be the permutation interval?**
-   It is the coherent one, but it changes a headline number and is
-   infinite when `J + 1 < 1 / alpha`. Not changed without a decision.
-2. **Real Dehejia-Wahba + PSID data.** StatsPAI ships the MatchIt extract
-   (`nsw_lalonde`) but not the DW sample with PSID-1. Shipping it and
-   making `nsw_dw()` return it by default would follow the datasets
-   rule, but Track A modules 11 and 22 are built on the replica, so the
-   switch needs a re-anchor.
+1. **Default of `nsw_dw()`.** Real data by default at the next JSS
+   re-anchor, with modules 11 and 22 regenerated. See above.
+2. **Other `sp.synth` methods.** Several report a normal interval around
+   a placebo spread next to a rank p-value in the same way. Only
+   `method='classic'` was changed, because only there are the placebo
+   donor pools and weights that the inversion needs kept in the result.
 3. **Sparse-group Lasso and MIDAS (chapter 11).** No counterpart. A new
    public function; held back under the new-API threshold. `midasml` is
-   the reference.
+   the reference. Decided not to add during the paper submissions.
 4. **`hdm::rlassoATE / rlassoATET / rlassoLATE / rlassoLATET`.** Not
    ported. `sp.dml(model='irm', score='ATTE')` with `RlassoRegressor` /
    `RlassologitClassifier` learners covers the estimand with

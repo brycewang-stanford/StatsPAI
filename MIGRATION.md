@@ -76,6 +76,26 @@ What to do: rerun any `ivregress gmm` line you replayed through
 `sp.ivreg(method='gmm')` are unchanged; `small=False` is newly accepted
 there.
 
+## 1.38.0 → next: ⚠️ `sp.synth(method='classic').ci` is the interval its p-value implies
+
+`ci` changes for every classic fit with placebos. `estimate`, `se`,
+`pvalue` and the weights do not.
+
+| | through 1.38.0 | now |
+| --- | --- | --- |
+| `ci` | `estimate -/+ z * sd(placebo ATTs)` | constant effects not rejected by the RMSPE-ratio rank test |
+| symmetric around the estimate | yes | no |
+| agrees with `pvalue` | not necessarily | zero is outside exactly when `pvalue < alpha` |
+| fewer than `1 / alpha - 1` donors | finite | `(-inf, inf)` |
+
+The old interval is `result.model_info['ci_normal']`. If a table or a
+plot needs finite bounds with few donors, read that key, or raise
+`alpha` (`alpha=0.1` needs 9 donors, `0.05` needs 19).
+`model_info['ci_method']` is `'placebo_inversion'`, or `'placebo_sd'`
+when the old interval is still what `ci` holds (no usable placebo, a
+perfect pre-treatment fit, or every constant effect rejected). Other
+`method=` values are not affected.
+
 ## 1.38.0 → next: ⚠️ `sp.fisher_exact(statistic='ks' | 'rank_sum' | 't').ci` is an interval for the effect
 
 For these statistics `FisherResult.ci` used to be the 2.5% and 97.5%

@@ -110,3 +110,35 @@ def test_perfect_pre_fit_returns_nan():
     G = np.random.default_rng(1).standard_normal((8, 30))
     lo, hi = placebo_inversion_ci(gap, G, np.zeros(30), pre, ~pre)
     assert np.isnan(lo) and np.isnan(hi)
+
+
+def test_reported_interval_is_the_permutation_interval(prop99):
+    """``ci`` is dual to ``pvalue``; the old normal interval is kept."""
+    res = prop99["res"]
+    info = res.model_info
+    assert info["ci_method"] == "placebo_inversion"
+    assert tuple(res.ci) == tuple(info["ci_permutation"])
+    lo, hi = info["ci_normal"]
+    assert lo == pytest.approx(res.estimate - 1.959964 * res.se, rel=1e-6)
+    assert hi == pytest.approx(res.estimate + 1.959964 * res.se, rel=1e-6)
+
+
+def test_few_donors_give_an_unbounded_interval_and_say_so():
+    """Nine units: the smallest p-value is 1/9, so nothing is rejected at
+    5% and the summary prints the infinite ends instead of blanks."""
+    df = sp.datasets.california_prop99()
+    keep = ["California"] + sorted(set(df["state"]) - {"California"})[:8]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.synth(
+            df[df["state"].isin(keep)],
+            outcome="cigsale",
+            unit="state",
+            time="year",
+            treated_unit="California",
+            treatment_time=1989,
+        )
+    assert tuple(res.ci) == (-np.inf, np.inf)
+    assert res.pvalue >= 1 / 9
+    assert "[-inf,  inf]" in res.summary()
+    assert np.isfinite(res.model_info["ci_normal"]).all()

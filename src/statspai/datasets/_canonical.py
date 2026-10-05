@@ -432,42 +432,77 @@ def _nsw_lalonde_simulated(seed: int = 42) -> pd.DataFrame:
     return df
 
 
-def nsw_dw(seed: int = 42) -> pd.DataFrame:
-    """Simulated replica of the Dehejia-Wahba NSW + PSID-1 comparison.
+def nsw_dw(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
+    """Dehejia-Wahba NSW + PSID-1 comparison: simulated replica, or the data.
 
-    **These are not the Dehejia-Wahba data.** Every row is drawn from a
-    DGP calibrated to the published summary statistics: 185 "NSW treated"
-    rows and 2,490 "PSID-1" comparison rows with the right covariate
-    imbalance, and a treatment effect of $1,794 on latent earnings
-    (earnings are censored at zero, so the realised effect on the treated
-    is somewhat smaller, and the outcome is not linear in the covariates
-    where the treated are). Use it to see how an estimator copes with a
-    large selection bias and almost no overlap; do not report its numbers
-    as a replication of LaLonde (1986) or Dehejia and Wahba (1999).
-    ``df.attrs['simulated']`` is ``True``. For real data use :func:`nsw_lalonde` (the MatchIt
-    extract), or read the original files from Dehejia's NBER page.
+    **The default is a simulated replica, not the Dehejia-Wahba data.**
+    Every row of it is drawn from a DGP calibrated to the published summary
+    statistics: 185 "NSW treated" rows and 2,490 "PSID-1" comparison rows
+    with the right covariate imbalance, and a treatment effect of $1,794
+    on latent earnings (earnings are censored at zero, so the realised
+    effect on the treated is somewhat smaller, and the outcome is not
+    linear in the covariates where the treated are). Use it to see how an
+    estimator copes with a large selection bias and almost no overlap; do
+    not report its numbers as a replication of LaLonde (1986) or Dehejia
+    and Wahba (1999). ``df.attrs['simulated']`` says which one you have.
 
-    A naive OLS of ``re78`` on ``treat`` is strongly negative (about
-    -$8,400 on this replica) because the comparison group is much
-    better off; adjustment moves the estimate to the right sign, and how
-    close it gets depends on the method (the propensity score is within
-    0.002 of zero or one for most rows).
+    ``simulated=False`` returns the real sample: the 185 treated men of
+    the Dehejia-Wahba NSW subsample and the 2,490 men of the PSID-1
+    comparison group. The difference in mean 1978 earnings is -$15,205
+    (Dehejia and Wahba 1999, Table 3); the experimental benchmark, which
+    needs the 260 experimental controls that are not in this file, is
+    $1,794.
+
+    The replica stays the default, unlike the other loaders, because
+    committed cross-language parity fixtures are built on it.
 
     Parameters
     ----------
     seed : int, default 42
-        Seed of the replica.
+        Seed of the replica (ignored when ``simulated=False``).
+    simulated : bool, default True
+        ``False`` for the real data, bundled as
+        ``statspai/datasets/data/nsw_psid_dw.csv`` (no network).
 
     Returns
     -------
     pd.DataFrame with columns: treat, age, education, black, hispanic,
         married, nodegree, re74, re75, re78 (2,675 rows).
 
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> real = sp.datasets.nsw_dw(simulated=False)
+    >>> real.shape, real.attrs["simulated"]
+    ((2675, 10), False)
+    >>> sp.datasets.nsw_dw().attrs["simulated"]
+    True
+
     References
     ----------
     Dehejia, R. & Wahba, S. (1999). Causal Effects in Nonexperimental
     Studies.  JASA 94(448), 1053-1062. [@dehejia1999causal]
     """
+    if not simulated:
+        df = _load_bundled_csv("nsw_psid_dw.csv")
+        df.attrs["paper"] = "Dehejia & Wahba (1999). NSW + PSID-1."
+        df.attrs["data_source"] = "real"
+        df.attrs["simulated"] = False
+        df.attrs["source_origin"] = (
+            "R causalsens::lalonde.psid (the file of the original-data "
+            "ledger, tests/orig_parity/data/04b_nsw_psid_original.csv). "
+            "Agrees row by row, to the rounding of earnings (5 cents), with "
+            "nswre74_treated.txt and psid_controls.txt on Dehejia's NBER "
+            "page."
+        )
+        df.attrs["published_naive_difference"] = -15205
+        df.attrs["published_experimental_att"] = 1794
+        df.attrs["notes"] = (
+            "Real data. The propensity score is close to zero for most of "
+            "the comparison group; estimates are sensitive to trimming and "
+            "specification, which is the point of the example."
+        )
+        return df
     rng = np.random.default_rng(seed)
     n_t, n_c = 185, 2490
 
