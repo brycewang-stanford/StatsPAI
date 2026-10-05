@@ -2143,3 +2143,28 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the Das *Causal Inference in R* pass
+
+- **Commits.** `eb32bfdd` re-recorded the entries of Track A modules
+  02 03 11 13 15 24 25 26 27 35 37 42 47 53 58 59 63 64 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and of modules 01, 04,
+  04b and 08 in `tests/orig_parity/results/_implementation_trace.json`. The
+  source that staled them is in `757bf198`: `src/statspai/__init__.py`
+  (three new exports), `src/statspai/regression/iv.py`,
+  `src/statspai/regression/count.py`, `src/statspai/matching/match.py` and
+  `src/statspai/survival/models.py`.
+- **Reason.** Audit in
+  `docs/dev/2026-10-06-das-causal-inference-in-r-review.md`. `sp.iv` reads
+  the two-part formula of `AER::ivreg`; `sp.poisson` reports a corrected
+  overdispersion statistic among its diagnostics; `sp.match` counts tied
+  matches and warns; `CoxResult.ph_test()` is the Grambsch-Therneau score
+  test. None of these is on the path that produces a coefficient or a
+  standard error.
+- **Effect on the paper.** None. No committed result file changed. In both
+  trace files only `exercised_sources` digests and `seconds` differ; no
+  implementation classification moved. The registry gains three entries
+  (`power_ttest`, `esize`, `cor_test`).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
