@@ -274,10 +274,22 @@ def _compute_se(
     N/(N-1) and ``vce(cluster)`` G/(G-1) only (see ``core._vcov.ml_vcov``);
     the cluster factor used to be the regress-family G/(G-1)*(N-1)/(N-K).
     """
+    V = _compute_vcov(score_i, H_inv, kind, cluster_vals)
+    return _as_float_array(np.sqrt(np.maximum(np.diag(V), 1e-20)))
+
+
+def _compute_vcov(
+    score_i: np.ndarray,
+    H_inv: np.ndarray,
+    kind: str,
+    cluster_vals: Optional[np.ndarray],
+) -> np.ndarray:
+    """The covariance matrix behind :func:`_compute_se`. The results keep
+    it (``data_info['var_cov']``) so that joint tests and linear
+    combinations work after the fit."""
     from ..core._vcov import ml_vcov
 
-    V = ml_vcov(H_inv, score_i, kind=kind, clusters=cluster_vals)
-    return _as_float_array(np.sqrt(np.maximum(np.diag(V), 1e-20)))
+    return _as_float_array(ml_vcov(H_inv, score_i, kind=kind, clusters=cluster_vals))
 
 
 def _ordered_logit_cdf(z: np.ndarray) -> np.ndarray:
@@ -449,6 +461,7 @@ def mlogit(
     # --- Standard errors ---
     H_inv = _as_float_array(inverse_information(H))
     se = _compute_se(S_obs, H_inv, robust, cluster_vals)
+    cov_theta = _compute_vcov(S_obs, H_inv, robust, cluster_vals)
 
     # --- Build results ---
     P_hat = _probs(theta_hat)
@@ -473,6 +486,8 @@ def mlogit(
         rrr_se = rrr_vals * se_arr
         params_series = pd.Series(rrr_vals, index=param_names)
         se_series = pd.Series(rrr_se, index=param_names)
+        # delta method for exp(beta)
+        cov_theta = cov_theta * np.outer(rrr_vals, rrr_vals)
     else:
         params_series = pd.Series(coef_arr, index=param_names)
         se_series = pd.Series(se_arr, index=param_names)
@@ -597,6 +612,8 @@ def mlogit(
     }
 
     data_info = {
+        "var_cov": cov_theta,
+        "var_names": list(param_names),
         "dependent_var": y_name,
         "n_obs": n,
         "n_params": n_params,
@@ -775,6 +792,7 @@ def _ordered_model(
     # ``cluster`` said.
     H_inv = _as_float_array(inverse_information(H_exact))
     se_all = _compute_se(S_obs_exact, H_inv, robust, cluster_vals)
+    cov_all = _compute_vcov(S_obs_exact, H_inv, robust, cluster_vals)
     se_beta = se_all[:k]
     se_kappa = se_all[k:]
 
@@ -891,6 +909,8 @@ def _ordered_model(
     }
 
     data_info = {
+        "var_cov": cov_all,
+        "var_names": list(param_names),
         "dependent_var": y_name,
         "n_obs": n,
         "n_params": n_params,
@@ -1328,6 +1348,7 @@ def clogit(
                 recovery_hint=("Cluster on a variable that is constant within group."),
             )
     se = _compute_se(S_obs, H_inv, robust, cluster_group)
+    cov = _compute_vcov(S_obs, H_inv, robust, cluster_group)
 
     # --- Predicted choice probabilities ---
     pred_probs = np.zeros(n)
@@ -1352,6 +1373,8 @@ def clogit(
     }
 
     data_info = {
+        "var_cov": cov,
+        "var_names": list(var_names),
         "dependent_var": y_name,
         "n_obs": n,
         "n_params": k,

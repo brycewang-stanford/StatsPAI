@@ -155,10 +155,13 @@ def dta_extended_missing(path: Path) -> List[str]:
     needs to know where telling them apart would matter."""
     from pandas.io.stata import StataMissingValue
 
-    with warnings.catch_warnings():
+    with warnings.catch_warnings(), _readable(path) as source:
         warnings.simplefilter("ignore")
         coded = pd.read_stata(
-            path, convert_categoricals=False, convert_dates=False, convert_missing=True
+            source,
+            convert_categoricals=False,
+            convert_dates=False,
+            convert_missing=True,
         )
     out = []
     for name in coded.columns:
@@ -564,7 +567,7 @@ class Replay:
         path = self._find(cmd)
         frame = read_dta(path)
         frame.attrs["_ext_missing"] = dta_extended_missing(path)
-        with pd.io.stata.StataReader(path) as labelled:
+        with _readable(path) as source, pd.io.stata.StataReader(source) as labelled:
             frame.attrs["_labels"] = dict(labelled.variable_labels())
             frame.attrs["_data_label"] = labelled.data_label
         self.labels = dta_value_labels(path)
@@ -757,6 +760,12 @@ class Replay:
             self._summarize(cmd, buf, out)
         elif word == "estat":
             self._estat(cmd, buf, out)
+        elif word == "margins" and isinstance(out, dict) and "alternative" in out:
+            # after cmclogit: one effect, printed on a `_cons` row
+            row = coefficient_table(buf).get("_cons")
+            if row:
+                self.report.number(self.name, cmd, "dydx", row[0], out["dydx"])
+                self.report.number(self.name, cmd, "se", row[1], out["se"])
         elif word == "margins":
             if isinstance(out, pd.DataFrame) and out.attrs.get("session_margins"):
                 self._bag(cmd, [ln for ln in buf if "_at:" not in ln], out)
@@ -772,6 +781,8 @@ class Replay:
             TIME_SERIES[word](self, cmd, buf, out)
         elif word.startswith("est") and isinstance(out, pd.DataFrame) and "AIC" in out:
             _cmp_estimates_stats(self, cmd, buf, out)
+        elif word == "cmclogit" and not quiet:
+            _cmp_cmclogit(self, cmd, buf, out)
         elif _RESAMPLED.search(cmd):
             _cmp_resample(self, cmd, buf, out)
         elif word == "irf" and isinstance(out, pd.DataFrame):
@@ -2102,6 +2113,36 @@ def _cmp_irf(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
                 self.name, cmd, f"{name}[{m.group(1)}]", Printed(m.group(2)),
                 out[name].loc[int(m.group(1))],
             )  # fmt: skip
+
+
+def _cmp_cmclogit(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """`cmclogit` prints one block per alternative: the first, headed by
+    the name of the alternatives variable, holds the alternative-specific
+    regressors; the others the case-specific ones and the constant."""
+    params, ses = dict(out.params), dict(out.std_errors)
+    block, first = None, True
+    for ln in buf:
+        head = re.match(r"^\s*(\S+)\s*\|\s*(?:\(base alternative\))?\s*$", ln)
+        if head:
+            block = None if first else head.group(1)
+            first = False
+            continue
+        m = re.match(rf"^\s*(\S+)\s*\|\s*({NUM})\s+({NUM})\s+({NUM})\s+({NUM})", ln)
+        if not m or first:
+            continue
+        name = m.group(1) if block is None else f"{block}:{m.group(1)}"
+        self.report.number(
+            self.name, cmd, f"b[{name}]", Printed(m.group(2)), params.get(name)
+        )
+        self.report.number(
+            self.name, cmd, f"se[{name}]", Printed(m.group(3)), ses.get(name)
+        )
+    found = re.findall(rf"Log likelihood = ({NUM})", "\n".join(buf))
+    if found:
+        self.report.number(
+            self.name, cmd, "log likelihood", Printed(found[-1]),
+            out.diagnostics.get("Log-Likelihood"),
+        )  # fmt: skip
 
 
 _RESAMPLED = re.compile(

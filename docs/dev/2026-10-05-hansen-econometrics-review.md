@@ -31,12 +31,12 @@ changed to imitate an old convention.
 | | Reproduced | Different | Not run |
 | --- | --- | --- | --- |
 | First replay | 1,925 | 112 | 146 |
-| Now | 3,890 | 100 | 53 |
+| Now | 3,925 | 100 | 45 |
 
 Ninety of the hundred differences are the Hausman-Taylor column of Table
 17.2, explained below; the other ten are two cases where the reference is
 at fault or the surface is not smooth. Thirty more numbers are bootstrap
-standard errors, which the replay marks `random`. Of the 53 commands not run, 33 are the choice-model commands of
+standard errors, which the replay marks `random`. Of the 45 commands not run, 25 are the choice-model commands of
 chapter 26. The opt-in test
 `tests/external_parity/test_hansen_econometrics_logs.py` holds the
 per-chapter numbers and the two ledgers (documented differences, declined
@@ -57,6 +57,8 @@ commands).
 | 9 | `var` / `varsoc` / `svar` with `exog()` (Blanchard and Perotti, Blanchard and Quah, chapter 15) | missing option | `sp.var(exog=)`, `sp.varsoc(exog=)` |
 | 11 | Model selection and averaging (chapter 28) existed only for double machine learning | missing | `sp.model_average`: AIC, BIC, cross-validation; Mallows, jackknife and smoothed weights. Checked against `figure28_5.R` and against `quadprog` on committed data |
 | 12 | No Hausman-Taylor estimator (Table 17.2, last column) | missing | `sp.xthtaylor`, and `xthtaylor` in `sp.stata`. Stata's steps reproduced to 1e-12 on committed data |
+| 13 | `sp.clogit`, `sp.mlogit`, `sp.ologit` and `sp.oprobit` kept standard errors but not the covariance matrix, so a joint test after any of them was refused | missing, loud | `data_info['var_cov']` kept; checked against statsmodels |
+| 14 | `cmset`, `cmclogit` and `margins` after it (chapter 26) | translator | run; coefficients, standard errors, log likelihood and the six marginal effects are reproduced |
 | 10 | `irf table`, `estimates stats`, `jackknife:` / `bootstrap:`, `vce(jackknife)`, `L(1/3).D.x`, `lag()` for `lags()`, `perfect`, `forcenonrobust`, `r(sargan)`, `e(rank)`, `nlcom (a)/(b)`, `lincom x + z/5` | translator | run |
 
 ## What agreed without any change
@@ -134,7 +136,7 @@ point estimate only.
 | --- | --- |
 | `mata { ... }` (chapter 8) | Not translated. The block computes the efficient minimum distance estimator, which is `sp.cnsreg(method='emd')`; its numbers are reproduced by a direct call |
 | `xtdpd` (chapter 17) | `sp.xtabond` / `sp.xtdpdsys` exist; the `dgmmiv()` / `lgmmiv()` grammar is not translated |
-| `cmset`, `cmclogit`, `nlogit`, `cmmprobit`, `cmmixlogit` and their `margins` (chapter 26) | Not translated. `sp.clogit` called directly reproduces `cmclogit` to the last printed digit. There is no multinomial probit |
+| `nlogit`, `cmmprobit`, `cmmixlogit` and their `margins` (chapter 26) | Not translated. `sp.nlogit` called directly reproduces the book's nested logit: its constraint that one dissimilarity parameter is 1 is the same as leaving the two alternatives of that nest un-nested (`nests={"CarAir": [4, 2], "Train": [1], "Bus": [3]}`), which gives the log likelihood -2044.4153 of the log and the coefficients to four or five digits. Without the constraint the likelihood has several maxima (Stata reaches -2037.02 with a dissimilarity parameter of 29.8, `sp.nlogit` -2043.46 from its default start), which is presumably why the book imposes it. `cmmixlogit` uses simulated likelihood with Stata's own draws. There is no multinomial probit |
 | `estat bootstrap, all` | Percentile and BCa intervals of the last bootstrap; the draws are not Stata's |
 | `matrix list e(Sigma)` | Display only |
 | `reg ... i.qob#i.yob` with `testparm` | A product of factors whose main effects are absent is coded by Stata as one indicator per cell; the formula language codes it differently. Refused on purpose, as before |
@@ -143,8 +145,8 @@ point estimate only.
 ## Open items
 
 1. The Amemiya-MaCurdy variant of Hausman-Taylor (`xthtaylor, amacurdy`).
-2. Translation of the choice-model commands of chapter 26, and a
-   multinomial probit.
+2. Translation of `nlogit` and `cmmixlogit`, a constraint option on
+   `sp.nlogit`, and a multinomial probit.
 3. `xtdpd` grammar.
 4. Threshold regression with its non-standard inference (chapter 23) and
    series regression with cross-validated order (chapter 20). The R

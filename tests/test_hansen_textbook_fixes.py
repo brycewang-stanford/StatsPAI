@@ -271,3 +271,111 @@ def test_clogit_matches_the_groupwise_definition():
         .index.isin(fit.predicted_probs.index[fit.predicted_probs == 0])
         .all()
     )
+
+
+# ------------------------------------------------- choice models in sp.stata
+@pytest.fixture(scope="module")
+def trips():
+    rng = np.random.default_rng(8)
+    cases, modes = 300, [1, 2, 3]
+    frame = pd.DataFrame(
+        {
+            "trip": np.repeat(np.arange(cases), 3),
+            "mode": np.tile(modes, cases),
+            "cost": rng.uniform(1, 10, cases * 3),
+            "income": np.repeat(rng.uniform(1, 8, cases), 3),
+        }
+    )
+    u = (
+        -0.4 * frame.cost
+        + 0.3 * frame.income * (frame["mode"] == 2)
+        + rng.gumbel(size=len(frame))
+    )
+    frame["chosen"] = (u == u.groupby(frame.trip).transform("max")).astype(int)
+    return frame
+
+
+def test_cmclogit_is_clogit_on_the_interacted_design(trips):
+    session = StataSession(trips)
+    session.run("cmset trip mode")
+    session.run("cmclogit chosen cost, basealternative(1) casevars(income)")
+    fit = session.output
+    assert list(fit.params.index) == [
+        "cost", "2:income", "2:_cons", "3:income", "3:_cons"
+    ]  # fmt: skip
+    design = trips.copy()
+    for m in (2, 3):
+        design[f"i{m}"] = design.income * (design["mode"] == m)
+        design[f"c{m}"] = (design["mode"] == m).astype(float)
+    direct = sp.clogit(
+        data=design, y="chosen", x=["cost", "i2", "c2", "i3", "c3"], group="trip"
+    )
+    np.testing.assert_allclose(fit.params, direct.params, rtol=1e-10)
+    np.testing.assert_allclose(fit.std_errors, direct.std_errors, rtol=1e-10)
+    assert fit.model_info["base_alternative"] == "1"
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="cmset"):
+        sp.stata("cmclogit chosen cost, casevars(income)", data=trips)
+
+
+def test_margins_after_cmclogit_is_the_average_derivative(trips):
+    session = StataSession(trips)
+    session.run("cmset trip mode")
+    session.run("cmclogit chosen cost, basealternative(1) casevars(income)")
+    fit = session.output
+    session.run("margins, dydx(cost) outcome(1) alternative(1)")
+    own = session.output
+    session.run("margins, dydx(cost) outcome(1) alternative(2)")
+    cross = session.output
+
+    design = session.stored["cm_fit"]["frame"]
+    X = design[list(fit.params.index)].to_numpy(float)
+    beta = fit.params.to_numpy()
+
+    def share_of_one(shift_mode):
+        Xs = X.copy()
+        Xs[(design["mode"] == shift_mode).to_numpy(), 0] += 1e-5
+        e = np.exp(Xs @ beta)
+        p = e / pd.Series(e).groupby(design.trip.to_numpy()).transform("sum")
+        return p[(design["mode"] == 1).to_numpy()].mean()
+
+    base = share_of_one(shift_mode=99)
+    assert own["dydx"] == pytest.approx((share_of_one(1) - base) / 1e-5, rel=1e-4)
+    assert cross["dydx"] == pytest.approx((share_of_one(2) - base) / 1e-5, rel=1e-4)
+    assert own["dydx"] < 0 < cross["dydx"] and own["se"] > 0
+    # another choice model in between: margins no longer answers from the old fit
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        session.run("cmmprobit chosen cost, casevars(income)")
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        session.run("margins, dydx(cost) outcome(1) alternative(1)")
+
+
+def test_discrete_choice_results_keep_their_covariance():
+    """Joint tests after mlogit / ologit / oprobit / clogit were refused:
+    the fits kept standard errors only."""
+    import statsmodels.api as sm
+
+    rng = np.random.default_rng(0)
+    n = 600
+    d = pd.DataFrame({"x1": rng.normal(size=n), "x2": rng.normal(size=n)})
+    d["y3"] = pd.cut(d.x1 + rng.logistic(size=n), [-9, -0.5, 0.5, 9], labels=False)
+    fit = sp.mlogit("y3 ~ x1 + x2", data=d)
+    ref = sm.MNLogit(d.y3, sm.add_constant(d[["x1", "x2"]])).fit(
+        disp=0, method="newton", tol=1e-12
+    )
+    np.testing.assert_allclose(
+        fit.data_info["var_cov"], np.asarray(ref.cov_params()), rtol=1e-8
+    )
+    wald = sp.test(fit, ["[1]x2 = 0", "[2]x2 = 0"])
+    theirs = ref.wald_test(np.eye(6)[[2, 5]], scalar=True)
+    assert wald["statistic"] == pytest.approx(float(theirs.statistic), rel=1e-8)
+    for model in (sp.ologit, sp.oprobit):
+        ordered = model("y3 ~ x1 + x2", data=d, robust="robust")
+        V = np.asarray(ordered.data_info["var_cov"])
+        np.testing.assert_allclose(np.sqrt(np.diag(V)), ordered.std_errors)
+        joint = sp.test(ordered, ["x1 = 0", "x2 = 0"])
+        b = ordered.params[["x1", "x2"]].to_numpy()
+        assert joint["statistic"] == pytest.approx(b @ np.linalg.solve(V[:2, :2], b))
+    odds = sp.mlogit("y3 ~ x1 + x2", data=d, rrr=True)
+    np.testing.assert_allclose(
+        np.sqrt(np.diag(odds.data_info["var_cov"])), odds.std_errors
+    )

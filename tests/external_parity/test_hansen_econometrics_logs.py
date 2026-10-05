@@ -55,6 +55,7 @@ REPRODUCED = {
     "Chapter_23.log": 16,
     "Chapter_24.log": 30,
     "Chapter_25.log": 68,
+    "Chapter_26.log": 35,
 }
 
 #: Printed numbers StatsPAI does not reproduce, each with the reason. The
@@ -100,13 +101,11 @@ DECLINED = {
     "testparm i.qob#i.yob": "follows the regression above",
     "matrix list e(Sigma)": "display of a stored matrix",
     "xi: xtdpd": "the dgmmiv() / lgmmiv() grammar is not translated",
-    "cmset": "choice-model commands are not translated",
-    "cmclogit": "choice-model commands are not translated",
     "cmmprobit": "no multinomial probit",
     "cmmixlogit": "choice-model commands are not translated",
     "nlogitgen": "choice-model commands are not translated",
     "nlogit": "choice-model commands are not translated",
-    "margins, dydx(": "after a choice model that was not fitted",
+    "margins, dydx(": "after cmmprobit / cmmixlogit, which were not fitted",
     "estat covariance": "after cmmprobit",
     "estat correlation": "after cmmprobit",
 }

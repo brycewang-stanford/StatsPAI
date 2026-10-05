@@ -619,6 +619,15 @@ The Stata evidence on committed data is in
   change with the period it omits (a coefficient of -0.248 or +0.015 on
   the test panel, depending on the year); here the fit is the same for
   every base period.
+- `sp.mlogit`, `sp.ologit`, `sp.oprobit` and `sp.clogit` keep their
+  covariance matrix (`data_info['var_cov']`). They kept the standard errors
+  only, so `sp.test` and `sp.lincom` refused any hypothesis on more than
+  one coefficient after these fits. The matrix agrees with statsmodels'
+  `MNLogit` to 1e-11.
+- `sp.stata` runs `cmset` and `cmclogit` (alternative-specific and
+  case-specific regressors, `basealternative()`, `casevars()`) and
+  `margins, dydx() outcome() alternative()` after it. All 35 numbers of the
+  conditional logit of chapter 26 are reproduced.
 - `sp.model_average`: selection criteria (AIC, BIC, leave-one-out
   cross-validation) and averaging weights (Mallows, jackknife, smoothed
   AIC and BIC) for candidate regressions, with averaged coefficients, fit

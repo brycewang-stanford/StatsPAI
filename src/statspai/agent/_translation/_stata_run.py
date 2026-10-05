@@ -948,6 +948,7 @@ class StataSession:
         import statspai as sp
 
         from ._stata import from_stata
+        from ._stata_choice import choice_line
         from ._stata_models import constraint_line, constraints_written_out
         from ._stata_programs import run_simulate
         from ._stata_resample import resample_line
@@ -1070,6 +1071,17 @@ class StataSession:
             ) from exc
         if resampled is not None:
             return resampled
+        try:
+            chosen = choice_line(self, line)
+        except StataExprError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                recovery_hint="Build the alternative-specific columns and "
+                "call sp.clogit(data, y=, x=, group=) directly.",
+                diagnostics={"command": line},
+            ) from exc
+        if chosen is not None:
+            return chosen
         try:
             irf_done = irf_line(self, line)
         except StataExprError as exc:
