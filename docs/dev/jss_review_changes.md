@@ -2224,3 +2224,30 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the Ness *Causal AI* pass
+
+- **Commits.** `e305f9bd` re-recorded the entries of Track A modules
+  03 04 08 13 14 15 24 25 26 27 50 53 65 66 71 72 79 in
+  `tests/r_parity/results/_implementation_trace.json` and of modules 02, 06,
+  07, 08, 09, 10 and 11 in
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `159d0cb5`: `src/statspai/__init__.py` (four new
+  exports), `src/statspai/core/_validate.py`,
+  `src/statspai/core/_agent_summary.py`, `src/statspai/inference/ipw.py`,
+  `src/statspai/inference/aipw.py`, `src/statspai/inference/g_computation.py`,
+  `src/statspai/tmle/tmle.py` and `src/statspai/dml/_base.py`.
+- **Reason.** Audit in `docs/dev/2026-10-06-ness-causal-ai-review.md`. The
+  estimators named above convert the treatment column through one shared
+  check that names a column of labels; `sp.ipw` also stores each arm's
+  effective sample size and warns when it is small, and the violations
+  report reads it. None of these is on the path that produces a
+  coefficient or a standard error. The substantive fixes of the pass are
+  in `dag/` and `causal_discovery/`, which no Track A module exercises.
+- **Effect on the paper.** None. No committed result file changed. In both
+  trace files only `exercised_sources` digests and `seconds` differ; no
+  implementation classification moved. The registry gains four entries
+  (`bayes_net`, `BayesNet`, `refute`, `RefutationResult`).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
