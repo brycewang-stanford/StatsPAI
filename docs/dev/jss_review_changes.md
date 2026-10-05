@@ -1806,3 +1806,31 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the *Causal Inference in R* pass
+
+- **Commits.** `57171c15` re-recorded the entries of Track A modules 03 13 15
+  24 25 26 27 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and all 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `d5e62968`: `src/statspai/__init__.py` (six new
+  exports), `src/statspai/inference/ipw.py` (estimands `'ATO'` and `'ATM'`
+  added; the ATE / ATT / ATC branches are untouched) and
+  `src/statspai/inference/g_computation.py` (estimand `'ATC'` added).
+- **Reason.** Audit in
+  `docs/dev/2026-10-05-barrett-causal-inference-in-r-review.md`. No
+  estimator on a Track A path changed. The three correctness fixes of the
+  pass (Crump trimming, weighted variances in the balance tables, minimal
+  adjustment sets) are on no Track A or original-data path.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. Checked by rerunning the Python side of original-data
+  modules 06, 07, 09, 10 and 11 and of Track A modules 03 and 53 on the new
+  tree: 06, 11, 03 and 53 rewrite their result files byte for byte; 07, 09
+  and 10 differ from the committed files in the 13th significant digit
+  (run-to-run floating-point noise in the bootstrap and optimizer paths)
+  and the committed files were kept. The registry census the paper quotes
+  moves from 1,316 to 1,322 registered functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
