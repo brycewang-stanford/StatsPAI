@@ -1998,3 +1998,21 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the third round of the Facure notebooks pass
+
+- **Commits.** `45b56635` re-recorded the entries of Track A modules 13 and
+  24 in `tests/r_parity/results/_implementation_trace.json`. The source
+  that staled them is in the same commit:
+  `src/statspai/forest/_grf_family.py` and
+  `src/statspai/forest/causal_forest.py` (categorical covariates become
+  one indicator per level; numeric covariates take the path they took
+  before).
+- **Reason.** Third round of
+  `docs/dev/2026-10-05-facure-causal-inference-in-python-review.md`.
+  `python tests/r_parity/verify_reproduce_py.py --no-report 13_causal_forest
+  24_coxph` reported 2 reproduce, 0 drift.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; only `exercised_sources` digests and `seconds` differ.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
