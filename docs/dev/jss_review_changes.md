@@ -1645,3 +1645,25 @@ only the recorded source hashes move.
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the second round of the syllabus pass
+
+- **Commits.** `0ec5f60c` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (Track A modules
+  01 14 41 51 53 54 55 56) and
+  `tests/orig_parity/results/_implementation_trace.json` (all 12
+  modules). The sources that staled them are in the same commit:
+  `src/statspai/regression/ols.py` (the bread matrix of the centred fit
+  is assembled by index arrays instead of a double loop) and
+  `src/statspai/regression/tobit.py` (`ll=None` means no lower limit).
+- **Reason.** Second round of the audit in
+  `docs/dev/2026-10-05-xu-lan-causal-econometrics-review.md`. Neither
+  edit changes a number a Track A module computes:
+  `python tests/r_parity/verify_reproduce_py.py --no-report` on 01, 14,
+  41, 51, 53, 54, 55 and 56 reported 8 reproduce, 0 drift.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` differ; no implementation classification moved. No estimate,
+  standard error or table cell is read from these files.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
