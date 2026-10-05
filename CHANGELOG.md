@@ -437,6 +437,13 @@ below are pinned on committed synthetic data in
   `ll=None`, and the forms that cannot be translated are refused. On a
   sample censored from above only, the slope goes from 0.965 to 0.998
   (truth 1), equal to Stata 18 to 1e-8. See `MIGRATION.md`.
+- **`sp.tab` reported a Yates-corrected statistic as "Pearson chi2" on
+  2 x 2 tables.** The test came from `scipy.stats.chi2_contingency` at its
+  default, which applies the continuity correction when the table has one
+  degree of freedom. The label, Stata's `tabulate, chi2` and R's
+  `chisq.test(correct = FALSE)` all mean the uncorrected statistic. On the
+  test table it is 11.84, not the 11.11 that was printed. Larger tables
+  are unchanged. See `MIGRATION.md`.
 - **`sp.garch(p >= 1, q=0)` returned numbers for a model that is not
   identified.** With no ARCH term the variance never responds to the data
   and every value of the GARCH coefficient gives the same likelihood. The
@@ -451,6 +458,19 @@ below are pinned on committed synthetic data in
   These are the two worked examples of the book's first chapter. Both take
   data or summary statistics (`sp.sdtest(n=10, sd=1.14, sd0=2)`), as
   Stata's `sdtest` / `sdtesti` and `ztest` / `ztesti`.
+- **`sp.prtest`, `sp.sktest`, `sp.swilk` and `sp.ci`.** The rest of a
+  first statistics chapter: the z test on one or two proportions, the
+  skewness-kurtosis and Shapiro-Wilk tests for normality, and confidence
+  intervals for means, variances, standard deviations and proportions
+  (exact, Wald, Wilson, Agresti-Coull, Jeffreys). They agree with Stata 18
+  `prtest`, `sktest`, `swilk` and `ci` to 1e-8 or better (the Shapiro-Wilk
+  p-value to 1e-5). `sp.stata` runs those commands and `prtesti`.
+- **`svar ..., aeq(A) beq(B)` and `svar ..., lreq(C)`** run in `sp.stata`,
+  with the matrices defined by `matrix A = (...)` before them.
+- **`tabulate a b, chi2 exact lrchi2 V`** runs in `sp.stata`. The Pearson
+  and likelihood-ratio statistics, Cramer's V and Fisher's exact p-values
+  are in `.attrs['test']` of the table and in `r()`; `sp.tab(...,
+  output='dataframe')` carries the same dictionary.
 - **`sp.nlcom`.** A nonlinear function of the coefficients with a
   delta-method standard error: ratios, the long-run effect `b / (1 - c)` of
   a partial-adjustment model, turning points. The expression is parsed into

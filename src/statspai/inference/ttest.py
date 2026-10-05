@@ -99,8 +99,11 @@ class TTestResult(ResultProtocolMixin):
         self.alpha = alpha
         self.n_obs = n_obs
         self.groups = groups
-        #: "t", or "z" when the result comes from :func:`ztest`
+        #: "t", or "z" when the result comes from :func:`ztest` / :func:`prtest`
         self.statistic_name = "t"
+        #: :func:`prtest` only: the standard error under the null, which
+        #: the statistic uses (``se`` is the one of the interval)
+        self.se_null: Optional[float] = None
 
     def summary(self) -> str:
         level = 100 * (1 - self.alpha)

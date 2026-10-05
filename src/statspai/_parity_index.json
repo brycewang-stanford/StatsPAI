@@ -2477,6 +2477,23 @@
       "tolerance": ""
     },
     {
+      "function": "ci",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_cic_qte_parity.py",
         "tests/reference_parity/test_qdid_parity.py"
@@ -14234,6 +14251,23 @@
       "tolerance": ""
     },
     {
+      "function": "prtest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "ps_balance",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -17551,6 +17585,23 @@
       "tolerance": "1e-9 rel on beta and the AKM / AKM0 / EHW / Homoscedastic SEs; observed <= 6e-14"
     },
     {
+      "function": "sktest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_spatial_models_parity.py"
       ],
@@ -18684,6 +18735,23 @@
       "tolerance": ""
     },
     {
+      "function": "swilk",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/r_parity/07_scm.py",
         "tests/r_parity/07_scm.R",
@@ -19142,6 +19210,23 @@
         "tests/reference_parity/_fixtures/rd_iv_R.json"
       ],
       "tolerance": "critical value at 26 F values from 4 to 1e4: rel 1e-12 (observed 0)"
+    },
+    {
+      "function": "tab",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "target_trial_checklist",

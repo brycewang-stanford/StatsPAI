@@ -39,6 +39,20 @@ price index). Series that were demeaned first, and every model with
 fit. `params` has one more entry (`const`) in the affected case, so code
 that indexes it by position should index by name.
 
+## 1.38.0 → next: ⚠️ `sp.tab` on a 2 x 2 table reports Pearson's chi-squared
+
+**What changed.** The statistic `sp.tab(df, a, b)` prints as
+"Pearson chi2" on a 2 x 2 table is now Pearson's. It was Yates's
+continuity-corrected statistic, which is smaller. Tables with more than
+one degree of freedom, and Fisher's exact p-value, are unchanged.
+
+**Who is affected.** Anyone who reported the chi-squared statistic or its
+p-value from `sp.tab` on a 2 x 2 table.
+
+**What to do.** Re-run. The new number is the one Stata's
+`tabulate, chi2` prints. If the corrected statistic is wanted, call
+`scipy.stats.chi2_contingency(table)` directly.
+
 ## 1.38.0 → next: ⚠️ Stata translation of `tobit`
 
 **What changed.** `sp.stata` / `sp.from_stata` write both censoring limits

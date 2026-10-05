@@ -171,6 +171,20 @@ numbers reproduced and none different: the constant is Stata's too. A
 robust variance with weights, and HC2 / HC3, are not offered by the
 absorbing path and keep the dummy-variable translation.
 
+## Fourth round: the rest of chapter 1
+
+The papers had not been submitted yet, so the bar on new public functions
+was lifted and the chapter 1 commands left open above were added:
+`sp.prtest`, `sp.sktest`, `sp.swilk`, `sp.ci`, and the tests of
+association of `tabulate`. All agree with Stata 18 on the committed
+cross-section (49 tests in the parity file now).
+
+Writing the `tabulate, chi2` translation exposed one more error.
+`sp.tab` printed "Pearson chi2" but computed the Yates-corrected
+statistic on 2 x 2 tables (11.11 against Stata's 11.84), because
+`scipy.stats.chi2_contingency` corrects by default when there is one
+degree of freedom.
+
 ## Differences that are not errors
 
 - **`tobit`, 14 numbers of chapter 4.** Stata's default convergence rule
@@ -187,13 +201,12 @@ absorbing path and keep the dummy-variable translation.
 | Item | Why it is open |
 | --- | --- |
 | Variable-name abbreviations outside the commands and options listed above | Each remaining command needs its own decision about which words are variables. |
-| `ci means` / `ci variances`, `sktest`, `swilk`, `prtest`, `tabulate, chi2` | Chapter 1 commands with no `sp` counterpart yet. Each is small; none was added without a second use. |
 | `stepwise:` prefix, `estat szroeter`, `vwls` | `sp.stepwise` exists with different entry and exit rules; the other two have no counterpart. |
 | `margins, predict(ystar(0,.))` after `tobit`; predictive margins | `sp.margins` has no censored-outcome predictions. |
 | `sqreg`, `bsqreg`, `iqreg` | Bootstrap standard errors; only the point estimates could be compared. |
 | `dfuller, drift`; `dfgls` table; `L.D.x`; `arima, ma(1 4)`; `arch` with an ARMA mean; `predict` after `arima` | Not translated. `sp.unitroot` and `sp.arima` do not have these variants. |
 | `egranger` | `sp.engle_granger` reproduces its statistic (-3.978, -1.799); the command, its `ecm` option and the regression table are not translated. |
-| `irf table`, `svar` in `sp.stata`, `varnorm` | `sp.svar` and `VARResult.fevd` give the numbers; the session does not yet pass `matrix` definitions to them. |
+| `irf table`, `varnorm` | `sp.svar(...).irf()` and `VARResult.fevd()` give the numbers; `irf create` / `irf table` keep results in a file, which the session does not model. (`svar` itself runs since the fourth round.) |
 | `lpirf` | `sp.local_projections` is a single-equation estimator with a different specification. Not compared. |
 | `heckman, mills()`; `etregress, poutcomes` | Options with no counterpart; reported as untranslated. |
 | `areg` with weights and `vce(robust)`, or `vce(hc2 / hc3)`, on thousands of groups | Still the dummy-variable regression; `sp.hdfe_ols` has no robust variance with weights. |

@@ -52,6 +52,22 @@ sp.sdtest(scores, "score", by="class")    # 两个方差是否相等 (F 检验)
 
 方差检验依赖正态假设。数据厚尾时它的实际拒绝率远高于名义水平。
 
+置信区间、比例检验、正态性检验和列联表检验。
+
+```python
+scores["pass"] = (scores["score"] >= 86).astype(int)
+sp.ci(scores, "score")                              # 均值的 t 区间
+sp.ci(scores, "score", stat="sd")                   # 标准差的卡方区间
+sp.ci(scores, "pass", stat="proportions", method="wilson")
+sp.prtest(scores, "pass", p=0.5)                    # 比例是否等于 0.5
+sp.prtest(scores, "pass", by="class")               # 两个班的通过率是否相同
+sp.sktest(scores, "score")                          # 偏度-峰度正态性检验
+sp.swilk(scores, "score")                           # Shapiro-Wilk 检验
+print(sp.tab(scores, "class", "pass"))              # 列联表与 Pearson 卡方检验
+```
+
+样本很大时，正态性检验会因为无关紧要的偏离而拒绝。先看分布图，再看检验。
+
 ## 第 2、3 章 线性回归及其检验
 
 ```python
@@ -372,7 +388,7 @@ sp.stata("ivregress gmm lwage exper expersq (educ = nearc4 nearc2)", data=card)
 sp.stata("sdtesti 10 . 1.14 2")
 ```
 
-2026 年 10 月的几轮教材对照之后，`sdtest`、`ztest`、`truncreg`、`etregress`、
+2026 年 10 月的几轮教材对照之后，`sdtest`、`ztest`、`prtest`、`sktest`、`swilk`、`ci`、`tabulate, chi2`、`truncreg`、`etregress`、
 `heckman`、`pperron`、`kpss`、`arima`、`arch`、`testparm`、`nlcom`、
 `estat durbinalt`、`estat archlm` 和 `ivregress gmm` 都可以直接运行。Stata 的默认设置和
 StatsPAI 函数的默认设置不同时 (例如 `heckman` 默认极大似然、`ivregress gmm`

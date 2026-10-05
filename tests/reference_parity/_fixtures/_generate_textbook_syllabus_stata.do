@@ -63,6 +63,72 @@ emit sdi.p_l r(p_l)
 ztesti 10 88 0.7071 85
 emit zi.z r(z)
 
+* --- proportions, normality, confidence intervals, tests of association
+prtest d == 0.4
+emit pr1.z r(z)
+emit pr1.se r(se)
+emit pr1.lb r(lb)
+emit pr1.ub r(ub)
+emit pr1.p r(p)
+prtest d, by(b)
+emit pr2.z r(z)
+emit pr2.se r(se_diff)
+emit pr2.se0 r(se_diff0)
+emit pr2.lb r(lb_diff)
+emit pr2.ub r(ub_diff)
+emit pr2.p r(p)
+prtesti 50 0.52 0.4
+emit pri.z r(z)
+sktest y x1
+matrix sk = r(table)
+emit sk.y.p_skew sk[1,2]
+emit sk.y.p_kurt sk[1,3]
+emit sk.y.chi2 sk[1,4]
+emit sk.y.p_chi2 sk[1,5]
+emit sk.x1.p_skew sk[2,2]
+emit sk.x1.chi2 sk[2,4]
+emit sk.x1.p_chi2 sk[2,5]
+sktest y, noadjust
+emit skna.y.chi2 r(chi2)
+emit skna.y.p_chi2 r(p_chi2)
+swilk y
+emit sw.W r(W)
+emit sw.V r(V)
+emit sw.z r(z)
+emit sw.p r(p)
+ci means y
+emit cim.mean r(mean)
+emit cim.se r(se)
+emit cim.lb r(lb)
+emit cim.ub r(ub)
+ci variances y
+emit civ.var r(Var)
+emit civ.lb r(lb)
+emit civ.ub r(ub)
+ci variances y, sd
+emit cis.lb r(lb)
+emit cis.ub r(ub)
+foreach m in exact wald wilson agresti jeffreys {
+    ci proportions d, `m'
+    emit cip.`m'.lb r(lb)
+    emit cip.`m'.ub r(ub)
+}
+ci means y, level(90)
+emit cim90.lb r(lb)
+tabulate b d, chi2 exact lrchi2 V
+emit tab2.chi2 r(chi2)
+emit tab2.p r(p)
+emit tab2.chi2_lr r(chi2_lr)
+emit tab2.V r(CramersV)
+emit tab2.p_exact r(p_exact)
+emit tab2.p1_exact r(p1_exact)
+tabulate g d, chi2 lrchi2 V
+emit tabk.chi2 r(chi2)
+emit tabk.p r(p)
+emit tabk.chi2_lr r(chi2_lr)
+emit tabk.p_lr r(p_lr)
+emit tabk.V r(CramersV)
+
 * --- ivregress gmm: robust weight matrix by default
 ivregress gmm y x1 x2 (endog = z1 z2)
 emit gmm.b_endog _b[endog]

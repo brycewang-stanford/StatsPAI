@@ -4242,6 +4242,51 @@
     "name": "chilean_households"
   },
   {
+    "description": "Confidence intervals for means (t), variances or standard deviations (chi-squared) and proportions (exact Clopper-Pearson by default; Wald, Wilson, Agresti-Coull, Jeffreys), one row per variable. Stata ci means / ci variances / ci proportions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Clustered, weighted or survey data -- the intervals assume simple random sampling; use sp.regress('y ~ 1', cluster=...) or the survey functions. Assumptions: Independent observations; Variances / sd: a normal population (the chi-squared interval is not robust to departures from it); Proportions: a 0/1 variable. Alternatives: sp.ttest, sp.sdtest, sp.prtest, sp.bootstrap.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "method": {
+          "default": "exact",
+          "description": "stat='proportions' only: the interval type",
+          "enum": [
+            "exact",
+            "wald",
+            "wilson",
+            "agresti",
+            "jeffreys"
+          ],
+          "type": "string"
+        },
+        "stat": {
+          "default": "means",
+          "description": "What the interval is for",
+          "enum": [
+            "means",
+            "variances",
+            "sd",
+            "proportions"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Columns; every numeric column when omitted",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "ci"
+  },
+  {
     "description": "Changes-in-Changes (Athey & Imbens 2006). Nonparametric quantile DiD that identifies the full counterfactual outcome distribution for treated units, not just the mean. Reports quantile treatment effects (QTE) via empirical-CDF transformation; bootstrap SE. Validation: certified parity evidence. Assumptions: Rank-invariance of untreated potential outcomes across periods; Time-invariant group-level production technology (distributional DiD); SUTVA. Pre-conditions: continuous-ish outcome with sufficient support overlap between treated and control; 2 periods, 2 groups. Failure modes: Discrete outcome with few support points -> CIC quantile transformation degenerates; use sp.qte or sp.drdid for mean effects. Alternatives: sp.qte, sp.drdid, sp.did_2x2. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
@@ -23111,6 +23156,47 @@
     "name": "proximal_regression"
   },
   {
+    "description": "Large-sample z test that a proportion equals a value, or that two proportions are equal (Stata prtest / prtesti). Takes a 0/1 column or summary statistics (n=, proportion=). The two-sample statistic uses the standard error pooled under the null; the interval uses the unpooled one. Returns z, the two-sided and one-sided p-values and Wald intervals. For small samples use sp.bitest. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A small sample or a proportion near 0 or 1 -- use the exact sp.bitest, or sp.ci(stat='proportions') for an exact or Wilson interval. Assumptions: Independent 0/1 observations with a common success probability; Samples large enough for the normal approximation (n p and n (1 - p) not small). Alternatives: sp.bitest, sp.ci, sp.ttest.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping column with exactly two values; the estimate is proportion(lower group) - proportion(higher group)",
+          "type": "string"
+        },
+        "n": {
+          "description": "Observations (summary form)",
+          "type": "integer"
+        },
+        "other": {
+          "description": "Second, independent 0/1 variable",
+          "type": "string"
+        },
+        "p": {
+          "default": 0.5,
+          "description": "One sample: proportion under the null",
+          "type": "number"
+        },
+        "proportion": {
+          "description": "Sample proportion (summary form)",
+          "type": "number"
+        },
+        "y": {
+          "description": "A 0/1 variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "prtest"
+  },
+  {
     "description": "Compute comprehensive propensity score balance table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance. Assumptions: Balance after weighting is only evidence on the covariates checked; it says nothing about unmeasured confounders. Pre-conditions: Binary treatment column and the covariates to check. Alternatives: sp.sp.balance_table, sp.sp.love_plot, sp.sp.ipw.",
     "input_schema": {
       "properties": {
@@ -30162,6 +30248,28 @@
     "name": "shapley_inequality"
   },
   {
+    "description": "Skewness and kurtosis tests for normality with their joint chi-squared(2) test (Stata sktest): D'Agostino's skewness test, the Anscombe-Glynn kurtosis test, and Royston's small-sample adjustment of the joint statistic. One row per variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A very large sample -- the test rejects for departures from normality too small to matter; look at the distribution; Regression residuals are what is in doubt -- use sp.estat(result, 'normality'). Assumptions: Independent observations from one distribution; at least 8. Alternatives: sp.swilk, sp.estat.",
+    "input_schema": {
+      "properties": {
+        "adjust": {
+          "default": true,
+          "description": "Royston's adjustment of the joint statistic (Stata's default)",
+          "type": "boolean"
+        },
+        "variables": {
+          "description": "Columns to test; every numeric column when omitted",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "sktest"
+  },
+  {
     "description": "Self-normalised IPS (bias-reduction for large IS weights). Validation: certified parity evidence. Assumptions: Same identification conditions as IPS (known propensities, positivity, no unmeasured confounding); Self-normalisation trades a small bias for large variance reduction under heavy importance weights. Pre-conditions: X (context), A (logged action), R (reward) and logging propensities are available. Failure modes: Residual bias when effective sample size is tiny (few logged actions overlap the target policy) -> Collect more on-support logged data or switch to the doubly-robust estimator. Alternatives: sp.ips, sp.doubly_robust, sp.direct_method. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
@@ -31984,6 +32092,23 @@
       "type": "object"
     },
     "name": "svar"
+  },
+  {
+    "description": "Shapiro-Wilk W test for normality (Stata swilk, R shapiro.test), with Royston's (1992) normal approximation for the p-value and his V index. One row per variable; 4 to 5,000 observations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than 5,000 observations -- outside the range of the approximation; use sp.sktest. Assumptions: Independent observations from one distribution; between 4 and 5,000 of them. Alternatives: sp.sktest, sp.estat.",
+    "input_schema": {
+      "properties": {
+        "variables": {
+          "description": "Columns to test; every numeric column when omitted",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "swilk"
   },
   {
     "description": "Unified synthetic control estimator. method= selects variant: 'classic', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', 'augmented', 'sdid', 'gsynth', 'staggered'. inference= selects: 'placebo', 'conformal', 'bootstrap', 'jackknife'. Validation: certified evidence with scoped limitations. Known limitations: Classical SCM certification is specification-specific: ADH/Synth parity requires passing the same special_predictors recipe; the default outcome-only V=I path is a documented Kaul-style convention; Default native classical SCM can differ from Synth on Basque-style panels by a documented local-optimum convention (the outer V optimisation has multiple near-equivalent minima); use backend='synth' or canonical special_predictors when exact R parity is required. Do NOT use when: many units are treated at once -- classic SCM is built for one (or few) treated units; use sp.gsynth, sp.sdid or sp.callaway_santanna; the pre-treatment window is short (fewer than ~10 periods) -- the donor weights overfit noise and pre-period fit stops being evidence; the treated unit's pre-period outcome lies outside the convex hull of the donors -- no non-negative weighting can match it; check t...",

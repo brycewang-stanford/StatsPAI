@@ -47,7 +47,7 @@ __all__ = ["stata", "StataSession"]
 _DESCRIPTIVE_TOOLS = frozenset(
     {
         "sumstats", "pwcorr", "ttest", "bitest", "unitroot", "corrgram", "varsoc",
-        "xtsum", "xtserial", "sdtest", "ztest",
+        "xtsum", "xtserial", "sdtest", "ztest", "prtest", "sktest", "swilk", "ci",
     }  # fmt: skip
 )
 
@@ -1094,7 +1094,7 @@ class StataSession:
                     arguments["data"] = self.last_data
             self.output = fn(self.last, **arguments)
             self._store_r(str(out["tool"]), arguments, None)
-        elif out["tool"] in ("bitest", "sdtest", "ztest", "ttest") and (
+        elif out["tool"] in ("bitest", "sdtest", "ztest", "ttest", "prtest") and (
             "n" in arguments
         ):
             # the immediate form: counts on the command line, no data

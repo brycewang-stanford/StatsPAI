@@ -1,12 +1,14 @@
 """
 Cross-tabulation with statistical tests.
 
-Equivalent to Stata's ``tab var1 var2, chi2 exact``.
+Equivalent to Stata's ``tab var1 var2, chi2 exact``. The chi-squared
+statistic is Pearson's, without a continuity correction.
 Exports to text, LaTeX, Excel, Word.
 """
 
 from typing import Any, Optional, Union
 
+import numpy as np
 import pandas as pd
 from scipy import stats
 
@@ -110,22 +112,53 @@ def tab(
     test_result = None
     if test:
         # Use raw counts (no margins)
-        ct_raw = pd.crosstab(data[row], data[col])
-        chi2, p_chi2, dof, expected = stats.chi2_contingency(ct_raw)
-        test_result = {
-            "chi2": chi2,
-            "pvalue": p_chi2,
-            "df": dof,
-        }
-        # Fisher's exact for 2x2
-        if ct_raw.shape == (2, 2):
-            _, p_fisher = stats.fisher_exact(ct_raw)
-            test_result["fisher_pvalue"] = p_fisher
+        test_result = association_tests(pd.crosstab(data[row], data[col]))
 
     if title is None:
         title = f"Tabulation: {row} × {col}"
 
+    if test_result is not None and isinstance(ct_display, pd.DataFrame):
+        ct_display.attrs["test"] = dict(test_result)
     return _format_tab(ct_display, test_result, output, title)
+
+
+def association_tests(counts: pd.DataFrame) -> dict:
+    """Tests of independence on a two-way table of counts (no margins).
+
+    ``chi2`` is Pearson's statistic without a continuity correction, as
+    Stata's ``tabulate, chi2`` and R's ``chisq.test(correct = FALSE)``
+    report it; ``chi2_lr`` the likelihood-ratio statistic; ``cramers_v``
+    Cramer's V (signed for a 2 x 2 table, as in Stata). A 2 x 2 table also
+    gets Fisher's exact p-value.
+    """
+    obs = np.asarray(counts, dtype=float)
+    chi2, p_chi2, dof, expected = stats.chi2_contingency(obs, correction=False)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        terms = np.where(obs > 0, obs * np.log(obs / expected), 0.0)
+    chi2_lr = float(2.0 * terms.sum())
+    n = float(obs.sum())
+    k = min(obs.shape) - 1
+    v = float(np.sqrt(chi2 / (n * k))) if n > 0 and k > 0 else float("nan")
+    out = {
+        "chi2": float(chi2),
+        "pvalue": float(p_chi2),
+        "df": int(dof),
+        "chi2_lr": chi2_lr,
+        "pvalue_lr": float(stats.chi2.sf(chi2_lr, dof)) if dof > 0 else float("nan"),
+        "cramers_v": v,
+        "n": n,
+    }
+    if obs.shape == (2, 2):
+        if obs[0, 0] * obs[1, 1] < obs[0, 1] * obs[1, 0]:
+            out["cramers_v"] = -v
+        out["fisher_pvalue"] = float(stats.fisher_exact(obs)[1])
+        out["fisher_pvalue_1sided"] = float(
+            min(
+                stats.fisher_exact(obs, alternative="less")[1],
+                stats.fisher_exact(obs, alternative="greater")[1],
+            )
+        )
+    return out
 
 
 def _with_value_labels(data: pd.DataFrame, columns: list) -> pd.DataFrame:

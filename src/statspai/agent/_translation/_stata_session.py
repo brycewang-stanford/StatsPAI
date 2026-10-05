@@ -159,6 +159,8 @@ def run_session_command(session: "StataSession", line: str) -> Optional[bool]:
     m = _HAUSMAN.match(line)
     if m:
         return _hausman(session, m.group(1), line)
+    if re.match(r"\s*svar\s", line):
+        return _svar(session, line)
     if re.match(r"\s*xttest0\s*$", line):
         return _xttest0(session)
     if re.match(r"\s*tebalance\s+su", line):
@@ -467,6 +469,19 @@ def _tabulate(session: "StataSession", line: str) -> bool:
         [options.pop(k, 0) is None for k in ("nolabel", "nolabe", "nolab", "nol")]
     )
     options.pop("sort", None)
+    # tests of association on a two-way table; each is in r() afterwards
+    wants_test = False
+    # (the lexer lower-cases option names, so Cramer's `V` arrives as `v`)
+    for full, shortest in (("chi2", 3), ("exact", 1), ("lrchi2", 3), ("v", 1)):
+        for key in list(options):
+            word = key.lower()
+            if (
+                options[key] is None
+                and shortest <= len(word) <= len(full)
+                and (full.startswith(word))
+            ):
+                options.pop(key)
+                wants_test = True
     if options:
         raise StataExprError(
             f"tabulate: option(s) {sorted(options)} are not implemented"
@@ -493,6 +508,8 @@ def _tabulate(session: "StataSession", line: str) -> bool:
         from ...output.tab import _with_value_labels
 
         rows = _with_value_labels(rows, varlist)
+    if wants_test and len(varlist) != 2:
+        raise StataExprError("tabulate: chi2 / exact / lrchi2 / V need two variables")
     if len(varlist) == 1:
         counts = rows[varlist[0]].value_counts(dropna=not missing).sort_index()
         if isinstance(counts.index, pd.CategoricalIndex):
@@ -517,6 +534,77 @@ def _tabulate(session: "StataSession", line: str) -> bool:
             a, b, margins=True, margins_name="Total", dropna=False
         )
         session.stored["r"] = {"N": float(len(a))}
+        if wants_test:
+            from ...output.tab import association_tests
+
+            tests = association_tests(pd.crosstab(a, b))
+            session.output.attrs["test"] = tests
+            r = session.stored["r"]
+            r.update(chi2=tests["chi2"], p=tests["pvalue"], chi2_lr=tests["chi2_lr"],
+                     p_lr=tests["pvalue_lr"], CramersV=tests["cramers_v"])  # fmt: skip
+            if "fisher_pvalue" in tests:
+                r.update(p_exact=tests["fisher_pvalue"],
+                         p1_exact=tests["fisher_pvalue_1sided"])  # fmt: skip
+    return True
+
+
+# -------------------------------------------------------------------- svar
+def _svar(session: "StataSession", line: str) -> bool:
+    """``svar y1 y2 [if], lags(1/p) aeq(A) beq(B)`` or ``... lreq(C)``.
+
+    The reduced form is fitted by the ``var`` translation (same sample,
+    same lags); the matrices named in the options are the ones defined by
+    ``matrix A = (...)`` earlier, with ``.`` marking a free element. The
+    result of :func:`statspai.svar` becomes the active result.
+    """
+    import statspai as sp
+
+    try:
+        cmd = _parse(line)
+    except StataParseError as exc:
+        raise StataExprError(str(exc)) from None
+    held = session.stored.get("matrices") or {}
+    given: Dict[str, Any] = {}
+    for option in ("aeq", "beq", "lreq"):
+        name = cmd.options.get(option)
+        if name is None:
+            continue
+        name = str(name).strip()
+        if name not in held:
+            raise StataExprError(
+                f"svar: {option}({name}) names a matrix that has not been "
+                "defined with `matrix`"
+            )
+        given[option] = np.asarray(held[name]["values"], dtype=float)
+    unsupported = sorted(
+        k for k in cmd.options
+        if k in ("acns", "bcns", "aconstraints", "bconstraints", "lrcns",
+                 "lrconstraints", "exog", "dfk", "small", "var")
+    )  # fmt: skip
+    if unsupported:
+        raise StataExprError(f"svar: option(s) {unsupported} are not implemented")
+    if not given:
+        raise StataExprError("svar needs aeq() / beq() or lreq()")
+    if "lreq" in given and len(given) > 1:
+        raise StataExprError("svar: lreq() cannot be combined with aeq() / beq()")
+    # fit the reduced form with the same varlist, sample and lags
+    head, _, tail = line.partition(",")
+    kept = re.sub(r"\b(?:aeq|beq|lreq)\s*\([^)]*\)", " ", tail)
+    kept = re.sub(r"\b(?:nolog|noislog|log|full|nocnsreport)\b", " ", kept).strip()
+    reduced = re.sub(r"^\s*svar\b", "var", head) + (f", {kept}" if kept else "")
+    session.run(reduced)
+    fit = session.last
+    if "lreq" in given:
+        result = sp.svar(fit, long_run=given["lreq"])
+    else:
+        result = sp.svar(fit, A=given.get("aeq"), B=given.get("beq"))
+    session.output = result
+    session.last = result
+    e = session.stored.setdefault("e", {})
+    if result.log_likelihood is not None:
+        e["ll"] = float(result.log_likelihood)
+    if result.overid is not None:
+        e["chi2_oid"] = float(result.overid["statistic"])
     return True
 
 

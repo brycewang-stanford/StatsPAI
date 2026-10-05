@@ -7851,6 +7851,202 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="prtest",
+            category="inference",
+            description=(
+                "Large-sample z test that a proportion equals a value, or "
+                "that two proportions are equal (Stata prtest / prtesti). "
+                "Takes a 0/1 column or summary statistics (n=, proportion=). "
+                "The two-sample statistic uses the standard error pooled "
+                "under the null; the interval uses the unpooled one. Returns "
+                "z, the two-sided and one-sided p-values and Wald intervals. "
+                "For small samples use sp.bitest."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", False),
+                ParamSpec("y", "str", False, None, "A 0/1 variable"),
+                ParamSpec(
+                    "by",
+                    "str",
+                    False,
+                    None,
+                    "Grouping column with exactly two values; the estimate "
+                    "is proportion(lower group) - proportion(higher group)",
+                ),
+                ParamSpec(
+                    "other", "str", False, None, "Second, independent 0/1 variable"
+                ),
+                ParamSpec(
+                    "p", "float", False, 0.5, "One sample: proportion under the null"
+                ),
+                ParamSpec(
+                    "n", "int | pair", False, None, "Observations (summary form)"
+                ),
+                ParamSpec(
+                    "proportion",
+                    "float | pair",
+                    False,
+                    None,
+                    "Sample proportion (summary form)",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="TTestResult",
+            example='sp.prtest(df, "employed", by="treated")',
+            tags=["inference", "descriptive", "stata", "proportions"],
+            assumptions=[
+                "Independent 0/1 observations with a common success probability",
+                "Samples large enough for the normal approximation "
+                "(n p and n (1 - p) not small)",
+            ],
+            not_recommended_when=[
+                "A small sample or a proportion near 0 or 1 — use the exact "
+                "sp.bitest, or sp.ci(stat='proportions') for an exact or "
+                "Wilson interval",
+            ],
+            alternatives=["bitest", "ci", "ttest"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="sktest",
+            category="inference",
+            description=(
+                "Skewness and kurtosis tests for normality with their joint "
+                "chi-squared(2) test (Stata sktest): D'Agostino's skewness "
+                "test, the Anscombe-Glynn kurtosis test, and Royston's "
+                "small-sample adjustment of the joint statistic. One row "
+                "per variable."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "variables",
+                    "str | list",
+                    False,
+                    None,
+                    "Columns to test; every numeric column when omitted",
+                ),
+                ParamSpec(
+                    "adjust",
+                    "bool",
+                    False,
+                    True,
+                    "Royston's adjustment of the joint statistic (Stata's default)",
+                ),
+            ],
+            returns="DataFrame",
+            example='sp.sktest(df, ["wage", "lwage"])',
+            tags=["inference", "descriptive", "stata", "normality"],
+            reference="dagostino1990suggestion",
+            assumptions=[
+                "Independent observations from one distribution; at least 8",
+            ],
+            not_recommended_when=[
+                "A very large sample — the test rejects for departures from "
+                "normality too small to matter; look at the distribution",
+                "Regression residuals are what is in doubt — use "
+                "sp.estat(result, 'normality')",
+            ],
+            alternatives=["swilk", "estat"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="swilk",
+            category="inference",
+            description=(
+                "Shapiro-Wilk W test for normality (Stata swilk, R "
+                "shapiro.test), with Royston's (1992) normal approximation "
+                "for the p-value and his V index. One row per variable; 4 to "
+                "5,000 observations."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "variables",
+                    "str | list",
+                    False,
+                    None,
+                    "Columns to test; every numeric column when omitted",
+                ),
+            ],
+            returns="DataFrame",
+            example='sp.swilk(df, "wage")',
+            tags=["inference", "descriptive", "stata", "normality"],
+            reference="royston1992approximating",
+            assumptions=[
+                "Independent observations from one distribution; "
+                "between 4 and 5,000 of them",
+            ],
+            not_recommended_when=[
+                "More than 5,000 observations — outside the range of the "
+                "approximation; use sp.sktest",
+            ],
+            alternatives=["sktest", "estat"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ci",
+            category="inference",
+            description=(
+                "Confidence intervals for means (t), variances or standard "
+                "deviations (chi-squared) and proportions (exact "
+                "Clopper-Pearson by default; Wald, Wilson, Agresti-Coull, "
+                "Jeffreys), one row per variable. Stata ci means / ci "
+                "variances / ci proportions."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "variables",
+                    "str | list",
+                    False,
+                    None,
+                    "Columns; every numeric column when omitted",
+                ),
+                ParamSpec(
+                    "stat",
+                    "str",
+                    False,
+                    "means",
+                    "What the interval is for",
+                    ["means", "variances", "sd", "proportions"],
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "exact",
+                    "stat='proportions' only: the interval type",
+                    ["exact", "wald", "wilson", "agresti", "jeffreys"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="DataFrame",
+            example='sp.ci(df, "employed", stat="proportions", method="wilson")',
+            tags=["inference", "descriptive", "stata", "confidence-interval"],
+            assumptions=[
+                "Independent observations",
+                "Variances / sd: a normal population (the chi-squared "
+                "interval is not robust to departures from it)",
+                "Proportions: a 0/1 variable",
+            ],
+            not_recommended_when=[
+                "Clustered, weighted or survey data — the intervals assume "
+                "simple random sampling; use sp.regress('y ~ 1', cluster=...) "
+                "or the survey functions",
+            ],
+            alternatives=["ttest", "sdtest", "prtest", "bootstrap"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="sdtest",
             category="inference",
             description=(

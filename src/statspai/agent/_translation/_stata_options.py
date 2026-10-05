@@ -228,6 +228,8 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "csdid": (("ivar", 1), ("time", 1), ("gvar", 1)),
     "ttest": (("unpaired", 3), ("unequal", 3), ("welch", 1)),
     "ttesti": (("unequal", 3), ("welch", 1)),
+    "sktest": (("noadjust", 3),),
+    "ci": (("agresti", 2), ("jeffreys", 1), ("wilson", 2)),
     "tabstat": (("statistics", 1), ("columns", 1), ("format", 1)),
     "dfuller": (("regress", 3), ("trend", 2), ("drift", 2), ("lags", 1)),
     "estat": (("nomiss0", 4), ("lags", 1), ("cutoff", 3)),

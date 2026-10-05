@@ -191,6 +191,105 @@ def _h_ztesti(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("ztest", args, f"sp.ztest({_kw(args)})")
 
 
+def _h_prtest(cmd: StataCommand) -> Dict[str, Any]:
+    """``prtest d == 0.4`` / ``prtest d, by(g)`` / ``prtest d == e`` ->
+    ``sp.prtest``."""
+    text = " ".join(cmd.varlist).strip()
+    args: Dict[str, Any] = {}
+    eq = _EQ.fullmatch(text)
+    if eq:
+        args["y"] = eq.group(1)
+        value = _number(eq.group(2))
+        if value is None:
+            args["other"] = eq.group(2)
+        else:
+            args["p"] = value
+    elif len(cmd.varlist) == 1 and cmd.options.get("by"):
+        args["y"] = cmd.varlist[0]
+        args["by"] = str(cmd.options["by"]).split()[0]
+    else:
+        return _bad(
+            cmd, "expected `prtest d == #`, `prtest d, by(group)` or `prtest d == e`"
+        )
+    err = _level(cmd, args)
+    if err:
+        return err
+    return _emit("prtest", args, f"sp.prtest(df, {_kw(args)})")
+
+
+def _h_prtesti(cmd: StataCommand) -> Dict[str, Any]:
+    """``prtesti 50 0.52 0.4`` -> ``sp.prtest(n=50, proportion=0.52, p=0.4)``;
+    four numbers are two samples. ``count`` gives successes instead of
+    proportions."""
+    values = [_number(tok) for tok in cmd.varlist]
+    if len(values) not in (3, 4) or any(v is None for v in values):
+        return _bad(cmd, "expected `#obs #p #p0` or `#obs1 #p1 #obs2 #p2`")
+    count = "count" in cmd.options
+    args: Dict[str, Any]
+    if len(values) == 3:
+        n, p_hat, null = values
+        args = {"n": int(n), "proportion": p_hat / n if count else p_hat, "p": null}
+    else:
+        n1, p1, n2, p2 = values
+        args = {
+            "n": (int(n1), int(n2)),
+            "proportion": (p1 / n1, p2 / n2) if count else (p1, p2),
+        }
+    err = _level(cmd, args)
+    if err:
+        return err
+    return _emit("prtest", args, f"sp.prtest({_kw(args)})")
+
+
+def _h_normality(cmd: StataCommand) -> Dict[str, Any]:
+    """``sktest x y [, noadjust]`` -> ``sp.sktest``; ``swilk x y`` ->
+    ``sp.swilk``."""
+    if not cmd.varlist:
+        return _bad(cmd, "needs a varlist")
+    args: Dict[str, Any] = {"variables": list(cmd.varlist)}
+    tool = "swilk" if cmd.command == "swilk" else "sktest"
+    if tool == "sktest" and "noadjust" in cmd.options:
+        args["adjust"] = False
+    return _emit(tool, args, f"sp.{tool}(df, {_kw(args)})")
+
+
+def _h_ci(cmd: StataCommand) -> Dict[str, Any]:
+    """``ci means x`` / ``ci variances x [, sd]`` / ``ci proportions d
+    [, wilson ...]`` -> ``sp.ci``."""
+    words = list(cmd.varlist)
+    kinds = (("means", 4), ("variances", 3), ("proportions", 4))
+    stat = None
+    if words:
+        head = words[0].lower()
+        for full, shortest in kinds:
+            if shortest <= len(head) <= len(full) and full.startswith(head):
+                stat, words = full, words[1:]
+                break
+    if stat is None:
+        return _bad(
+            cmd,
+            "expected `ci means`, `ci variances` or `ci proportions` followed "
+            "by a varlist",
+        )
+    if not words:
+        return _bad(cmd, "needs a varlist")
+    args: Dict[str, Any] = {"variables": words, "stat": stat}
+    if stat == "variances" and "sd" in cmd.options:
+        args["stat"] = "sd"
+    if stat == "proportions":
+        chosen = [
+            m for m in ("exact", "wald", "wilson", "agresti", "jeffreys")
+            if m in cmd.options
+        ]  # fmt: skip
+        if len(chosen) > 1:
+            return _bad(cmd, "more than one interval type was given")
+        args["method"] = chosen[0] if chosen else "exact"
+    err = _level(cmd, args)
+    if err:
+        return err
+    return _emit("ci", args, f"sp.ci(df, {_kw(args)})")
+
+
 def _h_ttesti(cmd: StataCommand) -> Dict[str, Any]:
     """``ttesti 10 88 1.1 85`` -> ``sp.ttest(n=10, mean=88, sd=1.1, mu=85)``;
     six numbers are two independent samples."""
@@ -408,6 +507,11 @@ HANDLERS = {
     "ztest": _h_ztest,
     "ztesti": _h_ztesti,
     "ttesti": _h_ttesti,
+    "prtest": _h_prtest,
+    "prtesti": _h_prtesti,
+    "sktest": _h_normality,
+    "swilk": _h_normality,
+    "ci": _h_ci,
     "etregress": _h_etregress,
     "pperron": _h_pperron,
     "kpss": _h_kpss,

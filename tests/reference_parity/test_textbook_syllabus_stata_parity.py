@@ -640,3 +640,163 @@ def test_collinearity_scan_on_a_wide_dummy_design():
     )
     within = sp.feols("y ~ x | g", data=frame)
     close(fit.params["x"], within.params["x"], rtol=1e-8)
+
+
+# ------------------------- proportions, normality, intervals, association
+def test_prtest(G, cs):
+    one = sp.prtest(cs, "d", p=0.4)
+    close(one.statistic, G["pr1.z"])
+    close(one.se, G["pr1.se"])
+    close(one.ci[0], G["pr1.lb"])
+    close(one.ci[1], G["pr1.ub"])
+    close(one.pvalue, G["pr1.p"])
+    two = sp.prtest(cs, "d", by="b")
+    close(two.statistic, G["pr2.z"])
+    close(two.se, G["pr2.se"])  # unpooled: the interval's
+    close(two.se_null, G["pr2.se0"])  # pooled: the statistic's
+    close(two.ci[0], G["pr2.lb"])
+    close(two.ci[1], G["pr2.ub"])
+    close(two.pvalue, G["pr2.p"])
+    close(sp.prtest(n=50, proportion=0.52, p=0.4).statistic, G["pri.z"])
+    via = sp.stata("prtest d, by(b)", data=cs)
+    close(via.statistic, G["pr2.z"])
+
+
+def test_sktest(G, cs):
+    out = sp.sktest(cs, ["y", "x1"])
+    close(out.loc["y", "p_skew"], G["sk.y.p_skew"], rtol=1e-8)
+    close(out.loc["y", "p_kurt"], G["sk.y.p_kurt"], rtol=1e-8)
+    close(out.loc["y", "chi2"], G["sk.y.chi2"], rtol=1e-8)
+    close(out.loc["y", "p_chi2"], G["sk.y.p_chi2"], rtol=1e-8)
+    close(out.loc["x1", "p_skew"], G["sk.x1.p_skew"], rtol=1e-8)
+    close(out.loc["x1", "chi2"], G["sk.x1.chi2"], rtol=1e-8)
+    close(out.loc["x1", "p_chi2"], G["sk.x1.p_chi2"], rtol=1e-8)
+    plain = sp.sktest(cs, "y", adjust=False)
+    close(plain.loc["y", "chi2"], G["skna.y.chi2"], rtol=1e-8)
+    close(plain.loc["y", "p_chi2"], G["skna.y.p_chi2"], rtol=1e-8)
+    via = sp.stata("sktest y, noadjust", data=cs)
+    close(via.loc["y", "chi2"], G["skna.y.chi2"], rtol=1e-8)
+
+
+def test_swilk(G, cs):
+    out = sp.swilk(cs, "y")
+    # W comes from scipy's AS R94 and agrees with Stata to 1e-8; z and p
+    # magnify that difference
+    close(out.loc["y", "W"], G["sw.W"], rtol=1e-8)
+    close(out.loc["y", "V"], G["sw.V"], rtol=1e-6)
+    close(out.loc["y", "z"], G["sw.z"], rtol=1e-6)
+    close(out.loc["y", "pvalue"], G["sw.p"], rtol=1e-5)
+
+
+def test_normality_tests_hold_their_size_and_find_skewness():
+    """Known truth: about 5% rejections on normal samples of 60, near
+    certain rejection on exponential ones."""
+    rng = np.random.default_rng(2026)
+    reps = 600
+    normal = pd.DataFrame(rng.normal(size=(60, reps)))
+    skewed = pd.DataFrame(rng.exponential(size=(60, reps)))
+    for test, col in ((sp.sktest, "p_chi2"), (sp.swilk, "pvalue")):
+        size = float((test(normal)[col] < 0.05).mean())
+        power = float((test(skewed)[col] < 0.05).mean())
+        assert abs(size - 0.05) < 0.03, (test.__name__, size)
+        assert power > 0.95, (test.__name__, power)
+
+
+def test_confidence_intervals(G, cs):
+    mean = sp.ci(cs, "y")
+    close(mean.loc["y", "mean"], G["cim.mean"])
+    close(mean.loc["y", "se"], G["cim.se"])
+    close(mean.loc["y", "ci_lower"], G["cim.lb"])
+    close(mean.loc["y", "ci_upper"], G["cim.ub"])
+    close(sp.ci(cs, "y", alpha=0.10).loc["y", "ci_lower"], G["cim90.lb"])
+    var = sp.ci(cs, "y", stat="variances")
+    close(var.loc["y", "variance"], G["civ.var"])
+    close(var.loc["y", "ci_lower"], G["civ.lb"])
+    close(var.loc["y", "ci_upper"], G["civ.ub"])
+    sd = sp.ci(cs, "y", stat="sd")
+    close(sd.loc["y", "ci_lower"], G["cis.lb"])
+    close(sd.loc["y", "ci_upper"], G["cis.ub"])
+    for method in ("exact", "wald", "wilson", "agresti", "jeffreys"):
+        prop = sp.ci(cs, "d", stat="proportions", method=method)
+        close(prop.loc["d", "ci_lower"], G[f"cip.{method}.lb"], rtol=1e-8)
+        close(prop.loc["d", "ci_upper"], G[f"cip.{method}.ub"], rtol=1e-8)
+    via = sp.stata("ci proportions d, wilson", data=cs)
+    close(via.loc["d", "ci_lower"], G["cip.wilson.lb"], rtol=1e-8)
+    # the sd interval is the one sp.sdtest reports
+    close(sd.loc["y", "ci_lower"], sp.sdtest(cs, "y", sd0=2).ci[0])
+
+
+def test_ci_and_prtest_refusals(cs):
+    bad = sp.exceptions.MethodIncompatibility
+    with pytest.raises(bad, match="0 / 1"):
+        sp.ci(cs, "y", stat="proportions")
+    with pytest.raises(bad, match="stat="):
+        sp.ci(cs, "y", stat="median")
+    with pytest.raises(bad, match="method="):
+        sp.ci(cs, "d", stat="proportions", method="score")
+    with pytest.raises(bad, match="0 / 1"):
+        sp.prtest(cs, "y")
+    with pytest.raises(bad, match="exactly two groups"):
+        sp.prtest(cs, "d", by="g")
+    with pytest.raises(bad, match="null proportion"):
+        sp.prtest(cs, "d", p=1.0)
+    with pytest.raises(bad, match="both n= and proportion="):
+        sp.prtest(n=50)
+    with pytest.raises(sp.exceptions.DataInsufficient):
+        sp.sktest(cs.head(5), "y")
+    with pytest.raises(sp.exceptions.DataInsufficient):
+        sp.swilk(cs.head(3), "y")
+
+
+def test_tabulate_tests_of_association(G, cs):
+    two = sp.stata("tabulate b d, chi2 exact lrchi2 V", data=cs).attrs["test"]
+    close(two["chi2"], G["tab2.chi2"])
+    close(two["pvalue"], G["tab2.p"])
+    close(two["chi2_lr"], G["tab2.chi2_lr"])
+    close(two["cramers_v"], G["tab2.V"])
+    close(two["fisher_pvalue"], G["tab2.p_exact"], rtol=1e-8)
+    close(two["fisher_pvalue_1sided"], G["tab2.p1_exact"], rtol=1e-8)
+    many = sp.stata("tab g d, chi2 lrchi2 V", data=cs).attrs["test"]
+    close(many["chi2"], G["tabk.chi2"])
+    close(many["pvalue"], G["tabk.p"])
+    close(many["chi2_lr"], G["tabk.chi2_lr"])
+    close(many["pvalue_lr"], G["tabk.p_lr"])
+    close(many["cramers_v"], G["tabk.V"])
+
+
+def test_tab_reports_pearson_without_a_continuity_correction(G, cs):
+    """sp.tab labels its statistic Pearson chi2; on a 2 x 2 table that is
+    not the Yates-corrected value scipy returns by default."""
+    table = sp.tab(cs, "b", "d", output="dataframe")
+    close(table.attrs["test"]["chi2"], G["tab2.chi2"])
+    assert f"{G['tab2.chi2']:.4f}" in sp.tab(cs, "b", "d")
+    # for a 2 x 2 table Pearson's chi2 is the square of the two-sample z
+    close(table.attrs["test"]["chi2"], sp.prtest(cs, "d", by="b").statistic ** 2)
+
+
+def test_svar_runs_through_the_translator(G, ts):
+    short = sp.stata(
+        """
+        tsset t
+        matrix A = (1,0,0 \\ .,1,0 \\ .,.,1)
+        matrix B = (.,0,0 \\ 0,.,0 \\ 0,0,.)
+        svar c1 c2 c3, lags(1/2) aeq(A) beq(B)
+        """,
+        data=ts,
+    )
+    close(short.table.loc["A[2,1]", "estimate"], G["svar.A21"], rtol=1e-6)
+    close(short.table.loc["B[1,1]", "se"], G["svar.se_B11"], rtol=1e-5)
+    close(short.log_likelihood, G["svar.ll"], rtol=1e-9)
+    long = sp.stata(
+        """
+        tsset t
+        matrix C = (.,0,0 \\ .,.,0 \\ .,.,.)
+        svar c1 c2 c3, lags(1/2) lreq(C)
+        """,
+        data=ts,
+    )
+    close(long.table.loc["C[2,1]", "estimate"], G["svarl.C21"], rtol=1e-6)
+    with pytest.raises(
+        sp.exceptions.MethodIncompatibility, match="has not been defined"
+    ):
+        sp.stata("tsset t\nsvar c1 c2, lags(1/2) aeq(Q)", data=ts)

@@ -7,6 +7,7 @@ Provides robust inference methods for supported estimator results:
 """
 
 from .aipw import aipw
+from .basic_tests import ci, prtest, sktest, swilk
 from .bitest import BiTestResult, bitest
 from .bootstrap import BootstrapResult, bootstrap
 from .conley import conley
@@ -64,6 +65,10 @@ __all__ = [
     "ttest",
     "sdtest",
     "ztest",
+    "prtest",
+    "sktest",
+    "swilk",
+    "ci",
     "SDTestResult",
     "TTestResult",
     "bitest",
