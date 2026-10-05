@@ -1897,3 +1897,30 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the Kohler-Kreuter pass
+
+- **Commits.** `c4688894` re-recorded the entries of Track A modules 01 02
+  03 13 14 15 24 25 26 27 35 37 42 44 45 46 47 48 49 51 53 54 55 56 57 58
+  63 64 65 66 67 in `tests/r_parity/results/_implementation_trace.json`
+  and all 12 modules of
+  `tests/orig_parity/results/_implementation_trace.json`. The sources that
+  staled them are in `0a810f36`: in `src/statspai/core/utils.py` the
+  formula helper reads the levels of `C(g)` from the rows that are used
+  and accepts columns named like Python keywords, and
+  `src/statspai/__init__.py` exports thirteen new names.
+- **Reason.** The pass over Kohler, Kreuter and Haensch, *Data Analysis
+  Using Stata* (`docs/dev/2026-10-05-kohler-kreuter-4e-review.md`). The
+  two changes of the formula helper act on a factor level without
+  complete rows and on a column named like a keyword.
+  `python scripts/trace_parity_provenance.py` re-ran the 31 Track A
+  modules and the 12 original-data modules and reported `ok` for each:
+  every one reproduces its committed result.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ, and no implementation classification moved. The
+  registry census the paper quotes moves from 1,333 to 1,346 registered
+  functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
