@@ -108,9 +108,12 @@ def test_plain_by_needs_sorted_data(df):
         run("gen u = mod(_n, 3)\nby u: gen k = _n", df)
 
 
-def test_by_prefix_on_an_estimation_command_is_still_refused(df):
-    with pytest.raises(MethodIncompatibility, match="bysort"):
-        run("bysort g: regress y x", df)
+def test_by_prefix_runs_an_estimation_command_group_by_group(df):
+    out = run("bysort g: regress y x", df)
+    assert set(out) == set(df["g"].unique())
+    for level, fit in out.items():
+        alone = sp.regress("y ~ x", data=df[df["g"] == level])
+        assert np.allclose(fit.params.to_numpy(), alone.params.to_numpy())
 
 
 def test_panel_built_from_scratch():

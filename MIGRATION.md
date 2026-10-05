@@ -5,6 +5,53 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ the base level of `C(g)`, `sp.hausman` with factors, RESET on the regressors
+
+**What changed.**
+
+- A formula term `C(g)` takes its reference category from the rows the
+  model is fitted on. Before, a level that occurred only in rows dropped
+  for a missing value elsewhere could become the base; one of the other
+  indicators was then omitted as collinear. The fitted values, the
+  residuals and every test of the factor as a whole are the same. The
+  coefficients of the levels and the intercept are those of the coding
+  Stata and R use.
+- `sp.hausman(fe, re)` compares factor levels the two results name
+  differently. The degrees of freedom and the statistic change when the
+  models hold `C(g)` terms.
+- `sp.estat(result, "reset", rhs=True)` takes the powers of each regressor
+  on unit scale. The statistic changes only where it was wrong (regressors
+  in the thousands and above; it could be negative).
+- A formula may name columns called `class`, `return`, `yield` and other
+  Python keywords inside functions. This raised an error before.
+
+**Who is affected.** Anyone who read level coefficients from a model whose
+factor had a level without complete rows; anyone who reported a Hausman
+test of models with factor variables, or RESET with `rhs=True`.
+
+**What to do.** Re-run. To get the old coding of a factor, drop the
+incomplete rows yourself and set the reference with
+`C(g, Treatment(reference=...))`.
+
+## 1.38.0 → next: ⚠️ `sp.stata` and extended missing values
+
+**What changed.** `sp.stata` declines `x == .`, `x != .`, `x > .`,
+`x <= .` and any comparison with `.a` to `.z` on a variable that may hold
+an extended missing value, and `by`, `tabulate, missing` and
+`collapse, by()` on such a variable when it has missing rows. In Stata
+`.a != .` is true and each kind is a group of its own; the data hold all
+kinds as NaN, so the old answers were those of another question.
+`missing(x)`, `x < .` and `x >= .` run as before.
+
+A variable counts as coded when the frame was read with
+`sp.read_data(path, extended_missing='column')`, when
+`df.attrs['_ext_missing']` lists it, when its value labels name such a
+code, or once the session has assigned one (`replace x = .a if ...`,
+`mvdecode x, mv(-1 = .a)`).
+
+**What to do.** Write `missing(x)` or `x < .` where any missing value is
+meant. Where the kind matters, recode it into a variable of its own before
+calling `sp.stata`.
 <a id="oct2026-facure-textbook-fixes"></a>
 
 ## 1.38.0 → next: ⚠️ `sp.did` with repeated unit-period rows; categorical covariates; `sigma=` in power

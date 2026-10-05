@@ -56,7 +56,7 @@ _SIMULATE = re.compile(
     r"(?P<prog>[A-Za-z_]\w*)\s*$",
     re.S,
 )
-_UNSUPPORTED_BODY = re.compile(r"\s*(?:syntax|mata)\b")
+_UNSUPPORTED_BODY = re.compile(r"\s*mata\b")
 
 
 def _refuse(message: str, line: str) -> MethodIncompatibility:
@@ -82,7 +82,7 @@ def program_line(session: "StataSession", line: str) -> Optional[bool]:
             if _UNSUPPORTED_BODY.match(line):
                 session._defining = None
                 raise _refuse(
-                    "the program uses `syntax` or `mata`, which are not run",
+                    "the program uses `mata`, which is not run",
                     line,
                 )
             body.append(line)

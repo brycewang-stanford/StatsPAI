@@ -222,6 +222,26 @@ class MacroTable:
                 name, table, shown = m.group(3), self.locals, m.group(0)
             else:
                 name, table, shown = m.group(1) or m.group(2), self.globals, m.group(0)
+            stepped = re.fullmatch(r"(\+\+|--)?([A-Za-z_]\w*)(\+\+|--)?", name or "")
+            if (
+                m.group(3) is not None
+                and stepped
+                and (stepped.group(1) or stepped.group(3))
+                and not (stepped.group(1) and stepped.group(3))
+                and stepped.group(2) in table
+            ):
+                # `i++' gives the value and then adds one; `++i' adds first
+                key = stepped.group(2)
+                try:
+                    current = float(table[key] or "")
+                except ValueError:
+                    raise ScriptError(f"macro `{key}' does not hold a number") from None
+                step = 1.0 if "+" in (stepped.group(1) or stepped.group(3)) else -1.0
+                after = current + step
+                table[key] = str(int(after)) if after == int(after) else repr(after)
+                shown_value = after if stepped.group(1) else current
+                return (str(int(shown_value)) if shown_value == int(shown_value)
+                        else repr(shown_value))  # fmt: skip
             if name not in table and self.evaluator is not None and m.group(3):
                 computed = self.evaluator(name)
                 if computed is not None:

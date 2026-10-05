@@ -55,6 +55,55 @@ ESTIMATION = {
     "ivreg", "ivreg2", "ivregress", "tobit", "newey", "reghdfe", "prais",
 }  # fmt: skip
 SUMMARIZE = {"su", "sum", "summ", "summarize"}
+#: commands compared number by number without naming the numbers
+BAG = {
+    "tabulate", "tabulat", "tabula", "tabul", "tabu", "tab", "ta", "tab1", "tab2",
+    "mean", "proportion", "total", "ratio", "svy", "svy,", "ameans", "centile",
+    "cii", "ci", "duplicates", "ranksum", "signrank", "kwallis", "spearman", "ktau",
+    "ksmirnov", "median", "robvar", "oneway", "tabstat", "table", "misstable",
+    "lrtest", "linktest", "by", "bysort", "bys", "count", "nestreg", "sdtest",
+    "prtest", "prtesti", "bitest", "bitesti", "ztest", "sktest", "swilk", "cc",
+    "cs", "tabodds", "lroc", "correlate", "corr", "pwcorr",
+}  # fmt: skip
+
+
+def _numbers_in(out: Any, depth: int = 0) -> List[float]:
+    """Every finite number an output holds, whatever its shape."""
+    found: List[float] = []
+    if depth > 6 or out is None or isinstance(out, (str, bytes)):
+        return found
+    if isinstance(out, (bool, np.bool_)):
+        return found
+    if isinstance(out, (int, float, np.integer, np.floating)):
+        return [float(out)] if np.isfinite(out) else found
+    if isinstance(out, pd.DataFrame):
+        values = out.apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+        found.extend(float(v) for v in values.ravel() if np.isfinite(v))
+        found.extend(_numbers_in(dict(out.attrs), depth + 1))
+        found.extend(_numbers_in(getattr(out, "info", None), depth + 1))
+        return found
+    if isinstance(out, pd.Series):
+        values = pd.to_numeric(out, errors="coerce").to_numpy(dtype=float)
+        return [float(v) for v in values if np.isfinite(v)]
+    if isinstance(out, np.ndarray):
+        if out.dtype.kind in "fiu" and out.size <= 100_000:
+            return [float(v) for v in out.ravel() if np.isfinite(v)]
+        return found
+    if isinstance(out, dict):
+        for value in out.values():
+            found.extend(_numbers_in(value, depth + 1))
+        return found
+    if isinstance(out, (list, tuple)):
+        for value in out[:10_000]:
+            found.extend(_numbers_in(value, depth + 1))
+        return found
+    for attr in ("summary_frame", "table", "tables"):
+        held = getattr(out, attr, None)
+        if held is not None and not callable(held):
+            found.extend(_numbers_in(held, depth + 1))
+    if hasattr(out, "__dict__"):
+        found.extend(_numbers_in(vars(out), depth + 1))
+    return found
 
 
 # ------------------------------------------------------------ the data
@@ -77,8 +126,30 @@ def dta_value_labels(path: Path) -> Dict[str, Dict[str, Any]]:
             mapping: Dict[str, Any] = {}
             for code, text in sets[label_name].items():
                 mapping[str(text)] = code
-                mapping[str(text).split()[0]] = code
+                if str(text).split():  # SOEP labels its missing codes ""
+                    mapping[str(text).split()[0]] = code
             out[var] = mapping
+    return out
+
+
+def dta_extended_missing(path: Path) -> List[str]:
+    """The variables of a .dta file that hold an extended missing value
+    (``.a`` ... ``.z``). The frame keeps them as NaN like ``.``; the session
+    needs to know where telling them apart would matter."""
+    from pandas.io.stata import StataMissingValue
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        coded = pd.read_stata(
+            path, convert_categoricals=False, convert_dates=False, convert_missing=True
+        )
+    out = []
+    for name in coded.columns:
+        col = coded[name]
+        if col.dtype != object:
+            continue
+        if any(isinstance(v, StataMissingValue) and str(v) != "." for v in col):
+            out.append(str(name))
     return out
 
 
@@ -213,6 +284,9 @@ def parse_log(path: Path) -> List[Tuple[str, List[str]]]:
             # every block moves the place in the do-file past its body, so a
             # block nested in an echoed one is not taken for a later one
             body, at = _hidden_body(commands, at, c)
+            following = cleaned[k + 1][0] if k + 1 < len(cleaned) else ""
+            if body and " ".join(following.split()) == " ".join(body[0].split()):
+                continue  # an `if` block: the log echoes its lines as commands
             if body and not (b and _NUMBERED.match(b[0])):
                 cleaned[k] = (c, [f"  0. {line.strip()}" for line in body] + b)
     return cleaned
@@ -426,6 +500,9 @@ class Replay:
             new._macros.globals = old._macros.globals
             new.programs = old.programs
             new.files = old.files
+            # `use` replaces the data of the current frame only
+            new.frames, new.frame, new.links = old.frames, old.frame, old.links
+            new.svy = getattr(old, "svy", None) if frame is None else None
             new._temp_count = old._temp_count
             for key in ("scalars", "matrices", "rng"):
                 if key in old.stored:
@@ -445,6 +522,13 @@ class Replay:
         """A block the log echoes as numbered lines (``  2.  replace ...``):
         hand the opener and the body to the session, which runs it."""
         assert self.session is not None
+        if not any(_NUMBERED.match(ln) for ln in buf):
+            # an `if` block of a do-file: the log echoes its lines as
+            # commands of their own, which feed the block one by one
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.session.run(cmd)
+            return
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             self.session.run(cmd)
@@ -462,6 +546,10 @@ class Replay:
     def _load(self, cmd: str) -> None:
         path = self._find(cmd)
         frame = read_dta(path)
+        frame.attrs["_ext_missing"] = dta_extended_missing(path)
+        with pd.io.stata.StataReader(path) as labelled:
+            frame.attrs["_labels"] = dict(labelled.variable_labels())
+            frame.attrs["_data_label"] = labelled.data_label
         self.labels = dta_value_labels(path)
         # code -> text per variable, where `decode` looks for it
         texts: Dict[str, Dict[Any, str]] = {}
@@ -483,9 +571,8 @@ class Replay:
     def _import_delimited(self, cmd: str) -> None:
         """``import delimited "file.csv"``: Stata works out the delimiter
         and lower-cases the variable names (``case(lower)``, its default)."""
-        m = re.search(r'"([^"]+)"', cmd) or re.match(
-            r"import\s+delim\w*\s+(?:using\s+)?([^\s,]+)", cmd
-        )
+        m = re.match(r"import\s+delim\w*\s+(?:.*?\s)?using\s+\"?([^\s,\"]+)", cmd)
+        m = m or re.match(r"import\s+delim\w*\s+\"?([^\s,\"]+)", cmd)
         if m is None:
             raise FileNotFoundError("cannot read the file name")
         name = Path(m.group(1)).name.lower()
@@ -498,14 +585,26 @@ class Replay:
         options = cmd.split(",", 1)[1] if "," in cmd.split('"')[-1] else ""
         with hits[0].open(encoding="utf-8", errors="replace") as fh:
             head = fh.readline()
-        named = re.search(r"delim\w*\(\s*\"?(.+?)\"?\s*\)", options)
+        named = re.search(r"delim\w*\(\s*\"?(.+?)\"?\s*[,)]", options)
         if named:
             sep = {"tab": "\t", "\\t": "\t", "comma": ","}.get(
                 named.group(1), named.group(1)
             )
         else:
             sep = max(",;\t|", key=head.count)
-        frame = pd.read_csv(hits[0], sep=sep, low_memory=False)
+        first = head.rstrip("\r\n").split(sep)
+        numeric = [bool(re.fullmatch(r"\s*-?[\d.]+\s*", cell)) for cell in first]
+        named = re.search(r"varn\w*\(\s*(\w+)\s*\)", options)
+        # a first row with a number in it is data, not names (Stata's rule)
+        header = (
+            0 if (named and named.group(1) != "nonames") or not any(numeric) else None
+        )
+        frame = pd.read_csv(hits[0], sep=sep, low_memory=False, header=header)
+        listed = re.match(r"import\s+delim\w*\s+(.+?)\s+using\s", cmd)
+        if listed:
+            frame.columns = listed.group(1).split()[: frame.shape[1]]
+        elif header is None:
+            frame.columns = [f"v{k + 1}" for k in range(frame.shape[1])]
         if not re.search(r"case\(\s*(preserve|upper)", options):
             frame.columns = [str(c).lower() for c in frame.columns]
         self.session = self._session(frame)
@@ -532,6 +631,8 @@ class Replay:
 
     def _append(self, cmd: str) -> None:
         assert self.session is not None
+        if "," in cmd:
+            raise FileNotFoundError("options: the session reads the file itself")
         self.session.append(read_dta(self._find(cmd)))
 
     # -- one command ------------------------------------------------------
@@ -539,7 +640,10 @@ class Replay:
         def first_word(text: str) -> str:
             return re.split(r"[\s,]", text.strip(), maxsplit=1)[0].lower()
 
-        if cmd.rstrip().endswith("{") and buf and _NUMBERED.match(buf[0]):
+        opener = cmd.rstrip().endswith("{")
+        if opener and (
+            (buf and _NUMBERED.match(buf[0])) or re.match(r"\s*(if|else)\b", cmd)
+        ):
             if self.session is None:
                 self.session = self._session(None)
             self.report.simulated = bool(self.session.simulated)
@@ -558,6 +662,11 @@ class Replay:
             word = first_word(cmd)
             quiet = True
         if cmd.strip() in ("{", "}"):
+            if cmd.strip() == "}" and getattr(self.session, "_flow", None) is not None:
+                # the end of an `if` block whose lines were echoed one by one
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    self.session.run("}")
             return  # `quietly {`: the log does not echo what the block ran
         self.report.simulated = bool(
             self.session is not None and self.session.simulated
@@ -630,7 +739,10 @@ class Replay:
         elif word == "estat":
             self._estat(cmd, buf, out)
         elif word == "margins":
-            self._margins(cmd, buf, out)
+            if isinstance(out, pd.DataFrame) and out.attrs.get("session_margins"):
+                self._bag(cmd, [ln for ln in buf if "_at:" not in ln], out)
+            else:
+                self._margins(cmd, buf, out)
         elif word == "hausman":
             self._hausman(cmd, buf, out)
         elif word in PANEL and not quiet:
@@ -645,6 +757,46 @@ class Replay:
             self._ttest(cmd, buf, out)
         elif word in ESTIMATION and not quiet:
             self._estimates(cmd, buf, out, word)
+        elif word == "linktest" and not quiet:
+            # the refit's coefficient table; e() stays that of the model
+            self._bag(cmd, [ln for ln in buf if re.match(r"\s*(_hat|_hatsq|_cons) ", ln)],
+                      {"b": dict(out.params), "se": dict(out.std_errors),
+                       "t": dict(out.params / out.std_errors),
+                       "ci": out.conf_int() if hasattr(out, "conf_int") else None})  # fmt: skip
+        elif (word in BAG or word.rstrip(":") in BAG) and not quiet:
+            self._bag(cmd, buf, out)
+
+    def _bag(self, cmd: str, buf: List[str], out: Any) -> None:
+        """Every number Stata printed in a table (after the ``|``) or after
+        an ``=`` must be among the numbers of our output. For commands whose
+        output is a table of statistics rather than named coefficients."""
+        ours = np.array(sorted(_numbers_in(out)), dtype=float)
+        position = 0
+        for ln in buf:
+            if ln.startswith((". ", "> ")) or re.match(r"^\s*(Note|Key)\b", ln):
+                continue
+            parts = []
+            if "|" in ln:
+                parts.append(ln.split("|", 1)[1].replace("|", " "))
+            else:
+                parts.extend(piece for piece in re.split(r"=", ln)[1:])
+            for part in parts:
+                if "|" in ln and re.search(r"[A-Za-z]{2,}", part):
+                    continue  # a header row: the labels of the columns
+                part = re.sub(r"(?<=\d),(?=\d{3}\b)", "", part)
+                part = re.sub(r"[A-Za-z_]\w*\([^)]*\)", " ", part)  # chi2(7), F(1, 528)
+                for token in re.findall(rf"(?<![\w.]){NUM}(?![\w%])", part):
+                    if token in ("-", "+", "."):
+                        continue
+                    printed = Printed(token)
+                    position += 1
+                    if ours.size == 0:
+                        self.report.number(
+                            self.name, cmd, f"#{position}", printed, None
+                        )
+                        continue
+                    nearest = float(ours[np.argmin(np.abs(ours - printed.value))])
+                    self.report.number(self.name, cmd, f"#{position}", printed, nearest)
 
     def _estimates(self, cmd: str, buf: List[str], res: Any, word: str) -> None:
         params, ses = dict(res.params), dict(res.std_errors)
@@ -972,8 +1124,8 @@ class Replay:
         for label, pattern, ours in (
             ("t", rf"\bt =\s*({NUM})", res.statistic),
             ("df", rf"degrees of freedom =\s*({NUM})", res.df),
-            ("diff", rf"^\s*diff \|\s*({NUM})", res.estimate),
-            ("se(diff)", rf"^\s*diff \|\s*{NUM}\s+({NUM})", res.se),
+            ("diff", rf"^\s*diff \|\s*(?:[\d,]+\s+)?({NUM})\s+{NUM}", res.estimate),
+            ("se(diff)", rf"^\s*diff \|\s*(?:[\d,]+\s+)?{NUM}\s+({NUM})", res.se),
             ("p two-sided", rf"Pr\(\|T\| > \|t\|\) =\s*({NUM})", res.pvalue),
         ):
             m = re.search(pattern, text, re.M)
@@ -1018,23 +1170,41 @@ class Replay:
                 )
 
     def _display(self, cmd: str, buf: List[str]) -> None:
-        m = re.match(r'(?:display|dis|di)\s+"[^"]*"\s+(.+)$', cmd)
-        printed = re.findall(NUM, " ".join(b for b in buf if b.strip()))
-        if m is None or not printed:
-            return
-        expr = m.group(1).strip()
-        if "_result(8)" in expr:  # pre-Stata-6 spelling of e(r2_a)
-            expr = "e(r2_a)"
-        if '"' in expr or "_skip" in expr:
-            return  # several expressions on one line: not compared
+        """``display``: the line the session prints against the line in the
+        log. Numbers are compared at the precision Stata printed them; the
+        text between them must be the same."""
         assert self.session is not None
-        self.report.number(
-            self.name,
-            cmd,
-            "displayed value",
-            Printed(printed[-1]),
-            self.session.value(expr),
-        )
+        if "_result(8)" in cmd:  # pre-Stata-6 spelling of e(r2_a)
+            cmd = cmd.replace("_result(8)", "e(r2_a)")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.session.run(cmd)
+        ours = self.session.output
+        shown = " ".join(b.strip() for b in buf if b.strip() and not b.startswith(". "))
+        if not shown:
+            return
+        if isinstance(ours, (int, float, np.integer, np.floating)):
+            printed = re.findall(NUM, shown.replace(",", ""))
+            if printed:
+                self.report.number(
+                    self.name, cmd, "displayed value", Printed(printed[-1]), float(ours)
+                )
+            return
+        if not isinstance(ours, str):
+            return
+        theirs = re.sub(r"\s+", " ", shown).strip()
+        mine = re.sub(r"\s+", " ", re.sub(r"\{[^{}]*\}", "", ours)).strip()
+        number = re.compile(rf"(?<![\w.]){NUM}(?![\w])")
+        a, b = number.split(theirs), number.split(mine)
+        na, nb = number.findall(theirs), number.findall(mine)
+        same = [x.strip() for x in a] == [x.strip() for x in b] and len(na) == len(nb)
+        if same:
+            same = all(Printed(x).matches(float(y)) for x, y in zip(na, nb))
+        self.report.add(
+            self.name, cmd, "displayed text", "ok" if same else "DIFF",
+            stata=float("nan"), ours=float("nan"),
+            reason="" if same else f"Stata: {theirs[:60]!r}  ours: {mine[:60]!r}",
+        )  # fmt: skip
 
 
 # ------------------------------------------------------------ panel blocks

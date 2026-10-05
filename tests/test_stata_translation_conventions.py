@@ -222,7 +222,7 @@ def test_tabstat_translates_statistics_and_by(df):
     assert sp.from_stata("tabstat y")["arguments"]["stats"] == ["mean"]
     assert sp.from_stata("tabstat y, s(gmean)")["ok"] is False
     total = sp.from_stata("tabstat y, by(g)")
-    assert any("Total" in line for line in total["semantics"])
+    assert total["arguments"]["total"] is True  # tabstat's Total row
 
 
 def test_sumstats_refuses_an_unknown_statistic(df):

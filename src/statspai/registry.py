@@ -7663,6 +7663,311 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="ranksum",
+            category="inference",
+            description=(
+                "Wilcoxon rank-sum (Mann-Whitney) test that two groups have the "
+                "same distribution (Stata ranksum, R wilcox.test with "
+                "correct=FALSE). The variance of the rank sum is corrected for "
+                "ties; z is referred to the standard normal without a "
+                "continuity correction. Returns z, the p-value, the rank sums "
+                "and P(y1 > y2). "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("y", "str", True, None, "Variable to compare"),
+                ParamSpec(
+                    "by", "str", True, None, "Grouping column with exactly two values"
+                ),
+            ],
+            returns="ClassicTestResult",
+            example='sp.ranksum(df, "wage", by="female")',
+            tags=["inference", "nonparametric", "stata", "ranks"],
+            assumptions=[
+                "Independent observations in two independent groups",
+                "Ordinal or continuous outcome",
+            ],
+            alternatives=["ttest", "ksmirnov", "median_test", "kwallis"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="signrank",
+            category="inference",
+            description=(
+                "Wilcoxon matched-pairs signed-rank test (Stata signrank). "
+                "Ranks the absolute differences y - other (or y - value), zeros "
+                "and ties included, and tests that their distribution is "
+                "symmetric about zero; the variance is adjusted for ties and "
+                "for zero differences. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("y", "str", True, None, "First variable of the pair"),
+                ParamSpec("other", "str", False, None, "Paired variable"),
+                ParamSpec(
+                    "value",
+                    "float",
+                    False,
+                    0.0,
+                    "Value to compare with when other is not given",
+                ),
+            ],
+            returns="ClassicTestResult",
+            example='sp.signrank(df, "after", other="before")',
+            tags=["inference", "nonparametric", "stata", "paired"],
+            alternatives=["ttest", "ranksum"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="kwallis",
+            category="inference",
+            description=(
+                "Kruskal-Wallis rank test that several groups have the same "
+                "distribution (Stata kwallis, R kruskal.test). Reports the "
+                "statistic with and without the correction for ties, on k - 1 "
+                "degrees of freedom. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("y", "str", True, None, "Variable to compare"),
+                ParamSpec("by", "str", True, None, "Grouping column"),
+            ],
+            returns="ClassicTestResult",
+            example='sp.kwallis(df, "income", by="education")',
+            tags=["inference", "nonparametric", "stata", "ranks"],
+            alternatives=["oneway", "ranksum", "median_test"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="spearman",
+            category="inference",
+            description=(
+                "Spearman's rank correlation and the t test that it is zero "
+                "(Stata spearman, R cor.test with method='spearman', "
+                "exact=FALSE). Ties get their mean rank. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("x", "str", True, None, "First variable"),
+                ParamSpec("y", "str", True, None, "Second variable"),
+            ],
+            returns="ClassicTestResult",
+            example='sp.spearman(df, "income", "education")',
+            tags=["inference", "nonparametric", "stata", "correlation"],
+            alternatives=["ktau", "pwcorr"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ktau",
+            category="inference",
+            description=(
+                "Kendall's rank correlations tau-a and tau-b with the score "
+                "test of independence (Stata ktau). The variance of the score "
+                "is corrected for ties and z carries a continuity correction. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("x", "str", True, None, "First variable"),
+                ParamSpec("y", "str", True, None, "Second variable"),
+            ],
+            returns="ClassicTestResult",
+            example='sp.ktau(df, "health", "education")',
+            tags=["inference", "nonparametric", "stata", "correlation"],
+            alternatives=["spearman", "tab"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ksmirnov",
+            category="inference",
+            description=(
+                "Two-sample Kolmogorov-Smirnov test of equal distribution "
+                "functions (Stata ksmirnov). Returns the largest differences in "
+                "each direction with their large-sample p-values and the "
+                "combined statistic. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("y", "str", True, None, "Variable to compare"),
+                ParamSpec(
+                    "by", "str", True, None, "Grouping column with exactly two values"
+                ),
+            ],
+            returns="ClassicTestResult",
+            example='sp.ksmirnov(df, "income", by="female")',
+            tags=["inference", "nonparametric", "stata", "distribution"],
+            alternatives=["ranksum", "median_test"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="median_test",
+            category="inference",
+            description=(
+                "Median test (Stata median): classifies every observation as "
+                "above the pooled median or not and tests independence of that "
+                "from the group with Pearson's chi-squared; with two groups the "
+                "continuity-corrected statistic is reported too. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("y", "str", True, None, "Variable to compare"),
+                ParamSpec("by", "str", True, None, "Grouping column"),
+            ],
+            returns="ClassicTestResult",
+            example='sp.median_test(df, "income", by="female")',
+            tags=["inference", "nonparametric", "stata", "median"],
+            alternatives=["ranksum", "kwallis"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="robvar",
+            category="inference",
+            description=(
+                "Robust tests of equal variances across groups (Stata robvar): "
+                "Levene's W0 on absolute deviations from the group means and "
+                "the Brown-Forsythe variants W50 (medians) and W10 (10 percent "
+                "trimmed means), each an F test. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("y", "str", True, None, "Variable to compare"),
+                ParamSpec("by", "str", True, None, "Grouping column"),
+            ],
+            returns="ClassicTestResult",
+            example='sp.robvar(df, "income", by="female")',
+            tags=["inference", "variance", "stata", "levene"],
+            alternatives=["sdtest", "oneway"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="oneway",
+            category="inference",
+            description=(
+                "One-way analysis of variance (Stata oneway, R aov): the F test "
+                "of equal group means, Bartlett's test of equal variances and, "
+                "on request, pairwise differences of means with Bonferroni, "
+                "Sidak or Scheffe p-values. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("y", "str", True, None, "Response"),
+                ParamSpec("by", "str", True, None, "Grouping column"),
+                ParamSpec(
+                    "compare", "str", False, None, "bonferroni, sidak or scheffe"
+                ),
+            ],
+            returns="ClassicTestResult",
+            example='sp.oneway(df, "income", by="education", compare="bonferroni")',
+            tags=["inference", "anova", "stata", "means"],
+            assumptions=[
+                "Independent observations",
+                "Equal variances across groups (Bartlett's test is reported)",
+            ],
+            alternatives=["kwallis", "regress", "ttest"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="influence_measures",
+            category="diagnostics",
+            description=(
+                "Influence statistics of every observation of a linear "
+                "regression: leverage, standardized and studentized residuals, "
+                "Cook's distance, DFFITS, Welsch distance, COVRATIO, the "
+                "standard errors of the prediction, forecast and residual, and "
+                "DFBETAs (Stata predict after regress and dfbeta, R "
+                "influence.measures). "
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "EconometricResults",
+                    True,
+                    None,
+                    "Unweighted fit of sp.regress",
+                ),
+            ],
+            returns="DataFrame",
+            example='sp.influence_measures(sp.regress("y ~ x", data=df))',
+            tags=["diagnostics", "regression", "outliers", "stata"],
+            alternatives=["estat", "logit_influence"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="logit_influence",
+            category="diagnostics",
+            description=(
+                "Pregibon's diagnostics after a logistic regression, by "
+                "covariate pattern: Pearson and deviance residuals, leverage, "
+                "the standardized residual and the changes in Pearson's chi- "
+                "squared, in the deviance and in the coefficients when a "
+                "pattern is left out (Stata predict after logit / logistic). "
+            ),
+            params=[
+                ParamSpec(
+                    "result", "EconometricResults", True, None, "Fit of sp.logit"
+                ),
+            ],
+            returns="DataFrame",
+            example='sp.logit_influence(sp.logit("d ~ x", data=df))',
+            tags=["diagnostics", "logit", "outliers", "stata"],
+            alternatives=["influence_measures", "logit_gof"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="logit_gof",
+            category="diagnostics",
+            description=(
+                "Goodness of fit of a binary-outcome model (Stata estat gof): "
+                "Pearson's chi-squared over covariate patterns, or with groups= "
+                "the Hosmer-Lemeshow test on quantile groups of the fitted "
+                "probability. "
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "EconometricResults",
+                    True,
+                    None,
+                    "Fit of sp.logit or sp.probit",
+                ),
+                ParamSpec(
+                    "groups",
+                    "int",
+                    False,
+                    None,
+                    "Number of quantile groups (Hosmer-Lemeshow)",
+                ),
+            ],
+            returns="dict",
+            example='sp.logit_gof(sp.logit("d ~ x", data=df), groups=10)',
+            tags=["diagnostics", "logit", "goodness-of-fit", "stata"],
+            alternatives=["estat", "logit_influence"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="ttest",
             category="inference",
             description=(

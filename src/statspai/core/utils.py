@@ -383,6 +383,82 @@ def _widen_narrow_integers(data: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
+def _complete_cases_for_factors(formula: str, data: pd.DataFrame) -> pd.DataFrame:
+    """Drop the rows that listwise deletion will drop before the levels of
+    a categorical term are read.
+
+    patsy takes the levels of ``C(g)`` from every row in which ``g`` is
+    observed, also the rows it then drops because another variable is
+    missing. A level that occurs only in such rows became the reference
+    category of an empty cell, and the remaining indicators added up to
+    the intercept. R (``model.frame`` drops unused levels) and Stata (the
+    base is the lowest level in the estimation sample) read the levels
+    from the rows that are used; so does this. The rows are the same ones
+    patsy would have dropped, so only the coding of the factor changes.
+    """
+    if "C(" not in formula or not isinstance(data, pd.DataFrame):
+        return data
+    names = {
+        m.group(0)
+        for m in re.finditer(r"(?<![\w.\"'])[A-Za-z_]\w*(?![\w(.\"'])", formula)
+    }
+    used = [c for c in data.columns if isinstance(c, str) and c in names]
+    if not used:
+        return data
+    keep = data[used].notna().all(axis=1)
+    return data if bool(keep.all()) else data.loc[keep]
+
+
+_KEYWORD_SUFFIX = "__pykw"
+
+
+def _alias_keyword_columns(
+    formula: str, data: pd.DataFrame
+) -> Tuple[str, pd.DataFrame, Dict[str, str]]:
+    """Make a formula over columns named like Python keywords evaluable.
+
+    patsy evaluates each term as Python code, so ``y ~ C(class)`` or
+    ``ret ~ log(yield)`` is a syntax error although ``class``, ``return``
+    and ``yield`` are ordinary variable names in Stata and R data. The
+    columns are given an alias for the evaluation; the caller writes the
+    names back into the design columns. Text inside quotes is left alone
+    (``Q("class")`` keeps working).
+
+    Returns the formula, the data and ``{alias: name}`` (empty when no
+    such column is used).
+    """
+    import keyword
+
+    if not isinstance(data, pd.DataFrame):
+        return formula, data, {}
+    names = [c for c in data.columns if isinstance(c, str) and keyword.iskeyword(c)]
+    if not names:
+        return formula, data, {}
+    pattern = re.compile(
+        r"(?<![\w.])(" + "|".join(re.escape(n) for n in names) + r")(?![\w(])"
+    )
+    used: Dict[str, str] = {}
+
+    def alias(match: "re.Match[str]") -> str:
+        used[match.group(1) + _KEYWORD_SUFFIX] = match.group(1)
+        return match.group(1) + _KEYWORD_SUFFIX
+
+    pieces = re.split(r"(\"[^\"]*\"|'[^']*')", formula)
+    rewritten = "".join(
+        piece if i % 2 else pattern.sub(alias, piece) for i, piece in enumerate(pieces)
+    )
+    if not used:
+        return formula, data, {}
+    renamed = data.rename(columns={name: key for key, name in used.items()})
+    return rewritten, renamed, used
+
+
+def _unalias(text: str, aliases: Dict[str, str]) -> str:
+    for key, name in aliases.items():
+        text = text.replace(key, name)
+    return text
+
+
 def create_design_matrices(
     formula: str, data: pd.DataFrame, return_type: str = "dataframe"
 ) -> Tuple[Any, Any]:
@@ -409,11 +485,19 @@ def create_design_matrices(
         return fast
 
     data = _coerce_string_extension_dtypes(data)
+    data = _complete_cases_for_factors(formula, data)
 
+    safe_formula, safe_data, aliases = _alias_keyword_columns(formula, data)
     try:
         y, X = dmatrices(
-            formula, data, eval_env=formula_eval_env(), return_type=return_type
+            safe_formula,
+            safe_data,
+            eval_env=formula_eval_env(),
+            return_type=return_type,
         )
+        if aliases and return_type == "dataframe":
+            for frame in (y, X):
+                frame.columns = [_unalias(str(c), aliases) for c in frame.columns]
         return y, X
     except Exception as patsy_error:
         # Fallback to manual parsing if patsy fails

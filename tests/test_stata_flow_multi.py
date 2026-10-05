@@ -149,8 +149,11 @@ def test_tempvar_names_do_not_collide(df):
 
 
 def test_what_only_stata_can_read_is_still_refused(df):
-    with pytest.raises(MethodIncompatibility, match="only known to Stata"):
-        run("local n : word count a b c\ndisplay `n'", df)
+    # an extended macro function the session computes ...
+    assert run("local n : word count a b c\ndisplay `n'", df) == 3
+    # ... and one that only a running Stata can answer
+    with pytest.raises(MethodIncompatibility, match="not implemented"):
+        run('local f : dir . files "*.dta"\ndisplay "`f\'"', df)
     with pytest.raises(MethodIncompatibility, match="control flow"):
         run("mata\n x = 1\nend", df)
 

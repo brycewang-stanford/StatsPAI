@@ -501,7 +501,70 @@ def _h_arch(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("garch", args, f"sp.garch(data=df, {_kw(args)})", semantics=semantics)
 
 
+# ------------------------------------------------- comparing distributions
+def _h_by_test(tool: str, stata: str) -> Any:
+    """``<cmd> y, by(g)`` -> ``sp.<tool>(df, 'y', by='g')``."""
+
+    def handler(cmd: StataCommand) -> Dict[str, Any]:
+        by = cmd.options.get("by")
+        if len(cmd.varlist) != 1 or not by:
+            return _bad(cmd, f"expected `{stata} y, by(group)`")
+        args: Dict[str, Any] = {"y": cmd.varlist[0], "by": str(by).split()[0]}
+        return _emit(tool, args, f"sp.{tool}(df, {_kw(args)})")
+
+    return handler
+
+
+def _h_signrank(cmd: StataCommand) -> Dict[str, Any]:
+    """``signrank y = x`` / ``signrank y = #`` -> ``sp.signrank``."""
+    eq = _EQ.fullmatch(" ".join(cmd.varlist).strip())
+    if not eq:
+        return _bad(cmd, "expected `signrank y = x` or `signrank y = #`")
+    args: Dict[str, Any] = {"y": eq.group(1)}
+    value = _number(eq.group(2))
+    if value is None:
+        args["other"] = eq.group(2)
+    else:
+        args["value"] = value
+    return _emit("signrank", args, f"sp.signrank(df, {_kw(args)})")
+
+
+def _h_rank_correlation(cmd: StataCommand) -> Dict[str, Any]:
+    """``spearman x y`` -> ``sp.spearman``; ``ktau x y`` -> ``sp.ktau``."""
+    if len(cmd.varlist) != 2:
+        return _bad(
+            cmd,
+            "two variables are translated; for a matrix of rank "
+            "correlations loop over the pairs",
+        )
+    tool = "ktau" if cmd.command == "ktau" else "spearman"
+    args: Dict[str, Any] = {"x": cmd.varlist[0], "y": cmd.varlist[1]}
+    return _emit(tool, args, f"sp.{tool}(df, {_kw(args)})")
+
+
+def _h_oneway(cmd: StataCommand) -> Dict[str, Any]:
+    """``oneway y g [, bonferroni | sidak | scheffe]`` -> ``sp.oneway``."""
+    if len(cmd.varlist) != 2:
+        return _bad(cmd, "expected `oneway response factor`")
+    args: Dict[str, Any] = {"y": cmd.varlist[0], "by": cmd.varlist[1]}
+    chosen = [m for m in ("bonferroni", "sidak", "scheffe") if m in cmd.options]
+    if len(chosen) > 1:
+        return _bad(cmd, "one multiple-comparison adjustment per call is translated")
+    if chosen:
+        args["compare"] = chosen[0]
+    return _emit("oneway", args, f"sp.oneway(df, {_kw(args)})")
+
+
 HANDLERS = {
+    "ranksum": _h_by_test("ranksum", "ranksum"),
+    "kwallis": _h_by_test("kwallis", "kwallis"),
+    "ksmirnov": _h_by_test("ksmirnov", "ksmirnov"),
+    "median": _h_by_test("median_test", "median"),
+    "robvar": _h_by_test("robvar", "robvar"),
+    "signrank": _h_signrank,
+    "spearman": _h_rank_correlation,
+    "ktau": _h_rank_correlation,
+    "oneway": _h_oneway,
     "sdtest": _h_sdtest,
     "sdtesti": _h_sdtesti,
     "ztest": _h_ztest,

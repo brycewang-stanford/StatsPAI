@@ -41,6 +41,16 @@ class SurveyResult(ResultProtocolMixin):
     alpha: float = 0.05
 
     @property
+    def params(self) -> pd.Series:
+        """The estimates, under the name every other result uses."""
+        return self.estimate
+
+    @property
+    def std_errors(self) -> pd.Series:
+        """The standard errors, under the name every other result uses."""
+        return self.std_error
+
+    @property
     def t_values(self) -> pd.Series:
         return self.estimate / self.std_error
 

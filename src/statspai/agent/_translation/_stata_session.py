@@ -24,9 +24,13 @@ import numpy as np
 import pandas as pd
 
 from ._stata_datastep import DataSteps, _generate_option, _is_tabulate, row_mask
+from ._stata_describe import by_groups, run_describe
 from ._stata_expr import StataExprError, evaluate
 from ._stata_lexer import StataParseError
 from ._stata_lexer import parse as _parse
+from ._stata_manage import run_manage
+from ._stata_margins import run_margins
+from ._stata_postrun import run_postestimation
 
 if TYPE_CHECKING:  # pragma: no cover
     from ._stata_run import StataSession
@@ -130,6 +134,18 @@ def run_session_command(session: "StataSession", line: str) -> Optional[bool]:
     m = _SET.match(line)
     if m:
         return _set(session, m.group(1).lower(), m.group(2))
+    managed = run_manage(session, line)
+    if managed is not None:
+        return managed
+    described = run_describe(session, line)
+    if described is not None:
+        return described
+    margined = run_margins(session, line)
+    if margined is not None:
+        return margined
+    post = run_postestimation(session, line)
+    if post is not None:
+        return post
     if _CLEAR.match(line):
         if session._steps is None:
             session._steps = DataSteps(pd.DataFrame())
@@ -226,14 +242,21 @@ def _bsample(session: "StataSession", rest: str) -> bool:
     cmd = _parse("bsample " + rest)
     options = dict(cmd.options)
     cluster = options.pop("cluster", None)
-    if cmd.varlist or cmd.if_cond or cmd.in_range or options:
-        raise StataExprError("`bsample` is run as `bsample [, cluster(varname)]`")
+    size = None
+    if len(cmd.varlist) == 1 and re.fullmatch(r"\d+", cmd.varlist[0]):
+        size = int(cmd.varlist[0])
+    elif cmd.varlist:
+        raise StataExprError("`bsample` is run as `bsample [#] [, cluster(varname)]`")
+    if cmd.if_cond or cmd.in_range or options or (size and cluster):
+        raise StataExprError("`bsample` is run as `bsample [#] [, cluster(varname)]`")
     data = session._steps.data
     rng = session.stored.get("rng")
     if rng is None:
         rng = session.stored["rng"] = np.random.default_rng()
     if cluster is None:
-        rows = rng.integers(0, len(data), size=len(data))
+        if size is not None and size > len(data):
+            raise StataExprError("bsample: the size exceeds the observations")
+        rows = rng.integers(0, len(data), size=size or len(data))
     else:
         if cluster not in data.columns:
             raise StataExprError(f"variable {cluster!r} is not in the data")
@@ -417,39 +440,68 @@ def _table(session: "StataSession", rest: str, line: str, *, command: str) -> bo
 
 # ------------------------------------------------------------- by: prefix
 def _by(session: "StataSession", m: "re.Match[str]", line: str) -> Optional[bool]:
-    """``bysort g: summarize ...``: the descriptive command, group by group."""
+    """``by g: cmd`` / ``bysort g (t): cmd``.
+
+    ``generate`` / ``replace`` / ``egen`` see one group at a time (``_n``,
+    ``_N`` and subscripts count within the group); ``keep if`` / ``drop
+    if`` select rows the same way; any other command is run once per
+    group, and its outputs are collected by group.
+    """
     inner = m.group("cmd").strip()
-    word = inner.split(None, 1)[0].rstrip(",").lower()
-    descriptive = len(word) >= 2 and "summarize".startswith(word)
     if session._steps is None:
         return None
-    if not descriptive:
-        # `by g: generate` / `bysort g (t): replace`: a data step by group
-        spec = m.group("by")
-        paren = re.search(r"\(([^)]*)\)", spec)
-        order = paren.group(1).split() if paren else []
-        keys = re.sub(r"\([^)]*\)", " ", spec).split()
-        sorts = line.lstrip().lower().startswith("bys") or "sort" in (
-            m.group("opts") or ""
-        )
-        if keys and session._steps.by_assign(keys, order, sorts, inner):
-            return False
+    spec = m.group("by")
+    paren = re.search(r"\(([^)]*)\)", spec)
+    order = session._steps._expand_varlist(paren.group(1).split()) if paren else []
+    keys = session._steps._expand_varlist(re.sub(r"\([^)]*\)", " ", spec).split())
+    sorts = line.lstrip().lower().startswith("bys") or "sort" in (m.group("opts") or "")
+    if not keys:
         return None
-    keys = [k for k in m.group("by").replace("(", " ").replace(")", " ").split()]
+    if session._steps.by_assign(keys, order, sorts, inner):
+        return False
+    groups = by_groups(session, keys, sorts, order)
     data = session._steps.data
-    unknown = [k for k in keys if k not in data.columns]
-    if unknown:
-        raise StataExprError(f"by: variable(s) {unknown} are not in the data")
+    filtered = re.match(r"\s*(keep|drop)\s+if\s+(.+)\Z", inner, re.S | re.I)
+    if filtered:
+        keep = np.zeros(len(data), dtype=bool)
+        for _, rows in groups:
+            part = data.iloc[rows].reset_index(drop=True)
+            keep[rows] = row_mask(part, filtered.group(2), None, session.stored)
+        if filtered.group(1).lower() == "drop":
+            keep = ~keep
+        attrs = dict(data.attrs)
+        session._steps.replace_data(data.loc[keep])
+        session._steps.data.attrs.update(attrs)
+        return False
+    word = inner.split(None, 1)[0].rstrip(",").lower()
+    summarizing = len(word) >= 2 and "summarize".startswith(word)
     pieces: Dict[Any, Any] = {}
-    full = session._steps.data
+    produced = False
+    full, owned = session._steps.data, session._steps._owned
     try:
-        for level, rows in data.groupby(keys if len(keys) > 1 else keys[0], sort=True):
-            session._steps.data = rows.drop(columns=keys)
-            session.run(inner)
+        for level, rows in groups:
+            parts = level if isinstance(level, tuple) else (level,)
+            if any(isinstance(v, float) and v != v for v in parts):
+                continue  # Stata reports the missing group last; left out here
+            part = full.iloc[rows].reset_index(drop=True)
+            part.attrs.update(full.attrs)
+            # `summarize` with no varlist does not describe the by-variables
+            session._steps.data = part.drop(columns=keys) if summarizing else part
+            session._steps._owned = False
+            session._steps._original = session._steps.data
+            produced = session.run(inner) or produced
             pieces[level] = session.output
     finally:
-        session._steps.data = full
-    session.output = pd.concat(pieces, names=keys if len(keys) > 1 else [keys[0]])
+        session._steps.data, session._steps._owned = full, owned
+    if not produced:
+        return False
+    if all(
+        isinstance(v, (pd.DataFrame, pd.Series)) and not v.attrs
+        for v in pieces.values()
+    ):
+        session.output = pd.concat(pieces, names=keys if len(keys) > 1 else [keys[0]])
+    else:
+        session.output = pieces
     return True
 
 

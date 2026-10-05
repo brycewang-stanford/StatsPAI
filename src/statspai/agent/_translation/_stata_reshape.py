@@ -38,6 +38,7 @@ def run_reshape(steps: "DataSteps", varlist: List[str], options: dict) -> None:
     direction, stubs = varlist[0], list(varlist[1:])
     i_vars = str(options.pop("i", "") or "").split()
     j_parts = str(options.pop("j", "") or "").split()
+    string = any(options.pop(k, 0) is None for k in ("string", "s", "str"))
     if options:
         raise StataExprError(
             f"reshape: option(s) {sorted(options)} are not implemented"
@@ -50,9 +51,9 @@ def run_reshape(steps: "DataSteps", varlist: List[str], options: dict) -> None:
     if missing:
         raise StataExprError(f"reshape: variable(s) {missing} are not in the data")
     out = (
-        _wide(data, stubs, i_vars, j_var)
+        _wide(data, stubs, i_vars, j_var, string)
         if direction == "wide"
-        else _long(data, stubs, i_vars, j_var)
+        else _long(data, stubs, i_vars, j_var, string)
     )
     steps._own()
     steps.data = out.reset_index(drop=True)
@@ -60,16 +61,26 @@ def run_reshape(steps: "DataSteps", varlist: List[str], options: dict) -> None:
 
 
 def _wide(
-    data: pd.DataFrame, stubs: List[str], i_vars: List[str], j_var: str
+    data: pd.DataFrame,
+    stubs: List[str],
+    i_vars: List[str],
+    j_var: str,
+    string: bool = False,
 ) -> pd.DataFrame:
     absent = [v for v in [*stubs, j_var] if v not in data.columns]
     if absent:
         raise StataExprError(f"reshape wide: variable(s) {absent} are not in the data")
-    j = pd.to_numeric(data[j_var], errors="coerce")
-    if j.isna().any():
-        raise StataExprError(
-            f"reshape wide: j({j_var}) has missing or non-numeric values"
-        )
+    if string:
+        # j(name) string: the values are the suffixes as they are
+        j = data[j_var].astype(object)
+        if j.isna().any() or (j == "").any():
+            raise StataExprError(f"reshape wide: j({j_var}) has missing values")
+    else:
+        j = pd.to_numeric(data[j_var], errors="coerce")
+        if j.isna().any():
+            raise StataExprError(
+                f"reshape wide: j({j_var}) has missing or non-numeric values"
+            )
     if data.duplicated(subset=[*i_vars, j_var]).any():
         raise StataExprError(
             f"reshape wide: values of {j_var} are not unique within {i_vars}"
@@ -89,7 +100,7 @@ def _wide(
     blocks = {}
     for level in levels:
         for stub in stubs:
-            name = f"{stub}{_label(level)}"
+            name = f"{stub}{level if string else _label(level)}"
             if name in data.columns:
                 raise StataExprError(f"reshape wide: variable {name!r} already exists")
             blocks[name] = keyed[stub].xs(level, level=j_var)
@@ -104,7 +115,11 @@ def _wide(
 
 
 def _long(
-    data: pd.DataFrame, stubs: List[str], i_vars: List[str], j_var: str
+    data: pd.DataFrame,
+    stubs: List[str],
+    i_vars: List[str],
+    j_var: str,
+    string: bool = False,
 ) -> pd.DataFrame:
     if j_var in data.columns:
         raise StataExprError(f"reshape long: variable {j_var!r} already exists")
@@ -112,9 +127,12 @@ def _long(
         raise StataExprError(f"reshape long: {i_vars} do not identify the rows")
     found = {}
     for stub in stubs:
-        pattern = re.compile(rf"^{re.escape(stub)}(\d+)$")
+        suffix = ".+" if string else r"\d+"
+        pattern = re.compile(rf"^{re.escape(stub)}({suffix})$")
         found[stub] = {
-            int(m.group(1)): c for c in data.columns if (m := pattern.match(str(c)))
+            (m.group(1) if string else int(m.group(1))): c
+            for c in data.columns
+            if (m := pattern.match(str(c)))
         }
         if not found[stub]:
             raise StataExprError(f"reshape long: no variable named {stub}<number>")

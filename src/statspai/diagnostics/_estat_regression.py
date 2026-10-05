@@ -325,7 +325,13 @@ def reset(
         )
     if rhs:
         const = _constant_column(X)
-        base = [X[:, j] for j in range(k) if j != const]
+        # a regressor in thousands has a cube in billions: the powers are
+        # taken of the regressor on unit scale, which spans the same space
+        base = [
+            X[:, j] / (float(np.abs(X[:, j]).max()) or 1.0)
+            for j in range(k)
+            if j != const
+        ]
     else:
         fitted = y - e
         # the scale of the fitted values does not change the test; unit
@@ -343,7 +349,9 @@ def reset(
             recovery_hint="Use fewer powers, or check that the regressors vary.",
         )
     rss_r = float(e @ e)
-    _, rss_u = _fit(np.column_stack([X, added]), y)
+    wide = np.column_stack([X, added])
+    wide = wide / np.where(np.abs(wide).max(axis=0) > 0, np.abs(wide).max(axis=0), 1.0)
+    _, rss_u = _fit(wide, y)
     stat = ((rss_r - rss_u) / df1) / (rss_u / df2)
     pval = float(sp_stats.f.sf(stat, df1, df2))
     what = "regressors" if rhs else "fitted values"

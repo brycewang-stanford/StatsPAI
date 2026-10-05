@@ -37,7 +37,13 @@ from typing import Any, Dict, List, Optional, Set
 import numpy as np
 import pandas as pd
 
-from ._stata_expr import StataExprError, evaluate, in_range_mask, sample_mask
+from ._stata_expr import (
+    StataExprError,
+    evaluate,
+    in_range_mask,
+    names_extended_missing,
+    sample_mask,
+)
 from ._stata_lexer import StataParseError
 from ._stata_lexer import parse as _parse_stata
 
@@ -100,6 +106,7 @@ def is_data_step(command: str) -> bool:
             "preserve",
             "restore",
             "mvdecode",
+            "mvencode",
             "encode",
             "decode",
             "collapse",
@@ -112,6 +119,93 @@ def is_data_step(command: str) -> bool:
         )
         or command in ("ren", "rena", "renam", "rename")
     )
+
+
+def _numlist(spec: str, what: str) -> List[float]:
+    """A Stata numlist: ``1 2 3``, ``1/5``, ``-7/-1``, ``0(10)50``."""
+    out: List[float] = []
+    number = r"-?(?:\d+\.?\d*|\.\d+)"
+    for tok in spec.replace(",", " ").split():
+        stepped = re.fullmatch(rf"({number})\(({number})\)({number})", tok)
+        ranged = re.fullmatch(rf"({number})(?:/|\s*to\s*)({number})", tok)
+        if stepped:
+            lo, step, hi = (float(g) for g in stepped.groups())
+            if step == 0 or (hi - lo) / step < 0:
+                raise StataExprError(f"{what}: cannot read the list {tok!r}")
+            out.extend(lo + k * step for k in range(int((hi - lo) / step + 1e-9) + 1))
+        elif ranged:
+            lo, hi = float(ranged.group(1)), float(ranged.group(2))
+            step = 1.0 if hi >= lo else -1.0
+            out.extend(lo + k * step for k in range(int(abs(hi - lo) + 1e-9) + 1))
+        elif re.fullmatch(number, tok):
+            out.append(float(tok))
+        else:
+            raise StataExprError(f"{what}: cannot read the number {tok!r}")
+    if not out:
+        raise StataExprError(f"{what}: an empty list of numbers")
+    return out
+
+
+def expand_varlist(cols: List[str], varlist: List[str]) -> List[str]:
+    """``varlist`` against the columns ``cols``, in Stata's reading.
+
+    ``a-b`` (also written ``a - b``) is every column from ``a`` to ``b`` in
+    dataset order; ``x*`` / ``x?`` / ``x~y`` are wildcards; ``_all`` is every
+    column; a name that is not a column but begins exactly one is that
+    column (``set varabbrev on``, Stata's default). A token that fits
+    nothing is returned as it is, for the caller to report.
+    """
+    import fnmatch
+
+    tokens: List[str] = []
+    for tok in varlist:
+        if tok == "-" and tokens:
+            tokens[-1] += "-"
+        elif tokens and tokens[-1].endswith("-") and not tok.startswith("-"):
+            tokens[-1] += tok
+        elif tok.startswith("-") and len(tok) > 1 and tokens:
+            tokens[-1] += tok
+        else:
+            tokens.append(tok)
+
+    def one(name: str) -> str:
+        if name in cols:
+            return name
+        hits = [c for c in cols if c.startswith(name)]
+        if len(hits) > 1:
+            raise StataExprError(
+                f"{name!r} is an ambiguous abbreviation: it fits {hits[:4]}"
+            )
+        return hits[0] if hits else name
+
+    out: List[str] = []
+    for tok in tokens:
+        if tok == "_all":
+            out.extend(cols)
+            continue
+        if tok in cols:
+            out.append(tok)
+            continue
+        first, dash, last = tok.partition("-")
+        if dash and first and last:
+            first, last = one(first), one(last)
+            if first in cols and last in cols:
+                i, j = cols.index(first), cols.index(last)
+                if i > j:
+                    raise StataExprError(
+                        f"varlist range {tok!r}: {first!r} comes after "
+                        f"{last!r} in the data"
+                    )
+                out.extend(cols[i : j + 1])
+                continue
+        if any(ch in tok for ch in "*?~"):
+            hits = fnmatch.filter(cols, tok.replace("~", "*"))
+            if not hits:
+                raise StataExprError(f"varlist {tok!r} matches no variable")
+            out.extend(hits)
+        else:
+            out.append(one(tok))
+    return list(dict.fromkeys(out))
 
 
 def _generate_option(options: dict) -> Optional[str]:
@@ -229,8 +323,12 @@ class DataSteps:
                 )
             run_balance(self, cmd.command, list(cmd.varlist), dict(cmd.options))
             return True
-        if cmd.command == "mvdecode":
-            self._mvdecode(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
+        if cmd.command in ("mvdecode", "mvencode"):
+            step = self._mvdecode if cmd.command == "mvdecode" else self._mvencode
+            qualifier = (
+                (cmd.if_cond, cmd.in_range) if cmd.if_cond or cmd.in_range else None
+            )
+            step(list(cmd.varlist), dict(cmd.options), qualifier)
             return True
         if cmd.command == "encode":
             self._encode(cmd.varlist, dict(cmd.options), cmd.if_cond or cmd.in_range)
@@ -300,7 +398,12 @@ class DataSteps:
         vtype, name, expr = m.group(1), m.group(2), m.group(3)
         if replace and vtype is not None:
             raise StataExprError("`replace` does not take a storage type")
-        if vtype is not None and vtype not in _INT_TYPES + ("float", "double"):
+        is_str_type = vtype is not None and re.fullmatch(r"str(\d+|L)", vtype)
+        if (
+            vtype is not None
+            and not is_str_type
+            and vtype not in _INT_TYPES + ("float", "double")
+        ):
             raise StataExprError(f"storage type {vtype!r} is not implemented")
         exists = name in self.data.columns
         if replace and not exists:
@@ -310,9 +413,10 @@ class DataSteps:
 
         if groups is None:
             value = evaluate(expr, self.data, self.stored)
-            if value.dtype == object:
-                raise StataExprError("string variables are not generated here")
             mask = row_mask(self.data, if_cond, in_range, self.stored)
+            if value.dtype == object or is_str_type:
+                self._assign_text(replace, name, value, mask, bool(is_str_type))
+                return
         else:
             # `by g:` -- the expression sees one group at a time, so `_n`,
             # `_N` and subscripts count within the group
@@ -324,7 +428,9 @@ class DataSteps:
                 part = self.data.iloc[rows].reset_index(drop=True)
                 got = evaluate(expr, part, self.stored)
                 if got.dtype == object:
-                    raise StataExprError("string variables are not generated here")
+                    raise StataExprError(
+                        "a string variable by group is not generated here"
+                    )
                 value[rows] = got
                 mask[rows] = row_mask(part, if_cond, None, self.stored)
 
@@ -349,13 +455,72 @@ class DataSteps:
             if not (
                 pd.api.types.is_numeric_dtype(old) or pd.api.types.is_bool_dtype(old)
             ):
-                raise StataExprError(f"`replace` of non-numeric {name!r}")
+                raise StataExprError(
+                    f"type mismatch: {name!r} is a string variable and the "
+                    "expression is a number"
+                )
             current = old.to_numpy(dtype=float, na_value=np.nan)
             self.data[name] = np.where(mask, value, current)
         else:
             self.data[name] = np.where(mask, value, np.nan)
             if single:
                 self._float.add(name)
+        self._note_missing_codes(name, expr, whole=not replace or bool(mask.all()))
+
+    def _assign_text(
+        self, replace: bool, name: str, value: Any, mask: np.ndarray, typed: bool
+    ) -> None:
+        """``generate s = "text"`` / ``replace s = strupper(s) if ...``: a
+        string variable; where the qualifier is false a new one is empty."""
+        if value.dtype != object:
+            raise StataExprError(
+                f"type mismatch: {name!r} is declared a string and the "
+                "expression is a number"
+            )
+        self._own()
+        if replace:
+            old = self.data[name]
+            if pd.api.types.is_numeric_dtype(old) or pd.api.types.is_bool_dtype(old):
+                raise StataExprError(
+                    f"type mismatch: {name!r} is numeric and the expression "
+                    "is a string"
+                )
+            current = old.astype(object).where(old.notna(), "").to_numpy(dtype=object)
+            self.data[name] = np.where(mask, value, current).astype(object)
+        else:
+            self.data[name] = np.where(mask, value, "").astype(object)
+
+    # ------------------------------------------------- extended missing values
+    @property
+    def coded(self) -> Set[str]:
+        """Variables that may hold an extended missing value (``.a``-``.z``).
+
+        The data keep every missing value as NaN, so an expression that
+        would tell ``.`` from ``.a`` on one of these is refused (see
+        ``_stata_expr._compare_missing``).
+        """
+        held: Set[str] = self.stored.setdefault("ext_missing", set())
+        return held
+
+    def adopt_missing_codes(self, data: pd.DataFrame) -> None:
+        """Note which variables of a frame that is taken in hold extended
+        missing values: the ones its reader listed in
+        ``attrs['_ext_missing']``, the ones with a ``<var>__miss`` column
+        (``sp.read_data(extended_missing='column')``) and the ones whose
+        value labels name such a code."""
+        attrs = data.attrs
+        names = set(attrs.get("_ext_missing") or ())
+        names |= set(attrs.get("_missing_labels") or {})
+        names |= {
+            str(c)[: -len("__miss")] for c in data.columns if str(c).endswith("__miss")
+        }
+        self.coded.update(n for n in names if n in data.columns)
+
+    def _note_missing_codes(self, name: str, expr: str, *, whole: bool) -> None:
+        if names_extended_missing(expr, self.coded):
+            self.coded.add(name)
+        elif whole:
+            self.coded.discard(name)
 
     def by_assign(
         self, keys: List[str], order: List[str], sort: bool, line: str
@@ -383,6 +548,13 @@ class DataSteps:
             raise StataExprError(f"by: variable(s) {unknown} are not in the data")
         if sort:
             self._sort(keys + order, None)
+        for key in keys + order:
+            if key in self.coded and self.data[key].isna().any():
+                raise StataExprError(
+                    f"by: {key!r} may hold extended missing values (.a-.z); "
+                    "Stata groups and sorts each kind apart, and the data "
+                    "keep them as one. Drop or recode the missing rows first"
+                )
         codes = self.data.groupby(keys, sort=False, dropna=False).ngroup().to_numpy()
         starts = np.flatnonzero(np.r_[True, codes[1:] != codes[:-1]])
         if len(starts) != len(np.unique(codes)):
@@ -406,23 +578,92 @@ class DataSteps:
         return True
 
     def _mvdecode(self, varlist: List[str], options: dict, qualifier: Any) -> None:
-        """``mvdecode varlist, mv(#)``: turn the value # into missing."""
+        """``mvdecode varlist [if] [in], mv(numlist [= mvc] [\\ ...])``: turn
+        the listed values into missing values."""
         raw = options.pop("mv", None)
-        if qualifier or options or raw is None:
-            raise StataExprError("only `mvdecode varlist, mv(#)` is implemented")
-        try:
-            code = float(str(raw).strip())
-        except ValueError:
+        if options or raw is None:
             raise StataExprError(
-                f"mvdecode: mv({raw}) is not a single number"
-            ) from None
-        unknown = [v for v in varlist if v not in self.data.columns]
-        if unknown or not varlist:
-            raise StataExprError(f"mvdecode: variable(s) {unknown} are not in the data")
+                "mvdecode: expected `mvdecode varlist, mv(numlist [=mvc])`"
+            )
+        rules = []
+        for part in str(raw).split("\\"):
+            numbers, eq, code = part.partition("=")
+            code = code.strip() or "."
+            if not re.fullmatch(r"\.[a-z]?", code):
+                raise StataExprError(f"mvdecode: {code!r} is not a missing value")
+            rules.append((_numlist(numbers.strip(), "mvdecode"), code != "."))
+        varlist = self.expand_varlist(varlist)
+        mask = self._qualifier_mask(qualifier)
         self._own()
         for name in varlist:
-            col = self.data[name].to_numpy(dtype=float, na_value=np.nan)
-            self.data[name] = np.where(col == code, np.nan, col)
+            old = self.data[name]
+            if not pd.api.types.is_numeric_dtype(old):
+                continue  # Stata skips string variables with a note
+            col = old.to_numpy(dtype=float, na_value=np.nan)
+            for values, extended in rules:
+                hit = mask & np.isin(col, values)
+                if hit.any():
+                    col = np.where(hit, np.nan, col)
+                    if extended:
+                        self.coded.add(name)
+            self.data[name] = col
+
+    def _mvencode(self, varlist: List[str], options: dict, qualifier: Any) -> None:
+        """``mvencode varlist [if] [in], mv(# | mvc=# [\\ ...]) [override]``:
+        turn missing values into numbers."""
+        raw = options.pop("mv", None)
+        override = any(
+            options.pop(k, 0) is None for k in ("override", "o", "ov", "over")
+        )
+        if options or raw is None:
+            raise StataExprError("mvencode: expected `mvencode varlist, mv(#)`")
+        parts = [p.strip() for p in str(raw).split("\\")]
+        every: Optional[float] = None
+        sysmiss: Optional[float] = None
+        for part in parts:
+            code, eq, number = part.partition("=")
+            if not eq:
+                every = float(_numlist(code, "mvencode")[0])
+            elif code.strip() == "else":
+                every = float(number)
+            elif code.strip() == ".":
+                sysmiss = float(number)
+            else:
+                # `.c = 0` alone: the rows that hold .c are not known
+                raise StataExprError(
+                    f"mvencode: `{part}` recodes one kind of extended missing "
+                    "value, and the data keep all kinds as one"
+                )
+        varlist = self.expand_varlist(varlist)
+        mask = self._qualifier_mask(qualifier)
+        self._own()
+        for name in varlist:
+            old = self.data[name]
+            if not pd.api.types.is_numeric_dtype(old):
+                continue
+            col = old.to_numpy(dtype=float, na_value=np.nan)
+            target = every if every is not None else sysmiss
+            if every is None and name in self.coded:
+                raise StataExprError(
+                    f"mvencode: {name!r} may hold extended missing values, "
+                    "which `.=#` leaves alone and the data do not tell apart"
+                )
+            hit = mask & np.isnan(col)
+            if not override and hit.any() and np.any(col[mask] == target):
+                raise StataExprError(
+                    f"mvencode: {name!r} already holds the value "
+                    f"{target:g}; Stata stops here unless `override` is given"
+                )
+            self.data[name] = np.where(hit, float(target or 0.0), col)
+            if every is not None and bool(mask.all()):
+                self.coded.discard(name)
+
+    def _qualifier_mask(self, qualifier: Any) -> np.ndarray:
+        """Rows an ``(if_cond, in_range)`` pair keeps (all rows for None)."""
+        if not qualifier:
+            return np.ones(len(self.data), dtype=bool)
+        if_cond, in_range = qualifier
+        return row_mask(self.data, if_cond, in_range, self.stored)
 
     def _encode(self, varlist: List[str], options: dict, qualifier: Any) -> None:
         """``encode strvar, generate(newvar)``: codes 1..K in sorted order."""
@@ -679,31 +920,19 @@ class DataSteps:
             self.data = self.data.drop(columns=varlist)
         self._float &= set(self.data.columns)
 
+    def expand_varlist(self, varlist: List[str]) -> List[str]:
+        """A Stata varlist written out, every name checked against the data."""
+        out = self._expand_varlist(varlist)
+        unknown = [v for v in out if v not in self.data.columns]
+        if unknown or not out:
+            raise StataExprError(f"variable(s) {unknown} are not in the data")
+        return out
+
     def _expand_varlist(self, varlist: List[str]) -> List[str]:
         """Stata varlist ranges (``a-b``: every column from ``a`` to ``b`` in
-        dataset order) and wildcards (``x*``, ``x?``) written out."""
-        import fnmatch
-
-        cols = [str(c) for c in self.data.columns]
-        out: List[str] = []
-        for tok in varlist:
-            first, dash, last = tok.partition("-")
-            if dash and first in cols and last in cols:
-                i, j = cols.index(first), cols.index(last)
-                if i > j:
-                    raise StataExprError(
-                        f"varlist range {tok!r}: {first!r} comes after "
-                        f"{last!r} in the data"
-                    )
-                out.extend(cols[i : j + 1])
-            elif any(ch in tok for ch in "*?~"):
-                hits = fnmatch.filter(cols, tok.replace("~", "*"))
-                if not hits:
-                    raise StataExprError(f"varlist {tok!r} matches no variable")
-                out.extend(hits)
-            else:
-                out.append(tok)
-        return list(dict.fromkeys(out))
+        dataset order), wildcards (``x*``, ``x?``), ``_all`` and unambiguous
+        abbreviations written out."""
+        return expand_varlist([str(c) for c in self.data.columns], varlist)
 
     def _sort(self, varlist: List[str], qualifier: Optional[str]) -> None:
         if qualifier:
@@ -750,19 +979,37 @@ class DataSteps:
         self.data = frame.reset_index(drop=True)
 
     def _rename(self, varlist: List[str], qualifier: Optional[str]) -> None:
-        if qualifier or len(varlist) != 2:
-            raise StataExprError("only `rename old new` is implemented")
-        old, new = varlist
-        if old not in self.data.columns:
-            raise StataExprError(f"rename: variable {old!r} is not in the data")
-        if not _NAME.match(new):
-            raise StataExprError(f"rename: {new!r} is not a variable name")
-        if new in self.data.columns:
-            raise StataExprError(f"rename: variable {new!r} already exists")
+        """``rename old new`` and ``rename (old1 old2) (new1 new2)``."""
+        text = " ".join(varlist)
+        grouped = re.fullmatch(r"\(([^)]*)\)\s*\(([^)]*)\)", text.strip())
+        if grouped:
+            olds = self.expand_varlist(grouped.group(1).split())
+            news = grouped.group(2).split()
+        else:
+            olds, news = varlist[:1], varlist[1:]
+        if qualifier or len(olds) != len(news) or not olds:
+            raise StataExprError(
+                "only `rename old new` and `rename (olds) (news)` are implemented"
+            )
+        self.rename_columns(dict(zip(olds, news)))
+
+    def rename_columns(self, mapping: Dict[str, str]) -> None:
+        """Rename variables; labels, formats and notes go with them."""
+        for old, new in mapping.items():
+            if old not in self.data.columns:
+                raise StataExprError(f"rename: variable {old!r} is not in the data")
+            if not _NAME.match(new):
+                raise StataExprError(f"rename: {new!r} is not a variable name")
+        kept = set(self.data.columns) - set(mapping)
+        clash = [n for n in mapping.values() if n in kept]
+        if clash or len(set(mapping.values())) != len(mapping):
+            raise StataExprError(f"rename: variable {clash[:1]} already exists")
+        mapping = {old: new for old, new in mapping.items() if old != new}
+        if not mapping:
+            return
         self._own()
         attrs = dict(self.data.attrs)
-        self.data = self.data.rename(columns={old: new})
-        # the labels go with the variable
+        self.data = self.data.rename(columns=mapping)
         for key in (
             "_labels",
             "_value_labels",
@@ -773,15 +1020,15 @@ class DataSteps:
             "_characteristics",
         ):
             store = attrs.get(key)
-            if isinstance(store, dict) and old in store:
-                store = dict(store)
-                store[new] = store.pop(old)
-                self.data.attrs[key] = store
-        if old in self._set_of:
-            self._set_of[new] = self._set_of.pop(old)
-        if old in self._float:
-            self._float.discard(old)
-            self._float.add(new)
+            if isinstance(store, dict) and any(old in store for old in mapping):
+                self.data.attrs[key] = {mapping.get(k, k): v for k, v in store.items()}
+        self._set_of = {mapping.get(k, k): v for k, v in self._set_of.items()}
+        self._float = {mapping.get(k, k) for k in self._float}
+        coded = self.coded
+        for old, new in mapping.items():
+            if old in coded:
+                coded.discard(old)
+                coded.add(new)
 
     def tabulate_generate(self, var: str, stub: str, mask: np.ndarray) -> List[str]:
         """``tabulate var, generate(stub)``: one indicator per value.
@@ -824,8 +1071,15 @@ class DataSteps:
             raise StataExprError(
                 f"collapse: option(s) {sorted(options)} are not implemented"
             )
-        if "[" in " ".join(varlist):
-            raise StataExprError("collapse with weights is not implemented")
+        weight = None
+        text = " ".join(varlist)
+        clause = re.search(r"\[\s*([a-z]+)\s*=\s*([^\]]+)\]", text, re.I)
+        if clause:
+            values = evaluate(clause.group(2), self.data, self.stored)
+            if values.dtype == object:
+                raise StataExprError("collapse: a weight must be numeric")
+            weight = (clause.group(1).lower()[:2], np.asarray(values, dtype=float))
+            varlist = (text[: clause.start()] + " " + text[clause.end() :]).split()
         stat = "mean"
         targets: List[tuple] = []
         # `s = x` and `s=x` name the result the same way
@@ -842,6 +1096,10 @@ class DataSteps:
             new = new or source
             if not _NAME.match(new) or source not in self.data.columns:
                 raise StataExprError(f"collapse: cannot read {tok!r}")
+            if weight is not None and stat == "rawsum":
+                raise StataExprError(
+                    "collapse: (rawsum) with weights is not implemented"
+                )
             targets.append((new, source, _COLLAPSE[stat]))
         unknown = [b for b in by if b not in self.data.columns]
         if unknown or not targets:
@@ -853,9 +1111,17 @@ class DataSteps:
         names = [t[0] for t in targets]
         if len(set(names)) != len(names) or set(names) & set(by):
             raise StataExprError("collapse: a result name is used twice")
-        frame = self.data.loc[row_mask(self.data, if_cond, in_range, self.stored)]
+        keep = row_mask(self.data, if_cond, in_range, self.stored)
+        if weight is not None:
+            out = self._collapse_weighted(targets, by, keep, weight)
+            self._own()
+            self.data = out
+            self._float = set()
+            return
+        frame = self.data.loc[keep]
         if by:
-            frame = frame.dropna(subset=by)
+            # the rows with a missing by-value are a group too, listed last
+            self._missing_by_groups(by, frame)
             grouped = frame.groupby(by, sort=True, dropna=False)
             cols = {}
             for new, source, how in targets:
@@ -916,6 +1182,82 @@ class DataSteps:
         self.data = out
         self._float = single
 
+    def _missing_by_groups(self, by: List[str], frame: pd.DataFrame) -> None:
+        """Stata keeps a group for each kind of missing by-value; with one
+        kind (``.``) that is the group pandas forms. A by-variable that may
+        hold several kinds cannot be grouped faithfully."""
+        for name in by:
+            if name in self.coded and frame[name].isna().any():
+                raise StataExprError(
+                    f"collapse: by({name}) may hold extended missing values "
+                    "(.a-.z); Stata makes a group of each kind, and the data "
+                    "keep them as one. Drop the missing rows first"
+                )
+
+    def _collapse_weighted(
+        self, targets: List[tuple], by: List[str], keep: np.ndarray, weight: tuple
+    ) -> pd.DataFrame:
+        """``collapse ... [weight]``. With weights w on the rows where the
+        variable is observed (n of them): the mean is ``sum(w x) /
+        sum(w)``; ``sum`` is ``sum(w x)``, for analytic weights after
+        scaling them to add up to n; ``count`` is ``sum(w)`` and n for
+        analytic weights; ``sd`` uses n - 1, with n = ``sum(w)`` for
+        frequency weights; the median is the weighted one."""
+        from ...output.sumstats import weighted_percentile
+
+        kind, w_all = weight
+        ok = keep & ~np.isnan(w_all) & (w_all != 0)
+        if np.any(w_all[ok] < 0):
+            raise StataExprError("collapse: negative weights")
+        frame = self.data.loc[ok].copy()
+        frame["__w"] = w_all[ok]
+        if by:
+            self._missing_by_groups(by, frame)
+
+        def one(part: pd.DataFrame, source: str, how: str) -> float:
+            x = part[source].to_numpy(dtype=float, na_value=np.nan)
+            w = part["__w"].to_numpy(dtype=float)
+            held = ~np.isnan(x)
+            x, w = x[held], w[held]
+            n = float(x.size)
+            if how == "count":
+                return n if kind == "aw" else float(w.sum())
+            if n == 0:
+                return np.nan
+            if how in ("min", "max"):
+                return float(x.min() if how == "min" else x.max())
+            total = float(w.sum())
+            mean = float(np.sum(w * x) / total)
+            if how == "mean":
+                return mean
+            if how == "sum":
+                return mean * n if kind == "aw" else float(np.sum(w * x))
+            if how == "median":
+                return weighted_percentile(x, w, 50.0)
+            if how == "std":
+                if kind in ("pw", "iw"):
+                    raise StataExprError("collapse: (sd) is not allowed with pweights")
+                size = total if kind == "fw" else n
+                if size <= 1:
+                    return np.nan
+                return float(
+                    np.sqrt(np.sum(w * (x - mean) ** 2) / total * size / (size - 1))
+                )
+            raise StataExprError(f"collapse: ({how}) with weights is not implemented")
+
+        if by:
+            rows = []
+            for level, part in frame.groupby(by, sort=True, dropna=False):
+                level = level if isinstance(level, tuple) else (level,)
+                row = dict(zip(by, level))
+                for new, source, how in targets:
+                    row[new] = one(part, source, how)
+                rows.append(row)
+            return pd.DataFrame(rows, columns=by + [t[0] for t in targets])
+        return pd.DataFrame(
+            {new: [one(frame, source, how)] for new, source, how in targets}
+        )
+
     def _ipolate(self, varlist: List[str], options: dict, qualifier: Any) -> None:
         """``ipolate y x, generate(new) [epolate]``: linear interpolation of
         ``y`` on ``x``; without ``epolate`` nothing is filled outside the
@@ -973,3 +1315,4 @@ class DataSteps:
         self.data = data.reset_index(drop=True)
         self._owned = True
         self._float &= set(self.data.columns)
+        self.adopt_missing_codes(self.data)

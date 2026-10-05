@@ -190,8 +190,12 @@ def test_predict_leverage_probability_and_if(df):
     s.run("predict p")
     fit = sp.logit("b ~ x + z", data=df)
     assert np.allclose(s.data["p"], fit.data_info["fitted_values"], atol=1e-6)
-    with pytest.raises(MethodIncompatibility, match="does not apply"):
-        s.run("predict r2, residuals")
+    # after logit, `residuals` is the Pearson residual of the covariate pattern
+    s.run("predict r2, residuals")
+    pearson = sp.logit_influence(fit)["residual"].to_numpy()
+    assert np.allclose(s.data["r2"], pearson, atol=1e-6)
+    with pytest.raises(MethodIncompatibility, match="not implemented"):
+        s.run("predict sc, score")
 
 
 # ------------------------------------------------------- stored estimates
@@ -316,8 +320,8 @@ def test_random_draws_warn_and_unsupported_programs_are_refused():
     with pytest.warns(UserWarning, match="numpy, not from Stata"):
         s.run("gen e = rnormal()")
     s.run("program bad")
-    with pytest.raises(MethodIncompatibility, match="`syntax` or `mata`"):
-        s.run("syntax varlist")
+    with pytest.raises(MethodIncompatibility, match="`mata`"):
+        s.run("mata: x = 1")
     with pytest.raises(MethodIncompatibility, match="program defined above"):
         s.run("simulate b = r(b), reps(5): nosuch")
 

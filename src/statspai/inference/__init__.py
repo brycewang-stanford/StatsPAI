@@ -26,6 +26,18 @@ from .multiway_cluster import (
 from .pate import PATEEstimator, pate
 from .ppi import ppi_mean, ppi_ols
 from .randomization import FisherResult, fisher_exact, ri_test
+from .rank_tests import (
+    ClassicTestResult,
+    ksmirnov,
+    ktau,
+    kwallis,
+    median_test,
+    oneway,
+    ranksum,
+    robvar,
+    signrank,
+    spearman,
+)
 from .sdtest import SDTestResult, sdtest, ztest
 from .suest import SuestResult, suest
 from .ttest import TTestResult, ttest
@@ -66,6 +78,16 @@ __all__ = [
     "sdtest",
     "ztest",
     "prtest",
+    "ClassicTestResult",
+    "ranksum",
+    "signrank",
+    "kwallis",
+    "spearman",
+    "ktau",
+    "ksmirnov",
+    "median_test",
+    "robvar",
+    "oneway",
     "sktest",
     "swilk",
     "ci",

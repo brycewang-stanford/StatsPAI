@@ -77,7 +77,7 @@ def test_local_defined_from_a_result_and_from_arithmetic(df):
     "lines",
     [
         "gen q = `r(sd)'",  # nothing stored r(sd)
-        "local w : word 1 of a b\ngen q = `w'",  # an extended function
+        "local w : sysdir STATA\ngen q = `w'",  # only a running Stata knows
     ],
 )
 def test_macros_the_session_cannot_know_are_still_refused(df, lines):
@@ -181,7 +181,7 @@ def test_reshape_wide_and_back(df):
         ("reshape wide y, i(id) j(year)", "not constant within"),
         ("reshape wide y xt, i(g) j(year)", "not unique within"),
         ("reshape long y, i(id) j(year)", "already exists"),
-        ("reshape wide y xt, i(id) j(year) string", "not implemented"),
+        ("reshape wide y xt, i(id) j(year) atwl(x)", "not implemented"),
         ("reshape error", "are implemented"),
     ],
 )

@@ -31,6 +31,8 @@ def sumstats(
     labels: Optional[Dict[str, str]] = None,
     by_labels: Optional[Dict[Any, str]] = None,
     percentile_method: str = "linear",
+    weights: Optional[str] = None,
+    total: bool = False,
 ) -> Union[str, pd.DataFrame]:
     """
     Generate descriptive statistics table.
@@ -78,6 +80,21 @@ def sumstats(
         ``(h + 1)``-th order statistics when ``h`` is an integer, and the
         ``ceil(h)``-th otherwise. The two agree on the median of an odd
         sample and can differ elsewhere within a gap between observations.
+    weights : str, optional
+        Column of analytic weights (Stata ``summarize x [aweight=w]``).
+        Rows with a missing or zero weight are left out. The mean is
+        ``sum(w x) / sum(w)``; the variance is the weighted mean squared
+        deviation times ``n / (n - 1)``, with ``n`` the number of rows
+        used; skewness and kurtosis are ratios of weighted moments; ``sum``
+        is ``n`` times the weighted mean (the weights are scaled to add up
+        to ``n``). Percentiles are the weighted ones of Stata's ``_pctile``
+        whatever ``percentile_method`` says: the first value at which the
+        cumulative weight passes ``p`` percent of the total, or the mean of
+        that value and the next when it lands on it exactly. ``N`` counts
+        rows. Negative weights raise.
+    total : bool, default False
+        With ``by=``, add a panel ``'Total'`` for all the rows that belong
+        to a group (Stata ``tabstat, by()`` prints it as its last row).
 
     Returns
     -------
@@ -157,10 +174,26 @@ def sumstats(
         )
 
     numeric = output == "numeric"
+    if weights is not None:
+        if weights not in data.columns:
+            raise MethodIncompatibility(
+                f"sumstats: the weights column {weights!r} is not in the data.",
+                recovery_hint="Pass the name of a numeric column.",
+            )
+        if (pd.to_numeric(data[weights], errors="coerce") < 0).any():
+            raise MethodIncompatibility(
+                "sumstats: negative weights.",
+                recovery_hint="Analytic weights must be zero or positive.",
+            )
+        vars = [v for v in vars if v != weights]
+        stat_funcs = {
+            st: (label, _weighted(st)) for st, (label, _) in stat_funcs.items()
+        }
     if by is None:
         df_result = _compute_stats(
-            data, vars, stats, stat_funcs, fmt, labels, numeric=numeric
-        )
+            data, vars, stats, stat_funcs, fmt, labels, numeric=numeric,
+            weights=weights,
+        )  # fmt: skip
     else:
         groups = sorted(data[by].dropna().unique())
         # Auto Control/Treated for binary 0/1 unless caller supplied labels.
@@ -178,8 +211,14 @@ def sumstats(
             label = by_labels.get(g, str(g)) if by_labels else str(g)
             subset = data[data[by] == g]
             panels[label] = _compute_stats(
-                subset, vars, stats, stat_funcs, fmt, labels, numeric=numeric
-            )
+                subset, vars, stats, stat_funcs, fmt, labels, numeric=numeric,
+                weights=weights,
+            )  # fmt: skip
+        if total:
+            panels["Total"] = _compute_stats(
+                data[data[by].notna()], vars, stats, stat_funcs, fmt, labels,
+                numeric=numeric, weights=weights,
+            )  # fmt: skip
         # Stack panels
         df_result = pd.concat(panels, axis=1)
 
@@ -210,6 +249,83 @@ def _percentile(s: pd.Series, p: float, method: str) -> float:
     return float(x[min(int(np.ceil(h)), n) - 1])
 
 
+def weighted_percentile(x: np.ndarray, w: np.ndarray, p: float) -> float:
+    """The ``p``-th percentile of ``x`` with weights ``w``, as Stata's
+    ``_pctile`` defines it: with ``P = W p / 100`` and ``W`` the total
+    weight, the first value whose cumulative weight exceeds ``P``, or the
+    mean of the value whose cumulative weight equals ``P`` and the next."""
+    order = np.argsort(x, kind="stable")
+    xs, ws = np.asarray(x, float)[order], np.asarray(w, float)[order]
+    if xs.size == 0:
+        return float("nan")
+    cum = np.cumsum(ws)
+    target = cum[-1] * p / 100.0
+    tol = 1e-12 * max(cum[-1], 1.0)
+    i = int(np.searchsorted(cum, target - tol, side="left"))
+    i = min(i, xs.size - 1)
+    if abs(cum[i] - target) <= tol and i + 1 < xs.size:
+        return float((xs[i] + xs[i + 1]) / 2.0)
+    return float(xs[i])
+
+
+def _weighted(stat: str) -> Callable[[pd.Series], Any]:
+    """The statistic ``stat`` of a series that carries its rows' analytic
+    weights in ``attrs`` (put there by ``_used``)."""
+
+    def fn(s: pd.Series) -> Any:
+        x = s.to_numpy(dtype=float)
+        w = np.asarray(s.attrs["_weights"], dtype=float)
+        n = x.size
+        if stat == "n":
+            return n
+        if n == 0:
+            return float("nan")
+        total = w.sum()
+        mean = float(np.sum(w * x) / total)
+        if stat == "mean":
+            return mean
+        if stat == "min":
+            return float(x.min())
+        if stat == "max":
+            return float(x.max())
+        if stat == "range":
+            return float(x.max() - x.min())
+        if stat == "sum":
+            return n * mean
+        if stat == "iqr":
+            return weighted_percentile(x, w, 75) - weighted_percentile(x, w, 25)
+        if stat == "median" or stat[1:].isdigit():
+            return weighted_percentile(
+                x, w, 50.0 if stat == "median" else float(stat[1:])
+            )
+        d = x - mean
+        m2 = float(np.sum(w * d**2) / total)
+        if stat in ("skewness", "kurtosis"):
+            k = 3 if stat == "skewness" else 4
+            return float(np.sum(w * d**k) / total / m2 ** (k / 2)) if m2 > 0 else np.nan
+        var = m2 * n / (n - 1) if n > 1 else float("nan")
+        if stat == "variance":
+            return var
+        if stat == "sd":
+            return float(np.sqrt(var))
+        if stat == "semean":
+            return float(np.sqrt(var / n))
+        return float(np.sqrt(var) / mean)  # cv
+
+    return fn
+
+
+def _used(data: pd.DataFrame, var: str, weights: Optional[str]) -> pd.Series:
+    """The values of ``var`` that enter its statistics."""
+    if weights is None:
+        return data[var].dropna()
+    w = pd.to_numeric(data[weights], errors="coerce")
+    keep = data[var].notna() & w.notna() & (w > 0)
+    s = data.loc[keep, var].copy()
+    s.attrs["_weights"] = w[keep].to_numpy(dtype=float)
+    return s
+
+
 def _compute_stats(
     data: pd.DataFrame,
     vars: List[str],
@@ -218,6 +334,7 @@ def _compute_stats(
     fmt: str,
     labels: Optional[Dict[str, str]],
     numeric: bool = False,
+    weights: Optional[str] = None,
 ) -> pd.DataFrame:
     """Compute statistics for each variable (display strings, or values)."""
     if numeric:
@@ -225,7 +342,7 @@ def _compute_stats(
         for var in vars:
             if var not in data.columns:
                 continue
-            s = data[var].dropna()
+            s = _used(data, var, weights)
             display = labels.get(var, var) if labels else var
             vals[display] = {
                 stat_funcs[st][0]: (
@@ -244,7 +361,7 @@ def _compute_stats(
     for var in vars:
         if var not in data.columns:
             continue
-        s = data[var].dropna()
+        s = _used(data, var, weights)
         display = labels.get(var, var) if labels else var
         row: Dict[str, str] = {}
         for stat in stats:

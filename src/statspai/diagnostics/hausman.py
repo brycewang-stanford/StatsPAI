@@ -255,6 +255,7 @@ def hausman(
         )
     b, Vb = _coef_cov(consistent)
     B, VB = _coef_cov(efficient)
+    b, Vb, B, VB = _same_spelling(b, Vb, B, VB)
     names = [n for n in b.index if n in B.index and (constant or n != "_cons")]
     if not names:
         raise MethodIncompatibility(
@@ -323,6 +324,36 @@ def hausman(
         "n_compared": len(names),
         "interpretation": interp,
     }
+
+
+def _same_spelling(b: Any, Vb: Any, B: Any, VB: Any) -> Any:
+    """Name the coefficients of the two results alike.
+
+    Two estimators can spell the same factor level differently
+    (``C(g)[T.2]`` from a formula, ``g::2.0`` from an absorbed-effects
+    routine). Compared by name, such terms would drop out of the test and
+    it would be run on the remaining coefficients only. When the names do
+    not all agree, both sides are renamed to the level-dot-variable form
+    (``2.g``), provided that keeps the names of each side distinct.
+    """
+    if set(b.index) == set(B.index):
+        return b, Vb, B, VB
+    from ..agent._translation._stata_expr import coefficient_key
+
+    def renamed(coef: Any, cov: Any) -> Any:
+        keys = [coefficient_key(str(n)) for n in coef.index]
+        if len(set(keys)) != len(keys):
+            return None
+        coef = coef.copy()
+        coef.index = keys
+        cov = cov.copy()
+        cov.index, cov.columns = keys, keys
+        return coef, cov
+
+    left, right = renamed(b, Vb), renamed(B, VB)
+    if left is None or right is None:
+        return b, Vb, B, VB
+    return left[0], left[1], right[0], right[1]
 
 
 def _hausman_decision(

@@ -137,13 +137,27 @@ def _use(session: "StataSession", rest: str) -> Optional[bool]:
 
 def _append(session: "StataSession", rest: str) -> bool:
     cmd, options = _split(rest)
+    marker = next((options.pop(k) for k in list(options)
+                   if k and "generate".startswith(k) and options[k]), None)  # fmt: skip
+    kept = options.pop("keep", None)
     if set(options) - {"force", "nolabel", "nonotes"} or not cmd.varlist:
         raise StataExprError("`append` is run as `append using name [name ...]`")
-    for name in cmd.varlist:
+    steps = _steps(session)
+    if marker is not None:
+        if marker in steps.data.columns:
+            raise StataExprError(f"append: variable {marker!r} already exists")
+        steps._own()
+        steps.data[marker] = 0.0
+    for source, name in enumerate(cmd.varlist, 1):
         held = _dataset(session, name)
         if held is None:
             raise StataExprError(f"dataset {file_key(name)!r} is not in the session")
-        session.append(held.copy())
+        frame = held.copy()
+        if kept:
+            frame = frame[DataSteps(frame).expand_varlist(str(kept).split())]
+        if marker is not None:
+            frame[marker] = float(source)
+        session.append(frame)
     return False
 
 
@@ -285,14 +299,17 @@ def _frame(session: "StataSession", line: str, rest: str) -> Optional[bool]:
     if head == "cwf":
         _switch(session, words)
         return False
-    if head == "frames" and re.fullmatch(r"reset", words, re.I):
+    if head in ("frame", "frames") and re.fullmatch(r"reset", words, re.I):
         session.frames = {}
         session.frame = "default"
         session.links = {}
         session._steps = _new_steps(session, pd.DataFrame())
         return False
-    if head == "frames" and re.fullmatch(r"dir|describe", words, re.I):
-        return False
+    if head in ("frame", "frames") and re.fullmatch(r"dir|describe", words, re.I):
+        session.output = [session.frame] + [
+            n for n in session.frames if n != session.frame
+        ]
+        return True
     _current(session)
     prefixed = re.match(r"([A-Za-z_]\w*)\s*:\s*(.+)\Z", words, re.S)
     if prefixed and prefixed.group(1).lower() not in ("create", "copy", "change"):
@@ -316,12 +333,25 @@ def _frame(session: "StataSession", line: str, rest: str) -> Optional[bool]:
                 else f"frame {names[0]} already exists"
             )
         types = ("byte", "int", "long", "float", "double")
-        columns = [
-            n for n in names[1:] if n.lower() not in types and not n.startswith("str")
-        ]
-        session.frames[names[0]] = _new_steps(
-            session, pd.DataFrame({c: pd.Series(dtype=float) for c in columns})
-        )
+        # `frame create f str10 name double(a b) c`: a type applies to the
+        # name (or the parenthesised names) after it
+        columns: dict = {}
+        text = False
+        for token in re.findall(r"\w+\([^)]*\)|\S+", " ".join(names[1:])):
+            typed = re.fullmatch(r"(\w+)\(([^)]*)\)", token)
+            if typed:
+                kind, listed = typed.group(1).lower(), typed.group(2).split()
+            elif token.lower() in types or re.fullmatch(r"str(\d+|L)", token):
+                text = token.lower().startswith("str")
+                continue
+            else:
+                kind, listed = ("str" if text else "float"), [token]
+                text = False
+            for name in listed:
+                columns[name] = pd.Series(
+                    dtype=object if kind.startswith("str") else float
+                )
+        session.frames[names[0]] = _new_steps(session, pd.DataFrame(columns))
         return False
     if sub == "copy":
         cmd, options = _split(tail)
@@ -380,7 +410,18 @@ def _frame(session: "StataSession", line: str, rest: str) -> Optional[bool]:
                 f"frame post: {len(exprs)} values for "
                 f"{len(target.data.columns)} variables"
             )
-        row = [session.value(e) for e in exprs]
+        row: List[Any] = []
+        for expr, column in zip(exprs, target.data.columns):
+            if target.data[column].dtype == object:
+                # a string variable takes a string expression
+                from ._stata_expr import evaluate
+
+                held = evaluate(expr, pd.DataFrame({"_": [0.0]}), session.stored)
+                if held.dtype != object:
+                    raise StataExprError(f"frame post: {column} is a string variable")
+                row.append(str(held[0]))
+            else:
+                row.append(session.value(expr))
         target._own()
         target.data.loc[len(target.data)] = row
         return False

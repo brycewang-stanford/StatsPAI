@@ -148,6 +148,7 @@ def association_tests(counts: pd.DataFrame) -> dict:
         "cramers_v": v,
         "n": n,
     }
+    out.update(_ordinal_association(obs))
     if obs.shape == (2, 2):
         if obs[0, 0] * obs[1, 1] < obs[0, 1] * obs[1, 0]:
             out["cramers_v"] = -v
@@ -159,6 +160,61 @@ def association_tests(counts: pd.DataFrame) -> dict:
             )
         )
     return out
+
+
+def _ordinal_association(obs: np.ndarray) -> dict:
+    """Goodman and Kruskal's gamma and Kendall's tau-b for a table whose
+    rows and columns are ordered, each with its asymptotic standard error
+    (the ones Stata's ``tabulate, gamma taub`` prints; they do not assume
+    independence).
+
+    With ``A[i, j]`` the count in cells concordant with cell ``(i, j)`` and
+    ``D[i, j]`` the count in discordant ones, ``P = sum(n A)`` and
+    ``Q = sum(n D)`` are twice the numbers of concordant and discordant
+    pairs; gamma is ``(P - Q) / (P + Q)`` and tau-b divides ``P - Q`` by
+    ``sqrt(Dr Dc)``, where ``Dr = n^2 - sum(row totals^2)`` and ``Dc``
+    likewise for columns.
+    """
+    n = float(obs.sum())
+    below = np.cumsum(np.cumsum(obs, axis=0), axis=1)
+    above = np.cumsum(np.cumsum(obs[::-1, ::-1], axis=0), axis=1)[::-1, ::-1]
+    left_up = np.cumsum(np.cumsum(obs[:, ::-1], axis=0), axis=1)[:, ::-1]
+    right_down = np.cumsum(np.cumsum(obs[::-1, :], axis=0), axis=1)[::-1, :]
+
+    def shifted(a: np.ndarray, di: int, dj: int) -> np.ndarray:
+        out = np.zeros_like(a)
+        rows = slice(1, None) if di > 0 else slice(None, -1)
+        cols = slice(1, None) if dj > 0 else slice(None, -1)
+        src_rows = slice(None, -1) if di > 0 else slice(1, None)
+        src_cols = slice(None, -1) if dj > 0 else slice(1, None)
+        out[rows, cols] = a[src_rows, src_cols]
+        return out
+
+    conc = shifted(below, 1, 1) + shifted(above, -1, -1)
+    disc = shifted(left_up, 1, -1) + shifted(right_down, -1, 1)
+    p, q = float((obs * conc).sum()), float((obs * disc).sum())
+    nan = float("nan")
+    if p + q <= 0:
+        return {"gamma": nan, "gamma_ase": nan, "taub": nan, "taub_ase": nan}
+    gamma = (p - q) / (p + q)
+    gamma_ase = 4.0 / (p + q) ** 2 * np.sqrt((obs * (q * conc - p * disc) ** 2).sum())
+    row, col = obs.sum(axis=1), obs.sum(axis=0)
+    d_r, d_c = n**2 - (row**2).sum(), n**2 - (col**2).sum()
+    w = np.sqrt(d_r * d_c)
+    if w <= 0:
+        return {"gamma": gamma, "gamma_ase": float(gamma_ase), "taub": nan,
+                "taub_ase": nan}  # fmt: skip
+    taub = (p - q) / w
+    v = row[:, None] * d_c + col[None, :] * d_r
+    inner = (obs * (2 * w * (conc - disc) + taub * v) ** 2).sum()
+    inner -= n**3 * taub**2 * (d_r + d_c) ** 2
+    taub_ase = np.sqrt(max(inner, 0.0)) / w**2
+    return {
+        "gamma": float(gamma),
+        "gamma_ase": float(gamma_ase),
+        "taub": float(taub),
+        "taub_ase": float(taub_ase),
+    }
 
 
 def _with_value_labels(data: pd.DataFrame, columns: list) -> pd.DataFrame:

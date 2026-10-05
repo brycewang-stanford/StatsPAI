@@ -828,7 +828,7 @@ def _h_summarize(cmd: StataCommand) -> Dict[str, Any]:
             path = toks[i + 1].strip('"')
         toks = toks[:i]
     stats = ["n", "mean", "sd", "min", "max"]  # summarize's columns
-    detail = "detail" in cmd.options or "d" in cmd.options
+    detail = any(k and "detail".startswith(k) for k in cmd.options)
     if detail:
         stats = list(_DETAIL_STATS)
     spec = cmd.options.get("stats") or cmd.options.get("statistics")
@@ -902,51 +902,62 @@ def _h_tabstat(cmd: StataCommand) -> Dict[str, Any]:
         # calls the levels of any 0/1 variable "Control" and "Treated"
         args["by_labels"] = {}
         if "nototal" not in cmd.options:
-            semantics.append(
-                "tabstat, by() also prints a Total row; sp.sumstats(by=) "
-                "returns the groups only."
-            )
+            args["total"] = True
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
     return _emit("sumstats", args, f"sp.sumstats(df, {kw})", semantics=semantics)
 
 
 def _h_table(cmd: StataCommand) -> Dict[str, Any]:
-    """``table g, statistic(mean x y)`` (Stata 17 and later) ->
-    ``sp.sumstats(by=g)``: one statistic of one or more variables by the
-    levels of one row variable. Column and layer dimensions, several
-    ``statistic()`` options and ``command()`` are not translated."""
-    spec = None
+    """``table g, statistic(mean x y) [statistic(sd x y) ...]`` (Stata 17
+    and later) -> ``sp.sumstats(by=g)``: statistics of one list of
+    variables by the levels of one row variable. ``statistic(frequency)``
+    is the count. Column and layer dimensions and ``command()`` are not
+    translated."""
+    # a repeated option survives only once in cmd.options: read them all
+    specs = re.findall(r"\bstat(?:i(?:s(?:t(?:ic?)?)?)?)?\(([^)]*)\)", cmd.raw, re.I)
     for key in list(cmd.options):
         if key and len(key) >= 4 and "statistic".startswith(key):
-            spec = cmd.options.get(key)
-    words = (spec or "").split()
+            cmd.options.get(key)
     rows = [v for v in cmd.varlist if v not in ("(", ")")]
-    stat = _SUM_STATS.get(words[0].lower()) if words else None
-    if len(rows) != 1 or stat is None or len(words) < 2:
+    stats: List[str] = []
+    variables: Optional[List[str]] = None
+    bad = len(rows) != 1 or not specs
+    for spec in specs:
+        words = spec.split()
+        low = words[0].lower() if words else ""
+        if low in ("frequency", "freq", "percent") and len(words) == 1:
+            # the number of rows of a group, whatever they hold: not a
+            # statistic of a variable, so not one sp.sumstats computes
+            bad = True
+            break
+        stat = _SUM_STATS.get(low)
+        if stat is None or len(words) < 2:
+            bad = True
+            break
+        if variables is not None and variables != words[1:]:
+            bad = True  # each statistic of another varlist: another layout
+            break
+        variables = words[1:]
+        stats.append(stat)
+    if bad or variables is None:
         return _emit_error(
-            "only `table rowvar, statistic(stat varlist)` is translated "
-            "(one row variable, one statistic); use sp.sumstats(df, by=...) "
-            "or df.groupby(...).agg(...) for other layouts.",
+            "only `table rowvar, statistic(stat varlist) ...` is translated "
+            "(one row variable, statistics of one variable list); use "
+            "sp.sumstats(df, by=...) or df.groupby(...).agg(...) for other "
+            "layouts.",
             command="table",
             suggestions=[],
         )
-    args: Dict[str, Any] = {"stats": [stat], "output": "numeric"}
-    if stat.startswith("p") or stat in ("median", "iqr"):
+    args: Dict[str, Any] = {"stats": stats, "output": "numeric"}
+    if any(st.startswith("p") or st in ("median", "iqr") for st in stats):
         args["percentile_method"] = "stata"
-    args["vars"] = words[1:]
+    args["vars"] = variables
     args["by"] = rows[0]
     # the groups are headed by their values, not "Control" / "Treated"
     args["by_labels"] = {}
+    args["total"] = True
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
-    return _emit(
-        "sumstats",
-        args,
-        f"sp.sumstats(df, {kw})",
-        semantics=[
-            "table also prints a Total row; sp.sumstats(by=) returns the "
-            "groups only."
-        ],
-    )
+    return _emit("sumstats", args, f"sp.sumstats(df, {kw})")
 
 
 def _h_correlate(cmd: StataCommand) -> Dict[str, Any]:
@@ -3678,22 +3689,18 @@ def _h_mlogit(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_oprobit(cmd: StataCommand) -> Dict[str, Any]:
-    """``oprobit grade x1 x2`` → ordered probit via sp.glm(family='ordered_probit')."""
-    y, xs = _split_varlist_y_x(cmd.varlist)
-    if y is None:
-        return _emit_error("oprobit requires an outcome variable", command="oprobit")
-    formula = _build_formula(y, xs)
-    args: Dict[str, Any] = {
-        "formula": formula,
-        "family": "ordered_probit",
-    }
-    notes = [
-        "StatsPAI's ordered probit lives behind "
-        "sp.glm(family='ordered_probit'). Use sp.cloglog for "
-        "complementary log-log."
-    ]
-    python = f"sp.glm({formula!r}, data=df, family='ordered_probit')"
-    return _emit("glm", args, python, notes)
+    """``oprobit grade x1 x2`` -> ``sp.oprobit``."""
+    return _h_glm_like(cmd, sp_fn="oprobit", display_name="oprobit")
+
+
+def _h_ologit(cmd: StataCommand) -> Dict[str, Any]:
+    """``ologit grade x1 x2 [, or]`` -> ``sp.ologit``."""
+    return _h_glm_like(cmd, sp_fn="ologit", display_name="ologit")
+
+
+def _h_cloglog(cmd: StataCommand) -> Dict[str, Any]:
+    """``cloglog d x1 x2`` -> ``sp.cloglog``."""
+    return _h_glm_like(cmd, sp_fn="cloglog", display_name="cloglog")
 
 
 def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
@@ -4145,6 +4152,8 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "ppmlhdfe": _h_ppmlhdfe,
     "mlogit": _h_mlogit,
     "oprobit": _h_oprobit,
+    "ologit": _h_ologit,
+    "cloglog": _h_cloglog,
     "xtabond": _h_xtabond,
     "xtdpdsys": _h_xtdpdsys,
     "bunching": _h_bunching,

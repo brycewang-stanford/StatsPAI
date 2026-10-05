@@ -28,7 +28,13 @@ import numpy as np
 import pandas as pd
 from scipy import special, stats
 
-__all__ = ["StataExprError", "evaluate", "sample_mask", "in_range_mask"]
+__all__ = [
+    "StataExprError",
+    "evaluate",
+    "sample_mask",
+    "in_range_mask",
+    "names_extended_missing",
+]
 
 
 class StataExprError(ValueError):
@@ -47,7 +53,7 @@ _TOKEN = re.compile(
 
 Value = Any  # float | str | numpy array (float64 or object)
 
-_COEF_REF = re.compile(r"\b(_b|_se)\[\s*([^\]\"]*#[^\]\"]*?)\s*\]")
+_COEF_REF = re.compile(r"\b(_b|_se)\[\s*([^\]\"]*[#@][^\]\"]*?)\s*\]")
 _POWER_TERM = re.compile(r"I\((\w+) ?\*\* ?(\d+)\)\Z")
 _LEVEL_SPELLINGS = (
     re.compile(r"C\((\w+)(?:, Treatment\([^)]*\))?\)\[T\.(-?\d+)(?:\.0)?\]\Z"),
@@ -132,14 +138,77 @@ def _clean(v: Any) -> Any:
     return np.where(np.isfinite(v), v, np.nan)
 
 
-def _compare(op: str, a: Value, b: Value) -> Any:
+class _Missing(float):
+    """A missing value written in the expression: ``.`` (code 0) or one of
+    ``.a`` ... ``.z`` (codes 1 to 26). It computes as NaN; a comparison
+    needs to know which one it is, because ``.`` < ``.a`` < ... < ``.z``."""
+
+    code: int = 0
+
+    def __new__(cls, code: int = 0) -> "_Missing":
+        out = super().__new__(cls, "nan")
+        out.code = code
+        return out
+
+
+_FLIPPED = {"==": "==", "!=": "!=", ">": "<", ">=": "<=", "<": ">", "<=": ">="}
+
+
+def _compare_missing(op: str, x: Any, code: int, coded: bool) -> Any:
+    """``x op m`` where ``m`` is the missing value with ``code``.
+
+    The data hold every missing value as NaN. When no variable of the
+    expression can hold an extended missing value (``coded`` is false) each
+    NaN is ``.``, and the comparison is exact. Otherwise only the two
+    comparisons that are the same for every kind of missing value are
+    answered (``x >= .`` and ``x < .``); the others would need the code of
+    each row, which is not kept, and are refused.
+    """
+    x = np.asarray(x, dtype=float)
+    missing = np.isnan(x)
+    if coded and not (code == 0 and op in (">=", "<")):
+        shown = "." + (chr(96 + code) if code else "")
+        raise StataExprError(
+            f"`{op} {shown}` tells the kinds of missing value apart, and "
+            "the data keep them all as one (a variable here holds, or was "
+            "given, an extended missing value .a-.z); write missing(x) or "
+            "`x < .` if any missing value is meant"
+        )
+    answer = {
+        "==": missing & (code == 0),
+        "!=": ~(missing & (code == 0)),
+        ">": np.zeros(x.shape, dtype=bool),
+        ">=": missing & (code == 0),
+        "<": ~missing | (code > 0),
+        "<=": np.ones(x.shape, dtype=bool),
+    }[op]
+    return _flag(answer)
+
+
+def _compare(op: str, a: Value, b: Value, coded: bool = False) -> Any:
     if _is_str(a) or _is_str(b):
         if not (_is_str(a) and _is_str(b)):
             raise StataExprError("a string is compared with a number")
-        if op not in ("==", "!="):
-            raise StataExprError("strings can only be compared with == or !=")
         same = np.asarray(a == b, dtype=bool)
-        return _flag(same if op == "==" else ~same)
+        if op in ("==", "!="):
+            return _flag(same if op == "==" else ~same)
+        # strings order by their bytes, as Stata's do
+        left, right = np.broadcast_arrays(
+            np.asarray(a, dtype=object), np.asarray(b, dtype=object)
+        )
+        key = np.frompyfunc(lambda s: str(s).encode("utf-8", "surrogateescape"), 1, 1)
+        x, y = key(left), key(right)
+        return _flag(
+            np.asarray(
+                {">": x > y, ">=": x >= y, "<": x < y, "<=": x <= y}[op], dtype=bool
+            )
+        )
+    if isinstance(b, _Missing) and not isinstance(a, _Missing):
+        return _compare_missing(op, a, b.code, coded)
+    if isinstance(a, _Missing) and not isinstance(b, _Missing):
+        return _compare_missing(_FLIPPED[op], b, a.code, coded)
+    if isinstance(a, _Missing) and isinstance(b, _Missing):
+        a, b = float(a.code), float(b.code)
     x, y = _miss_high(a), _miss_high(b)
     return _flag(
         {
@@ -227,7 +296,9 @@ def _f_cond(*args: Value) -> Any:
     test = np.asarray(_num(args[0], "cond()"), dtype=float)
     yes, no = args[1], args[2]
     if _is_str(yes) or _is_str(no):
-        raise StataExprError("cond() with string results is not implemented")
+        if not (_is_str(yes) and _is_str(no)) or len(args) == 4:
+            raise StataExprError("cond(): both results must be strings")
+        return np.where(_truth(test), yes, no).astype(object)
     out = np.where(_truth(test), yes, no)
     if len(args) == 4:
         # with a fourth argument a missing test value is its own case
@@ -656,6 +727,15 @@ class _Parser:
         self.n = len(data)
         self.stored = stored or {}
 
+    def _coded(self) -> bool:
+        """Whether a variable named in the expression may hold an extended
+        missing value (``.a`` ... ``.z``), which the data do not tell
+        apart from ``.``."""
+        coded = self.stored.get("ext_missing")
+        if not coded:
+            return False
+        return any(kind == "name" and val in coded for kind, val in self.toks)
+
     def _stored(self, kind: str, key: str, shown: str) -> float:
         table = self.stored.get(kind)
         if table is None:
@@ -717,7 +797,9 @@ class _Parser:
             op = self._accept("==", "!=", "~=", ">=", "<=", ">", "<")
             if op is None:
                 return left
-            left = _compare("!=" if op == "~=" else op, left, self._additive())
+            left = _compare(
+                "!=" if op == "~=" else op, left, self._additive(), self._coded()
+            )
 
     def _additive(self) -> Value:
         left = self._multiplicative()
@@ -727,7 +809,10 @@ class _Parser:
                 return left
             right = self._multiplicative()
             if op == "+" and _is_str(left) and _is_str(right):
-                raise StataExprError("string concatenation is not implemented")
+                left = np.asarray(left, dtype=object) + np.asarray(right, dtype=object)
+                if left.ndim == 0:
+                    left = str(left)
+                continue
             a, b = _num(left, "arithmetic"), _num(right, "arithmetic")
             with np.errstate(all="ignore"):
                 left = _clean(a + b if op == "+" else a - b)
@@ -787,9 +872,10 @@ class _Parser:
             return inner
         if kind == "op" and val == ".":
             nxt_kind, nxt = self._peek()
-            if nxt_kind == "name" and len(nxt) == 1:
-                raise StataExprError(f"extended missing value .{nxt}")
-            return float("nan")
+            if nxt_kind == "name" and len(nxt) == 1 and nxt.islower():
+                self._take()
+                return _Missing(ord(nxt) - 96)
+            return _Missing(0)
         if kind == "name":
             return self._name(val)
         raise StataExprError(f"unexpected {val!r} in {self.text!r}")
@@ -803,11 +889,32 @@ class _Parser:
             if kind != "name":
                 raise StataExprError(f"expected a name inside {name}()")
             self._expect(")")
+            if name == "e" and key == "sample":
+                held = self.stored.get("e_sample")
+                # the mask belongs to one frame; a view of other rows (a
+                # by-group, the first observation) cannot use it
+                if held is None or held[1] != self.n or held[0] != id(self.data):
+                    raise StataExprError(
+                        "e(sample) is not known here (no model was fitted on "
+                        "these rows, or they were sorted or dropped since)"
+                    )
+                return np.asarray(held[2], dtype=float)
             return self._stored(name, key, f"{name}({key})")
         if name in ("_b", "_se") and nxt == ("op", "["):
             self._expect("[")
             key = self._coefficient_name(name)
             return self._stored(name, key, f"{name}[{key}]")
+        if name == "c" and nxt == ("op", "(") and "c" not in self.data.columns:
+            # c(pi), c(maxint), c(N): system values
+            from ._stata_functions import system_value
+
+            self._expect("(")
+            kind, key = self._take()
+            self._expect(")")
+            value = system_value(key, self.n, self.data.shape[1])
+            if kind != "name" or value is None:
+                raise StataExprError(f"c({key}) is not a value known here")
+            return value
         if name == "scalar" and nxt == ("op", "("):
             # scalar(name): the named scalar, even if a variable shares it
             self._expect("(")
@@ -856,6 +963,9 @@ class _Parser:
             return float(self.n)
         if name == "_pi":
             return float(np.pi)
+        if name == "_rc" and "_rc" not in self.data.columns:
+            # the return code of the last `capture`d command (0: no error)
+            return float(self.stored.get("_rc", 0.0))
         if name not in self.data.columns and name in self.stored.get("scalars", {}):
             # a variable of that name would win, as in Stata
             return float(self.stored["scalars"][name])
@@ -896,6 +1006,8 @@ class _Parser:
 
             return _name(m.group(2), _parse_ops(m.group(1)))
         held = self.stored.get(kind) or {}
+        if "@" in text:
+            return text  # c.y@1.g: an estimate of `mean, over()`, by its name
         if text not in held and ("#" in text or re.match(r"\d+\.[A-Za-z_]", text)):
             key = coefficient_key(text)
             if key not in held and held:
@@ -1095,3 +1207,28 @@ def in_range_mask(spec: str, n: int) -> np.ndarray:
     mask = np.zeros(n, dtype=bool)
     mask[first - 1 : last] = True
     return mask
+
+
+def names_extended_missing(expr: str, coded: Any) -> bool:
+    """Whether ``expr`` writes an extended missing value (``.a``) or reads
+    a variable in ``coded``: what it is assigned to may then hold one."""
+    try:
+        toks = _tokenise(expr)
+    except StataExprError:
+        return False
+    for i, (kind, val) in enumerate(toks):
+        if kind == "name" and coded and val in coded:
+            return True
+        if (
+            kind == "op"
+            and val == "."
+            and i + 1 < len(toks)
+            and toks[i + 1][0] == "name"
+            and len(toks[i + 1][1]) == 1
+            and (i == 0 or toks[i - 1][0] not in ("name", "num"))
+        ):
+            return True
+    return False
+
+
+from . import _stata_functions  # noqa: E402,F401  (adds its functions to the table)

@@ -12,6 +12,7 @@ from .confounder_bias import confounder_adjust, confounder_tip
 from .estat import estat
 from .evalue import bias_factor, evalue, evalue_from_result, evalue_rd
 from .hausman import hausman, hausman_test
+from .influence import influence_measures, logit_gof, logit_influence
 from .late_test import KitagawaResult, kitagawa_test
 from .rddensity import rddensity
 from .rosenbaum import RosenbaumResult, rosenbaum_bounds, rosenbaum_gamma
@@ -39,6 +40,9 @@ __all__ = [
     "sensemakr",
     "rddensity",
     "hausman",
+    "influence_measures",
+    "logit_gof",
+    "logit_influence",
     "hausman_test",
     "anderson_rubin_test",
     "effective_f_test",

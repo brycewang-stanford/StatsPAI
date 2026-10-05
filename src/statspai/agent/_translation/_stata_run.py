@@ -23,8 +23,10 @@ from ...exceptions import MethodIncompatibility
 from ._stata_datastep import DataSteps, row_mask
 from ._stata_expr import StataExprError, coefficient_key, evaluate
 from ._stata_flow import flow_line, macro_line, macro_value
+from ._stata_macro import display_items, display_text, tool_line
 from ._stata_matrix import matrix_line
 from ._stata_multi import file_key, multi_line
+from ._stata_postrun import record_sample
 from ._stata_programs import program_line
 from ._stata_session import (
     absorbed_constant,
@@ -47,6 +49,8 @@ __all__ = ["stata", "StataSession"]
 _DESCRIPTIVE_TOOLS = frozenset(
     {
         "sumstats", "pwcorr", "ttest", "bitest", "unitroot", "corrgram", "varsoc",
+        "ranksum", "signrank", "kwallis", "spearman", "ktau", "ksmirnov",
+        "median_test", "robvar", "oneway",
         "xtsum", "xtserial", "sdtest", "ztest", "prtest", "sktest", "swilk", "ci",
     }  # fmt: skip
 )
@@ -58,6 +62,7 @@ _SKIPPED = re.compile(
     r"\s*(?:set\s+(?:more|linesize|matsize|scheme|graphics|type\s+double)|"
     r"log\s|cap(?:ture)?\s+log\s|label\s|format\s|describe\b|desc\b|"
     r"list\b|browse\b|notes?\b|codebook\b|labelbook\b|version\s|"
+    r"inspect\b|lv\b|svydescribe\b|svydes\b|lookfor\b|outfile\s|"
     r"clear\s+(?:all|matrix|mata)\s*$|"
     r"macro\s+drop|eststo\s+clear|graph\s+(?:export|save)|"
     r"return\s+list\b|ereturn\s+list\b|sysdir\b|help\s|xtdes(?:cribe)?\b|"
@@ -90,7 +95,8 @@ _EXIT = re.compile(r"\s*exit\s*(?:,\s*clear\s*)?$", re.I)
 _NOT_PRODUCED = re.compile(
     r"\s*(?:(?:twoway|tw|scatter|line|histogram|hist|kdensity|tsline|xtline|"
     r"ac|pac|rvfplot|rvpplot|avplots?|lvr2plot|qnorm|pnorm|coefplot|"
-    r"teoverlap)\b|tebalance\s+(?:box|density)\b|"
+    r"teoverlap|lsens|estat\s+classification\s*,[^,]*\bgraph)\b|"
+    r"teffects\s+overlap\b|tebalance\s+(?:box|density)\b|"
     r"(?:irf|fcast)\s+(?:c?graph|ograph)\b|graph\s+"
     r"(?:twoway|bar|box|combine)|export\s|outsheet\s|save\s|saveold\s)",
     re.I,
@@ -114,6 +120,87 @@ _RESULT_MACRO = re.compile(r"`([re]\([A-Za-z_]\w*\))'")
 _MACRO_EXPRESSION = re.compile(
     r"^(gl(?:o(?:b(?:al?)?)?)?|loc(?:al?)?)\s+([A-Za-z_]\w*)\s*=(.*)$", re.I
 )
+
+
+def _r_ranksum(out: Any) -> Dict[str, float]:
+    t, e = out.table, out.estimates
+    return {"z": out.statistic, "p": out.pvalue, "N": float(out.n_obs),
+            "N_1": float(t["obs"].iloc[0]), "N_2": float(t["obs"].iloc[1]),
+            "sum_obs": float(t["rank_sum"].iloc[0]),
+            "sum_exp": float(t["expected"].iloc[0]),
+            "Var_a": e["adjusted_variance"], "porder": e["porder"]}  # fmt: skip
+
+
+def _r_signrank(out: Any) -> Dict[str, float]:
+    t, e = out.table, out.estimates
+    return {"z": out.statistic, "p": out.pvalue, "N": float(out.n_obs),
+            "sum_pos": float(t.loc["positive", "rank_sum"]),
+            "sum_neg": float(t.loc["negative", "rank_sum"]),
+            "N_pos": float(t.loc["positive", "obs"]),
+            "N_neg": float(t.loc["negative", "obs"]),
+            "N_tie": float(t.loc["zero", "obs"]),
+            "Var_a": e["adjusted_variance"]}  # fmt: skip
+
+
+def _r_median(out: Any) -> Dict[str, float]:
+    r = {"chi2": out.statistic, "p": out.pvalue, "N": float(out.n_obs),
+         "groups": float(out.table.shape[1] - 1)}  # fmt: skip
+    if "chi2_corrected" in out.estimates:
+        r["chi2_cc"] = out.estimates["chi2_corrected"]
+        r["p_cc"] = out.estimates["p_corrected"]
+    return r
+
+
+def _r_oneway(out: Any) -> Dict[str, float]:
+    e = out.estimates
+    r = {"F": out.statistic, "N": float(out.n_obs), "mss": e["ss_between"],
+         "rss": e["ss_within"], "df_m": float(e["df_between"]),
+         "df_r": float(e["df_within"])}  # fmt: skip
+    if "bartlett_chi2" in e:
+        r["chi2bart"], r["df_bart"] = e["bartlett_chi2"], float(e["df_between"])
+    return r
+
+
+#: r() after the classical tests, under the names Stata stores
+_CLASSIC_R: Dict[str, Any] = {
+    "ranksum": _r_ranksum,
+    "signrank": _r_signrank,
+    "kwallis": lambda o: {"chi2": o.estimates["chi2_unadjusted"],
+                          "chi2_adj": o.statistic, "df": float(o.df)},
+    "spearman": lambda o: {"rho": o.statistic, "p": o.pvalue, "N": float(o.n_obs)},
+    "ktau": lambda o: {"tau_a": o.estimates["tau_a"], "tau_b": o.statistic,
+                       "score": o.estimates["score"],
+                       "se_score": o.estimates["se_score"], "p": o.pvalue,
+                       "N": float(o.n_obs)},
+    "ksmirnov": lambda o: {"D_1": float(o.table["D"].iloc[0]),
+                           "p_1": float(o.table["pvalue"].iloc[0]),
+                           "D_2": float(o.table["D"].iloc[1]),
+                           "p_2": float(o.table["pvalue"].iloc[1]),
+                           "D": o.statistic, "p": o.pvalue},
+    "median_test": _r_median,
+    "robvar": lambda o: {"w0": o.statistic, "p_w0": o.pvalue,
+                         "w50": o.estimates["W50"], "p_w50": o.estimates["p_W50"],
+                         "w10": o.estimates["W10"], "p_w10": o.estimates["p_W10"],
+                         "N": float(o.n_obs)},
+    "oneway": _r_oneway,
+}  # fmt: skip
+
+
+def _return_code(message: str) -> float:
+    """The Stata return code an error message stands for: the one it
+    names (``r(9)``), else 111 for something not found, 110 for something
+    already defined, 198 otherwise."""
+    named = re.search(r"\br\((\d+)\)", message)
+    if named:
+        return float(named.group(1))
+    low = message.lower()
+    if "not found" in low or "not in the data" in low or "no such" in low:
+        return 111.0
+    if "already" in low:
+        return 110.0
+    if "no observations" in low:
+        return 2000.0
+    return 198.0
 
 
 def _macro_number(value: float) -> str:
@@ -219,6 +306,23 @@ def _e_scalars(result: Any) -> Dict[str, float]:
         got = diag.get(name)
         if isinstance(got, (int, float, np.integer, np.floating)) and np.isfinite(got):
             out[key] = float(got)
+    model = getattr(result, "model_info", None) or {}
+    y = info.get("y")
+    weighted = info.get("weights") is not None or model.get("weights") is not None
+    if (
+        model.get("family") == "binomial"
+        and y is not None
+        and "ll" in out
+        and not weighted
+    ):
+        # the constant-only model of a binary outcome has a closed form
+        yy = np.asarray(y, dtype=float)
+        ones, n = float(yy.sum()), float(yy.size)
+        if 0 < ones < n:
+            ll_0 = ones * np.log(ones / n) + (n - ones) * np.log(1 - ones / n)
+            out["ll_0"] = float(ll_0)
+            out["chi2"] = float(2 * (out["ll"] - ll_0))
+            out["r2_p"] = float(1 - out["ll"] / ll_0)
     return out
 
 
@@ -562,6 +666,7 @@ class StataSession:
         }
         if self._steps is not None:
             self._steps.stored = self.stored
+            self._steps.adopt_missing_codes(self._steps.data)
         if result is not None:
             self._store_estimates(result)
 
@@ -577,6 +682,7 @@ class StataSession:
         if self._steps is None:
             self._steps = DataSteps(data)
             self._steps.stored = self.stored
+            self._steps.adopt_missing_codes(data)
         else:
             self._steps.replace_data(data.copy())
             self._steps._float = set()
@@ -664,12 +770,34 @@ class StataSession:
         """r() after an r-class command, at full precision."""
         r: Dict[str, float] = {}
         out = self.output
-        if tool == "sumstats" and isinstance(frame, pd.DataFrame):
+        weights = arguments.get("weights")
+        if tool == "sumstats" and isinstance(frame, pd.DataFrame) and weights:
+            # with analytic weights r() holds the weighted statistics
+            import statspai as sp
+
+            names = arguments.get("vars") or [c for c in frame.columns if c != weights]
+            wanted = ["n", "mean", "sd", "variance", "min", "max", "skewness",
+                      "kurtosis", "p1", "p5", "p10", "p25", "p50", "p75", "p90",
+                      "p95", "p99"]  # fmt: skip
+            got: Any = sp.sumstats(frame, vars=[names[-1]], stats=wanted,
+                                   weights=weights, output="numeric")  # fmt: skip
+            row = got.iloc[0].to_numpy(dtype=float)
+            r = dict(zip(["N", "mean", "sd", "Var", "min", "max", "skewness",
+                          "kurtosis", "p1", "p5", "p10", "p25", "p50", "p75", "p90",
+                          "p95", "p99"], (float(v) for v in row)))  # fmt: skip
+            w = pd.to_numeric(frame[weights], errors="coerce")
+            r["sum_w"] = float(w[frame[names[-1]].notna() & (w > 0)].sum())
+            r["sum"] = r["mean"] * r["N"]
+        elif tool == "sumstats" and isinstance(frame, pd.DataFrame):
             names = arguments.get("vars") or list(frame.columns)
             col = frame[names[-1]]
             if pd.api.types.is_numeric_dtype(col) or pd.api.types.is_bool_dtype(col):
                 x = col.dropna().to_numpy(dtype=float)
                 r = {"N": float(x.size)}
+                if not x.size:
+                    # no observations: Stata leaves the moments missing
+                    r.update(mean=np.nan, sd=np.nan, Var=np.nan, min=np.nan,
+                             max=np.nan, sum=0.0, sum_w=0.0)  # fmt: skip
                 if x.size:
                     r.update(mean=float(x.mean()), sum=float(x.sum()),
                              min=float(x.min()), max=float(x.max()))  # fmt: skip
@@ -694,6 +822,27 @@ class StataSession:
                     r["df_r"] = float(resid)
             else:
                 r["chi2"] = float(out["statistic"])
+        elif tool == "pwcorr" and isinstance(frame, pd.DataFrame):
+            names = [v for v in (arguments.get("variables") or arguments.get("vars")
+                                 or []) if v in frame.columns]  # fmt: skip
+            if len(names) >= 2:
+                pair = frame[names[:2]].dropna()
+                if arguments.get("listwise") or len(names) == 2:
+                    pair = frame[names].dropna()[names[:2]]
+                values = pair.to_numpy(dtype=float)
+                r = {"N": float(len(pair)),
+                     "rho": float(np.corrcoef(values.T)[0, 1])}  # fmt: skip
+        elif tool in _CLASSIC_R:
+            r = _CLASSIC_R[tool](out)
+        elif tool == "estat" and isinstance(out, dict) and "statistic" in out:
+            label = str(out.get("statistic_label") or "")
+            key = "F" if label.startswith("F") else "chi2"
+            r = {key: float(out["statistic"])}
+            if out.get("pvalue") is not None:
+                r["p"] = float(out["pvalue"])
+            for name in ("df", "df1", "df2"):
+                if isinstance(out.get(name), (int, float, np.integer, np.floating)):
+                    r[{"df1": "df_m", "df2": "df_r"}.get(name, name)] = float(out[name])
         elif tool == "ttest":
             r = {"t": float(out.statistic), "df_t": float(out.df),
                  "p": float(out.pvalue), "se": float(out.se)}  # fmt: skip
@@ -718,6 +867,18 @@ class StataSession:
                 # inside `program ... end`: the line belongs to the body
                 handled = program_line(self, line)
                 return bool(handled)
+            if self._flow is None:
+                try:
+                    tooled = tool_line(self, line)
+                except StataExprError as exc:
+                    raise MethodIncompatibility(
+                        f"sp.stata: cannot run {line!r}: {exc}.",
+                        recovery_hint="Write this step in Python around "
+                        "sp.stata(...) or the sp.* call.",
+                        diagnostics={"command": line},
+                    ) from exc
+                if tooled is not None:
+                    return tooled
             flowed = flow_line(self, line)
             if flowed is not None:
                 return flowed
@@ -735,11 +896,18 @@ class StataSession:
                 # is not there, `restore` without `preserve`) is swallowed;
                 # a command this runner cannot translate still stops it
                 try:
-                    return self._run(captured.group(1))
+                    produced = self.run(captured.group(1))
+                    self.stored["_rc"] = 0.0
+                    return produced
                 except MethodIncompatibility as exc:
                     if isinstance(exc.__cause__, StataExprError):
+                        self.stored["_rc"] = _return_code(str(exc))
                         return False
                     raise
+                except KeyError:
+                    # a variable that is not there
+                    self.stored["_rc"] = 111.0
+                    return False
             quiet = _QUIETLY.match(line)
             if quiet is not None:
                 line = quiet.group(1)
@@ -775,6 +943,20 @@ class StataSession:
         handled_program = program_line(self, line)
         if handled_program is not None:
             return handled_program
+        everything = re.match(
+            r"(\s*su(?:m(?:m(?:a(?:r(?:i(?:ze?)?)?)?)?)?)?)\s+_all\b(.*)\Z",
+            line,
+            re.S | re.I,
+        )
+        if everything is not None:
+            line = everything.group(1) + everything.group(2)  # no varlist: all
+        logistic = re.match(r"(\s*)logistic\b(.*)\Z", line, re.S | re.I)
+        if logistic is not None:
+            # the same model as `logit`; only the table shows exp(b)
+            body = logistic.group(2)
+            line = f"{logistic.group(1)}logit{body}" + (
+                ", or" if "," not in body else " or"
+            )
         simulated = run_simulate(self, line)
         if simulated is not None:
             return simulated
@@ -910,9 +1092,24 @@ class StataSession:
         if scalar is not None:
             expr = scalar.group(2).strip()
         elif show is not None:
-            expr = _display_expression(show.group(1))
-            if not expr:
-                return False  # only text: nothing to evaluate
+            # text, formats and several items: the line as Stata prints it
+            try:
+                items = display_items(self, show.group(1))
+            except StataExprError as exc:
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: {exc}.",
+                    recovery_hint="Compute the value in Python from the result.",
+                    diagnostics={"command": line},
+                ) from exc
+            numbers = [i for i in items if not isinstance(i, str)]
+            dated = any(fmt and fmt.lstrip("%-0123456789.").startswith("t")
+                        for _, fmt in numbers)  # fmt: skip
+            if len(numbers) == 1 and not dated:
+                # one number, with or without text around it: the number
+                self.output = numbers[0][0]
+            else:
+                self.output = display_text(items)
+            return True
         if scalar is not None or show is not None:
             try:
                 number = self.value(expr)
@@ -1122,6 +1319,12 @@ class StataSession:
                 self.last_data = run_data
                 self._last_call = out
                 self._store_estimates(self.output)
+                record_sample(self, run_data)
+                fitted = str((out.get("arguments") or {}).get("formula") or "")
+                self.stored["e_macros"] = {
+                    "cmd": line.split()[0].rstrip(","),
+                    "depvar": fitted.split("~")[0].strip() if "~" in fitted else "",
+                }
                 if re.match(r"\s*(?:\w+\s*:\s*)*(?:qui\w*\s+)?xtreg\b", line):
                     xtreg_extras(self, out, run_data)
                 if out["tool"] == "hdfe_ols":

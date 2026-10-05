@@ -4,6 +4,101 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### What an introductory Stata text found: Kohler, Kreuter and Haensch (2026)
+
+*Data Analysis Using Stata* (4th ed.) teaches what comes before the first
+regression: variables, labels, tables, weights, survey data, programs.
+Its commands were run in Stata 18 on the book's datasets and replayed
+through `sp.stata`. At the start 1,619 printed numbers were reproduced,
+101 differed and 375 commands were declined; now 5,272 are reproduced, 24
+differ for stated reasons and 56 are declined. The notes are in
+`docs/dev/2026-10-05-kohler-kreuter-4e-review.md`. Stata 18 reference
+numbers on committed synthetic data are in
+`tests/reference_parity/test_kohler_kreuter_stata_parity.py` (165 numbers).
+
+#### ⚠️ Correctness
+
+- **A formula over a column named like a Python keyword failed.**
+  `sp.regress("survived ~ C(class)", ...)`, and any formula that wraps
+  `class`, `return`, `yield` or `lambda` in a function, raised a syntax
+  error. These are ordinary variable names in Stata and R data. All
+  estimators that build their design from a formula are affected.
+- **`sp.estat(result, "reset", rhs=True)` could return a negative F** when
+  a regressor was in the thousands: its cube reached 1e14 and the
+  unrestricted fit lost it to rounding. The powers are now taken on unit
+  scale. On the rent regression of the book Stata's F(8, 2148) = 59.24 had
+  come out as -214.
+- **`sp.hausman` left factor levels out of the comparison** when the two
+  results spelled them differently (`C(g)[T.2]` and `g::2.0`). Fixed
+  against random effects with `i.mar`, the test had 2 degrees of freedom
+  where Stata has 6 (chi2 100.26 against 236.26).
+- **`sp.stata`: `x == .`, `x != .` and `x > .` on a variable with extended
+  missing values.** The data keep `.a` to `.z` as NaN, like `.`, so
+  `keep if x != .` dropped rows that Stata keeps (in Stata `.a != .` is
+  true). The session now knows which variables may hold such values and
+  declines the comparisons that tell the kinds apart, as well as `by`,
+  `tabulate, missing` and `collapse, by()` on them. `missing(x)`, `x < .`
+  and `x >= .` are unaffected. A frame says which variables are coded
+  through `sp.read_data(..., extended_missing='column')` or
+  `df.attrs['_ext_missing']`.
+- **`sp.stata`: `table g, statistic(a) statistic(b)` ran with the last
+  `statistic()` only.** A repeated option was kept once.
+- **`sp.stata`: `collapse ..., by(g)` dropped the rows with a missing
+  `g`.** Stata keeps them as a group; so does this now.
+
+#### Added
+
+- `sp.ranksum`, `sp.signrank`, `sp.kwallis`, `sp.spearman`, `sp.ktau`,
+  `sp.ksmirnov`, `sp.median_test`, `sp.robvar`, `sp.oneway`: the rank,
+  median, variance and one-way tests of a first statistics course, each
+  returning a `ClassicTestResult`.
+- `sp.influence_measures` (leverage, studentized residuals, Cook's
+  distance, DFFITS, Welsch distance, COVRATIO, DFBETAs after
+  `sp.regress`), `sp.logit_influence` (Pregibon's diagnostics by covariate
+  pattern) and `sp.logit_gof` (Pearson and Hosmer-Lemeshow).
+- `sp.sumstats(weights=)` for analytic weights, with Stata's weighted
+  percentiles, and `sp.sumstats(by=, total=True)` for the Total panel.
+- Goodman and Kruskal's gamma and Kendall's tau-b with asymptotic standard
+  errors in the association tests of a two-way table.
+- `SurveyResult.params` / `.std_errors`, the names every other result uses.
+- In `sp.stata`: about 100 more functions of the expression language
+  (strings, `recode` / `irecode` / `autocode`, clock times, calendar parts,
+  distributions, `c()`); string variables; `recode`, `mvencode`, `xtile`,
+  `pctile`, `centile`, `tostring`, `destring`, `order`, `expand`,
+  `contract`, `separate`, `split`, `sample`, `splitsample`, `mark`,
+  `markout`, `levelsof`, `ds`, `unab`, `assert`, `confirm`, `isid`,
+  `joinby`, `duplicates report` / `tag`; `tabulate` with percentages,
+  expected counts, weights, `gamma`, `taub` and `summarize()`; `tab1`,
+  `tab2`; `table` with several statistics; `mean`, `proportion`, `total`,
+  `ratio` with `over()`, weights and `vce(cluster)`; `svyset` and `svy:`
+  (the four `singleunit()` rules, poststratification, subpopulations,
+  `tabulate` with the Rao-Scott correction, `regress` / `logit` /
+  `poisson`, `estat effects`); `predict` with influence statistics after
+  `regress` and `logit`, `dfbeta`, `estat gof`, `lroc`, `lrtest`,
+  `linktest`, `logistic`, `ologit`, `cloglog`; `margins` for predictive
+  margins, factor levels and grids in `at()`; `e(sample)`; the `by` prefix
+  before any command; extended macro functions, `syntax`, `marksample`,
+  `tokenize`, `gettoken`, `macro shift`, `_rc`, one-line `if`.
+
+#### Changed
+
+- **The base category of `C(g)` is the lowest level in the estimation
+  sample**, as in Stata and R. It was the lowest level among all rows
+  where `g` is observed. The two differ only when a level occurs solely in
+  rows that are dropped for a missing value elsewhere; the fit is the
+  same, the coefficients are those of the other coding.
+- `sp.regress("y ~ one - 1")` with a constant column `one` estimates the
+  mean. It was refused as collinear with an intercept the model does not
+  have.
+- `sp.stata`: `display` with text returns the line as Stata prints it
+  when it holds no number or more than one; a pure string used to return
+  nothing. `oprobit` runs `sp.oprobit` (the translation named a `glm`
+  family that does not exist). `tabstat, by()` and `table` return the
+  Total panel. `by g: regress ...` runs the regression in each group; it
+  was refused. `predict, residuals` after `logit` is the Pearson residual
+  of the covariate pattern, as in Stata; it was refused. `levelsof` writes
+  a non-integer level with 16 significant digits, as Stata does.
+
 ### What the notebooks of Facure's *Causal Inference in Python* found
 
 The eleven chapter notebooks of the book (O'Reilly, 2023) keep their

@@ -37,6 +37,7 @@ import re
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
+import pandas as pd
 
 from ...exceptions import MethodIncompatibility
 from ._stata_expr import StataExprError
@@ -102,10 +103,34 @@ def format_number(value: float) -> str:
 def macro_value(session: "StataSession", name: str) -> Optional[str]:
     """What `` `name' `` stands for when it is not a macro that was
     defined: `` `=exp' ``, `` `r(name)' ``, `` `e(name)' ``."""
+    if name.isdigit() and session._program_depth:
+        return ""  # an argument the caller did not give is empty
+    if name.lstrip().startswith(":"):
+        from ._stata_macro import extended_function
+
+        try:
+            return extended_function(session, name.lstrip()[1:])
+        except StataExprError:
+            return None
+    held = re.fullmatch(r"([rec])\((\w+)\)", name)
+    if held and held.group(1) == "c":
+        from ._stata_functions import system_value
+
+        data = session.data
+        shape = (0, 0) if data is None else data.shape
+        value = system_value(held.group(2), *shape)
+        if value is None:
+            return None
+        return value if isinstance(value, str) else format_number(float(value))
+    if held:
+        # r(varlist), r(levels), e(cmd): results that are text
+        texts = session.stored.get(f"{held.group(1)}_macros") or {}
+        if held.group(2) in texts:
+            return str(texts[held.group(2)])
     try:
         if name.startswith("="):
             return format_number(session.value(name[1:]))
-        if re.fullmatch(r"[re]\(\w+\)", name):
+        if held:
             return format_number(session.value(name))
     except StataExprError:
         return None  # nothing stored under that name: an undefined macro
@@ -148,17 +173,28 @@ def macro_line(session: "StataSession", line: str) -> bool:
     m = _ASSIGN.match(line)
     if m:
         rhs = _expand(session, m.group(3), line)
-        if rhs.startswith('"') or rhs.startswith('`"'):
-            return False  # a string: the macro table reads it
-        try:
-            number = session.value(rhs)
-        except StataExprError:
-            return False  # left to the macro table (unknown value)
         table = (
             session._macros.globals
             if m.group(1).lower().startswith("g")
             else session._macros.locals
         )
+        plain = re.fullmatch(r'\s*(`"[^`]*?"\'|"[^"]*")\s*', rhs)
+        if plain is not None:
+            return False  # one string literal: the macro table reads it
+        try:
+            number = session.value(rhs)
+        except StataExprError:
+            # a string expression: upper("abc"), "a" + "b", "x" != ""
+            from ._stata_expr import evaluate
+
+            try:
+                held = evaluate(rhs, pd.DataFrame({"_": [0.0]}), session.stored)
+            except StataExprError:
+                return False  # left to the macro table (unknown value)
+            if held.dtype != object:
+                return False
+            table[m.group(2)] = str(held[0])
+            return True
         table[m.group(2)] = format_number(number)
         return True
     return False
@@ -379,15 +415,30 @@ def call_program(
     # a program may call another one: its own r() table is put back after
     outer_returned = session._returned
     session._returned = {}
+    from ._stata_macro import ProgramExit
+
+    session.stored.pop("returned_macros", None)
     try:
-        for command in session.programs[name]:
-            session.run(command)
+        try:
+            for command in session.programs[name]:
+                session.run(command)
+        except ProgramExit:
+            pass  # `exit`: the program ends here
         returned = dict(session._returned)
     finally:
         session._returned = outer_returned
         session._program_depth -= 1
+        # the temporary variables of the program go with it
+        temporary = [v for k, v in session._macros.locals.items()
+                     if isinstance(v, str) and v.startswith("__tempvar")]  # fmt: skip
+        if temporary and session._steps is not None:
+            held = [c for c in temporary if c in session._steps.data.columns]
+            if held:
+                session._steps.data = session._steps.data.drop(columns=held)
         session._macros.locals = outer
         session._flow = None
-    if returned:
+    texts = session.stored.pop("returned_macros", None)
+    if returned or texts:
         session.stored["r"] = returned
+        session.stored["r_macros"] = dict(texts or {})
     return returned

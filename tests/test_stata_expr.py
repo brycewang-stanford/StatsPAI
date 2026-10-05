@@ -121,10 +121,8 @@ def test_pandas_would_disagree_on_missing(df):
         "e(sample)",
         "L.x > 0",
         "_b[x] > 0",
-        "strlen(s) > 1",
+        "strfoo(s) > 1",  # no such function
         "z > 1",  # no such variable
-        "x > .a",  # extended missing value
-        's > "A"',
         "s + 1",
         "`v' > 0",
         "$g > 0",
@@ -279,11 +277,12 @@ def test_post_estimation_uses_the_rows_the_model_was_fitted_on(panel):
         ("egen m = fill(1 2)", "not implemented"),
         ("merge 1:1 id using other", "merge"),
         ("use somefile.dta", "use"),
-        ('gen s = "a"', "string"),
+        ('replace x = "a"', "type mismatch"),
         ("replace nope = 1", "does not exist"),
         ("gen x = 1", "already exists"),
         ("gen int k = x", "truncates"),
-        ("gen str3 k = x", "storage type"),
+        ("gen str3 k = x", "type mismatch"),
+        ("gen strL2 k = x", "storage type"),
         ("keep x if year > 1984", "not both"),
         ("drop nope", "not in the data"),
         ("restore", "without a `preserve`"),

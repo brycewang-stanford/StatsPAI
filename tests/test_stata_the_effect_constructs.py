@@ -250,6 +250,7 @@ def test_table_statistic_by_one_row_variable():
         "vars": ["earn"],
         "by": "wc",
         "by_labels": {},
+        "total": True,
     }
     assert out["untranslated_options"] == []
     # two dimensions, or no statistic, are other tables
@@ -294,8 +295,12 @@ def test_translated_group_tables_are_headed_by_the_group_values():
     for line in ("table wc, stat(mean earn)", "tabstat earn, by(wc) nototal"):
         session = StataSession(data)
         session.run(line)
-        assert [c[0] for c in session.output.columns] == ["0", "1"], line
-        assert list(session.output.iloc[0]) == [2.0, 7.0], line
+        heads = [c[0] for c in session.output.columns]
+        # `table` prints its Total row; `tabstat, nototal` does not
+        assert heads == (
+            ["0", "1", "Total"] if line.startswith("table") else ["0", "1"]
+        )
+        assert list(session.output.iloc[0])[:2] == [2.0, 7.0], line
 
 
 # ------------------------------------------------------------------- bstat
