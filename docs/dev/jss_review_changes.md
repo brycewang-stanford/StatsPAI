@@ -1974,3 +1974,27 @@ only the recorded source hashes move.
   estimate, standard error or table cell is read from this file.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the second round of the Facure notebooks pass
+
+- **Commits.** `218937a9` re-recorded the entries of Track A modules 05 08 11
+  16 17 20 36 38 70 71 73 75 81 83 84 85 in
+  `tests/r_parity/results/_implementation_trace.json` and all 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `b4f05a76`: the categorical-covariate and date-typed
+  time wrappers were put on the remaining DiD and matching estimators
+  (`gardner_did`, `stacked_did`, `wooldridge_did`, `bacon_decomposition`,
+  `lp_did`, `did_multiplegt`, `event_study`, `psmatch2`, `policy_tree`
+  and others).
+- **Reason.** Second round of
+  `docs/dev/2026-10-05-facure-causal-inference-in-python-review.md`. Both
+  wrappers pass a call with numeric covariates and numeric time straight
+  through.
+  `python tests/r_parity/verify_reproduce_py.py --no-report` on the 16
+  Track A modules reported 16 reproduce, 0 drift.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census is unchanged by this round.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
