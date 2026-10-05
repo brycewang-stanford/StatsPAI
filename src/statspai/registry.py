@@ -489,6 +489,11 @@ class FunctionSpec:
                 cost_profile,
             ) = merged
 
+        # A function is not its own alternative, and one alternative is
+        # listed once however it was spelt (``did_imputation`` from the
+        # family card, ``sp.did_imputation`` from the curated one).
+        alternatives = _distinct_alternatives(self.name, alternatives)
+
         # Statements a family card or a parent makes that are not true of
         # this variant are removed, and the variant's own are added.
         from ._family_cards import apply_variant_overrides
@@ -673,6 +678,24 @@ def _provenance_key(fld: str, item: Any) -> Any:
     if fld == "alternatives" and isinstance(item, str):
         return item.replace("sp.", "").split("(")[0].strip()
     return item if isinstance(item, (str, int, float, tuple)) else repr(item)
+
+
+def _distinct_alternatives(name: str, alternatives: List[Any]) -> List[Any]:
+    """``alternatives`` without the function itself and without repeats.
+
+    Two entries are the same alternative when they name the same function
+    (``_provenance_key``: the ``sp.`` prefix and any call arguments are
+    ignored). The first spelling is kept.
+    """
+    seen = {name}
+    out: List[Any] = []
+    for item in alternatives:
+        key = _provenance_key("alternatives", item)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
 
 
 def _prov_store(spec: "FunctionSpec") -> Dict[str, Any]:

@@ -1199,6 +1199,23 @@ Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
   what Stata's `firstnm` and `lastnm` do. They now take the first and
   last row of the group whatever it holds.
 
+### Agent cards
+
+#### Fixed
+
+- **69 agent cards listed an alternative twice and 12 listed the
+  function itself.** A family card and a curated card could name the
+  same function under two spellings (`did_imputation` and
+  `sp.did_imputation`), and a family card names its own members, so
+  `sp.agent_card('callaway_santanna')` recommended `callaway_santanna`
+  instead. Alternatives are now distinct and never the function itself,
+  across all registered functions.
+- The card audit against real calls covers 50 entry points, up from 40
+  (`heckman`, `mediate`, `oaxaca`, `ebalance`, `cbps`, `lee_bounds`,
+  `rdrandinf`, `rd_honest`, `wooldridge_did`, `lp_did`). The ten new
+  cards had no defect in required arguments, result class or enum
+  values.
+
 ### Reliability
 
 - **`sp.event_study` is checked against `fixest` across its common
