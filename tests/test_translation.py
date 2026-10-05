@@ -2393,3 +2393,51 @@ def test_r_translation_code_is_the_arguments():
                 assert repr(value) in out["python_code"]
             else:
                 assert f"{key}={value!r}" in out["python_code"], (line, key)
+
+
+def test_r_unread_arguments_are_reported_for_every_handler():
+    """A handler that never looks at an argument cannot have translated it."""
+    cases = {
+        "feols(y ~ x | id, data = d, subset = ~z > 0)": ["subset"],
+        'plm(y ~ x, data = d, index = c("id","t"), effect = "twoways")': ["effect"],
+        "lmer(y ~ x + (1 | g), data = d, weights = w)": ["weights"],
+        "glmer(y ~ x + (1|g), data = d, family = binomial, nAGQ = 10)": ["nAGQ"],
+        "felm(y ~ x | id | 0 | id, data = d, weights = d$w)": ["weights"],
+    }
+    for line, expected in cases.items():
+        out = from_r(line)
+        assert out["ok"], line
+        assert out["untranslated_arguments"] == expected, line
+        assert all(any(k in n for n in out["notes"]) for k in expected), line
+    # nothing to report on a call that is fully carried over
+    assert "untranslated_arguments" not in from_r("feols(y ~ x | id, data = df)")
+
+
+def test_r_feols_weights_formula_and_lmer_ml():
+    out = from_r("feols(y ~ x | id, data = d, weights = ~w)")
+    assert out["python_code"] == "sp.feols('y ~ x | id', data=df, weights='w')"
+    out = from_r("lmer(y ~ x + (1 | g), data = d, REML = FALSE)")
+    assert out["arguments"]["method"] == "ml"
+    assert out["python_code"].endswith("method='ml')")
+
+
+def test_r_att_gt_carries_what_changes_the_estimate():
+    base = 'att_gt(yname="y", gname="g", tname="t", idname="i", data=d'
+    out = from_r(base + ")")
+    # R's default base period, which is not StatsPAI's
+    assert out["arguments"]["base_period"] == "varying"
+    assert "base_period='varying'" in out["python_code"]
+    assert any("base_period" in n for n in out["notes"])
+    out = from_r(
+        base + ', control_group="notyettreated", xformla=~x1+x2, '
+        'anticipation=1, base_period="universal", weightsname="w", bstrap=FALSE)'
+    )
+    a = out["arguments"]
+    assert a["control_group"] == "notyettreated" and a["x"] == ["x1", "x2"]
+    assert a["anticipation"] == 1 and a["base_period"] == "universal"
+    assert a["weights"] == "w"
+    assert out["untranslated_arguments"] == ["bstrap"]
+    for key, value in a.items():
+        assert f"{key}={value!r}" in out["python_code"]
+    assert from_r(base + ", xformla=~log(x))")["ok"] is False
+    assert from_r(base + ', control_group="never")')["ok"] is False

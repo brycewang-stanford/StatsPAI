@@ -218,6 +218,7 @@ def _h_feols(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
     fml = _pyfixest_fml(main, fe_terms, iv_lhs, iv_rhs)
     args: Dict[str, Any] = {"fml": fml}
     notes: List[str] = []
+    unread_weights = False
     if clusters:
         args["cluster"] = clusters[0]
         if len(clusters) > 1:
@@ -236,19 +237,81 @@ def _h_feols(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
             f"`vcov=` / `cluster=` options."
         )
     if "weights" in kw:
-        args["weights"] = _strip_quotes(kw["weights"])
+        # fixest takes a one-sided formula (``~w``) or a vector; only a
+        # column name can be carried over.
+        w = _column(_strip_quotes(kw["weights"]).lstrip("~").strip())
+        if w:
+            args["weights"] = w
+        else:
+            notes.append(
+                f"R `weights = {kw['weights']}` is an expression, not a "
+                "column; compute it as a column and pass weights=<column>."
+            )
+            unread_weights = True
     code_pairs = [repr(fml), "data=df"]
     if "cluster" in args:
         code_pairs.append(f"cluster={args['cluster']!r}")
     if "weights" in args:
         code_pairs.append(f"weights={args['weights']!r}")
     python = f"sp.feols({', '.join(code_pairs)})"
-    return _emit("feols", args, python, notes)
+    out = _emit("feols", args, python, notes)
+    if unread_weights:
+        out["untranslated_arguments"] = ["weights"]
+    return out
 
 
 def _h_felm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     """felm uses the same | structure as feols but is from the lfe package."""
     return _h_feols(pos, kw, _)  # delegate
+
+
+class _Tracked(Dict[str, str]):
+    """Keyword arguments of the R call that remember which were looked at."""
+
+    def __init__(self, *a: Any, **k: Any) -> None:
+        super().__init__(*a, **k)
+        self.seen: set = set()
+
+    def get(self, key: str, default: Any = None) -> Any:  # type: ignore[override]
+        self.seen.add(key)
+        return super().get(key, default)
+
+    def __getitem__(self, key: str) -> str:
+        self.seen.add(key)
+        return super().__getitem__(key)
+
+    def __contains__(self, key: object) -> bool:
+        self.seen.add(key)
+        return super().__contains__(key)
+
+
+_R_HINTS = {
+    "subset": "filter the data frame first (data=df[...])",
+    "na.action": "StatsPAI drops incomplete rows, as na.omit does",
+    "offset": "sp.glm takes offset=<column>",
+    "weights": "compute the weights as a column and pass weights=<column>",
+    "effect": "plm effect='twoways' adds time effects; the call above has "
+    "entity effects only",
+    "bstrap": "did::att_gt bootstraps by default; sp.callaway_santanna "
+    "reports analytical standard errors unless bstrap=True",
+}
+
+
+def _note_untranslated(
+    out: Dict[str, Any], kw: Dict[str, str], keys: List[str]
+) -> None:
+    listed = out.setdefault("untranslated_arguments", [])
+    for k in keys:
+        if k in listed:
+            continue
+        listed.append(k)
+        hint = _R_HINTS.get(k)
+        out["notes"].append(
+            f"R argument `{k} = {dict.__getitem__(kw, k)}` was not translated"
+            + (f"; {hint}." if hint else ".")
+        )
+    if not listed:
+        del out["untranslated_arguments"]
 
 
 def _unread(
@@ -262,20 +325,7 @@ def _unread(
     ``untranslated_options``.
     """
     left = [k for k in kw if k not in read and k not in ("data", "__fn__")]
-    if left:
-        out["untranslated_arguments"] = left
-        hints = {
-            "subset": "filter the data frame first (data=df[...])",
-            "na.action": "StatsPAI drops incomplete rows, as na.omit does",
-            "offset": "sp.glm takes offset=<column>",
-            "weights": "compute the weights as a column and pass weights=<column>",
-        }
-        for k in left:
-            hint = hints.get(k)
-            out["notes"].append(
-                f"R argument `{k} = {kw[k]}` was not translated"
-                + (f"; {hint}." if hint else ".")
-            )
+    _note_untranslated(out, kw, left)
     return out
 
 
@@ -333,15 +383,73 @@ def _h_did(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
         "t": tname,
         "i": idname,
     }
+    notes: List[str] = []
     est_method = _strip_quotes(kw.get("est_method", "dr"))
-    if est_method in {"dr", "ipw", "reg"}:
-        args["estimator"] = est_method
-    python = (
-        f"sp.callaway_santanna(data=df, y={yname!r}, g={gname!r}, "
-        f"t={tname!r}, i={idname!r}, "
-        f"estimator={args.get('estimator', 'dr')!r})"
-    )
-    return _emit("callaway_santanna", args, python)
+    if est_method not in {"dr", "ipw", "reg"}:
+        return _emit_error(
+            f"did::att_gt est_method {est_method!r} has no counterpart",
+            command="att_gt",
+        )
+    args["estimator"] = est_method
+    # Arguments that change the estimate. R's defaults are written out
+    # where StatsPAI's differ (base_period).
+    control = _strip_quotes(kw.get("control_group", "nevertreated"))
+    if control not in ("nevertreated", "notyettreated"):
+        return _emit_error(
+            f"did::att_gt control_group {control!r} is not one of "
+            "'nevertreated', 'notyettreated'",
+            command="att_gt",
+        )
+    args["control_group"] = control
+    base = _strip_quotes(kw.get("base_period", "varying"))
+    if base not in ("varying", "universal"):
+        return _emit_error(
+            f"did::att_gt base_period {base!r} is not 'varying' or 'universal'",
+            command="att_gt",
+        )
+    args["base_period"] = base
+    if "base_period" not in dict.keys(kw):
+        notes.append(
+            "did::att_gt defaults to base_period = 'varying'; it is written "
+            "out because sp.callaway_santanna defaults to 'universal'."
+        )
+    anticipation = _strip_quotes(kw.get("anticipation", "0"))
+    if anticipation.isdigit():
+        if int(anticipation):
+            args["anticipation"] = int(anticipation)
+    else:
+        return _emit_error(
+            f"did::att_gt anticipation {anticipation!r} is not an integer",
+            command="att_gt",
+        )
+    xformla = _strip_quotes(kw.get("xformla", "")).replace(" ", "")
+    if xformla and xformla not in ("NULL", "~1"):
+        terms = xformla.lstrip("~").split("+")
+        if all(re.fullmatch(r"[A-Za-z.][A-Za-z0-9._]*", t) for t in terms):
+            args["x"] = terms
+        else:
+            return _emit_error(
+                f"did::att_gt xformla {xformla!r} has terms that are not plain "
+                "columns; build them as columns first",
+                command="att_gt",
+            )
+    for r_name, sp_name in (("weightsname", "weights"), ("clustervars", "clustervars")):
+        value = (
+            _column(kw.get(r_name)) if kw.get(r_name) not in (None, "NULL") else None
+        )
+        if value:
+            args[sp_name] = value
+        elif kw.get(r_name) not in (None, "NULL"):
+            return _emit_error(
+                f"did::att_gt {r_name} = {kw[r_name]} is not a single column",
+                command="att_gt",
+            )
+    for flag in ("panel", "allow_unbalanced_panel"):
+        if flag in kw:
+            args[flag] = _strip_quotes(kw[flag]).upper() in ("TRUE", "T")
+    pairs = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    python = f"sp.callaway_santanna(data=df, {pairs})"
+    return _emit("callaway_santanna", args, python, notes)
 
 
 _R_FAMILY = re.compile(
@@ -500,8 +608,12 @@ def _h_lmer(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
         )
     y, x_fixed, group = parsed
     args: Dict[str, Any] = {"y": y, "x_fixed": x_fixed, "group": group}
-    python = f"sp.mixed(data=df, y={y!r}, x_fixed={x_fixed!r}, group={group!r})"
-    return _emit("mixed", args, python)
+    python = f"sp.mixed(data=df, y={y!r}, x_fixed={x_fixed!r}, group={group!r}"
+    reml = _strip_quotes(kw.get("REML", "TRUE")).upper()
+    if reml in ("FALSE", "F"):
+        args["method"] = "ml"
+        python += ", method='ml'"
+    return _emit("mixed", args, python + ")")
 
 
 def _h_plm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
@@ -828,7 +940,17 @@ def from_r(line: str) -> Dict[str, Any]:
     # didFF / distDD), so they need to know which name was called.
     if handler in (_h_staggered, _h_didff):
         kw = {**kw, "__fn__": fn}
-    return handler(pos, kw, [])
+    tracked = _Tracked(kw)
+    out = handler(pos, tracked, [])
+    if out.get("ok"):
+        # Whatever the handler never looked at cannot be in the call it
+        # emitted. Say so instead of returning a clean "ok".
+        never_read = [
+            k for k in kw if k not in tracked.seen and k not in ("data", "__fn__")
+        ]
+        if never_read:
+            _note_untranslated(out, kw, never_read)
+    return out
 
 
 __all__ = ["from_r", "R_FUNCTION_MAP"]

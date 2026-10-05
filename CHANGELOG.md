@@ -307,7 +307,15 @@ guide is `docs/guides/causal_inference_in_r.md`.
   `matchit` leaves `y` to the caller under `missing_arguments` and writes
   out MatchIt's defaults (`replace=False`, `estimand='ATT'`), and any
   argument that was not carried over is listed in
-  `untranslated_arguments`.
+  `untranslated_arguments`. The same now holds for every R function
+  `sp.from_r` knows: an argument a handler never read is reported
+  (`feols(subset =)`, `plm(effect = "twoways")`, `lmer(weights =)`,
+  `glmer(nAGQ =)`). `feols(weights = ~w)` passed the column name with its
+  tilde. `did::att_gt` lost `control_group`, `xformla`, `anticipation`,
+  `weightsname` and `clustervars`, and its translation ran with
+  `base_period='universal'` where R's default is `'varying'`; all are
+  carried now and the base period is written out. `lmer(REML = FALSE)`
+  becomes `method='ml'`.
 - **`DAG.adjustment_sets(minimal=True)` could miss minimal sets.** The
   search stopped at the smallest size that had a valid set. For
   `W -> X; P -> W; Q -> W; P -> Y; Q -> Y; X -> Y` it returned `{W}` and
@@ -341,6 +349,14 @@ guide is `docs/guides/causal_inference_in_r.md`.
   effect on the treated or the untreated after any outcome model. Both
   equal `marginaleffects::avg_comparisons`.
 - `sp.g_computation(estimand='ATC')`.
+- `sp.margins_at(contrast='first' | 'adjacent')` returns the difference
+  between grid points with the standard error that uses their covariance.
+  With `at={'dose': [30, 60]}` it is g-computation for a continuous
+  exposure under any functional form. Equal to
+  `marginaleffects::avg_comparisons(variables = list(x = c(a, b)))` after
+  a spline regression. `sp.margins_at(subset=)` as in `sp.margins`.
+- `sp.bootstrap(ci_method='studentized')`, the bootstrap-t interval
+  (`rsample::int_t`). The statistic returns `(estimate, se)`.
 - `sp.roc_curve(weights=)` and `sp.auc(weights=)`, the weighted
   Mann-Whitney probability. No standard error is reported with weights.
 - `DAG.equivalent_dags()` and `DAG.equivalence_class()` list the graphs the

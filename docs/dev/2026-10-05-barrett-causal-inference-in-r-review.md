@@ -64,6 +64,18 @@ they are listed under "Not adopted" below.
    `avg_comparisons`, `weightit` and the `propensity` / `halfmoon` / `tipr`
    functions are still unsupported R functions and say so.
 
+   Second round. The rule was then applied to every handler at once: the
+   keyword arguments are wrapped so that `from_r` knows which ones a
+   handler looked at, and the rest are reported. That surfaced
+   `feols(subset =)`, `plm(effect = "twoways")` (the emitted call has
+   entity effects only), `lmer(weights =)`, `glmer(nAGQ =)`, and
+   `feols(weights = ~w)` passed on as the column `'~w'`. The largest was
+   `did::att_gt`: `control_group`, `xformla`, `anticipation`,
+   `weightsname` and `clustervars` were all dropped, and the call ran with
+   StatsPAI's `base_period='universal'` where `did` defaults to
+   `'varying'`. These change the estimate and are now translated, with
+   R's default base period written out.
+
 ## What was missing
 
 | chapter | the book uses | StatsPAI now |
@@ -127,7 +139,18 @@ independencies of the chapter 16 DAG (five, as `dagitty`), `sp.evalue(1.5)`
   0.80558. StatsPAI equals the latter two to 1e-15, and its weighted AUC
   equals a brute-force weighted pair count to 1e-12. On the book's data
   the unweighted values happen to coincide and the weighted ones differ
-  by 6e-5. Not yet reported upstream.
+  by 6e-5. The cause is in `compute_auc()`: the ROC points are sorted
+  with `order(fpr)`, and points that share a false-positive rate stay in
+  decreasing order of the true-positive rate, so each vertical step of
+  the curve loses a sliver of area. `order(fpr, tpr)` gives the rank
+  statistic exactly. Not reported upstream; a draft is in
+  `2026-10-05-halfmoon-auc-issue-draft.md` for Bryce to send.
+- **`marginaleffects` 0.32.0 on a spline inside a `glm`.**
+  `avg_comparisons(glm(y ~ splines::bs(x, df = 3) + ..., binomial),
+  variables = list(x = c(-1, 1)))` returned an estimate of 0 with a
+  missing standard error; the same call after `lm` is fine. The logit
+  reference for `sp.margins_at(contrast=)` is therefore the definition
+  (`predict` at each value, averaged).
 - **`propensity::ipw` does not accept `estimand = "atu"`** although
   `wt_atu` exists. `sp.ipw(estimand='ATC')` has a sandwich variance.
 - **Chapter 11's bootstrap function refits the propensity model on the
@@ -140,17 +163,20 @@ independencies of the chapter 16 DAG (five, as `dagitty`), `sp.evalue(1.5)`
 1. **Natural splines.** The book uses `splines::ns(x, df)` in propensity
    and outcome models. `sp.regress` accepts `bs()` and `cr()` through the
    formula engine; `cr()` fails when `sp.margins_at` rebuilds the design,
-   and no basis here equals `ns()` column for column. The contrast of two
-   exposure levels in chapter 13 (30 against 60 minutes) can be read off
-   `sp.margins_at`, but there is no single call that returns the
-   difference with its standard error.
+   and no basis here equals `ns()` column for column. (Closed in the
+   second round for the part that matters to an effect: the contrast of
+   two exposure levels is `sp.margins_at(contrast='first')`, checked
+   against `marginaleffects` with `bs()`, a basis both sides share.)
 2. **`MatchIt` nearest-neighbour matching without replacement** was not
    compared pair by pair. The order in which treated units are matched
    differs between implementations and the matched sets are not unique.
-3. **Stable balancing weights and energy balancing** (`optweight`,
-   `WeightIt(method = "energy")`). `sp.sbw` exists and was not compared;
-   there is no energy-balancing estimator.
-4. **Studentized bootstrap interval** (`int_t`).
+3. **Energy balancing weights** (`WeightIt(method = "energy")`): no
+   estimator here. Stable balancing weights were looked at and left
+   alone: `sp.sbw` is tied to `sbw::sbw`, the implementation of the
+   method's author, and `optweight` states its tolerances differently, so
+   a comparison would measure the convention.
+4. Studentized bootstrap interval: closed in the second round,
+   `sp.bootstrap(ci_method='studentized')`.
 5. **`tipr`'s R-squared parameterisation** (`adjust_coef_with_r2`) is
    covered by `sp.sensemakr` and was not duplicated.
 6. **Calibration plot of a propensity model**

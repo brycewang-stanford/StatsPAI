@@ -92,6 +92,21 @@ class BootstrapResult(ResultProtocolMixin):
         return self.summary()
 
 
+def _estimate_and_se(value: Any) -> Tuple[float, float]:
+    """Read ``(estimate, se)`` from what a studentized statistic returned."""
+    try:
+        est, se = value
+        return float(est), float(se)
+    except (TypeError, ValueError):
+        raise MethodIncompatibility(
+            "bootstrap(ci_method='studentized'): the statistic must return "
+            "the pair (estimate, standard error); got "
+            f"{type(value).__name__}.",
+            recovery_hint="e.g. lambda d: (fit(d).params['x'], "
+            "fit(d).std_errors['x'])",
+        ) from None
+
+
 def bootstrap(
     data: pd.DataFrame,
     statistic: Callable[[pd.DataFrame], float],
@@ -128,7 +143,15 @@ def bootstrap(
         Column name for block bootstrap (resample blocks, preserve
         within-block ordering). Useful for panel/time-series data.
     ci_method : str, default 'percentile'
-        CI method: ``'percentile'``, ``'bca'``, or ``'normal'``.
+        CI method: ``'percentile'``, ``'bca'``, ``'normal'`` or
+        ``'studentized'``. The studentized (bootstrap-t) interval needs a
+        standard error from every resample, so ``statistic`` must then
+        return the pair ``(estimate, se)``. With ``t* = (est* - est) /
+        se*`` over the resamples, the interval is ``[est - q(1 - alpha/2)
+        se, est - q(alpha/2) se]`` with ``q`` the quantiles of ``t*``
+        and ``se`` the standard error on the original data. It is
+        second-order accurate where the percentile interval is first-order
+        (R ``rsample::int_t``, ``boot::boot.ci(type = "stud")``).
     alpha : float, default 0.05
         Significance level.
     seed : int, optional
@@ -170,7 +193,24 @@ def bootstrap(
     base = data
     if idcluster is not None:
         base = data.assign(**{idcluster: pd.factorize(data[cluster])[0]})
+    studentized = ci_method == "studentized"
+    se_hat = float("nan")
+    last_se = [float("nan")]
+    if studentized:
+        pair_statistic = statistic
+
+        def statistic(frame: pd.DataFrame) -> float:  # type: ignore[misc]
+            est, se_b = _estimate_and_se(pair_statistic(frame))
+            last_se[0] = se_b
+            return est
+
     theta_raw = statistic(base)
+    se_hat = last_se[0]
+    if studentized and not (np.isfinite(se_hat) and se_hat > 0):
+        raise MethodIncompatibility(
+            "bootstrap(ci_method='studentized'): the statistic returned "
+            f"standard error {se_hat!r} on the original data.",
+        )
     names, theta_vec = _as_statistic_vector(theta_raw)
     if names is not None:
         return _bootstrap_vector(
@@ -190,6 +230,7 @@ def bootstrap(
 
     # Bootstrap distribution
     boot_stats = np.empty(n_boot)
+    boot_se = np.full(n_boot, np.nan)
     rows = _cluster_rows(data, cluster) if cluster is not None else None
     for b in range(n_boot):
         boot_data = _resample(
@@ -197,12 +238,17 @@ def bootstrap(
         )
         try:
             boot_stats[b] = statistic(boot_data)
+            boot_se[b] = last_se[0]
         except Exception:
             boot_stats[b] = np.nan
 
     # Remove failed replications -- counted and reported, not dropped
     # silently.
+    if studentized:
+        # a resample without a usable standard error has no t statistic
+        boot_stats[~(np.isfinite(boot_se) & (boot_se > 0))] = np.nan
     n_failed = int(np.isnan(boot_stats).sum())
+    boot_se = boot_se[~np.isnan(boot_stats)]
     boot_stats = boot_stats[~np.isnan(boot_stats)]
     n_valid = len(boot_stats)
     if n_failed:
@@ -234,9 +280,15 @@ def bootstrap(
         ci_lower, ci_upper = _bca_ci(
             theta_hat, boot_stats, data, statistic, alpha, rng, cluster, block
         )
+    elif studentized:
+        t_star = (boot_stats - theta_hat) / boot_se
+        q_lo, q_hi = np.percentile(t_star, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+        ci_lower = float(theta_hat - q_hi * se_hat)
+        ci_upper = float(theta_hat - q_lo * se_hat)
     else:
-        raise ValueError(
-            f"Unknown ci_method: {ci_method}. Use 'percentile', 'normal', or 'bca'."
+        raise MethodIncompatibility(
+            f"Unknown ci_method: {ci_method}. Use 'percentile', 'normal', "
+            "'bca' or 'studentized'."
         )
 
     # Two-sided p-value (fraction of boot dist more extreme than null)

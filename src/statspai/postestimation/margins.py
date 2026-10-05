@@ -754,6 +754,8 @@ def margins_at(
     data: pd.DataFrame,
     at: Dict[str, Any],
     alpha: float = 0.05,
+    contrast: Optional[str] = None,
+    subset: Any = None,
 ) -> pd.DataFrame:
     """
     Compute predictive margins at specific covariate values.
@@ -785,12 +787,26 @@ def margins_at(
         produces 6 grid points. Every key must be a model variable.
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    contrast : {None, 'first', 'adjacent'}, default None
+        Return differences between grid points instead of the margins:
+        each point against the first one (``'first'``) or against the
+        point before it (``'adjacent'``). The standard error uses the
+        covariance between the two margins, which the separate rows do
+        not show. With ``at={"dose": [30, 60]}`` this is g-computation of
+        the effect of moving everyone from 30 to 60, whatever shape the
+        model gives the dose (R ``marginaleffects::avg_comparisons(
+        variables = list(dose = c(30, 60)))``).
+    subset : str or boolean array-like, optional
+        Average over a subpopulation of ``data``; see :func:`margins`.
 
     Returns
     -------
     pd.DataFrame
         One row per grid point with columns for each *at* variable,
-        plus ``margin``, ``se``, ``ci_lower``, ``ci_upper``.
+        plus ``margin``, ``se``, ``ci_lower``, ``ci_upper``. With
+        ``contrast``, one row per comparison: the *at* columns of the
+        point, ``versus`` (the point it is compared with), ``contrast``,
+        ``se``, ``z``, ``pvalue``, ``ci_lower``, ``ci_upper``.
 
     Examples
     --------
@@ -813,12 +829,18 @@ def margins_at(
     >>> m.columns.tolist()
     ['experience', 'margin', 'se', 'ci_lower', 'ci_upper']
     """
-    ctx = _MarginsContext(result, data, alpha=alpha)
+    if contrast not in (None, "first", "adjacent"):
+        raise MethodIncompatibility(
+            f"margins_at: contrast must be None, 'first' or 'adjacent'; "
+            f"got {contrast!r}"
+        )
+    ctx = _MarginsContext(result, data, alpha=alpha, subset=subset)
     for v in at:
         _require_model_variable(ctx, v, "margins_at")
     V = ctx.vcov()
-    ppf, _ = _t_or_z(ctx.df)
+    ppf, sf = _t_or_z(ctx.df)
     crit = ppf(1 - alpha / 2)
+    points: List[Tuple[Dict[str, Any], float, np.ndarray]] = []
 
     at_vars = list(at.keys())
     at_values = [np.atleast_1d(at[v]).tolist() for v in at_vars]
@@ -830,6 +852,7 @@ def margins_at(
         margin = float(ctx.mean(mu))
         gradient = np.asarray(ctx.mean(slope[:, None] * X), dtype=float)
         se = float(np.sqrt(max(float(gradient @ V @ gradient), 0.0)))
+        points.append((point_dict, margin, gradient))
         row = dict(point_dict)
         row.update(
             {
@@ -840,6 +863,34 @@ def margins_at(
             }
         )
         rows.append(row)
+    if contrast is not None:
+        if len(points) < 2:
+            raise MethodIncompatibility(
+                "margins_at: a contrast needs at least two grid points.",
+            )
+        rows = []
+        for k in range(1, len(points)):
+            point_dict, margin, gradient = points[k]
+            ref_dict, ref_margin, ref_gradient = points[
+                0 if contrast == "first" else k - 1
+            ]
+            diff = margin - ref_margin
+            g = gradient - ref_gradient
+            se = float(np.sqrt(max(float(g @ V @ g), 0.0)))
+            z = diff / se if se > 0 else 0.0
+            row = dict(point_dict)
+            row.update(
+                {
+                    "versus": ", ".join(f"{a}={b}" for a, b in ref_dict.items()),
+                    "contrast": diff,
+                    "se": se,
+                    "z": z,
+                    "pvalue": float(2 * sf(abs(z))),
+                    "ci_lower": diff - crit * se,
+                    "ci_upper": diff + crit * se,
+                }
+            )
+            rows.append(row)
     out = pd.DataFrame(rows)
     out.attrs.update(ctx.attrs())
     return out

@@ -150,8 +150,11 @@ set returned before is still returned.
 **`sp.from_r`.** The payload for `matchit(...)` no longer has `y` (it used
 to repeat the treatment there); it has `missing_arguments: ['y']`, and for
 `method = "nearest"` it now carries `replace`, `n_matches` and `estimand`.
-`lm` / `glm` payloads may carry `untranslated_arguments`. Code generated
-earlier from `lm(..., weights =)` ran unweighted; regenerate it.
+Any payload may carry `untranslated_arguments`. Code generated earlier from
+`lm(..., weights =)` ran unweighted, and code generated from
+`did::att_gt(...)` used `base_period='universal'` and ignored
+`control_group`, `xformla` and `anticipation`; regenerate both. The
+`att_gt` payload now always has `control_group` and `base_period`.
 
 **`sp.contrast`** on a frame in which the variable takes a single value now
 raises. Pass the full data and `subset=` to average over a subpopulation.

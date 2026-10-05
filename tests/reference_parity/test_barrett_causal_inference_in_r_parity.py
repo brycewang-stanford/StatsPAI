@@ -543,3 +543,46 @@ def test_no_warnings_on_the_happy_path(df, ps):
         sp.ps_weights(ps, df["t"].to_numpy(), "ATO")
         sp.confounder_tip(6.58, confounder_outcome_effect=-7)
         sp.energy_distance(df, "t", X)
+
+
+# --- a continuous exposure -------------------------------------------------
+
+
+def test_contrast_of_two_exposure_levels_through_a_spline(df, ref):
+    """Chapter 13: move everyone from one dose to another and difference."""
+    fit = sp.regress("y ~ bs(x2, df=3) + t + x1 + b", data=df)
+    c = sp.margins_at(fit, data=df, at={"x2": [-1, 1]}, contrast="first").iloc[0]
+    est, se = ref["gcomp_spline"]
+    assert c["contrast"] == pytest.approx(est, rel=1e-9)
+    assert c["se"] == pytest.approx(se, rel=1e-6)
+    assert c["versus"] == "x2=-1"
+    # the two margins alone do not give this standard error
+    m = sp.margins_at(fit, data=df, at={"x2": [-1, 1]})
+    assert c["contrast"] == pytest.approx(m["margin"].iloc[1] - m["margin"].iloc[0])
+    assert c["se"] != pytest.approx(np.hypot(*m["se"]), rel=1e-3)
+
+    logit = sp.logit("yb ~ bs(x2, df=3) + t + x1", data=df)
+    g = ref["gcomp_spline_logit"]
+    m = sp.margins_at(logit, data=df, at={"x2": [-1, 1]})
+    assert m["margin"].tolist() == pytest.approx(g[1:], rel=1e-8)
+    c = sp.margins_at(logit, data=df, at={"x2": [-1, 1]}, contrast="first")
+    assert c["contrast"].iloc[0] == pytest.approx(g[0], rel=1e-8)
+
+
+def test_margins_at_contrast_options(df):
+    fit = sp.regress("y ~ x2 + t + x1", data=df)
+    grid = {"x2": [-1, 0, 2]}
+    first = sp.margins_at(fit, data=df, at=grid, contrast="first")
+    adjacent = sp.margins_at(fit, data=df, at=grid, contrast="adjacent")
+    slope = fit.params["x2"]
+    assert first["contrast"].tolist() == pytest.approx([slope, 3 * slope])
+    assert adjacent["contrast"].tolist() == pytest.approx([slope, 2 * slope])
+    assert adjacent["versus"].tolist() == ["x2=-1", "x2=0"]
+    # a linear term: the standard error is |distance| times the coefficient's
+    assert first["se"].iloc[0] == pytest.approx(fit.std_errors["x2"], rel=1e-9)
+    sub = sp.margins_at(fit, data=df, at={"x2": [0]}, subset="t == 1")
+    assert sub.attrs["n"] == int((df["t"] == 1).sum())
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.margins_at(fit, data=df, at={"x2": [0]}, contrast="first")
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.margins_at(fit, data=df, at=grid, contrast="pairwise")

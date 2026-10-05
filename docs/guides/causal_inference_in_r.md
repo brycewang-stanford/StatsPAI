@@ -41,6 +41,8 @@ difference-in-differences are placeholders. For those topics see
 | `avg_comparisons(newdata = filter(df, x == 1))` | `sp.contrast(..., subset='x == 1')` |
 | `comparison = "lnratioavg"`, `"lnoravg"`, `transform = exp` | `sp.contrast(..., effect='ratio' / 'odds_ratio')` |
 | `avg_predictions(variables = list(x = 0))` | `sp.margins_at(fit, data=df, at={'x': [0]})` |
+| `avg_comparisons(variables = list(dose = c(30, 60)))` | `sp.margins_at(fit, data=df, at={'dose': [30, 60]}, contrast='first')` |
+| `bootstraps()` then `int_pctl()` / `int_t()` / `int_bca()` | `sp.bootstrap(df, statistic, ci_method='percentile' / 'studentized' / 'bca')` |
 | `lmw::lmw()` | `sp.implied_weights()` |
 | `mice()` and Rubin's rules | `sp.mice()`, `sp.mi_estimate()` |
 | `tipr::adjust_coef()`, `adjust_coef_with_binary()`, `adjust_rr()` ... | `sp.confounder_adjust(measure=)` |
@@ -179,6 +181,18 @@ The coefficient of the same logit, exponentiated, is 2.083. That is a
 conditional odds ratio and it is not the marginal one (1.956), even with
 no confounding at all. Odds ratios are not collapsible; chapter 11 of the
 book walks through why.
+
+A continuous exposure works the same way. Fit it as flexibly as you like
+and compare two levels:
+
+```python
+fit = sp.regress("y ~ bs(x2, df=3) + t + x1 + b", data=df)
+sp.margins_at(fit, data=df, at={"x2": [-1, 1]}, contrast="first")
+# contrast 0.191, se 0.147
+```
+
+The standard error uses the covariance of the two predictions, which the
+two rows of a plain `sp.margins_at` do not show.
 
 ### 5. What a regression is doing
 

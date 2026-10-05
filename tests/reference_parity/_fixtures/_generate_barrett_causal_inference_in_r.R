@@ -102,6 +102,17 @@ out$gcomp_logit <- list(
 ol <- lm(y ~ t * x1 + x2 + b, data = d)
 out$gcomp_ols <- list(ate = ac(ol), att = ac(ol, subset(d, t == 1)), atc = ac(ol, subset(d, t == 0)))
 
+## a continuous exposure through a spline: effect of moving x2 from -1 to 1
+sp3 <- lm(y ~ splines::bs(x2, df = 3) + t + x1 + b, data = d)
+cc <- avg_comparisons(sp3, variables = list(x2 = c(-1, 1)))
+out$gcomp_spline <- c(estimate = cc$estimate, se = cc$std.error)
+lg3 <- glm(yb ~ splines::bs(x2, df = 3) + t + x1, data = d, family = binomial(), control = ctl)
+# marginaleffects 0.32.0 returns 0 with a missing standard error for this
+# glm (it does not move x2 inside bs()), so the logit reference is the
+# definition: predict everyone at each value and average.
+pr <- function(v) mean(predict(lg3, newdata = transform(d, x2 = v), type = "response"))
+out$gcomp_spline_logit <- c(estimate = pr(1) - pr(-1), at_minus1 = pr(-1), at_plus1 = pr(1))
+
 ## unmeasured confounder ----------------------------------------------------------
 f <- function(x) as.list(as.data.frame(x)[1, ])
 out$tipr <- list(
