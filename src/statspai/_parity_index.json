@@ -400,6 +400,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_dogan_python_econometrics.py",
+        "tests/reference_parity/test_arima_default_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
@@ -20742,19 +20743,25 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "vec",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/external_parity/test_dogan_python_econometrics.py"
       ],
       "tolerance": ""
     },

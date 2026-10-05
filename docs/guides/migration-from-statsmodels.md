@@ -33,9 +33,15 @@ The formulas carry over as they are. `I(x**2)`, `np.log(x)`, `C(g)`,
 | `adfuller(y, regression="ct")` | `sp.unitroot(y, trend="ct")` |
 | `VAR(df).fit(2)`, `.irf(10)`, `.test_causality` | `sp.var(df, lags=2)`, `sp.irf`, `sp.granger_causality` |
 | `coint_johansen(df, 0, 3)` | `sp.johansen(df, lags=3)` |
+| `VECM(df, k_ar_diff=3, coint_rank=1, deterministic="ci").fit()` | `sp.vec(df, lags=3, rank=1, trend="rc")` |
 | `arch_model(r, vol="Garch", p=1, q=1).fit()` | `sp.garch(r, p=1, q=1, vce="robust")` |
 | `RidgeCV`, `LassoCV`, `PCA` + `LinearRegression` | `sp.shrinkage(df, y, x, method="ridge" / "lasso" / "pcr")` |
 | `summary_col([r1, r2])`, `Stargazer([r1, r2])` | `sp.regtable(r1, r2)` |
+
+A name from one of those libraries that is not a StatsPAI name says where
+to go. Asking the package for `vecm` raises "it is sp.vec here", and the
+same holds for `IV2SLS`, `adfuller`, `arch_model` and for the result
+attributes `bse`, `rsquared` and `f_test`.
 
 ## Where the numbers differ, and why
 

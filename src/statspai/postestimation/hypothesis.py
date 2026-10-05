@@ -452,16 +452,22 @@ def _shield_names(text: str, params: pd.Series) -> Tuple[str, pd.Series]:
     for i in order:
         # ``I(x**2)`` names the coefficient the design calls ``I(x ** 2)``:
         # blanks between the pieces of a name do not distinguish names.
-        pieces = re.findall(r"\w+|[^\w\s]", names[i])
-        pattern = r"\s*".join(re.escape(piece) for piece in pieces)
-        if not pieces or pieces[0][0].isalnum() or pieces[0][0] == "_":
-            pattern = r"(?<![\w.])" + pattern
-        if pieces and (pieces[-1][-1].isalnum() or pieces[-1][-1] == "_"):
-            pattern += r"(?!\w)"
+        spellings = [names[i]]
+        if "(" not in names[i] and "[" in names[i]:
+            # IV and panel fits store ``np.log(x)`` as ``np.log[x]``; the
+            # name written as in the formula refers to the same coefficient
+            spellings.append(names[i].replace("[", "(").replace("]", ")"))
         token = f"spcoef{i}zz"
-        text, hits = re.subn(pattern, token, text)
-        if hits:
-            tokens[i] = token
+        for spelling in spellings:
+            pieces = re.findall(r"\w+|[^\w\s]", spelling)
+            pattern = r"\s*".join(re.escape(piece) for piece in pieces)
+            if not pieces or pieces[0][0].isalnum() or pieces[0][0] == "_":
+                pattern = r"(?<![\w.])" + pattern
+            if pieces and (pieces[-1][-1].isalnum() or pieces[-1][-1] == "_"):
+                pattern += r"(?!\w)"
+            text, hits = re.subn(pattern, token, text)
+            if hits:
+                tokens[i] = token
     shielded = pd.Series(np.asarray(params, dtype=float), index=tokens)
     shielded.attrs["display"] = names
     return text, shielded

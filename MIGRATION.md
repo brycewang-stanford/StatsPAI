@@ -5,6 +5,28 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: `sp.ivreg` / `sp.iv` name formula terms as `sp.regress` does
+
+**What changed.** A transformed, categorical or interacted term in an IV
+formula is reported under the name the formula engine gives it. No number
+changes.
+
+| formula term | before | now |
+| --- | --- | --- |
+| `np.log(x)` | `np.log[x]` | `np.log(x)` |
+| `I(x**2)` | `I[x ** 2]` | `I(x ** 2)` |
+| `C(g)` | `g[1]`, `g[2]` | `C(g)[T.1]`, `C(g)[T.2]` |
+
+The same holds for the keys of `diagnostics` that embed a name
+(`"First-stage F (np.log(x))"`).
+
+**Who is affected.** Code that indexes an IV result by a bracket name,
+`iv.params["np.log[x]"]`.
+
+**What to do.** Use the formula name, `iv.params["np.log(x)"]`. In
+`sp.test` and `sp.lincom` both spellings are read. Plain column names
+were never affected. `sp.panel` still reports the bracket names.
+
 ## 1.38.0 → next: ⚠️ `sp.arima` default estimates and `auto=True` order selection
 
 **What changed.** `sp.arima(y, order=...)` with the default

@@ -1289,6 +1289,7 @@ class IVRegression(BaseModel):
                 },
             )
         formula, data = _materialise_formula_terms(self.formula, self.data)
+        self._term_names_shown = dict(data.attrs.get(_TERM_NAMES_ATTR, {}))
         parsed = parse_formula(formula)
 
         if not parsed["endogenous"] or not parsed["instruments"]:
@@ -1863,6 +1864,7 @@ class IVRegression(BaseModel):
             diagnostics=diagnostics,
         )
 
+        _restore_term_names(results_obj, getattr(self, "_term_names_shown", None))
         self._results = results_obj
         self.is_fitted = True
         return results_obj
@@ -2099,6 +2101,7 @@ def _iv_absorb_preprocess(
     cluster_names = list(cluster_names or [])
 
     formula, data = _materialise_formula_terms(formula, data)
+    term_names_shown = dict(data.attrs.get(_TERM_NAMES_ATTR, {}))
     parsed = parse_formula(formula)
     if not parsed["endogenous"] or not parsed["instruments"]:
         raise MethodIncompatibility(
@@ -2243,6 +2246,7 @@ def _iv_absorb_preprocess(
         "cluster_frame": cluster_kept,
         "cluster_names": list(cluster_names),
         "var_names": var_names,
+        "term_names_shown": term_names_shown,
         "n_obs": int(n_obs),
         "n_kept": n_kept,
         "n_dropped": n_dropped,
@@ -2367,6 +2371,7 @@ def _iv_absorb_run(
         result.model_info["fe_nested_in_cluster"] = list(nested_fe)
         result.model_info["n_dropped_singletons"] = int(pre["n_dropped"])
 
+    _restore_term_names(result, pre.get("term_names_shown"))
     return result, model, pre
 
 
@@ -2494,6 +2499,9 @@ def _materialise_formula_terms(
     )
 
     frame = _coerce_string_extension_dtypes(data).copy()
+    # safe column name -> the name the formula engine gives the term, which
+    # is the name the result reports (see ``_restore_term_names``)
+    shown: Dict[str, str] = {}
 
     def single(term: str) -> str:
         """A transformed outcome or endogenous regressor, as one column."""
@@ -2501,6 +2509,7 @@ def _materialise_formula_terms(
             return term
         safe = _safe_term_name(term)
         frame[safe] = evaluate_formula_expression(term, frame)
+        shown[safe] = _formula_term_name(term)
         return safe
 
     # ``np.log(wage) ~ ...`` and ``(np.log(wage) ~ z)``: one variable each.
@@ -2536,6 +2545,8 @@ def _materialise_formula_terms(
             # rows patsy dropped for a missing value stay missing here, and
             # are dropped with the rest of the estimation sample downstream
             frame[safe] = design[col].reindex(frame.index)
+            if safe != str(col):
+                shown[safe] = str(col)
             names.append(safe)
         return keep + names
 
@@ -2544,7 +2555,72 @@ def _materialise_formula_terms(
     new_rhs = " + ".join(
         exog_names + [f"({' + '.join(endog_terms)} ~ {' + '.join(inst_names)})"]
     )
+    frame.attrs[_TERM_NAMES_ATTR] = shown
     return f"{dep.strip()} ~ {new_rhs}", frame
+
+
+#: ``DataFrame.attrs`` key under which ``_materialise_formula_terms`` leaves
+#: the map from its column names to the names the formula engine uses.
+_TERM_NAMES_ATTR = "_statspai_formula_term_names"
+
+
+def _formula_term_name(term: str) -> str:
+    """``I(x**2)`` as the formula engine spells it, ``I(x ** 2)``."""
+    from patsy import ModelDesc, PatsyError
+
+    try:
+        return str(ModelDesc.from_formula("~ 0 + " + term).rhs_termlist[0].name())
+    except (PatsyError, SyntaxError, IndexError):
+        # a term the formula engine cannot name keeps the text it was given
+        return term.strip()
+
+
+def _restore_term_names(result: Any, shown: Optional[Dict[str, str]]) -> None:
+    """Report formula terms under the names ``sp.regress`` gives them.
+
+    The IV parser reads plain column names, so ``np.log(x)``, ``I(x**2)``
+    and ``C(g)`` are estimated under the stand-in names ``np.log[x]``,
+    ``I[x ** 2]`` and ``g[2]``. Those are an internal device: a table of an
+    OLS and an IV fit of one model must put the same regressor on one row,
+    and ``sp.test(result, "np.log(x) = 0")`` must find it. Every label the
+    result carries is mapped back here; the arrays are untouched.
+    """
+    if not shown:
+        return
+
+    def name(value: Any) -> Any:
+        return shown.get(value, value) if isinstance(value, str) else value
+
+    def relabel(obj: Any) -> Any:
+        if isinstance(obj, pd.Series):
+            return obj.rename(index=name)
+        if isinstance(obj, pd.DataFrame):
+            return obj.rename(index=name, columns=name)
+        if isinstance(obj, list):
+            return [relabel(item) for item in obj]
+        if isinstance(obj, tuple):
+            return tuple(relabel(item) for item in obj)
+        if isinstance(obj, dict):
+            return {text(key): relabel(value) for key, value in obj.items()}
+        return name(obj)
+
+    def text(key: Any) -> Any:
+        """A label that embeds a term name: ``First-stage F (np.log[x])``."""
+        if not isinstance(key, str):
+            return key
+        if key in shown:
+            return shown[key]
+        for safe, real in shown.items():
+            if f"({safe})" in key:
+                key = key.replace(f"({safe})", f"({real})")
+        return key
+
+    for attr, value in list(vars(result).items()):
+        if isinstance(value, (pd.Series, pd.DataFrame, list, tuple, dict)):
+            try:
+                setattr(result, attr, relabel(value))
+            except AttributeError:  # a read-only view of another attribute
+                continue
 
 
 def _apply_small(

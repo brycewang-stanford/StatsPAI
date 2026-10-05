@@ -10401,18 +10401,18 @@
     "cost_profile": "",
     "description": "Vector error-correction model by Johansen maximum likelihood for a given cointegration rank: adjustment coefficients (alpha), cointegrating vectors (beta, Johansen normalisation, with standard errors), short-run dynamics, log likelihood and information criteria; reproduces Stata vec. Methods: equation_table(), lm_test() (veclmar), stability() (vecstable). Choose the rank with sp.johansen first; lags counts lagged differences (Stata's lags(p) is lags = p - 1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/external_parity/test_dogan_python_econometrics.py"
       ],
       "tolerance": ""
     },
@@ -10489,7 +10489,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_dogan_python_econometrics.py",
+      "tests/reference_parity/test_textbook_methods_stata_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -110499,6 +110500,7 @@
       "Stata parity module 39_arima",
       "Cross-language parity (bit-exact) vs stats::arima [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 39_arima; implementation: third party python -- tests/r_parity/39_arima.py",
       "tests/external_parity/test_dogan_python_econometrics.py",
+      "tests/reference_parity/test_arima_default_stata_parity.py",
       "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
     ],
     "validation_status": "certified"

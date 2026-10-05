@@ -228,3 +228,24 @@ def test_ch16_orange_juice_distributed_lag_with_newey_west_errors():
         assert got.nobs == 594
         np.testing.assert_allclose(got.params.to_numpy(), ref.params, rtol=1e-9)
         np.testing.assert_allclose(got.std_errors.to_numpy(), ref.bse, rtol=1e-9)
+
+
+# --- chapter 17: vector error correction --------------------------------
+
+
+def test_ch17_vector_error_correction_model_matches_statsmodels():
+    from statsmodels.tsa.vector_ar.vecm import VECM
+
+    rates = pd.read_stata(_path("FRED-QD.dta"))[["tb3ms", "gs10"]]
+    rates = rates.dropna().astype(float).reset_index(drop=True)
+    ref = VECM(rates, k_ar_diff=3, coint_rank=1, deterministic="ci").fit()
+    got = sp.vec(rates, lags=3, rank=1, trend="rc")
+    # the same reduced-rank regression; the book prints
+    # alpha = (-0.0945, 0.0688) and beta = (1, -1.0072)
+    np.testing.assert_allclose(
+        np.asarray(got.alpha, dtype=float).ravel(), ref.alpha.ravel(), rtol=1e-8
+    )
+    beta = np.asarray(got.beta, dtype=float).ravel()
+    np.testing.assert_allclose(beta[:2], ref.beta.ravel(), rtol=1e-8)
+    assert beta[2] == pytest.approx(float(ref.det_coef_coint.ravel()[0]), rel=1e-8)
+    assert got.log_likelihood == pytest.approx(ref.llf, abs=1e-6)

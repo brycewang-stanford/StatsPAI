@@ -140,7 +140,8 @@ def test_factor_terms_equal_hand_made_dummies(card):
     assert float(by_formula.std_errors["educ"]) == pytest.approx(
         float(by_hand.std_errors["educ"]), rel=1e-10
     )
-    assert "expcat[2]" in by_formula.params.index
+    # reported under the name sp.regress gives the same term
+    assert "C(expcat)[T.2]" in by_formula.params.index
 
 
 def test_plain_formula_and_data_pass_through_untouched(card):

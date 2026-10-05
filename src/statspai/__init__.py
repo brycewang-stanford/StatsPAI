@@ -3517,4 +3517,59 @@ def __getattr__(name):
         _mod = importlib.import_module(f".{_modpath}", package=__name__)
         globals()[name] = _mod
         return _mod
-    raise AttributeError(f"module 'statspai' has no attribute {name!r}")
+    raise AttributeError(_missing_name_message(name))
+
+
+#: Names other libraries use for something that is here under another name.
+#: Read by ``__getattr__`` to point at it; nothing is aliased.
+_ELSEWHERE_NAMES = {
+    "vecm": "sp.vec",
+    "VECM": "sp.vec",
+    "VAR": "sp.var",
+    "ARIMA": "sp.arima",
+    "SARIMAX": "sp.arima",
+    "arch_model": "sp.garch",
+    "adfuller": "sp.unitroot",
+    "kpss": "sp.unitroot",
+    "coint": "sp.engle_granger",
+    "coint_johansen": "sp.johansen",
+    "acorr_ljungbox": "sp.corrgram",
+    "ljungbox": "sp.corrgram",
+    "pacf": "sp.corrgram",
+    "plot_acf": "sp.corrgram",
+    "ols": "sp.regress",
+    "OLS": "sp.regress",
+    "lm": "sp.regress",
+    "WLS": "sp.regress(..., weights=)",
+    "IV2SLS": "sp.ivreg",
+    "ivregress": "sp.ivreg",
+    "PanelOLS": "sp.panel(..., method='fe')",
+    "RandomEffects": "sp.panel(..., method='re')",
+    "PooledOLS": "sp.panel(..., method='pooled')",
+    "xtreg": "sp.panel",
+    "newey": "sp.regress(..., robust='hac', hac_lags=)",
+    "lasso": "sp.shrinkage(..., method='lasso') or sp.rlasso",
+    "pcr": "sp.shrinkage(..., method='pcr')",
+    "pca": "sp.shrinkage(..., method='pcr')",
+    "summary_col": "sp.regtable",
+    "stargazer": "sp.regtable",
+    "Stargazer": "sp.regtable",
+    "f_test": "sp.test",
+    "wald_test": "sp.test",
+    "get_margeff": "sp.margins",
+}
+
+
+def _missing_name_message(name):
+    message = f"module 'statspai' has no attribute {name!r}"
+    if name.startswith("_"):
+        return message
+    elsewhere = _ELSEWHERE_NAMES.get(name)
+    if elsewhere is not None:
+        return f"{message}; it is {elsewhere} here"
+    import difflib
+
+    close = difflib.get_close_matches(name, __all__, n=3, cutoff=0.8)
+    if close:
+        return f"{message}; did you mean {', '.join('sp.' + c for c in close)}?"
+    return f"{message}; sp.search_functions({name!r}) lists what is close"

@@ -97,3 +97,82 @@ def test_statsmodels_attribute_names_say_where_to_look(df):
 
     assert pickle.loads(pickle.dumps(res)).params.equals(res.params)
     assert copy.deepcopy(res).params.equals(res.params)
+
+
+def test_iv_reports_formula_terms_under_the_names_ols_gives_them(df):
+    data = df.assign(g=np.arange(len(df)) % 3, xp=np.exp(df["x"] / 4))
+    rhs = "w + inc + I(inc**2) + C(g)"
+    ols = sp.regress(f"y ~ {rhs} + np.log(xp)", data)
+    iv = sp.ivreg(f"y ~ {rhs} + [np.log(xp) ~ z1 + z2]", data)
+    # the same regressors, the same labels: one row each in a joint table
+    assert set(iv.params.index) == set(ols.params.index)
+    assert list(iv.std_errors.index) == list(iv.params.index)
+    assert list(iv.vcov().index) == list(iv.params.index)
+    assert "First-stage F (np.log(xp))" in iv.diagnostics
+    table = str(sp.regtable(ols, iv))
+    assert table.count("np.log(xp)") == 1 and "np.log[xp]" not in table
+    assert "I[inc" not in table and "g[1]" not in table
+    # names written as in the formula, and Stata's factor-variable names
+    assert sp.test(iv, "np.log(xp) = 0")["df"][0] == 1
+    assert sp.test(iv, "I(inc**2) = 0, np.log(xp) = 0")["df"][0] == 2
+    assert sp.test(iv, "i.g")["df"][0] == 2
+    # the estimates are those of the fit with the columns built by hand
+    built = data.assign(lx=np.log(data.xp), inc2=data.inc**2)
+    dummies = pd.get_dummies(built.g, prefix="g", drop_first=True).astype(float)
+    built = pd.concat([built, dummies], axis=1)
+    ref = sp.ivreg("y ~ w + inc + inc2 + g_1 + g_2 + (lx ~ z1 + z2)", built)
+    pairs = {"np.log(xp)": "lx", "I(inc ** 2)": "inc2", "C(g)[T.1]": "g_1"}
+    for ours, theirs in pairs.items():
+        assert iv.params[ours] == pytest.approx(ref.params[theirs], rel=1e-10)
+        assert iv.std_errors[ours] == pytest.approx(ref.std_errors[theirs], rel=1e-9)
+
+
+def test_iv_predictions_use_the_structural_equation(df):
+    import patsy
+
+    data = df.assign(xp=np.exp(df["x"] / 4))
+    iv = sp.ivreg("y ~ w + I(inc**2) + (np.log(xp) ~ z1 + z2)", data)
+    X = patsy.dmatrix("w + I(inc**2) + np.log(xp)", data, return_type="dataframe")
+    manual = X[list(iv.params.index)].to_numpy() @ iv.params.to_numpy()
+    np.testing.assert_allclose(iv.predict(data), manual, rtol=1e-12)
+    np.testing.assert_allclose(iv.predict(), manual, rtol=1e-10)
+    # d y / d xp = b / xp, averaged over the sample
+    me = sp.margins(iv, data).set_index("variable")["dy/dx"]
+    assert me["xp"] == pytest.approx(
+        iv.params["np.log(xp)"] * (1 / data.xp).mean(), rel=1e-4
+    )
+
+
+def test_bracket_names_of_panel_fits_answer_to_the_formula_spelling():
+    rng = np.random.default_rng(3)
+    rows = []
+    for i in range(50):
+        a = rng.normal()
+        for t in range(5):
+            x = np.exp(rng.normal())
+            rows.append(
+                {"id": i, "t": t, "x": x, "y": a + 0.5 * np.log(x) + rng.normal()}
+            )
+    panel = pd.DataFrame(rows)
+    fit = sp.panel(panel, "y ~ np.log(x) + I(x**2)", entity="id", time="t")
+    stored = sp.test(fit, "np.log[x] = 0.5")["statistic"]
+    assert sp.test(fit, "np.log(x) = 0.5")["statistic"] == pytest.approx(stored)
+    assert sp.test(fit, "I(x**2) = 0")["df"][0] == 1
+
+
+def test_a_name_from_another_library_points_at_ours():
+    for name, target in [
+        ("vecm", "sp.vec"),
+        ("IV2SLS", "sp.ivreg"),
+        ("adfuller", "sp.unitroot"),
+        ("arch_model", "sp.garch"),
+    ]:
+        with pytest.raises(AttributeError, match=name) as err:
+            getattr(sp, name)
+        assert target in str(err.value)
+        assert not hasattr(sp, name)
+    with pytest.raises(AttributeError, match="did you mean sp.regress"):
+        sp.regres
+    for target in sp._ELSEWHERE_NAMES.values():
+        attr = target.split("(")[0].split(" ")[0].replace("sp.", "")
+        assert hasattr(sp, attr), target

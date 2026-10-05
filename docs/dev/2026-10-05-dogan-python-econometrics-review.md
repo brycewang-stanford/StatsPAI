@@ -55,6 +55,7 @@ Agreement is relative difference in coefficients and standard errors.
 | 15 | ADF statistic and selected lag | `statsmodels` | identical |
 | 16 | Distributed lags, Newey-West with 7 and 14 lags | `statsmodels` | 1e-14 |
 | 17 | VAR coefficients, forecasts; Johansen trace statistics | `statsmodels` | identical as printed |
+| 17 | Vector error correction model (`sp.vec`): loadings, cointegrating vector, short-run terms, log-likelihood | `statsmodels` `VECM` | 1e-6 as printed |
 | 17 | GARCH(1,1) with robust errors | `arch` (book output) | third digit, see below |
 
 ## What was wrong, and what changed
@@ -69,6 +70,10 @@ Agreement is relative difference in coefficients and standard errors.
 | 6 | `sp.ivreg` refused the linearmodels formula `y ~ 1 + w + [x ~ z]` | usability | accepted (the Facure pass landed the same change first; its version is the one on main) |
 | 7 | `res.bse`, `res.rsquared`, `res.resid`, `res.f_test` raised a bare `AttributeError` | usability | the message says where the value is |
 | 8 | No ridge or principal-components prediction; no cross-validated MSPE (also open since the Stock & Watson review) | missing function | `sp.shrinkage` |
+| 9 | IV results named terms `np.log[x]`, `I[x ** 2]`, `g[2]` where `sp.regress` names them `np.log(x)`, `I(x ** 2)`, `C(g)[T.2]`. `sp.regtable(ols, iv)` put one regressor on two rows, `sp.test(iv, "np.log(x) = 0")` failed, and Stata's `2.g` did not resolve | naming | IV results report the formula names |
+| 10 | `predict()` and `sp.margins` on an IV fit with a transformed term could not rebuild the design (the formula still held the `(x ~ z)` block) | defect | the structural equation is rebuilt |
+| 11 | `sp.vecm`, `sp.IV2SLS`, `sp.adfuller` raised a bare `AttributeError`, though `sp.vec`, `sp.ivreg`, `sp.unitroot` exist | usability | the message names the function; a near miss gets "did you mean" |
+| 12 | The default `sp.arima` had no cross-language row | evidence | `tests/reference_parity/test_arima_default_stata_parity.py`, four models against Stata 18 on a committed series |
 
 ### Items 1 and 2
 
@@ -177,12 +182,23 @@ that are too small in absolute value.
 
 | Item | Why it matters | Size |
 | --- | --- | --- |
-| No `sp.vecm`. Chapter 17 estimates a vector error correction model (`statsmodels` `VECM`, Stata `vec`); `sp.johansen` tests the rank and stops | the estimate that follows the test is missing | medium; two references available |
 | `sp.garch` has no Student-t likelihood (`arch_model(dist='t')`) | chapter 17 refits with t errors after the normality test rejects | medium |
-| IV and panel results name terms `np.log[x]`, `I[x ** 2]`, `g[2]` where `sp.regress` names them `np.log(x)`, `I(x ** 2)`, `C(g)[T.2]` | `sp.regtable(ols, iv)` puts the same regressor on two rows; `sp.test(iv, "np.log(x) = 0")` fails. The bracket names are asserted in `tests/test_panel_formula_terms.py`, so changing them is a decision, not a fix | small to change, wide to verify |
+| Panel results still name terms `np.log[x]` and `I[x ** 2]` | `sp.regtable(ols, fe)` splits the row. `sp.test` accepts either spelling. Relabelling the result broke `hausman_test()`, `compare()` and `f_test_effects()`, which refit from the stored column names, so the panel class needs its names separated from its columns first | medium |
 | `sp.panel` has no time-effects-only method | `PanelOLS(... + TimeEffects)`; `sp.feols("y ~ x \| year")` covers it | small |
 | `sp.structural_break` returns the break as a row position | the book reports a date; a `time=` argument would label it | small |
 | `sp.acf` is Ackerberg-Caves-Frazer | a time-series user expects autocorrelations; `sp.corrgram` has them | naming, leave |
 | Distributed-lag helper | cumulative multipliers are a reparameterisation the book builds by hand; `sp.regress` with `.shift()` and `hac_lags=` reproduces every number | not needed |
 | Newey-West fixed-b critical values | carried over from the Stock & Watson review | medium |
-| Track A `39_arima` should also run the default method | the row that would have caught item 1 | small; needs the R and Stata goldens regenerated |
+| Track A `39_arima` could also run the default method | the Stata reference test above covers it outside Track A; a Track A row needs the R and Stata goldens regenerated | small |
+
+## A correction to the first version of this note
+
+The first version listed a missing `sp.vecm` as an open item. The model is
+in the package as `sp.vec`, the Stata name. On the book's interest-rate
+data `sp.vec(df, lags=3, rank=1, trend="rc")` gives the loadings
+(-0.09455, 0.06884), the cointegrating vector (1, -1.00723, 1.57638) and
+the log-likelihood -302.1175 that `statsmodels` `VECM(k_ar_diff=3,
+coint_rank=1, deterministic="ci")` gives. Standard errors differ in the
+third digit because `sp.vec` follows Stata's small-sample divisor. The
+search that missed it looked for the name `vecm`, which is what finding 11
+now answers.

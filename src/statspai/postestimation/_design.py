@@ -296,6 +296,36 @@ def _base_level(di: Any, factor: Any, cats: List[Any]) -> Any:
     return cats[0]
 
 
+def _structural_formula(formula: str) -> str:
+    """An IV formula with its ``(endog ~ instruments)`` block replaced by
+    the endogenous regressors: the equation the coefficients belong to.
+
+    ``y ~ w + (np.log(x) ~ z1 + z2)`` becomes ``y ~ w + np.log(x)``; the
+    linearmodels spelling ``[x ~ z]`` is read the same way. A formula
+    without such a block is returned as it is.
+    """
+    if "~" not in formula:
+        return formula
+    head, rhs = formula.split("~", 1)
+    if "~" not in rhs:
+        return formula
+    depth, start, opener = 0, -1, ""
+    for i, ch in enumerate(rhs):
+        if ch in "([":
+            if depth == 0:
+                start, opener = i, ch
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+            if depth == 0 and start >= 0 and "~" in rhs[start:i]:
+                closes = ")" if opener == "(" else "]"
+                if ch != closes:
+                    continue
+                endog = rhs[start + 1 : i].split("~", 1)[0].strip()
+                return f"{head}~{rhs[:start]}{endog}{rhs[i + 1 :]}"
+    return formula
+
+
 def design_for(result: Any, frame: pd.DataFrame) -> Any:
     """Pick the backend that can evaluate this model's design on ``frame``."""
     terms = [str(t) for t in result.params.index]
@@ -311,7 +341,7 @@ def design_for(result: Any, frame: pd.DataFrame) -> Any:
             recovery_hint="Refit with a formula-based estimator (sp.regress, "
             "sp.logit, sp.probit, sp.glm) and pass data=.",
         )
-    return _FormulaDesign(formula, frame, terms)
+    return _FormulaDesign(_structural_formula(formula), frame, terms)
 
 
 __all__ = [

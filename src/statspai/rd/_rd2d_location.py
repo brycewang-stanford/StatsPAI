@@ -59,12 +59,12 @@ def kernel_weight(u: np.ndarray, kernel: str) -> np.ndarray:
     k = _KERNEL_CANON[kernel]
     au = np.abs(u)
     if k == "triangular":
-        return (1.0 - au) * (au <= 1)
+        return np.asarray((1.0 - au) * (au <= 1))
     if k == "uniform":
-        return 0.5 * (au <= 1)
+        return np.asarray(0.5 * (au <= 1))
     if k == "gaussian":
-        return np.exp(-0.5 * u * u) / math.sqrt(2.0 * math.pi)
-    return 0.75 * (1.0 - u * u) * (au <= 1)
+        return np.asarray(np.exp(-0.5 * u * u) / math.sqrt(2.0 * math.pi))
+    return np.asarray(0.75 * (1.0 - u * u) * (au <= 1))
 
 
 def n_basis(p: int) -> int:
@@ -132,7 +132,7 @@ def cluster_sums(
 def unique_in_order(x: np.ndarray) -> np.ndarray:
     """R ``unique``: first-appearance order."""
     _, first = np.unique(x, return_index=True)
-    return x[np.sort(first)]
+    return np.asarray(x[np.sort(first)])
 
 
 def vce_multiplier(
@@ -153,8 +153,8 @@ def vce_multiplier(
         return math.sqrt(eN / (eN - k))
     hii = np.sum((sqrtw_R @ invG) * sqrtw_R, axis=1)
     if vce == "hc2":
-        return np.sqrt(1.0 / (1.0 - hii))
-    return 1.0 / (1.0 - hii)
+        return np.asarray(np.sqrt(1.0 / (1.0 - hii)))
+    return np.asarray(1.0 / (1.0 - hii))
 
 
 def joint_scale(
@@ -181,10 +181,10 @@ def unique_locations(x1: np.ndarray, x2: np.ndarray, d: np.ndarray) -> np.ndarra
     a1, a2 = x1[order], x2[order]
     n = len(order)
     if n == 0:
-        return order
+        return np.asarray(order)
     keep = np.ones(n, dtype=bool)
     keep[:-1] = (a1[1:] != a1[:-1]) | (a2[1:] != a2[:-1])
-    return order[keep]
+    return np.asarray(order[keep])
 
 
 # ----------------------------------------------------------------------
@@ -215,12 +215,12 @@ def _h_normalize(h: Any, kernel_type: str) -> Tuple[np.ndarray, Tuple[float, flo
 def _weights(s: _Side, h: Any, kernel: str, kernel_type: str) -> np.ndarray:
     h, _ = _h_normalize(h, kernel_type)
     if kernel_type == "prod":
-        return (
+        return np.asarray(
             kernel_weight(s.x1 / h[0], kernel)
             * kernel_weight(s.x2 / h[1], kernel)
             / (h[0] * h[1])
         )
-    return kernel_weight(s.dist / h[0], kernel) / h[0] ** 2
+    return np.asarray(kernel_weight(s.dist / h[0], kernel) / h[0] ** 2)
 
 
 def _local_design(s: _Side, h: Any, p: int, kernel: str, kernel_type: str) -> dict:
@@ -550,12 +550,12 @@ def cov_from_projects(
 ) -> np.ndarray:
     """Cross-covariance of two projected estimators (sides combined)."""
     if clustered_joint:
-        return (A1 - A0).T @ (B1 - B0)
-    return A0.T @ B0 + A1.T @ B1
+        return np.asarray((A1 - A0).T @ (B1 - B0))
+    return np.asarray(A0.T @ B0 + A1.T @ B1)
 
 
 def _sym(a: np.ndarray) -> np.ndarray:
-    return (a + a.T) / 2.0
+    return np.asarray((a + a.T) / 2.0)
 
 
 # ----------------------------------------------------------------------

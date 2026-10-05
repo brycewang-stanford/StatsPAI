@@ -52,8 +52,28 @@ map is `docs/guides/migration-from-statsmodels.md`.
 - `sp.test(result, "x1 = 0, x2 = 0")`: comma-separated restrictions are a
   joint test, as in statsmodels' `f_test`.
 
+- `predict()` and `sp.margins` work on an IV fit whose formula has a
+  transformed term. The design is rebuilt from the structural equation;
+  the `(x ~ z)` block used to stop the formula engine.
+- `tests/reference_parity/test_arima_default_stata_parity.py`: the default
+  `sp.arima` against Stata 18 on a committed series, four models, with the
+  log-likelihood to 1e-6.
+
 #### Changed
 
+- **`sp.ivreg` / `sp.iv` report formula terms under the names `sp.regress`
+  gives them.** `np.log(x)`, `I(x ** 2)` and `C(g)[T.2]` were reported as
+  `np.log[x]`, `I[x ** 2]` and `g[2]`, the stand-in column names the IV
+  parser estimates them under. `sp.regtable(ols, iv)` now puts a regressor
+  on one row, `sp.test(iv, "np.log(x) = 0")` finds it, and Stata's
+  `2.g` / `i.g` resolve. Estimates are unchanged. Code that indexes an IV
+  result by the bracket name needs the new name (see `MIGRATION.md`).
+  Panel results keep the bracket names for now; `sp.test` and `sp.lincom`
+  accept either spelling there.
+- `sp.vecm`, `sp.IV2SLS`, `sp.adfuller` and other names from statsmodels,
+  linearmodels and `arch` raise an `AttributeError` that names the
+  StatsPAI function (`sp.vec`, `sp.ivreg`, `sp.unitroot`); a misspelt name
+  gets "did you mean".
 - `sp.test` and `sp.lincom` match coefficient names without regard to
   blanks inside them. `I(inc**2)` names the coefficient the design calls
   `I(inc ** 2)`; it was "Cannot parse term".
