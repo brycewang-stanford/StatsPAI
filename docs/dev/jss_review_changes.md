@@ -1712,3 +1712,28 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces re-recorded after the second round of the dCDH textbook pass
+
+- **Commits.** `c9a593ea` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (Track A modules
+  10 21 78). The sources that staled them are in the same commit:
+  `src/statspai/did/did_multiplegt_dyn.py` (the slope-estimation term of
+  the variance under `controls=`; the regression behind that option is
+  weighted and fitted within `trends_nonparam` cells) and
+  `src/statspai/did/es_inference.py` (`sp.uniform_bands` reports a sup-t
+  test and takes `terms=`).
+- **Reason.** Open items of
+  `docs/dev/2026-10-05-dcdh-did-textbook-review.md`. None of the edits
+  changes a number a Track A module computes:
+  `python tests/r_parity/verify_reproduce_py.py --no-report` on
+  `10_honest_did`, `21_honest_relmags` and `78_multiplegt_dyn` reported
+  3 reproduce, 0 drift (worst relative difference 0). Module 78 does not
+  use `controls=`, and the event-study covariance modules 10 and 21 read
+  is untouched.
+- **Effect on the paper.** None. In the three modules only
+  `exercised_sources` digests and `seconds` differ from the version
+  before `c9a593ea`. No estimate, standard error or table cell is read from
+  this file.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
