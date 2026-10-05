@@ -3485,6 +3485,23 @@
       "tolerance": ""
     },
     {
+      "function": "cor_test",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_effect_size_power_ttest_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "corrgram",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -3538,6 +3555,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_ding_linear_model.py",
+        "tests/reference_parity/test_cox_ph_test_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_survival_epi_R_parity.py"
       ],
@@ -5751,6 +5769,29 @@
         "tests/reference_parity/test_network_parity.py"
       ],
       "tolerance": "Coefficients 2e-16 to 7e-13 for edges + triangle + nodematch + nodecov + absdiff (undirected) and edges + mutual (directed); standard errors 2e-8 (directed) and <= 3.2e-7 (undirected), inside the 1e-6 budget."
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "esize",
+      "notes": [
+        "Cohen's d, Hedges's g, Glass's Delta 1 and 2 and the point-biserial correlation with noncentral-t intervals equal Stata esize twosample at 95% with pooled degrees of freedom and at 90% with Satterthwaite's."
+      ],
+      "reference": "Stata 18 MP esize twosample, all (with and without unequal)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_effect_size_power_ttest_parity.py"
+      ],
+      "tolerance": "estimates and interval limits 1e-8 rel (observed <= 1e-12)"
     },
     {
       "additional_tests": [
@@ -14333,6 +14374,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_effect_size_power_ttest_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -14372,6 +14416,31 @@
         "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "power_ttest",
+      "notes": [
+        "Noncentral-t power of the one-sample, two-sample and paired t test: power, detectable difference and rounded sample sizes equal Stata's power commands; the unrounded sample size equals pwr.t.test."
+      ],
+      "reference": "Stata 18 MP power onemean / twomeans / pairedmeans; R pwr::pwr.t.test",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_effect_size_power_ttest_parity.py"
+      ],
+      "tolerance": "power / delta 1e-8 rel vs Stata (observed <= 1e-11); fractional n 1e-6 rel vs pwr (its uniroot tolerance)"
     },
     {
       "also_verified_by": [

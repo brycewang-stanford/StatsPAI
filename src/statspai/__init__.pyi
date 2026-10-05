@@ -229,6 +229,7 @@ from .conformal_causal.extended import (
 )
 from .conformal_causal.extended import conformal_continuous as conformal_continuous
 from .conformal_causal.extended import conformal_interference as conformal_interference
+from .conformal_causal.regression import conformal_regression as conformal_regression
 from .core.effect_summary import EffectSummary as EffectSummary
 from .core.effect_summary import effect_summary as effect_summary
 from .core.results import CausalResult as CausalResult
@@ -590,6 +591,8 @@ from .imputation._mi_test import mi_test as mi_test
 from .imputation.mice import MICEResult as MICEResult
 from .imputation.mice import mi_estimate as mi_estimate
 from .imputation.mice import mice as mice
+from .inference._jackknife_general import JackknifeResult as JackknifeResult
+from .inference._jackknife_general import jackknife as jackknife
 from .inference.aipw import aipw as aipw
 from .inference.basic_tests import ci as ci
 from .inference.basic_tests import prtest as prtest
@@ -601,6 +604,8 @@ from .inference.bootstrap import BootstrapResult as BootstrapResult
 from .inference.bootstrap import bootstrap as bootstrap
 from .inference.conley import conley as conley
 from .inference.difference_in_means import difference_in_means as difference_in_means
+from .inference.effect_size import cor_test as cor_test
+from .inference.effect_size import esize as esize
 from .inference.front_door import front_door as front_door
 from .inference.g_computation import g_computation as g_computation
 from .inference.ipw import ipw as ipw
@@ -819,6 +824,10 @@ from .multilevel.glmm import menbreg as menbreg
 from .multilevel.glmm import mepoisson as mepoisson
 from .multilevel.lmm import MixedResult as MixedResult
 from .multilevel.lmm import mixed as mixed
+from .multivariate.factor import FactorResult as FactorResult
+from .multivariate.factor import factor as factor
+from .multivariate.pca import PCAResult as PCAResult
+from .multivariate.pca import pca as pca
 from .network import network_graph as network_graph
 from .network._core import Graph as Graph
 from .network.centrality import CentralityResult as CentralityResult
@@ -939,6 +948,7 @@ from .output.tab import tab as tab
 from .panel import panel as panel
 from .panel.feols import FEOLSResult as FEOLSResult
 from .panel.feols import feols as hdfe_ols
+from .panel.hausman_taylor import xthtaylor as xthtaylor
 from .panel.hdfe import Absorber as Absorber
 from .panel.hdfe import SlopeSpec as SlopeSpec
 from .panel.hdfe import absorb_ols as absorb_ols
@@ -1002,6 +1012,7 @@ from .power.power import power_rd as power_rd
 from .power.study_designs import power_case_control as power_case_control
 from .power.study_designs import power_logrank as power_logrank
 from .power.study_designs import power_two_proportions as power_two_proportions
+from .power.ttest_power import power_ttest as power_ttest
 from .principal_strat.principal_strat import (
     PrincipalStratResult as PrincipalStratResult,
 )
@@ -1121,6 +1132,7 @@ from .regression.advanced_iv import lasso_iv as lasso_iv
 from .regression.advanced_iv import liml as liml
 from .regression.boxcox import BoxCoxResult as BoxCoxResult
 from .regression.boxcox import boxcox as boxcox
+from .regression.cnsreg import cnsreg as cnsreg
 from .regression.count import nbreg as nbreg
 from .regression.count import poisson as poisson
 from .regression.count import ppmlhdfe as ppmlhdfe
@@ -1128,6 +1140,8 @@ from .regression.count import xtnbreg as xtnbreg
 from .regression.et_count import etpoisson as etpoisson
 from .regression.fracreg import betareg as betareg
 from .regression.fracreg import fracreg as fracreg
+from .regression.gam import GAMResult as GAMResult
+from .regression.gam import gam as gam
 from .regression.gee import gee as gee
 from .regression.glm import GLMEstimator as GLMEstimator
 from .regression.glm import GLMRegression as GLMRegression
@@ -1145,11 +1159,14 @@ from .regression.logit_probit import cloglog as cloglog
 from .regression.logit_probit import logit as logit
 from .regression.logit_probit import probit as probit
 from .regression.mixed_logit import mixlogit as mixlogit
+from .regression.model_average import ModelAverageResult as ModelAverageResult
+from .regression.model_average import model_average as model_average
 from .regression.multinomial import clogit as clogit
 from .regression.multinomial import mlogit as mlogit
 from .regression.multinomial import ologit as ologit
 from .regression.multinomial import oprobit as oprobit
 from .regression.nested_logit import nlogit as nlogit
+from .regression.nls import nls as nls
 from .regression.ols import regress as regress
 from .regression.prais import prais as prais
 from .regression.quantile import qreg as qreg

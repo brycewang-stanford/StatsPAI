@@ -12113,6 +12113,348 @@
     "alias_of": null,
     "alternatives": [
       "spearman",
+      "ktau",
+      "pwcorr",
+      "dag"
+    ],
+    "assumptions": [
+      "Linear association: the correlation measures only that",
+      "Joint normality for the t test and the Fisher-z interval to be exact; both are large-sample approximations otherwise",
+      "Independent observations"
+    ],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "Pearson's correlation, or the partial correlation given covariates, with its t test and Fisher-z confidence interval (R cor.test and ggm::pcor.test; the significance level of Stata pwcorr, sig). A zero partial correlation is what a causal graph implies for two d-separated nodes under linearity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_effect_size_power_ttest_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.cor_test(df, \"income\", \"frugality\", covariates=[\"spending\"])",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "cor_test",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "ClassicTestResult",
+      "description": "ClassicTestResult",
+      "fields": {
+        "df": "Any",
+        "estimates": "Dict[str, Any]",
+        "method": "str",
+        "n_obs": "int",
+        "pvalue": "float",
+        "statistic": "float",
+        "statistic_name": "str",
+        "table": "Optional[pd.DataFrame]"
+      }
+    },
+    "signature": {
+      "description": "Pearson's correlation, or the partial correlation given covariates, with its t test and Fisher-z confidence interval (R cor.test and ggm::pcor.test; the significance level of Stata pwcorr, sig). A zero partial correlation is what a causal graph implies for two d-separated nodes under linearity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "cor_test",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "covariates": {
+            "description": "Columns to partial out",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "Data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "x": {
+            "description": "First variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Second variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "x",
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_effect_size_power_ttest_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "ttest",
+      "power_ttest",
+      "balance_table"
+    ],
+    "assumptions": [
+      "Independent observations in two groups",
+      "Normal outcome within each group for the noncentral-t intervals to be exact",
+      "Cohen's d and Hedges's g take the two groups to share a variance; Glass's Delta does not"
+    ],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "Standardised effect sizes of a difference between two group means: Cohen's d, Hedges's g (exact small-sample correction), Glass's Delta for either group and the point-biserial correlation, with confidence intervals from the noncentral t distribution (Stata esize twosample, R effsize::cohen.d with noncentral = TRUE). Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 MP esize twosample, all (with and without unequal)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_effect_size_power_ttest_parity.py"
+      ],
+      "tolerance": "estimates and interval limits 1e-8 rel (observed <= 1e-12)"
+    },
+    "example": "sp.esize(df, \"cars_sold\", by=\"strategy\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "esize",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "ClassicTestResult",
+      "description": "ClassicTestResult",
+      "fields": {
+        "df": "Any",
+        "estimates": "Dict[str, Any]",
+        "method": "str",
+        "n_obs": "int",
+        "pvalue": "float",
+        "statistic": "float",
+        "statistic_name": "str",
+        "table": "Optional[pd.DataFrame]"
+      }
+    },
+    "signature": {
+      "description": "Standardised effect sizes of a difference between two group means: Cohen's d, Hedges's g (exact small-sample correction), Glass's Delta for either group and the point-biserial correlation, with confidence intervals from the noncentral t distribution (Stata esize twosample, R effsize::cohen.d with noncentral = TRUE). Validation: certified parity evidence.",
+      "name": "esize",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "by": {
+            "description": "Column with two groups",
+            "type": "string"
+          },
+          "data": {
+            "description": "Data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "unequal": {
+            "default": false,
+            "description": "Satterthwaite degrees of freedom for the intervals",
+            "type": "boolean"
+          },
+          "y": {
+            "description": "Outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "by"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP esize twosample, all (with and without unequal) [Stata 18 MP]; tolerance estimates and interval limits 1e-8 rel (observed <= 1e-12) -- tests/reference_parity/test_effect_size_power_ttest_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "power_rct",
+      "mde",
+      "power_cluster_rct",
+      "esize"
+    ],
+    "assumptions": [
+      "Normal outcome with a variance common to the two groups",
+      "The difference to detect and the standard deviation are inputs: power is only as credible as those guesses",
+      "Independent observations (pairs, for the paired test)"
+    ],
+    "category": "power",
+    "cost_profile": "",
+    "description": "Power, sample size or detectable difference of a one-sample, two-sample or paired t test, from the noncentral t distribution (Stata power onemean / twomeans / pairedmeans, R pwr.t.test). Give two of n, delta and power. sp.power_rct is the normal approximation, which overstates power in small samples. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 MP power onemean / twomeans / pairedmeans; R pwr::pwr.t.test",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_effect_size_power_ttest_parity.py"
+      ],
+      "tolerance": "power / delta 1e-8 rel vs Stata (observed <= 1e-11); fractional n 1e-6 rel vs pwr (its uniroot tolerance)"
+    },
+    "example": "sp.power_ttest(delta=0.5, power=0.8)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "power_ttest",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "PowerResult",
+      "description": "PowerResult",
+      "fields": {
+        "design": "str",
+        "effect_size": "Any",
+        "n": "Any",
+        "params": "Dict[str, Any]",
+        "power_val": "Any"
+      }
+    },
+    "signature": {
+      "description": "Power, sample size or detectable difference of a one-sample, two-sample or paired t test, from the noncentral t distribution (Stata power onemean / twomeans / pairedmeans, R pwr.t.test). Give two of n, delta and power. sp.power_rct is the normal approximation, which overstates power in small samples. Validation: certified parity evidence.",
+      "name": "power_ttest",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level",
+            "type": "number"
+          },
+          "alternative": {
+            "default": "two-sided",
+            "description": "Alternative hypothesis",
+            "enum": [
+              "two-sided",
+              "greater",
+              "less"
+            ],
+            "type": "string"
+          },
+          "delta": {
+            "description": "Difference to detect, outcome units",
+            "type": "number"
+          },
+          "n": {
+            "description": "Total sample size (both groups), observations, or pairs",
+            "type": "number"
+          },
+          "power": {
+            "description": "Target power",
+            "type": "number"
+          },
+          "ratio": {
+            "default": 1.0,
+            "description": "n2 / n1 (two-sample)",
+            "type": "number"
+          },
+          "sd": {
+            "default": 1.0,
+            "description": "Outcome standard deviation",
+            "type": "number"
+          },
+          "type": {
+            "default": "two-sample",
+            "description": "Kind of t test",
+            "enum": [
+              "two-sample",
+              "one-sample",
+              "paired"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP power onemean / twomeans / pairedmeans; R pwr::pwr.t.test [R version 4.5.2 (2025-10-31), Stata 18 MP]; tolerance power / delta 1e-8 rel vs Stata (observed <= 1e-11); fractional n 1e-6 rel vs pwr (its uniroot tolerance) -- tests/reference_parity/test_effect_size_power_ttest_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "spearman",
       "tab"
     ],
     "assumptions": [
@@ -80918,7 +81260,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs base-R closed form (two-sample pooled-sigma z-approx power) [R version 4.5.2 (2025-10-31)]; tolerance power 1e-12 abs (observed ~2e-16) -- tests/reference_parity/test_power_parity.py"
+      "Cross-language parity (bit-exact) vs base-R closed form (two-sample pooled-sigma z-approx power) [R version 4.5.2 (2025-10-31)]; tolerance power 1e-12 abs (observed ~2e-16) -- tests/reference_parity/test_power_parity.py",
+      "tests/reference_parity/test_effect_size_power_ttest_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -82993,9 +83336,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "@holm1979simple; @hochberg1988sharper; @hommel1988stagewise; @wright1992adjusted; @benjamini1995controlling; @benjamini2001control",
     "returns": {
       "class": "ndarray",
       "description": "np.ndarray: Adjusted p-values.",
@@ -83008,13 +83352,7 @@
         "properties": {
           "method": {
             "default": "holm",
-            "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'holm'`` -- Holm (1979) step-down. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
-            "enum": [
-              "bonferroni",
-              "holm",
-              "bh",
-              "fdr"
-            ],
+            "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'sidak'`` -- ``1 - (1 - p)^S``, exact under independence. - ``'holm'`` -- Holm (1979) step-down. Valid under any dependence. - ``'hochberg'`` -- Hochberg (1988) step-up. More powerful than Holm; needs independent or positively dependent tests. - ``'hommel'`` -- Hommel (1988). More powerful than Hochberg, under the same condition. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence. These are the methods of R's ``p.adjust`` (plus Sidak), and return the same numbers. A missing p-value stays missing and still counts towards the size of the family, which is where this differs from ``p.adjust``: R drops it from the count. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
             "type": "string"
           },
           "pvalues": {
@@ -87229,6 +87567,7 @@
       "Stata parity module 24_coxph",
       "Cross-language parity (bit-exact) vs survival::coxph [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 24_coxph -- tests/r_parity/24_coxph.py",
       "tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_cox_ph_test_parity.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py",
       "tests/reference_parity/test_survival_epi_R_parity.py"
     ],

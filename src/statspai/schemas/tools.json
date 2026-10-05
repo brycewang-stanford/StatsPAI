@@ -155,13 +155,7 @@
       "properties": {
         "method": {
           "default": "holm",
-          "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'holm'`` -- Holm (1979) step-down. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
-          "enum": [
-            "bonferroni",
-            "holm",
-            "bh",
-            "fdr"
-          ],
+          "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'sidak'`` -- ``1 - (1 - p)^S``, exact under independence. - ``'holm'`` -- Holm (1979) step-down. Valid under any dependence. - ``'hochberg'`` -- Hochberg (1988) step-up. More powerful than Holm; needs independent or positively dependent tests. - ``'hommel'`` -- Hommel (1988). More powerful than Hochberg, under the same condition. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence. These are the methods of R's ``p.adjust`` (plus Sidak), and return the same numbers. A missing p-value stays missing and still counts towards the size of the family, which is where this differs from ``p.adjust``: R drops it from the count. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
           "type": "string"
         },
         "pvalues": {
@@ -5821,6 +5815,42 @@
     "name": "copula_sensitivity"
   },
   {
+    "description": "Pearson's correlation, or the partial correlation given covariates, with its t test and Fisher-z confidence interval (R cor.test and ggm::pcor.test; the significance level of Stata pwcorr, sig). A zero partial correlation is what a causal graph implies for two d-separated nodes under linearity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear association: the correlation measures only that; Joint normality for the t test and the Fisher-z interval to be exact; both are large-sample approximations otherwise; Independent observations. Alternatives: sp.spearman, sp.ktau, sp.pwcorr, sp.dag.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Columns to partial out",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "x": {
+          "description": "First variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Second variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "cor_test"
+  },
+  {
     "description": "Correlogram of one series: autocorrelations, partial autocorrelations and the Ljung-Box portmanteau Q statistic with its p-value at every lag (Stata corrgram; the last row is wntestq at that lag). The partial autocorrelation is the regression coefficient on the k-th lag by default, or the Yule-Walker solution with pac='yw' (R pacf). The Q test's chi-squared reference ignores that regression residuals were estimated: after a fit use sp.estat(result, 'bgodfrey'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Covariance-stationary series; Equally spaced observations in time order; The Q statistic's chi-squared reference assumes a raw series; on residuals of a fitted ARMA(p, q) the degrees of freedom fall by p + q.",
     "input_schema": {
       "properties": {
@@ -10476,6 +10506,38 @@
       "type": "object"
     },
     "name": "enhanced_event_study_plot"
+  },
+  {
+    "description": "Standardised effect sizes of a difference between two group means: Cohen's d, Hedges's g (exact small-sample correction), Glass's Delta for either group and the point-biserial correlation, with confidence intervals from the noncentral t distribution (Stata esize twosample, R effsize::cohen.d with noncentral = TRUE). Validation: certified parity evidence. Assumptions: Independent observations in two groups; Normal outcome within each group for the noncentral-t intervals to be exact; Cohen's d and Hedges's g take the two groups to share a variance; Glass's Delta does not. Alternatives: sp.ttest, sp.power_ttest, sp.balance_table.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Column with two groups",
+          "type": "string"
+        },
+        "unequal": {
+          "default": false,
+          "description": "Satterthwaite degrees of freedom for the intervals",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "by",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "esize"
   },
   {
     "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced. Assumptions: Approximates the variance inflation from weighting when outcomes are homoskedastic and uncorrelated with the weights. Alternatives: sp.balance_diagnostics, sp.ps_weights.",

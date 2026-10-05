@@ -5808,6 +5808,143 @@
     }
   },
   {
+    "description": "Pearson's correlation, or the partial correlation given covariates, with its t test and Fisher-z confidence interval (R cor.test and ggm::pcor.test; the significance level of Stata pwcorr, sig). A zero partial correlation is what a causal graph implies for two d-separated nodes under linearity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "cor_test",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Columns to partial out",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "Data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "x": {
+          "description": "First variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Second variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Standardised effect sizes of a difference between two group means: Cohen's d, Hedges's g (exact small-sample correction), Glass's Delta for either group and the point-biserial correlation, with confidence intervals from the noncentral t distribution (Stata esize twosample, R effsize::cohen.d with noncentral = TRUE). Validation: certified parity evidence.",
+    "name": "esize",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Column with two groups",
+          "type": "string"
+        },
+        "data": {
+          "description": "Data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "unequal": {
+          "default": false,
+          "description": "Satterthwaite degrees of freedom for the intervals",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "by"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Power, sample size or detectable difference of a one-sample, two-sample or paired t test, from the noncentral t distribution (Stata power onemean / twomeans / pairedmeans, R pwr.t.test). Give two of n, delta and power. sp.power_rct is the normal approximation, which overstates power in small samples. Validation: certified parity evidence.",
+    "name": "power_ttest",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "Alternative hypothesis",
+          "enum": [
+            "two-sided",
+            "greater",
+            "less"
+          ],
+          "type": "string"
+        },
+        "delta": {
+          "description": "Difference to detect, outcome units",
+          "type": "number"
+        },
+        "n": {
+          "description": "Total sample size (both groups), observations, or pairs",
+          "type": "number"
+        },
+        "power": {
+          "description": "Target power",
+          "type": "number"
+        },
+        "ratio": {
+          "default": 1.0,
+          "description": "n2 / n1 (two-sample)",
+          "type": "number"
+        },
+        "sd": {
+          "default": 1.0,
+          "description": "Outcome standard deviation",
+          "type": "number"
+        },
+        "type": {
+          "default": "two-sample",
+          "description": "Kind of t test",
+          "enum": [
+            "two-sample",
+            "one-sample",
+            "paired"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
     "description": "Kendall's rank correlations tau-a and tau-b with the score test of independence (Stata ktau). The variance of the score is corrected for ties and z carries a continuity correction. Validation: certified parity evidence.",
     "name": "ktau",
     "parameters": {
@@ -38146,13 +38283,7 @@
       "properties": {
         "method": {
           "default": "holm",
-          "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'holm'`` -- Holm (1979) step-down. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
-          "enum": [
-            "bonferroni",
-            "holm",
-            "bh",
-            "fdr"
-          ],
+          "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'sidak'`` -- ``1 - (1 - p)^S``, exact under independence. - ``'holm'`` -- Holm (1979) step-down. Valid under any dependence. - ``'hochberg'`` -- Hochberg (1988) step-up. More powerful than Holm; needs independent or positively dependent tests. - ``'hommel'`` -- Hommel (1988). More powerful than Hochberg, under the same condition. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence. These are the methods of R's ``p.adjust`` (plus Sidak), and return the same numbers. A missing p-value stays missing and still counts towards the size of the family, which is where this differs from ``p.adjust``: R drops it from the count. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
           "type": "string"
         },
         "pvalues": {

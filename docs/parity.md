@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 389 |
+| **Compared against R/Stata** (T2) | bit-exact | 391 |
 | | aligned | 52 |
-| | **subtotal** | **441** |
-| **No external software reference** | analytical-only (T1) | 344 |
+| | **subtotal** | **443** |
+| **No external software reference** | analytical-only (T1) | 345 |
 | | external-replication (published numbers) | 29 |
-| | **subtotal** | **373** |
+| | **subtotal** | **374** |
 | No numerical evidence yet | unverified | 548 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 441 | 800 | 804 | 54.9% |
+| estimator callables | 443 | 803 | 807 | 54.9% |
 | infrastructure (parity N/A) | 0 | 11 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 338 | 0.0% |
-| **all registered** | 441 | 814 | 1362 | 32.4% |
+| **all registered** | 443 | 817 | 1365 | 32.5% |
 
 ### Coverage by estimator family
 
@@ -54,7 +54,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | --- | ---: | ---: | ---: |
 | causal | 149 | 333 | 335 |
 | regression | 42 | 52 | 52 |
-| inference | 27 | 45 | 45 |
+| inference | 28 | 47 | 47 |
 | panel | 27 | 33 | 33 |
 | spatial | 28 | 33 | 33 |
 | diagnostics | 22 | 30 | 30 |
@@ -64,7 +64,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | timeseries | 11 | 18 | 18 |
 | epi | 16 | 17 | 17 |
 | bayes | 0 | 14 | 14 |
-| power | 6 | 11 | 11 |
+| power | 7 | 12 | 12 |
 | structural | 5 | 10 | 10 |
 | conformal_causal | 0 | 9 | 9 |
 | survival | 8 | 9 | 9 |
@@ -96,7 +96,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 389 functions
+## bit-exact — 391 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -185,6 +185,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `eigenvector_centrality` | R sna::evcent (unit L2 norm, as here) | sna 2.8; igraph 2.3.3 | 5e-11 undirected, 8e-11 directed -- power-iteration tolerance on both sides. igraph::eigen_centrality max-scales instead (and 2.x ignores scale = FALSE), so it agrees only up to one scalar; the earlier note claiming the igraph convention was wrong. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) (+1) |
 | `engle_granger` | egranger 1.0.6 (Stata SSC); urca::ur.df on lm residuals; aTSA::coint.test | R 4.5.2; urca 1.3.4; aTSA 3.1.2.1; Stata 18; egranger 1.0.6 | Z(t) and step-1 coefficients 1e-10 rel (observed 2.1e-13); MacKinnon (2010) critical values 1e-12 vs egranger | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
 | `ergm` | R ergm::ergm(estimate = 'MPLE') | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Coefficients 2e-16 to 7e-13 for edges + triangle + nodematch + nodecov + absdiff (undirected) and edges + mutual (directed); standard errors 2e-8 (directed) and <= 3.2e-7 (undirected), inside the 1e-6 budget. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `esize` | Stata 18 MP esize twosample, all (with and without unequal) | Stata 18 MP | estimates and interval limits 1e-8 rel (observed <= 1e-12) | — / — | [`test_effect_size_power_ttest_parity.py`](../tests/reference_parity/test_effect_size_power_ttest_parity.py) |
 | `etpoisson` | Stata 18 MP official `etpoisson` and `margins` | Stata 18 MP | Every block at 1e-6; observed 3e-15 on coefficients, 8e-11 on standard errors, with 24 and 64 Gauss-Hermite points, under vce(oim), vce(robust) and vce(cluster). Log-likelihood to 1e-8, the Wald test of independent equations at 1e-6. The ATE on the count scale and the two potential-outcome means agree with `margins r.d` and `margins d` to 1e-9, the delta-method standard error of the ATE to 1e-6. | — / — | [`test_etpoisson_stata_parity.py`](../tests/reference_parity/test_etpoisson_stata_parity.py) |
 | `etregress` | Stata 18 MP official `etregress` (Maddala 1983 model) | Stata 18 MP | Two-step: 5e-9 on every coefficient and every standard error, including the Heckman correction for the estimated first stage. ML: the likelihood, score and observed information are pinned at 9e-11 -- our Hessian reproduces Stata's reported standard errors when evaluated at Stata's own parameter vector, which is independent of either optimiser. At our own optimum the parameters sit within 2e-5 of Stata's; that gap is the two optimisers' stopping points, not a formula difference, and StatsPAI's stops at the HIGHER log-likelihood with a gradient ~300x smaller (asserted, so a regression that makes our optimum worse fails even though the 1e-4 parity assertions would still pass). vce(robust) carries Stata's N/(N-1) meat factor and vce(cluster) its g/(g-1). | — / — | [`test_etregress_stata_parity.py`](../tests/reference_parity/test_etregress_stata_parity.py) |
 | `etwfe` | etwfe::etwfe + emfx | R 4.5.2; etwfe 0.6.2 | rel_est<=1e-06, rel_se<=0.001 | 1.8e-13 / 3.9e-14 | [`17_etwfe.py`](../tests/r_parity/17_etwfe.py) (+2) |
@@ -366,6 +367,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `power_cluster_rct` | base-R closed form (design-effect-inflated z-approx power) | R 4.5.2 | power 1e-12 abs (observed ~2e-16) | — / — | [`test_power_extra_parity.py`](../tests/reference_parity/test_power_extra_parity.py) (+1) |
 | `power_logrank` | base-R closed form (Schoenfeld log-rank power) | R 4.5.2 | power 1e-12 abs (observed ~2e-16) | — / — | [`test_power_parity.py`](../tests/reference_parity/test_power_parity.py) (+1) |
 | `power_rct` | base-R closed form (two-sample pooled-sigma z-approx power) | R 4.5.2 | power 1e-12 abs (observed ~2e-16) | — / — | [`test_power_parity.py`](../tests/reference_parity/test_power_parity.py) (+1) |
+| `power_ttest` | Stata 18 MP power onemean / twomeans / pairedmeans; R pwr::pwr.t.test | Stata 18 MP; R 4.5.2 | power / delta 1e-8 rel vs Stata (observed <= 1e-11); fractional n 1e-6 rel vs pwr (its uniroot tolerance) | — / — | [`test_effect_size_power_ttest_parity.py`](../tests/reference_parity/test_effect_size_power_ttest_parity.py) |
 | `power_two_proportions` | base-R closed form (unpooled Wald two-proportion z-approx) | R 4.5.2 | power 1e-12 abs (observed ~2e-16) | — / — | [`test_power_parity.py`](../tests/reference_parity/test_power_parity.py) (+1) |
 | `ppmlhdfe` | fixest::fepois | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=2e-06 | 4.9e-13 / 2.2e-15 | [`37_ppmlhdfe.py`](../tests/r_parity/37_ppmlhdfe.py) (+2) |
 | `prevalence_ratio` | base-R closed form (Katz-log; = epiR::epi.2by2) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed ~2e-16) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
@@ -587,7 +589,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `unitroot` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) |
 
-## analytical-only — 344 functions
+## analytical-only — 345 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -668,6 +670,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `conformal_ite_multidp` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
 | `continuous_iv_late` | [`test_continuous_iv_late_parity.py`](../tests/reference_parity/test_continuous_iv_late_parity.py) |
 | `copula_sensitivity` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
+| `cor_test` | [`test_effect_size_power_ttest_parity.py`](../tests/reference_parity/test_effect_size_power_ttest_parity.py) |
 | `corrgram` | [`test_textbook_methods_stata_parity.py`](../tests/reference_parity/test_textbook_methods_stata_parity.py) |
 | `counterfactual_fairness` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `counterfactual_policy_optimization` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
