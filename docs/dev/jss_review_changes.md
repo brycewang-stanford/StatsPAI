@@ -1953,3 +1953,24 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-05 — call traces of modules 24, 48, 57, 63 and 64 re-recorded after the second round of the *Linear Model and Extensions* pass
+
+- **Commits.** `adcfffbb` re-recorded the entries of Track A modules 24 48 57
+  63 64 in `tests/r_parity/results/_implementation_trace.json`. The
+  source that staled them is in the same commit:
+  `src/statspai/survival/models.py` (`sp.kaplan_meier(conf_type=)`
+  deprecation of its default; Wald and score tests in `sp.cox`
+  diagnostics), `src/statspai/regression/logit_probit.py`
+  (`predict(what='confidence')`) and
+  `src/statspai/regression/zeroinflated.py` (three more diagnostics
+  keys).
+- **Reason.** Second round of the audit in
+  `docs/dev/2026-10-05-ding-linear-model-review.md`. No default on a
+  Track A path changed: `python tests/r_parity/verify_reproduce_py.py
+  --no-report` on the five modules reported 5 reproduce, 0 drift.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` differ; no implementation classification moved. No
+  estimate, standard error or table cell is read from this file.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
