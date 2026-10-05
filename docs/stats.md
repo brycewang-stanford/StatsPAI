@@ -39,22 +39,22 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 53,206 | 70 | 97 |
-| `agent` | 38,439 | 64 | 4 |
-| `synth` | 30,162 | 40 | 56 |
-| `regression` | 26,087 | 33 | 50 |
+| `did` | 53,238 | 70 | 97 |
+| `agent` | 39,729 | 67 | 4 |
+| `synth` | 30,394 | 40 | 56 |
+| `regression` | 27,433 | 36 | 54 |
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
-| `forest` | 15,886 | 17 | 31 |
+| `forest` | 15,974 | 17 | 31 |
+| `inference` | 14,497 | 29 | 53 |
 | `output` | 14,193 | 22 | 42 |
-| `inference` | 14,160 | 28 | 51 |
-| `matching` | 12,530 | 18 | 29 |
+| `matching` | 12,539 | 18 | 29 |
 | `core` | 12,111 | 20 | 6 |
-| `panel` | 11,438 | 18 | 21 |
-| `diagnostics` | 11,036 | 20 | 33 |
+| `panel` | 11,539 | 18 | 21 |
+| `diagnostics` | 11,065 | 20 | 33 |
 | `decomposition` | 9,912 | 19 | 32 |
 | `dml` | 9,394 | 24 | 16 |
-| `timeseries` | 9,246 | 18 | 30 |
+| `timeseries` | 9,286 | 18 | 30 |
 | `iv` | 8,862 | 17 | 10 |
 | `fast` | 7,871 | 16 | 0 |
 | `spatial` | 7,860 | 30 | 38 |
@@ -62,11 +62,11 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `multilevel` | 5,384 | 9 | 11 |
 | `bayes` | 5,244 | 12 | 20 |
 | `mendelian` | 5,187 | 13 | 41 |
-| `metalearners` | 5,088 | 10 | 25 |
+| `metalearners` | 5,164 | 10 | 25 |
 | `frontier` | 4,986 | 8 | 12 |
-| `utils` | 4,759 | 11 | 35 |
+| `utils` | 4,811 | 11 | 35 |
 | `workflow` | 4,512 | 5 | 3 |
-| `survival` | 4,263 | 6 | 15 |
+| `survival` | 4,304 | 6 | 15 |
 | `gmm` | 4,190 | 12 | 4 |
 | `dag` | 4,164 | 9 | 23 |
 | `qte` | 4,152 | 9 | 13 |
@@ -75,10 +75,10 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `structural` | 3,576 | 9 | 12 |
 | `network` | 3,514 | 9 | 33 |
 | `neural_causal` | 3,442 | 6 | 18 |
+| `postestimation` | 3,279 | 7 | 13 |
 | `robustness` | 3,279 | 6 | 11 |
 | `bounds` | 3,223 | 6 | 12 |
 | `bartik` | 3,183 | 6 | 9 |
-| `postestimation` | 3,182 | 7 | 13 |
 | `causal_llm` | 3,026 | 10 | 15 |
 | `rlasso` | 2,840 | 7 | 10 |
 | `crossval` | 2,809 | 7 | 2 |
@@ -92,9 +92,10 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `policy_learning` | 2,072 | 5 | 8 |
 | `proximal` | 2,052 | 8 | 13 |
 | `nonparametric` | 1,923 | 4 | 11 |
-| `experimental` | 1,809 | 5 | 11 |
+| `experimental` | 1,881 | 5 | 11 |
 | `causal_text` | 1,768 | 4 | 4 |
 | `bcf` | 1,732 | 5 | 8 |
+| `selection` | 1,677 | 4 | 6 |
 | `power` | 1,525 | 3 | 12 |
 | `fairness` | 1,489 | 3 | 9 |
 | `survey` | 1,481 | 4 | 7 |
@@ -102,7 +103,6 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `bunching` | 1,445 | 5 | 8 |
 | `bridge` | 1,345 | 8 | 2 |
 | `principal_strat` | 1,238 | 2 | 3 |
-| `selection` | 1,677 | 4 | 6 |
 | `causal_rl` | 1,092 | 5 | 12 |
 | `dtr` | 1,084 | 5 | 8 |
 | `mht` | 1,070 | 3 | 7 |
@@ -117,6 +117,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `msm` | 744 | 2 | 3 |
 | `causal_impact` | 715 | 2 | 3 |
 | `assimilation` | 706 | 3 | 4 |
+| `multivariate` | 669 | 3 | 4 |
 | `matrix_completion` | 661 | 3 | 2 |
 | `multi_treatment` | 517 | 2 | 2 |
 | `compat` | 379 | 2 | 0 |
@@ -126,7 +127,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **545,376** | **930** | **1348** |
+| **Total** | **550,433** | **940** | **1358** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

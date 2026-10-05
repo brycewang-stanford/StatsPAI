@@ -5026,6 +5026,307 @@
     }
   },
   {
+    "description": "Linear regression under linear equality constraints on the coefficients (constant returns to scale, equal slopes, a coefficient fixed at a value). method='cls' is constrained least squares and reproduces Stata cnsreg, including its robust and cluster covariances; method='emd' is the efficient minimum distance estimator, which is more precise under heteroskedasticity. model_info['constraint_test'] is the Wald test of the constraints: if it rejects, the constrained estimates are not consistent for the unconstrained coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The constraint is a hypothesis to be tested, not maintained -- fit sp.regress and use sp.test.",
+    "name": "cnsreg",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Column to cluster on",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "constraints": {
+          "description": "Linear restrictions, e.g. 'x1 + x2 = 1' or ['x1 = x2', 'x3 = 0']",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "The data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "y ~ x1 + x2",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "method": {
+          "default": "cls",
+          "description": "Constrained least squares or efficient minimum distance",
+          "enum": [
+            "cls",
+            "emd"
+          ],
+          "type": "string"
+        },
+        "vce": {
+          "default": "ols",
+          "description": "Covariance estimator ('robust' is HC1)",
+          "enum": [
+            "ols",
+            "robust",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "formula",
+        "data",
+        "constraints"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold or change point -- the estimate is usable but its normal-theory standard error is not reliable.",
+    "name": "nls",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Column to cluster on",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "The data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "'y ~ {a} + {b}*x^{c}' or f(params, data) -> fitted values",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "maxiter": {
+          "default": 1000,
+          "description": "Function evaluation limit",
+          "type": "integer"
+        },
+        "start": {
+          "description": "Starting values by parameter name (default 1 each)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tol": {
+          "default": 1e-10,
+          "description": "Convergence tolerance",
+          "type": "number"
+        },
+        "vce": {
+          "default": "ols",
+          "description": "Covariance estimator ('robust' is HC1)",
+          "enum": [
+            "ols",
+            "robust",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome column when formula is a function",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Model selection criteria and averaging weights for candidate least-squares regressions of one outcome: AIC, BIC and leave-one-out cross-validation for selection; Mallows, jackknife (cross-validation) and smoothed AIC / BIC weights for averaging. Returns averaged coefficients, fitted values and predictions, and averages any function of the candidate fits. Jackknife weights (the default) remain optimal under heteroskedasticity. No standard errors: inference after selection or averaging is not normal-based. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A confidence interval for one coefficient is the goal -- fit the model chosen in advance; intervals after selection or averaging undercover.",
+    "name": "model_average",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "The data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formulas": {
+          "description": "Candidate formulas with the same outcome; need not be nested",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "method": {
+          "default": "jma",
+          "description": "Weights used for the averaged coefficients and fit",
+          "enum": [
+            "jma",
+            "mma",
+            "aic",
+            "bic"
+          ],
+          "type": "string"
+        },
+        "names": {
+          "description": "Labels of the candidates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sigma2_model": {
+          "description": "Position of the model whose error variance enters the Mallows penalty (default: the largest)",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "formulas",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Delete-one (or delete-one-cluster) jackknife standard errors for any statistic: a function of a DataFrame that returns a number, a vector or a fitted model. Covers Stata's `jackknife (exp): command` and `vce(jackknife)` and reproduces their numbers, since nothing is random. Use it for smooth functions of estimates (ratios, predicted levels, turning points); it is not consistent for quantiles, where sp.bootstrap applies. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The statistic is a quantile or another non-smooth functional -- use sp.bootstrap; The sample is large and each evaluation is slow -- the cost is one evaluation per observation; sp.nlcom gives the delta-method answer at once. Cost: One evaluation of the statistic per observation or cluster.",
+    "name": "jackknife",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Leave out one cluster at a time",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "The estimation sample",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "mse": {
+          "default": false,
+          "description": "Centre on the full-sample statistic (Stata's mse)",
+          "type": "boolean"
+        },
+        "statistic": {
+          "description": "f(DataFrame) -> float, vector, or fitted result with .params",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "statistic"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Principal component analysis of the correlation (default) or covariance matrix: eigenvalues with shares of variance, unit-length eigenvectors, unexplained variance per variable when components are dropped, and scores for any data. Reproduces Stata pca, including the sign convention. Use the correlation matrix unless the variables share a unit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "pca",
+    "parameters": {
+      "properties": {
+        "covariance": {
+          "default": false,
+          "description": "Decompose the covariance matrix",
+          "type": "boolean"
+        },
+        "data": {
+          "description": "The data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "min_eigenvalue": {
+          "description": "Keep components with a larger eigenvalue (1 = Kaiser rule)",
+          "type": "number"
+        },
+        "n_components": {
+          "description": "Components to keep",
+          "type": "integer"
+        },
+        "variables": {
+          "description": "Columns (default: all numeric)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Exploratory factor analysis of the correlation matrix: principal factors (default), iterated principal factors, principal-component factors or maximum likelihood. Returns unrotated loadings, uniquenesses, eigenvalues, the likelihood-ratio test of independence and, for maximum likelihood, the log likelihood, AIC, BIC and the test of k factors against an unrestricted correlation matrix. Reproduces Stata factor. Loadings are identified only up to rotation; no rotation is applied. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "factor",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "The data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "maxiter": {
+          "default": 1000,
+          "description": "Iteration limit for ipf",
+          "type": "integer"
+        },
+        "method": {
+          "default": "pf",
+          "description": "Estimation method",
+          "enum": [
+            "pf",
+            "ipf",
+            "pcf",
+            "ml"
+          ],
+          "type": "string"
+        },
+        "min_eigenvalue": {
+          "description": "Keep factors with a larger eigenvalue (default 0; 1 for pcf)",
+          "type": "number"
+        },
+        "n_factors": {
+          "description": "Factors to keep (required for ml)",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-08,
+          "description": "Convergence for ipf",
+          "type": "number"
+        },
+        "variables": {
+          "description": "Columns (default: all numeric)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Lag-order selection for a VAR: log likelihood, sequential likelihood-ratio test, FPE, AIC, HQIC and SBIC for orders 0..maxlag, all fitted on the same observations (Stata varsoc). attrs['selected'] gives the order each criterion picks. SBIC and HQIC are consistent; AIC and FPE tend to pick longer lags. Check the residuals of the chosen model with sp.estat(fit, 'varlmar'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "varsoc",
     "parameters": {
@@ -5039,6 +5340,14 @@
           "description": "Series in time order",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "exog": {
+          "description": "Exogenous variables in every equation at every lag order (Stata varsoc ..., exog())",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
         },
         "maxlag": {
           "default": 4,
@@ -40937,6 +41246,14 @@
           "description": "Time series data.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "exog": {
+          "description": "Exogenous variables that enter every equation contemporaneously (Stata's ``var ..., exog()``): a quadratic trend, seasonal dummies, a policy indicator. Their coefficients are listed after the lags. Impulse responses are unaffected by them; ``forecast`` would need their future values and is refused.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
         },
         "lags": {
           "default": 1,

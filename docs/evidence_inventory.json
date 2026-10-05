@@ -6736,7 +6736,7 @@
   "translation_holdout": [
     {
       "file": "tests/stata_translation_holdout/corpus.json",
-      "sha256": "9ea252d8fcdafdbb44dfc620af211cc739dee1725faf037bc00464b0fc710174"
+      "sha256": "7b7c3f6704a5fceb3c1cd1d295a463231a238cb42a4fed5da0f66c87523e9600"
     },
     {
       "file": "tests/stata_translation_holdout/holdout_Stata.json",

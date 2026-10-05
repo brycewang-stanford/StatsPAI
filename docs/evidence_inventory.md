@@ -464,7 +464,7 @@ A frozen corpus of 39 Stata commands and the numbers Stata 18 MP gives for the 3
 
 | File | SHA-256 (first 16) |
 | --- | --- |
-| `tests/stata_translation_holdout/corpus.json` | `9ea252d8fcdafdbb` |
+| `tests/stata_translation_holdout/corpus.json` | `7b7c3f6704a5fceb` |
 | `tests/stata_translation_holdout/holdout_Stata.json` | `d7b73504feee42a6` |
 | `tests/stata_translation_holdout/holdout_cross.csv` | `5eca4a3640048a41` |
 | `tests/stata_translation_holdout/holdout_panel.csv` | `f5f2b30439c32471` |

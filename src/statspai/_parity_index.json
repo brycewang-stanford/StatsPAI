@@ -2679,8 +2679,8 @@
       "function": "clogit",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 1.3052881476941806e-08,
-        "rel_vs_Stata": 1.3171898759677157e-08,
+        "rel_vs_R": 2.0350457790237036e-13,
+        "rel_vs_Stata": 1.1881377660390674e-10,
         "statistic": [
           "beta_x"
         ],
@@ -2692,8 +2692,8 @@
       "module_id": "46_clogit",
       "notes": [],
       "point_estimate_rel": {
-        "R": 1.3052881476941806e-08,
-        "Stata": 1.3171898759677157e-08
+        "R": 2.0350457790237036e-13,
+        "Stata": 1.1881377660390674e-10
       },
       "python_call": "sp.clogit",
       "reference": "survival::clogit",
@@ -2702,8 +2702,8 @@
         "survival": "3.8.3"
       },
       "se_rel": {
-        "R": 2.676653326706952e-09,
-        "Stata": 2.735764823259137e-09
+        "R": 1.0094317974802058e-13,
+        "Stata": 5.90105532142105e-11
       },
       "sides": [
         "py",
@@ -2936,6 +2936,23 @@
         "tests/reference_parity/test_cmtest_micsr_parity.py"
       ],
       "tolerance": "Tobit: normality, heteroskedasticity, skewness and kurtosis statistics, Hessian form and outer-product form, at 1e-9 (observed 4e-11 to 4e-16). Probit: 1e-6 (observed 8e-7 and 4e-8); micsr::binomreg stops 1e-8 short of the probit optimum and the statistic inherits it, the coefficients of both sides are compared in the same test."
+    },
+    {
+      "function": "cnsreg",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -5737,6 +5754,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_didregress_stata.py",
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
@@ -6192,6 +6210,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_fairness_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "factor",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -8696,6 +8731,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"
       ],
       "also_verified_by": [
@@ -8760,6 +8796,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_facure_causal_inference_in_python.py",
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
         "tests/reference_parity/test_hdfe_iv_paths_agree.py",
         "tests/reference_parity/test_iv_card_aer_parity.py",
@@ -9080,6 +9117,23 @@
         "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py"
       ],
       "tolerance": "Every block at 1e-6. Observed: Newey two-step 4e-13 to 1e-11 (left-censored, two-limit, two endogenous regressors); maximum likelihood coefficients 8e-14 or better and standard errors 8e-8 or better under vce(oim), vce(robust) and vce(cluster), log-likelihood to 1e-8; both Wald statistics at the same level. Stata's ml stopping rule is tightened in the do-file (see ivprobit)."
+    },
+    {
+      "function": "jackknife",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -11624,6 +11678,23 @@
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
     },
     {
+      "function": "model_average",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_ml_causal_recovery_parity.py"
       ],
@@ -12805,6 +12876,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "tolerance": ""
@@ -12833,6 +12905,23 @@
         "tests/reference_parity/test_nlogit_parity.py"
       ],
       "tolerance": "Stata, every block at 1e-6: coefficients 1e-10, standard errors 4e-8 under vce(oim) and 8e-8 under vce(robust) and vce(cluster), log-likelihood 1e-11, LR test of IIA 1e-12. R: coefficients at 1e-6 and log-likelihoods at 1e-8 with separate dissimilarity parameters, a common one, and no constants."
+    },
+    {
+      "function": "nls",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "nonlinear_icp",
@@ -13400,6 +13489,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_hausman_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py",
@@ -13714,6 +13804,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_causal_discovery_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "pca",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -16500,6 +16607,7 @@
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_difference_in_means_estimatr.py",
         "tests/reference_parity/test_feols_bias_reduced_parity.py",
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_hdfe_ols_se_menu_parity.py",
         "tests/reference_parity/test_imputation_parity.py",
         "tests/reference_parity/test_inference_sens_R_parity.py",
@@ -18817,6 +18925,7 @@
       "test": [
         "tests/reference_parity/test_bitest_stata_parity.py",
         "tests/reference_parity/test_didregress_stata.py",
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_iv_gmm_stata_parity.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
@@ -20576,6 +20685,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
@@ -20619,6 +20729,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_timeseries_R_parity.py",
@@ -20721,6 +20832,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
       "tolerance": ""
