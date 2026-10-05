@@ -25,6 +25,46 @@ _FORMULA_FUNCTIONS: Dict[str, Any] = {
 }
 
 
+def r_power_in_identity(formula: str) -> str:
+    """Read ``^`` inside ``I(...)`` as a power, the way R does.
+
+    ``I(exper^2)`` is how R (and anyone coming from it) writes a squared
+    term. patsy hands the inside of ``I()`` to Python, where ``^`` is
+    bitwise XOR, so the term used to fail with a message about ``xor`` on a
+    float array. Inside ``I()`` the caret has no formula meaning, and XOR of
+    two regressors is not something a regression formula asks for, so it is
+    rewritten to ``**``. Outside ``I()`` the caret keeps patsy's meaning
+    (``(a + b)^2`` expands interactions) and is left alone.
+    """
+    if "^" not in formula or "I(" not in formula:
+        return formula
+    out: List[str] = []
+    i, n = 0, len(formula)
+    while i < n:
+        ch = formula[i]
+        starts = (
+            ch == "I"
+            and formula.startswith("I(", i)
+            and (i == 0 or not (formula[i - 1].isalnum() or formula[i - 1] in "_."))
+        )
+        if not starts:
+            out.append(ch)
+            i += 1
+            continue
+        depth, j = 0, i + 1
+        while j < n:
+            if formula[j] == "(":
+                depth += 1
+            elif formula[j] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        out.append(formula[i : j + 1].replace("^", "**"))
+        i = j + 1
+    return "".join(out)
+
+
 def formula_eval_env() -> Any:
     """The namespace in which every StatsPAI formula is evaluated."""
     from patsy import EvalEnvironment
@@ -46,7 +86,7 @@ def evaluate_formula_expression(expr: str, data: pd.DataFrame) -> pd.Series:
     frame = _coerce_string_extension_dtypes(data)
     try:
         design = dmatrix(
-            "0 + " + expr,
+            "0 + " + r_power_in_identity(expr),
             frame,
             eval_env=formula_eval_env(),
             return_type="dataframe",
@@ -363,6 +403,7 @@ def create_design_matrices(
     Tuple[pd.DataFrame, pd.DataFrame]
         (y, X) matrices
     """
+    formula = r_power_in_identity(formula)
     fast = _try_simple_numeric_design_matrices(formula, data, return_type)
     if fast is not None:
         return fast

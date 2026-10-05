@@ -1054,6 +1054,14 @@ TIER3_ROUND_TRIPS = [
         "qreg",
         {"formula": "y ~ x1 + x2", "quantile": 0.25},
     ),
+    # GEE — xtgee's defaults (exchangeable, model-based covariance, N as
+    # the divisor) are written into the call
+    (
+        "xtgee y x1 x2, i(id) corr(ar 1) vce(robust) nmp",
+        "gee",
+        {"formula": "y ~ x1 + x2", "id": "id", "corstr": "ar1", "vce": "robust"},
+    ),
+    ("boxcox y x1 x2", "boxcox", {"formula": "y ~ x1 + x2"}),
     # Poisson HDFE — absorb is a "+"-joined string (sp.ppmlhdfe's real arg)
     (
         "ppmlhdfe trade gravity, absorb(orig dest year) cluster(orig)",

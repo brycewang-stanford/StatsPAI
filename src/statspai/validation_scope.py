@@ -532,6 +532,7 @@ _REG_VCE = (
     "hc1",
     "hc2",
     "hc3",
+    "hc4",
     "cr1",
     "cr2",
     "cr3",
@@ -607,6 +608,15 @@ _add(
                 _EST_SE,
                 "HC2 / HC3 SEs vs sandwich::vcovHC",
                 "sp.regress(robust='hc2'|'hc3')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_linear_model_extensions_parity.py",
+                {"vce": _vals("hc4"), "weights": _vals("none", "set")},
+                _EST_SE,
+                "HC4 SEs vs sandwich::vcovHC(type = 'HC4'), unweighted and "
+                "weighted, to 1e-9",
+                "sp.regress(F_ALL, df, robust=...)",
             ),
             _Row(
                 "T2",

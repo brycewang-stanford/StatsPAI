@@ -189,16 +189,31 @@ def _detect_perfect_collinearity(X: np.ndarray, var_names: List[str]) -> None:
     names = list(var_names) if var_names is not None else [f"x{i}" for i in range(k)]
 
     # 1) Zero-variance non-intercept regressor: no identifying variation, and
-    #    collinear with the intercept when one is present.
+    #    collinear with the intercept when one is present. Without an
+    #    intercept (``y ~ 0 + ...``) one constant column is the intercept in
+    #    all but name and is identified; a second one, or a column of zeros,
+    #    is not.
+    has_intercept = "Intercept" in names
+    stand_in: Optional[int] = None
     for j in range(k):
         if names[j] == "Intercept":
             continue
         col = X[:, j]
         if np.ptp(col) <= 1e-12 * max(1.0, float(np.max(np.abs(col)))):
+            if not has_intercept and stand_in is None and float(col[0]) != 0.0:
+                stand_in = j
+                continue
+            other = (
+                "the intercept"
+                if has_intercept
+                else (
+                    f"'{names[stand_in]}'" if stand_in is not None else "a zero column"
+                )
+            )
             raise NumericalInstability(
                 f"Regressor '{names[j]}' is constant (no variation); its "
                 f"coefficient is not identified — perfectly collinear with "
-                f"the intercept.",
+                f"{other}.",
                 recovery_hint=(
                     f"Drop '{names[j]}', or remove the intercept if it is the "
                     f"only regressor."
@@ -212,8 +227,14 @@ def _detect_perfect_collinearity(X: np.ndarray, var_names: List[str]) -> None:
     #    Keep this path lean: ``np.corrcoef`` is convenient but expensive on
     #    the hot ``sp.regress`` path, so compute only the small k x k Gram
     #    matrix needed for this structural check.
+    #    A correlation of one means ``x_j = a + b x_i``, which is a linear
+    #    dependence only when the constant is in the model. Through the
+    #    origin (``t ~ 0 + x + I(1 - x)``, Goodman's ecological regression)
+    #    the two columns span a plane, so the test there is proportionality:
+    #    the uncentred cosine.
+    through_origin = not has_intercept and stand_in is None
     if k >= 2 and n >= 3:
-        centered = np.asfortranarray(X - X.mean(axis=0))
+        centered = np.asfortranarray(X if through_origin else X - X.mean(axis=0))
         norms = np.sqrt(np.sum(centered * centered, axis=0))
         # The first collinear pair in (i, j) order, found from the Gram
         # matrix one block of columns at a time: with thousands of dummy
@@ -238,7 +259,8 @@ def _detect_perfect_collinearity(X: np.ndarray, var_names: List[str]) -> None:
             i, j, c = first
             raise NumericalInstability(
                 f"Regressors '{names[i]}' and '{names[j]}' are "
-                f"perfectly collinear (|correlation| = {abs(c):.10f}); "
+                f"perfectly collinear (|{'cosine' if through_origin else 'correlation'}"
+                f"| = {abs(c):.10f}); "
                 f"the design matrix is rank-deficient and their "
                 f"coefficients are not separately identified.",
                 recovery_hint=(f"Drop one of '{names[i]}' or '{names[j]}'."),
@@ -705,6 +727,8 @@ class OLSEstimator(BaseEstimator):
             var_cov = sigma2 * XtX_inv
         elif robust_key in ["hc0", "hc1", "hc2", "hc3"]:
             var_cov = _fast_sandwich_hc(X, residuals, XtX_inv, robust_key)
+        elif robust_key == "hc4":
+            var_cov = self._robust_cov_matrix(X, residuals, XtX_inv, "hc4")
         elif robust_key == "hac":
             lags = kwargs.get("lags", None)
             if lags is not None and lags >= n:
@@ -861,6 +885,15 @@ class OLSEstimator(BaseEstimator):
             # Davidson and MacKinnon (1993)
             h = np.einsum("ij,jk,ik->i", X, XtX_inv, X)
             weights = residuals**2 / (1 - h) ** 2
+        elif robust_type == "hc4":
+            # Cribari-Neto (2004) [@cribari2004asymptotic]: the exponent grows with the leverage of
+            # the observation relative to the average leverage k / n, capped
+            # at 4, so high-leverage points are discounted harder than HC3.
+            h = np.einsum("ij,jk,ik->i", X, XtX_inv, X)
+            delta = np.minimum(4.0, n * h / k)
+            weights = residuals**2 / (1 - h) ** delta
+        else:
+            raise ValueError(f"Unknown robust type: {robust_type}")
 
         # Sandwich estimator
         meat = (X * (weights)[:, None]).T @ X
@@ -1444,8 +1477,9 @@ class OLSRegression(BaseModel):
                         return_type="dataframe",
                     )[0]
                 else:
-                    rhs = self.formula.split("~", 1)[1].strip()
-                    from ..core.utils import formula_eval_env
+                    from ..core.utils import formula_eval_env, r_power_in_identity
+
+                    rhs = r_power_in_identity(self.formula.split("~", 1)[1].strip())
 
                     X_df = dmatrix(
                         rhs,
@@ -1612,7 +1646,7 @@ def regress(
     data : pd.DataFrame
         Data containing variables
     robust : str, default 'nonrobust'
-        Type of standard errors ('nonrobust', 'hc0'–'hc3', 'hac', 'ewc';
+        Type of standard errors ('nonrobust', 'hc0'–'hc4', 'hac', 'ewc';
         case-insensitive). ``'hac'`` is Newey-West with normal critical
         values. ``'ewc'`` is the equal-weighted cosine estimator of
         Lazarus, Lewis, Stock and Watson (2018), with t and F critical
@@ -1740,6 +1774,7 @@ def regress(
                 "hc1",
                 "hc2",
                 "hc3",
+                "hc4",
                 "hac",
                 "ewc",
                 "cluster",

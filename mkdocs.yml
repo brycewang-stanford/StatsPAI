@@ -122,6 +122,7 @@ nav:
       - "Design-Based Econometrics (Zhao, 2nd edition): the Stata do-files, chapter by chapter": guides/design_based_econometrics.md
       - "Ding, A First Course in Causal Inference: every chapter's estimator as one call": guides/ding_first_course.md
       - "Facure, Causal Inference in Python: the notebooks, chapter by chapter": guides/facure_causal_inference_in_python.md
+      - "Ding, Linear Model and Extensions: the R programs, chapter by chapter": guides/ding_linear_model.md
       - "Applied Causal Inference Powered by ML and AI: the notebooks, chapter by chapter": guides/applied_causal_ml.md
       - "Causal Inference in R: the propensity-score workflow, step by step": guides/causal_inference_in_r.md
       - "Mixtape replication suite — overview": guides/mixtape_replications.md

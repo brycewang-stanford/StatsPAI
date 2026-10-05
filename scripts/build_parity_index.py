@@ -125,6 +125,99 @@ _FACTOR_NOTES: Dict[str, Tuple[str, ...]] = {
 # tests/reference_parity/REFERENCES.md (the "Frozen R-value fixtures" table)
 # and the asserting test — no model-memory facts (CLAUDE.md §10).
 _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
+    # ---- linear-model extensions (Ding, Linear Model and Extensions) ----
+    #
+    # One synthetic file, two frozen references: R (gee, MASS, leaps) in
+    # linear_model_extensions_R.json and Stata 18 (xtgee, boxcox) in
+    # linear_model_extensions_Stata.csv. Tolerances are the EXACT (1e-9)
+    # and ITER (1e-6) constants of the asserting test.
+    "gee": {
+        "status": "bit-exact",
+        "reference": "gee::gee (independence, exchangeable); Stata 18 xtgee "
+        "(independent, exchangeable, ar 1; with and without nmp)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "gee": "4.13.30",
+            "Stata": "18",
+        },
+        "tolerance": "vs gee 1e-9 rel on coefficients, naive and robust SE, "
+        "scale and alpha; vs xtgee 1e-6 rel (its convergence tolerance)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_linear_model_extensions_parity.py",
+            "tests/reference_parity/_fixtures/linear_model_extensions_R.json",
+            "tests/reference_parity/_fixtures/linear_model_extensions_Stata.csv",
+        ],
+        "note": (
+            "Frozen fixtures on a committed synthetic panel (60 clusters of 4 "
+            "to 12 rows), Gaussian, binomial and Poisson margins. xtgee, "
+            "vce(robust) is the same sandwich times G/(G-1), and the test "
+            "applies that factor. R gee's AR-M working correlation is not "
+            "reproduced; AR(1) is evidenced by Stata only."
+        ),
+    },
+    "ridge": {
+        "status": "bit-exact",
+        "reference": "MASS::lm.ridge",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "MASS": "7.3.65",
+        },
+        "tolerance": "coefficients, GCV, kHKB and kLW 1e-9 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_linear_model_extensions_parity.py",
+            "tests/reference_parity/_fixtures/linear_model_extensions_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: five penalties on the committed synthetic "
+            "file; the same scaling (root-mean-square, divisor n) and GCV "
+            "score as lm.ridge."
+        ),
+    },
+    "boxcox": {
+        "status": "bit-exact",
+        "reference": "MASS::boxcox (profile); Stata 18 boxcox, model(lhsonly)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "MASS": "7.3.65",
+            "Stata": "18",
+        },
+        "tolerance": "profile log likelihood equal to MASS up to a constant "
+        "(spread < 1e-9); lambda 1e-7 abs, log likelihoods 1e-8 rel and LR "
+        "statistics 1e-4 rel vs Stata",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_linear_model_extensions_parity.py",
+            "tests/reference_parity/_fixtures/linear_model_extensions_R.json",
+            "tests/reference_parity/_fixtures/linear_model_extensions_Stata.csv",
+        ],
+        "note": (
+            "Frozen fixtures: MASS drops the constants of the log "
+            "likelihood, so the profile is compared up to a shift; Stata "
+            "reports the full value, which is matched."
+        ),
+    },
+    "best_subset": {
+        "status": "bit-exact",
+        "reference": "leaps::regsubsets(method = 'exhaustive')",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "leaps": "3.2",
+        },
+        "tolerance": "RSS and adjusted R2 of the best model of each size 1e-9 "
+        "rel; Cp 1e-8 abs; the same variables at every size",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_linear_model_extensions_parity.py",
+            "tests/reference_parity/_fixtures/linear_model_extensions_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: seven candidates on the committed synthetic "
+            "file. The search is also checked against brute-force "
+            "enumeration with a forced regressor."
+        ),
+    },
     # ---- RD local randomization / power / multi-cutoff / honest CIs ----
     #
     # These six were graded `analytical-only` -- the grade whose published

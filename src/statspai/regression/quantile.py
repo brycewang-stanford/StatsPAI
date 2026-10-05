@@ -94,6 +94,7 @@ def qreg(
     vce: Optional[str] = None,
     cluster: Optional[str] = None,
     kernel_scale: str = "mad",
+    weights: Optional[object] = None,
 ) -> CausalResult:
     """
     Quantile regression at a single quantile.
@@ -114,7 +115,7 @@ def qreg(
     alpha : float, default 0.05
         Also sets the Hall-Sheather bandwidth's ``z_{1-alpha/2}``, as
         Stata's ``level()`` does.
-    vce : {None, 'iid', 'robust', 'nid', 'powell'}, optional
+    vce : {None, 'iid', 'robust', 'nid', 'kernel', 'ker', 'cluster', 'powell'}, optional
         Standard errors (all use the Hall-Sheather bandwidth ``h`` and the
         quantile fits at ``tau +/- h``):
 
@@ -144,6 +145,11 @@ def qreg(
           implementation and the reference (full covariance matrix within
           1e-13 at four quantiles).
 
+        * ``'ker'`` -- R ``quantreg::summary.rq(se="ker")``: Powell's
+          sandwich with a Gaussian kernel, ``H = (sum f_i x_i x_i')^{-1}``,
+          ``f_i = phi(u_i / c) / c`` and ``c = [Phi^-1(tau + h) -
+          Phi^-1(tau - h)] min(sd(u), IQR(u) / 1.34)``.
+
         Every choice reports t(N - k) p-values and intervals, as Stata
         ``qreg`` / ``qreg2`` and R ``quantreg::summary.rq`` do (normal
         before 1.32).
@@ -154,6 +160,17 @@ def qreg(
         The ``kappa`` of the ``'kernel'`` / ``'cluster'`` bandwidth: the
         median absolute deviation of the residuals (``qreg2`` default) or
         Silverman's ``min(sd, IQR/1.34)`` (``qreg2, silverman``).
+
+    weights : str or array-like, optional
+        Sampling weights: the fit minimises ``sum w_i rho_tau(y_i -
+        x_i'b)``. The covariance follows ``quantreg``: every formula above
+        is applied to the rescaled data ``(w_i y_i, w_i x_i)``, which for
+        the sandwich kinds is the weighted bread ``sum w_i f_i x_i x_i'``
+        around the meat ``sum w_i^2 x_i x_i'``. With weights and no
+        ``vce``, the default is ``'robust'`` rather than ``'iid'``: an iid
+        sparsity has no meaning for a weighted sample (Stata ``qreg``
+        switches to ``vce(robust)`` under ``pweight`` for the same reason).
+        Weights must be positive; rows with a missing weight are dropped.
 
     Returns
     -------
@@ -204,6 +221,8 @@ def qreg(
         raise MethodIncompatibility("Provide either formula or (y, x)")
 
     kind, cluster = _parse_qreg_vce(vce, cluster)
+    if weights is not None and vce is None and cluster is None:
+        kind = "robust"
     if kernel_scale not in ("mad", "silverman"):
         raise MethodIncompatibility(
             f"qreg: kernel_scale must be 'mad' or 'silverman'; got "
@@ -217,7 +236,25 @@ def qreg(
             f"qreg: columns not found in data: {missing_cols}",
             diagnostics={"missing": missing_cols},
         )
-    df = data[list(dict.fromkeys(cols))].dropna()
+    df = data[list(dict.fromkeys(cols))]
+    w_obs: Optional[np.ndarray] = None
+    if weights is not None:
+        if isinstance(weights, str):
+            if weights not in data:
+                raise MethodIncompatibility(
+                    f"qreg: weights column {weights!r} not found in data.",
+                    diagnostics={"weights": weights},
+                )
+            w_all = data[weights].to_numpy(dtype=float)
+        else:
+            w_all = np.asarray(weights, dtype=float).ravel()
+            if w_all.shape[0] != len(data):
+                raise MethodIncompatibility(
+                    f"qreg: weights has {w_all.shape[0]} entries for "
+                    f"{len(data)} rows.",
+                )
+        df = df.assign(**{"__qreg_w__": w_all})
+    df = df.dropna()
     if len(df) == 0:
         raise MethodIncompatibility(
             "qreg: no complete rows after dropping missing values.",
@@ -227,6 +264,17 @@ def qreg(
     X = np.column_stack(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in x_names]
     )
+    if weights is not None:
+        w_obs = df["__qreg_w__"].to_numpy(dtype=float)
+        if not np.all(np.isfinite(w_obs)) or np.any(w_obs <= 0):
+            raise MethodIncompatibility(
+                "qreg: weights must be finite and strictly positive.",
+                recovery_hint="Drop the rows with a zero or negative weight.",
+            )
+        # quantreg's rq.wfit: the weighted check loss is the unweighted
+        # one on (w y, w x), and summary.rq works on the same rescaling
+        Y = Y * w_obs
+        X = X * w_obs[:, None]
     n, k = X.shape
     var_names = ["const"] + x_names
 
@@ -238,6 +286,9 @@ def qreg(
     if kind == "powell":
         se = _qreg_se(Y, X, beta, resid, quantile)
         bandwidth = None
+    elif kind == "ker":
+        vcov, bandwidth = _quantreg_ker_vcov(X, resid, quantile)
+        se = _as_float_array(np.sqrt(np.maximum(np.diag(vcov), 0.0)))
     elif kind in ("kernel", "cluster"):
         groups = pd.factorize(df[cluster])[0] if kind == "cluster" else np.arange(n)
         n_clusters = int(groups.max()) + 1
@@ -284,7 +335,8 @@ def qreg(
 
     model_info = {
         "quantile": quantile,
-        "pseudo_r2": _pseudo_r2(Y, resid, quantile),
+        "pseudo_r2": _pseudo_r2(Y, resid, quantile, w_obs),
+        "weighted": w_obs is not None,
         "n_obs": n,
         "vce": kind,
         "bandwidth": bandwidth,
@@ -511,7 +563,7 @@ def _qreg_irls(
     return _as_float_array(beta)
 
 
-_QREG_KINDS = ("iid", "robust", "nid", "powell", "kernel", "cluster")
+_QREG_KINDS = ("iid", "robust", "nid", "powell", "kernel", "ker", "cluster")
 
 
 def _parse_qreg_vce(
@@ -622,6 +674,33 @@ def _pss_vcov(
     return (V + V.T) / 2, c
 
 
+def _quantreg_ker_vcov(
+    X: np.ndarray, resid: np.ndarray, tau: float
+) -> Tuple[np.ndarray, float]:
+    """Powell's kernel sandwich as ``quantreg::summary.rq(se="ker")``.
+
+    Gaussian kernel; bandwidth ``c = [Phi^-1(tau + h) - Phi^-1(tau - h)]
+    min(sd(u), IQR(u) / 1.34)`` with Hall-Sheather ``h`` at the 95% level
+    and R's default (type 7) quartiles. Returns ``(V, c)``.
+    """
+    n = X.shape[0]
+    h = _hall_sheather(n, tau, 0.05)
+    if tau + h > 1 or tau - h < 0:
+        raise MethodIncompatibility(
+            f"qreg: the bandwidth h={h:.4g} puts tau +/- h outside (0, 1); "
+            "too few observations for this quantile.",
+            diagnostics={"tau": tau, "bandwidth": h, "n": n},
+        )
+    q75, q25 = np.quantile(resid, [0.75, 0.25])
+    c = float(stats.norm.ppf(tau + h) - stats.norm.ppf(tau - h)) * min(
+        float(np.std(resid, ddof=1)), float(q75 - q25) / 1.34
+    )
+    f = stats.norm.pdf(resid / c) / c
+    H = np.linalg.inv((X * f[:, None]).T @ X)
+    V = tau * (1 - tau) * H @ (X.T @ X) @ H
+    return (V + V.T) / 2, c
+
+
 def _hall_sheather(n: int, tau: float, alpha: float) -> float:
     """Hall-Sheather (1988) bandwidth, as Stata qreg and quantreg use it."""
     x0 = stats.norm.ppf(tau)
@@ -707,13 +786,29 @@ def _qreg_se(
     return _as_float_array(np.sqrt(np.maximum(np.diag(vcov), 1e-20)))
 
 
-def _pseudo_r2(Y: np.ndarray, resid: np.ndarray, tau: float) -> float:
-    """Koenker-Machado (1999) pseudo R² for quantile regression."""
+def _pseudo_r2(
+    Y: np.ndarray,
+    resid: np.ndarray,
+    tau: float,
+    w: Optional[np.ndarray] = None,
+) -> float:
+    """Koenker-Machado (1999) pseudo R² for quantile regression.
+
+    With weights, ``Y`` and ``resid`` arrive already multiplied by ``w``;
+    the null model is the weighted ``tau`` quantile of the outcome.
+    """
 
     def rho(u: np.ndarray) -> np.ndarray:
         return _as_float_array(u * (tau - (u < 0)))
 
     obj_full = np.sum(rho(resid))
+    if w is not None:
+        y = Y / w
+        order = np.argsort(y)
+        cum = np.cumsum(w[order]) / np.sum(w)
+        q = y[order][min(int(np.searchsorted(cum, tau)), len(y) - 1)]
+        obj_null = np.sum(w * rho(y - q))
+        return float(1 - obj_full / obj_null) if obj_null > 0 else 0.0
     obj_null = np.sum(rho(Y - np.quantile(Y, tau)))
     return float(1 - obj_full / obj_null) if obj_null > 0 else 0.0
 

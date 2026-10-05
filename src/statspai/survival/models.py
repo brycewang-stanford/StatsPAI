@@ -392,7 +392,9 @@ class KMResult(ResultProtocolMixin):
 # ===================================================================
 
 
-def _km_table(durations: Any, events: Any, alpha: float = 0.05) -> pd.DataFrame:
+def _km_table(
+    durations: Any, events: Any, alpha: float = 0.05, conf_type: str = "plain"
+) -> pd.DataFrame:
     """Build a KM life table from raw duration/event arrays."""
     durations = np.asarray(durations, dtype=float)
     events = np.asarray(events, dtype=float)
@@ -416,8 +418,21 @@ def _km_table(durations: Any, events: Any, alpha: float = 0.05) -> pd.DataFrame:
                 var_sum += n_event / (n_risk * (n_risk - n_event))
 
         se = survival * np.sqrt(var_sum) if var_sum >= 0 else 0.0
-        ci_lo = max(0.0, survival - z * se)
-        ci_hi = min(1.0, survival + z * se)
+        if conf_type == "plain" or var_sum <= 0 or not 0.0 < survival < 1.0:
+            ci_lo = max(0.0, survival - z * se)
+            ci_hi = min(1.0, survival + z * se)
+            if conf_type != "plain" and survival <= 0.0:
+                ci_lo = ci_hi = np.nan  # undefined on the log scales
+        elif conf_type == "log":
+            # symmetric for log S(t): R survival::survfit's default
+            half = z * np.sqrt(var_sum)
+            ci_lo = survival * np.exp(-half)
+            ci_hi = min(1.0, survival * np.exp(half))
+        else:
+            # symmetric for log(-log S(t)): Stata sts list's default
+            half = z * np.sqrt(var_sum) / abs(np.log(survival))
+            ci_lo = survival ** np.exp(half)
+            ci_hi = survival ** np.exp(-half)
 
         rows.append(
             {
@@ -457,6 +472,7 @@ def kaplan_meier(
     event: str,
     group: Optional[str] = None,
     alpha: float = 0.05,
+    conf_type: str = "plain",
 ) -> KMResult:
     """
     Kaplan-Meier non-parametric survival function estimator.
@@ -473,6 +489,14 @@ def kaplan_meier(
         Column name for group variable (stratification).
     alpha : float
         Significance level for confidence intervals (Greenwood formula).
+    conf_type : {"plain", "log", "log-log"}, default "plain"
+        Scale on which the interval is symmetric. ``"plain"`` is ``S(t)
+        +/- z se`` truncated to [0, 1]; ``"log"`` is symmetric for ``log
+        S(t)`` (the default of R ``survival::survfit``); ``"log-log"`` for
+        ``log(-log S(t))`` (the default of Stata ``sts list``), which
+        always stays inside (0, 1) and has the best coverage in the
+        tails. The estimate and its standard error are the same under all
+        three.
 
     Returns
     -------
@@ -496,15 +520,24 @@ def kaplan_meier(
     >>> bool(isinstance(km.median_survival, float))
     True
     """
+    conf_type = str(conf_type).lower().replace("loglog", "log-log")
+    if conf_type not in ("plain", "log", "log-log"):
+        raise ValueError(
+            f"conf_type must be 'plain', 'log' or 'log-log', got {conf_type!r}"
+        )
     data = data.dropna(subset=[duration, event])
 
     if group is None:
-        tables = {"all": _km_table(data[duration].values, data[event].values, alpha)}
+        tables = {
+            "all": _km_table(
+                data[duration].values, data[event].values, alpha, conf_type
+            )
+        }
     else:
         tables = {}
         for g_val, gdf in data.groupby(group):
             tables[str(g_val)] = _km_table(
-                gdf[duration].values, gdf[event].values, alpha
+                gdf[duration].values, gdf[event].values, alpha, conf_type
             )
 
     _result = KMResult(tables, alpha=alpha)
@@ -756,13 +789,29 @@ def _cox_score_individual(
     T: np.ndarray,
     E: np.ndarray,
     strata_arr: Optional[np.ndarray] = None,
+    breslow: bool = False,
 ) -> np.ndarray:
-    """Per-observation score contributions (for sandwich variance).
+    """Per-observation score residuals, the ingredients of the sandwich.
 
-    Uses the counting-process decomposition: for each subject i,
-    U_i = delta_i * (x_i - xbar_i) - sum over risk sets of
-    [exp(x_i'b) / S0(t)] * (x_i - xbar(t)) * dN(t)
-    where the sum is over all event times t <= T_i.
+    Counting-process decomposition of the partial-likelihood score: at an
+    event time ``t`` with ``d`` tied deaths, risk set ``R`` and risk scores
+    ``r_k = exp(x_k'b)``, the Efron likelihood has ``d`` terms, the
+    ``l``-th with the deaths down-weighted by ``1 - l/d``::
+
+        S0_l = sum_R r_k - (l/d) sum_D r_k,    xbar_l = S1_l / S0_l
+
+    A subject at risk contributes ``- r_k w_kl (x_k - xbar_l) / S0_l`` to
+    each term, with ``w_kl = 1 - l/d`` for a death at ``t`` and 1
+    otherwise; a death adds ``(x_k - xbar_l) / d``. The residuals sum to
+    the score, which is zero at the estimate, and are the rows whose
+    outer products the robust variance of Lin and Wei [@lin1989robust]
+    sums, as R ``survival::coxph(robust = TRUE)`` computes it. ``breslow``
+    drops the down-weighting (one term, counted ``d`` times).
+
+    Before 1.39 the Breslow residuals were used under either tie rule, so
+    the robust and clustered standard errors of the default
+    ``ties='efron'`` fit were off wherever event times were tied (2% on
+    daily relapse data); with no ties the two coincide.
     """
     n, p = X.shape
     xb = X @ beta
@@ -771,113 +820,31 @@ def _cox_score_individual(
     if strata_arr is None:
         strata_arr = np.zeros(n, dtype=int)
 
-    for s in np.unique(strata_arr):
-        mask = strata_arr == s
-        idx_s = np.where(mask)[0]
-        Ts = T[mask]
-        Es = E[mask]
-        xbs = xb[mask]
-        Xs = X[mask]
-        event_times = np.sort(np.unique(Ts[Es == 1]))
+    for s in pd.unique(strata_arr):
+        idx_s = np.where(strata_arr == s)[0]
+        Ts = T[idx_s]
+        Es = E[idx_s]
+        rs = np.exp(xb[idx_s])
+        Xs = X[idx_s]
 
-        for t in event_times:
-            at_risk = Ts >= t
-            events_at_t = (Ts == t) & (Es == 1)
-            d = int(events_at_t.sum())
-            if d == 0:
-                continue
-
-            w_r = np.exp(xbs[at_risk])
-            S0 = w_r.sum()
-            S1 = (Xs[at_risk] * w_r[:, None]).sum(axis=0)
-
-            w_d = np.exp(xbs[events_at_t])
-            D0 = w_d.sum()
-            D1 = (Xs[events_at_t] * w_d[:, None]).sum(axis=0)
-
-            # Event subjects get +x_i
-            ev_local = np.where(events_at_t)[0]
-            for loc in ev_local:
-                scores[idx_s[loc]] += Xs[loc]
-
-            # Efron correction: for each tie ell in 0..d-1
+        for t in np.unique(Ts[Es == 1]):
+            at_risk = np.where(Ts >= t)[0]
+            dead = np.where((Ts == t) & (Es == 1))[0]
+            d = len(dead)
+            r_risk = rs[at_risk]
+            X_risk = Xs[at_risk]
+            S0 = r_risk.sum()
+            S1 = X_risk.T @ r_risk
+            D0 = rs[dead].sum()
+            D1 = Xs[dead].T @ rs[dead]
+            is_dead = np.isin(at_risk, dead)
             for ell in range(d):
-                c = ell / d
+                c = 0.0 if breslow else ell / d
                 denom = S0 - c * D0
-                if denom <= 0:
-                    continue
                 xbar = (S1 - c * D1) / denom
-
-                # Each event subject subtracts xbar / d
-                for loc in ev_local:
-                    scores[idx_s[loc]] -= xbar / d
-
-                # Each at-risk subject subtracts its weight * (x_i - xbar) / d
-                # (this is the martingale-residual piece)
-                risk_local = np.where(at_risk)[0]
-                for k in risk_local:
-                    wi = np.exp(xbs[k]) / denom
-                    # The contribution from this event time to subject k
-                    # is -(wi / d) * (x_k - xbar) but we need to be careful:
-                    # we already subtracted xbar for event subjects above.
-                    # The full decomposition for at-risk subjects is:
-                    #   -wi * x_k  (subtracted from denominator)
-                    # We handle this via the residual approach below.
-                    pass
-
-    # Fallback: use numerical gradient per observation for correctness
-    # This is O(n*p) per observation but guarantees correct sandwich SE
-    scores = np.zeros((n, p))
-    eps = 1e-7
-    for i in range(n):
-        for j in range(p):
-            bp = beta.copy()
-            bm = beta.copy()
-            bp[j] += eps
-            bm[j] -= eps
-            # Contribution of obs i to log PL
-            # We approximate by computing full log PL with/without obs i
-            # Actually, use finite diff on score evaluated at beta
-            pass
-
-    # Use the efficient approach: score_i = d l_i / d beta
-    # For Cox, l_i = delta_i * [x_i'b - log(sum_j in R_i exp(x_j'b))]
-    #             - sum_{k: t_k <= t_i, delta_k=1} exp(x_i'b) / sum_{j in R_k}
-    #             exp(x_j'b) * ...
-    # This is complex with Efron ties. Use the simple Breslow approximation for score_i:
-    scores = np.zeros((n, p))
-    for s in np.unique(strata_arr):
-        mask = strata_arr == s
-        idx_s = np.where(mask)[0]
-        Ts_s = T[mask]
-        Es_s = E[mask]
-        xbs_s = xb[mask]
-        Xs_s = X[mask]
-
-        event_times = np.sort(np.unique(Ts_s[Es_s == 1]))
-
-        for t in event_times:
-            at_risk = Ts_s >= t
-            events_at_t = (Ts_s == t) & (Es_s == 1)
-            d = int(events_at_t.sum())
-            if d == 0:
-                continue
-
-            w_r = np.exp(xbs_s[at_risk])
-            S0 = w_r.sum()
-            S1 = (Xs_s[at_risk] * w_r[:, None]).sum(axis=0)
-            xbar = S1 / S0
-
-            # Event subjects: score += (x_i - xbar)
-            ev_local = np.where(events_at_t)[0]
-            for loc in ev_local:
-                scores[idx_s[loc]] += Xs_s[loc] - xbar
-
-            # All at-risk subjects: score -= (d / S0) * exp(x_i'b) * (x_i - xbar)
-            risk_local = np.where(at_risk)[0]
-            for k in risk_local:
-                wi = np.exp(xbs_s[k]) / S0
-                scores[idx_s[k]] -= d * wi * (Xs_s[k] - xbar)
+                w = np.where(is_dead, 1.0 - c, 1.0) * r_risk / denom
+                scores[idx_s[at_risk]] -= w[:, None] * (X_risk - xbar)
+                scores[idx_s[dead]] += (Xs[dead] - xbar) / d
 
     return scores
 
@@ -1069,6 +1036,12 @@ def cox(
     # ---- Parse inputs -------------------------------------------------
     if formula is not None:
         dur_name, x_names = _parse_formula(formula)
+        if x is None and any(name not in data for name in x_names):
+            # C(site), a*b, I(x^2): built as columns, the way sp.regress
+            # and sp.qreg read the same right-hand side
+            from ..core.utils import formula_to_columns
+
+            data, dur_name, x_names = formula_to_columns(formula, data)
         if duration is None:
             duration = dur_name
         if x is None:
@@ -1150,10 +1123,10 @@ def cox(
         info_inv = np.linalg.pinv(neg_H)
 
     if cluster is not None:
-        score_i = _cox_score_individual(beta, X, T, E, strata_arr)
+        score_i = _cox_score_individual(beta, X, T, E, strata_arr, breslow=breslow)
         var_beta = _cluster_variance(X, info_inv, score_i, cluster_arr)
     elif robust in ("hc0", "HC0", "robust"):
-        score_i = _cox_score_individual(beta, X, T, E, strata_arr)
+        score_i = _cox_score_individual(beta, X, T, E, strata_arr, breslow=breslow)
         var_beta = _sandwich_variance(X, info_inv, score_i)
     else:
         var_beta = info_inv

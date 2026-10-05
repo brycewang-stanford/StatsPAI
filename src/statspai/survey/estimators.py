@@ -540,12 +540,19 @@ def svyglm(
     """
     from patsy import dmatrices
 
-    from ..core.utils import _coerce_string_extension_dtypes, formula_eval_env
+    from ..core.utils import (
+        _coerce_string_extension_dtypes,
+        formula_eval_env,
+        r_power_in_identity,
+    )
 
     # pandas >= 3.0 string columns are StringDtype, which patsy cannot sniff.
     _data = _coerce_string_extension_dtypes(design.data)
     y_df, X_df = dmatrices(
-        formula, data=_data, eval_env=formula_eval_env(), return_type="dataframe"
+        r_power_in_identity(formula),
+        data=_data,
+        eval_env=formula_eval_env(),
+        return_type="dataframe",
     )
     # Rows patsy kept (complete cases), intersected with the domain; the
     # rest of the design contributes zero scores but keeps its PSUs.

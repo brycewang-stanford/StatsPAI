@@ -576,18 +576,17 @@ def _estat_normality(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 
 
 def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
-    """Cook's distance, DFBETAS, and leverage diagnostics."""
+    """Cook's distance, DFBETAS, DFFITS, leverage and leave-one-out fits."""
     resid = _get_residuals(result)
     X = _get_X(result)
     n, k = X.shape
 
-    # Hat matrix diagonal
+    # Hat matrix diagonal, without forming the n x n hat matrix
     try:
         XtX_inv = np.linalg.inv(X.T @ X)
     except np.linalg.LinAlgError:
         XtX_inv = np.linalg.pinv(X.T @ X)
-    H = X @ XtX_inv @ X.T
-    h = np.diag(H)
+    h = np.einsum("ij,jk,ik->i", X, XtX_inv, X)
 
     mse = np.sum(resid**2) / (n - k)
 
@@ -616,6 +615,20 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     # error, and the 2/sqrt(n) rule was applied to the wrong quantity.
     dfbeta = (X @ XtX_inv) * (resid / (1.0 - h))[:, None]
     dfbetas = dfbeta / (np.sqrt(mse_loo)[:, None] * np.sqrt(np.diag(XtX_inv))[None, :])
+
+    # DFFITS: the change in the fitted value of observation i when it is
+    # dropped, in units of its leave-one-out standard error.
+    dffits = rstudent * np.sqrt(h / (1.0 - h))
+
+    # Leave-one-out prediction errors without refitting: y_i - yhat_(i) =
+    # e_i / (1 - h_i). Their sum of squares is PRESS. The exact normal
+    # prediction interval for y_i from the fit without it is
+    #   yhat_(i) +/- t_{n-k-1} s_(i) / sqrt(1 - h_i),
+    # since 1 + x_i'(X_(i)'X_(i))^{-1} x_i = 1 / (1 - h_i).
+    loo_resid = resid / (1.0 - h)
+    loo_half = sp_stats.t.ppf(1.0 - alpha / 2.0, n - k - 1) * np.sqrt(
+        mse_loo / (1.0 - h)
+    )
 
     # Threshold: |DFBETAS| > 2/sqrt(n)
     dfbetas_thresh = 2.0 / np.sqrt(n)
@@ -647,6 +660,10 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
         "leverage": h,
         "rstandard": rstandard,
         "rstudent": rstudent,
+        "dffits": dffits,
+        "loo_residuals": loo_resid,
+        "loo_interval_halfwidth": loo_half,
+        "press": float(np.sum(loo_resid**2)),
         "dfbetas": dfbetas,
         "dfbetas_threshold": dfbetas_thresh,
         "dfbetas_flagged_obs": dfbetas_flagged_idx.tolist(),

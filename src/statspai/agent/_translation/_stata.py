@@ -253,6 +253,202 @@ def _h_qreg(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("qreg", args, python, notes, semantics=semantics)
 
 
+_XTGEE_FAMILY = {"gaussian": 3, "binomial": 1, "poisson": 1, "gamma": 3}
+_XTGEE_LINK = {
+    "identity": ("identity", 1),
+    "log": ("log", 3),
+    "logit": ("logit", 4),
+    "probit": ("probit", 1),
+    "cloglog": ("cloglog", 1),
+    "reciprocal": ("inverse", 3),
+}
+_XTGEE_CORR = {
+    "independent": ("independence", 3),
+    "exchangeable": ("exchangeable", 3),
+    "unstructured": ("unstructured", 3),
+}
+
+
+def _stata_word(raw: str, table: Dict[str, Any]) -> Optional[str]:
+    """The table entry ``raw`` abbreviates, by each entry's minimum length."""
+    word = raw.strip().lower()
+    for full, spec in table.items():
+        least = spec[1] if isinstance(spec, tuple) else spec
+        if len(word) >= least and full.startswith(word):
+            return full
+    return None
+
+
+def _h_xtgee(cmd: StataCommand) -> Dict[str, Any]:
+    """``xtgee y x, family() link() corr() [nmp vce(robust)]`` -> ``sp.gee``.
+
+    Stata's conventions are written into the call: the moment divisors are
+    ``N`` unless ``nmp`` (``dof_correction=False``), the scale is held at
+    one for the binomial and Poisson families (``scale=1.0``), and the
+    default covariance is the model-based one (``vce='model'``).
+    """
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("xtgee requires an outcome", command="xtgee")
+    formula = _build_formula(y, xs)
+    panel_id = cmd.options.get("i") or "<panel_id>"
+    args: Dict[str, Any] = {"formula": formula, "id": panel_id}
+    time = cmd.options.get("t")
+    if time:
+        args["time"] = time
+
+    family = "gaussian"
+    raw = cmd.options.get("family")
+    if raw is not None:
+        hit = _stata_word(
+            str(raw).split()[0] if str(raw).split() else "", _XTGEE_FAMILY
+        )
+        if hit is None or len(str(raw).split()) > 1:
+            return _emit_error(
+                f"xtgee: family({raw}) has no sp.gee counterpart "
+                "(gaussian, binomial with one trial, poisson, gamma)",
+                command="xtgee",
+            )
+        family = hit
+    if family != "gaussian":
+        args["family"] = family
+    raw = cmd.options.get("link")
+    if raw is not None:
+        hit = _stata_word(str(raw), _XTGEE_LINK)
+        if hit is None:
+            return _emit_error(
+                f"xtgee: link({raw}) has no sp.gee counterpart", command="xtgee"
+            )
+        args["link"] = _XTGEE_LINK[hit][0]
+
+    raw = cmd.options.get("corr")
+    corstr = "exchangeable"  # [XT] xtgee: the default is corr(exchangeable)
+    if raw is not None:
+        words = str(raw).lower().split()
+        if words and words[0] in ("ar", "ar1") and words[1:] in ([], ["1"]):
+            corstr = "ar1"
+        else:
+            hit = _stata_word(words[0], _XTGEE_CORR) if len(words) == 1 else None
+            if hit is None:
+                return _emit_error(
+                    f"xtgee: corr({raw}) has no sp.gee counterpart "
+                    "(independent, exchangeable, ar 1, unstructured)",
+                    command="xtgee",
+                )
+            corstr = _XTGEE_CORR[hit][0]
+    if corstr != "independence":
+        args["corstr"] = corstr
+
+    semantics: List[str] = []
+    robust = "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust")
+    cluster = _vce_cluster(cmd)
+    vce_raw = cmd.options.get("vce")
+    if vce_raw and not (robust or cluster or _opt_matches(vce_raw, "conventional")):
+        return _emit_error(
+            f"xtgee: vce({vce_raw}) has no sp.gee counterpart "
+            "(conventional, robust)",
+            command="xtgee",
+        )
+    if cluster and cluster != panel_id:
+        return _emit_error(
+            f"xtgee: vce(cluster {cluster}) names a variable other than the "
+            "panel id; the GEE sandwich clusters on the panel",
+            command="xtgee",
+        )
+    if robust or cluster:
+        args["vce"] = "robust"
+        semantics.append(
+            "xtgee, vce(robust) multiplies the sandwich by G/(G-1); sp.gee "
+            "reports it without the factor (as R gee), so Stata's robust "
+            "standard errors are these times sqrt(G/(G-1))."
+        )
+    else:
+        args["vce"] = "model"
+    if "nmp" in cmd.options:
+        cmd.options.get("nmp")
+    else:
+        args["dof_correction"] = False
+    raw = cmd.options.get("scale")
+    if raw is not None:
+        word = str(raw).strip().lower()
+        if word != "x2":
+            try:
+                args["scale"] = float(word)
+            except ValueError:
+                return _emit_error(
+                    f"xtgee: scale({raw}) is not x2 or a number", command="xtgee"
+                )
+    elif family in ("binomial", "poisson"):
+        args["scale"] = 1.0
+        semantics.append(
+            f"xtgee holds the scale at 1 for family({family}); written as "
+            "scale=1.0. It affects the model-based standard errors only."
+        )
+    semantics.append("The constant is reported as `Intercept`, Stata's `_cons`.")
+    pairs = [repr(formula), "data=df"] + [
+        f"{k}={v!r}" for k, v in args.items() if k != "formula"
+    ]
+    python = f"sp.gee({', '.join(pairs)})"
+    notes: List[str] = []
+    if panel_id == "<panel_id>":
+        notes.append(
+            "Couldn't recover the panel-id from this command alone "
+            "(Stata's `xtset id` lives in another line). Replace "
+            "<panel_id> with the actual unit id column."
+        )
+    if cmd.if_cond:
+        notes.append(
+            f"Stata `if {cmd.if_cond}` dropped — pre-filter df via "
+            f"`df = df.query({cmd.if_cond!r})` before calling."
+        )
+    if cmd.in_range:
+        notes.append(f"Stata `in {cmd.in_range}` dropped — use df.iloc[...].")
+    return _emit("gee", args, python, notes, semantics=semantics)
+
+
+def _h_boxcox(cmd: StataCommand) -> Dict[str, Any]:
+    """``boxcox y x [, model(lhsonly)]`` -> ``sp.boxcox``.
+
+    Only the left-hand-side model, Stata's default, has a counterpart;
+    ``model(rhsonly | lambda | theta)`` and ``notrans()`` are refused.
+    """
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("boxcox requires an outcome", command="boxcox")
+    raw = cmd.options.get("model")
+    if raw is not None and not "lhsonly".startswith(str(raw).strip().lower()):
+        return _emit_error(
+            f"boxcox: model({raw}) transforms the regressors; sp.boxcox "
+            "transforms the outcome only (model(lhsonly))",
+            command="boxcox",
+        )
+    if raw is not None and len(str(raw).strip()) < 3:
+        return _emit_error(f"boxcox: model({raw}) is ambiguous", command="boxcox")
+    if cmd.options.get("notrans") is not None:
+        return _emit_error(
+            "boxcox: notrans() mixes transformed and untransformed regressors, "
+            "which only matters outside model(lhsonly)",
+            command="boxcox",
+        )
+    formula = _build_formula(y, xs)
+    args: Dict[str, Any] = {"formula": formula}
+    python = f"sp.boxcox({formula!r}, data=df)"
+    notes: List[str] = []
+    if cmd.if_cond:
+        notes.append(
+            f"Stata `if {cmd.if_cond}` dropped — pre-filter df via "
+            f"`df = df.query({cmd.if_cond!r})` before calling."
+        )
+    if cmd.in_range:
+        notes.append(f"Stata `in {cmd.in_range}` dropped — use df.iloc[...].")
+    semantics = [
+        "Stata's /theta is `lambda_`; its three LR tests are in `.tests`.",
+        "Stata prints a Wald interval for theta; `.ci` is the profile-"
+        "likelihood interval.",
+    ]
+    return _emit("boxcox", args, python, notes, semantics=semantics)
+
+
 def _pyfixest_fml(
     main: str,
     fe_terms: List[str],
@@ -3897,6 +4093,8 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "regress": _h_regress,
     "reg": _h_regress,
     "xtreg": _h_xtreg,
+    "xtgee": _h_xtgee,
+    "boxcox": _h_boxcox,
     "qreg": _h_qreg,
     "reghdfe": _h_reghdfe,
     "areg": _h_areg,
@@ -4364,6 +4562,7 @@ _VARLIST_COMMANDS = frozenset(
     {
         "regress", "logit", "probit", "poisson", "nbreg", "tobit", "newey",
         "qreg", "ivregress", "ivreg2", "ivreghdfe", "reghdfe", "areg", "xtreg",
+        "xtgee", "boxcox",
         "ologit", "oprobit", "mlogit", "summarize", "correlate", "pwcorr",
         "teffects", "psmatch2", "heckman", "truncreg", "etregress", "prais",
     }

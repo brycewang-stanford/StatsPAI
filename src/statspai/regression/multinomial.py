@@ -24,6 +24,7 @@ McFadden, D. (1973).
 *Frontiers in Econometrics*, 105-142.
 """
 
+import functools
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -125,8 +126,18 @@ def _formula_design(
 
     extra = [c for c in (extra_cols or []) if c in data.columns]
     frame = data.dropna(subset=extra) if extra else data
-    y_df, X_df = create_design_matrices(formula, frame)
-    y_name = str(y_df.columns[0])
+    lhs = formula.split("~", 1)[0].strip()
+    build = frame
+    if lhs in frame.columns and not pd.api.types.is_numeric_dtype(frame[lhs]):
+        # a string- or category-labelled outcome ("1", "2-4", "5+"): patsy
+        # would expand it into dummies and keep the first as "the" outcome,
+        # leaving two categories. Hand it integer codes; the labels are
+        # read back from the column below.
+        codes = pd.factorize(frame[lhs], sort=True)[0].astype(float)
+        codes[codes < 0] = np.nan
+        build = frame.assign(**{lhs: codes})
+    y_df, X_df = create_design_matrices(formula, build)
+    y_name = lhs if build is not frame else str(y_df.columns[0])
     names = [str(c) for c in X_df.columns]
     X = np.asarray(X_df, dtype=float)
     if "Intercept" in names:
@@ -150,6 +161,86 @@ def _formula_design(
     if not add_constant and X.shape[1] == 0:
         raise MethodIncompatibility("The formula has no regressors.")
     return Y, X, df, names, y_name
+
+
+def _design_for_new_data(
+    data: pd.DataFrame, names: Tuple[str, ...], formula: Optional[str]
+) -> np.ndarray:
+    """Design columns ``names`` rebuilt on new data (constant excluded)."""
+    wanted = [n for n in names if n != "_cons"]
+    if all(n in data.columns for n in wanted):
+        return np.asarray(data[wanted].to_numpy(dtype=float))
+    if formula is None:
+        missing = [n for n in wanted if n not in data.columns]
+        raise MethodIncompatibility(
+            f"predict(): columns {missing} are not in the new data.",
+            diagnostics={"missing": missing},
+        )
+    from patsy import dmatrix
+
+    from ..core.utils import (
+        _coerce_string_extension_dtypes,
+        formula_eval_env,
+        r_power_in_identity,
+    )
+
+    rhs = r_power_in_identity(formula.split("~", 1)[1].strip())
+    built = dmatrix(
+        rhs,
+        _coerce_string_extension_dtypes(data),
+        eval_env=formula_eval_env(),
+        return_type="dataframe",
+    )
+    cols = {str(c): built[c].to_numpy(dtype=float) for c in built.columns}
+    missing = [n for n in wanted if n not in cols]
+    if missing:
+        raise MethodIncompatibility(
+            f"predict(): the new data do not reproduce the model terms "
+            f"{missing}; a factor is missing a level the model was fitted "
+            "with, or its reference level.",
+            recovery_hint=(
+                "Predict on rows that include every level of each factor, "
+                "or build the dummy columns yourself and fit with x=[...]."
+            ),
+            diagnostics={"missing": missing},
+        )
+    return np.column_stack([cols[n] for n in wanted])
+
+
+def _bound_category_probabilities(
+    kind: str,
+    coef: np.ndarray,
+    cuts: Optional[np.ndarray],
+    categories: Tuple[Any, ...],
+    names: Tuple[str, ...],
+    formula: Optional[str],
+    fitted: pd.DataFrame,
+    data: Optional[pd.DataFrame] = None,
+) -> pd.DataFrame:
+    """``result.predict`` of the multinomial and ordered models.
+
+    One column of predicted probabilities per outcome category: the
+    estimation sample's when ``data`` is omitted (Stata ``predict``, R
+    ``predict(type = "probs")``), otherwise evaluated on ``data``. Kept at
+    module level and bound with ``functools.partial`` so results pickle.
+    """
+    if data is None:
+        return fitted.copy()
+    X = _design_for_new_data(data, names, formula)
+    if kind == "mlogit":
+        if "_cons" in names:
+            X = np.column_stack([np.ones(len(X)), X])
+        P = _softmax(X @ coef.T)
+    else:
+        cdf = _ordered_logit_cdf if kind == "ologit" else _ordered_probit_cdf
+        xb = X @ coef
+        cum = np.column_stack(
+            [np.zeros(len(X))]
+            + [cdf(c - xb) for c in np.asarray(cuts, dtype=float)]
+            + [np.ones(len(X))]
+        )
+        P = np.diff(cum, axis=1)
+    return pd.DataFrame(P, columns=list(categories), index=data.index)
 
 
 def _softmax(Z: np.ndarray) -> np.ndarray:
@@ -542,6 +633,20 @@ def mlogit(
         "predicted_probs",
         pd.DataFrame(P_hat, columns=categories, index=df.index),
     )
+    setattr(
+        result,
+        "predict",
+        functools.partial(
+            _bound_category_probabilities,
+            "mlogit",
+            betas_all,
+            None,
+            tuple(categories),
+            tuple(str(v) for v in var_names),
+            formula,
+            pd.DataFrame(P_hat, columns=categories, index=df.index),
+        ),
+    )
     setattr(result, "marginal_effects", me_dict)
     setattr(result, "iia_test", iia_tests)
 
@@ -820,6 +925,20 @@ def _ordered_model(
         result,
         "predicted_probs",
         pd.DataFrame(P_hat, columns=categories, index=df.index),
+    )
+    setattr(
+        result,
+        "predict",
+        functools.partial(
+            _bound_category_probabilities,
+            f"o{link}",
+            np.asarray(beta_hat, dtype=float),
+            np.asarray(kappa_hat, dtype=float),
+            tuple(categories),
+            tuple(str(v) for v in var_names),
+            formula,
+            pd.DataFrame(P_hat, columns=categories, index=df.index),
+        ),
     )
     setattr(result, "marginal_effects", me_dict)
     setattr(result, "brant_test", brant_test)

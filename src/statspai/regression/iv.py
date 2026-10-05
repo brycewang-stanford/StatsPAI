@@ -2490,6 +2490,7 @@ def _materialise_formula_terms(
         _coerce_string_extension_dtypes,
         evaluate_formula_expression,
         formula_eval_env,
+        r_power_in_identity,
     )
 
     frame = _coerce_string_extension_dtypes(data).copy()
@@ -2515,7 +2516,7 @@ def _materialise_formula_terms(
             return keep + build
         try:
             design = dmatrix(
-                "1 + " + " + ".join(build),
+                "1 + " + r_power_in_identity(" + ".join(build)),
                 frame,
                 eval_env=formula_eval_env(),
                 return_type="dataframe",

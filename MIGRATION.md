@@ -85,6 +85,30 @@ earlier from `lm(..., weights =)` ran unweighted; regenerate it.
 **`sp.contrast`** on a frame in which the variable takes a single value now
 raises. Pass the full data and `subset=` to average over a subpopulation.
 
+## 1.38.0 → next: ⚠️ `sp.cox` robust standard errors under tied event times
+<a id="oct2026-linear-model-fixes"></a>
+
+**What changed.** With `ties='efron'` (the default), `sp.cox(robust=...)`
+and `sp.cox(cluster=...)` built the sandwich from Breslow's score
+residuals. They now use Efron's, as `survival::coxph` and Stata `stcox,
+efron` do. Robust and clustered standard errors change wherever two or
+more events share a time; they are identical when no event times are tied.
+
+**How much.** Up to 2% on a trial with daily relapse times (112 distinct
+days, 800 events). Nothing changes for coefficients, hazard ratios,
+model-based standard errors, or fits with `ties='breslow'`.
+
+**What to do.** Rerun any Cox model reported with robust or clustered
+standard errors on data with ties. There is no switch for the old numbers;
+they did not correspond to either tie rule.
+
+## 1.38.0 → next: `sp.regress` accepts regressions through the origin it used to refuse
+
+`sp.regress("y ~ 0 + x + I(1 - x)", df)` and `sp.regress("y ~ 0 + one +
+x", df)` raised `NumericalInstability`. They fit now. A model with an
+intercept behaves as before, and proportional columns (`x` and `2 x`) are
+still caught in a model without one.
+
 ## 1.38.0 → next: ⚠️ `sp.rdrandinf` / `sp.rdwinselect` / `sp.rdsensitivity` with `p > 0` use HC3
 
 `rdlocrand` 3.0 (2026-10-04) moved the variance behind its large-sample

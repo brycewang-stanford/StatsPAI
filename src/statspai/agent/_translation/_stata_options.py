@@ -206,6 +206,8 @@ _VCE_TYPES = (
 _COMMAND_OPTIONS: Dict[str, _Table] = {
     # [R] qreg: quantile(#), minimum abbreviation q(#).
     "qreg": (("quantile", 1),),
+    # [XT] xtgee: family(), link(), corr() and scale() by their first letter.
+    "xtgee": (("family", 1), ("link", 1), ("corr", 1), ("scale", 1)),
     "teffects": (
         ("nneighbor", 2),
         ("ematch", 2),

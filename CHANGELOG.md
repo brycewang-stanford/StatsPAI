@@ -201,6 +201,75 @@ guide is `docs/guides/causal_inference_in_r.md`.
 - `sp.contrast` raises when only one level of the variable is available.
   It used to return an empty table.
 
+### What Ding's *Linear Model and Extensions* found
+
+A pass over the 24 R programs of Peng Ding's regression course
+(arXiv:2401.00649): least squares and robust inference, selection and
+shrinkage, GLMs, clustered data, quantiles, survival. Every real-data
+result was recomputed with `sp.*` and compared with R; everything that
+changed was then tested on a committed synthetic file against R and Stata
+18. Notes are in `docs/dev/2026-10-05-ding-linear-model-review.md`, the
+chapter map in `docs/guides/ding_linear_model.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.cox` robust and clustered standard errors were wrong when event
+  times are tied.** Under the default `ties='efron'` the sandwich was built
+  from Breslow's score residuals. With no ties the two are identical; on
+  the COMBINE trial of chapter 27, where relapse is recorded in days, the
+  robust standard errors were off by up to 2%. They are Efron's now and
+  match `survival::coxph(robust = TRUE)` to 1e-14 with `robust=`,
+  `cluster=` and `strata=`. Coefficients, model-based standard errors and
+  `ties='breslow'` fits are unchanged.
+- **`sp.regress` rejected full-rank regressions through the origin.**
+  `"t ~ 0 + x + I(1 - x)"` (Goodman's ecological regression) raised
+  "perfectly collinear": the check used the correlation, which is the
+  right test only when the model has a constant. It also refused a
+  constant column in a model without an intercept. Models with an
+  intercept are unchanged.
+- **`sp.mlogit`, `sp.ologit` and `sp.oprobit` dropped a category** when
+  the outcome was a string and the formula had a `C()`, `I()` or
+  interaction term. They stopped with "requires J >= 3 categories, got 2".
+
+#### Added
+
+- **`sp.gee`**: generalized estimating equations (Liang and Zeger) with
+  independence, exchangeable, AR(1) and unstructured working correlations
+  for Gaussian, binomial, Poisson and gamma margins. Reports the sandwich
+  and the model-based covariance. Matches R `gee` to 1e-12 and Stata
+  `xtgee` to 1e-7 (`dof_correction=False`, `scale=1` for Stata's
+  conventions).
+- **`sp.ridge`**: ridge regression with the scaling, GCV score and HKB / LW
+  penalties of `MASS::lm.ridge` (1e-13).
+- **`sp.boxcox`**: Box-Cox power for the outcome, with a profile-likelihood
+  interval and likelihood-ratio tests of -1, 0 and 1. Profile as
+  `MASS::boxcox`, estimate and tests as Stata `boxcox, model(lhsonly)`.
+- **`sp.best_subset`**: exact best-subset selection by branch and bound,
+  as `leaps::regsubsets`. Regressors can be forced in.
+- `sp.regress(robust='hc4')` (Cribari-Neto 2004).
+- `sp.glm(link='cauchit')`.
+- `sp.qreg(weights=)` and `sp.qreg(vce='ker')`, following `quantreg`.
+- `sp.kaplan_meier(conf_type='log' | 'log-log')`, the intervals of R
+  `survfit` and Stata `sts`. The default is unchanged.
+- `.predict()` on `sp.mlogit` / `sp.ologit` / `sp.oprobit` results returns
+  the predicted probabilities of every category, in sample or on new data.
+- `sp.estat(result, "leverage")` returns `dffits`, `loo_residuals`,
+  `press` and `loo_interval_halfwidth`.
+
+- `sp.stata` / `sp.from_stata` translate `xtgee` (to `sp.gee`, with
+  Stata's defaults written into the call) and `boxcox` (to `sp.boxcox`).
+
+#### Changed
+
+- `I(x^2)` is read as a power in every formula. It used to fail with a
+  message about `xor`.
+- `sp.cox` formulas accept `C()`, interactions and `I()`.
+- `sp.estat(result, "leverage")` no longer forms the n by n hat matrix.
+
+refs verified via Crossref REST and doi.org content negotiation:
+hoerl1970ridge, golub1979generalized, box1964analysis,
+furnival1974regressions, cribari2004asymptotic, lin1989robust.
+
 ### `rdlocrand` 3.0
 
 The maintainers of `rdlocrand` released 3.0 on 2026-10-04. Every reference

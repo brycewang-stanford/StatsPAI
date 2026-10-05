@@ -626,7 +626,11 @@ def _expand_formula_terms(
 
     from patsy import NAAction, dmatrix
 
-    from ..core.utils import _coerce_string_extension_dtypes, formula_eval_env
+    from ..core.utils import (
+        _coerce_string_extension_dtypes,
+        formula_eval_env,
+        r_power_in_identity,
+    )
 
     frame = _coerce_string_extension_dtypes(data).copy()
     if not frame.index.is_unique:
@@ -634,7 +638,7 @@ def _expand_formula_terms(
     build = [t for t in terms if not plain(t)]
     try:
         design = dmatrix(
-            "1 + " + " + ".join(build),
+            "1 + " + r_power_in_identity(" + ".join(build)),
             frame,
             eval_env=formula_eval_env(),
             return_type="dataframe",

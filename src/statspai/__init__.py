@@ -977,11 +977,13 @@ from .registry import (
 
 # Advanced IV
 from .regression.advanced_iv import jive, lasso_iv, liml
+from .regression.boxcox import BoxCoxResult, boxcox
 from .regression.count import nbreg, poisson, ppmlhdfe, xtnbreg
 from .regression.et_count import etpoisson
 
 # Fractional Response & Beta Regression
 from .regression.fracreg import betareg, fracreg
+from .regression.gee import gee
 from .regression.glm import GLMEstimator, GLMRegression, glm
 
 # bayes — lazy-loaded (PyMC pulls heavy deps); see _LAZY_ATTRS below.
@@ -999,6 +1001,7 @@ from .regression.multinomial import clogit, mlogit, ologit, oprobit
 # core regression block; we only add what's new here.
 from .regression.nested_logit import nlogit
 from .regression.quantile import qreg, sqreg
+from .regression.ridge import RidgeResult, ridge
 
 # Sample Selection Models
 from .regression.selection import biprobit, etregress
@@ -1028,7 +1031,7 @@ from .rlasso import (  # noqa: E402
     rlassologit_effect,
     rlassologit_effects,
 )
-from .selection import SelectionResult, lasso_select, stepwise
+from .selection import SelectionResult, best_subset, lasso_select, stepwise
 
 # === Smart Workflow Engine ===
 from .smart import (
@@ -1830,6 +1833,12 @@ __all__ = [
     # Variable Selection
     "stepwise",
     "lasso_select",
+    "best_subset",
+    "gee",
+    "ridge",
+    "RidgeResult",
+    "boxcox",
+    "BoxCoxResult",
     "SelectionResult",
     # Quantile Treatment Effects
     "qdid",

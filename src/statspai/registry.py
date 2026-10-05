@@ -919,7 +919,7 @@ def _build_registry() -> None:
                     False,
                     "nonrobust",
                     "Standard error type",
-                    ["nonrobust", "hc0", "hc1", "hc2", "hc3", "hac"],
+                    ["nonrobust", "hc0", "hc1", "hc2", "hc3", "hc4", "hac"],
                 ),
                 ParamSpec(
                     "cluster",
@@ -1282,8 +1282,9 @@ def _build_registry() -> None:
                     "quantreg se='nid'; 'kernel' = qreg2 heteroskedasticity-"
                     "robust Powell sandwich; 'cluster <var>' = Parente-Santos "
                     "Silva (2016) cluster-robust, as qreg2, cluster(); "
-                    "'powell' = pre-1.32 kernel SE",
-                    ["iid", "robust", "nid", "kernel", "cluster", "powell"],
+                    "'ker' = quantreg se='ker' (Gaussian-kernel Powell "
+                    "sandwich); 'powell' = pre-1.32 kernel SE",
+                    ["iid", "robust", "nid", "kernel", "ker", "cluster", "powell"],
                 ),
                 ParamSpec(
                     "cluster",
@@ -1301,6 +1302,16 @@ def _build_registry() -> None:
                     "Bandwidth scale for vce='kernel'/'cluster': 'mad' "
                     "(qreg2 default) or 'silverman' (qreg2, silverman)",
                     ["mad", "silverman"],
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling-weight column (or array): minimises the "
+                    "weighted check loss, covariance as quantreg on the "
+                    "rescaled data. Without vce= the default becomes "
+                    "'robust'. Weights must be positive",
                 ),
             ],
             returns="EconometricResults",
@@ -8405,6 +8416,270 @@ def _build_registry() -> None:
                 "or the survey functions",
             ],
             alternatives=["ttest", "sdtest", "prtest", "bootstrap"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="gee",
+            category="regression",
+            description=(
+                "Generalized estimating equations (Liang-Zeger) for clustered "
+                "or longitudinal data: a population-averaged GLM with a "
+                "working correlation (independence, exchangeable, AR(1), "
+                "unstructured) and the cluster-robust sandwich covariance, "
+                "valid even when the working correlation is wrong. R "
+                "gee::gee / Stata xtgee. Returns coefficients plus both the "
+                "robust and the model-based standard errors, the scale and "
+                "the estimated working correlation."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="e.g. 'y ~ treat + x'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("id", "str", True, description="Cluster identifier"),
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    "gaussian",
+                    "Marginal variance function",
+                    ["gaussian", "binomial", "poisson", "gamma"],
+                ),
+                ParamSpec("link", "str", False, None, "Link; canonical when omitted"),
+                ParamSpec(
+                    "corstr",
+                    "str",
+                    False,
+                    "independence",
+                    "Working correlation",
+                    ["independence", "exchangeable", "ar1", "unstructured"],
+                ),
+                ParamSpec(
+                    "time",
+                    "str",
+                    False,
+                    None,
+                    "Orders observations within a cluster (ar1 / unstructured)",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "robust",
+                    "Sandwich or model-based covariance",
+                    ["robust", "model"],
+                ),
+                ParamSpec(
+                    "dof_correction",
+                    "bool",
+                    False,
+                    True,
+                    "True: N - p divisors (R gee, Stata nmp); False: N (Stata "
+                    "xtgee default)",
+                ),
+                ParamSpec(
+                    "scale",
+                    "float",
+                    False,
+                    None,
+                    "Fix the scale of the model-based covariance (1 = Stata "
+                    "xtgee for binomial / poisson)",
+                ),
+                ParamSpec("maxiter", "int", False, 100),
+                ParamSpec("tol", "float", False, 1e-8),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="EconometricResults",
+            example='sp.gee("y ~ treat + x", df, id="village", '
+            'family="binomial", corstr="exchangeable")',
+            tags=["regression", "panel", "clustered", "glm", "longitudinal"],
+            reference="liang1986longitudinal",
+            assumptions=[
+                "The marginal mean model g(E[y|x]) = x'b is correctly specified",
+                "Clusters are independent of each other",
+                "Many clusters: the sandwich is a large-G approximation",
+                "Missing data, if any, are missing completely at random",
+            ],
+            pre_conditions=[
+                "At least two clusters; long-format data with a cluster id",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Estimated working correlation not positive definite",
+                    exception="MethodIncompatibility",
+                    remedy="Use corstr='independence'; the robust covariance "
+                    "is the same kind and the estimator stays consistent.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="Fewer than about 40 clusters",
+                    exception="UserWarning",
+                    remedy="The sandwich understates the variance; use a wild "
+                    "cluster bootstrap on the pooled model.",
+                    alternative="sp.wild_cluster_bootstrap",
+                ),
+            ],
+            not_recommended_when=[
+                "The question is about subject-specific effects — a "
+                "random-effects model (sp.melogit, sp.mepoisson) estimates "
+                "those; for non-identity links the two differ",
+                "Dropout depends on past outcomes (MAR but not MCAR): GEE is "
+                "biased; use a likelihood model or inverse-probability weights",
+            ],
+            alternatives=["glm", "melogit", "mepoisson", "panel", "regress"],
+            typical_n_min=40,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ridge",
+            category="regression",
+            description=(
+                "Ridge regression on standardised regressors over one or a "
+                "grid of penalties, chosen by generalized cross-validation "
+                "(or the HKB / LW plug-ins). Scaling and GCV as R "
+                "MASS::lm.ridge. Returns coefficients on the original scale, "
+                "the full path with effective degrees of freedom, and "
+                "predict(). No standard errors."
+            ),
+            params=[
+                ParamSpec("formula", "str", False, description="e.g. 'y ~ x1 + x2'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", False, None, "Outcome (instead of formula)"),
+                ParamSpec("x", "list", False, None, "Regressors (instead of formula)"),
+                ParamSpec(
+                    "lambda_",
+                    "float | list",
+                    False,
+                    None,
+                    "Penalty or grid on the standardised scale; automatic "
+                    "log-spaced grid when omitted",
+                ),
+                ParamSpec(
+                    "select",
+                    "str",
+                    False,
+                    "gcv",
+                    "How the reported penalty is chosen",
+                    ["gcv", "hkb", "lw"],
+                ),
+            ],
+            returns="RidgeResult",
+            example='sp.ridge("medv ~ crim + rm + lstat", df)',
+            tags=["regression", "regularization", "prediction", "shrinkage"],
+            reference="hoerl1970ridge",
+            assumptions=[
+                "Linear conditional mean; the goal is prediction, not "
+                "unbiased coefficients",
+            ],
+            not_recommended_when=[
+                "Inference on a coefficient is the goal — ridge coefficients "
+                "are biased by design and carry no standard errors here; use "
+                "sp.regress, or sp.rlasso_effect / sp.dml with many controls",
+                "A sparse model is wanted — ridge never sets a coefficient "
+                "to zero; use sp.lasso_select",
+            ],
+            alternatives=["lasso_select", "rlasso", "best_subset", "regress"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="boxcox",
+            category="regression",
+            description=(
+                "Box-Cox power transformation of a positive outcome: the "
+                "maximum likelihood lambda for (y^lambda - 1)/lambda = x'b + "
+                "e, its profile-likelihood interval, and LR tests of the "
+                "reciprocal (-1), log (0) and identity (1). R MASS::boxcox / "
+                "Stata boxcox, model(lhsonly)."
+            ),
+            params=[
+                ParamSpec("formula", "str", False, description="e.g. 'y ~ x1 + x2'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", False, None, "Outcome (instead of formula)"),
+                ParamSpec("x", "list", False, None, "Regressors (instead of formula)"),
+                ParamSpec(
+                    "lambdas", "list", False, None, "Grid for the reported profile"
+                ),
+                ParamSpec("bounds", "tuple", False, (-3.0, 3.0), "Search interval"),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="BoxCoxResult",
+            example='sp.boxcox("duration ~ treatment + age", df)',
+            tags=["regression", "transformation", "diagnostics", "stata"],
+            reference="box1964analysis",
+            assumptions=[
+                "Strictly positive outcome",
+                "Some power of the outcome is linear in x with normal, "
+                "homoskedastic errors",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Outcome has zeros or negative values",
+                    exception="MethodIncompatibility",
+                    remedy="Model the mean directly with a log link instead "
+                    "of transforming the outcome.",
+                    alternative="sp.poisson",
+                ),
+            ],
+            not_recommended_when=[
+                "The estimand is an effect on the original scale: "
+                "coefficients of a transformed outcome do not average back; "
+                "use sp.glm / sp.poisson with a log link",
+            ],
+            alternatives=["regress", "glm", "poisson"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="best_subset",
+            category="regression",
+            description=(
+                "Exact best-subset selection for OLS by branch and bound: "
+                "for every model size the subset with the smallest RSS, and "
+                "the size that optimises BIC, AIC, adjusted R2 or Mallows' "
+                "Cp. R leaps::regsubsets(method='exhaustive'). Regressors can "
+                "be forced in. Up to 30 candidates."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome column"),
+                ParamSpec("x", "list", True, description="Candidate regressors"),
+                ParamSpec(
+                    "criterion",
+                    "str",
+                    False,
+                    "bic",
+                    "Rule that picks the model size",
+                    ["bic", "aic", "adjr2", "cp"],
+                ),
+                ParamSpec("max_vars", "int", False, None, "Largest size considered"),
+                ParamSpec(
+                    "force", "list", False, None, "Regressors kept in every model"
+                ),
+                ParamSpec("verbose", "bool", False, False),
+            ],
+            returns="SelectionResult",
+            example='sp.best_subset(df, "y", ["x1", "x2", "x3", "x4"])',
+            tags=["regression", "model-selection", "prediction"],
+            reference="furnival1974regressions",
+            assumptions=[
+                "Linear model; selection is for prediction",
+            ],
+            not_recommended_when=[
+                "Reporting t-statistics or p-values of the selected model — "
+                "they ignore the search and overstate significance; fix the "
+                "specification in advance or use sp.rlasso_effect",
+                "More than 30 candidates — screen with sp.lasso_select first",
+            ],
+            cost_profile=(
+                "Worst case exponential in the number of candidates; about a "
+                "second at 25 correlated candidates, minutes at 40."
+            ),
+            alternatives=["stepwise", "lasso_select", "rlasso"],
         )
     )
 

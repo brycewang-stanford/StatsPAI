@@ -230,6 +230,30 @@ class CLogLogLink(LinkFunction):
         return _as_float_array(1.0 / ((1 - mu) * (-np.log(1 - mu))))
 
 
+class CauchitLink(LinkFunction):
+    """Cauchy quantile link, ``eta = tan(pi (mu - 1/2))``.
+
+    The heavy-tailed member of the binary-link family (R ``binomial(link =
+    "cauchit")``): fitted probabilities approach 0 and 1 far more slowly
+    than under logit or probit, so a few observations the linear index
+    predicts badly move the fit less.
+    """
+
+    name = "cauchit"
+
+    def link(self, mu: np.ndarray) -> np.ndarray:
+        mu = np.clip(mu, 1e-15, 1 - 1e-15)
+        return _as_float_array(np.tan(np.pi * (mu - 0.5)))
+
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
+        return _as_float_array(0.5 + np.arctan(eta) / np.pi)
+
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
+        mu = np.clip(mu, 1e-15, 1 - 1e-15)
+        eta = np.tan(np.pi * (mu - 0.5))
+        return _as_float_array(np.pi * (1.0 + eta**2))
+
+
 class PowerLink(LinkFunction):
     name = "power"
 
@@ -274,6 +298,7 @@ LINK_FUNCTIONS: Dict[str, Type[LinkFunction]] = {
     "probit": ProbitLink,
     "inverse": InverseLink,
     "cloglog": CLogLogLink,
+    "cauchit": CauchitLink,
     "power": PowerLink,
     "sqrt": SqrtLink,
 }
@@ -1666,8 +1691,9 @@ class GLMRegression(BaseModel):
                         return_type="dataframe",
                     )[0]
                 else:
-                    rhs = self.formula.split("~", 1)[1].strip()
-                    from ..core.utils import formula_eval_env
+                    from ..core.utils import formula_eval_env, r_power_in_identity
+
+                    rhs = r_power_in_identity(self.formula.split("~", 1)[1].strip())
 
                     X_new = dmatrix(
                         rhs,
@@ -1835,8 +1861,8 @@ def glm(
     link : str or None
         Link function. If ``None`` the canonical link for the chosen
         family is used. Options: ``"identity"``, ``"log"``, ``"logit"``,
-        ``"probit"``, ``"inverse"``, ``"cloglog"``, ``"power"``,
-        ``"sqrt"``.
+        ``"probit"``, ``"inverse"``, ``"cloglog"``, ``"cauchit"``,
+        ``"power"``, ``"sqrt"``.
     robust : str, default ``"nonrobust"``
         Standard-error type (``"nonrobust"``, ``"hc0"``-``"hc3"``,
         ``"hac"``).

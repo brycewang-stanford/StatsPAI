@@ -59,6 +59,7 @@ _SCALAR_VCOV = {
     "hc1": "hc1",
     "hc2": "hc2",
     "hc3": "hc3",
+    "hc4": "hc4",
     "hac": "hac",
     "robust": "hc1",
 }
@@ -240,6 +241,7 @@ _SE_KIND_SYNONYMS: Dict[str, str] = {
     "hc1": "hc1",
     "hc2": "hc2",
     "hc3": "hc3",
+    "hc4": "hc4",
     "hac": "hac",
     "ewc": "ewc",
     # Cluster-robust.  Stata accepts cl / clu / clus / clust.

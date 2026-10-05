@@ -186,9 +186,13 @@ class _FormulaDesign:
     def __init__(self, formula: str, frame: pd.DataFrame, names: Sequence[str]):
         import patsy
 
-        from ..core.utils import _coerce_string_extension_dtypes, formula_eval_env
+        from ..core.utils import (
+            _coerce_string_extension_dtypes,
+            formula_eval_env,
+            r_power_in_identity,
+        )
 
-        rhs = formula.split("~", 1)[1].strip()
+        rhs = r_power_in_identity(formula.split("~", 1)[1].strip())
         frame = _coerce_string_extension_dtypes(frame)
         try:
             di = patsy.dmatrix(
