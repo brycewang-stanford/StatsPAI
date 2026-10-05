@@ -42,7 +42,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `did` | 53,238 | 70 | 97 |
 | `agent` | 39,729 | 67 | 4 |
 | `synth` | 30,394 | 40 | 56 |
-| `regression` | 27,433 | 36 | 54 |
+| `regression` | 28,294 | 37 | 56 |
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 15,974 | 17 | 31 |
@@ -80,9 +80,9 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `bounds` | 3,223 | 6 | 12 |
 | `bartik` | 3,183 | 6 | 9 |
 | `causal_llm` | 3,026 | 10 | 15 |
+| `conformal_causal` | 2,929 | 10 | 22 |
 | `rlasso` | 2,840 | 7 | 10 |
 | `crossval` | 2,809 | 7 | 2 |
-| `conformal_causal` | 2,597 | 9 | 21 |
 | `epi` | 2,569 | 6 | 20 |
 | `datasets` | 2,460 | 4 | 3 |
 | `interference` | 2,460 | 10 | 20 |
@@ -95,7 +95,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `experimental` | 1,881 | 5 | 11 |
 | `causal_text` | 1,768 | 4 | 4 |
 | `bcf` | 1,732 | 5 | 8 |
-| `selection` | 1,677 | 4 | 6 |
+| `selection` | 1,697 | 4 | 6 |
 | `power` | 1,525 | 3 | 12 |
 | `fairness` | 1,489 | 3 | 9 |
 | `survey` | 1,481 | 4 | 7 |
@@ -127,7 +127,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **550,433** | **940** | **1358** |
+| **Total** | **551,826** | **942** | **1361** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

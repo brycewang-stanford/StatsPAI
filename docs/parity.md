@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 388 |
+| **Compared against R/Stata** (T2) | bit-exact | 389 |
 | | aligned | 52 |
-| | **subtotal** | **440** |
+| | **subtotal** | **441** |
 | **No external software reference** | analytical-only (T1) | 343 |
-| | external-replication (published numbers) | 28 |
-| | **subtotal** | **371** |
-| No numerical evidence yet | unverified | 547 |
+| | external-replication (published numbers) | 29 |
+| | **subtotal** | **372** |
+| No numerical evidence yet | unverified | 548 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 440 | 797 | 801 | 54.9% |
+| estimator callables | 441 | 799 | 803 | 54.9% |
 | infrastructure (parity N/A) | 0 | 11 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 337 | 0.0% |
-| **all registered** | 440 | 811 | 1358 | 32.4% |
+| result / exception classes | 0 | 3 | 338 | 0.0% |
+| **all registered** | 441 | 813 | 1361 | 32.4% |
 
 ### Coverage by estimator family
 
@@ -53,7 +53,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
 | causal | 149 | 333 | 335 |
-| regression | 41 | 50 | 50 |
+| regression | 42 | 52 | 52 |
 | inference | 27 | 45 | 45 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
@@ -96,7 +96,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 388 functions
+## bit-exact — 389 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -209,6 +209,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `frontier` | sfaR::sfacross | R 4.5.2; sfaR 1.0.1 | rel_est<=1e-06, rel_se<=5e-05 | 4.1e-08 / 4.0e-08 | [`28_frontier.py`](../tests/r_parity/28_frontier.py) (+2) |
 | `g_computation` | base R stats::lm g-formula standardization (Robins 1986) | — | psi 1e-8 (observed <= 7e-16; bootstrap SE pinned loosely +/-25%) | — / — | [`test_gformula_parity.py`](../tests/reference_parity/test_gformula_parity.py) (+1) |
 | `g_estimation` | DTRreg::DTRreg 2.4 (method = 'gest', treat.type = 'bin', weight = 'none') | R 4.5.2; DTRreg 2.4 | 1e-10 rel on each stage psi (observed 4.6e-15) | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
+| `gam` | mgcv::gam with s(x, bs = 'ps'), methods GCV.Cp and REML | R 4.5.2; mgcv 1.9.3 | at given smoothing parameters, Gaussian, binomial and Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; selected smoothing parameters 1e-4 rel, the resulting fit 1e-5 | — / — | [`test_linear_model_extensions_parity.py`](../tests/reference_parity/test_linear_model_extensions_parity.py) (+1) |
 | `gap_closing` | R ddecompose::dfl_decompose (method='ipw') and ob_decompose (method='regression') | DasGuptR 2.2.0; ddecompose 1.0.0; cdgd 1.0.1 | Observed, counterfactual and closed gaps at 1e-9 for IPW in both directions (logit MLE in the path) and 1e-10 for regression. method='aipw' has no reference and is checked for double robustness on a known-truth DGP (T1). | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `gardner_did` | did2s::did2s | R 4.5.2; did2s 1.2.1 | rel_est<=1e-06, rel_se<=1e-06 | 4.8e-08 / 2.4e-12 | [`73_did2s.py`](../tests/r_parity/73_did2s.py) (+2) |
 | `gate_test` | GenericML::GATES 0.2.3 (monotonize = FALSE) with GenericML::quantile_group membership | R 4.5.2; GenericML 0.2.3; sandwich 3.1.1 | gamma_k, SE and gamma_K - gamma_1 1e-10 rel (observed 1.9e-15); group membership identical | — / — | [`test_ml_causal_R_parity.py`](../tests/reference_parity/test_ml_causal_R_parity.py) (+1) |
@@ -550,7 +551,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 28 functions
+## external-replication — 29 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -563,6 +564,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `best_linear_projection` | [`test_dml_irm_blp_parity.py`](../tests/external_parity/test_dml_irm_blp_parity.py) |
 | `cate_gain_curve` | [`test_facure_causal_inference_in_python.py`](../tests/external_parity/test_facure_causal_inference_in_python.py) |
 | `cdlz_bunching` | [`test_cdlz_bunching_table1.py`](../tests/external_parity/test_cdlz_bunching_table1.py) |
+| `conformal_regression` | [`test_ding_linear_model.py`](../tests/external_parity/test_ding_linear_model.py) |
 | `confounder_adjust` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `confounder_tip` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `dag` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
@@ -653,7 +655,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `cohort_anchored_event_study` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `compare_event_study_conventions` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `compare_metalearners` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
-| `conformal` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
+| `conformal` | [`test_linear_model_extensions_parity.py`](../tests/reference_parity/test_linear_model_extensions_parity.py) (+1) |
 | `conformal_cate` | [`test_conformal_causal_parity.py`](../tests/reference_parity/test_conformal_causal_parity.py) |
 | `conformal_continuous` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `conformal_counterfactual` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
@@ -935,6 +937,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 547 functions
+## unverified — 548 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

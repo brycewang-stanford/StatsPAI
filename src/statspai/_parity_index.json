@@ -3091,6 +3091,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py"
       ],
       "tolerance": ""
@@ -3263,6 +3264,29 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "conformal_regression",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_ding_linear_model.py"
       ],
       "tolerance": ""
     },
@@ -7053,6 +7077,35 @@
         "tests/reference_parity/_fixtures/teffects_Stata.json"
       ],
       "tolerance": "1e-10 rel on each stage psi (observed 4.6e-15)"
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "gam",
+      "notes": [
+        "Frozen-R fixture on the committed synthetic file. mgcv applies its sp to the difference penalty divided by S.scale; the test converts. REML scores are compared through the change between two parameter values, since they are defined up to a constant."
+      ],
+      "reference": "mgcv::gam with s(x, bs = 'ps'), methods GCV.Cp and REML",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "mgcv": "1.9.3"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json"
+      ],
+      "tolerance": "at given smoothing parameters, Gaussian, binomial and Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; selected smoothing parameters 1e-4 rel, the resulting fit 1e-5"
     },
     {
       "also_verified_by": [

@@ -6608,6 +6608,136 @@
     }
   },
   {
+    "description": "Generalized additive model: g(E[y]) = linear terms + smooth functions s(x) of numeric columns, each a penalised cubic B-spline (P-spline) with its own smoothing parameter chosen by REML (default) or GCV / UBRE. Same basis, penalty and criteria as R mgcv::gam with s(x, bs='ps'). Returns parametric coefficients with standard errors, the effective degrees of freedom of each curve, partial(term) for the estimated functions with bands, predict() and plot(). Validation: certified parity evidence. Do NOT use when: The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml; The regression function has a jump at a known point -- use sp.rdrobust; Clustered or panel data -- standard errors assume independence.",
+    "name": "gam",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "One minus the level of the bands of ``predict`` and ``partial``.",
+          "type": "number"
+        },
+        "data": {
+          "description": "Rows with a missing value in any variable of the model are dropped.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "family": {
+          "default": "gaussian",
+          "description": "Response family",
+          "enum": [
+            "gaussian",
+            "binomial",
+            "poisson",
+            "gamma"
+          ],
+          "type": "string"
+        },
+        "formula": {
+          "description": "e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; s(x) marks a smooth of one numeric column",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "gamma": {
+          "default": 1.0,
+          "description": "Under method='gcv', factor on the degrees of freedom (1.4 asks for smoother curves)",
+          "type": "number"
+        },
+        "k": {
+          "default": 10,
+          "description": "Basis functions per smooth unless the term sets k=",
+          "type": "integer"
+        },
+        "lambda_": {
+          "description": "Fixed smoothing parameter(s), one per smooth; chosen by method when omitted",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "link": {
+          "description": "Link; canonical if omitted",
+          "type": "string"
+        },
+        "maxiter": {
+          "default": 100,
+          "description": "Iterations of penalised IRLS for non-Gaussian families.",
+          "type": "integer"
+        },
+        "method": {
+          "default": "reml",
+          "description": "Smoothing-parameter selection; 'gcv' is mgcv's default GCV.Cp",
+          "enum": [
+            "reml",
+            "gcv"
+          ],
+          "type": "string"
+        },
+        "tol": {
+          "default": 1e-09,
+          "description": "Convergence tolerance on the relative change of the deviance.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Distribution-free prediction intervals for a least-squares regression: split conformal, jackknife+ or exact full conformal. Each covers a new exchangeable outcome with probability at least 1 - alpha (1 - 2 alpha worst case for jackknife+) without assuming normal or homoskedastic errors or a correct mean. All three are computed without refitting in a loop. Without newdata, every row is predicted from the others. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Time series or a new cluster of a clustered sample -- exchangeability fails; An interval for a mean, a coefficient or a treatment effect is wanted -- this covers an individual outcome; see sp.conformal('cate', ...) for effects; Coverage is needed at each value of the regressors -- the guarantee is on average over new points. Cost: split and jackknife+ are one least-squares fit; full grows with n squared per new point (about 3 s for 600 points predicted in sample).",
+    "name": "conformal_regression",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.1,
+          "description": "1 - target coverage",
+          "type": "number"
+        },
+        "data": {
+          "description": "The sample the model is fitted on.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "e.g. 'y ~ x1 + x2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "method": {
+          "default": "jackknife+",
+          "description": "Construction of the interval",
+          "enum": [
+            "jackknife+",
+            "split",
+            "full"
+          ],
+          "type": "string"
+        },
+        "newdata": {
+          "description": "Rows to predict; each training row from the others when omitted",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Seed of the split",
+          "type": "integer"
+        },
+        "train_frac": {
+          "default": 0.5,
+          "description": "Fitting share (split only)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Ridge regression on standardised regressors over one or a grid of penalties, chosen by generalized cross-validation (or the HKB / LW plug-ins). Scaling and GCV as R MASS::lm.ridge. Returns coefficients on the original scale, the full path with effective degrees of freedom, and predict(). No standard errors. Validation: certified parity evidence. Do NOT use when: Inference on a coefficient is the goal -- ridge coefficients are biased by design and carry no standard errors here; use sp.regress, or sp.rlasso_effect / sp.dml with many controls; A sparse model is wanted -- ridge never sets a coefficient to zero; use sp.lasso_select.",
     "name": "ridge",
     "parameters": {
@@ -37717,6 +37847,14 @@
             "forward",
             "backward",
             "both"
+          ],
+          "type": "string"
+        },
+        "start": {
+          "description": "The model the search starts from. By default ``\"forward\"`` and ``\"both\"`` start from the intercept-only model and ``\"backward\"`` from the model with every candidate. ``method=\"both\", start=\"full\"`` is what R's ``step()`` does when handed the full",
+          "enum": [
+            "empty",
+            "full"
           ],
           "type": "string"
         },

@@ -14173,6 +14173,304 @@
   {
     "alias_of": null,
     "alternatives": [
+      "glm",
+      "lpoly",
+      "regress",
+      "dml"
+    ],
+    "assumptions": [
+      "The predictor is additive: each smoothed variable enters through its own function, with no interaction between them",
+      "Each function is smooth (no jumps or kinks)",
+      "Independent observations with the stated family"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Generalized additive model: g(E[y]) = linear terms + smooth functions s(x) of numeric columns, each a penalised cubic B-spline (P-spline) with its own smoothing parameter chosen by REML (default) or GCV / UBRE. Same basis, penalty and criteria as R mgcv::gam with s(x, bs='ps'). Returns parametric coefficients with standard errors, the effective degrees of freedom of each curve, partial(term) for the estimated functions with bands, predict() and plot(). Validation: certified parity evidence. Do NOT use when: The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml; The regression function has a jump at a known point -- use sp.rdrobust; Clustered or panel data -- standard errors assume independence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "mgcv::gam with s(x, bs = 'ps'), methods GCV.Cp and REML",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "mgcv": "1.9.3"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json"
+      ],
+      "tolerance": "at given smoothing parameters, Gaussian, binomial and Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; selected smoothing parameters 1e-4 rel, the resulting fit 1e-5"
+    },
+    "example": "sp.gam(\"logwk ~ s(educ) + s(exper) + black\", df)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "UserWarning",
+        "remedy": "Raise k for that term; if it persists under method='gcv', the criterion is undersmoothing: use method='reml' or gamma=1.4.",
+        "symptom": "A smooth uses nearly all of its k - 1 degrees of freedom"
+      },
+      {
+        "alternative": "",
+        "exception": "DataInsufficient",
+        "remedy": "Lower k, or enter the variable as a factor.",
+        "symptom": "Fewer distinct values than basis functions"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "gam",
+    "not_recommended_when": [
+      "The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml",
+      "The regression function has a jump at a known point -- use sp.rdrobust",
+      "Clustered or panel data -- standard errors assume independence"
+    ],
+    "pre_conditions": [
+      "Each smoothed column is numeric with at least k distinct values"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "wood2017generalized",
+    "returns": {
+      "class": "GAMResult",
+      "description": "GAMResult",
+      "fields": {
+        "alpha": "float",
+        "converged": "bool",
+        "criterion": "str",
+        "deviance": "float",
+        "edf": "float",
+        "family": "str",
+        "fitted_values": "Any",
+        "formula": "str",
+        "gcv": "float",
+        "link": "str",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "residuals": "Any",
+        "scale": "float",
+        "smooth_terms": "pd.DataFrame",
+        "std_errors": "pd.Series"
+      }
+    },
+    "signature": {
+      "description": "Generalized additive model: g(E[y]) = linear terms + smooth functions s(x) of numeric columns, each a penalised cubic B-spline (P-spline) with its own smoothing parameter chosen by REML (default) or GCV / UBRE. Same basis, penalty and criteria as R mgcv::gam with s(x, bs='ps'). Returns parametric coefficients with standard errors, the effective degrees of freedom of each curve, partial(term) for the estimated functions with bands, predict() and plot(). Validation: certified parity evidence. Do NOT use when: The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml; The regression function has a jump at a known point -- use sp.rdrobust; Clustered or panel data -- standard errors assume independence.",
+      "name": "gam",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "One minus the level of the bands of ``predict`` and ``partial``.",
+            "type": "number"
+          },
+          "data": {
+            "description": "Rows with a missing value in any variable of the model are dropped.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "family": {
+            "default": "gaussian",
+            "description": "Response family",
+            "enum": [
+              "gaussian",
+              "binomial",
+              "poisson",
+              "gamma"
+            ],
+            "type": "string"
+          },
+          "formula": {
+            "description": "e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; s(x) marks a smooth of one numeric column",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "gamma": {
+            "default": 1.0,
+            "description": "Under method='gcv', factor on the degrees of freedom (1.4 asks for smoother curves)",
+            "type": "number"
+          },
+          "k": {
+            "default": 10,
+            "description": "Basis functions per smooth unless the term sets k=",
+            "type": "integer"
+          },
+          "lambda_": {
+            "description": "Fixed smoothing parameter(s), one per smooth; chosen by method when omitted",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "link": {
+            "description": "Link; canonical if omitted",
+            "type": "string"
+          },
+          "maxiter": {
+            "default": 100,
+            "description": "Iterations of penalised IRLS for non-Gaussian families.",
+            "type": "integer"
+          },
+          "method": {
+            "default": "reml",
+            "description": "Smoothing-parameter selection; 'gcv' is mgcv's default GCV.Cp",
+            "enum": [
+              "reml",
+              "gcv"
+            ],
+            "type": "string"
+          },
+          "tol": {
+            "default": 1e-09,
+            "description": "Convergence tolerance on the relative change of the deviance.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 100,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs mgcv::gam with s(x, bs = 'ps'), methods GCV.Cp and REML [R version 4.5.2 (2025-10-31), mgcv 1.9.3]; tolerance at given smoothing parameters, Gaussian, binomial and Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; selected smoothing parameters 1e-4 rel, the resulting fit 1e-5 -- tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/external_parity/test_ding_linear_model.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "regress",
+      "conformal",
+      "weighted_conformal_prediction"
+    ],
+    "assumptions": [
+      "The new observation is exchangeable with the sample (in particular, independent draws from one population)"
+    ],
+    "category": "regression",
+    "cost_profile": "split and jackknife+ are one least-squares fit; full grows with n squared per new point (about 3 s for 600 points predicted in sample).",
+    "description": "Distribution-free prediction intervals for a least-squares regression: split conformal, jackknife+ or exact full conformal. Each covers a new exchangeable outcome with probability at least 1 - alpha (1 - 2 alpha worst case for jackknife+) without assuming normal or homoskedastic errors or a correct mean. All three are computed without refitting in a loop. Without newdata, every row is predicted from the others. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Time series or a new cluster of a clustered sample -- exchangeability fails; An interval for a mean, a coefficient or a treatment effect is wanted -- this covers an individual outcome; see sp.conformal('cate', ...) for effects; Coverage is needed at each value of the regressors -- the guarantee is on average over new points. Cost: split and jackknife+ are one least-squares fit; full grows with n squared per new point (about 3 s for 600 points predicted in sample).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_ding_linear_model.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.conformal_regression(\"y ~ x1 + x2\", df, new, alpha=0.1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "conformal_regression",
+    "not_recommended_when": [
+      "Time series or a new cluster of a clustered sample -- exchangeability fails",
+      "An interval for a mean, a coefficient or a treatment effect is wanted -- this covers an individual outcome; see sp.conformal('cate', ...) for effects",
+      "Coverage is needed at each value of the regressors -- the guarantee is on average over new points"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "cost_profile": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "lei2018distribution",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Distribution-free prediction intervals for a least-squares regression: split conformal, jackknife+ or exact full conformal. Each covers a new exchangeable outcome with probability at least 1 - alpha (1 - 2 alpha worst case for jackknife+) without assuming normal or homoskedastic errors or a correct mean. All three are computed without refitting in a loop. Without newdata, every row is predicted from the others. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Time series or a new cluster of a clustered sample -- exchangeability fails; An interval for a mean, a coefficient or a treatment effect is wanted -- this covers an individual outcome; see sp.conformal('cate', ...) for effects; Coverage is needed at each value of the regressors -- the guarantee is on average over new points. Cost: split and jackknife+ are one least-squares fit; full grows with n squared per new point (about 3 s for 600 points predicted in sample).",
+      "name": "conformal_regression",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.1,
+            "description": "1 - target coverage",
+            "type": "number"
+          },
+          "data": {
+            "description": "The sample the model is fitted on.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "e.g. 'y ~ x1 + x2'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "method": {
+            "default": "jackknife+",
+            "description": "Construction of the interval",
+            "enum": [
+              "jackknife+",
+              "split",
+              "full"
+            ],
+            "type": "string"
+          },
+          "newdata": {
+            "description": "Rows to predict; each training row from the others when omitted",
+            "type": "string"
+          },
+          "seed": {
+            "description": "Seed of the split",
+            "type": "integer"
+          },
+          "train_frac": {
+            "default": 0.5,
+            "description": "Fitting share (split only)",
+            "type": "number"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "lasso_select",
       "rlasso",
       "best_subset",
@@ -35619,6 +35917,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py"
       ],
       "tolerance": ""
@@ -35700,7 +35999,7 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_linear_model_extensions_parity.py",
       "API/unit contract evidence: tests/test_dispatchers_v150.py"
     ],
     "validation_status": "validated"
@@ -82141,6 +82440,14 @@
               "forward",
               "backward",
               "both"
+            ],
+            "type": "string"
+          },
+          "start": {
+            "description": "The model the search starts from. By default ``\"forward\"`` and ``\"both\"`` start from the intercept-only model and ``\"backward\"`` from the model with every candidate. ``method=\"both\", start=\"full\"`` is what R's ``step()`` does when handed the full",
+            "enum": [
+              "empty",
+              "full"
             ],
             "type": "string"
           },
