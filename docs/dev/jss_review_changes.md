@@ -2193,3 +2193,34 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the Gow and Ding pass
+
+- **Commits.** `7d14ea5c` re-recorded the entries of 45 Track A modules in
+  `tests/r_parity/results/_implementation_trace.json` and of 6 of the
+  12 modules of `tests/orig_parity/results/_implementation_trace.json`. The
+  source that staled them is in `a07851ca`: `src/statspai/core/utils.py` (`factor(x)`
+  read as `C(x)`; the formula rewriter is renamed `r_formula_idioms`, and
+  its callers in `regression/ols.py`, `glm.py`, `iv.py`, `multinomial.py`,
+  `panel/panel_reg.py`, `did/_core.py`, `postestimation/_design.py`,
+  `survey/estimators.py` with it), `src/statspai/regression/ols.py`
+  (`hac_panel=`; the two-way clustered covariance is stored and adjusted
+  when it is not positive semi-definite), `src/statspai/regression/count.py`
+  (Poisson starting values and the flat-deviance stop),
+  `src/statspai/inference/jackknife.py`, `src/statspai/fixest/wrapper.py`
+  (a warning) and `src/statspai/__init__.py` (four new exports).
+- **Reason.** The audit in
+  `docs/dev/2026-10-06-gow-ding-accounting-review.md`. Two of the changes
+  alter numbers, and neither is reached by a Track A module: no module
+  clusters in two dimensions on a covariance that is not positive
+  semi-definite, and every Poisson fit on a Track A path converged before
+  and converges to the same estimate now. `python
+  tests/r_parity/verify_reproduce_py.py --no-report` on the 45 modules
+  reported 45 reproduce, 0 drift.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves to 1,372
+  registered functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
