@@ -762,7 +762,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `forest_support` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `fourier_terms` | [`test_forecasting_r_parity.py`](../tests/reference_parity/test_forecasting_r_parity.py) |
-| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+11) |
+| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+12) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
 | `geolift` | [`test_geolift_parity.py`](../tests/reference_parity/test_geolift_parity.py) |

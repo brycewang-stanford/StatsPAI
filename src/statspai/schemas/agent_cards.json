@@ -8901,6 +8901,7 @@
     "typical_n_min": 100,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 xtdpdsys (built-in); xtabond2 iv(x, eq(diff)) h(2) [Stata 18 MP, xtabond2 SSC 03.07.00]; tolerance abdata, n on L.n (and w k): coefficients and SEs at 1e-9 (observed <= 6e-12) for one-step robust, two-step Windmeijer and classical one-step, instrument count equal; xtabond2 with iv(w k, eq(diff)) h(2) reproduces the same numbers. -- tests/reference_parity/test_dynpanel_abdata_parity.py",
+      "tests/reference_parity/test_hansen_methods_stata_parity.py",
       "API/unit contract evidence: tests/reference_parity/test_dynpanel_abdata_parity.py"
     ],
     "validation_status": "certified"
