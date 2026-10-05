@@ -1761,12 +1761,36 @@ _add(
                 "included) vs fixest::feols",
                 "sp.event_study(window=(-4, 4), cluster='unit')",
             ),
+            _Row(
+                "T2",
+                _RP + "test_event_study_grid_R_parity.py",
+                {
+                    "adoption": _vals("single_date"),
+                    "window": _vals("-4_4"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none", "set"),
+                    "weights": _vals("none", "set"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none"),
+                },
+                _EST_SE,
+                "with and without a time-varying covariate and unit-level "
+                "weights, vs fixest::feols: every coefficient and SE to 1e-10",
+                "sp.event_study(covariates=..., weights=...)",
+            ),
         ),
-        note="Module 85 is non-staggered by construction: a saturated dynamic "
-        "TWFE regression on a staggered panel is the contaminated estimator "
-        "the heterogeneity-robust methods replace, and matching a reference "
-        "there would certify the specification, not the estimand. Only the "
-        "window, reference period and clustering that ran are covered.",
+        note="The registered rows are non-staggered by construction: a "
+        "saturated dynamic TWFE regression on a staggered panel is the "
+        "contaminated estimator the heterogeneity-robust methods replace, and "
+        "matching a reference there would certify the specification, not the "
+        "estimand. tests/reference_parity/test_event_study_grid_R_parity.py "
+        "also checks a staggered panel, the window (-3, 5) and the reference "
+        "period -2 against fixest (28 more cells). Those are not credited "
+        "here: the staggered ones for the reason above, the others because "
+        "one other window and one other reference period are not evidence "
+        "for every 'other'.",
     )
 )
 

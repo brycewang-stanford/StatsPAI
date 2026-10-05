@@ -17,7 +17,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `dml` | 9120 | 7 / 9120 | 7 / 9120 | -- | -- | -- | 7 / 9120 |
 | `etwfe` | 128 | 7 / 128 | 0 / 128 | 3 / 128 | -- | -- | 0 / 128 |
 | `etwfe_glm` | 2880 | 39 / 2880 | 26 / 2880 | -- | -- | -- | 26 / 2880 |
-| `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
+| `event_study` | 512 | 4 / 512 | 4 / 512 | 1 / 512 | -- | -- | 4 / 512 |
 | `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
 | `gardner_did` | 64 | 24 / 64 | 6 / 64 | 1 / 64 | -- | -- | 6 / 64 |
 | `iv` | 416 | 156 / 416 | 27 / 416 | -- | 3 / 416 | 1 / 416 | 27 / 416 |
@@ -58,8 +58,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `etwfe` | vcov | 0 | 0 | 0 | 0 | 125 |
 | `etwfe_glm` | estimate | 0 | 0 | 0 | 0 | 2841 |
 | `etwfe_glm` | se | 0 | 0 | 0 | 2 | 2852 |
-| `event_study` | estimate | 0 | 0 | 0 | 0 | 511 |
-| `event_study` | se | 0 | 0 | 0 | 0 | 511 |
+| `event_study` | estimate | 0 | 0 | 0 | 0 | 508 |
+| `event_study` | se | 0 | 0 | 0 | 0 | 508 |
 | `event_study` | vcov | 0 | 0 | 0 | 0 | 511 |
 | `fast.feols` | estimate | 0 | 0 | 0 | 0 | 0 |
 | `fast.feols` | se | 0 | 0 | 0 | 0 | 6 |
@@ -212,6 +212,7 @@ Dimensions: `adoption` in {single_date, staggered}; `window` in {-4_4, other}; `
 | --- | --- | --- | --- | --- |
 | T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/r_parity/85_twfe_event_study.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
 | T2 | vcov | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
+| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none/set; weights=none/set; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_grid_R_parity.py` | `sp.event_study(covariates=..., weights=...)` |
 
 ### `fast.feols`
 

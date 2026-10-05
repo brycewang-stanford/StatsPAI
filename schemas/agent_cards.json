@@ -37914,9 +37914,9 @@
       "Stata parity module 85_twfe_event_study",
       "Cross-language parity (bit-exact) vs fixest::feols(y ~ i(rel, treat, ref=-1) [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-09, rel_se<=1e-09; parity module 85_twfe_event_study -- tests/r_parity/85_twfe_event_study.py",
       "tests/external_parity/test_rebel_canal_published.py",
+      "tests/reference_parity/test_event_study_grid_R_parity.py",
       "tests/reference_parity/test_event_study_vcov_R_parity.py",
       "tests/reference_parity/test_oct2026_fifth_pass.py",
-      "tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/test_did.py",
       "API/unit contract evidence: tests/test_fast_event_study.py"
     ],

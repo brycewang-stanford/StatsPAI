@@ -2307,17 +2307,17 @@
       "invariant": {},
       "cells": 512,
       "overall": {
-        "covered": 1,
-        "not_covered": 511
+        "covered": 4,
+        "not_covered": 508
       },
       "by_output": {
         "estimate": {
-          "reference": 1,
-          "not_covered": 511
+          "reference": 4,
+          "not_covered": 508
         },
         "se": {
-          "reference": 1,
-          "not_covered": 511
+          "reference": 4,
+          "not_covered": 508
         },
         "vcov": {
           "reference": 1,
@@ -2401,6 +2401,47 @@
             ]
           },
           "compares": "every entry of the event-time covariance (off-diagonal blocks included) vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_grid_R_parity.py",
+          "entry_point": "sp.event_study(covariates=..., weights=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "single_date"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "with and without a time-varying covariate and unit-level weights, vs fixest::feols: every coefficient and SE to 1e-10"
         }
       ]
     },
@@ -6576,16 +6617,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 815,
+      "reference": 818,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45503
+      "not_covered": 45500
     },
     "se": {
-      "reference": 367,
+      "reference": 370,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45931
+      "not_covered": 45928
     },
     "coverage": {
       "coverage_simulation": 11,

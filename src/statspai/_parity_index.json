@@ -5848,6 +5848,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_rebel_canal_published.py",
+        "tests/reference_parity/test_event_study_grid_R_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py",

@@ -1147,6 +1147,16 @@ Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
 
 ### Reliability
 
+- **`sp.event_study` is checked against `fixest` across its common
+  options.** A 32-cell grid on one panel (single-date and staggered
+  adoption, two windows, two reference periods, with and without a
+  time-varying covariate and unit-level weights) agrees with
+  `fixest::feols` on every coefficient and standard error to 2e-12. Three
+  cells join `sp.validation_scope('event_study')` (covariate, weights and
+  both, at the default window and reference period); the others stay as
+  regression checks and are not credited as evidence, the staggered ones
+  because a reference match there certifies the specification and not
+  the estimand. No code changed.
 - **`sp.iv(method='gmm')` now has reference rows against Stata
   `ivregress gmm`**, and accepts `small=False`. Coefficients, standard
   errors and Hansen's J agree with Stata 18 to 5e-9 on Card's data under
