@@ -225,6 +225,12 @@ for chapters 4 and 13 to 21 was run in Stata 18 and replayed through
   Stata `sensemakr` to 1e-12.
 - `sp.rdrobust` names a covariate, outcome or running variable that is not
   numeric instead of failing inside numpy.
+- `sp.rosenbaum_bounds(estimates=True)` adds, for each Gamma, the range of
+  the Hodges-Lehmann point estimate and the outer ends of its confidence
+  interval (the `t-hat` and `CI` columns of Stata `rbounds`). The
+  significance levels and the confidence bounds agree with Rosenbaum's
+  `DOS2::senWilcox`, the point-estimate bounds with Stata `rbounds`.
+  `sp.stata` runs `rbounds diff, gamma()` and `bstat, stat()`.
 - `sp.stata` runs `xi`, `ebalance`, `cem`, `sensemakr` and
   `table g, statistic(mean x)`; `encode, g()`;
   `date()`; `egen cut(), group()`; `reghdfe` with `d##ib3.t` and squares;

@@ -153,6 +153,43 @@ def _wilcoxon_ranks(diffs: np.ndarray, zero_method: str) -> np.ndarray:
     return ranks
 
 
+def _shift_solving(
+    diffs: np.ndarray, p: float, z_target: float, zero_method: str
+) -> float:
+    """The shift ``tau`` at which the signed-rank deviate of ``diffs - tau``,
+    taken at assignment probability ``p``, equals ``z_target``.
+
+    The deviate is a step function of ``tau`` that only goes down, so it
+    rarely equals the target at one point: it either jumps across it or
+    sits on it over a stretch. Both ends are found by bisection -- the last
+    shift with the deviate above the target and the last with it not below
+    -- and their midpoint is returned, which is the Hodges-Lehmann
+    convention (the median of the Walsh averages when ``p = 1/2``).
+    """
+
+    def deviate(tau: float) -> float:
+        shifted = diffs - tau
+        ranks = _wilcoxon_ranks(shifted, zero_method)
+        return _wilcoxon_z(ranks, shifted > 0, p)
+
+    span = float(np.max(diffs) - np.min(diffs))
+    ends = []
+    for strict in (True, False):
+        lo = float(np.min(diffs)) - 1.0 - span
+        hi = float(np.max(diffs)) + 1.0 + span
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            value = deviate(mid)
+            if (value > z_target) if strict else (value >= z_target):
+                lo = mid
+            else:
+                hi = mid
+            if hi - lo <= 1e-13 * max(1.0, abs(lo), abs(hi)):
+                break
+        ends.append(0.5 * (lo + hi))
+    return 0.5 * (ends[0] + ends[1])
+
+
 # --------------------------------------------------------------------
 # Public API
 # --------------------------------------------------------------------
@@ -171,6 +208,7 @@ def rosenbaum_bounds(
     gamma_grid: Optional[Sequence[float]] = None,
     alpha: float = 0.05,
     zero_method: str = "pratt",
+    estimates: bool = False,
 ) -> RosenbaumResult:
     """
     Compute Rosenbaum bounds on a paired observational study.
@@ -210,6 +248,17 @@ def rosenbaum_bounds(
         drops them before ranking (``rbounds::psens``). Identical when no
         difference is zero. Ignored by the sign test, which always drops
         zeros.
+
+    estimates : bool, default False
+        Also bound the effect itself (``method="wilcoxon"`` only). For each
+        Gamma the ``detail`` table gains the range of the Hodges-Lehmann
+        point estimate of an additive effect, ``hl_lower`` to ``hl_upper``,
+        and the outer ends of its ``1 - alpha`` confidence interval,
+        ``ci_lower`` and ``ci_upper``. At ``Gamma = 1`` these are the usual
+        Hodges-Lehmann estimate and interval. They are the columns
+        ``t-hat+``, ``t-hat-``, ``CI+`` and ``CI-`` of Stata ``rbounds``;
+        where the signed-rank statistic equals its target over a stretch
+        of shifts, the middle of the stretch is reported, as there.
 
     Returns
     -------
@@ -341,6 +390,31 @@ def rosenbaum_bounds(
             "reject_upper": uppers <= alpha,
         }
     )
+    if estimates:
+        if method != "wilcoxon":
+            raise MethodIncompatibility(
+                "rosenbaum_bounds: estimates=True bounds the Hodges-Lehmann "
+                "estimate, which belongs to the signed-rank test.",
+                recovery_hint="Use method='wilcoxon', or drop estimates=True.",
+                diagnostics={"method": method},
+            )
+        z_crit = float(stats.norm.ppf(1.0 - alpha / 2.0))
+        columns: dict = {
+            k: [] for k in ("hl_lower", "hl_upper", "ci_lower", "ci_upper")
+        }
+        for gamma in gamma_grid_arr:
+            p_high = gamma / (1.0 + gamma)
+            p_low = 1.0 / (1.0 + gamma)
+            columns["hl_lower"].append(_shift_solving(diffs, p_high, 0.0, zero_method))
+            columns["hl_upper"].append(_shift_solving(diffs, p_low, 0.0, zero_method))
+            columns["ci_lower"].append(
+                _shift_solving(diffs, p_high, z_crit, zero_method)
+            )
+            columns["ci_upper"].append(
+                _shift_solving(diffs, p_low, -z_crit, zero_method)
+            )
+        for name, values in columns.items():
+            detail[name] = values
 
     return RosenbaumResult(
         gamma_grid=gamma_grid_arr,

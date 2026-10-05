@@ -163,6 +163,10 @@ def run_session_command(session: "StataSession", line: str) -> Optional[bool]:
         return _xttest0(session)
     if re.match(r"\s*tebalance\s+su", line):
         return _tebalance(session)
+    if re.match(r"\s*rbounds\b", line):
+        return _rbounds(session, line)
+    if re.match(r"\s*bstat\b", line):
+        return _bstat(session, line)
     if re.match(r"\s*xtoverid\s*(?:,.*)?$", line):
         return _xtoverid(session, line)
     head = line.split(None, 1)[0].rstrip(",").lower() if line.strip() else ""
@@ -914,6 +918,144 @@ def _weighted_moments(x: np.ndarray, w: np.ndarray) -> Tuple[float, float]:
     total = float(w.sum())
     mean = float(w @ x) / total
     return mean, float(w @ (x - mean) ** 2) / (total - 1.0)
+
+
+def _number_list(spec: str) -> List[float]:
+    """A Stata numlist of reals: ``1 1.5 2``, ``1(.25)2``, ``1/3``."""
+    out: List[float] = []
+    for token in spec.replace(",", " ").split():
+        stepped = re.fullmatch(r"(-?[\d.]+)\((-?[\d.]+)\)(-?[\d.]+)", token)
+        ranged = re.fullmatch(r"(-?[\d.]+)/(-?[\d.]+)", token)
+        try:
+            if stepped:
+                lo, step, hi = (float(stepped.group(i)) for i in (1, 2, 3))
+            elif ranged:
+                lo, step, hi = float(ranged.group(1)), 1.0, float(ranged.group(2))
+            else:
+                out.append(float(token))
+                continue
+        except ValueError:
+            raise StataExprError(f"{token!r} is not a number list") from None
+        if step <= 0 or hi < lo:
+            raise StataExprError(f"{token!r} is not an increasing number list")
+        count = int(np.floor((hi - lo) / step + 1e-9)) + 1
+        out.extend(round(lo + k * step, 12) for k in range(count))
+    return out
+
+
+def _rbounds(session: "StataSession", line: str) -> bool:
+    """``rbounds diff, gamma(numlist) [alpha(#) sigonly]``: Rosenbaum bounds
+    for the matched-pair differences in ``diff``.
+
+    ``sig+`` / ``sig-`` are ``p_upper`` / ``p_lower`` of the result's
+    ``detail`` table, ``t-hat+`` / ``t-hat-`` are ``hl_lower`` /
+    ``hl_upper`` and ``CI+`` / ``CI-`` are ``ci_lower`` / ``ci_upper``.
+    ``alpha()`` is the confidence level, .95 by default. The significance
+    levels and the Hodges-Lehmann bounds are Stata's. The confidence bounds
+    use the variance of the signed-rank statistic with tied ranks, as
+    Rosenbaum's own ``senWilcox`` does; ``rbounds`` uses the formula for
+    untied data there, so with tied differences they differ from Stata's
+    in about the third digit.
+    """
+    import statspai as sp
+
+    try:
+        cmd = _parse(line)
+    except StataParseError as exc:
+        raise StataExprError(str(exc)) from exc
+    options = dict(cmd.options)
+    gamma = options.pop("gamma", None)
+    level = options.pop("alpha", None)
+    sig_only = "sigonly" in options
+    for ignored in ("sigonly", "dots", "acc"):
+        options.pop(ignored, None)
+    if options or len(cmd.varlist) != 1 or not gamma or session._steps is None:
+        raise StataExprError(
+            "only `rbounds diffvar [if], gamma(numlist) [alpha(#) sigonly]` "
+            "is implemented"
+        )
+    data = session._steps.data
+    name = cmd.varlist[0]
+    if name not in data.columns:
+        raise StataExprError(f"rbounds: variable {name!r} is not in the data")
+    keep = row_mask(data, cmd.if_cond, cmd.in_range, session.stored)
+    diff = data[name].to_numpy(dtype=float, na_value=np.nan)[keep]
+    diff = diff[~np.isnan(diff)]
+    try:
+        confidence = 0.95 if level is None else float(level)
+    except ValueError:
+        raise StataExprError(f"rbounds: alpha({level}) is not a number") from None
+    if not 0 < confidence < 1 or diff.size == 0:
+        raise StataExprError(
+            "rbounds: alpha() is a confidence level between 0 and 1, and the "
+            "variable must hold differences"
+        )
+    session.output = sp.rosenbaum_bounds(
+        diff,
+        np.zeros_like(diff),
+        gamma_grid=_number_list(str(gamma)),
+        alpha=1.0 - confidence,
+        estimates=not sig_only,
+    )
+    return True
+
+
+def _bstat(session: "StataSession", line: str) -> bool:
+    """``bstat [varlist], stat(# ...) [n(#) level(#)]``: bootstrap results
+    from the replications in memory (what ``simulate`` or ``bsample`` in a
+    loop left there).
+
+    One row per variable: the observed statistic from ``stat()``, the
+    bootstrap standard error (the standard deviation of the replications),
+    ``z``, the p-value and the normal-approximation interval.
+    """
+    from scipy import stats as _stats
+
+    try:
+        cmd = _parse(line)
+    except StataParseError as exc:
+        raise StataExprError(str(exc)) from exc
+    options = dict(cmd.options)
+    observed_spec = options.pop("stat", None)
+    level = options.pop("level", None)
+    options.pop("n", None)  # only printed in the header
+    if options or cmd.if_cond or cmd.in_range or session._steps is None:
+        raise StataExprError(
+            "only `bstat [varlist], stat(# ...) [n(#) level(#)]` is implemented"
+        )
+    data = session._steps.data
+    names = list(cmd.varlist) or [str(c) for c in data.columns]
+    unknown = [v for v in names if v not in data.columns]
+    if unknown:
+        raise StataExprError(f"bstat: variable(s) {unknown} are not in the data")
+    try:
+        observed = _number_list(str(observed_spec or ""))
+        confidence = 95.0 if level is None else float(level)
+    except ValueError:
+        raise StataExprError("bstat: stat() and level() take numbers") from None
+    if len(observed) != len(names):
+        raise StataExprError(
+            f"bstat: stat() holds {len(observed)} value(s) for {len(names)} "
+            "variable(s); give the observed statistic of each one"
+        )
+    z_crit = float(_stats.norm.ppf(0.5 + confidence / 200.0))
+    rows = {}
+    for name, value in zip(names, observed):
+        draws = data[name].to_numpy(dtype=float, na_value=np.nan)
+        draws = draws[~np.isnan(draws)]
+        se = float(np.std(draws, ddof=1)) if draws.size > 1 else float("nan")
+        z = value / se if se > 0 else float("nan")
+        rows[name] = {
+            "observed": value,
+            "bootstrap_se": se,
+            "z": z,
+            "pvalue": float(2 * _stats.norm.sf(abs(z))),
+            "ci_lower": value - z_crit * se,
+            "ci_upper": value + z_crit * se,
+            "reps": int(draws.size),
+        }
+    session.output = pd.DataFrame.from_dict(rows, orient="index")
+    return True
 
 
 def _tebalance(session: "StataSession") -> bool:

@@ -296,3 +296,20 @@ def test_translated_group_tables_are_headed_by_the_group_values():
         session.run(line)
         assert [c[0] for c in session.output.columns] == ["0", "1"], line
         assert list(session.output.iloc[0]) == [2.0, 7.0], line
+
+
+# ------------------------------------------------------------------- bstat
+def test_bstat_reads_the_replications_in_memory():
+    draws = np.array([0.8, 1.1, 0.9, 1.3, 1.0, 0.7, 1.2])
+    session = StataSession(pd.DataFrame({"diff": draws}))
+    session.run("bstat, stat(1.0) n(500)")
+    row = session.output.loc["diff"]
+    se = draws.std(ddof=1)
+    np.testing.assert_allclose(row["bootstrap_se"], se)
+    np.testing.assert_allclose(row["z"], 1.0 / se)
+    np.testing.assert_allclose(
+        row["ci_upper"] - row["ci_lower"], 2 * 1.959964 * se, rtol=1e-6
+    )
+    assert row["reps"] == 7
+    with pytest.raises(MethodIncompatibility, match="stat\\(\\) holds"):
+        session.run("bstat, stat(1 2)")

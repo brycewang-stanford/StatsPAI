@@ -57,3 +57,12 @@ compress treat age education
 collapse (mean) re78 age treat (sd) s = re75, by(education)
 reg re78 age treat
 di "REF collapse_float " %20.12f _b[age] " " %20.12f _se[age]
+
+* --- Rosenbaum bounds on matched-pair differences (rbounds, Gangl; SSC)
+use nsw_dw.dta, clear
+psmatch2 treat age education black hispanic married nodegree re74 re75, outcome(re78) logit
+g double diff = re78 - _re78 if _treated==1 & _support==1
+rbounds diff, gamma(1(.25)2)
+rbounds diff, gamma(1 1.5 3) alpha(.90)
+* the same differences for _generate_the_effect_senwilcox.R
+export delimited diff using rb_diff.csv if diff < ., replace datafmt

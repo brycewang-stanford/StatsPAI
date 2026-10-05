@@ -287,3 +287,95 @@ def test_collapse_stores_means_as_stata_does(nsw, storage):
     )
     np.testing.assert_allclose(out.params["age"], b, rtol=RTOL)
     np.testing.assert_allclose(out.std_errors["age"], se, rtol=RTOL)
+
+
+# ------------------------------------------------------- Rosenbaum bounds
+@pytest.fixture(scope="module")
+def matched_differences(nsw):
+    """re78 of each treated unit minus that of its nearest propensity-score
+    match: the `diff` variable the Stata and R references were run on."""
+    session = _session(nsw)
+    _run(
+        session,
+        "psmatch2 treat age education black hispanic married nodegree re74 re75, "
+        "outcome(re78) logit",
+        "g double diff = re78 - _re78 if _treated==1 & _support==1",
+    )
+    return session
+
+
+GAMMAS = [1.0, 1.25, 1.5, 1.75, 2.0]
+# rbounds diff, gamma(1(.25)2): sig+ with the number of digits Stata
+# printed for it, then t-hat+ and t-hat- (six digits)
+RBOUNDS = [
+    (1.1e-08, 2, 2297.86, 2297.86),
+    (8.1e-06, 2, 1833.37, 2859.84),
+    (0.000476, 3, 1375.25, 3289.24),
+    (0.006701, 4, 957.246, 3623.36),
+    (0.03879, 4, 667.566, 3884.08),
+]
+# DOS2::senWilcox: one-sided p-value, two-sided 95% bounds of the interval
+SENWILCOX = [
+    (1.0870662925377e-08, 1566.983245, 3148.231088),
+    (8.0506561956906e-06, 946.522153, 3635.237924),
+    (0.00047631719322172, 483.865041, 4060.503497),
+    (0.0067009547344576, 194.468746, 4485.797963),
+    (0.038789989090135, -114.326923, 4894.169254),
+]
+
+
+def test_rbounds_command_matches_stata(matched_differences):
+    """Significance levels and Hodges-Lehmann bounds of Stata `rbounds`.
+
+    Stata prints six significant digits, hence the tolerances. Where the
+    signed-rank statistic sits on its target over a stretch of shifts
+    (Gamma 1.5 and 2 here) the middle of the stretch is the estimate.
+    """
+    out = _run(matched_differences, "rbounds diff, gamma(1(.25)2)")
+    table = out.detail
+    assert out.n_pairs == 185
+    np.testing.assert_allclose(table["Gamma"], GAMMAS)
+    for row, (sig, digits, hl_low, hl_high) in zip(table.itertuples(), RBOUNDS):
+        # half a unit of the last printed digit
+        np.testing.assert_allclose(row.p_upper, sig, rtol=5.0 * 10.0**-digits)
+        np.testing.assert_allclose(row.hl_lower, hl_low, rtol=5e-6)
+        np.testing.assert_allclose(row.hl_upper, hl_high, rtol=5e-6)
+    # alpha() of rbounds is the confidence level; at Gamma = 3 the lower
+    # end of the estimate has crossed zero (Stata: -205.524 and 4951.32)
+    wide = _run(matched_differences, "rbounds diff, gamma(1 1.5 3) alpha(.90)").detail
+    np.testing.assert_allclose(wide["hl_lower"].iloc[2], -205.524, rtol=5e-6)
+    np.testing.assert_allclose(wide["hl_upper"].iloc[2], 4951.32, rtol=5e-6)
+    np.testing.assert_allclose(wide["p_upper"].iloc[2], 0.636705, rtol=5e-6)
+    assert (wide["ci_lower"] <= wide["hl_lower"]).all()
+    only = _run(matched_differences, "rbounds diff, gamma(1 2) sigonly").detail
+    assert "hl_lower" not in only.columns
+
+
+def test_rosenbaum_bounds_match_senwilcox(matched_differences):
+    """p-values and confidence bounds of Rosenbaum's own `senWilcox`.
+
+    The R run read the differences from a file with seven significant
+    digits and finds each end with `uniroot`, so the bounds agree to about
+    1e-3 in absolute terms; the p-values agree to eight digits. Stata
+    `rbounds` uses the untied-data variance for these bounds and differs
+    from both in the third digit (482.046 against 483.865 at Gamma 1.5).
+    """
+    diff = matched_differences.data["diff"].dropna().to_numpy()
+    out = sp.rosenbaum_bounds(
+        diff, np.zeros_like(diff), gamma_grid=GAMMAS, estimates=True
+    )
+    for row, (pval, low, high) in zip(out.detail.itertuples(), SENWILCOX):
+        np.testing.assert_allclose(row.p_upper, pval, rtol=1e-6)
+        np.testing.assert_allclose(row.ci_lower, low, atol=5e-3)
+        np.testing.assert_allclose(row.ci_upper, high, atol=5e-3)
+
+
+def test_rosenbaum_estimates_need_the_signed_rank_test():
+    d = np.arange(1.0, 9.0)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="signed-rank"):
+        sp.rosenbaum_bounds(d, np.zeros(8), method="sign", estimates=True)
+    # at Gamma = 1 the bound is the Hodges-Lehmann estimate itself: the
+    # median of the Walsh averages, 4.5 for 1..8
+    out = sp.rosenbaum_bounds(d, np.zeros(8), gamma_grid=[1.0], estimates=True)
+    np.testing.assert_allclose(out.detail["hl_lower"], 4.5)
+    np.testing.assert_allclose(out.detail["hl_upper"], 4.5)

@@ -22,7 +22,7 @@ compared with Stata's stored results.
 | | reproduced | differ | not run |
 | --- | --- | --- | --- |
 | first replay | 148 | 37 | 56 |
-| after this pass | 836 | 5 | 7 |
+| after this pass | 836 | 5 | 6 |
 
 The five that still differ are explained below. Twenty-two more numbers come
 from `rnormal()` and cannot be compared draw for draw.
@@ -105,7 +105,23 @@ from `rnormal()` and cannot be compared draw for draw.
   - `i.` covariates in `psmatch2` and `teffects`, and the `_<outcome>`
     variable `psmatch2` leaves;
   - `program def` in any abbreviation, `return scalar` of a local macro,
-    and a program that calls another one.
+    and a program that calls another one;
+  - `bstat, stat()` on the replications `simulate` leaves in memory, so
+    the bootstrap program of chapter 14 runs to its last line (observed
+    IPWRA estimate 0.0769429, Stata's value);
+  - `rbounds diff, gamma()`.
+- `sp.rosenbaum_bounds(estimates=True)`: the range of the Hodges-Lehmann
+  estimate and the outer ends of its confidence interval for each Gamma,
+  the four right-hand columns of `rbounds`. The book's example of it is
+  degenerate (a binary outcome), so the references were taken on the NSW
+  data. Significance levels agree with Stata and with Rosenbaum's
+  `DOS2::senWilcox` (eight digits against R), the Hodges-Lehmann bounds
+  with Stata to its six printed digits, the confidence bounds with
+  `senWilcox` to 1e-3. Stata's confidence bounds use the variance formula
+  for untied data and differ from both in the third digit (482.046
+  against 483.865 at Gamma 1.5 on data with tied differences); that is a
+  difference between the two references, and StatsPAI follows the
+  author's.
 
 ## Agreement found, nothing to change
 
@@ -203,12 +219,10 @@ places, with what StatsPAI offers.
   exist for direct use.
 - `vce(bootstrap, reps())` on `regress`. Refused as before, because the
   draws cannot be Stata's.
-- `bstat`. The bootstrap program of chapter 14 now runs and returns the
-  observed IPWRA estimate (0.0769429, Stata's value); the spread of the
-  replications is read with `summarize`.
-- `rbounds` and `rmhbounds`. `sp.rosenbaum_bounds` exists. The book's own
-  example is degenerate, so there is no reference to align the translation
-  with.
+- `rmhbounds` (Mantel-Haenszel bounds for a binary outcome). StatsPAI has
+  no estimator behind it; adding one is a new public function and was not
+  taken on in a pass over a textbook whose own example of it is
+  degenerate.
 - `generate()` of `teffects nnmatch` (observation numbers of the matches).
   The estimate runs without it.
 - A cross of two factors without their main effects (`a#b`). Stata fits
