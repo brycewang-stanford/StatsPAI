@@ -60259,6 +60259,15 @@
             "description": "Regressors *excluding* the absorbed FEs and the constant (the constant is absorbed by any FE dimension).",
             "type": "string"
           },
+          "absorb_dof": {
+            "default": "reghdfe",
+            "description": "Degrees of freedom the absorbed effects cost a clustered variance. ``\"reghdfe\"`` does not charge an effect nested in the cluster variable (firm effects under firm clustering); ``\"areg\"`` charges every absorbed level, which is the dummy-variable regression and Stata's ``areg``. The two agree without clustering and whenever no effect is nested in a cluster.",
+            "enum": [
+              "reghdfe",
+              "areg"
+            ],
+            "type": "string"
+          },
           "cluster": {
             "description": "One-way or multi-way cluster variables for robust SEs. If provided, returns cluster-robust SEs (one-way: Liang-Zeger sandwich; multi-way: inclusion-exclusion Cameron-Gelbach-Miller).",
             "items": {
@@ -60469,6 +60478,15 @@
       "name": "hdfe_ols",
       "parameters": {
         "properties": {
+          "absorb_dof": {
+            "default": "reghdfe",
+            "description": "What the absorbed effects cost a clustered variance. ``'reghdfe'`` does not charge an effect nested in the cluster variable. ``'areg'`` charges every absorbed level, as the dummy-variable regression and Stata's ``areg`` do; with ``drop_singletons=False`` the slopes and standard errors are then those of ``sp.regress('y ~ x + C(g)')`` without building the dummies. OLS with one-way clustering only.",
+            "enum": [
+              "reghdfe",
+              "areg"
+            ],
+            "type": "string"
+          },
           "alpha": {
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",

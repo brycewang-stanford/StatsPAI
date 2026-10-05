@@ -13,6 +13,7 @@ from __future__ import annotations
 import warnings
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -65,14 +66,77 @@ def test_areg_is_not_reghdfe_when_clustering_on_the_absorbed_variable(areg_frame
 def test_areg_translation_shape():
     out = sp.from_stata("qui areg y x1 i.year [aw=w], a(id) cl(c) noheader")
     assert out["ok"] is True
-    assert out["tool"] == "regress"
+    assert out["tool"] == "hdfe_ols"
     assert out["arguments"] == {
-        "formula": "y ~ x1 + C(year) + C(id)",
+        "formula": "y ~ x1 + i.year | id",
+        "drop_singletons": False,
+        "absorb_dof": "areg",
         "cluster": "c",
         "weights": "w",
     }
     assert out["untranslated_options"] == []
     assert out["ignored_display_options"] == ["noheader"]
+    # variances the absorbing path does not offer keep the dummy variables
+    for line in (
+        "areg y x1 [aw=w], absorb(id) vce(robust)",
+        "areg y x1 [pw=w], absorb(id)",
+        "areg y x1, absorb(id) vce(hc3)",
+    ):
+        dummies = sp.from_stata(line)
+        assert dummies["tool"] == "regress", line
+        assert dummies["arguments"]["formula"] == "y ~ x1 + C(id)", line
+
+
+def test_areg_absorbing_path_is_the_dummy_variable_regression():
+    """absorb_dof='areg' with drop_singletons=False equals sp.regress with
+    C(g) for every variance the translation sends there, including a fixed
+    effect nested in the cluster variable and singleton groups."""
+    rng = np.random.default_rng(0)
+    n = 600
+    d = pd.DataFrame(
+        {
+            "g": rng.integers(0, 60, n),
+            "x1": rng.normal(size=n),
+            "x2": rng.normal(size=n),
+            "w": rng.uniform(0.5, 2, n),
+            "year": rng.integers(2000, 2005, n),
+        }
+    )
+    d["c"] = d["g"] // 4  # g is nested in c
+    d.loc[len(d)] = [999, 0.3, 0.1, 1.0, 2001, 3]  # a singleton group
+    d["y"] = d.x1 + 0.5 * d.x2 + 0.01 * d.g + rng.normal(size=len(d))
+    cases = [
+        {},
+        {"vce": "robust"},
+        {"cluster": "g"},
+        {"cluster": "c"},
+        {"weights": "w"},
+        {"weights": "w", "cluster": "g"},
+    ]
+    for kw in cases:
+        dummies = sp.regress("y ~ x1 + x2 + C(year) + C(g)", data=d, **kw)
+        absorbed = sp.hdfe_ols(
+            "y ~ x1 + x2 + i.year | g",
+            data=d,
+            drop_singletons=False,
+            absorb_dof="areg",
+            **kw,
+        )
+        for name in ("x1", "x2"):
+            assert absorbed.params[name] == pytest.approx(
+                dummies.params[name], rel=1e-10
+            )
+            assert absorbed.std_errors[name] == pytest.approx(
+                dummies.std_errors[name], rel=1e-10
+            ), kw
+    # reghdfe's rule differs exactly where a fixed effect is nested
+    reghdfe = sp.hdfe_ols("y ~ x1 + x2 | g", data=d, drop_singletons=False, cluster="g")
+    areg = sp.hdfe_ols(
+        "y ~ x1 + x2 | g", data=d, drop_singletons=False, cluster="g", absorb_dof="areg"
+    )
+    assert areg.std_errors["x1"] > reghdfe.std_errors["x1"] * 1.01
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="absorb_dof"):
+        sp.hdfe_ols("y ~ x1 | g", data=d, absorb_dof="xtreg")
 
 
 @pytest.mark.parametrize(

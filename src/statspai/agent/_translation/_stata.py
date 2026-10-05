@@ -493,16 +493,20 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_areg(cmd: StataCommand) -> Dict[str, Any]:
-    """``areg y x, absorb(g) vce(cluster c)`` -> ``sp.regress`` with ``C(g)``.
+    """``areg y x, absorb(g) vce(cluster c)`` -> ``sp.hdfe_ols`` with
+    ``drop_singletons=False, absorb_dof='areg'``.
 
     ``areg`` counts the absorbed groups in the degrees of freedom of every
-    variance estimator, clustered ones included, and keeps singleton groups.
-    ``sp.hdfe_ols`` follows ``reghdfe`` on both points (a fixed effect
-    nested in the cluster variable costs no degrees of freedom there), so
-    the counterpart that reproduces ``areg`` is the dummy-variable
-    regression. Checked against Stata 18 for the default, ``vce(robust)``,
-    ``vce(cluster)`` on the absorbed variable and on another one, each
-    with and without ``[aw=]``, on data with singleton groups.
+    variance estimator, clustered ones included, and keeps singleton
+    groups: it is the dummy-variable regression. ``sp.hdfe_ols`` follows
+    ``reghdfe`` on both points by default, and reproduces ``areg`` with
+    the two options above without building the dummies (a regression with
+    4,000 groups takes milliseconds instead of minutes). The combinations
+    that path does not offer (a robust variance with weights, HC2 / HC3)
+    go to ``sp.regress`` with ``C(g)``. Checked against Stata 18 for the
+    default, ``vce(robust)``, ``vce(cluster)`` on the absorbed variable and
+    on another one, each with and without weights, on data with singleton
+    groups.
     """
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
@@ -517,35 +521,70 @@ def _h_areg(cmd: StataCommand) -> Dict[str, Any]:
             suggestions=[],
         )
     group = m.group(1)
-    formula = _build_formula(y, xs + [f"C({group})"])
     cluster = _vce_cluster(cmd)
     robust = _robust_kind(cmd)
-    args: Dict[str, Any] = {"formula": formula}
-    if robust != "nonrobust":
-        args["robust"] = robust
-    if cluster:
-        args["cluster"] = cluster
+    weighted = cmd.weight is not None
+    if weighted and cmd.weight[0] == "pw" and not cluster and robust == "nonrobust":
+        robust = "hc1"  # pweights imply vce(robust)
+    absorbing = bool(xs) and (
+        cluster is not None
+        or robust == "nonrobust"
+        or (robust == "hc1" and not weighted)
+    )
+    hdfe_xs: List[str] = []
+    if absorbing:
+        # sp.hdfe_ols writes a factor as i.f, not C(f); a term it cannot
+        # express sends the command to the dummy-variable regression
+        err_terms, hdfe_xs = _hdfe_terms(list(xs), "areg")
+        absorbing = err_terms is None
+    notes: List[str] = []
+    if absorbing:
+        formula = f"{_build_formula(y, hdfe_xs)} | {group}"
+        args: Dict[str, Any] = {
+            "formula": formula,
+            "drop_singletons": False,
+            "absorb_dof": "areg",
+        }
+        if cluster:
+            args["cluster"] = cluster
+        elif robust == "hc1":
+            args["vce"] = "robust"
+        tool = "hdfe_ols"
+        notes.append(
+            f"areg absorb({group}) -> sp.hdfe_ols with drop_singletons=False "
+            "and absorb_dof='areg': areg keeps singleton groups and counts "
+            "every absorbed group in the degrees of freedom, clustered "
+            "standard errors included (reghdfe, sp.hdfe_ols's default, does "
+            "neither)."
+        )
+    else:
+        formula = _build_formula(y, xs + [f"C({group})"])
+        args = {"formula": formula}
+        if robust != "nonrobust":
+            args["robust"] = robust
+        if cluster:
+            args["cluster"] = cluster
+        tool = "regress"
+        notes += [
+            f"areg absorb({group}) -> C({group}) dummies in sp.regress: this "
+            "variance (robust with weights, HC2 / HC3) is not offered by the "
+            "absorbing path of sp.hdfe_ols.",
+            "The slope coefficients and their SEs equal areg's. The constant "
+            "does not: areg's _cons is the intercept at the average absorbed "
+            "effect, while `Intercept` here is the first group's level and the "
+            f"C({group})[...] rows are contrasts with it. Do not report "
+            "`Intercept` as areg's _cons.",
+        ]
     code_kwargs = ", ".join(
         [f"{k}={v!r}" for k, v in args.items() if k != "formula"] + ["data=df"]
     )
-    python = f"sp.regress({formula!r}, {code_kwargs})"
-    notes = [
-        f"areg absorb({group}) -> C({group}) dummies in sp.regress: areg's "
-        "standard errors count the absorbed groups in the degrees of "
-        "freedom. sp.hdfe_ols gives the same coefficients faster but "
-        "follows reghdfe's degrees of freedom and drops singletons.",
-        "The slope coefficients and their SEs equal areg's. The constant "
-        "does not: areg's _cons is the intercept at the average absorbed "
-        "effect, while `Intercept` here is the first group's level and the "
-        f"C({group})[...] rows are contrasts with it. Do not report "
-        "`Intercept` as areg's _cons.",
-    ]
+    python = f"sp.{tool}({formula!r}, {code_kwargs})"
     if cmd.if_cond:
         notes.append(
             f"Stata `if {cmd.if_cond}` dropped — pre-filter df via "
             f"`df = df.query({cmd.if_cond!r})` before calling."
         )
-    return _emit("regress", args, python, notes)
+    return _emit(tool, args, python, notes)
 
 
 _SUM_STATS = {
@@ -4735,6 +4774,7 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
     if err is not None:
         return _emit_error(err, command=parsed.command, suggestions=[])
     parsed.columns = columns
+    parsed.weight = info["weight"]
     payload = handler(parsed)
     if not payload.get("ok"):
         return payload

@@ -257,11 +257,16 @@ TIER1_ROUND_TRIPS = [
             "time": "year",
         },
     ),
-    # areg -> sp.regress with group dummies (areg's degrees of freedom)
+    # areg -> sp.hdfe_ols with areg's degrees of freedom, singletons kept
     (
         "areg y x, absorb(id) vce(cluster id)",
-        "regress",
-        {"formula": "y ~ x + C(id)", "cluster": "id"},
+        "hdfe_ols",
+        {
+            "formula": "y ~ x | id",
+            "cluster": "id",
+            "drop_singletons": False,
+            "absorb_dof": "areg",
+        },
     ),
     # rdbwselect
     (

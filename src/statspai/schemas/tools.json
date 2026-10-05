@@ -61,6 +61,15 @@
           "description": "Regressors *excluding* the absorbed FEs and the constant (the constant is absorbed by any FE dimension).",
           "type": "string"
         },
+        "absorb_dof": {
+          "default": "reghdfe",
+          "description": "Degrees of freedom the absorbed effects cost a clustered variance. ``\"reghdfe\"`` does not charge an effect nested in the cluster variable (firm effects under firm clustering); ``\"areg\"`` charges every absorbed level, which is the dummy-variable regression and Stata's ``areg``. The two agree without clustering and whenever no effect is nested in a cluster.",
+          "enum": [
+            "reghdfe",
+            "areg"
+          ],
+          "type": "string"
+        },
         "cluster": {
           "description": "One-way or multi-way cluster variables for robust SEs. If provided, returns cluster-robust SEs (one-way: Liang-Zeger sandwich; multi-way: inclusion-exclusion Cameron-Gelbach-Miller).",
           "items": {
@@ -13638,6 +13647,15 @@
     "description": "reghdfe-style OLS with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- dense O(n^2) memory (see cost); use sp.conley on the fitted result instead. Cost: Absorption is linear in n. vce='conley' is the exception: the within-transformed design goes through conley_vcov_matrix, which builds dense n x n distance and kernel matrices -- ~80 GB at n=100,000. vce='cr2'/'cr3' are per-cluster and cheap by comparison. Assumptions: Linear conditional mean after absorbing high-dimensional fixed effects (Frisch-Waugh-Lovell); Exogeneity of regressors conditional on the absorbed fixed-effect dimensions; Clustered SEs require enough clusters for asymptotics; multiway cluster needs each dimension well-populated. Pre-conditions: Continuous outcome; Fixed-effect factor variable(s) in the '| fe1 + fe2' part of the formula. Failure modes: Singleton groups absorb their own observations and bias clustered SEs -> Keep drop_singletons=True so singletons are removed before estimation; Alternating-projections absorber does not converge -> Raise maxiter / loosen tol, or reduce the number of FE dimensions; Too few clusters make wi...",
     "input_schema": {
       "properties": {
+        "absorb_dof": {
+          "default": "reghdfe",
+          "description": "What the absorbed effects cost a clustered variance. ``'reghdfe'`` does not charge an effect nested in the cluster variable. ``'areg'`` charges every absorbed level, as the dummy-variable regression and Stata's ``areg`` do; with ``drop_singletons=False`` the slopes and standard errors are then those of ``sp.regress('y ~ x + C(g)')`` without building the dummies. OLS with one-way clustering only.",
+          "enum": [
+            "reghdfe",
+            "areg"
+          ],
+          "type": "string"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",

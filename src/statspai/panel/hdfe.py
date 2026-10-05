@@ -1000,6 +1000,7 @@ def absorb_ols(
     slopes: Optional[Sequence[SlopeSpec]] = None,
     cluster_df: str = "per_term",
     collinear_tol: Optional[float] = None,
+    absorb_dof: str = "reghdfe",
 ) -> dict:
     """OLS with absorbed high-dimensional fixed effects (reghdfe-style).
 
@@ -1031,6 +1032,13 @@ def absorb_ols(
         The ``tol`` that reghdfe's collinearity screen is derived from
         (``min(1e-6, collinear_tol / 10)``); defaults to ``tol``. Lets a
         caller tighten the sweep without moving the collinearity threshold.
+    absorb_dof : {"reghdfe", "areg"}, default "reghdfe"
+        Degrees of freedom the absorbed effects cost a clustered variance.
+        ``"reghdfe"`` does not charge an effect nested in the cluster
+        variable (firm effects under firm clustering); ``"areg"`` charges
+        every absorbed level, which is the dummy-variable regression and
+        Stata's ``areg``. The two agree without clustering and whenever no
+        effect is nested in a cluster.
     cluster_df : {"per_term", "min"}, default "per_term"
         Small-sample factor of the multi-way (inclusion-exclusion) cluster
         variance.  ``"per_term"`` scales each term by its own
@@ -1070,6 +1078,11 @@ def absorb_ols(
     >>> print(out["n"], out["converged"])
     500 True
     """
+    if absorb_dof not in ("reghdfe", "areg"):
+        raise MethodIncompatibility(
+            f"absorb_ols: absorb_dof={absorb_dof!r} is not 'reghdfe' or 'areg'.",
+            recovery_hint="Use absorb_dof='reghdfe' (the default) or 'areg'.",
+        )
     y = np.asarray(y, dtype=np.float64).ravel()
     X = np.asarray(X, dtype=np.float64)
     if X.ndim == 1:
@@ -1166,12 +1179,16 @@ def absorb_ols(
             cluster_sub = [np.asarray(c)[keep] for c in cluster]
         else:
             cluster_sub = np.asarray(cluster)[keep]
-        dof_fe_cluster, nested_fe_in_cluster = _cluster_effective_fe_dof(
-            ab.fe_codes,
-            ab.n_fe,
-            cluster_sub,
-            ab.slope_ops,
-        )
+        if absorb_dof == "areg":
+            dof_fe_cluster = dof_fe
+            nested_fe_in_cluster = [False] * len(ab.n_fe)
+        else:
+            dof_fe_cluster, nested_fe_in_cluster = _cluster_effective_fe_dof(
+                ab.fe_codes,
+                ab.n_fe,
+                cluster_sub,
+                ab.slope_ops,
+            )
         vcov = _cluster_sandwich(
             Xw,
             resid,

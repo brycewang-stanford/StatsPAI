@@ -149,7 +149,27 @@ Bryce delegated the open decisions. Four were closed.
   matrix.
 
 The dummy-variable regression behind `areg` lost another ten seconds
-(the bread matrix was assembled entry by entry). It is still slow.
+(the bread matrix was assembled entry by entry).
+
+## Third round: `areg` without the dummies
+
+`areg` had been translated to dummy variables because `sp.hdfe_ols`
+follows `reghdfe`: it drops singleton groups, and a fixed effect nested in
+the cluster variable costs a clustered variance no degrees of freedom.
+Measured on a design with singletons, weights and a nested cluster, those
+are the only two differences. With `drop_singletons=False` everything
+else already equalled the dummy-variable regression to 1e-15.
+
+`absorb_dof='areg'` removes the second difference. `areg` now translates
+to `sp.hdfe_ols(..., drop_singletons=False, absorb_dof='areg')`. The eight
+Stata 18 reference fits of `tests/test_stata_translation_areg_rdbwselect.py`
+(classical, robust, clustered on the absorbed variable and on another one,
+with and without weights, on data with singleton groups) pass unchanged.
+On the NLS panel the command takes 7 milliseconds where the dummy
+regression took three minutes, and the chapter 10 log now replays with 400
+numbers reproduced and none different: the constant is Stata's too. A
+robust variance with weights, and HC2 / HC3, are not offered by the
+absorbing path and keep the dummy-variable translation.
 
 ## Differences that are not errors
 
@@ -158,10 +178,7 @@ The dummy-variable regression behind `areg` lost another ten seconds
   prints our coefficients and standard errors to every digit.
 - **`teffects ra` / `ipwra`, the sample size (3 numbers).** The replay
   script reads the wrong field; `result.n_obs` is 4,642 as in Stata.
-- **`areg`, the constant (2 numbers).** `areg` reports the intercept at the
-  average absorbed effect; the dummy-variable regression it is translated
-  to reports the first group's level. The translation says so in a note.
-  Slopes and their standard errors agree.
+- **`areg`, the constant (2 numbers).** Closed in the third round below.
 - **`arima` and `arch` to four or five digits** when Stata runs at its
   default tolerance.
 
@@ -179,7 +196,7 @@ The dummy-variable regression behind `areg` lost another ten seconds
 | `irf table`, `svar` in `sp.stata`, `varnorm` | `sp.svar` and `VARResult.fevd` give the numbers; the session does not yet pass `matrix` definitions to them. |
 | `lpirf` | `sp.local_projections` is a single-equation estimator with a different specification. Not compared. |
 | `heckman, mills()`; `etregress, poutcomes` | Options with no counterpart; reported as untranslated. |
-| `areg` with thousands of groups | Translated to dummy variables on purpose (degrees of freedom). Now about 3 minutes on 4,134 groups, dominated by a dense QR. An absorbing path with `areg`'s degrees of freedom would make it instant. |
+| `areg` with weights and `vce(robust)`, or `vce(hc2 / hc3)`, on thousands of groups | Still the dummy-variable regression; `sp.hdfe_ols` has no robust variance with weights. |
 | `tobit y x, ll` with no value | Stata censors at the observed minimum. Now refused with that explanation; running it needs the data. |
 | `regress D.(y x1 x2)` | An operator applied to a parenthesised varlist is not expanded. |
 

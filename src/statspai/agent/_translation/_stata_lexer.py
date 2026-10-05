@@ -42,6 +42,9 @@ class StataCommand:
     #: The dataset's columns when the caller supplied them, for handlers
     #: whose options hold a varlist (``did2s, second_stage(pre_3-post_5)``)
     columns: Optional[Sequence[str]] = None
+    #: ``(kind, variable)`` of the weight clause once it has been split off
+    #: the varlist, for handlers whose target depends on it (``areg``)
+    weight: Optional[Tuple[str, str]] = None
 
 
 _WEIGHT_CLAUSE = re.compile(

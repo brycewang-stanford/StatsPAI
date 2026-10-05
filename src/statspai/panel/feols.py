@@ -749,6 +749,7 @@ def feols(
     tol: Optional[float] = None,
     maxiter: int = 10_000,
     df_inference: Optional[Union[str, float]] = None,
+    absorb_dof: str = "reghdfe",
 ) -> FEOLSResult:
     """reghdfe-style OLS with high-dimensional fixed effects.
 
@@ -855,6 +856,14 @@ def feols(
         normal with many observations); ``'normal'`` the standard normal; a
         number that many degrees of freedom. The standard errors are the
         same in every case.
+    absorb_dof : {'reghdfe', 'areg'}, default 'reghdfe'
+        What the absorbed effects cost a clustered variance. ``'reghdfe'``
+        does not charge an effect nested in the cluster variable.
+        ``'areg'`` charges every absorbed level, as the dummy-variable
+        regression and Stata's ``areg`` do; with ``drop_singletons=False``
+        the slopes and standard errors are then those of
+        ``sp.regress('y ~ x + C(g)')`` without building the dummies. OLS
+        with one-way clustering only.
 
     Returns
     -------
@@ -1027,6 +1036,12 @@ def feols(
         exog_arr, exog_names = (
             _materialize_rhs(df, x_terms) if x_terms else (np.empty((len(df), 0)), [])
         )
+        if absorb_dof != "reghdfe":
+            raise MethodIncompatibility(
+                "hdfe_ols: absorb_dof='areg' is defined for OLS; the IV "
+                "path follows ivreghdfe.",
+                recovery_hint="Drop absorb_dof=, or fit without instruments.",
+            )
         endog_arr, endog_names = _materialize_rhs(df, endog_terms)
         inst_arr, inst_names = _materialize_rhs(df, inst_terms)
         return hdfe_iv(
@@ -1070,6 +1085,7 @@ def feols(
         return_absorber=True,
         slopes=slope_specs,
         collinear_tol=collinear_tol,
+        absorb_dof=absorb_dof,
     )
 
     coef = pd.Series(result["coef"], index=x_names, name="coef")

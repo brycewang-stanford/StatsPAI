@@ -58,9 +58,11 @@ RUNNER_ONLY = {"ols_fweight"}
 #: and they reproduce Stata.
 CLOSED_AFTER_HOLDOUT = {"ols_noconstant", "qreg", "ols_fweight", "xtreg_re"}
 
-#: The constant is a different quantity by construction; the translation
-#: note must say so (areg's _cons vs the first group's level).
-CONSTANT_DIFFERS = {"areg"}
+#: Cases whose constant is a different quantity by construction. Empty since
+#: areg goes to the absorbing path, which reports no first-group intercept
+#: (it used to be translated to dummy variables, whose `Intercept` is the
+#: first group's level and not areg's _cons).
+CONSTANT_DIFFERS: set = set()
 
 
 @pytest.fixture(scope="module")
@@ -236,7 +238,7 @@ def test_layer_counts(scores):
     assert len(refusals) == 6
 
 
-def test_constant_is_the_only_thing_areg_changes_and_the_note_says_so(scores):
+def test_areg_reproduces_stata_without_a_misleading_constant(scores):
     differs = {
         cid
         for cid, (entry, layers) in scores.items()
@@ -245,7 +247,7 @@ def test_constant_is_the_only_thing_areg_changes_and_the_note_says_so(scores):
     assert differs == CONSTANT_DIFFERS
     _, layers = scores["areg"]
     assert layers["same_numbers"] is True  # slopes and SEs equal areg's
-    assert "_cons" in layers["note"] and "Intercept" in layers["note"]
+    assert "absorb_dof='areg'" in layers["note"]
 
 
 def test_if_in_and_missing_values_select_stata_s_sample(scores, frames):

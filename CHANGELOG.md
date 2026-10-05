@@ -477,6 +477,19 @@ below are pinned on committed synthetic data in
   (Stata's `heckman y x, select(z1 z2)`, which `sp.stata` now runs), and
   `method='mle'` is accepted for `'ml'`. `sp.arima` and `sp.garch` take
   `data=` with a column name.
+- **`sp.hdfe_ols(absorb_dof='areg')`** (and `sp.absorb_ols`) charges every
+  absorbed level in a clustered variance, where the default follows
+  `reghdfe` and does not charge an effect nested in the cluster variable.
+  With `drop_singletons=False` the fit is then the dummy-variable
+  regression, slopes and standard errors equal to
+  `sp.regress('y ~ x + C(g)')` to 1e-10 under the classical, robust and
+  clustered variances, with and without weights, without building the
+  dummies. `sp.stata` sends `areg` there: on the NLS panel (4,134 groups)
+  the command goes from about three minutes to under a second, and its
+  `_cons` is now Stata's (the dummy-variable translation reported the
+  first group's level and said so in a note). The result no longer lists
+  the group dummies. A robust variance with weights and HC2 / HC3 keep
+  the dummy-variable translation.
 - **`sp.ttest(n=, mean=, sd=)`** takes summary statistics for one sample
   or two independent ones (Stata's `ttesti`).
 - **Abbreviated variable names in `sp.stata`** are spelled out in
