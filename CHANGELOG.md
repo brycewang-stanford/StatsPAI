@@ -4,6 +4,79 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### What *Causal Inference in R* found
+
+Barrett, D'Agostino McGowan and Gerke's book (<https://www.r-causal.org>)
+teaches one workflow with the `propensity`, `halfmoon` and `tipr` packages.
+Every analysis in its chapters 2 and 6 to 16 was rerun in R and in StatsPAI
+on the same rows. Notes are in
+`docs/dev/2026-10-05-barrett-causal-inference-in-r-review.md`, the user
+guide is `docs/guides/causal_inference_in_r.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.trimming(method='crump')` and `sp.propensity_score(trimming='crump')`
+  trimmed too little.** The cutoff solved `alpha = 1 / (2 E[g])` where the
+  rule of Crump, Hotz, Imbens and Mitnik (2009) is
+  `alpha (1 - alpha) = 1 / (2 E[g])`, and it searched a 500-point grid. On
+  the book's data the cutoff was 0.0638 and 329 of 354 days were kept. The
+  rule gives 0.0716 and keeps 318, which is what `propensity::ps_trim(method
+  = "adaptive")` returns (cutoff equal to 1e-15, the same 36 days dropped).
+  The cutoff is now solved exactly.
+- **Weighted variances in `sp.balance_diagnostics` and `sp.ps_balance`.**
+  The weighted group variance had divisor `sum(w)` while the unweighted one
+  had `n - 1`, so `weights=1` did not reproduce the raw columns. It is now
+  `sum(w (x - m)^2) / (sum(w) - sum(w^2) / sum(w))`, the form in Austin and
+  Stuart (2015). Weighted variance ratios now equal `cobalt` and `halfmoon`
+  to 1e-10 (0.7794 before, 0.7938 after on the book's temperature
+  variable). Weighted standardized differences move in the third decimal.
+- **`DAG.adjustment_sets(minimal=True)` could miss minimal sets.** The
+  search stopped at the smallest size that had a valid set. For
+  `W -> X; P -> W; Q -> W; P -> Y; Q -> Y; X -> Y` it returned `{W}` and
+  not `{P, Q}`. It now returns every valid set with no valid proper
+  subset, as `dagitty::adjustmentSets` does.
+
+#### Added
+
+- `sp.ps_weights(ps, treat, estimand=)`. Propensity-score weights for the
+  ATE, ATT, ATC, the overlap population (ATO) and the evenly matchable
+  (ATM), with `stabilize=`, `truncate=` and a continuous exposure through
+  normal densities. Equal to `propensity::wt_*` to 1e-13.
+- `sp.ess(weights, by=)`. Effective sample size, overall or by group.
+- `sp.energy_distance(data, treat, covariates, weights=)`. One number for
+  joint covariate imbalance. Equal to `halfmoon::bal_energy` to 1e-15.
+- `sp.implied_weights(data, treat, covariates, interactions=, estimand=)`.
+  The weights a linear regression adjustment puts on each row. Equal to
+  `lmw::lmw` to 1e-8.
+- `sp.confounder_adjust` and `sp.confounder_tip`. What an estimate becomes
+  under a stated unmeasured confounder, and how strong the confounder must
+  be to reach the null. Differences, risk, odds and hazard ratios, binary
+  or normal confounder. Equal to `tipr` to 1e-12 on 19 cases.
+- `sp.ipw(estimand='ATO' | 'ATM')`, and `'ATU'` as another name for
+  `'ATC'`. The sandwich standard error covers all five estimands and
+  equals `propensity::ipw` to 1e-13 once its `n / (n - 1)` factor is
+  applied.
+- `sp.contrast(effect='ratio' | 'odds_ratio')` gives marginal risk and
+  odds ratios with delta-method intervals on the log scale.
+  `sp.contrast(subset=)` and `sp.margins(subset=)` average over a
+  subpopulation while keeping the model's factor levels, which gives the
+  effect on the treated or the untreated after any outcome model. Both
+  equal `marginaleffects::avg_comparisons`.
+- `sp.g_computation(estimand='ATC')`.
+- `sp.roc_curve(weights=)` and `sp.auc(weights=)`, the weighted
+  Mann-Whitney probability. No standard error is reported with weights.
+- `DAG.equivalent_dags()` and `DAG.equivalence_class()` list the graphs the
+  data cannot tell apart and the edges that flip among them. Counts and
+  undirected edges equal `dagitty`.
+- `sp.balance_diagnostics(sd_denom='unweighted')` is the `cobalt`
+  convention. Its summary now also has the effective sample size of each
+  group and the energy distance before and after weighting.
+
+#### Changed
+
+- `sp.contrast` raises when only one level of the variable is available.
+  It used to return an empty table.
+
 ### `rdlocrand` 3.0
 
 The maintainers of `rdlocrand` released 3.0 on 2026-10-04. Every reference

@@ -37,6 +37,7 @@ def margins(
     method: str = "ame",
     eps: float = 1e-5,
     alpha: float = 0.05,
+    subset: Any = None,
 ) -> pd.DataFrame:
     """
     Compute marginal effects from a fitted model.
@@ -86,6 +87,16 @@ def margins(
         Relative step for the central difference used on transformed terms.
     alpha : float, default 0.05
         Significance level.
+    subset : str or boolean array-like, optional
+        Average over a subpopulation of ``data``: a boolean mask aligned
+        with its rows, or an expression for ``data.eval`` such as
+        ``"treat == 1"``. The model's factor levels still come from the
+        whole of ``data``, so with ``"treat == 1"`` the contrast between
+        the levels of ``treat`` is the effect on the treated and with
+        ``"treat == 0"`` the effect on the untreated (Stata ``margins,
+        subpop()``; R ``marginaleffects`` ``newdata = subset(...)``).
+        Passing an already subsetted frame as ``data`` is not the same:
+        a level that is absent from it cannot be contrasted.
 
     Returns
     -------
@@ -130,7 +141,7 @@ def margins(
         raise MethodIncompatibility(
             f"margins: method must be 'ame' or 'mem', got {method!r}."
         )
-    ctx = _MarginsContext(result, data, at=at)
+    ctx = _MarginsContext(result, data, at=at, subset=subset)
     design = ctx.design
     if variables is None:
         variables = [
@@ -203,6 +214,7 @@ class _MarginsContext:
         data: Optional[pd.DataFrame],
         at: Optional[Dict[str, Any]] = None,
         alpha: float = 0.05,
+        subset: Any = None,
     ) -> None:
         self.result = result
         self.link = _response_link(result)
@@ -218,6 +230,8 @@ class _MarginsContext:
         frame, self.n_dropped = _estimation_sample(
             result, frame, self.design, restrict=data is not None
         )
+        if subset is not None:
+            frame = _apply_subset(frame, data, subset)
         if at:
             unknown = [k for k in at if k not in self.design.variables]
             if unknown:
@@ -547,6 +561,32 @@ def _link_derivatives(link: str, eta: np.ndarray) -> Tuple[np.ndarray, np.ndarra
         return f, f * (1.0 - e)
     mu = np.exp(eta)  # log
     return mu, mu
+
+
+def _apply_subset(
+    frame: pd.DataFrame, data: Optional[pd.DataFrame], subset: Any
+) -> pd.DataFrame:
+    """Rows of the estimation sample that belong to the subpopulation."""
+    if data is None:
+        raise MethodIncompatibility(
+            "margins: subset= selects rows of data=; pass the estimation data.",
+        )
+    if isinstance(subset, str):
+        mask = pd.Series(np.asarray(data.eval(subset), dtype=bool), index=data.index)
+    else:
+        values = np.asarray(subset)
+        if values.shape != (len(data),):
+            raise MethodIncompatibility(
+                f"subset must have one entry per row of data ({len(data)}); "
+                f"got shape {values.shape}"
+            )
+        mask = pd.Series(values.astype(bool), index=data.index)
+    keep = mask.reindex(frame.index).fillna(False).to_numpy(dtype=bool)
+    if not keep.any():
+        raise MethodIncompatibility(
+            "margins: subset= selects no row of the estimation sample.",
+        )
+    return frame.loc[keep]
 
 
 def _margins_frame(result: Any, data: Optional[pd.DataFrame]) -> pd.DataFrame:
@@ -940,6 +980,8 @@ def contrast(
     method: str = "r",
     reference: Any = None,
     alpha: float = 0.05,
+    effect: str = "difference",
+    subset: Any = None,
 ) -> pd.DataFrame:
     """
     Compute contrasts of predictive margins across levels of a variable.
@@ -966,6 +1008,28 @@ def contrast(
         observed level.
     alpha : float, default 0.05
         Significance level.
+    effect : {'difference', 'ratio', 'odds_ratio'}, default 'difference'
+        Scale of the contrast between two predictive margins ``m1`` and
+        ``m0``. ``'ratio'`` is ``m1 / m0`` (a marginal risk ratio after a
+        binary-outcome model) and ``'odds_ratio'`` is
+        ``[m1 / (1 - m1)] / [m0 / (1 - m0)]``, the marginal odds ratio,
+        which unlike the coefficient of a logistic regression is a
+        population-averaged quantity. Inference is by the delta method on
+        the log scale: ``se`` is the standard error of the log ratio, the
+        test is of a ratio of one, and the interval is the exponentiated
+        log-scale interval (R ``marginaleffects`` ``comparison =
+        "lnratioavg"`` / ``"lnoravg"`` with ``transform = exp``). Not
+        available with ``method='gw'``.
+    subset : str or boolean array-like, optional
+        Average over a subpopulation of ``data``: a boolean mask aligned
+        with its rows, or an expression for ``data.eval`` such as
+        ``"treat == 1"``. The model's factor levels still come from the
+        whole of ``data``, so with ``"treat == 1"`` the contrast between
+        the levels of ``treat`` is the effect on the treated and with
+        ``"treat == 0"`` the effect on the untreated (Stata ``margins,
+        subpop()``; R ``marginaleffects`` ``newdata = subset(...)``).
+        Passing an already subsetted frame as ``data`` is not the same:
+        a level that is absent from it cannot be contrasted.
 
     Returns
     -------
@@ -993,26 +1057,66 @@ def contrast(
     >>> c["contrast_label"].tolist()
     ['1.0 vs 0', '2.0 vs 0']
     """
-    ctx = _MarginsContext(result, data, alpha=alpha)
+    ctx = _MarginsContext(result, data, alpha=alpha, subset=subset)
     _require_model_variable(ctx, variable, "contrast")
     V = ctx.vcov()
     ppf, sf = _t_or_z(ctx.df)
     crit = ppf(1 - alpha / 2)
 
+    if effect not in ("difference", "ratio", "odds_ratio"):
+        raise MethodIncompatibility(
+            f"effect must be 'difference', 'ratio' or 'odds_ratio'; got {effect!r}"
+        )
+    if effect != "difference" and method == "gw":
+        raise MethodIncompatibility(
+            "contrast: a ratio against the grand mean is not defined here.",
+            recovery_hint="Use method='r' or 'ar' with effect=.",
+        )
+
     levels = sorted(ctx.frame[variable].dropna().unique())
+    if ctx.design.is_factor(variable) and variable in ctx.design.factors:
+        # A factor's levels are those the model was fitted with, so that a
+        # contrast averaged over a subpopulation in which only one level
+        # is observed (the treated, for an effect on the treated) is still
+        # the contrast between the model's levels.
+        levels = sorted(ctx.design.factors[variable][0])
     level_margins, level_grads = _level_margins(ctx, variable, levels)
+
+    if effect != "difference":
+        # Work on the log (or logit) scale: a difference there is the log
+        # ratio (log odds ratio), and the chain rule rescales the gradient.
+        for lev in levels:
+            m = float(level_margins[lev])
+            if m <= 0 or (effect == "odds_ratio" and m >= 1):
+                raise MethodIncompatibility(
+                    f"contrast(effect={effect!r}): the predictive margin at "
+                    f"{variable}={lev} is {m:.4g}, outside the range where "
+                    "the ratio is defined.",
+                    recovery_hint="Ratios need positive margins (and odds "
+                    "ratios margins below one), e.g. from a logit or "
+                    "Poisson model.",
+                )
+            if effect == "ratio":
+                level_margins[lev] = float(np.log(m))
+                level_grads[lev] = level_grads[lev] / m
+            else:
+                level_margins[lev] = float(np.log(m / (1 - m)))
+                level_grads[lev] = level_grads[lev] / (m * (1 - m))
 
     def _row(label: str, diff: float, grad_diff: np.ndarray) -> Dict[str, Any]:
         se = float(np.sqrt(max(float(grad_diff @ V @ grad_diff), 0.0)))
         z = diff / se if se > 0 else 0.0
+        lo, hi = diff - crit * se, diff + crit * se
+        if effect != "difference":
+            diff, lo, hi = float(np.exp(diff)), float(np.exp(lo)), float(np.exp(hi))
         return {
             "contrast_label": label,
             "contrast": diff,
             "se": se,
             "z": z,
             "pvalue": float(2 * sf(abs(z))),
-            "ci_lower": diff - crit * se,
-            "ci_upper": diff + crit * se,
+            "ci_lower": lo,
+            "ci_upper": hi,
         }
 
     rows = []
@@ -1063,8 +1167,17 @@ def contrast(
     else:
         raise ValueError(f"Unknown contrast method '{method}'. Use 'r', 'ar', or 'gw'.")
 
+    if not rows:
+        raise MethodIncompatibility(
+            f"contrast: only one level of {variable!r} ({levels}) is "
+            "available, so there is nothing to contrast.",
+            recovery_hint="Enter the variable as C(...) in the model and, "
+            "to average over a subpopulation, pass the full data with "
+            "subset= rather than a subsetted frame.",
+        )
     out = pd.DataFrame(rows)
     out.attrs.update(ctx.attrs())
+    out.attrs["effect"] = effect
     return out
 
 

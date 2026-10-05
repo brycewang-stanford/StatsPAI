@@ -71,9 +71,13 @@ def g_computation(
         Treatment variable. Binary (0/1), discrete, or continuous.
     covariates : list of str
         Baseline covariates to adjust for.
-    estimand : {'ATE', 'ATT', 'dose_response'}, default 'ATE'
+    estimand : {'ATE', 'ATT', 'ATC', 'dose_response'}, default 'ATE'
         - ``'ATE'``: E[Q(1,X) - Q(0,X)] (requires binary D)
         - ``'ATT'``: E[Q(1,X) - Q(0,X) | D=1]
+        - ``'ATC'``: E[Q(1,X) - Q(0,X) | D=0], the effect on the untreated
+          (``'ATU'`` accepted; not with ``by_arm=True``). The three
+          coincide when the outcome model has no treatment-covariate
+          interaction and is linear.
         - ``'dose_response'``: grid of E[Q(d,X)] over ``treat_values``
     treat_values : sequence of float, optional
         Treatment levels at which to compute the dose-response curve.
@@ -163,9 +167,12 @@ def g_computation(
     alternatives, or :func:`sp.dml` with ``model='plr'/'irm'`` for
     ML-based orthogonalization.
     """
-    if estimand not in ("ATE", "ATT", "dose_response"):
+    if estimand == "ATU":
+        estimand = "ATC"
+    if estimand not in ("ATE", "ATT", "ATC", "dose_response"):
         raise ValueError(
-            f"estimand must be 'ATE', 'ATT', or 'dose_response'; " f"got '{estimand}'"
+            "estimand must be 'ATE', 'ATT', 'ATC', or 'dose_response'; "
+            f"got '{estimand}'"
         )
 
     if se_method not in ("bootstrap", "analytic"):
@@ -200,7 +207,7 @@ def g_computation(
     X = df[covariates].values.astype(float)
     n = len(Y)
 
-    if estimand in ("ATE", "ATT"):
+    if estimand in ("ATE", "ATT", "ATC"):
         uniq = set(np.unique(D))
         if not uniq.issubset({0, 1}):
             # Truncate the value dump: a continuous treatment can have
@@ -272,8 +279,8 @@ def g_computation(
         preds = _fit_and_predict(Y_, D_, X_, grid)
         if estimand == "ATE":
             return np.array([float(np.mean(preds[:, 1] - preds[:, 0]))])
-        if estimand == "ATT":
-            treated_mask = D_ == 1
+        if estimand in ("ATT", "ATC"):
+            treated_mask = D_ == (1 if estimand == "ATT" else 0)
             if treated_mask.sum() == 0:
                 return np.array([np.nan])
             return np.array(

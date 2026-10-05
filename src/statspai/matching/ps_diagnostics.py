@@ -220,26 +220,34 @@ def _gbm_ps(X: np.ndarray, D: np.ndarray) -> np.ndarray:
 
 
 def _crump_alpha(ps: np.ndarray) -> float:
-    """Find optimal Crump trimming threshold alpha.
+    """Optimal trimming threshold of Crump, Hotz, Imbens and Mitnik (2009).
 
-    Solves: alpha = 1 / (2 * E[1/(e(1-e)) * I(alpha <= e <= 1-alpha)])
-    via grid search on [0, 0.5).
+    With ``g = 1 / (e (1 - e))``, the rule keeps ``g <= gamma`` where
+    ``gamma`` solves ``gamma = 2 E[g | g <= gamma]``, and the propensity
+    score cutoff is ``alpha = 1/2 - sqrt(1/4 - 1/gamma)``, i.e.
+    ``alpha (1 - alpha) = 1 / gamma``. No trimming (``alpha = 0``) when
+    ``max g <= 2 E[g]``.
+
+    The sample version of ``2 E[g | g <= gamma] - gamma`` is piecewise
+    linear in ``gamma`` and jumps up at each observed ``g``. Between two
+    consecutive order statistics the conditional mean is constant, so the
+    crossing is found exactly: it is ``2 * mean(g[:k])`` for the first
+    ``k`` at which that value does not reach the next order statistic.
     """
     ps_clean = ps[np.isfinite(ps)]
-    inv_var = 1.0 / (ps_clean * (1 - ps_clean))
-
-    best_alpha = 0.0
-    alphas = np.linspace(0, 0.49, 500)
-    for a in alphas:
-        mask = (ps_clean >= a) & (ps_clean <= 1 - a)
-        if mask.sum() < 2:
-            break
-        rhs = 1.0 / (2.0 * np.mean(inv_var[mask]))
-        if a <= rhs:
-            best_alpha = a
-        else:
-            break
-    return best_alpha
+    ps_clean = ps_clean[(ps_clean > 0) & (ps_clean < 1)]
+    if ps_clean.size < 2:
+        return 0.0
+    g = np.sort(1.0 / (ps_clean * (1.0 - ps_clean)))
+    if g[-1] <= 2.0 * g.mean():
+        return 0.0
+    running = 2.0 * np.cumsum(g) / np.arange(1, g.size + 1)
+    # first k (1-based) with 2*mean(g[:k]) < g[k]: the root lies in
+    # [g[k-1], g[k]) and equals 2*mean(g[:k]).
+    crossing = np.nonzero(running[:-1] < g[1:])[0]
+    gamma = float(running[crossing[0]]) if crossing.size else float(running[-1])
+    gamma = max(gamma, 4.0)
+    return float(0.5 - np.sqrt(0.25 - 1.0 / gamma))
 
 
 @accepts_aliases(treat="treatment")
@@ -294,7 +302,7 @@ def trimming(
     >>> trimmed = sp.trimming(df, treatment='d',
     ...                       covariates=['x1', 'x2'])
     >>> (len(df), len(trimmed))
-    (300, 206)
+    (300, 192)
 
     Fixed [0.1, 0.9] trimming keeps a narrower sample:
 
@@ -325,29 +333,62 @@ def trimming(
 # ======================================================================
 
 
+def _group_variance(x: np.ndarray, w: Optional[np.ndarray]) -> float:
+    """Variance of ``x`` within one group, with or without weights.
+
+    Unweighted it is the usual ``n - 1`` variance. Weighted it is
+
+        sum(w (x - m_w)^2) / (sum(w) - sum(w^2) / sum(w)),
+
+    the form Austin and Stuart (2015) give for weighted standardized
+    differences [@austin2015moving]. It does not depend on the scale of the weights, equals
+    the ``n - 1`` variance when all weights are equal, and equals the
+    variance of the retained rows for 0/1 matching weights. ``cobalt`` and
+    ``halfmoon`` use the same form for weighted variance ratios.
+    """
+    if w is None:
+        return float(np.var(x, ddof=1)) if len(x) > 1 else 0.0
+    total = float(np.sum(w))
+    if total <= 0:
+        return float("nan")
+    mean = float(np.sum(w * x) / total)
+    ss = float(np.sum(w * (x - mean) ** 2))
+    denom = total - float(np.sum(w**2)) / total
+    if denom <= 0:
+        return ss / total
+    return ss / denom
+
+
+def _check_sd_denom(sd_denom: str) -> None:
+    if sd_denom not in ("weighted", "unweighted"):
+        raise MethodIncompatibility(
+            f"sd_denom must be 'weighted' or 'unweighted'; got {sd_denom!r}"
+        )
+
+
 def _smd(
     x_t: np.ndarray,
     x_c: np.ndarray,
     w_t: Optional[np.ndarray] = None,
     w_c: Optional[np.ndarray] = None,
+    sd_denom: str = "weighted",
 ) -> float:
-    """Standardized mean difference (Austin 2011 formula)."""
-    if w_t is not None:
-        mean_t = np.average(x_t, weights=w_t)
-        var_t = np.average((x_t - mean_t) ** 2, weights=w_t)
-    else:
-        mean_t = np.mean(x_t)
-        var_t = np.var(x_t, ddof=1) if len(x_t) > 1 else 0.0
+    """Standardized mean difference (Austin 2011; Austin and Stuart 2015).
 
-    if w_c is not None:
-        mean_c = np.average(x_c, weights=w_c)
-        var_c = np.average((x_c - mean_c) ** 2, weights=w_c)
+    ``sd_denom='weighted'`` standardizes by the weighted group variances;
+    ``'unweighted'`` keeps the unweighted ones under the weighted mean
+    difference, as ``cobalt`` does, so a set of weights cannot improve the
+    statistic by changing the spread.
+    """
+    mean_t = np.average(x_t, weights=w_t) if w_t is not None else np.mean(x_t)
+    mean_c = np.average(x_c, weights=w_c) if w_c is not None else np.mean(x_c)
+    if sd_denom == "unweighted":
+        var_t, var_c = _group_variance(x_t, None), _group_variance(x_c, None)
     else:
-        mean_c = np.mean(x_c)
-        var_c = np.var(x_c, ddof=1) if len(x_c) > 1 else 0.0
+        var_t, var_c = _group_variance(x_t, w_t), _group_variance(x_c, w_c)
 
     denom = np.sqrt((var_t + var_c) / 2.0)
-    if denom < 1e-12:
+    if not np.isfinite(denom) or denom < 1e-12:
         return 0.0
     return float((mean_t - mean_c) / denom)
 
@@ -359,18 +400,8 @@ def _variance_ratio(
     w_c: Optional[np.ndarray] = None,
 ) -> float:
     """Variance ratio (treated / control)."""
-    if w_t is not None:
-        mean_t = np.average(x_t, weights=w_t)
-        var_t = np.average((x_t - mean_t) ** 2, weights=w_t)
-    else:
-        var_t = np.var(x_t, ddof=1) if len(x_t) > 1 else 0.0
-
-    if w_c is not None:
-        mean_c = np.average(x_c, weights=w_c)
-        var_c = np.average((x_c - mean_c) ** 2, weights=w_c)
-    else:
-        var_c = np.var(x_c, ddof=1) if len(x_c) > 1 else 0.0
-
+    var_t = _group_variance(x_t, w_t)
+    var_c = _group_variance(x_c, w_c)
     if var_c < 1e-12:
         return np.inf if var_t > 1e-12 else 1.0
     return float(var_t / var_c)
@@ -574,6 +605,7 @@ def ps_balance(
     covariates: List[str],
     weights: Optional[Union[np.ndarray, pd.Series]] = None,
     method: str = "logit",
+    sd_denom: str = "weighted",
 ) -> PSBalanceResult:
     """Compute comprehensive propensity score balance table.
 
@@ -590,6 +622,13 @@ def ps_balance(
         computed automatically from estimated propensity scores.
     method : str
         PS estimation method ('logit', 'probit', 'gbm').
+    sd_denom : {'weighted', 'unweighted'}, default 'weighted'
+        Standard deviation under the weighted mean difference.
+        ``'weighted'`` uses the weighted variances of the two groups
+        (Austin and Stuart 2015 [@austin2015moving]). ``'unweighted'``
+        keeps the variances of the unweighted sample, the default of R
+        ``cobalt``: the scale is then the same before and after weighting
+        and weights cannot improve the statistic by inflating the spread.
 
     Returns
     -------
@@ -621,6 +660,7 @@ def ps_balance(
     [0.02, -0.06]
     >>> fig, ax = bal.love_plot()  # doctest: +SKIP
     """
+    _check_sd_denom(sd_denom)
     D = data[treatment].values.astype(float)
     ps = propensity_score(data, treatment, covariates, method=method)
     ps_vals = ps.values
@@ -646,7 +686,7 @@ def ps_balance(
         mean_t = np.mean(x_t)
         mean_c = np.mean(x_c)
         smd_raw = _smd(x_t, x_c)
-        smd_weighted = _smd(x_t, x_c, w_t, w_c)
+        smd_weighted = _smd(x_t, x_c, w_t, w_c, sd_denom=sd_denom)
         vr = _variance_ratio(x_t, x_c, w_t, w_c)
         ks = _ks_stat(x_t, x_c, w_t, w_c)
 
@@ -675,6 +715,7 @@ def balance_diagnostics(
     ps: Optional[Union[np.ndarray, pd.Series, str]] = None,
     method: str = "logit",
     threshold: float = 0.1,
+    sd_denom: str = "weighted",
 ) -> BalanceDiagnosticsResult:
     """Unified balance diagnostics for matching and weighting estimators.
 
@@ -695,13 +736,30 @@ def balance_diagnostics(
         Propensity-score model when ``ps`` is not supplied.
     threshold : float, default 0.1
         Balance threshold for absolute standardized mean differences.
+    sd_denom : {'weighted', 'unweighted'}, default 'weighted'
+        Standard deviation under the weighted mean difference.
+        ``'weighted'`` uses the weighted variances of the two groups
+        (Austin and Stuart 2015 [@austin2015moving]). ``'unweighted'``
+        keeps the variances of the unweighted sample, the default of R
+        ``cobalt``: the scale is then the same before and after weighting
+        and weights cannot improve the statistic by inflating the spread.
 
     Returns
     -------
     BalanceDiagnosticsResult
         ``.table`` has one row per covariate; ``.summary_stats`` records
-        max/mean SMDs, imbalance counts, effective sample size, and
-        propensity-score overlap.
+        max/mean SMDs, imbalance counts, the effective sample size
+        (overall and in each group), the energy distance between the two
+        groups before and after weighting (a joint measure that also
+        reacts to interactions and higher moments; see
+        :func:`sp.energy_distance`), and propensity-score overlap.
+
+    Notes
+    -----
+    Weighted variances use ``sum(w (x - m)^2) / (sum(w) - sum(w^2) /
+    sum(w))``, which does not depend on the scale of the weights and
+    reduces to the ``n - 1`` variance for equal weights, so
+    ``weights=1`` reproduces the unweighted columns exactly.
 
     Examples
     --------
@@ -732,6 +790,7 @@ def balance_diagnostics(
     >>> bool(bal.summary_stats['effective_sample_size'] > 0)
     True
     """
+    _check_sd_denom(sd_denom)
     cols = [treatment] + list(covariates)
     df = data[cols].dropna().copy()
     if df.empty:
@@ -761,7 +820,7 @@ def balance_diagnostics(
         x_t, x_c = x[treat_mask], x[ctrl_mask]
         w_t, w_c = w_vals[treat_mask], w_vals[ctrl_mask]
         smd_raw = _smd(x_t, x_c)
-        smd_weighted = _smd(x_t, x_c, w_t, w_c)
+        smd_weighted = _smd(x_t, x_c, w_t, w_c, sd_denom=sd_denom)
         rows.append(
             {
                 "variable": cov,
@@ -781,6 +840,15 @@ def balance_diagnostics(
     abs_raw = table["smd_raw"].abs()
     abs_wtd = table["smd_weighted"].abs()
     ess = _effective_sample_size(w_vals)
+    energy_raw = energy_weighted = np.nan
+    if (w_vals >= 0).all() and len(df) <= 5000:
+        # pairwise distances: O(n^2) memory, so skipped on large samples
+        from .ps_weights import energy_distance
+
+        energy_raw = energy_distance(df, treatment, list(covariates))
+        energy_weighted = energy_distance(
+            df, treatment, list(covariates), weights=w_vals
+        )
     ps_t, ps_c = ps_vals[treat_mask], ps_vals[ctrl_mask]
     common_low = float(max(ps_t.min(), ps_c.min()))
     common_high = float(min(ps_t.max(), ps_c.max()))
@@ -796,6 +864,15 @@ def balance_diagnostics(
         "n_imbalanced_raw": int((abs_raw > threshold).sum()),
         "n_imbalanced_weighted": int((abs_wtd > threshold).sum()),
         "effective_sample_size": float(ess),
+        "effective_sample_size_treated": float(
+            _effective_sample_size(w_vals[treat_mask])
+        ),
+        "effective_sample_size_control": float(
+            _effective_sample_size(w_vals[ctrl_mask])
+        ),
+        "energy_distance_raw": float(energy_raw),
+        "energy_distance_weighted": float(energy_weighted),
+        "sd_denom": sd_denom,
         "pscore_min": float(ps_vals.min()),
         "pscore_max": float(ps_vals.max()),
         "common_support_low": common_low,

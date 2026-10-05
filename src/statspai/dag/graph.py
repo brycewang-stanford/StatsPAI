@@ -684,7 +684,10 @@ class DAG:
         method : str
             ``'backdoor'`` — Pearl's backdoor criterion (default).
         minimal : bool
-            If True, return only minimal sufficient adjustment sets.
+            If True, return the minimal sufficient adjustment sets: valid
+            sets none of whose proper subsets is valid. They need not all
+            be the same size. If False, return every valid set (R
+            ``dagitty::adjustmentSets(type = "all")``).
 
         Returns
         -------
@@ -709,11 +712,11 @@ class DAG:
         for size in range(0, max_size + 1):
             for combo in combinations(candidate_list, size):
                 s = set(combo)
+                if minimal and any(v <= s for v in valid_sets):
+                    # a superset of a valid set is not minimal
+                    continue
                 if self._is_valid_adjustment(exposure, outcome, s):
                     valid_sets.append(s)
-            if minimal and valid_sets:
-                # Found valid sets at this size — return only these
-                break
 
         return valid_sets
 
@@ -954,6 +957,127 @@ class DAG:
     # ------------------------------------------------------------------ #
     #  Visualization
     # ------------------------------------------------------------------ #
+
+    # ------------------------------------------------------------------ #
+    #  Markov equivalence
+    # ------------------------------------------------------------------ #
+
+    def _v_structures(self) -> Set[Tuple[str, str, str]]:
+        """Colliders ``a -> c <- b`` whose parents are not adjacent."""
+        adjacent = {frozenset(e) for e in self.edges}
+        out: Set[Tuple[str, str, str]] = set()
+        for c in self._nodes:
+            for a, b in combinations(sorted(self.parents(c)), 2):
+                if frozenset((a, b)) not in adjacent:
+                    out.add((a, c, b))
+        return out
+
+    def _is_acyclic(self) -> bool:
+        indeg = {n: 0 for n in self._nodes}
+        for _, c in self.edges:
+            indeg[c] += 1
+        stack = [n for n, k in indeg.items() if k == 0]
+        seen = 0
+        while stack:
+            n = stack.pop()
+            seen += 1
+            for c in self._edges.get(n, ()):
+                indeg[c] -= 1
+                if indeg[c] == 0:
+                    stack.append(c)
+        return seen == len(self._nodes)
+
+    def equivalent_dags(self, max_edges: int = 20) -> List["DAG"]:
+        """Every DAG in the Markov equivalence class of this one.
+
+        Two DAGs imply the same conditional independencies exactly when
+        they have the same adjacencies and the same unshielded colliders.
+        No data set, however large, can tell the members of the class
+        apart, so a causal claim that depends on the
+        direction of an edge that flips inside the class rests on
+        background knowledge alone.
+
+        Parameters
+        ----------
+        max_edges : int, default 20
+            The search enumerates the ``2 ** n_edges`` orientations of the
+            skeleton; graphs with more edges are refused.
+
+        Returns
+        -------
+        list of DAG
+            The members of the class, this graph included, in a
+            deterministic order. Latent declarations are carried over.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> g = sp.dag("T -> X; T -> Y; X -> Y; Z -> Y")
+        >>> len(g.equivalent_dags())
+        2
+        >>> g.equivalence_class()["undirected"]
+        [('T', 'X')]
+
+        See Also
+        --------
+        equivalence_class : the class as one partially directed graph.
+        """
+        edges = sorted(tuple(sorted(e)) for e in self.edges)
+        if len(edges) > max_edges:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"equivalent_dags: {len(edges)} edges means "
+                f"2**{len(edges)} orientations to check.",
+                recovery_hint="Raise max_edges= if you can afford the "
+                "search, or study a subgraph.",
+            )
+        target = self._v_structures()
+        latent = set(self._latent)
+        members: List["DAG"] = []
+        for mask in range(2 ** len(edges)):
+            g = DAG()
+            for n in self._nodes:
+                g.add_node(n)
+            for i, (a, b) in enumerate(edges):
+                if mask >> i & 1:
+                    g.add_edge(b, a)
+                else:
+                    g.add_edge(a, b)
+            if g._is_acyclic() and g._v_structures() == target:
+                g._latent = set(latent)
+                members.append(g)
+        return members
+
+    def equivalence_class(self, max_edges: int = 20) -> Dict[str, Any]:
+        """The Markov equivalence class as a partially directed graph.
+
+        Returns
+        -------
+        dict
+            ``'directed'``: edges ``(parent, child)`` that point the same
+            way in every member of the class; ``'undirected'``: edges
+            ``(a, b)`` that point either way in some member, i.e. the ones
+            the data cannot orient; ``'n_dags'``: size of the class.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> cls = sp.dag("A -> C; B -> C").equivalence_class()
+        >>> cls["n_dags"], cls["undirected"]
+        (1, [])
+        """
+        members = self.equivalent_dags(max_edges=max_edges)
+        edge_sets = [set(m.edges) for m in members]
+        directed = sorted(set.intersection(*edge_sets))
+        undirected = sorted(
+            {tuple(sorted(e)) for es in edge_sets for e in es if e not in directed}
+        )
+        return {
+            "directed": directed,
+            "undirected": undirected,
+            "n_dags": len(members),
+        }
 
     def to_ascii(self) -> str:
         """Simple text representation of the DAG."""

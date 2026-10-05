@@ -10764,6 +10764,19 @@ def _build_registry() -> None:
                     "1/3), which is what Stata ``roctab, hanley`` reports.",
                     enum=["hanley", "hanley-empirical", "delong"],
                 ),
+                ParamSpec(
+                    "weights",
+                    "array",
+                    False,
+                    None,
+                    "Non-negative observation weights. Rates become weighted "
+                    "shares and the AUC the weighted Mann-Whitney probability. "
+                    "As a balance check pass the exposure as ``y_true``, the "
+                    "propensity score as ``scores`` and the propensity weights "
+                    "here: an AUC near 0.5 means the score no longer separates "
+                    "the groups. No standard error is reported with weights "
+                    "(``auc_se`` and ``auc_ci`` are NaN).",
+                ),
             ],
             returns="ROCResult",
             tags=["epidemiology", "ROC", "AUC", "binary_classification"],

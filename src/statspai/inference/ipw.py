@@ -69,9 +69,22 @@ def ipw(
         Binary treatment indicator (0/1).
     covariates : list of str
         Variables for the propensity score model (logistic regression).
-    estimand : str, default 'ATE'
-        'ATE' (average treatment effect), 'ATT' (on treated),
-        or 'ATC' (on controls).
+    estimand : {'ATE', 'ATT', 'ATC', 'ATO', 'ATM'}, default 'ATE'
+        The population the weights target. With propensity score ``e``
+        and tilting function ``h(e)``, treated units get ``h / e`` and
+        controls ``h / (1 - e)``:
+
+        - ``'ATE'``: ``h = 1``, the whole sample.
+        - ``'ATT'``: ``h = e``, the treated.
+        - ``'ATC'`` (also ``'ATU'``): ``h = 1 - e``, the untreated.
+        - ``'ATO'``: ``h = e (1 - e)``, the overlap population of Li,
+          Morgan and Zaslavsky (2018) [@li2018balancing]. Weights are bounded by one and the
+          covariates of the logit are balanced exactly.
+        - ``'ATM'``: ``h = min(e, 1 - e)``, the matching weights of Li and
+          Greene (2013) [@li2013weighting], the population a 1:1 caliper match would keep.
+
+        ``'ATO'`` and ``'ATM'`` are defined through normalised weights and
+        require ``normalize=True``.
     trim : float, default 0.0
         Trim propensity scores to [trim, 1 - trim]. Common choices: 0.01, 0.05, 0.1.
         Crump et al. (2009) recommend dropping units with p outside [0.1, 0.9].
@@ -142,8 +155,20 @@ def ipw(
     'ATT'
     """
     estimand = estimand.upper()
-    if estimand not in ("ATE", "ATT", "ATC"):
-        raise ValueError(f"estimand must be 'ATE', 'ATT', or 'ATC', got '{estimand}'")
+    if estimand == "ATU":
+        estimand = "ATC"
+    if estimand not in ("ATE", "ATT", "ATC", "ATO", "ATM"):
+        raise ValueError(
+            "estimand must be 'ATE', 'ATT', 'ATC' (or 'ATU'), 'ATO' or 'ATM', "
+            f"got '{estimand}'"
+        )
+    if estimand in ("ATO", "ATM") and not normalize:
+        raise MethodIncompatibility(
+            f"estimand={estimand!r} has no Horvitz-Thompson form: the overlap "
+            "and matching-weight populations are defined by the weights "
+            "themselves.",
+            recovery_hint="Use normalize=True.",
+        )
 
     if se_method not in ("bootstrap", "sandwich"):
         raise MethodIncompatibility(
@@ -410,7 +435,9 @@ def _ipw_sandwich_se(
 
     Stacks the (weighted) logit score ``w (T - e) x`` with the two Hajek
     means ``w a_k (Y - mu_k) = 0``, where ``a_1 = T/e, a_0 = (1-T)/(1-e)``
-    (ATE), ``T, (1-T) e/(1-e)`` (ATT) or ``T (1-e)/e, 1-T`` (ATC). Row ``i``
+    (ATE), ``T, (1-T) e/(1-e)`` (ATT), ``T (1-e)/e, 1-T`` (ATC),
+    ``T (1-e), (1-T) e`` (ATO) or ``T min(1, (1-e)/e), (1-T) min(1, e/(1-e))``
+    (ATM; its kink at ``e = 1/2`` has probability zero). Row ``i``
     of the influence function of ``mu_k`` is
     ``[w a_k (Y - mu_k) + G_k' IF_gamma] / mean(w a_k)`` with
     ``G_k = mean(w (Y - mu_k) d a_k / d gamma)`` and
@@ -447,9 +474,18 @@ def _ipw_sandwich_se(
     elif estimand == "ATT":
         a1, a0 = T, (1 - T) * odds
         da1, da0 = np.zeros(n), d_odds
-    else:  # ATC
+    elif estimand == "ATC":
         a1, a0 = T * (1 - e) / e, 1 - T
         da1, da0 = d_inv, np.zeros(n)
+    elif estimand == "ATO":
+        a1, a0 = T * (1 - e), (1 - T) * e
+        da1, da0 = -T * dens, (1 - T) * dens
+    else:  # ATM
+        low = e < 0.5
+        a1 = T * np.where(low, 1.0, (1 - e) / e)
+        a0 = (1 - T) * np.where(low, odds, 1.0)
+        da1 = np.where(low, 0.0, d_inv)
+        da0 = np.where(low, d_odds, 0.0)
     H = (Xc * (w * curv)[:, None]).T @ Xc / n
     if_gamma = np.linalg.solve(H, (Xc * (w * score)[:, None]).T).T
 
@@ -536,4 +572,13 @@ def _raw_weights(
         # ATC: controls get weight 1, treated get weight (1-p)/p
         w1 = T * (1 - pscore) / pscore
         w0 = (1 - T).copy()
+    elif estimand == "ATO":
+        # overlap weights: the probability of the other arm
+        w1 = T * (1 - pscore)
+        w0 = (1 - T) * pscore
+    elif estimand == "ATM":
+        # matching weights: min(p, 1-p) over the probability of the own arm
+        tilt = np.minimum(pscore, 1 - pscore)
+        w1 = T * tilt / pscore
+        w0 = (1 - T) * tilt / (1 - pscore)
     return w1, w0

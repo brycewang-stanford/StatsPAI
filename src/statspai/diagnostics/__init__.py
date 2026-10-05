@@ -8,6 +8,7 @@ Provides:
 
 from .battery import diagnose_result
 from .cmtest import cmtest
+from .confounder_bias import confounder_adjust, confounder_tip
 from .estat import estat
 from .evalue import bias_factor, evalue, evalue_from_result, evalue_rd
 from .hausman import hausman, hausman_test
@@ -48,6 +49,8 @@ __all__ = [
     "evalue_from_result",
     "evalue_rd",
     "bias_factor",
+    "confounder_adjust",
+    "confounder_tip",
     "diagnose_result",
     "estat",
     "kitagawa_test",

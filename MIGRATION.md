@@ -5,6 +5,31 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-barrett-textbook-fixes"></a>
+
+## 1.38.0 → next: ⚠️ Crump trimming, weighted balance statistics, minimal adjustment sets
+
+**`sp.trimming(method='crump')`** and
+**`sp.propensity_score(trimming='crump')`** drop more rows than before. The
+old cutoff solved the wrong equation and was too small (0.064 against 0.072
+on the example in the changelog). If an analysis was run on a Crump-trimmed
+sample, rerun it. The new sample is a subset of the old one.
+`method='sturmer'` is unchanged.
+
+**`sp.balance_diagnostics`, `sp.ps_balance`, `sp.love_plot`.** Weighted
+standardized differences and variance ratios change slightly because the
+weighted variance now has the divisor `sum(w) - sum(w^2) / sum(w)`. The
+change is largest when a few rows carry most of the weight. Raw columns,
+weighted means and KS statistics are unchanged. No option returns the old
+numbers, since they were not invariant to equal weights.
+
+**`DAG.adjustment_sets(minimal=True)`** may return more sets than before,
+because minimal sets larger than the smallest one are now included. Every
+set returned before is still returned.
+
+**`sp.contrast`** on a frame in which the variable takes a single value now
+raises. Pass the full data and `subset=` to average over a subpopulation.
+
 ## 1.38.0 → next: ⚠️ `sp.rdrandinf` / `sp.rdwinselect` / `sp.rdsensitivity` with `p > 0` use HC3
 
 `rdlocrand` 3.0 (2026-10-04) moved the variance behind its large-sample

@@ -287,6 +287,7 @@ def roc_curve(
     *,
     alpha: float = 0.05,
     se_method: str = "delong",
+    weights: Any = None,
 ) -> ROCResult:
     """ROC curve with the AUC and its standard error.
 
@@ -295,6 +296,17 @@ def roc_curve(
     y_true : array-like of {0, 1}
     scores : array-like of continuous predictions (higher = more "positive")
     alpha : float, default 0.05
+    weights : array-like, optional
+        Non-negative observation weights. The rates become weighted
+        shares and the AUC the weighted Mann-Whitney probability
+        ``sum_ij w_i w_j [1(s_i > s_j) + 1(s_i = s_j)/2] / (W+ W-)``.
+        The main use is as a balance check: with ``y_true`` the exposure,
+        ``scores`` the propensity score and ``weights`` the propensity
+        weights, an AUC near 0.5 says the score no longer separates the
+        two groups in the weighted sample. No standard error is reported
+        with weights (``auc_se`` and ``auc_ci`` are NaN): the weights are
+        themselves estimated from the scores, and the DeLong and Hanley
+        variances do not account for that.
     se_method : {"delong", "hanley", "hanley-empirical"}, default "delong"
         ``"hanley"``: the Hanley-McNeil (1982) variance with the
         exponential approximations ``Q1 = A/(2-A)``, ``Q2 = 2A^2/(1+A)``.
@@ -352,6 +364,8 @@ def roc_curve(
     n_neg = len(y) - n_pos
     if n_pos == 0 or n_neg == 0:
         raise ValueError("Need both positive and negative labels for ROC.")
+    if weights is not None:
+        return _weighted_roc(y, s, np.asarray(weights, dtype=float), se_method)
 
     # One ROC point per distinct score (ties move TPR and FPR together).
     thr = np.unique(s)[::-1]
@@ -430,8 +444,40 @@ def roc_curve(
     )
 
 
-def auc(y_true: Any, scores: Any) -> float:
-    """Shortcut: just return the AUC.
+def _weighted_roc(
+    y: np.ndarray, s: np.ndarray, w: np.ndarray, se_method: str
+) -> ROCResult:
+    """Weighted ROC curve and AUC; no standard error (see ``roc_curve``)."""
+    if w.shape != s.shape:
+        raise MethodIncompatibility("weights and scores must have the same shape.")
+    if not np.isfinite(w).all() or (w < 0).any():
+        raise MethodIncompatibility("weights must be finite and non-negative.")
+    w_pos, w_neg = float(w[y == 1].sum()), float(w[y == 0].sum())
+    if w_pos <= 0 or w_neg <= 0:
+        raise MethodIncompatibility("Each label needs positive total weight.")
+    thr = np.unique(s)[::-1]
+    idx = np.searchsorted(-thr, -s)
+    tp_at = np.bincount(idx[y == 1], weights=w[y == 1], minlength=len(thr))
+    fp_at = np.bincount(idx[y == 0], weights=w[y == 0], minlength=len(thr))
+    tpr = np.cumsum(tp_at) / w_pos
+    fpr = np.cumsum(fp_at) / w_neg
+    # By distinct score, descending: negatives strictly below each level
+    # count in full, negatives at the level count one half.
+    neg_below = w_neg - np.cumsum(fp_at)
+    auc_val = float(np.sum(tp_at * (neg_below + 0.5 * fp_at)) / (w_pos * w_neg))
+    return ROCResult(
+        thresholds=thr,
+        tpr=tpr,
+        fpr=fpr,
+        auc=auc_val,
+        auc_se=float("nan"),
+        auc_ci=(float("nan"), float("nan")),
+        se_method=se_method,
+    )
+
+
+def auc(y_true: Any, scores: Any, weights: Any = None) -> float:
+    """Shortcut: just return the AUC (weighted when ``weights`` is given).
 
     Examples
     --------
@@ -442,7 +488,7 @@ def auc(y_true: Any, scores: Any) -> float:
     >>> sp.auc(y, s)
     1.0
     """
-    return roc_curve(y_true, scores).auc
+    return roc_curve(y_true, scores, weights=weights).auc
 
 
 # --------------------------------------------------------------------------- #
