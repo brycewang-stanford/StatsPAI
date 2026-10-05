@@ -517,6 +517,8 @@ Simulation studies under `tests/reliability/`, each with its design fixed in the
 | `dml_learners` | rf | coverage | 300 | 4 | 1 | 0.433 (shape=nonlinear, n=500) |
 | `dml_learners` | gbm | coverage | 300 | 4 | 0 | 0.867 (shape=nonlinear, n=500) |
 | `dml_learners` | stacking | coverage | 300 | 4 | 2 | 0.727 (shape=nonlinear, n=500) |
+| `extreme_weights_binary_iv` | classical | coverage | 2000 | 24 | 8 | 0.146 (model=glm, n=1000, sigma=2.0) |
+| `extreme_weights_binary_iv` | robust | coverage | 2000 | 24 | 9 | 0.814 (model=probit, n=200, sigma=2.0) |
 | `extreme_weights_fast` | iid | coverage | 2000 | 12 | 2 | 0.223 (model=fast_fepois, size=200, sigma=2.0) |
 | `extreme_weights_fast` | hc1 | coverage | 2000 | 12 | 6 | 0.870 (model=fast_feols, size=50, sigma=2.0) |
 | `extreme_weights_fast` | cr1 | coverage | 2000 | 12 | 4 | 0.789 (model=fast_feols, size=50, sigma=2.0) |

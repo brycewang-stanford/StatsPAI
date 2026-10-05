@@ -848,6 +848,26 @@ def _fit_binary(
     # sp.regress / sp.panel.
     if cluster_arr is not None:
         model_info["n_clusters"] = int(len(np.unique(cluster_arr)))
+    if w is not None:
+        from ..core._agent_summary import note_weight_diagnostics
+
+        note_weight_diagnostics(
+            model_info,
+            w,
+            (
+                "cluster"
+                if cluster_arr is not None
+                else ("classical" if robust == "nonrobust" else "robust")
+            ),
+            entry=f"sp.{link}",
+            robust_option="robust='robust' (Stata [pw=])",
+            classical_reading="frequency weights (Stata [fw=])",
+            classical_assumption=(
+                "frequencies (each row standing for w identical observations)"
+            ),
+            cluster_keys=cluster_arr,
+            cluster=cluster,
+        )
 
     model_info["alpha"] = alpha
     # Picklable design recipe for postestimation (sp.margins rebuilds the

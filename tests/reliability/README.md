@@ -327,6 +327,50 @@ diagnostics as the others; the fast result objects hold them in
 observation held 80% of the weight); `sp.nbreg` said so and reported no
 standard errors, and the fit counts as a miss.
 
+## Extreme weights in the binary-outcome and IV entry points (`extreme_weights_binary_iv.py`)
+
+The last four regression entry points that take `weights=`. A regressor
+with a true coefficient of zero is tested at 5% with the package's own
+p-value (for `sp.iv` it is the endogenous regressor, with a strong
+instrument); the entry is the share of 2,000 replications that do not
+reject.
+
+| entry point | n | sigma of log weight | Kish size | default | robust |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `sp.logit` | 200 | 0 | 200 | 0.947 | 0.951 |
+| `sp.logit` | 200 | 1 | 82 | 0.679 | 0.936 |
+| `sp.logit` | 200 | 2 | 17 | 0.201 | 0.855 |
+| `sp.logit` | 1000 | 0 | 1000 | 0.946 | 0.948 |
+| `sp.logit` | 1000 | 1 | 382 | 0.673 | 0.937 |
+| `sp.logit` | 1000 | 2 | 53 | 0.160 | 0.897 |
+| `sp.probit` | 200 | 0 | 200 | 0.948 | 0.946 |
+| `sp.probit` | 200 | 1 | 81 | 0.675 | 0.928 |
+| `sp.probit` | 200 | 2 | 17 | 0.205 | 0.814 |
+| `sp.probit` | 1000 | 0 | 1000 | 0.957 | 0.957 |
+| `sp.probit` | 1000 | 1 | 382 | 0.650 | 0.940 |
+| `sp.probit` | 1000 | 2 | 53 | 0.149 | 0.879 |
+| `sp.glm` (binomial) | 200 | 0 | 200 | 0.948 | 0.945 |
+| `sp.glm` (binomial) | 200 | 1 | 82 | 0.664 | 0.921 |
+| `sp.glm` (binomial) | 200 | 2 | 17 | 0.197 | 0.835 |
+| `sp.glm` (binomial) | 1000 | 0 | 1000 | 0.948 | 0.946 |
+| `sp.glm` (binomial) | 1000 | 1 | 382 | 0.641 | 0.935 |
+| `sp.glm` (binomial) | 1000 | 2 | 52 | 0.146 | 0.890 |
+| `sp.iv` | 200 | 0 | 200 | 0.952 | 0.947 |
+| `sp.iv` | 200 | 1 | 82 | 0.787 | 0.917 |
+| `sp.iv` | 200 | 2 | 17 | 0.503 | 0.841 |
+| `sp.iv` | 1000 | 0 | 1000 | 0.947 | 0.948 |
+| `sp.iv` | 1000 | 1 | 382 | 0.785 | 0.951 |
+| `sp.iv` | 1000 | 2 | 53 | 0.389 | 0.894 |
+
+The same three findings once more. Under dispersed sampling weights the
+default variance covers 15% to 68% for the likelihood models and 39% to
+79% for two-stage least squares; the robust one is nominal in large
+effective samples and 81% to 90% in small ones. `sp.logit`, `sp.probit`,
+`sp.glm` and `sp.iv` now record `n_effective_weights` and
+`n_clusters_effective_weights` and warn as the other entry points do.
+With these four, every regression entry point that takes `weights=` and
+reports a model-based variance by default carries the diagnostic.
+
 ## Staggered adoption on an unbalanced panel (`unbalanced_panel.py`)
 
 Bias and coverage of the 95% interval for the overall ATT (truth 1 in

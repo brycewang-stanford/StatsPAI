@@ -1,6 +1,6 @@
 # `weights=` 该不该要求声明权重类型
 
-2026-10-05。供决策用，尚未实施任何方案。
+2026-10-05。Bryce 把三项决定交给了执行的会话，结论见文末《决定》。
 
 ## 问题
 
@@ -97,8 +97,9 @@ StatsPAI 只有一个 `weights=`。用户只传这一个参数时，回归类入
 
 关于时机。你之前定过一条规矩：论文投稿期间新增对外接口要有充分理由。B 给 12 个函数各加一个参数，属于这一类。JSS 稿件目前冻结暂停、计划近期投稿。稳妥的做法是 A 现在做，B 等 JSS 投稿之后再做，这样稿件锚定的版本里签名不变。
 
-## 需要你决定的
+## 决定（2026-10-05）
 
-1. A 是否现在做。我的建议是做。
-2. B 做不做，以及放在 JSS 投稿前还是投稿后。
-3. 如果做 B，参数名用 `weight_type` 还是别的。`sp.wild_cluster_bootstrap` 等四个函数已经有一个同名参数，含义是 bootstrap 权重的分布（Rademacher、Webb），和这里无关。为避免混淆可以叫 `weights_type` 或 `weights_as`。
+1. **A 现在做。** 先补一项仿真（`tests/reliability/extreme_weights_binary_iv.py`，覆盖 `sp.logit` / `sp.probit` / `sp.glm` / `sp.iv`），再给这四个入口接同一套诊断和警告。
+2. **B 做，放在 JSS 投稿之后。** 稿件锚定的版本里 12 个入口的签名保持不变。
+3. **B 的参数名用 `weights_as`**，取值 `'analytic'` / `'frequency'` / `'sampling'`。`weight_type` 已被 wild bootstrap 的四个函数用于另一个含义。
+4. **C 不做。** B 上线后若误用仍然普遍再议。

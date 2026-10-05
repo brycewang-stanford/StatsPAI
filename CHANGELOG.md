@@ -1278,6 +1278,19 @@ Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
 
 ### Reliability
 
+- **Weight diagnostics in `sp.logit`, `sp.probit`, `sp.glm` and
+  `sp.iv`**, which completes the set. A fourth weight study
+  (`tests/reliability/extreme_weights_binary_iv.py`, 24 designs, 2,000
+  replications each) finds the default variance covering 15% to 79%
+  under dispersed sampling weights and the robust one 81% to 90% in
+  small effective samples. Every regression entry point that takes
+  `weights=` and reports a model-based variance by default now records
+  `n_effective_weights` (and `n_clusters_effective_weights` when
+  clustered) and warns. No estimate changes.
+  `docs/dev/2026-10-05-weights-declaration-options.md` records the
+  decision behind this: keep `weights=` as it is and warn now; add an
+  optional `weights_as=` after the JSS submission; do not make it
+  required.
 - **`sp.event_study` is checked against `fixest` across its common
   options.** A 32-cell grid on one panel (single-date and staggered
   adoption, two windows, two reference periods, with and without a

@@ -1646,6 +1646,27 @@ class IVRegression(BaseModel):
         if sw is not None:
             model_info["weights"] = weights if isinstance(weights, str) else "array"
             model_info["weight_type"] = "aweight"
+            from ..core._agent_summary import note_weight_diagnostics
+
+            _keys = None
+            if cluster_var is not None:
+                _frame = _as_cluster_frame(cluster_var)
+                if _frame.shape[1] == 1 and len(_frame) == len(sw):
+                    _keys = _frame.iloc[:, 0].to_numpy()
+            note_weight_diagnostics(
+                model_info,
+                sw**2,
+                (
+                    "cluster"
+                    if cluster_var is not None
+                    else ("classical" if robust == "nonrobust" else "robust")
+                ),
+                entry="sp.iv",
+                robust_option="robust='hc1' (Stata [pw=])",
+                classical_reading="analytic weights (Stata [aw=])",
+                cluster_keys=_keys,
+                cluster=cluster if isinstance(cluster, str) else None,
+            )
         if cluster_var is not None:
             try:
                 _cf = _as_cluster_frame(cluster_var)

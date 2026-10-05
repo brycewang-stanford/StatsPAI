@@ -1490,6 +1490,38 @@ class GLMRegression(BaseModel):
             "converged": results["converged"],
             "n_iter": results["n_iter"],
         }
+        if w is not None:
+            from ..core._agent_summary import note_weight_diagnostics
+
+            _gaussian = self.family.name.lower() in ("gaussian", "normal")
+            note_weight_diagnostics(
+                model_info,
+                w,
+                (
+                    "cluster"
+                    if cluster_var is not None
+                    else ("classical" if robust == "nonrobust" else "robust")
+                ),
+                entry="sp.glm",
+                robust_option="robust='robust' (Stata [pw=])",
+                classical_reading=(
+                    "analytic weights (Stata [aw=])"
+                    if _gaussian
+                    else "frequency weights (Stata [fw=])"
+                ),
+                classical_assumption=(
+                    "precisions (error variance proportional to 1 / w)"
+                    if _gaussian
+                    else "frequencies (each row standing for w identical "
+                    "observations)"
+                ),
+                cluster_keys=(
+                    np.asarray(cluster_var)
+                    if cluster_var is not None and len(cluster_var) == len(w)
+                    else None
+                ),
+                cluster=cluster,
+            )
         # Picklable design recipe for postestimation (sp.margins rebuilds
         # the design, incl. C() factors and I() transforms, from it).
         if self.formula is not None:
