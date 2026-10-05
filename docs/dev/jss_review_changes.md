@@ -2277,3 +2277,26 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the Bayesian econometrics pass
+
+- **Commits.** `02f99f19` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+  in `tests/r_parity/results/_implementation_trace.json` and all 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `cefca309`: `src/statspai/__init__.py` (the
+  exports of the new `statspai.mcmc` subpackage: `bayes_regress`,
+  `bayes_mixed`, `bma`, `bayes_factor`, `savage_dickey`,
+  `bayes_bootstrap`, seven chain diagnostics and their result classes).
+- **Reason.** The audit in
+  `docs/dev/2026-10-06-ramirez-hassan-bayesian-econometrics-review.md`.
+  No estimator on a Track A or original-data path changed. The
+  correctness fixes of that commit are in `sp.bayes_iv`,
+  `sp.bayes_hte_iv` and `sp.bayes_fuzzy_rd`, which no parity module
+  calls.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves to 1,413
+  registered functions across 89 submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
