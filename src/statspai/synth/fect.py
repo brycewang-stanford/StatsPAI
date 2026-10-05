@@ -863,10 +863,18 @@ def fect(
             "cv=True selects r for method='ife' or lam for method='mc'"
         )
     if method == "ife" and not cv and int(r) <= 0:
-        raise ValueError("method='ife' needs r >= 1 factors (or cv=True)")
+        raise MethodIncompatibility(
+            "method='ife' needs r >= 1 factors (or cv=True)",
+            recovery_hint="Pass r=1 (or more), or cv=True to choose r by "
+            "cross-validation.",
+            diagnostics={"method": method, "r": int(r)},
+        )
     if method == "mc" and not cv and (lam is None or float(lam) <= 0):
-        raise ValueError(
-            "method='mc' needs a positive nuclear-norm penalty lam= (or cv=True)"
+        raise MethodIncompatibility(
+            "method='mc' needs a positive nuclear-norm penalty lam= (or cv=True)",
+            recovery_hint="Pass lam= (a positive number), or cv=True to choose "
+            "it by cross-validation.",
+            diagnostics={"method": method, "lam": lam},
         )
     force_key = str(force).lower()
     if force_key not in _FORCE:

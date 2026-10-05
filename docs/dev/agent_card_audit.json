@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "generated_by": "scripts/agent_card_audit.py",
-  "n_functions": 50,
+  "n_functions": 60,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 337,
-    "precondition": 42,
+    "ok": 404,
+    "precondition": 48,
     "rejected": 0
   },
   "functions": [
@@ -2865,14 +2865,10 @@
       "defects": [],
       "required": {
         "signature": [
-          "data",
-          "y",
-          "x"
+          "data"
         ],
         "schema": [
-          "data",
-          "y",
-          "x"
+          "data"
         ],
         "schema_only": {}
       },
@@ -3647,6 +3643,770 @@
       ],
       "provenance": {
         "curated": 9
+      }
+    },
+    {
+      "function": "did_multiplegt_dyn",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "group",
+          "time",
+          "treatment"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "group",
+          "time",
+          "treatment"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "switchers": {
+          "in": {
+            "status": "ok"
+          },
+          "out": {
+            "status": "precondition",
+            "error": "DataInsufficient: No switcher could be matched with a control at any horizon: every event needs at least one unit that has not switched by the horizon's ancho"
+          }
+        },
+        "control": {
+          "not_yet_treated": {
+            "status": "ok"
+          },
+          "never_treated": {
+            "status": "ok"
+          }
+        },
+        "se_method": {
+          "bootstrap": {
+            "status": "ok"
+          },
+          "analytic": {
+            "status": "ok"
+          }
+        },
+        "aggregation": {
+          "simple": {
+            "status": "ok"
+          },
+          "switchers": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "did_multiplegt",
+          "exists": true
+        },
+        {
+          "name": "callaway_santanna",
+          "exists": true
+        },
+        {
+          "name": "sun_abraham",
+          "exists": true
+        },
+        {
+          "name": "did_imputation",
+          "exists": true
+        },
+        {
+          "name": "lp_did",
+          "exists": true
+        },
+        {
+          "name": "sdid",
+          "exists": true
+        },
+        {
+          "name": "synth",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated+family": 5,
+        "curated": 5
+      }
+    },
+    {
+      "function": "fect",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "treat",
+          "unit",
+          "time"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "treat",
+          "unit",
+          "time"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "fe": {
+            "status": "ok"
+          },
+          "ife": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: method='ife' needs r >= 1 factors (or cv=True)\n  -> recovery: Pass r=1 (or more), or cv=True to choose r by cross-validation."
+          },
+          "mc": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: method='mc' needs a positive nuclear-norm penalty lam= (or cv=True)\n  -> recovery: Pass lam= (a positive number), or cv=True to choose it by"
+          }
+        },
+        "force": {
+          "none": {
+            "status": "ok"
+          },
+          "unit": {
+            "status": "ok"
+          },
+          "time": {
+            "status": "ok"
+          },
+          "two-way": {
+            "status": "ok"
+          }
+        },
+        "vce": {
+          "bootstrap": {
+            "status": "ok"
+          },
+          "jackknife": {
+            "status": "ok"
+          }
+        },
+        "cv_method": {
+          "rolling": {
+            "status": "ok"
+          },
+          "block": {
+            "status": "ok"
+          },
+          "treated_units": {
+            "status": "ok"
+          }
+        },
+        "criterion": {
+          "mspe": {
+            "status": "ok"
+          },
+          "gmspe": {
+            "status": "ok"
+          },
+          "moment": {
+            "status": "ok"
+          },
+          "pc": {
+            "status": "ok"
+          }
+        },
+        "cv_rule": {
+          "1se": {
+            "status": "ok"
+          },
+          "min": {
+            "status": "ok"
+          },
+          "1pct": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "did_imputation",
+          "exists": true
+        },
+        {
+          "name": "gsynth",
+          "exists": true
+        },
+        {
+          "name": "mc_synth",
+          "exists": true
+        },
+        {
+          "name": "callaway_santanna",
+          "exists": true
+        },
+        {
+          "name": "sun_abraham",
+          "exists": true
+        },
+        {
+          "name": "did_imputation",
+          "exists": true
+        },
+        {
+          "name": "gsynth",
+          "exists": true
+        },
+        {
+          "name": "mc_panel",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 9
+      }
+    },
+    {
+      "function": "interflex",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "d",
+          "x"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "d",
+          "x"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "estimator": {
+          "binning": {
+            "status": "ok"
+          },
+          "linear": {
+            "status": "ok"
+          },
+          "kernel": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: estimator='kernel' needs a positive bandwidth bw= (or cv=True to cross-validate it)\n  -> recovery: Pass bw= (in units of the moderator), or "
+          }
+        },
+        "treat_type": {
+          "discrete": {
+            "status": "ok"
+          },
+          "continuous": {
+            "status": "ok"
+          }
+        },
+        "wald_test": {
+          "chisq": {
+            "status": "ok"
+          },
+          "F": {
+            "status": "ok"
+          }
+        },
+        "vce": {
+          "robust": {
+            "status": "ok"
+          },
+          "homoscedastic": {
+            "status": "ok"
+          },
+          "bootstrap": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: vce='bootstrap' is available for estimator='kernel'; the linear and binning estimators report delta-method SEs\n  -> recovery: Use estimator="
+          }
+        },
+        "metric": {
+          "mse": {
+            "status": "ok"
+          },
+          "mae": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "gformula_mc",
+          "exists": true
+        },
+        {
+          "name": "target_trial_emulate",
+          "exists": true
+        },
+        {
+          "name": "msm",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 4,
+        "docstring": 3
+      }
+    },
+    {
+      "function": "xtabond",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y"
+        ],
+        "schema": [
+          "data",
+          "y"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "difference": {
+            "status": "ok"
+          },
+          "system": {
+            "status": "ok"
+          },
+          "ah": {
+            "status": "ok"
+          }
+        },
+        "ah_instrument": {
+          "levels": {
+            "status": "ok"
+          },
+          "differences": {
+            "status": "ok"
+          }
+        },
+        "iv_equation": {
+          "both": {
+            "status": "ok"
+          },
+          "diff": {
+            "status": "ok"
+          },
+          "level": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "panel",
+          "exists": true
+        },
+        {
+          "name": "feols",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "sensemakr",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "treat",
+          "controls"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "treat",
+          "controls"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "dict",
+        "actual": "dict",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "oster_bounds",
+          "exists": true
+        },
+        {
+          "name": "evalue",
+          "exists": true
+        },
+        {
+          "name": "unified_sensitivity",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "oster_bounds",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "dict",
+        "actual": "dict",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "evalue",
+          "exists": true
+        },
+        {
+          "name": "sensemakr",
+          "exists": true
+        },
+        {
+          "name": "rosenbaum_bounds",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "rdbwselect",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "DataFrame",
+        "actual": "DataFrame",
+        "matches": true
+      },
+      "enums": {
+        "kernel": {
+          "triangular": {
+            "status": "ok"
+          },
+          "uniform": {
+            "status": "ok"
+          },
+          "epanechnikov": {
+            "status": "ok"
+          }
+        },
+        "bwselect": {
+          "mserd": {
+            "status": "ok"
+          },
+          "msetwo": {
+            "status": "ok"
+          },
+          "msesum": {
+            "status": "ok"
+          },
+          "msecomb1": {
+            "status": "ok"
+          },
+          "msecomb2": {
+            "status": "ok"
+          },
+          "cerrd": {
+            "status": "ok"
+          },
+          "certwo": {
+            "status": "ok"
+          },
+          "cersum": {
+            "status": "ok"
+          },
+          "cercomb1": {
+            "status": "ok"
+          },
+          "cercomb2": {
+            "status": "ok"
+          }
+        },
+        "masspoints": {
+          "adjust": {
+            "status": "ok"
+          },
+          "check": {
+            "status": "ok"
+          },
+          "off": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "rdrobust",
+          "exists": true
+        },
+        {
+          "name": "rdrandinf",
+          "exists": true
+        },
+        {
+          "name": "rddensity",
+          "exists": true
+        },
+        {
+          "name": "rd_honest",
+          "exists": true
+        },
+        {
+          "name": "rdrbounds",
+          "exists": true
+        },
+        {
+          "name": "bounds",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 7,
+        "docstring": 3
+      }
+    },
+    {
+      "function": "rd_discrete",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "bsd": {
+            "status": "ok"
+          },
+          "bm": {
+            "status": "precondition",
+            "error": "DataInsufficient: Too few observations for the BME regressions.\n  -> recovery: Widen h or lower order."
+          }
+        },
+        "kernel": {
+          "triangular": {
+            "status": "ok"
+          },
+          "uniform": {
+            "status": "ok"
+          },
+          "epanechnikov": {
+            "status": "ok"
+          }
+        },
+        "opt_criterion": {
+          "MSE": {
+            "status": "ok"
+          },
+          "FLCI": {
+            "status": "ok"
+          },
+          "OCI": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "rdrobust",
+          "exists": true
+        },
+        {
+          "name": "rd_honest",
+          "exists": true
+        },
+        {
+          "name": "rdit",
+          "exists": true
+        },
+        {
+          "name": "rdrbounds",
+          "exists": true
+        },
+        {
+          "name": "bounds",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 3,
+        "curated+family": 3,
+        "curated": 4
+      }
+    },
+    {
+      "function": "mixed",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x_fixed",
+          "group"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x_fixed",
+          "group"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "MixedResult",
+        "actual": "MixedResult",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "reml": {
+            "status": "ok"
+          },
+          "ml": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "regress",
+          "exists": true
+        },
+        {
+          "name": "melogit",
+          "exists": true
+        },
+        {
+          "name": "feols",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 5,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "liml",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "ivreg",
+          "exists": true
+        },
+        {
+          "name": "anderson_rubin_ci",
+          "exists": true
+        },
+        {
+          "name": "jive",
+          "exists": true
+        },
+        {
+          "name": "deepiv",
+          "exists": true
+        },
+        {
+          "name": "bartik",
+          "exists": true
+        },
+        {
+          "name": "proximal",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 3,
+        "curated+family": 4,
+        "docstring": 2
       }
     }
   ]

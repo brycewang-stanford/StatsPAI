@@ -1210,11 +1210,18 @@ Three more ⚠️ from the same replay, all in `sp.stata` / `sp.from_stata`:
   `sp.agent_card('callaway_santanna')` recommended `callaway_santanna`
   instead. Alternatives are now distinct and never the function itself,
   across all registered functions.
-- The card audit against real calls covers 50 entry points, up from 40
+- The card audit against real calls covers 60 entry points, up from 40
   (`heckman`, `mediate`, `oaxaca`, `ebalance`, `cbps`, `lee_bounds`,
-  `rdrandinf`, `rd_honest`, `wooldridge_did`, `lp_did`). The ten new
-  cards had no defect in required arguments, result class or enum
-  values.
+  `rdrandinf`, `rd_honest`, `wooldridge_did`, `lp_did`, then
+  `did_multiplegt_dyn`, `fect`, `interflex`, `xtabond`, `sensemakr`,
+  `oster_bounds`, `rdbwselect`, `rd_discrete`, `mixed`, `liml`). The
+  twenty new cards had no defect in required arguments, result class or
+  enum values.
+- `sp.fect(method='ife' | 'mc')` without `r=` / `lam=`, and
+  `sp.interflex(estimator='kernel')` without `bw=` or
+  `vce='bootstrap'` with another estimator, raised a bare `ValueError`.
+  They now raise `MethodIncompatibility` (a `ValueError`) with a recovery
+  hint naming the argument to add.
 
 ### Reliability
 

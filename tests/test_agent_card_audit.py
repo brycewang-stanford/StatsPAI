@@ -1,4 +1,4 @@
-"""The agent cards of the 50 most-used entry points say true things.
+"""The agent cards of the 60 most-used entry points say true things.
 
 ``scripts/agent_card_audit.py`` checks each card against a real call
 (review item A1). The enum sweep takes about ten minutes, so it runs
@@ -40,9 +40,9 @@ def report():
     return json.loads(REPORT.read_text(encoding="utf-8"))
 
 
-def test_fifty_functions_each_with_a_call(audit):
+def test_sixty_functions_each_with_a_call(audit):
     assert len(audit.TOP_30) == len(set(audit.TOP_30)) == 30
-    assert len(audit.AUDITED) == len(set(audit.AUDITED)) == 50
+    assert len(audit.AUDITED) == len(set(audit.AUDITED)) == 60
     assert set(audit.AUDITED) <= set(audit.CALLS)
     registered = set(sp.list_functions())
     assert set(audit.AUDITED) <= registered
@@ -68,7 +68,7 @@ def test_fast_layer_finds_no_defect(audit):
 
 
 def test_committed_enum_sweep_has_no_rejected_value(report):
-    assert report["n_functions"] == 50
+    assert report["n_functions"] == 60
     assert report["n_with_defects"] == 0
     assert report["enum_values"]["rejected"] == 0
     assert report["enum_values"]["ok"] > 200
@@ -78,7 +78,7 @@ def test_enum_values_added_since_the_sweep_are_accepted(audit, report):
     """The committed sweep may lag the schemas; a new value is tried here.
 
     Re-running the whole sweep takes about ten minutes, so a commit that
-    adds an enum value to one of the fifty is not asked to. Instead every
+    adds an enum value to one of the sixty is not asked to. Instead every
     value the committed report has not seen is called for real, now: it may
     need a precondition, it may not be refused. Regenerate the report
     (``python scripts/agent_card_audit.py``) when convenient.
@@ -328,7 +328,7 @@ def test_datasets_carry_no_borrowed_failure_mode():
 
 
 def test_no_card_lists_an_alternative_twice_or_itself():
-    """Every registered function, not only the audited fifty.
+    """Every registered function, not only the audited sixty.
 
     Until 2026-10-05, 69 cards listed one alternative under two spellings
     (``did_imputation`` from the family card, ``sp.did_imputation`` from

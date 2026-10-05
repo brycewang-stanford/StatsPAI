@@ -515,17 +515,22 @@ def interflex(
     if cv and bw is not None:
         raise MethodIncompatibility("cv=True chooses bw; do not pass bw= as well")
     if estimator == "kernel" and not cv and (bw is None or float(bw) <= 0):
-        raise ValueError(
+        raise MethodIncompatibility(
             "estimator='kernel' needs a positive bandwidth bw= (or cv=True to "
-            "cross-validate it)"
+            "cross-validate it)",
+            recovery_hint="Pass bw= (in units of the moderator), or cv=True.",
+            diagnostics={"estimator": estimator, "bw": bw},
         )
     metric = str(metric).lower()
     if metric not in {"mse", "mae"}:
         raise ValueError("metric must be 'mse' or 'mae'")
     if vce == "bootstrap" and estimator != "kernel":
-        raise ValueError(
+        raise MethodIncompatibility(
             "vce='bootstrap' is available for estimator='kernel'; the linear "
-            "and binning estimators report delta-method SEs"
+            "and binning estimators report delta-method SEs",
+            recovery_hint="Use estimator='kernel' with vce='bootstrap', or keep "
+            "the default vce for the linear and binning estimators.",
+            diagnostics={"estimator": estimator, "vce": vce},
         )
     cov_type = "homoscedastic" if vce == "homoscedastic" else "robust"
     zc = list(z) if z else []
