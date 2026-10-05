@@ -20,14 +20,14 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `event_study` | 512 | 4 / 512 | 4 / 512 | 1 / 512 | -- | -- | 4 / 512 |
 | `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
 | `gardner_did` | 64 | 24 / 64 | 6 / 64 | 1 / 64 | -- | -- | 6 / 64 |
-| `iv` | 416 | 156 / 416 | 27 / 416 | -- | 3 / 416 | 1 / 416 | 27 / 416 |
-| `ivreg` | 416 | 156 / 416 | 27 / 416 | -- | 3 / 416 | 1 / 416 | 27 / 416 |
+| `iv` | 448 | 168 / 448 | 27 / 448 | -- | 3 / 448 | 1 / 448 | 27 / 448 |
+| `ivreg` | 448 | 168 / 448 | 27 / 448 | -- | 3 / 448 | 1 / 448 | 27 / 448 |
 | `nnmatch` | 1920 | 9 / 1920 | 9 / 1920 | -- | -- | -- | 9 / 1920 |
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
 | `psm` | 3600 | 12 / 3600 | 1 / 3600 | -- | -- | -- | 1 / 3600 |
 | `rddensity` | 2 | -- | -- | -- | -- | 1 / 2 | 1 / 2 |
 | `rdrobust` | 25920 | 129 / 25920 | 129 / 25920 | -- | -- | -- | 129 / 25920 |
-| `regress` | 26 | 26 / 26 | 15 / 26 | -- | 5 / 26 | -- | 15 / 26 |
+| `regress` | 28 | 28 / 28 | 17 / 28 | -- | 5 / 28 | -- | 17 / 28 |
 | `sdid` | 288 | 52 / 288 | 24 / 288 | -- | -- | -- | 24 / 288 |
 | `sun_abraham` | 24 | 5 / 24 | 5 / 24 | 2 / 24 | -- | -- | 5 / 24 |
 | `synth` | 8 | 1 / 8 | -- | -- | -- | -- | 1 / 8 |
@@ -67,16 +67,16 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `gardner_did` | estimate | 0 | 0 | 0 | 0 | 40 |
 | `gardner_did` | se | 0 | 0 | 0 | 0 | 58 |
 | `gardner_did` | vcov | 0 | 0 | 0 | 0 | 63 |
-| `iv` | estimate | 0 | 0 | 0 | 0 | 260 |
-| `iv` | se | 0 | 0 | 0 | 3 | 386 |
-| `iv` | coverage | 0 | 0 | 1 | 0 | 415 |
-| `iv` | diagnostic | 0 | 0 | 0 | 0 | 415 |
-| `iv` | joint_test | 0 | 0 | 0 | 0 | 413 |
-| `ivreg` | estimate | 0 | 0 | 0 | 0 | 260 |
-| `ivreg` | se | 0 | 0 | 0 | 3 | 386 |
-| `ivreg` | coverage | 0 | 0 | 1 | 0 | 415 |
-| `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 415 |
-| `ivreg` | joint_test | 0 | 0 | 0 | 0 | 413 |
+| `iv` | estimate | 0 | 0 | 0 | 0 | 280 |
+| `iv` | se | 0 | 0 | 0 | 3 | 418 |
+| `iv` | coverage | 0 | 0 | 1 | 0 | 447 |
+| `iv` | diagnostic | 0 | 0 | 0 | 0 | 447 |
+| `iv` | joint_test | 0 | 0 | 0 | 0 | 445 |
+| `ivreg` | estimate | 0 | 0 | 0 | 0 | 280 |
+| `ivreg` | se | 0 | 0 | 0 | 3 | 418 |
+| `ivreg` | coverage | 0 | 0 | 1 | 0 | 447 |
+| `ivreg` | diagnostic | 0 | 0 | 0 | 0 | 447 |
+| `ivreg` | joint_test | 0 | 0 | 0 | 0 | 445 |
 | `nnmatch` | estimate | 0 | 0 | 0 | 0 | 1911 |
 | `nnmatch` | se | 0 | 0 | 0 | 0 | 1911 |
 | `panel` | estimate | 0 | 0 | 0 | 0 | 45 |
@@ -90,8 +90,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `rdrobust` | coverage | 0 | 0 | 1 | 0 | 25919 |
 | `regress` | estimate | 0 | 0 | 0 | 0 | 0 |
 | `regress` | se | 0 | 0 | 0 | 2 | 9 |
-| `regress` | coverage | 0 | 0 | 1 | 0 | 25 |
-| `regress` | joint_test | 0 | 0 | 0 | 0 | 21 |
+| `regress` | coverage | 0 | 0 | 1 | 0 | 27 |
+| `regress` | joint_test | 0 | 0 | 0 | 0 | 23 |
 | `sdid` | estimate | 0 | 0 | 0 | 0 | 236 |
 | `sdid` | se | 0 | 0 | 0 | 0 | 264 |
 | `sdid` | coverage | 0 | 0 | 1 | 0 | 287 |
@@ -243,7 +243,7 @@ Dimensions: `vce` in {analytic, stage2, bootstrap, none}; `weights` in {none, se
 
 ### `iv`
 
-Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `identification` in {just, over}; `absorb` in {none, set}; `small` in {true, false}.
+Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, hc1, hc2, hc3, hc4, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `identification` in {just, over}; `absorb` in {none, set}; `small` in {true, false}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
@@ -269,7 +269,7 @@ Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, 
 
 ### `ivreg`
 
-Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `identification` in {just, over}; `absorb` in {none, set}; `small` in {true, false}.
+Dimensions: `estimator` in {2sls, liml, fuller, gmm}; `vce` in {classical, hc0, hc1, hc2, hc3, hc4, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `identification` in {just, over}; `absorb` in {none, set}; `small` in {true, false}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
@@ -389,7 +389,7 @@ Dimensions: `design` in {sharp, fuzzy, kink}; `bwselect` in {mserd, msetwo, mses
 
 ### `regress`
 
-Dimensions: `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `weights` in {none, set}.
+Dimensions: `vce` in {classical, hc0, hc1, hc2, hc3, hc4, cr1, cr2, cr3, cluster_multiway, hac, wild, conley, jackknife}; `weights` in {none, set}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
@@ -398,6 +398,7 @@ Dimensions: `vce` in {classical, hc0, hc1, hc2, hc3, cr1, cr2, cr3, cluster_mult
 | T2 | joint_test | vce=classical/cr1/hc1; weights=none | `tests/reference_parity/test_r2_postest_parity.py` | `sp.test(result, 'C(g)[T.2] = ... = 0')` |
 | T2 | joint_test | vce=classical/cr1/hc1/hc2/hc3; weights=none | `tests/reference_parity/test_joint_wald_stata_parity.py` | `sp.regress(formula, data, robust=..., cluster=...)` |
 | T2 | estimate, se | vce=hc2/hc3; weights=none | `tests/r_parity/55_hc2_hc3.py` | `sp.regress(robust='hc2'|'hc3')` |
+| T2 | estimate, se | vce=hc4; weights=none/set | `tests/reference_parity/test_linear_model_extensions_parity.py` | `sp.regress(F_ALL, df, robust=...)` |
 | T2 | estimate, se | vce=cr1; weights=none | `tests/r_parity/14_ols_cluster.py` | `sp.regress(cluster=...)` |
 | T2 | estimate, se | vce=hac; weights=none | `tests/r_parity/51_newey.py` | `sp.regress(robust='hac')` |
 | T2 | estimate, se | vce=classical/cr1/cr2/hc1/hc2/hc3; weights=set | `tests/reference_parity/test_regress_vce_weights_stata_parity.py` | `sp.regress(FORMULA, data, weights=..., vce=...)` |

@@ -55,6 +55,7 @@
             "hc1",
             "hc2",
             "hc3",
+            "hc4",
             "hac"
           ],
           "type": "string"
@@ -244,16 +245,22 @@
           "type": "number"
         },
         "vce": {
-          "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'kernel' = qreg2 heteroskedasticity-robust Powell sandwich; 'cluster <var>' = Parente-Santos Silva (2016) cluster-robust, as qreg2, cluster(); 'powell' = pre-1.32 kernel SE",
+          "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'kernel' = qreg2 heteroskedasticity-robust Powell sandwich; 'cluster <var>' = Parente-Santos Silva (2016) cluster-robust, as qreg2, cluster(); 'ker' = quantreg se='ker' (Gaussian-kernel Powell sandwich); 'powell' = pre-1.32 kernel SE",
           "enum": [
             "iid",
             "robust",
             "nid",
             "kernel",
+            "ker",
             "cluster",
             "powell"
           ],
           "type": "string"
+        },
+        "weights": {
+          "description": "Sampling-weight column (or array): minimises the weighted check loss, covariance as quantreg on the rescaled data. Without vce= the default becomes 'robust'. Weights must be positive",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "x": {
           "description": "Regressor columns (alternative to formula)",
@@ -5879,6 +5886,265 @@
       },
       "required": [
         "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Generalized estimating equations (Liang-Zeger) for clustered or longitudinal data: a population-averaged GLM with a working correlation (independence, exchangeable, AR(1), unstructured) and the cluster-robust sandwich covariance, valid even when the working correlation is wrong. R gee::gee / Stata xtgee. Returns coefficients plus both the robust and the model-based standard errors, the scale and the estimated working correlation. Validation: certified parity evidence. Do NOT use when: The question is about subject-specific effects -- a random-effects model (sp.melogit, sp.mepoisson) estimates those; for non-identity links the two differ; Dropout depends on past outcomes (MAR but not MCAR): GEE is biased; use a likelihood model or inverse-probability weights.",
+    "name": "gee",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level of the confidence intervals.",
+          "type": "number"
+        },
+        "corstr": {
+          "default": "independence",
+          "description": "Working correlation",
+          "enum": [
+            "independence",
+            "exchangeable",
+            "ar1",
+            "unstructured"
+          ],
+          "type": "string"
+        },
+        "data": {
+          "description": "One row per observation. Rows with a missing value in the formula, ``id`` or ``time`` are dropped.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "dof_correction": {
+          "default": true,
+          "description": "True: N - p divisors (R gee, Stata nmp); False: N (Stata xtgee default)",
+          "type": "boolean"
+        },
+        "family": {
+          "default": "gaussian",
+          "description": "Marginal variance function",
+          "enum": [
+            "gaussian",
+            "binomial",
+            "poisson",
+            "gamma"
+          ],
+          "type": "string"
+        },
+        "formula": {
+          "description": "e.g. 'y ~ treat + x'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "id": {
+          "description": "Cluster identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "link": {
+          "description": "Link; canonical when omitted",
+          "type": "string"
+        },
+        "maxiter": {
+          "default": 100,
+          "description": "Maximum number of iterations.",
+          "type": "integer"
+        },
+        "scale": {
+          "description": "Fix the scale of the model-based covariance (1 = Stata xtgee for binomial / poisson)",
+          "type": "number"
+        },
+        "time": {
+          "description": "Orders observations within a cluster (ar1 / unstructured)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "tol": {
+          "default": 1e-08,
+          "description": "Convergence tolerance on the largest relative coefficient change.",
+          "type": "number"
+        },
+        "vce": {
+          "default": "robust",
+          "description": "Sandwich or model-based covariance",
+          "enum": [
+            "robust",
+            "model"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "formula",
+        "data",
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Ridge regression on standardised regressors over one or a grid of penalties, chosen by generalized cross-validation (or the HKB / LW plug-ins). Scaling and GCV as R MASS::lm.ridge. Returns coefficients on the original scale, the full path with effective degrees of freedom, and predict(). No standard errors. Validation: certified parity evidence. Do NOT use when: Inference on a coefficient is the goal -- ridge coefficients are biased by design and carry no standard errors here; use sp.regress, or sp.rlasso_effect / sp.dml with many controls; A sparse model is wanted -- ridge never sets a coefficient to zero; use sp.lasso_select.",
+    "name": "ridge",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "e.g. 'y ~ x1 + x2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "lambda_": {
+          "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "select": {
+          "default": "gcv",
+          "description": "How the reported penalty is chosen",
+          "enum": [
+            "gcv",
+            "hkb",
+            "lw"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Regressors (instead of formula)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome (instead of formula)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Box-Cox power transformation of a positive outcome: the maximum likelihood lambda for (y^lambda - 1)/lambda = x'b + e, its profile-likelihood interval, and LR tests of the reciprocal (-1), log (0) and identity (1). R MASS::boxcox / Stata boxcox, model(lhsonly). Validation: certified parity evidence. Do NOT use when: The estimand is an effect on the original scale: coefficients of a transformed outcome do not average back; use sp.glm / sp.poisson with a log link.",
+    "name": "boxcox",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "One minus the level of the profile-likelihood interval.",
+          "type": "number"
+        },
+        "bounds": {
+          "default": [
+            -3.0,
+            3.0
+          ],
+          "description": "Search interval",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "e.g. 'y ~ x1 + x2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "lambdas": {
+          "description": "Grid for the reported profile",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "x": {
+          "description": "Regressors (instead of formula)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome (instead of formula)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Exact best-subset selection for OLS by branch and bound: for every model size the subset with the smallest RSS, and the size that optimises BIC, AIC, adjusted R2 or Mallows' Cp. R leaps::regsubsets(method='exhaustive'). Regressors can be forced in. Up to 30 candidates. Validation: certified parity evidence. Do NOT use when: Reporting t-statistics or p-values of the selected model -- they ignore the search and overstate significance; fix the specification in advance or use sp.rlasso_effect; More than 30 candidates -- screen with sp.lasso_select first. Cost: Worst case exponential in the number of candidates; about a second at 25 correlated candidates, minutes at 40.",
+    "name": "best_subset",
+    "parameters": {
+      "properties": {
+        "criterion": {
+          "default": "bic",
+          "description": "Rule that picks the model size",
+          "enum": [
+            "bic",
+            "aic",
+            "adjr2",
+            "cp"
+          ],
+          "type": "string"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "force": {
+          "description": "Regressors kept in every model",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "max_vars": {
+          "description": "Largest size considered",
+          "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print the table of best models by size.",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "Candidate regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "x"
       ],
       "type": "object"
     }
@@ -30608,7 +30874,7 @@
           "type": "string"
         },
         "link": {
-          "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"power\"``, ``\"sqrt\"``.",
+          "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"cauchit\"``, ``\"power\"``, ``\"sqrt\"``.",
           "enum": [
             "identity",
             "log",
@@ -30616,6 +30882,7 @@
             "probit",
             "inverse",
             "cloglog",
+            "cauchit",
             "power",
             "sqrt"
           ],
@@ -39492,6 +39759,16 @@
           "default": 0.05,
           "description": "Significance level for confidence intervals (Greenwood formula).",
           "type": "number"
+        },
+        "conf_type": {
+          "default": "plain",
+          "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three.",
+          "enum": [
+            "plain",
+            "log",
+            "log-log"
+          ],
+          "type": "string"
         },
         "data": {
           "description": "Input data.",

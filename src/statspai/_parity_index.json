@@ -1224,6 +1224,35 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "best_subset",
+      "notes": [
+        "Frozen-R fixture: seven candidates on the committed synthetic file. The search is also checked against brute-force enumeration with a forced regressor."
+      ],
+      "reference": "leaps::regsubsets(method = 'exhaustive')",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "leaps": "3.2"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json"
+      ],
+      "tolerance": "RSS and adjusted R2 of the best model of each size 1e-9 rel; Cp 1e-8 abs; the same variables at every size"
+    },
+    {
+      "additional_tests": [
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],
       "also_verified_by": [
@@ -1686,6 +1715,38 @@
         "tests/reference_parity/test_rd_open_R_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "boxcox",
+      "notes": [
+        "Frozen fixtures: MASS drops the constants of the log likelihood, so the profile is compared up to a shift; Stata reports the full value, which is matched."
+      ],
+      "reference": "MASS::boxcox (profile); Stata 18 boxcox, model(lhsonly)",
+      "reference_versions": {
+        "MASS": "7.3.65",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json",
+        "tests/reference_parity/_fixtures/linear_model_extensions_Stata.csv"
+      ],
+      "tolerance": "profile log likelihood equal to MASS up to a constant (spread < 1e-9); lambda 1e-7 abs, log likelihoods 1e-8 rel and LR statistics 1e-4 rel vs Stata"
     },
     {
       "function": "bradford_hill",
@@ -2603,9 +2664,11 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -3429,9 +3492,12 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_survival_epi_R_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -5665,24 +5731,31 @@
       "tolerance": ""
     },
     {
-      "function": "estat",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "estat",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_ding_linear_model.py"
       ],
       "tolerance": ""
     },
@@ -6719,6 +6792,7 @@
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_ivpoisson_stata_parity.py",
         "tests/reference_parity/test_ivprobit_ivtobit_stata_parity.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_sdid_optimized_covariates.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_survreg_streg_stata_parity.py",
@@ -7109,6 +7183,38 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "gee",
+      "notes": [
+        "Frozen fixtures on a committed synthetic panel (60 clusters of 4 to 12 rows), Gaussian, binomial and Poisson margins. xtgee, vce(robust) is the same sandwich times G/(G-1), and the test applies that factor. R gee's AR-M working correlation is not reproduced; AR(1) is evidenced by Stata only."
+      ],
+      "reference": "gee::gee (independence, exchangeable); Stata 18 xtgee (independent, exchangeable, ar 1; with and without nmp)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "gee": "4.13.30"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json",
+        "tests/reference_parity/_fixtures/linear_model_extensions_Stata.csv"
+      ],
+      "tolerance": "vs gee 1e-9 rel on coefficients, naive and robust SE, scale and alpha; vs xtgee 1e-6 rel (its convergence tolerance)"
+    },
+    {
+      "additional_tests": [
         "tests/reference_parity/test_gelbach_absorb_cluster_b1x2.py",
         "tests/reference_parity/test_gelbach_parity.py"
       ],
@@ -7386,10 +7492,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "glm",
@@ -9110,6 +9219,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -9820,6 +9932,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_barrett_causal_inference_in_r.py",
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_binary_r2_and_scls_parity.py",
         "tests/reference_parity/test_cmtest_micsr_parity.py",
@@ -9885,7 +9998,11 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py"
+      ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "logrank_test",
@@ -10117,7 +10234,11 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py"
+      ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "lpoly",
@@ -10338,6 +10459,7 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
@@ -11286,10 +11408,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -12199,12 +12324,14 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -12751,11 +12878,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -13464,11 +13593,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
         "tests/reference_parity/test_etpoisson_stata_parity.py",
         "tests/reference_parity/test_ivpoisson_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
@@ -13476,6 +13607,7 @@
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -14693,11 +14825,14 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_ldv_design_stata_parity.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_qreg_cluster_stata_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -16150,6 +16285,7 @@
         "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/external_parity/test_ding_first_course.py",
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/external_parity/test_published_replications.py",
         "tests/external_parity/test_whatif_nhefs.py",
@@ -16170,6 +16306,7 @@
         "tests/reference_parity/test_inference_sens_R_parity.py",
         "tests/reference_parity/test_inference_sens_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_margins_at_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",
@@ -16381,6 +16518,35 @@
         "tests/reference_parity/_fixtures/inference_sens_stata.json"
       ],
       "tolerance": "p exact (k / N_assignments); statistic 1e-12 rel vs R, 2^-23 vs Stata"
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "ridge",
+      "notes": [
+        "Frozen-R fixture: five penalties on the committed synthetic file; the same scaling (root-mean-square, divisor n) and GCV score as lm.ridge."
+      ],
+      "reference": "MASS::lm.ridge",
+      "reference_versions": {
+        "MASS": "7.3.65",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json"
+      ],
+      "tolerance": "coefficients, GCV, kHKB and kLW 1e-9 rel"
     },
     {
       "evidence_grade": "T2",
@@ -18374,6 +18540,7 @@
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_gmm_stata_parity.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_survreg_streg_stata_parity.py",
@@ -18383,19 +18550,26 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/test_stepwise_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "stepwise",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_stepwise_parity.py"
+        "tests/external_parity/test_ding_linear_model.py"
       ],
       "tolerance": ""
     },
@@ -19589,6 +19763,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_dcdh_did_textbook.py",
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_dml_multi_treatment_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
@@ -20948,11 +21123,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -21006,11 +21183,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_ding_linear_model.py",
         "tests/reference_parity/test_count_quantile_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",

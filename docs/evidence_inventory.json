@@ -2744,6 +2744,7 @@
           "hc1",
           "hc2",
           "hc3",
+          "hc4",
           "cr1",
           "cr2",
           "cr3",
@@ -2778,33 +2779,33 @@
           "reason": "the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator"
         }
       },
-      "cells": 416,
+      "cells": 448,
       "overall": {
         "covered": 27,
-        "estimate_only": 129,
-        "not_covered": 260
+        "estimate_only": 141,
+        "not_covered": 280
       },
       "by_output": {
         "estimate": {
-          "reference": 156,
-          "not_covered": 260
+          "reference": 168,
+          "not_covered": 280
         },
         "se": {
           "reference": 27,
           "disclosure": 3,
-          "not_covered": 386
+          "not_covered": 418
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 415
+          "not_covered": 447
         },
         "diagnostic": {
           "reference": 1,
-          "not_covered": 415
+          "not_covered": 447
         },
         "joint_test": {
           "reference": 3,
-          "not_covered": 413
+          "not_covered": 445
         }
       },
       "rows": [
@@ -3295,6 +3296,7 @@
           "hc1",
           "hc2",
           "hc3",
+          "hc4",
           "cr1",
           "cr2",
           "cr3",
@@ -3329,33 +3331,33 @@
           "reason": "the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator"
         }
       },
-      "cells": 416,
+      "cells": 448,
       "overall": {
         "covered": 27,
-        "estimate_only": 129,
-        "not_covered": 260
+        "estimate_only": 141,
+        "not_covered": 280
       },
       "by_output": {
         "estimate": {
-          "reference": 156,
-          "not_covered": 260
+          "reference": 168,
+          "not_covered": 280
         },
         "se": {
           "reference": 27,
           "disclosure": 3,
-          "not_covered": 386
+          "not_covered": 418
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 415
+          "not_covered": 447
         },
         "diagnostic": {
           "reference": 1,
-          "not_covered": 415
+          "not_covered": 447
         },
         "joint_test": {
           "reference": 3,
-          "not_covered": 413
+          "not_covered": 445
         }
       },
       "rows": [
@@ -5904,6 +5906,7 @@
           "hc1",
           "hc2",
           "hc3",
+          "hc4",
           "cr1",
           "cr2",
           "cr3",
@@ -5930,27 +5933,27 @@
           "reason": "the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator"
         }
       },
-      "cells": 26,
+      "cells": 28,
       "overall": {
-        "covered": 15,
+        "covered": 17,
         "estimate_only": 11
       },
       "by_output": {
         "estimate": {
-          "reference": 26
+          "reference": 28
         },
         "se": {
-          "reference": 15,
+          "reference": 17,
           "disclosure": 2,
           "not_covered": 9
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 25
+          "not_covered": 27
         },
         "joint_test": {
           "reference": 5,
-          "not_covered": 21
+          "not_covered": 23
         }
       },
       "rows": [
@@ -6051,6 +6054,25 @@
             ]
           },
           "compares": "HC2 / HC3 SEs vs sandwich::vcovHC"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_linear_model_extensions_parity.py",
+          "entry_point": "sp.regress(F_ALL, df, robust=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "hc4"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "HC4 SEs vs sandwich::vcovHC(type = 'HC4'), unweighted and weighted, to 1e-9"
         },
         {
           "kind": "T2",
@@ -6617,24 +6639,24 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 818,
+      "reference": 844,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45500
+      "not_covered": 45540
     },
     "se": {
-      "reference": 370,
+      "reference": 372,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45928
+      "not_covered": 45992
     },
     "coverage": {
       "coverage_simulation": 11,
-      "not_covered": 36819
+      "not_covered": 36885
     },
     "diagnostic": {
       "reference": 3,
-      "not_covered": 831
+      "not_covered": 895
     },
     "vcov": {
       "reference": 9,
@@ -6643,7 +6665,7 @@
     "joint_test": {
       "reference": 16,
       "disclosure": 1,
-      "not_covered": 985
+      "not_covered": 1051
     }
   },
   "option_fixtures": [

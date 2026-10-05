@@ -149,6 +149,7 @@
               "hc1",
               "hc2",
               "hc3",
+              "hc4",
               "hac"
             ],
             "type": "string"
@@ -691,16 +692,22 @@
             "type": "number"
           },
           "vce": {
-            "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'kernel' = qreg2 heteroskedasticity-robust Powell sandwich; 'cluster <var>' = Parente-Santos Silva (2016) cluster-robust, as qreg2, cluster(); 'powell' = pre-1.32 kernel SE",
+            "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'kernel' = qreg2 heteroskedasticity-robust Powell sandwich; 'cluster <var>' = Parente-Santos Silva (2016) cluster-robust, as qreg2, cluster(); 'ker' = quantreg se='ker' (Gaussian-kernel Powell sandwich); 'powell' = pre-1.32 kernel SE",
             "enum": [
               "iid",
               "robust",
               "nid",
               "kernel",
+              "ker",
               "cluster",
               "powell"
             ],
             "type": "string"
+          },
+          "weights": {
+            "description": "Sampling-weight column (or array): minimises the weighted check loss, covariance as quantreg on the rescaled data. Without vce= the default becomes 'robust'. Weights must be positive",
+            "type": "string",
+            "x-statspai-role": "column"
           },
           "x": {
             "description": "Regressor columns (alternative to formula)",
@@ -727,9 +734,10 @@
       "R parity module 40_qreg",
       "Stata parity module 40_qreg",
       "Cross-language parity (bit-exact) vs quantreg::rq [R version 4.5.2 (2025-10-31), quantreg 6.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 40_qreg -- tests/r_parity/40_qreg.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_ldv_design_stata_parity.py",
-      "tests/reference_parity/test_qreg_cluster_stata_parity.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
       "API/unit contract evidence: tests/test_quantile.py",
       "API/unit contract evidence: tests/test_decomposition_tier_c.py"
     ],
@@ -2315,10 +2323,10 @@
       "R parity module 42_nbreg",
       "Stata parity module 42_nbreg",
       "Cross-language parity (bit-exact) vs MASS::glm.nb [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=0.005; parity module 42_nbreg -- tests/r_parity/42_nbreg.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
-      "tests/reference_parity/test_vuong_pscl_parity.py",
       "API/unit contract evidence: tests/test_count_panel_nbreg.py"
     ],
     "validation_status": "certified"
@@ -12144,6 +12152,606 @@
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_syllabus_stata_parity.py"
     ],
     "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "glm",
+      "melogit",
+      "mepoisson",
+      "panel",
+      "regress"
+    ],
+    "assumptions": [
+      "The marginal mean model g(E[y|x]) = x'b is correctly specified",
+      "Clusters are independent of each other",
+      "Many clusters: the sandwich is a large-G approximation",
+      "Missing data, if any, are missing completely at random"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Generalized estimating equations (Liang-Zeger) for clustered or longitudinal data: a population-averaged GLM with a working correlation (independence, exchangeable, AR(1), unstructured) and the cluster-robust sandwich covariance, valid even when the working correlation is wrong. R gee::gee / Stata xtgee. Returns coefficients plus both the robust and the model-based standard errors, the scale and the estimated working correlation. Validation: certified parity evidence. Do NOT use when: The question is about subject-specific effects -- a random-effects model (sp.melogit, sp.mepoisson) estimates those; for non-identity links the two differ; Dropout depends on past outcomes (MAR but not MCAR): GEE is biased; use a likelihood model or inverse-probability weights.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "gee::gee (independence, exchangeable); Stata 18 xtgee (independent, exchangeable, ar 1; with and without nmp)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "gee": "4.13.30"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json",
+        "tests/reference_parity/_fixtures/linear_model_extensions_Stata.csv"
+      ],
+      "tolerance": "vs gee 1e-9 rel on coefficients, naive and robust SE, scale and alpha; vs xtgee 1e-6 rel (its convergence tolerance)"
+    },
+    "example": "sp.gee(\"y ~ treat + x\", df, id=\"village\", family=\"binomial\", corstr=\"exchangeable\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Use corstr='independence'; the robust covariance is the same kind and the estimator stays consistent.",
+        "symptom": "Estimated working correlation not positive definite"
+      },
+      {
+        "alternative": "sp.wild_cluster_bootstrap",
+        "exception": "UserWarning",
+        "remedy": "The sandwich understates the variance; use a wild cluster bootstrap on the pooled model.",
+        "symptom": "Fewer than about 40 clusters"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "gee",
+    "not_recommended_when": [
+      "The question is about subject-specific effects -- a random-effects model (sp.melogit, sp.mepoisson) estimates those; for non-identity links the two differ",
+      "Dropout depends on past outcomes (MAR but not MCAR): GEE is biased; use a likelihood model or inverse-probability weights"
+    ],
+    "pre_conditions": [
+      "At least two clusters; long-format data with a cluster id"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "liang1986longitudinal",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Generalized estimating equations (Liang-Zeger) for clustered or longitudinal data: a population-averaged GLM with a working correlation (independence, exchangeable, AR(1), unstructured) and the cluster-robust sandwich covariance, valid even when the working correlation is wrong. R gee::gee / Stata xtgee. Returns coefficients plus both the robust and the model-based standard errors, the scale and the estimated working correlation. Validation: certified parity evidence. Do NOT use when: The question is about subject-specific effects -- a random-effects model (sp.melogit, sp.mepoisson) estimates those; for non-identity links the two differ; Dropout depends on past outcomes (MAR but not MCAR): GEE is biased; use a likelihood model or inverse-probability weights.",
+      "name": "gee",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level of the confidence intervals.",
+            "type": "number"
+          },
+          "corstr": {
+            "default": "independence",
+            "description": "Working correlation",
+            "enum": [
+              "independence",
+              "exchangeable",
+              "ar1",
+              "unstructured"
+            ],
+            "type": "string"
+          },
+          "data": {
+            "description": "One row per observation. Rows with a missing value in the formula, ``id`` or ``time`` are dropped.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "dof_correction": {
+            "default": true,
+            "description": "True: N - p divisors (R gee, Stata nmp); False: N (Stata xtgee default)",
+            "type": "boolean"
+          },
+          "family": {
+            "default": "gaussian",
+            "description": "Marginal variance function",
+            "enum": [
+              "gaussian",
+              "binomial",
+              "poisson",
+              "gamma"
+            ],
+            "type": "string"
+          },
+          "formula": {
+            "description": "e.g. 'y ~ treat + x'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "id": {
+            "description": "Cluster identifier",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "link": {
+            "description": "Link; canonical when omitted",
+            "type": "string"
+          },
+          "maxiter": {
+            "default": 100,
+            "description": "Maximum number of iterations.",
+            "type": "integer"
+          },
+          "scale": {
+            "description": "Fix the scale of the model-based covariance (1 = Stata xtgee for binomial / poisson)",
+            "type": "number"
+          },
+          "time": {
+            "description": "Orders observations within a cluster (ar1 / unstructured)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "tol": {
+            "default": 1e-08,
+            "description": "Convergence tolerance on the largest relative coefficient change.",
+            "type": "number"
+          },
+          "vce": {
+            "default": "robust",
+            "description": "Sandwich or model-based covariance",
+            "enum": [
+              "robust",
+              "model"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "formula",
+          "data",
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 40,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs gee::gee (independence, exchangeable); Stata 18 xtgee (independent, exchangeable, ar 1; with and without nmp) [R version 4.5.2 (2025-10-31), Stata 18, gee 4.13.30]; tolerance vs gee 1e-9 rel on coefficients, naive and robust SE, scale and alpha; vs xtgee 1e-6 rel (its convergence tolerance) -- tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/external_parity/test_ding_linear_model.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "lasso_select",
+      "rlasso",
+      "best_subset",
+      "regress"
+    ],
+    "assumptions": [
+      "Linear conditional mean; the goal is prediction, not unbiased coefficients"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Ridge regression on standardised regressors over one or a grid of penalties, chosen by generalized cross-validation (or the HKB / LW plug-ins). Scaling and GCV as R MASS::lm.ridge. Returns coefficients on the original scale, the full path with effective degrees of freedom, and predict(). No standard errors. Validation: certified parity evidence. Do NOT use when: Inference on a coefficient is the goal -- ridge coefficients are biased by design and carry no standard errors here; use sp.regress, or sp.rlasso_effect / sp.dml with many controls; A sparse model is wanted -- ridge never sets a coefficient to zero; use sp.lasso_select.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "MASS::lm.ridge",
+      "reference_versions": {
+        "MASS": "7.3.65",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json"
+      ],
+      "tolerance": "coefficients, GCV, kHKB and kLW 1e-9 rel"
+    },
+    "example": "sp.ridge(\"medv ~ crim + rm + lstat\", df)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ridge",
+    "not_recommended_when": [
+      "Inference on a coefficient is the goal -- ridge coefficients are biased by design and carry no standard errors here; use sp.regress, or sp.rlasso_effect / sp.dml with many controls",
+      "A sparse model is wanted -- ridge never sets a coefficient to zero; use sp.lasso_select"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hoerl1970ridge",
+    "returns": {
+      "class": "RidgeResult",
+      "description": "RidgeResult",
+      "fields": {
+        "formula": "Optional[str]",
+        "lambda_": "float",
+        "lambda_gcv": "float",
+        "lambda_hkb": "float",
+        "lambda_lw": "float",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "path": "pd.DataFrame",
+        "selection": "str"
+      }
+    },
+    "signature": {
+      "description": "Ridge regression on standardised regressors over one or a grid of penalties, chosen by generalized cross-validation (or the HKB / LW plug-ins). Scaling and GCV as R MASS::lm.ridge. Returns coefficients on the original scale, the full path with effective degrees of freedom, and predict(). No standard errors. Validation: certified parity evidence. Do NOT use when: Inference on a coefficient is the goal -- ridge coefficients are biased by design and carry no standard errors here; use sp.regress, or sp.rlasso_effect / sp.dml with many controls; A sparse model is wanted -- ridge never sets a coefficient to zero; use sp.lasso_select.",
+      "name": "ridge",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "e.g. 'y ~ x1 + x2'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "lambda_": {
+            "description": "Penalty or grid on the standardised scale; automatic log-spaced grid when omitted",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "select": {
+            "default": "gcv",
+            "description": "How the reported penalty is chosen",
+            "enum": [
+              "gcv",
+              "hkb",
+              "lw"
+            ],
+            "type": "string"
+          },
+          "x": {
+            "description": "Regressors (instead of formula)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome (instead of formula)",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs MASS::lm.ridge [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance coefficients, GCV, kHKB and kLW 1e-9 rel -- tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/external_parity/test_ding_linear_model.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "regress",
+      "glm",
+      "poisson"
+    ],
+    "assumptions": [
+      "Strictly positive outcome",
+      "Some power of the outcome is linear in x with normal, homoskedastic errors"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Box-Cox power transformation of a positive outcome: the maximum likelihood lambda for (y^lambda - 1)/lambda = x'b + e, its profile-likelihood interval, and LR tests of the reciprocal (-1), log (0) and identity (1). R MASS::boxcox / Stata boxcox, model(lhsonly). Validation: certified parity evidence. Do NOT use when: The estimand is an effect on the original scale: coefficients of a transformed outcome do not average back; use sp.glm / sp.poisson with a log link.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "MASS::boxcox (profile); Stata 18 boxcox, model(lhsonly)",
+      "reference_versions": {
+        "MASS": "7.3.65",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json",
+        "tests/reference_parity/_fixtures/linear_model_extensions_Stata.csv"
+      ],
+      "tolerance": "profile log likelihood equal to MASS up to a constant (spread < 1e-9); lambda 1e-7 abs, log likelihoods 1e-8 rel and LR statistics 1e-4 rel vs Stata"
+    },
+    "example": "sp.boxcox(\"duration ~ treatment + age\", df)",
+    "failure_modes": [
+      {
+        "alternative": "sp.poisson",
+        "exception": "MethodIncompatibility",
+        "remedy": "Model the mean directly with a log link instead of transforming the outcome.",
+        "symptom": "Outcome has zeros or negative values"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "boxcox",
+    "not_recommended_when": [
+      "The estimand is an effect on the original scale: coefficients of a transformed outcome do not average back; use sp.glm / sp.poisson with a log link"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "box1964analysis",
+    "returns": {
+      "class": "BoxCoxResult",
+      "description": "BoxCoxResult",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "formula": "Optional[str]",
+        "lambda_": "float",
+        "loglik": "float",
+        "n_obs": "int",
+        "outcome": "str",
+        "params": "pd.Series",
+        "profile": "pd.DataFrame",
+        "sigma2": "float",
+        "tests": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Box-Cox power transformation of a positive outcome: the maximum likelihood lambda for (y^lambda - 1)/lambda = x'b + e, its profile-likelihood interval, and LR tests of the reciprocal (-1), log (0) and identity (1). R MASS::boxcox / Stata boxcox, model(lhsonly). Validation: certified parity evidence. Do NOT use when: The estimand is an effect on the original scale: coefficients of a transformed outcome do not average back; use sp.glm / sp.poisson with a log link.",
+      "name": "boxcox",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "One minus the level of the profile-likelihood interval.",
+            "type": "number"
+          },
+          "bounds": {
+            "default": [
+              -3.0,
+              3.0
+            ],
+            "description": "Search interval",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "e.g. 'y ~ x1 + x2'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "lambdas": {
+            "description": "Grid for the reported profile",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "x": {
+            "description": "Regressors (instead of formula)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome (instead of formula)",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs MASS::boxcox (profile); Stata 18 boxcox, model(lhsonly) [MASS 7.3.65, R version 4.5.2 (2025-10-31), Stata 18]; tolerance profile log likelihood equal to MASS up to a constant (spread < 1e-9); lambda 1e-7 abs, log likelihoods 1e-8 rel and LR statistics 1e-4 rel vs Stata -- tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/external_parity/test_ding_linear_model.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "stepwise",
+      "lasso_select",
+      "rlasso"
+    ],
+    "assumptions": [
+      "Linear model; selection is for prediction"
+    ],
+    "category": "regression",
+    "cost_profile": "Worst case exponential in the number of candidates; about a second at 25 correlated candidates, minutes at 40.",
+    "description": "Exact best-subset selection for OLS by branch and bound: for every model size the subset with the smallest RSS, and the size that optimises BIC, AIC, adjusted R2 or Mallows' Cp. R leaps::regsubsets(method='exhaustive'). Regressors can be forced in. Up to 30 candidates. Validation: certified parity evidence. Do NOT use when: Reporting t-statistics or p-values of the selected model -- they ignore the search and overstate significance; fix the specification in advance or use sp.rlasso_effect; More than 30 candidates -- screen with sp.lasso_select first. Cost: Worst case exponential in the number of candidates; about a second at 25 correlated candidates, minutes at 40.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "leaps::regsubsets(method = 'exhaustive')",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "leaps": "3.2"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_linear_model_extensions_parity.py",
+        "tests/reference_parity/_fixtures/linear_model_extensions_R.json"
+      ],
+      "tolerance": "RSS and adjusted R2 of the best model of each size 1e-9 rel; Cp 1e-8 abs; the same variables at every size"
+    },
+    "example": "sp.best_subset(df, \"y\", [\"x1\", \"x2\", \"x3\", \"x4\"])",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "best_subset",
+    "not_recommended_when": [
+      "Reporting t-statistics or p-values of the selected model -- they ignore the search and overstate significance; fix the specification in advance or use sp.rlasso_effect",
+      "More than 30 candidates -- screen with sp.lasso_select first"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "cost_profile": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "furnival1974regressions",
+    "returns": {
+      "class": "SelectionResult",
+      "description": "SelectionResult",
+      "fields": {
+        "coefficients": "Optional[Dict[str, float]]",
+        "dropped": "List[str]",
+        "final_model": "Dict[str, Any]",
+        "history": "pd.DataFrame",
+        "lasso_path": "Optional[Dict[str, Any]]",
+        "method": "str",
+        "selected": "List[str]"
+      }
+    },
+    "signature": {
+      "description": "Exact best-subset selection for OLS by branch and bound: for every model size the subset with the smallest RSS, and the size that optimises BIC, AIC, adjusted R2 or Mallows' Cp. R leaps::regsubsets(method='exhaustive'). Regressors can be forced in. Up to 30 candidates. Validation: certified parity evidence. Do NOT use when: Reporting t-statistics or p-values of the selected model -- they ignore the search and overstate significance; fix the specification in advance or use sp.rlasso_effect; More than 30 candidates -- screen with sp.lasso_select first. Cost: Worst case exponential in the number of candidates; about a second at 25 correlated candidates, minutes at 40.",
+      "name": "best_subset",
+      "parameters": {
+        "properties": {
+          "criterion": {
+            "default": "bic",
+            "description": "Rule that picks the model size",
+            "enum": [
+              "bic",
+              "aic",
+              "adjr2",
+              "cp"
+            ],
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "force": {
+            "description": "Regressors kept in every model",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "max_vars": {
+            "description": "Largest size considered",
+            "type": "integer"
+          },
+          "verbose": {
+            "default": false,
+            "description": "Print the table of best models by size.",
+            "type": "boolean"
+          },
+          "x": {
+            "description": "Candidate regressors",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs leaps::regsubsets(method = 'exhaustive') [R version 4.5.2 (2025-10-31), leaps 3.2]; tolerance RSS and adjusted R2 of the best model of each size 1e-9 rel; Cp 1e-8 abs; the same variables at every size -- tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/external_parity/test_ding_linear_model.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -64239,9 +64847,9 @@
       "Stata parity module 57_logit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"logit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 57_logit -- tests/r_parity/57_logit.py",
       "tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
-      "tests/reference_parity/test_binary_r2_and_scls_parity.py",
-      "tests/reference_parity/test_cmtest_micsr_parity.py"
+      "tests/reference_parity/test_binary_r2_and_scls_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -64730,7 +65338,7 @@
             "type": "string"
           },
           "link": {
-            "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"power\"``, ``\"sqrt\"``.",
+            "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"cauchit\"``, ``\"power\"``, ``\"sqrt\"``.",
             "enum": [
               "identity",
               "log",
@@ -64738,6 +65346,7 @@
               "probit",
               "inverse",
               "cloglog",
+              "cauchit",
               "power",
               "sqrt"
             ],
@@ -64804,6 +65413,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs base R stats::glm (binomial logit + Poisson log) [R version 4.5.2 (2025-10-31)]; tolerance coef / logLik / AIC 1e-8 abs (observed <= 5e-13); SE ~1e-3 rel -- tests/reference_parity/test_glm_parity.py",
+      "tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py"
     ],
@@ -64982,10 +65593,10 @@
       "R parity module 58_poisson",
       "Stata parity module 58_poisson",
       "Cross-language parity (bit-exact) vs stats::glm(family=poisson()) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 58_poisson -- tests/r_parity/58_poisson.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
-      "tests/reference_parity/test_etpoisson_stata_parity.py",
-      "tests/reference_parity/test_ivpoisson_stata_parity.py"
+      "tests/reference_parity/test_etpoisson_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -65336,10 +65947,10 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (aligned) vs Stata 18 margins, dydx(*) [Stata 18]; tolerance 1e-6 rel (observed 2.7e-7 AME / 7.5e-8 SE on probit and logit-with-interaction; <= 1e-10 otherwise) -- tests/reference_parity/test_postestimation_stata_parity.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/external_parity/test_facure_causal_inference_in_python.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py",
-      "tests/reference_parity/test_postestimation_parity.py"
+      "tests/reference_parity/test_margins_ext_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -65793,9 +66404,9 @@
     "validation_notes": [
       "Cross-language parity (aligned) vs Stata 18 test (after regress / ivregress / logit / poisson) [Stata 18]; tolerance 1e-6 rel (observed <= 2.3e-15 on linear fits, <= 8e-10 on ML fits, far-tail p <= 4.7e-8) -- tests/reference_parity/test_postestimation_stata_parity.py",
       "tests/external_parity/test_dcdh_did_textbook.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
-      "tests/reference_parity/test_dml_multi_treatment_parity.py",
-      "tests/reference_parity/test_joint_wald_stata_parity.py"
+      "tests/reference_parity/test_dml_multi_treatment_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -79414,18 +80025,18 @@
     "cost_profile": "",
     "description": "Stepwise variable selection for OLS regression. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "evidence": {
-      "grade": "T1",
-      "grade_basis": "derived from status and sides",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "tests": [
-        "tests/reference_parity/test_stepwise_parity.py"
+        "tests/external_parity/test_ding_linear_model.py"
       ],
       "tolerance": ""
     },
@@ -79556,7 +80167,9 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_stepwise_parity.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/reference_parity/test_stepwise_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -80486,6 +81099,8 @@
       "R parity module 44_mlogit",
       "Stata parity module 44_mlogit",
       "Cross-language parity (bit-exact) vs nnet::multinom [R version 4.5.2 (2025-10-31), nnet 7.3.20]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 44_mlogit -- tests/r_parity/44_mlogit.py",
+      "tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
       "tests/reference_parity/test_vuong_pscl_parity.py"
     ],
@@ -80647,6 +81262,7 @@
       "R parity module 45_ologit",
       "Stata parity module 45_ologit",
       "Cross-language parity (bit-exact) vs MASS::polr(method=\"logistic\") [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-05; parity module 45_ologit -- tests/r_parity/45_ologit.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_postestimation_stata_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
       "tests/reference_parity/test_vuong_pscl_parity.py"
@@ -80976,6 +81592,7 @@
       "R parity module 46_clogit",
       "Stata parity module 46_clogit",
       "Cross-language parity (bit-exact) vs survival::clogit [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 46_clogit -- tests/r_parity/46_clogit.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py"
     ],
     "validation_status": "certified"
@@ -81543,6 +82160,7 @@
       "R parity module 63_zip",
       "Stata parity module 63_zip",
       "Cross-language parity (bit-exact) vs pscl::zeroinfl(dist=\"poisson\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=1e-06, rel_se<=0.0001; parity module 63_zip -- tests/r_parity/63_zip.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
       "tests/reference_parity/test_vuong_pscl_parity.py"
@@ -81704,6 +82322,7 @@
       "R parity module 64_zinb",
       "Stata parity module 64_zinb",
       "Cross-language parity (aligned) vs pscl::zeroinfl(dist=\"negbin\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=1e-05, rel_se<=0.001; parity module 64_zinb -- tests/r_parity/64_zinb.py",
+      "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
       "tests/reference_parity/test_vuong_pscl_parity.py"
@@ -84162,6 +84781,8 @@
       "R parity module 24_coxph",
       "Stata parity module 24_coxph",
       "Cross-language parity (bit-exact) vs survival::coxph [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 24_coxph -- tests/r_parity/24_coxph.py",
+      "tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
       "tests/reference_parity/test_survival_epi_R_parity.py"
     ],
     "validation_status": "certified"
@@ -84252,6 +84873,16 @@
             "description": "Significance level for confidence intervals (Greenwood formula).",
             "type": "number"
           },
+          "conf_type": {
+            "default": "plain",
+            "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three.",
+            "enum": [
+              "plain",
+              "log",
+              "log-log"
+            ],
+            "type": "string"
+          },
           "data": {
             "description": "Input data.",
             "type": "object",
@@ -84284,7 +84915,8 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs survival::survfit [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance S(t) at every event time 1e-12 (observed ~3e-17); median exact -- tests/reference_parity/test_survival_km_parity.py"
+      "Cross-language parity (bit-exact) vs survival::survfit [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance S(t) at every event time 1e-12 (observed ~3e-17); median exact -- tests/reference_parity/test_survival_km_parity.py",
+      "tests/reference_parity/test_linear_model_extensions_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -84550,7 +85182,8 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs survival::survdiff [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance chi-square 1e-10 rel (observed ~8e-16); p-value 1e-10 abs -- tests/reference_parity/test_survival_km_parity.py"
+      "Cross-language parity (bit-exact) vs survival::survdiff [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance chi-square 1e-10 rel (observed ~8e-16); p-value 1e-10 abs -- tests/reference_parity/test_survival_km_parity.py",
+      "tests/external_parity/test_ding_linear_model.py"
     ],
     "validation_status": "certified"
   },
@@ -85055,7 +85688,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata lpoly (at(), bwidth(), degree(), kernel(), se(), pwidth()) [Stata 18 MP]; tolerance 1e-10 rel (observed 1.6e-12) -- tests/reference_parity/test_survival_epi_R_parity.py"
+      "Cross-language parity (bit-exact) vs Stata lpoly (at(), bwidth(), degree(), kernel(), se(), pwidth()) [Stata 18 MP]; tolerance 1e-10 rel (observed 1.6e-12) -- tests/reference_parity/test_survival_epi_R_parity.py",
+      "tests/external_parity/test_ding_linear_model.py"
     ],
     "validation_status": "certified"
   },
