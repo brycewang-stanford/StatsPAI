@@ -16567,7 +16567,8 @@
     {
       "additional_tests": [
         "tests/external_parity/test_ding_first_course.py",
-        "tests/reference_parity/test_ding_first_course_parity.py"
+        "tests/reference_parity/test_ding_first_course_parity.py",
+        "tests/reference_parity/test_the_effect_stata_parity.py"
       ],
       "also_verified_by": [
         "external_parity",

@@ -28816,6 +28816,11 @@
           },
           "type": "array"
         },
+        "estimates": {
+          "default": false,
+          "description": "Also bound the effect itself (``method=\"wilcoxon\"`` only). For each Gamma the ``detail`` table gains the range of the Hodges-Lehmann point estimate of an additive effect, ``hl_lower`` to ``hl_upper``, and the outer ends of its ``1 - alpha`` confidence interval, ``ci_lower`` and ``ci_upper``. At ``Gamma = 1`` these are the usual Hodges-Lehmann estimate and interval. They are the columns ``t-hat+``, ``t-hat-``, ``CI+`` and ``CI-`` of Stata ``rbounds``; where the signed-rank statistic equals its target over a stretch of shifts, the middle of the stretch is reported, as there.",
+          "type": "boolean"
+        },
         "gamma_grid": {
           "description": "Gamma values (>= 1) over which to compute bounding p-values.",
           "items": {
