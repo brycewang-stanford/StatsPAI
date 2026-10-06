@@ -337,11 +337,12 @@ class TestConformalDispatcher:
 
     def test_available_kinds_is_sorted(self):
         kinds = sp.conformal_available_kinds()
-        np.testing.assert_allclose(len(kinds), 29)
+        np.testing.assert_allclose(len(kinds), 31)
         assert kinds == sorted(kinds)
         assert "cate" in kinds
         assert "ite" in kinds
         assert "continuous" in kinds
+        assert "regression" in kinds
 
     def test_dispatcher_in_registry(self):
         assert "conformal" in sp.list_functions()
