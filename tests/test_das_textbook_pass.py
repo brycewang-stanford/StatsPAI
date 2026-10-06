@@ -120,3 +120,16 @@ def test_adjust_pvalues_orderings_and_edges():
     np.testing.assert_allclose(out[[0, 2]], [0.03, 0.08])
     with pytest.raises(ValueError, match=r"\['bonferroni', 'sidak', 'holm'"):
         sp.adjust_pvalues(P, "tukey")
+
+
+def test_bootstrap_edges_accepts_mmhc():
+    rng = np.random.default_rng(0)
+    n = 800
+    a = rng.normal(size=n)
+    b = a + rng.normal(size=n)
+    c = b + rng.normal(size=n)
+    df = pd.DataFrame({"a": a, "b": b, "c": c})
+    out = sp.bootstrap_edges(df, "mmhc", n_boot=20, seed=1)
+    pairs = {frozenset((r["from"], r["to"])): r["strength"] for _, r in out.iterrows()}
+    assert pairs[frozenset(("a", "b"))] == 1.0 and pairs[frozenset(("b", "c"))] == 1.0
+    assert pairs.get(frozenset(("a", "c")), 0.0) < 0.5

@@ -4,6 +4,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Local and hybrid structure learning
+
+#### Added
+
+- **`sp.mmpc`**: the parents and children of every variable, by max-min
+  parents and children or semi-interleaved HITON-PC
+  (`method='hiton'`). Each variable keeps the others that no subset of its
+  candidate neighbours separates from it, and an edge stays if both ends
+  agree. Categorical data use the likelihood-ratio test, continuous data
+  the exact t test of a partial correlation. On 24 simulated data sets
+  both skeletons equal `bnlearn::mmpc` and `si.hiton.pc`.
+- **`sp.mmhc`**: max-min hill climbing. The tests propose the candidate
+  edges and hill climbing on the BIC searches among them only. On the same
+  24 data sets the score is never below `bnlearn::mmhc`'s, equal on 18 and
+  higher on 6. `sp.bootstrap_edges(method='mmhc')` is accepted.
+
 ### Latent variables in `sp.path_analysis`
 
 #### Added

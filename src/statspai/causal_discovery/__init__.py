@@ -33,6 +33,7 @@ from .hill_climb import bootstrap_edges, hill_climb
 from .icp import ICPResult, icp, nonlinear_icp
 from .lingam import LiNGAMResult, lingam
 from .lpcmci import LPCMCIResult, lpcmci
+from .mmhc import mmhc, mmpc
 from .notears import NOTEARS, notears
 from .pc import PCAlgorithm, pc_algorithm
 from .pcmci import PCMCIResult, partial_corr_pvalue, pcmci
@@ -141,6 +142,8 @@ __all__ = [
     "NOTEARS",
     "hill_climb",
     "bootstrap_edges",
+    "mmpc",
+    "mmhc",
     "pc_algorithm",
     "PCAlgorithm",
     "lingam",

@@ -646,6 +646,8 @@ from .causal_discovery import (
     icp,
     lingam,
     lpcmci,
+    mmhc,
+    mmpc,
     nonlinear_icp,
     notears,
     partial_corr_pvalue,
@@ -1842,6 +1844,8 @@ __all__ = [
     "pc_algorithm",
     "PCAlgorithm",
     "hill_climb",
+    "mmpc",
+    "mmhc",
     "bootstrap_edges",
     # TMLE
     "tmle",

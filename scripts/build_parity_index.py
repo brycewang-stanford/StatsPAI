@@ -7154,6 +7154,30 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "also checks that the result is a local optimum."
         ),
     },
+    "mmpc": {
+        "status": "bit-exact",
+        "reference": 'R bnlearn::mmpc and si.hiton.pc (tests "cor" / "mi", '
+        "alpha 0.05)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "bnlearn": "5.2.1",
+        },
+        "tolerance": "exact: the skeleton is a set of edges",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_mmhc_bnlearn_parity.py",
+            "tests/reference_parity/_fixtures/mmhc_bnlearn_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: on 24 simulated data sets (five to eight "
+            "variables, Gaussian and categorical, 500 to 3,000 rows) the "
+            "skeletons of both local searches equal bnlearn's. The hybrid "
+            "sp.mmhc is not a parity row: both searches stop at a local "
+            "optimum, and the test asserts only that the BIC is never below "
+            "bnlearn's (equal on 18, higher on 6). Regenerate via "
+            "_generate_mmhc_data.py and _generate_mmhc_bnlearn.R."
+        ),
+    },
     "bayes_net": {
         "status": "bit-exact",
         "reference": "bnlearn::bn.fit(method = 'mle') for the conditional "

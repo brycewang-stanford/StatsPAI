@@ -241,8 +241,10 @@ they are on main.** What it leaves for that line:
    (categorical and continuous data, bnlearn's BIC to 1e-12) and
    `sp.bootstrap_edges` (`boot.strength`). On the chapter's factor data the
    three arcs and the score (-28729.85) are bnlearn's. `mmhc` and
-   `si.hiton.pc` have no counterpart; `sp.bayes_net` fits and queries a
-   given graph.
+   `si.hiton.pc` followed the same day as `sp.mmhc` and
+   `sp.mmpc(method='hiton')`: on 24 simulated data sets the skeletons
+   equal bnlearn's every time, and the hybrid search never ends below
+   bnlearn's score. `sp.bayes_net` fits and queries a given graph.
 5. **`sp.fci`.** Closed 2026-10-06: Possible-D-SEP and rules R1 to R10,
    equal to `pcalg::fci` on 36 data sets.
 6. **Forest tuning.** Closed 2026-10-06: `sp.tune_causal_forest`. Not a
@@ -252,8 +254,8 @@ they are on main.** What it leaves for that line:
    path.
 
 Still open after this: full-information likelihood, multiple groups and
-categorical indicators in `sp.path_analysis`, and the hybrid and local
-discovery algorithms of bnlearn.
+categorical indicators in `sp.path_analysis`. Nothing the book's code
+calls is left without a counterpart.
 
 ## Mistakes in the book's code
 

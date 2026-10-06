@@ -549,7 +549,7 @@ def bootstrap_edges(
     Parameters
     ----------
     data : pandas.DataFrame
-    method : {'pc', 'hill_climb', 'ges', 'fci', 'lingam', 'notears'} or callable
+    method : {'pc', 'hill_climb', 'mmhc', 'ges', 'fci', 'lingam', 'notears'} or callable
         The structure-learning algorithm. A callable receives a DataFrame
         (and ``**kwargs``) and returns a discovery result.
     n_boot : int, default 200
@@ -602,11 +602,13 @@ def bootstrap_edges(
         label = getattr(method, "__name__", "callable")
     else:
         from . import fci, ges, lingam, notears, pc_algorithm
+        from .mmhc import mmhc
 
         table: Dict[str, Callable[..., Any]] = {
             "pc": pc_algorithm,
             "hill_climb": hill_climb,
             "hc": hill_climb,
+            "mmhc": mmhc,
             "ges": ges,
             "fci": fci,
             "lingam": lingam,

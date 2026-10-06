@@ -9717,6 +9717,127 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="mmpc",
+            category="causal_discovery",
+            description=(
+                "Local structure learning: the parents and children of "
+                "every variable, by max-min parents and children (MMPC) or "
+                "semi-interleaved HITON-PC. Each variable keeps the others "
+                "that no subset of its candidate neighbours separates from "
+                "it; an edge stays if both ends agree. Returns an undirected "
+                "skeleton. Needs only small conditioning sets, so it scales "
+                "to many variables. R bnlearn::mmpc / si.hiton.pc. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("variables", "list", False, None, "Columns to use"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "mmpc",
+                    "Max-min heuristic, or semi-interleaved HITON-PC",
+                    ["mmpc", "hiton"],
+                ),
+                ParamSpec(
+                    "data_type",
+                    "str",
+                    False,
+                    "auto",
+                    "Categorical (likelihood-ratio test) or continuous "
+                    "(partial-correlation t test); 'auto' refuses a mixture",
+                    ["auto", "discrete", "gaussian"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the tests"),
+                ParamSpec("max_cond", "int", False, None, "Largest conditioning set"),
+            ],
+            returns="dict",
+            example="sp.mmpc(df)",
+            tags=[
+                "causal discovery",
+                "bayesian network",
+                "bnlearn",
+                "skeleton",
+                "markov blanket",
+                "hiton",
+            ],
+            assumptions=[
+                "Causal sufficiency: no unmeasured common cause of two "
+                "variables in the data",
+                "Faithfulness: every independence in the data comes from the graph",
+                "Each test can err in a finite sample; the result is a "
+                "skeleton, not a set of directions",
+            ],
+            alternatives=["mmhc", "pc_algorithm", "hill_climb", "fci"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="mmhc",
+            category="causal_discovery",
+            description=(
+                "Hybrid structure learning: max-min hill climbing. Tests "
+                "first find the pairs of variables no conditioning set "
+                "separates (sp.mmpc), then greedy hill climbing on the BIC "
+                "orients and prunes arcs among those pairs only. Faster "
+                "than an unrestricted score search and free of the arcs it "
+                "adds between variables related only through others. "
+                "R bnlearn::mmhc / rsmax2. Returns the DAG, its CPDAG, the "
+                "score and the candidate edges. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("variables", "list", False, None, "Columns to use"),
+                ParamSpec(
+                    "restrict",
+                    "str",
+                    False,
+                    "mmpc",
+                    "Local search that proposes the candidate edges",
+                    ["mmpc", "hiton"],
+                ),
+                ParamSpec(
+                    "data_type",
+                    "str",
+                    False,
+                    "auto",
+                    "Treat columns as categorical or continuous",
+                    ["auto", "discrete", "gaussian"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the tests"),
+                ParamSpec("max_cond", "int", False, None, "Largest conditioning set"),
+            ],
+            returns="dict (DAGDict)",
+            example="sp.mmhc(df)",
+            tags=[
+                "causal discovery",
+                "bayesian network",
+                "bnlearn",
+                "hybrid",
+                "bic",
+                "dag",
+            ],
+            assumptions=[
+                "Causal sufficiency: no unmeasured common cause of two "
+                "variables in the data",
+                "Faithfulness, and a correctly specified local model",
+                "An edge the tests miss cannot be recovered by the search; "
+                "the result is a local optimum of the score among the "
+                "candidate edges",
+            ],
+            alternatives=[
+                "hill_climb",
+                "mmpc",
+                "pc_algorithm",
+                "ges",
+                "bootstrap_edges",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="bootstrap_edges",
             category="causal_discovery",
             description=(
@@ -9735,7 +9856,7 @@ def _build_registry() -> None:
                     False,
                     "pc",
                     "Algorithm name, or a callable taking a DataFrame",
-                    ["pc", "hill_climb", "ges", "fci", "lingam", "notears"],
+                    ["pc", "hill_climb", "mmhc", "ges", "fci", "lingam", "notears"],
                 ),
                 ParamSpec("n_boot", "int", False, 200, "Bootstrap resamples"),
                 ParamSpec("seed", "int", False, None, "Random seed"),
