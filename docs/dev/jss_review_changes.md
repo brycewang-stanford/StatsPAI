@@ -2880,3 +2880,18 @@ only the recorded source hashes move.
   the `exercised_sources` digest of `arima.py` and `seconds` differ.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call trace of module 33 re-recorded after the variance-decomposition bands
+
+- **Commits.** `04ad1192` re-recorded the entry of Track A module 33 in
+  `tests/r_parity/results/_implementation_trace.json`. The source that
+  staled it is in `c3b02841`: `src/statspai/timeseries/var.py`
+  (`VARResult.fevd` gained `ci=`; the estimation in `sp.var` is
+  untouched).
+- **Reason.** Second round of the pass recorded in
+  `docs/dev/2026-10-06-neusser-time-series-econometrics-review.md`.
+- **Effect on the paper.** None. Module 33 reproduces its committed result
+  byte for byte; in the trace file only the `exercised_sources` digest of
+  `var.py` and `seconds` differ.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
