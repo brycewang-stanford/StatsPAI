@@ -3043,3 +3043,18 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call trace of module 33 re-recorded after the bootstrap default
+
+- **Commits.** `22ccdf6b` re-recorded the entry of Track A module 33 in
+  `tests/r_parity/results/_implementation_trace.json`. The source that
+  staled it is in `8813adf9`: `src/statspai/timeseries/var.py` and
+  `irf_bands.py` (the default of `boot=` in `sp.irf` and
+  `VARResult.fevd`; the estimation in `sp.var` is untouched).
+- **Reason.** A decision delegated by Bryce, recorded in
+  `docs/dev/2026-10-06-neusser-time-series-econometrics-review.md`.
+- **Effect on the paper.** None. Module 33 compares point estimates and
+  reproduces its committed result byte for byte; in the trace file only
+  `exercised_sources` digests and `seconds` differ.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
