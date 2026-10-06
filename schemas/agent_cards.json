@@ -67887,6 +67887,192 @@
   {
     "alias_of": null,
     "alternatives": [
+      "rd_honest",
+      "rdrobust",
+      "rd_discrete",
+      "rdrbounds",
+      "bounds"
+    ],
+    "assumptions": [
+      "E[Y|X] has bounded second derivative |E[Y|X]''| <= M on each side of c",
+      "Continuity of potential outcomes at c",
+      "No manipulation of x at c (run sp.rddensity alongside)",
+      "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
+      "No manipulation of x at c (density test, `sp.rddensity`)",
+      "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
+      "Covariate balance at c (optional but recommended)"
+    ],
+    "category": "causal",
+    "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
+    "description": "Sharp regression discontinuity with minimax-optimal linear weights under a bound M on the second derivative of E[Y|X] (Imbens-Wager). Weights are chosen by convex optimisation instead of a kernel, the worst-case bias is computed exactly, and the interval is bias-aware. Works with a discrete running variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_rd_optimized_optrdd.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.rd_optimized(df, y=\"score\", x=\"income\", c=10000, M=0.05)",
+    "failure_modes": [
+      {
+        "alternative": "sp.rdrobust",
+        "exception": "AssumptionViolation",
+        "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
+        "symptom": "Density test (`sp.rddensity`) p < 0.05"
+      },
+      {
+        "alternative": "",
+        "exception": "AssumptionViolation",
+        "remedy": "Include covariates as controls, narrow bandwidth, or report as caveat.",
+        "symptom": "Covariate imbalance at cutoff (sp.rdbalance rejects)"
+      },
+      {
+        "alternative": "sp.rd_honest",
+        "exception": "AssumptionWarning",
+        "remedy": "Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI).",
+        "symptom": "Effect unstable across bandwidth halvings"
+      },
+      {
+        "alternative": "sp.manski_bounds",
+        "exception": "AssumptionViolation",
+        "remedy": "The RD signal is noise; seek an alternative identification strategy.",
+        "symptom": "Placebo cutoffs show significant 'effects'"
+      }
+    ],
+    "inherits_from": "rdrobust",
+    "limitations": [],
+    "name": "rd_optimized",
+    "not_recommended_when": [
+      "the running variable has few distinct values (dates, integer scores) -- local polynomial asymptotics fail; use sp.rd_discrete or sp.rdit",
+      "treatment probability does not change at the cutoff -- there is no RD; consider sp.bunching or a DiD"
+    ],
+    "pre_conditions": [
+      "At least three distinct values of x on each side of c inside the window",
+      "User-supplied M (or willingness to use the rule of thumb)",
+      "running variable x is continuous with support on both sides of c",
+      "treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy)",
+      "sufficient mass of observations within the optimal bandwidth"
+    ],
+    "provenance": {
+      "alternatives": "curated+family",
+      "assumptions": "curated+family",
+      "cost_profile": "family",
+      "example": "curated",
+      "failure_modes": "family",
+      "not_recommended_when": "family",
+      "pre_conditions": "curated+family",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "imbens2019optimized; armstrong2018optimal",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult with a bias-aware interval",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Sharp regression discontinuity with minimax-optimal linear weights under a bound M on the second derivative of E[Y|X] (Imbens-Wager). Weights are chosen by convex optimisation instead of a kernel, the worst-case bias is computed exactly, and the interval is bias-aware. Works with a discrete running variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "rd_optimized",
+      "parameters": {
+        "properties": {
+          "M": {
+            "description": "Upper bound on |E[Y|X]''| on each side of c; if None, the Armstrong-Kolesar rule of thumb",
+            "type": "number"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "c": {
+            "default": 0.0,
+            "description": "Cutoff value",
+            "type": "number"
+          },
+          "criterion": {
+            "default": "mse",
+            "description": "Worst-case mean squared error, or interval length",
+            "enum": [
+              "mse",
+              "flci"
+            ],
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "h": {
+            "description": "Use only |x - c| <= h; default 2.5 times the optimal local linear bandwidth",
+            "type": "number"
+          },
+          "n_cells": {
+            "default": 120,
+            "description": "Pieces per side of the least favourable function's second derivative",
+            "type": "integer"
+          },
+          "num_bins": {
+            "default": 120,
+            "description": "Distinct values of x per side beyond which x is binned",
+            "type": "integer"
+          },
+          "sigma2": {
+            "description": "Outcome variance used to choose the weights; default nearest-neighbour estimates averaged by side",
+            "type": "number"
+          },
+          "x": {
+            "description": "Running variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome variable",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_rd_optimized_optrdd.py",
+      "API/unit contract evidence: tests/test_wager_textbook_pass.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "rdrobust",
       "rd_lasso",
       "rd_forest",

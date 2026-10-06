@@ -29572,6 +29572,70 @@
     "name": "rd_multi_score"
   },
   {
+    "description": "Sharp regression discontinuity with minimax-optimal linear weights under a bound M on the second derivative of E[Y|X] (Imbens-Wager). Weights are chosen by convex optimisation instead of a kernel, the worst-case bias is computed exactly, and the interval is bias-aware. Works with a discrete running variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: E[Y|X] has bounded second derivative |E[Y|X]''| <= M on each side of c; Continuity of potential outcomes at c; No manipulation of x at c (run sp.rddensity alongside). Pre-conditions: At least three distinct values of x on each side of c inside the window; User-supplied M (or willingness to use the rule of thumb); running variable x is continuous with support on both sides of c. Failure modes: Density test (`sp.rddensity`) p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_...",
+    "input_schema": {
+      "properties": {
+        "M": {
+          "description": "Upper bound on |E[Y|X]''| on each side of c; if None, the Armstrong-Kolesar rule of thumb",
+          "type": "number"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "c": {
+          "default": 0.0,
+          "description": "Cutoff value",
+          "type": "number"
+        },
+        "criterion": {
+          "default": "mse",
+          "description": "Worst-case mean squared error, or interval length",
+          "enum": [
+            "mse",
+            "flci"
+          ],
+          "type": "string"
+        },
+        "h": {
+          "description": "Use only |x - c| <= h; default 2.5 times the optimal local linear bandwidth",
+          "type": "number"
+        },
+        "n_cells": {
+          "default": 120,
+          "description": "Pieces per side of the least favourable function's second derivative",
+          "type": "integer"
+        },
+        "num_bins": {
+          "default": 120,
+          "description": "Distinct values of x per side beyond which x is binned",
+          "type": "integer"
+        },
+        "sigma2": {
+          "description": "Outcome variance used to choose the weights; default nearest-neighbour estimates averaged by side",
+          "type": "number"
+        },
+        "x": {
+          "description": "Running variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "rd_optimized"
+  },
+  {
     "description": "Sweep over (kernel, bwselect, polynomial, donut) and return a Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {

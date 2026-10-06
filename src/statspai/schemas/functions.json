@@ -29356,6 +29356,76 @@
     }
   },
   {
+    "description": "Sharp regression discontinuity with minimax-optimal linear weights under a bound M on the second derivative of E[Y|X] (Imbens-Wager). Weights are chosen by convex optimisation instead of a kernel, the worst-case bias is computed exactly, and the interval is bias-aware. Works with a discrete running variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "rd_optimized",
+    "parameters": {
+      "properties": {
+        "M": {
+          "description": "Upper bound on |E[Y|X]''| on each side of c; if None, the Armstrong-Kolesar rule of thumb",
+          "type": "number"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "c": {
+          "default": 0.0,
+          "description": "Cutoff value",
+          "type": "number"
+        },
+        "criterion": {
+          "default": "mse",
+          "description": "Worst-case mean squared error, or interval length",
+          "enum": [
+            "mse",
+            "flci"
+          ],
+          "type": "string"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "h": {
+          "description": "Use only |x - c| <= h; default 2.5 times the optimal local linear bandwidth",
+          "type": "number"
+        },
+        "n_cells": {
+          "default": 120,
+          "description": "Pieces per side of the least favourable function's second derivative",
+          "type": "integer"
+        },
+        "num_bins": {
+          "default": 120,
+          "description": "Distinct values of x per side beyond which x is binned",
+          "type": "integer"
+        },
+        "sigma2": {
+          "description": "Outcome variance used to choose the weights; default nearest-neighbour estimates averaged by side",
+          "type": "number"
+        },
+        "x": {
+          "description": "Running variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "RD with flexible covariate adjustment via cross-fit ML residualisation (Noack-Olma-Rothe 2025). Reduces variance of tau at the cutoff by subtracting an ML estimate of E[Y|W] before running rdrobust; consistent under free-of-cutoff continuity of eta, asymptotically efficient when eta converges to E[Y|X=c, W]. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_flex",
     "parameters": {

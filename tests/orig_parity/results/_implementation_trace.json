@@ -460,14 +460,14 @@
    "result_sha256": "7195a81581bfaa5e290c8d2f00d759b67ba8a4561d9a70172710d57f9d452a00"
   },
   "08_nhefs_ch14_gestimation": {
-   "seconds": 1.94,
+   "seconds": 1.3,
    "error": null,
    "boundary_calls": [],
    "packages": [],
    "rscript_launches": 0,
    "subprocesses": [],
    "exercised_sources": {
-    "src/statspai/__init__.py": "5f3a64237781f43868782db21f31a8354ffd944ce8210840bc3a3aecea58915d",
+    "src/statspai/__init__.py": "b822921ba3efe58553520add69b76e9dfb78f21064e93410661906b8672d8443",
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/_result_serialize.py": "380cb2d8b5ed65cad656dd0cb2f0721f45e6b3977dd4a0d87568dff9a87b312b",
     "src/statspai/core/results.py": "5268c0274ace6b4aeb7ab94c6975f9933132efee67598af7f0be8ba07eacdffc",
