@@ -115,6 +115,91 @@ Guide: `docs/guides/time_series_econometrics.md`.
 
 Twenty references added to `paper.bib`, each verified against the
 Crossref and OpenAlex records of its DOI.
+### A causal-inference textbook's Stata code, run against Stata
+
+The Stata code and data of Qiu Jiaping's *Practical Econometric Methods for
+Causal Inference* (chapters 3 to 12) were run in Stata 18 and replayed
+through `sp.stata`, number by number. 2,007 printed numbers are reproduced
+(1,561 at the start), none of the commands is refused (26 at the start),
+and one number differs, where Stata's own rounding is the cause. The
+findings are in `docs/dev/2026-10-06-qiu-jiaping-review.md`, the reader
+guide in `docs/guides/qiu_jiaping.md`.
+
+#### ⚠️ Correctness
+
+- **Propensity score matching with a redundant covariate.** The logit
+  behind `sp.match`, `sp.psmatch2` and `sp.overlap_weights` solved its
+  Newton step from a singular Hessian when one covariate was a combination
+  of others. Next to a column of very different size (`re74^2`) the error
+  reached the fitted scores. On the textbook's specification, which lists
+  the same dummy under two names, the ATT was 1562.29 where Stata's
+  `attnd`, `psmatch2` and `teffects psmatch` give 1627.36. On the bundled
+  Lalonde data with a repeated dummy it was 605.80 against 468.10. The fit
+  now runs on the standardised design, leaves out a redundant covariate (as
+  Stata does) and warns when it has not converged. Without a redundant
+  covariate the matches and the estimate do not change. The fit is carried
+  further than before (scaled gradient 2e-13, was 2e-9 on the NSW data), so
+  a standard error that uses the fitted model moves in the ninth digit: the
+  Abadie-Imbens (2016) row of Track A module 11 goes from 621.7932847 to
+  621.7932873, with Stata at 621.7932451.
+- **`sp.match(ties='all')` could miss a control at exactly the same
+  distance.** The cut-off was squared with the C library's `pow` and the
+  distances with numpy. The two differ in the last place for about one
+  number in 600, and a control tied with the nearest one was then dropped.
+  On one specification the ATET was 1148.68 against Stata's 1170.95.
+  `teffects psmatch` in `sp.stata` and `sp.psmatch2(ties=True)` go through
+  the same comparison.
+- **The score the matching runs on is no longer clipped to
+  [1e-6, 1 - 1e-6].** Every control with a score below 1e-6 was at the same
+  distance from a treated unit. Estimates change only where scores that
+  small or that large exist.
+- **`sp.stata`: `replace` reads the rows it has just written.** Stata
+  replaces one observation after another, so `replace x = 0.4 * l.x + e in
+  2/l`, `replace s = s[_n-1] + x` and `by id: replace v = v[_n-1] if
+  missing(v)` build a recursion. They were evaluated on the whole column at
+  once and returned missing values from the third row on, with no error.
+  `replace z = z / z[1]` now leaves `z` unchanged from the second row on,
+  as it does in Stata.
+- **`sp.stata`: a lag is read from the data as they are.** The column made
+  for `L.x` was reused after `x` had been replaced.
+- **`sp.stata`: `clear all` clears.** It was skipped as a display setting,
+  and a second simulation in the same snippet ran on the data of the first.
+- **`sp.from_stata`: an option written with a blank before its
+  parenthesis.** `reg y x, cluster (id)` was translated without the
+  clustering (`sp.stata` refused the line). `select (z1 z2)`, `vce (cluster
+  id)` and `title ("...")` are read as Stata reads them.
+
+#### Added
+
+- **`sp.pscore`**: the propensity score with blocks and a balancing test
+  (Becker and Ichino 2002; Stata `pscore`). It returns the score, the block
+  of every row, the region of common support and the covariates that are
+  not balanced in a block. The number of blocks, the rejections and the
+  counts per block agree with Stata on six specifications.
+- **`sp.loneway`**: one-way analysis of variance with the intraclass
+  correlation, its asymptotic standard error and interval, the standard
+  deviations between and within groups and the reliability of a group mean
+  (Stata `loneway`). Equal to Stata's `r()` to 12 digits for balanced and
+  unbalanced groups, the exact interval and the truncated case.
+- **`pscore=` on `sp.match` and `sp.psmatch2`**: match on a column that
+  already holds the score (Stata `psmatch2 d, pscore(ps)`).
+- **`sp.psmatch2(common_support='treated')`**: the region of `pscore` /
+  `attnd, comsup`, where controls outside the range of the treated scores
+  are set aside. **`se='bootstrap'` now works with `ties=True`.**
+- **`sp.heckman` two-step** returns the selection equation
+  (`model_info['selection_equation']`) and the Wald test of the outcome
+  equation. **`sp.estat(result, 'firststage')`** adds the p-value, the
+  degrees of freedom and the partial R-squared.
+- **`sp.stata` / `sp.from_stata`**: `pscore`, `attnd`, `psmatch2 d,
+  pscore()`, `pstest`, `DCdensity`, `loneway`, `vif`, `r(att)` / `r(seatt)`
+  after `psmatch2` (so `bootstrap r(att): psmatch2 ...` runs), `d` / `des`.
+
+#### Changed
+
+- `scripts/stata_log_replay.py` reads logs as UTF-8 (a comment in Chinese
+  made a line unreadable) and compares `pscore`, `attnd`, `pstest`,
+  `heckman`, `etregress`, `vif`, `rdplot`, `rdbwselect`, `DCdensity` and
+  `loneway` output.
 
 ### R reference for Callaway-Sant'Anna moved to `did` 2.5.1 and `DRDID` 1.3.0
 

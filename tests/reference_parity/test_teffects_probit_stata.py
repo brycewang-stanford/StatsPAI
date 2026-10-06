@@ -283,7 +283,9 @@ def test_the_stata_reference_separates_the_tie_rules(lalonde, monkeypatch):
     r = _match(lalonde, DISCRETE, "ATT", "logit")
     if _close(r.estimate, 1209.718):
         pytest.skip("this BLAS rounds identical rows identically")
-    assert abs(r.estimate - 1209.718) > 1.0
+    # the reference is printed to three decimals; any other tie rule is off
+    # by far more than that (0.48 with these scores, 13.9 with the old fit)
+    assert abs(r.estimate - 1209.718) > 0.1
 
 
 def test_match_rejects_unknown_ps_model(lalonde):

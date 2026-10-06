@@ -18,6 +18,7 @@ from .g_computation import g_computation
 from .ipw import ipw
 from .jackknife import cr2_se, jackknife_se, wild_cluster_boot
 from .lm_lin import lm_lin
+from .loneway import loneway
 from .meta_analysis import MetaAnalysisResult, meta_analysis
 from .multiway_cluster import (
     cluster_robust_se,
@@ -91,6 +92,7 @@ __all__ = [
     "median_test",
     "robvar",
     "oneway",
+    "loneway",
     "sktest",
     "swilk",
     "ci",

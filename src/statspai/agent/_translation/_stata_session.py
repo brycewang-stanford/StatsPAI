@@ -18,6 +18,7 @@ builds before the command runs.
 from __future__ import annotations
 
 import re
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -45,10 +46,12 @@ __all__ = [
     "teffects_after",
     "stata_percentile",
     "psmatch2_after",
+    "pscore_after",
+    "pscore_before",
 ]
 
 _SET = re.compile(r"\s*set\s+(seed|obs)\s+(\S+)\s*$", re.I)
-_CLEAR = re.compile(r"\s*(?:clear|drop\s+_all)\s*$", re.I)
+_CLEAR = re.compile(r"\s*(?:clear(?P<all>\s+(?:all|\*))?|drop\s+_all)\s*$", re.I)
 _BY = re.compile(
     r"\s*(?:bys(?:o(?:rt?)?)?|by)\s+(?P<by>[^:,]+?)\s*(?:,\s*(?P<opts>[^:]*))?:"
     r"\s*(?P<cmd>.+)\Z",
@@ -146,7 +149,17 @@ def run_session_command(session: "StataSession", line: str) -> Optional[bool]:
     post = run_postestimation(session, line)
     if post is not None:
         return post
-    if _CLEAR.match(line):
+    cleared = _CLEAR.match(line)
+    if cleared:
+        if cleared.group("all"):
+            # `clear all` also drops what `clear` keeps: stored estimates,
+            # scalars, constraints, programs and the last result
+            session.estimates.clear()
+            session.constraints.clear()
+            session.programs.clear()
+            session.stored["scalars"] = {}
+            session.stored["r"] = {}
+            session.last = session.last_data = session._last_call = None
         if session._steps is None:
             session._steps = DataSteps(pd.DataFrame())
             session._steps.stored = session.stored
@@ -156,6 +169,8 @@ def run_session_command(session: "StataSession", line: str) -> Optional[bool]:
         session.stored.pop("time_var", None)
         session.stored.pop("panel_var", None)
         return False
+    if _PSTEST.match(line):
+        return _pstest(session, line)
     m = _ESTSTO.match(line)
     if m:
         _store(session, m.group(1))
@@ -463,7 +478,16 @@ def _table(session: "StataSession", rest: str, line: str, *, command: str) -> bo
         kwargs["star_levels"] = tuple(sorted(levels, reverse=True))
     elif kwargs.get("stars") and command != "estimates table":
         kwargs["star_levels"] = (0.05, 0.01, 0.001)  # esttab's default
-    session.output = sp.esttab(*results, **kwargs)
+    with warnings.catch_warnings():
+        # the wrapper's deprecation notice is addressed to Python callers;
+        # the Stata line the user wrote has nothing to migrate
+        warnings.filterwarnings(
+            "ignore", message=r"esttab\(\) is now", category=DeprecationWarning
+        )
+        warnings.filterwarnings(
+            "ignore", message=r"esttab\(\) is now", category=FutureWarning
+        )
+        session.output = sp.esttab(*results, **kwargs)
     return True
 
 
@@ -1074,6 +1098,8 @@ def psmatch2_after(session: "StataSession", data: pd.DataFrame) -> None:
             session._steps._own()
             session._steps.data = session._steps.data.drop(columns=[name])
         session._steps.add_column(name, column.to_numpy(), double=True)
+    session.stored["psmatch2"] = session.last
+    session.stored["r"] = _psmatch2_r(session.last)
     # the matched outcome: psmatch2 names it after the outcome, `_<outcome>`
     outcome = getattr(session.last, "outcome", None)
     if isinstance(outcome, str) and "_y" in matched.columns:
@@ -1084,6 +1110,108 @@ def psmatch2_after(session: "StataSession", data: pd.DataFrame) -> None:
             session._steps._own()
             session._steps.data = session._steps.data.drop(columns=[name])
         session._steps.add_column(name, column.to_numpy(), double=True)
+
+
+def _psmatch2_r(result: Any) -> Dict[str, float]:
+    """r() after psmatch2 (``r(att)``, ``r(seatt)`` ...) and, under the
+    names attnd uses, after attnd."""
+    info = getattr(getattr(result, "result", None), "model_info", None) or {}
+    att, se = float(result.att), float(result.se)
+    r = {"att": att, "seatt": se, "attnd": att, "seattnd": se}
+    if se > 0:
+        r["tsattnd"] = att / se
+    matched = result.matched_data
+    if "_treated" in matched and "_support" in matched:
+        on = matched["_support"].to_numpy(dtype=float) == 1
+        arm = matched["_treated"].to_numpy(dtype=float)
+        r["ntnd"] = float(np.sum(on & (arm == 1)))
+        if "_weight" in matched:
+            used = np.isfinite(matched["_weight"].to_numpy(dtype=float))
+            r["ncnd"] = float(np.sum(on & (arm == 0) & used))
+    for key in ("atu", "ate"):
+        if key in info:
+            r[key] = float(info[key])
+    return r
+
+
+_PSTEST = re.compile(r"\s*pstest\b", re.I)
+#: pstest options that only choose what is printed or drawn
+_PSTEST_SHOWN = frozenset(
+    {"both", "raw", "nodist", "dist", "label", "onlysig", "rubin", "graph",
+     "hist", "scatter"}  # fmt: skip
+)
+
+
+def _pstest(session: "StataSession", line: str) -> bool:
+    """``pstest [varlist] [, both]`` after psmatch2: the balance table,
+    read from the variables psmatch2 left in the data (``_treated``,
+    ``_weight``, ``_support``), as Stata reads them."""
+    from statspai.matching._pstest import pstest_table
+    from statspai.matching.psmatch2 import PSTestResult
+
+    from ._stata_lexer import parse
+
+    cmd = parse(line)
+    kept = session.stored.get("psmatch2")
+    data = session.data
+    needed = ("_treated", "_weight", "_support", "_pscore")
+    if kept is None or data is None or any(c not in data.columns for c in needed):
+        raise StataExprError("pstest has to follow a psmatch2")
+    if cmd.if_cond or cmd.in_range:
+        raise StataExprError("pstest with an if / in qualifier is not implemented")
+    unknown = sorted(set(cmd.options) - _PSTEST_SHOWN)
+    if unknown:
+        raise StataExprError(f"pstest: option(s) {unknown} are not implemented")
+    steps = session._steps
+    names = None
+    if cmd.varlist and steps is not None:
+        names = steps.expand_varlist(list(cmd.varlist))
+    covariates = names or [c for c in kept.covariates if c in data.columns]
+    frame = data[data["_treated"].notna()]
+    table, summary = pstest_table(
+        frame, treat="_treated", covariates=covariates, weight_col="_weight",
+        support_col="_support", pscore_col="_pscore",
+    )  # fmt: skip
+    session.output = PSTestResult(
+        table=table, summary_stats=summary, covariates=covariates
+    )
+    return True
+
+
+def pscore_before(session: "StataSession", line: str) -> None:
+    """``pscore`` refuses a name that is taken, before it fits anything."""
+    from ._stata_lexer import parse
+    from ._stata_matching import pscore_variables
+
+    if session._steps is None:
+        return
+    for name in pscore_variables(parse(line)):
+        if name != "comsup" and name in session._steps.data.columns:
+            raise StataExprError(f"variable {name!r} already defined")
+
+
+def pscore_after(session: "StataSession", line: str) -> None:
+    """The variables ``pscore`` leaves in the data: the score under the
+    name given in ``pscore()``, the block number under ``blockid()`` and,
+    with ``comsup``, the indicator ``comsup`` (dropped first if it is
+    there, as the command does)."""
+    from ._stata_lexer import parse
+    from ._stata_matching import pscore_variables
+
+    steps = session._steps
+    result = session.output
+    if steps is None or not hasattr(result, "pscore"):
+        return
+    if "comsup" in steps.data.columns:
+        steps._own()
+        steps.data = steps.data.drop(columns=["comsup"])
+    full = steps.data.index
+    for name, what in pscore_variables(parse(line)).items():
+        values = getattr(result, what).reindex(full)
+        if what == "support":
+            # missing outside the estimation sample, 0 / 1 inside it
+            values = values.astype(float).where(result.pscore.reindex(full).notna())
+        steps.add_column(name, values.to_numpy(dtype=float), double=True)
 
 
 def _weighted_moments(x: np.ndarray, w: np.ndarray) -> Tuple[float, float]:

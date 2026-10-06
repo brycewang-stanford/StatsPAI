@@ -5931,6 +5931,14 @@ def _build_registry() -> None:
                     "(..., probit)",
                     ["logit", "probit"],
                 ),
+                ParamSpec(
+                    "pscore",
+                    "str",
+                    False,
+                    None,
+                    "Column holding a fitted score to match on (Stata "
+                    "psmatch2, pscore()); no treatment model is fitted",
+                ),
             ],
             returns="CausalResult",
             example='sp.match(df, y="y", treat="treat", covariates=["x1","x2"])',
@@ -6014,6 +6022,80 @@ def _build_registry() -> None:
                 "are exact",
             ],
             typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="pscore",
+            category="causal",
+            description=(
+                "Propensity score with blocks and a balancing test (Becker and "
+                "Ichino; Stata pscore): fits the logit or probit treatment model, "
+                "optionally keeps the region of common support, cuts the score "
+                "into blocks in which treated and controls have the same mean "
+                "score, and tests every covariate in every block. Returns the "
+                "score, the block of each row and whether the balancing property "
+                "holds."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "treat", "str", True, description="Binary treatment column (0/1)"
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    True,
+                    description="Covariates of the treatment model",
+                ),
+                ParamSpec(
+                    "ps_model",
+                    "str",
+                    False,
+                    "logit",
+                    "Treatment model. Stata pscore fits a probit unless its "
+                    "logit option is given",
+                    ["logit", "probit"],
+                ),
+                ParamSpec(
+                    "common_support",
+                    "bool",
+                    False,
+                    False,
+                    "Keep rows whose score lies in the range of the treated "
+                    "(Stata comsup)",
+                ),
+                ParamSpec(
+                    "level", "float", False, 0.01, "Significance level of the tests"
+                ),
+                ParamSpec(
+                    "n_blocks",
+                    "int",
+                    False,
+                    5,
+                    "Equal intervals of [0, 1] the block search starts from",
+                ),
+            ],
+            returns=(
+                "PScoreResult (.pscore / .block / .support / .n_blocks / "
+                ".balanced / .unbalanced / .blocks / .coefficients / .assign(df))"
+            ),
+            example=(
+                "sp.pscore(df, 'treat', ['age', 'educ', 'married', 're74'], "
+                "common_support=True)"
+            ),
+            tags=["matching", "propensity", "balance", "stratification", "stata"],
+            reference="becker2002estimation",
+            pre_conditions=[
+                "binary treatment 0/1",
+                "covariates are pre-treatment",
+            ],
+            assumptions=[
+                "Unconfoundedness given the covariates",
+                "Overlap of the score between treated and controls",
+            ],
+            alternatives=["psmatch2", "match", "ps_balance", "balance_table"],
         )
     )
 
@@ -6150,6 +6232,14 @@ def _build_registry() -> None:
                     "Propensity-score model. Stata psmatch2 fits a probit "
                     "unless its logit option is given",
                     ["logit", "probit"],
+                ),
+                ParamSpec(
+                    "pscore",
+                    "str",
+                    False,
+                    None,
+                    "Column holding a fitted score to match on (Stata "
+                    "pscore()); covariates= is then optional",
                 ),
             ],
             returns=(
@@ -10368,6 +10458,45 @@ def _build_registry() -> None:
             example='sp.robvar(df, "income", by="female")',
             tags=["inference", "variance", "stata", "levene"],
             alternatives=["sdtest", "oneway"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="loneway",
+            category="inference",
+            description=(
+                "One-way analysis of variance read as a random-effects model "
+                "(Stata loneway): the intraclass correlation with its asymptotic "
+                "standard error and interval, the standard deviations of the "
+                "group effect and of the within-group error, and the reliability "
+                "of a group mean. The intraclass correlation is the input of a "
+                "design effect or Moulton factor."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("y", "str", True, None, "Response"),
+                ParamSpec("by", "str", True, None, "Grouping column (the cluster)"),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "One minus the interval's level"
+                ),
+                ParamSpec(
+                    "exact",
+                    "bool",
+                    False,
+                    False,
+                    "Exact F-based interval (groups of equal size)",
+                ),
+            ],
+            returns="ClassicTestResult",
+            example='sp.loneway(df, "score", by="school")',
+            tags=["inference", "anova", "icc", "cluster", "stata"],
+            reference="donner1986review",
+            assumptions=[
+                "Groups are a sample of exchangeable groups (random effects)",
+                "Homoskedastic errors within groups",
+            ],
+            alternatives=["oneway", "icc", "mixed"],
         )
     )
 

@@ -391,6 +391,51 @@ code, or once the session has assigned one (`replace x = .a if ...`,
 **What to do.** Write `missing(x)` or `x < .` where any missing value is
 meant. Where the kind matters, recode it into a variable of its own before
 calling `sp.stata`.
+<a id="oct2026-qiu-jiaping-fixes"></a>
+
+## 1.38.0 → next: ⚠️ propensity score matching with a redundant covariate or tied controls; `replace` in `sp.stata`
+
+**Matching on an estimated propensity score.** Three things changed in
+`sp.match`, `sp.psmatch2` and `teffects psmatch` run through `sp.stata`.
+
+```python
+sp.match(df, y="y", treat="d", covariates=[..., "u74", "u75"],  # u75 == u74
+         distance="propensity", ties="all")
+# before: scores off in the third decimal when the model also holds a
+#         column such as re74**2; the ATT moved by up to a third
+# now:    the redundant covariate is left out, as Stata's logit does
+```
+
+1. A covariate that is a linear combination of others no longer disturbs
+   the fitted score. If your specification had one (the same dummy under
+   two names, a full set of category indicators), rerun it.
+2. With `ties='all'` (and `sp.psmatch2(ties=True)`) a control at exactly
+   the same distance as the nearest one is always kept. About one distance
+   in 600 was affected, so an estimate on data with many tied scores
+   (discrete covariates) may move.
+3. Scores are not clipped to [1e-6, 1 - 1e-6] before matching. This matters
+   only where scores that extreme exist.
+
+Estimates on specifications with none of the three are unchanged beyond
+the last digits. Nothing in the call needs to change.
+
+**`replace` in `sp.stata`.** A `replace` whose expression reads an earlier
+row of the variable being replaced is now run row after row, as in Stata.
+
+```python
+sp.stata("""
+    gen x = 0 in 1
+    replace x = 0.4 * l.x + e in 2/l
+""", data)
+# before: x missing from the third row on
+# now:    the AR(1) series
+```
+
+If a snippet relied on such a line, its later results were computed on
+missing values and should be rerun. `clear all` now empties the data in
+memory, so a snippet that simulates twice no longer carries the first
+dataset into the second.
+
 <a id="oct2026-facure-textbook-fixes"></a>
 
 ## 1.38.0 → next: ⚠️ `sp.did` with repeated unit-period rows; categorical covariates; `sigma=` in power

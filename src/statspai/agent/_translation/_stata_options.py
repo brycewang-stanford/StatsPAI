@@ -273,6 +273,10 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     # [TS] var: lags(numlist); the parser takes lag() as well.
     "var": (("lags", 3), ("exog", 2)),
     "svar": (("lags", 3), ("exog", 2)),
+    "psmatch2": (("outcome", 3), ("neighbor", 1), ("pscore", 2), ("common", 3)),
+    "attnd": (("bootstrap", 4), ("detail", 3)),
+    "pscore": (("detail", 3),),
+    "dcdensity": (("breakpoint", 5),),
     # [R] heckman: select(), minimum abbreviation sel(); twostep, two.
     "heckman": (("select", 3), ("twostep", 3)),
     # [R] glm: family(), f(); link(), l(); scale(), sca().
@@ -367,6 +371,11 @@ _DISPLAY_BY_COMMAND = {
         # the binomial table is always in model_info['binomial_tests']
         "nobinomial",
     },
+    "pscore": {"detail"},
+    "attnd": {"detail", "dots", "nodots"},
+    # nograph / graphname() / at(): the graph of the density and where it
+    # is drawn; generate() stores the series the graph is drawn from
+    "dcdensity": {"nograph", "graphname", "at", "generate"},
     "bitest": {"detail"},
     "bitesti": {"detail"},
     "rdmcplot": {"nodraw", "noscatter", "nopoly"},

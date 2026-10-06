@@ -207,7 +207,13 @@ def _parse_options(text: str) -> Dict[str, Optional[str]]:
             i += 1
             continue
         name = text[start:i].lower()
-        # Optional parenthesised argument
+        # Optional parenthesised argument. Stata takes it with blanks in
+        # between as well: ``cluster (id)`` is ``cluster(id)``.
+        ahead = i
+        while ahead < n and text[ahead].isspace():
+            ahead += 1
+        if ahead < n and text[ahead] == "(":
+            i = ahead
         if i < n and text[i] == "(":
             depth = 1
             j = i + 1

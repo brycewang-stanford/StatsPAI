@@ -44,6 +44,7 @@ from scipy.spatial.distance import cdist
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
 from ._ai2016 import abadie_imbens_2016_ate_se, abadie_imbens_2016_se
+from ._binary_fit import fit_binary_index
 from ._matched_frame import (
     COL_WEIGHT,
     abadie_imbens_se,
@@ -223,6 +224,7 @@ def match(
     # --- propensity score specification ---
     ps_poly: int = 1,
     ps_model: str = "logit",
+    pscore: Optional[str] = None,
     # --- common support ---
     common_support: str = "none",
     # --- kernel / radius matching ---
@@ -300,6 +302,14 @@ def match(
         The binary model for the propensity score. ``'probit'`` is the
         treatment model of Stata ``teffects psmatch (y) (d x, probit)`` and
         the default of Stata ``psmatch2``.
+    pscore : str, optional
+        A column that already holds the propensity score (or any index the
+        matching should run on, such as the linear predictor): Stata
+        ``psmatch2 d, pscore(varname)``. No treatment model is fitted;
+        ``covariates`` are used for the balance table only, and
+        ``ps_model`` / ``ps_poly`` are ignored. The standard error treats
+        the score as known, so ``se_method='abadie_imbens_2016'``, which
+        charges for the estimation of the score, is refused.
     ps_poly : int, default 1
         Polynomial degree for the propensity score model.
         ``ps_poly=1`` uses linear terms only.
@@ -519,6 +529,7 @@ def match(
             bias_correction=bias_correction,
             ps_poly=ps_poly,
             ps_model=ps_model,
+            pscore=pscore,
             common_support=common_support,
             kernel=kernel,
             bwidth=bwidth,
@@ -550,6 +561,7 @@ def match(
         bias_correction=bias_correction,
         ps_poly=ps_poly,
         ps_model=ps_model,
+        pscore=pscore,
         common_support=common_support,
         kernel=kernel,
         bwidth=bwidth,
@@ -696,52 +708,22 @@ def _probit_propensity_fit(
     """Probit propensity fit by Newton-Raphson on the observed Hessian.
 
     Returns the same pieces as ``MatchEstimator._logit_propensity_fit``.
-    The log-likelihood is globally concave, so Newton steps from zero
-    converge; ``lam`` is the generalised residual ``(T - p) f / (p (1 - p))``
-    and ``lam (lam + index)`` the per-row curvature.
+    The fit itself is :func:`._binary_fit.fit_binary_index`.
     """
     from scipy.stats import norm
 
-    def pieces(beta: np.ndarray) -> tuple[np.ndarray, ...]:
-        index = np.clip(X_aug @ beta, -37.0, 37.0)
-        dens = norm.pdf(index)
-        # T f/Phi(index) - (1-T) f/Phi(-index), stable in both tails
-        lam = np.where(
-            T == 1,
-            np.exp(norm.logpdf(index) - norm.logcdf(index)),
-            -np.exp(norm.logpdf(index) - norm.logcdf(-index)),
-        )
-        return index, dens, lam, lam * (lam + index)
-
-    beta = np.zeros(X_aug.shape[1])
-    for _ in range(50):
-        _, _, lam, curv = pieces(beta)
-        grad = X_aug.T @ lam
-        H = (X_aug * curv[:, None]).T @ X_aug
-        try:
-            delta = np.linalg.solve(H, grad)
-        except np.linalg.LinAlgError:
-            delta = np.linalg.lstsq(H, grad, rcond=None)[0]
-        beta += delta
-        if np.max(np.abs(delta)) < 1e-10:
-            break
-    _, _, _, curv = pieces(beta)
+    fit = fit_binary_index(X_poly, T, "probit")
+    beta = fit["beta"]
     index = np.clip(_index_by_row(X_aug, beta), -37.0, 37.0)
-    dens = norm.pdf(index)
     p_raw = norm.cdf(index)
-    H = (X_aug * curv[:, None]).T @ X_aug
-    try:
-        vcov = np.linalg.inv(H)
-    except np.linalg.LinAlgError:
-        vcov = np.linalg.pinv(H)
     return {
-        "pscore": np.asarray(np.clip(p_raw, 1e-6, 1 - 1e-6), dtype=float),
+        "pscore": np.asarray(p_raw, dtype=float),
         "p_raw": np.asarray(p_raw, dtype=float),
         "beta": beta,
         "design": X_aug,
         "covariates": X_poly,
-        "vcov": vcov,
-        "density": np.asarray(dens, dtype=float),
+        "vcov": fit["vcov"],
+        "density": np.asarray(norm.pdf(index), dtype=float),
     }
 
 
@@ -812,6 +794,7 @@ class MatchEstimator:
         bias_correction: bool = False,
         ps_poly: int = 1,
         ps_model: str = "logit",
+        pscore: Optional[str] = None,
         common_support: str = "none",
         kernel: str = "epan",
         bwidth: float = 0.06,
@@ -887,6 +870,8 @@ class MatchEstimator:
             )
         self.bias_correction = bias_correction
         self.ps_poly = _positive_int(ps_poly, name="ps_poly", context=context)
+        self.pscore_col = pscore
+        self._given_pscore: Optional[np.ndarray] = None
         self.ps_model = str(ps_model).lower()
         if self.ps_model not in ("logit", "probit"):
             raise MethodIncompatibility(
@@ -947,6 +932,8 @@ class MatchEstimator:
 
     def _validate(self) -> None:
         required = [self.y, self.treat] + self.covariates
+        if self.pscore_col is not None:
+            required = required + [self.pscore_col]
         missing = [col for col in required if col not in self.data.columns]
         if missing:
             raise MethodIncompatibility(
@@ -1037,6 +1024,20 @@ class MatchEstimator:
                 "'abadie_imbens', 'abadie_imbens_pop', 'abadie_imbens_2016', "
                 f"or 'bootstrap', got '{self.se_method}'"
             )
+        if self.pscore_col is not None:
+            if not pd.api.types.is_numeric_dtype(self.data[self.pscore_col]):
+                raise MethodIncompatibility(
+                    f"match: pscore={self.pscore_col!r} is not a numeric column",
+                    recovery_hint="Pass the column holding the fitted score.",
+                )
+            if self.se_method == "abadie_imbens_2016":
+                raise MethodIncompatibility(
+                    "match: se_method='abadie_imbens_2016' corrects the "
+                    "variance for the estimation of the propensity score; "
+                    "with pscore= no score is estimated here.",
+                    recovery_hint="Drop pscore= and pass the covariates of "
+                    "the treatment model, or use se_method='abadie_imbens'.",
+                )
         if self.se_method == "abadie_imbens_2016":
             # The estimated-score correction is defined for the estimated-score
             # ATT matching estimator that Stata teffects psmatch implements;
@@ -1102,7 +1103,11 @@ class MatchEstimator:
     def fit(self) -> CausalResult:
         """Fit matching estimator and return results."""
         cols = [self.y, self.treat] + self.covariates
+        if self.pscore_col is not None and self.pscore_col not in cols:
+            cols = cols + [self.pscore_col]
         clean = self.data[cols].dropna()
+        if self.pscore_col is not None:
+            self._given_pscore = clean[self.pscore_col].to_numpy(dtype=float)
         T = clean[self.treat].values.astype(int)
         Y = clean[self.y].values.astype(float)
         X = clean[self.covariates].values.astype(float)
@@ -1174,6 +1179,7 @@ class MatchEstimator:
             "bias_correction": self.bias_correction,
             "ps_poly": self.ps_poly,
             "ps_model": self.ps_model,
+            "pscore_source": "estimated" if self.pscore_col is None else "given",
             "common_support": self.common_support,
             "balance": balance,
             **extra_info,
@@ -1359,8 +1365,7 @@ class MatchEstimator:
                         "sp.match: the Abadie-Imbens (2016) ATE variance is "
                         "not available here (it is undefined, or the matches "
                         "it is computed on are not the ones behind the "
-                        "estimate, which happens when scores below 1e-6 are "
-                        "clipped). Reporting se=nan; use "
+                        "estimate). Reporting se=nan; use "
                         "se_method='abadie_imbens'.",
                         UserWarning,
                         stacklevel=3,
@@ -1469,9 +1474,7 @@ class MatchEstimator:
         # needed downstream (balance table + matched frame + common-support
         # flag), even when the distance metric is not PS; the full fit is
         # kept because the Abadie-Imbens (2016) SE charges for it.
-        ps_fit = self._logit_propensity_fit(
-            X, T, poly=self.ps_poly, model=self.ps_model
-        )
+        ps_fit = self._score_fit(X, T)
         pscore = ps_fit["pscore"]
 
         # Common-support flag over the full estimation sample.  With
@@ -1808,6 +1811,7 @@ class MatchEstimator:
                         bias_correction=self.bias_correction,
                         ps_poly=self.ps_poly,
                         ps_model=self.ps_model,
+                        pscore=self.pscore_col,
                         common_support=self.common_support,
                         kernel=self.kernel,
                         bwidth=self.bwidth,
@@ -1923,7 +1927,7 @@ class MatchEstimator:
         bandwidth set to ``caliper`` (Stata: "radius matching is like kernel
         matching with a uniform kernel").
         """
-        pscore = self._logit_propensity(X, T, poly=self.ps_poly, model=self.ps_model)
+        pscore = self._score(X, T)
 
         # Common-support trimming (Stata `common`) precedes kernel matching.
         support = common_support_mask(pscore, T, rule=self.common_support)
@@ -2186,7 +2190,7 @@ class MatchEstimator:
             else 0.0
         )
 
-        pscore = self._logit_propensity(X, T, poly=self.ps_poly, model=self.ps_model)
+        pscore = self._score(X, T)
         balance = self._balance_table(X, T, pscore)
         extra = {
             "n_matched_treated": n_matched,
@@ -2221,7 +2225,7 @@ class MatchEstimator:
         compute within-stratum treatment effects, then weight by the
         proportion of treated (ATT) or total (ATE) units per stratum.
         """
-        pscore = self._logit_propensity(X, T, poly=self.ps_poly, model=self.ps_model)
+        pscore = self._score(X, T)
 
         # Create strata from propensity score quantiles
         boundaries = np.quantile(pscore, np.linspace(0, 1, self.n_strata + 1))
@@ -2380,7 +2384,7 @@ class MatchEstimator:
         )
         se = float(np.sqrt(var_t + var_c))
 
-        pscore = self._logit_propensity(X, T, poly=self.ps_poly, model=self.ps_model)
+        pscore = self._score(X, T)
         balance = self._balance_table(X, T, pscore)
 
         # Record the coarsened cells so fit() can build the matched frame.
@@ -2439,6 +2443,24 @@ class MatchEstimator:
             cols.append(X**3)
         return np.asarray(np.column_stack(cols), dtype=float)
 
+    def _score(self, X: np.ndarray, T: np.ndarray) -> np.ndarray:
+        """The score the matching runs on: the given column, or the fit."""
+        return np.asarray(self._score_fit(X, T)["pscore"], dtype=float)
+
+    def _score_fit(self, X: np.ndarray, T: np.ndarray) -> dict[str, Any]:
+        """:meth:`_logit_propensity_fit`, or the column named by ``pscore``."""
+        given = self._given_pscore
+        if given is None:
+            return self._logit_propensity_fit(
+                X, T, poly=self.ps_poly, model=self.ps_model
+            )
+        if len(given) != len(T):
+            # a caller resampled the rows; the score moves with them
+            raise MethodIncompatibility(
+                "match: the pscore= column does not line up with the sample"
+            )
+        return {"pscore": given, "p_raw": given}
+
     @staticmethod
     def _logit_propensity(
         X: np.ndarray,
@@ -2471,14 +2493,17 @@ class MatchEstimator:
     ) -> dict[str, np.ndarray]:
         """Logit propensity fit with the pieces the variance corrections need.
 
-        Same Newton-Raphson (IRLS) as :meth:`_logit_propensity`; that
-        method is this one's ``"pscore"`` entry, byte for byte.
+        The maximum-likelihood fit of :func:`._binary_fit.fit_binary_index`;
+        :meth:`_logit_propensity` is this method's ``"pscore"`` entry, byte
+        for byte.
 
         Returns
         -------
         dict
-            ``pscore`` -- fitted score clipped to ``[1e-6, 1 - 1e-6]`` (what
-            the matching runs on); ``p_raw`` -- the unclipped score;
+            ``pscore`` -- the fitted score, what the matching runs on (it
+            is not clipped: two controls with scores 1e-7 and 1e-9 are not
+            at the same distance from a treated unit); ``p_raw`` -- the
+            same array, kept under its earlier name;
             ``beta`` -- coefficients, constant first; ``design`` -- the
             design matrix ``[1, X_poly]``; ``covariates`` -- ``X_poly``
             without the constant; ``vcov`` -- the observed-information
@@ -2493,36 +2518,18 @@ class MatchEstimator:
         X_poly = MatchEstimator._expand_poly(X, poly)
         n = X_poly.shape[0]
         X_aug = np.column_stack([np.ones(n), X_poly])
-        k_aug = X_aug.shape[1]
         if model == "probit":
             return _probit_propensity_fit(X_aug, X_poly, np.asarray(T, dtype=float))
 
-        beta = np.zeros(k_aug)
-        for _ in range(25):
-            linear = np.clip(X_aug @ beta, -500, 500)
-            p = 1 / (1 + np.exp(-linear))
-            p = np.clip(p, 1e-10, 1 - 1e-10)
-            # Vectorized IRLS: W is diagonal, so X'WX = (X * w)' X
-            w = p * (1 - p)
-            grad = X_aug.T @ (T - p)
-            H = (X_aug * w[:, None]).T @ X_aug
-            try:
-                delta = np.linalg.solve(H, grad)
-            except np.linalg.LinAlgError:
-                delta = np.linalg.lstsq(H, grad, rcond=None)[0]
-            beta += delta
-            if np.max(np.abs(delta)) < 1e-8:
-                break
-
+        # redundant covariates are left out and the Newton steps run on
+        # the standardised design (see _binary_fit)
+        fit = fit_binary_index(X_poly, T, "logit")
+        beta = fit["beta"]
+        vcov = fit["vcov"]
         linear = np.clip(_index_by_row(X_aug, beta), -500, 500)
         p_raw = 1 / (1 + np.exp(-linear))
-        H = (X_aug * (p_raw * (1 - p_raw))[:, None]).T @ X_aug
-        try:
-            vcov = np.linalg.inv(H)
-        except np.linalg.LinAlgError:
-            vcov = np.linalg.pinv(H)
         return {
-            "pscore": np.asarray(np.clip(p_raw, 1e-6, 1 - 1e-6), dtype=float),
+            "pscore": np.asarray(p_raw, dtype=float),
             "p_raw": np.asarray(p_raw, dtype=float),
             "beta": beta,
             "design": X_aug,
@@ -2861,8 +2868,12 @@ class MatchEstimator:
             return idx
         scale = self._tie_scale()
         d2 = (d**2) / scale
+        # the cut-off is read from the same array: squaring the scalar on
+        # its own (`cutoff**2`, the C library's pow) can land one unit in
+        # the last place away from numpy's product, and a control at
+        # exactly the same distance would then not count as tied
         tied = np.flatnonzero(
-            np.isfinite(d) & (d2 <= (cutoff**2) / scale + self.tie_tolerance)
+            np.isfinite(d) & (d2 <= float(d2[idx[-1]]) + self.tie_tolerance)
         )
         if tied.size <= idx.size:
             return idx

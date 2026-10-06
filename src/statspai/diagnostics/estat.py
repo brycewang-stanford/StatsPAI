@@ -967,6 +967,20 @@ def _estat_firststage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     }
     if f_pval is not None:
         out["pvalue"] = float(f_pval)
+    # one endogenous regressor: the rest of Stata's first-stage summary
+    stages = mi.get("first_stage")
+    if isinstance(stages, list) and len(stages) == 1 and isinstance(stages[0], dict):
+        stage = stages[0]
+        same = stage.get("f_statistic") is not None and np.isclose(
+            float(stage["f_statistic"]), float(f_stat)
+        )
+        if same and "pvalue" not in out and stage.get("f_pvalue") is not None:
+            out["pvalue"] = float(stage["f_pvalue"])
+        if same and isinstance(stage.get("f_df"), tuple):
+            out["df1"], out["df2"] = (int(v) for v in stage["f_df"])
+            out["statistic_label"] = f"F({out['df1']}, {out['df2']})"
+        if stage.get("partial_r_squared") is not None:
+            out["partial_r2"] = float(stage["partial_r_squared"])
 
     return out
 

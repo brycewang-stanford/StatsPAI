@@ -70,6 +70,7 @@ from .ps_diagnostics import (
     trimming,
 )
 from .ps_weights import energy_distance, ess, implied_weights, ps_weights
+from .pscore import PScoreResult, pscore
 from .psmatch2 import PSMatch2Result, PSTestResult, psmatch2
 from .sbw import SBWResult, sbw
 
@@ -390,5 +391,7 @@ __all__ = [
     "SBWResult",
     "psmatch2",
     "PSMatch2Result",
+    "pscore",
+    "PScoreResult",
     "PSTestResult",
 ]

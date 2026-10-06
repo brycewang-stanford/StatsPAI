@@ -3305,21 +3305,23 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
 
 def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
     """``psmatch2 d x, out(y) n(1)`` → ``sp.psmatch2``."""
-    if len(cmd.varlist) < 2:
-        return _emit_error(
-            "psmatch2 requires treatment plus covariates: `psmatch2 d x1 x2`",
-            command="psmatch2",
-        )
     # Stata reads `psmatch2 d (x1 x2)` as `psmatch2 d x1 x2`
     names = [v for v in cmd.varlist if v not in ("(", ")")]
-    if len(names) < 2:
+    given = (cmd.options.get("pscore") or "").strip()
+    if not names or (len(names) < 2 and not given):
         return _emit_error(
-            "psmatch2 requires treatment plus covariates: `psmatch2 d x1 x2`",
+            "psmatch2 requires treatment plus covariates (`psmatch2 d x1 x2`) "
+            "or a fitted score (`psmatch2 d, pscore(ps)`)",
             command="psmatch2",
         )
     treat = names[0]
     covariates = names[1:]
-    args: Dict[str, Any] = {"treat": treat, "covariates": covariates}
+    args: Dict[str, Any] = {"treat": treat}
+    if covariates:
+        args["covariates"] = covariates
+    if given:
+        # the matching runs on this variable; no treatment model is fitted
+        args["pscore"] = given
     notes: List[str] = []
 
     outcome = (
@@ -3376,7 +3378,9 @@ def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
         args["replace"] = False
     lost: List[str] = []
     cmd.options.get("probit")  # psmatch2's default
-    if "logit" not in cmd.options:
+    if given:
+        cmd.options.get("logit")
+    elif "logit" not in cmd.options:
         args["ps_model"] = "probit"
         notes.append(
             "Stata psmatch2 estimates the propensity score by probit unless "
@@ -3387,12 +3391,10 @@ def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
     if "ate" in cmd.options:
         args["ate"] = True
 
-    code_pairs = [
-        "data=df",
-        f"treat={treat!r}",
-        f"covariates={covariates!r}",
-    ]
+    code_pairs = ["data=df", f"treat={treat!r}"]
     for key in (
+        "covariates",
+        "pscore",
         "outcome",
         "neighbor",
         "method",
@@ -5009,6 +5011,7 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
 from . import _stata_basics as _basics  # noqa: E402
 from . import _stata_design as _design  # noqa: E402
 from . import _stata_did as _did  # noqa: E402
+from . import _stata_matching as _matching  # noqa: E402
 from . import _stata_models as _models  # noqa: E402
 from . import _stata_panel as _panel  # noqa: E402
 from . import _stata_postest as _postest  # noqa: E402
@@ -5025,6 +5028,7 @@ STATA_COMMAND_MAP.update(_did.HANDLERS)
 STATA_COMMAND_MAP.update(_basics.HANDLERS)
 STATA_COMMAND_MAP.update(_sensitivity.HANDLERS)
 STATA_COMMAND_MAP.update(_models.HANDLERS)
+STATA_COMMAND_MAP.update(_matching.HANDLERS)
 
 _POSTEST_HANDLERS = frozenset(
     {

@@ -246,7 +246,13 @@ def parse_log(path: Path) -> List[Tuple[str, List[str]]]:
     quietly) takes its body from the do-file next to the log, if there is
     one.
     """
-    lines = path.read_text(encoding="latin-1").splitlines()
+    raw = path.read_bytes()
+    try:
+        # Stata 14 and later write UTF-8; a comment in Chinese is unreadable
+        # (and its `*/` can be lost) under any single-byte reading
+        lines = raw.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        lines = raw.decode("latin-1").splitlines()
     out: List[Tuple[str, List[str]]] = []
     cmd: Optional[str] = None
     buf: List[str] = []
@@ -835,6 +841,8 @@ class Replay:
         for ln in buf:
             if ln.startswith((". ", "> ")) or re.match(r"^\s*(Note|Key)\b", ln):
                 continue
+            if ln.startswith("-> "):
+                continue  # `-> g = 1`: the header of a by-group, not a result
             parts = []
             if "|" in ln:
                 parts.append(ln.split("|", 1)[1].replace("|", " "))
@@ -1818,6 +1826,282 @@ PANEL = {
 # ------------------------------------------------------ time-series blocks
 def _rows(buf: List[str], pattern: str) -> List["re.Match[str]"]:
     return [m for m in (re.match(pattern, ln) for ln in buf) if m]
+
+
+def _cmp_loneway(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    text = "\n".join(buf)
+    e = out.estimates
+    m = re.search(rf"^\s*({NUM})\*?\s+({NUM})\s+({NUM})\s+({NUM})\s*$", text, re.M)
+    if m:
+        for label, group, ours in (("icc", 1, e["icc"]), ("se", 2, e["icc_se"]),
+                                   ("lb", 3, e["icc_ci"][0]),
+                                   ("ub", 4, e["icc_ci"][1])):  # fmt: skip
+            self.report.number(self.name, cmd, label, Printed(m.group(group)), ours)
+    for label, pattern, ours in (
+        ("sd_between", rf"Estimated SD of \S+ effect\s+({NUM})", e["sd_between"]),
+        ("sd_within", rf"Estimated SD within \S+\s+({NUM})", e["sd_within"]),
+        ("reliability", rf"reliability of a \S+ mean\s+({NUM})", e["reliability"]),
+        ("F", rf"^Between .*?({NUM})\s+{NUM}\s*$", out.statistic),
+    ):
+        m = re.search(pattern, text, re.M)
+        if m:
+            self.report.number(self.name, cmd, label, Printed(m.group(1)), ours)
+
+
+def _cmp_attnd(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """``attnd``: treated, matched controls, ATT and the analytic standard
+    error. With ``bootstrap`` a second table follows with a simulated
+    standard error; the first one is the analytic one."""
+    rows = _rows(buf, rf"^\s*(\d+)\s+(\d+)\s+({NUM})\s+({NUM})\s+({NUM})\s*$")
+    if not rows:
+        return
+    m = rows[0]
+    matched = out.matched_data
+    on = matched["_support"] == 1
+    used = on & (matched["_treated"] == 0) & matched["_weight"].notna()
+    analytic = out.result.model_info.get("se_analytic", out.se)
+    self.report.number(self.name, cmd, "n treated", Printed(m.group(1)),
+                       int((on & (matched["_treated"] == 1)).sum()))  # fmt: skip
+    self.report.number(
+        self.name, cmd, "n controls", Printed(m.group(2)), int(used.sum())
+    )
+    self.report.number(self.name, cmd, "ATT", Printed(m.group(3)), out.att)
+    self.report.number(self.name, cmd, "se", Printed(m.group(4)), analytic)
+
+
+def _cmp_pscore(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """``pscore``: the treatment model, the region of common support, the
+    number of blocks, the unbalanced covariates and the block table."""
+    text = "\n".join(buf)
+    coef = out.coefficients
+    for name, (b, se) in coefficient_table(buf).items():
+        if name in coef.index and np.isfinite(coef.loc[name, "se"]):
+            # pscore fits its logit under `version 8`, whose iterations stop
+            # earlier: with observations that are completely determined its
+            # standard errors differ from those of `logit` in Stata 18 (which
+            # are the ones reproduced here) in the sixth digit
+            self.report.number(self.name, cmd, f"b[{name}]", b,
+                               coef.loc[name, "coef"], rtol=1e-5)  # fmt: skip
+            self.report.number(self.name, cmd, f"se[{name}]", se,
+                               coef.loc[name, "se"], rtol=2e-5)  # fmt: skip
+    m = re.search(rf"Log likelihood = ({NUM})\s+Pseudo", text)
+    if m:
+        self.report.number(self.name, cmd, "ll", Printed(m.group(1)), out.loglik)
+    m = re.search(rf"common support is \[({NUM}), ({NUM})\]", text)
+    if m:
+        self.report.number(self.name, cmd, "support min", Printed(m.group(1)),
+                           out.support_range[0])  # fmt: skip
+        self.report.number(self.name, cmd, "support max", Printed(m.group(2)),
+                           out.support_range[1])  # fmt: skip
+    m = re.search(r"final number of blocks is (\d+)", text)
+    if m:
+        self.report.number(self.name, cmd, "blocks", Printed(m.group(1)), out.n_blocks)
+    stated = re.findall(r"Variable (\S+) is not balanced in block (\d+)", text)
+    ours = {(r.variable, int(r.block)) for r in out.unbalanced.itertuples()}
+    self.report.number(self.name, cmd, "unbalanced", Printed(str(len(stated))),
+                       len(ours & {(v, int(b)) for v, b in stated})
+                       if len(ours) == len(stated) else len(ours))  # fmt: skip
+    counts = [(int(m.group(2).replace(",", "")), int(m.group(3).replace(",", "")))
+              for m in _rows(buf, rf"^\s*({NUM})\s*\|\s*([\d,]+)\s+([\d,]+)\s*\|")]  # fmt: skip
+    table = out.blocks
+    for i, (n_control, n_treated) in enumerate(counts):
+        if i < len(table):
+            self.report.number(self.name, cmd, f"block {i + 1} controls",
+                               Printed(str(n_control)), table["n_control"].iloc[i])  # fmt: skip
+            self.report.number(self.name, cmd, f"block {i + 1} treated",
+                               Printed(str(n_treated)), table["n_treated"].iloc[i])  # fmt: skip
+
+
+def _cmp_pstest(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    table = out.table
+    name = None
+    for ln in buf:
+        m = re.match(rf"^\s*(\S+)?\s+([UM])\s*\|\s*({NUM})\s+({NUM})\s+({NUM})"
+                     rf"(?:\s+({NUM}))?\s*\|\s*({NUM})\s+({NUM})", ln)  # fmt: skip
+        if m is None:
+            continue
+        name = m.group(1) or name
+        if name not in table.index:
+            continue
+        kind = "unmatched" if m.group(2) == "U" else "matched"
+        row = table.loc[name]
+        for label, group, key in (("treated", 3, f"mean_treated_{kind}"),
+                                  ("control", 4, f"mean_control_{kind}"),
+                                  ("bias", 5, f"pct_bias_{kind}"),
+                                  ("t", 7, f"t_{kind}"), ("p", 8, f"p_{kind}")):  # fmt: skip
+            self.report.number(self.name, cmd, f"{name} {m.group(2)} {label}",
+                               Printed(m.group(group)), row[key])  # fmt: skip
+        if m.group(6) is not None:
+            self.report.number(self.name, cmd, f"{name} reduction",
+                               Printed(m.group(6)), row["pct_reduction_abs_bias"])  # fmt: skip
+    seven = r"\s+".join([rf"({NUM})\*?"] * 7)
+    for m in _rows(buf, rf"^\s*(Unmatched|Matched)\s*\|\s*{seven}"):
+        stats_ = out.summary_stats[m.group(1).lower()]
+        for label, group, key in (("ps_r2", 2, "ps_r2"), ("lr_chi2", 3, "lr_chi2"),
+                                  ("p_chi2", 4, "p_chi2"), ("mean_bias", 5, "mean_bias"),
+                                  ("median_bias", 6, "median_bias"),
+                                  ("B", 7, "rubin_b"), ("R", 8, "rubin_r")):  # fmt: skip
+            self.report.number(self.name, cmd, f"{m.group(1)} {label}",
+                               Printed(m.group(group)), stats_[key])  # fmt: skip
+
+
+def _cmp_dcdensity(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    text = "\n".join(buf)
+    info = out.model_info
+    for label, pattern, ours in (
+        ("bin size", rf"bin size = ({NUM})", info["bin_width"]),
+        ("bandwidth", rf"bandwidth = ({NUM})", info["bandwidth"]),
+        ("theta", rf"log difference in height\): ({NUM})", out.estimate),
+        ("se", rf"^\s*\(({NUM})\)\s*$", out.se),
+    ):
+        m = re.search(pattern, text, re.M)
+        if m:
+            # the routine holds its sums in single precision
+            self.report.number(self.name, cmd, label, Printed(m.group(1)), ours,
+                               rtol=1e-6)  # fmt: skip
+
+
+def _cmp_rdbwselect(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    table = out.set_index("method") if "method" in getattr(out, "columns", []) else None
+    if table is None:
+        return
+    for m in _rows(
+        buf, rf"^\s*(\w+)\s*\|\s*({NUM})\s+({NUM})\s*\|\s*({NUM})\s+({NUM})"
+    ):
+        if m.group(1) not in table.index:
+            continue
+        row = table.loc[m.group(1)]
+        for label, group in (
+            ("h_left", 2),
+            ("h_right", 3),
+            ("b_left", 4),
+            ("b_right", 5),
+        ):
+            self.report.number(self.name, cmd, f"{m.group(1)} {label}",
+                               Printed(m.group(group)), row[label])  # fmt: skip
+
+
+def _cmp_rdplot(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    figure = out[0] if isinstance(out, tuple) else out
+    numbers = getattr(figure, "rdplot_data", None)
+    if not numbers:
+        return
+    text = "\n".join(buf)
+    for label, pattern, key in (
+        ("N", r"^\s*Number of obs \|\s*(\d+)\s+(\d+)", "N"),
+        ("bins", r"Bins selected \|\s*(\d+)\s+(\d+)", "J"),
+        ("IMSE bins", r"IMSE-optimal bins \|\s*(\d+)\s+(\d+)", "J_IMSE"),
+        ("MV bins", r"Mimicking Var\. bins \|\s*(\d+)\s+(\d+)", "J_MV"),
+    ):
+        m = re.search(pattern, text, re.M)
+        if m and key in numbers:
+            self.report.number(self.name, cmd, f"{label} left", Printed(m.group(1)),
+                               numbers[key][0])  # fmt: skip
+            self.report.number(self.name, cmd, f"{label} right", Printed(m.group(2)),
+                               numbers[key][1])  # fmt: skip
+
+
+def _equation_rows(buf: List[str]) -> Dict[Tuple[str, str], Tuple[Printed, Printed]]:
+    """(equation, term) -> (coefficient, standard error) of a table with
+    several equations (``heckman``, ``etregress``)."""
+    out: Dict[Tuple[str, str], Tuple[Printed, Printed]] = {}
+    equation = ""
+    for ln in buf:
+        head = re.match(r"^\s*(/?[\w.]+)\s*\|\s*$", ln)
+        if head:
+            equation = head.group(1)
+            continue
+        m = re.match(rf"^\s*(/?[\w.]+)\s*\|\s*({NUM})\s+({NUM})\s", ln)
+        if m:
+            term = m.group(1)
+            key = ("", term) if term.startswith("/") else (equation, term)
+            out[key] = (Printed(m.group(2)), Printed(m.group(3)))
+    return out
+
+
+def _cmp_heckman(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    rows = _equation_rows(buf)
+    main = out.detail.set_index("variable")
+    select = out.model_info.get("selection_equation")
+    select = None if select is None else select.set_index("variable")
+    equations = [e for e, _ in rows if e]
+    outcome = equations[0] if equations else ""
+    for (equation, term), (b, se) in rows.items():
+        name = {"_cons": "const", "lambda": "lambda (IMR)"}.get(term, term)
+        table = main if equation in (outcome, "/mills") else select
+        if equation == "select" and select is None:
+            continue
+        if table is not None and name in table.index:
+            self.report.number(self.name, cmd, f"b[{equation}:{term}]", b,
+                               table.loc[name, "coefficient"], rtol=1e-6)  # fmt: skip
+            self.report.number(self.name, cmd, f"se[{equation}:{term}]", se,
+                               table.loc[name, "se"], rtol=1e-5)  # fmt: skip
+    text = "\n".join(buf)
+    for label, pattern, key in (("rho", rf"^\s*rho \|\s*({NUM})", "rho"),
+                                ("sigma", rf"^\s*sigma \|\s*({NUM})", "sigma"),
+                                ("chi2", rf"Wald chi2\(\d+\)\s*=\s*({NUM})", "wald_chi2")):  # fmt: skip
+        m = re.search(pattern, text, re.M)
+        if m and key in out.model_info:
+            self.report.number(self.name, cmd, label, Printed(m.group(1)),
+                               out.model_info[key], rtol=1e-6)  # fmt: skip
+
+
+def _cmp_etregress(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    rows = _equation_rows(buf)
+    params, ses = dict(out.params), dict(out.std_errors)
+    equations = [e for e, _ in rows if e]
+    outcome = equations[0] if equations else ""
+    for (equation, term), (b, se) in rows.items():
+        term = re.sub(r"^1\.", "", term)
+        if equation == outcome:
+            name = term
+        elif equation == "":
+            name = term.lstrip("/")
+        else:
+            name = f"{equation}:{term}"
+        if name in params:
+            self.report.number(self.name, cmd, f"b[{name}]", b, params[name], rtol=1e-6)
+            self.report.number(self.name, cmd, f"se[{name}]", se, ses[name], rtol=1e-5)
+    text = "\n".join(buf)
+    info = getattr(out, "diagnostics", None) or {}
+    for label, pattern, key in (("ll", rf"^Log likelihood = ({NUM})", "loglik"),
+                                ("rho", rf"^\s*rho \|\s*({NUM})", "rho"),
+                                ("sigma", rf"^\s*sigma \|\s*({NUM})", "sigma"),
+                                ("lambda", rf"^\s*lambda \|\s*({NUM})", "lambda")):  # fmt: skip
+        m = re.search(pattern, text, re.M)
+        if m and key in info:
+            self.report.number(self.name, cmd, label, Printed(m.group(1)), info[key],
+                               rtol=1e-6)  # fmt: skip
+
+
+def _cmp_vif(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    table = out.get("vif_table") if isinstance(out, dict) else None
+    if table is None:
+        return
+    table = table.set_index("variable")
+    for m in _rows(buf, rf"^\s*(\S+)\s*\|\s*({NUM})\s+({NUM})\s*$"):
+        if m.group(1) in table.index:
+            self.report.number(self.name, cmd, f"vif[{m.group(1)}]",
+                               Printed(m.group(2)), table.loc[m.group(1), "VIF"])  # fmt: skip
+    m = re.search(rf"Mean VIF \|\s*({NUM})", "\n".join(buf))
+    if m:
+        self.report.number(self.name, cmd, "mean", Printed(m.group(1)), out["mean_vif"])
+
+
+PANEL.update(
+    {
+        "loneway": _cmp_loneway,
+        "attnd": _cmp_attnd,
+        "pscore": _cmp_pscore,
+        "pstest": _cmp_pstest,
+        "dcdensity": _cmp_dcdensity,
+        "rdbwselect": _cmp_rdbwselect,
+        "rdplot": _cmp_rdplot,
+        "heckman": _cmp_heckman,
+        "etregress": _cmp_etregress,
+        "vif": _cmp_vif,
+    }
+)
 
 
 def _cmp_dfuller(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:

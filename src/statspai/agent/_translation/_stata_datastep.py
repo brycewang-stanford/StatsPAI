@@ -273,6 +273,10 @@ class DataSteps:
         #: each variable was given by `label values`
         self._label_sets: Dict[str, Dict[Any, str]] = {}
         self._set_of: Dict[str, str] = {}
+        #: columns made from `L.x` / `F.x` terms: column -> (variable,
+        #: operators), and the (panel, time) pair they were read against
+        self.ts_derived: Dict[str, tuple] = {}
+        self.ts_panel: tuple = (None, None)
         self._adopt_label_sets()
 
     def _adopt_label_sets(self) -> None:
@@ -411,28 +415,12 @@ class DataSteps:
         if not replace and exists:
             raise StataExprError(f"`generate`: variable {name!r} already exists")
 
-        if groups is None:
-            value = evaluate(expr, self.data, self.stored)
-            mask = row_mask(self.data, if_cond, in_range, self.stored)
-            if value.dtype == object or is_str_type:
-                self._assign_text(replace, name, value, mask, bool(is_str_type))
-                return
-        else:
-            # `by g:` -- the expression sees one group at a time, so `_n`,
-            # `_N` and subscripts count within the group
-            if in_range:
-                raise StataExprError("`in` may not be combined with `by`")
-            value = np.full(len(self.data), np.nan)
-            mask = np.zeros(len(self.data), dtype=bool)
-            for rows in groups:
-                part = self.data.iloc[rows].reset_index(drop=True)
-                got = evaluate(expr, part, self.stored)
-                if got.dtype == object:
-                    raise StataExprError(
-                        "a string variable by group is not generated here"
-                    )
-                value[rows] = got
-                mask[rows] = row_mask(part, if_cond, None, self.stored)
+        if replace and self._replace_in_order(name, expr, if_cond, in_range, groups):
+            return
+        value, mask = self._evaluate_assignment(expr, if_cond, in_range, groups)
+        if groups is None and (value.dtype == object or is_str_type):
+            self._assign_text(replace, name, value, mask, bool(is_str_type))
+            return
 
         single = name in self._float if replace else vtype in (None, "float")
         if replace and exists and self.data[name].dtype == np.float32:
@@ -466,6 +454,234 @@ class DataSteps:
             if single:
                 self._float.add(name)
         self._note_missing_codes(name, expr, whole=not replace or bool(mask.all()))
+
+    def _evaluate_assignment(
+        self,
+        expr: str,
+        if_cond: Optional[str],
+        in_range: Optional[str],
+        groups: Optional[List[np.ndarray]],
+    ) -> tuple:
+        """The expression on every row, and the rows the qualifiers select."""
+        if groups is None:
+            value = evaluate(expr, self.data, self.stored)
+            mask = row_mask(self.data, if_cond, in_range, self.stored)
+            return value, mask
+        # `by g:` -- the expression sees one group at a time, so `_n`,
+        # `_N` and subscripts count within the group
+        if in_range:
+            raise StataExprError("`in` may not be combined with `by`")
+        value = np.full(len(self.data), np.nan)
+        mask = np.zeros(len(self.data), dtype=bool)
+        for rows in groups:
+            part = self.data.iloc[rows].reset_index(drop=True)
+            got = evaluate(expr, part, self.stored)
+            if got.dtype == object:
+                raise StataExprError("a string variable by group is not generated here")
+            value[rows] = got
+            mask[rows] = row_mask(part, if_cond, None, self.stored)
+        return value, mask
+
+    def _replace_in_order(
+        self,
+        name: str,
+        expr: str,
+        if_cond: Optional[str],
+        in_range: Optional[str],
+        groups: Optional[List[np.ndarray]],
+    ) -> bool:
+        """``replace`` of a variable that reads its own earlier rows.
+
+        Stata replaces one observation after another, so ``replace x =
+        0.5 * x[_n-1] + e in 2/l`` builds a recursion: each row reads the
+        value the row before it was just given. A reference from row ``i``
+        to row ``j`` of the variable being replaced therefore sees the new
+        value when ``j < i`` and the old one otherwise. The same holds for
+        ``L.x`` after ``tsset``.
+
+        Returns ``False`` when no row reads an earlier row of ``name``; one
+        evaluation of the whole column is exact then.
+        """
+        old = self.data[name]
+        if not (pd.api.types.is_numeric_dtype(old) or pd.api.types.is_bool_dtype(old)):
+            return False
+        n = len(self.data)
+        texts = [expr, if_cond or ""]
+        own = re.compile(rf"(?<![\w.]){re.escape(name)}\s*\[([^\[\]]*)\]")
+        subscripts: List[str] = []
+        for text in texts:
+            for sub in own.findall(text):
+                if sub.strip() not in subscripts:
+                    subscripts.append(sub.strip())
+        lagged = [
+            col
+            for col, (var, _ops) in self.ts_derived.items()
+            if var == name
+            and col in self.data.columns
+            and any(re.search(rf"(?<![\w.]){re.escape(col)}(?!\w)", t) for t in texts)
+        ]
+        if not subscripts and not lagged:
+            return False
+        if n == 0:
+            return False
+
+        position = np.arange(n)
+        sources: Dict[str, np.ndarray] = {}
+        rewritten = {}
+        for k, sub in enumerate(subscripts):
+            source = np.full(n, -1)
+            parts = [position] if groups is None else groups
+            for rows in parts:
+                part = self.data.iloc[rows].reset_index(drop=True)
+                at = evaluate(sub, part, self.stored)
+                if at.dtype == object:
+                    raise StataExprError(f"the subscript {sub!r} is not a number")
+                ok = (
+                    ~np.isnan(at) & (at >= 1) & (at <= len(rows)) & (at == np.floor(at))
+                )
+                where = np.asarray(rows)
+                source[where[ok]] = where[at[ok].astype(int) - 1]
+            column = f"__sp_own{k}"
+            sources[column] = source
+            rewritten[sub] = column
+        if lagged:
+            from ._stata_tsops import _Clock
+
+            unit, time = self.ts_panel
+            clock = _Clock(self.data, unit, time)
+            for col in lagged:
+                ops = self.ts_derived[col][1]
+                if any(kind == "D" for kind, _ in ops):
+                    raise StataExprError(
+                        f"`replace {name}` from its own difference is not implemented"
+                    )
+                offset = sum(k if kind == "F" else -k for kind, k in ops)
+                at = clock.at(position.astype(float), offset)
+                sources[col] = np.where(np.isnan(at), -1, at).astype(int)
+        if not any(((src >= 0) & (src < position)).any() for src in sources.values()):
+            return False  # every reference is to the row itself or a later one
+
+        def swap(m: "re.Match[str]") -> str:
+            return rewritten[m.group(1).strip()]
+
+        expr_run = own.sub(swap, expr)
+        cond_run = own.sub(swap, if_cond) if if_cond else if_cond
+
+        single = name in self._float or old.dtype == np.float32
+        original = old.to_numpy(dtype=float, na_value=np.nan)
+        current = original.copy()
+        rng = self.stored.get("rng")
+        draws = None if rng is None else rng.bit_generator.state
+        self._own()
+        held = {c: self.data[c].to_numpy(copy=True) for c in lagged}
+        # Each pass settles the rows whose earlier rows are settled, so the
+        # passes needed are the length of the longest chain. A chain through
+        # the whole column settles one row per pass, which is quadratic:
+        # beyond `limit` rows it is refused, as soon as it shows.
+        limit = 20000
+        too_long = StataExprError(
+            f"`replace {name}` chains more than {limit} observations "
+            "through its own earlier rows; that is not run here"
+        )
+        # by group, an expression that reads nothing but the row it is on
+        # (no _n, _N, subscript or running sum left after the rewrite) and a
+        # condition that does not read the variable's earlier rows
+        counted = re.compile(r"(?<![\w.])(?:_n|_N)(?!\w)|\[|(?<![\w.])sum\s*\(")
+        reads_own = re.compile(
+            "|".join(rf"(?<![\w.]){re.escape(c)}(?!\w)" for c in sources)
+        )
+        row_local = (
+            groups is not None
+            and counted.search(expr_run) is None
+            and reads_own.search(cond_run or "") is None
+        )
+        pending: List[int] = []
+        settled = False
+        stale: Optional[np.ndarray] = None
+        value = mask = np.zeros(0)
+        group_of = np.zeros(n, dtype=int)
+        for k, rows in enumerate(groups or []):
+            group_of[rows] = k
+        try:
+            for step in range(n + 1):
+                if step > limit:
+                    raise too_long
+                if (
+                    len(pending) > 32
+                    and pending[-1] > limit
+                    and pending[-33] - pending[-1] <= 64
+                ):
+                    raise too_long
+                for column, src in sources.items():
+                    safe = np.where(src < 0, 0, src)
+                    seen = np.where(src < position, current[safe], original[safe])
+                    self.data[column] = np.where(src < 0, np.nan, seen)
+                if draws is not None:
+                    # the same random draws on every pass
+                    rng.bit_generator.state = draws
+                if groups is not None and row_local:
+                    # the same value whichever group a row is in: one
+                    # evaluation of the column; the rows selected do not
+                    # change from pass to pass
+                    if step == 0:
+                        _, mask = self._evaluate_assignment(
+                            "0", cond_run, in_range, groups
+                        )
+                    value = evaluate(expr_run, self.data, self.stored)
+                elif groups is None or stale is None:
+                    value, mask = self._evaluate_assignment(
+                        expr_run, cond_run, in_range, groups
+                    )
+                else:
+                    # by group: only the groups a changed row is read from
+                    again = [g for k, g in enumerate(groups) if stale[k]]
+                    part_value, part_mask = self._evaluate_assignment(
+                        expr_run, cond_run, in_range, again
+                    )
+                    rows = np.concatenate(again)
+                    value, mask = value.copy(), mask.copy()
+                    value[rows], mask[rows] = part_value[rows], part_mask[rows]
+                if value.dtype == object:
+                    raise StataExprError(
+                        f"type mismatch: {name!r} is numeric and the expression "
+                        "is a string"
+                    )
+                if single:
+                    with np.errstate(over="ignore"):
+                        value = value.astype(np.float32).astype(np.float64)
+                    value = np.where(np.isfinite(value), value, np.nan)
+                new = np.where(mask, value, original)
+                moved = ~((new == current) | (np.isnan(new) & np.isnan(current)))
+                if not moved.any():
+                    break
+                pending.append(int(moved.sum()))
+                current = new
+                if groups is not None:
+                    # the rows that read a row which has just changed
+                    reads = np.zeros(n, dtype=bool)
+                    for src in sources.values():
+                        reads |= (src >= 0) & moved[np.where(src < 0, 0, src)]
+                    stale = np.zeros(len(groups), dtype=bool)
+                    stale[np.unique(group_of[reads])] = True
+                    if not stale.any():
+                        break
+            settled = True
+        finally:
+            if not settled:
+                # the command failed: the lag columns go back as they were
+                for col, values in held.items():
+                    self.data[col] = values
+            self.data = self.data.drop(
+                columns=list(rewritten.values()), errors="ignore"
+            )
+        self.data[name] = current
+        for col in lagged:
+            src = sources[col]
+            self.data[col] = np.where(
+                src < 0, np.nan, current[np.where(src < 0, 0, src)]
+            )
+        self._note_missing_codes(name, expr, whole=bool(mask.all()))
+        return True
 
     def _assign_text(
         self, replace: bool, name: str, value: Any, mask: np.ndarray, typed: bool
@@ -870,9 +1086,15 @@ class DataSteps:
                 self._set_of[var] = name
         self._sync_value_labels(variables)
 
-    def add_column(self, name: str, values: np.ndarray, *, double: bool) -> None:
-        """Store a computed variable (``predict``), as ``generate`` would."""
-        if name in self.data.columns:
+    def add_column(
+        self, name: str, values: np.ndarray, *, double: bool, refresh: bool = False
+    ) -> None:
+        """Store a computed variable (``predict``), as ``generate`` would.
+
+        ``refresh`` lets a column this session computed be computed again
+        (a lag of a variable that has changed since).
+        """
+        if name in self.data.columns and not refresh:
             raise StataExprError(f"variable {name!r} already exists")
         values = np.asarray(values, dtype=float)
         if not double:

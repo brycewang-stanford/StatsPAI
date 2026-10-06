@@ -103,12 +103,18 @@ def rewrite_ts_operators(
     line: str,
     data: Optional[pd.DataFrame],
     panel: Tuple[Optional[str], Optional[str]],
+    made: Optional[Dict[str, tuple]] = None,
 ) -> Tuple[str, Dict[str, np.ndarray]]:
     """Replace operator terms by column names.
 
     Returns the rewritten line and the columns to add (name -> values), in
     the order they first appear. ``data`` may be ``None`` for a line that
     only names coefficients (``test``); no column is computed then.
+
+    ``made`` records the columns this function computed (name -> (variable,
+    operators)). A column listed there is computed again each time it is
+    named: the variable, the sample or the time declaration may have
+    changed since, and Stata reads ``L.x`` from the data as they are.
     """
     unit, time = panel
     if time is None:
@@ -129,10 +135,14 @@ def rewrite_ts_operators(
         source = data[var]
         if not pd.api.types.is_numeric_dtype(source):
             raise StataExprError(f"{var!r} is not numeric")
-        if name in data.columns or name in new_columns:
-            return name  # computed by an earlier line of the same session
+        if name in new_columns:
+            return name
+        if name in data.columns and (made is None or name not in made):
+            return name  # a column of the caller's data with that name
         values = source.to_numpy(dtype=float, na_value=np.nan)
         new_columns[name] = _apply(clock, values, ops)
+        if made is not None:
+            made[name] = (var, ops)
         return name
 
     def replace(m: "re.Match[str]") -> str:

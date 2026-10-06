@@ -33,6 +33,8 @@ from ._stata_session import (
     absorbed_constant,
     expand_frequency,
     prepare_weights,
+    pscore_after,
+    pscore_before,
     psmatch2_after,
     run_session_command,
     stata_percentile,
@@ -51,7 +53,7 @@ _DESCRIPTIVE_TOOLS = frozenset(
     {
         "sumstats", "pwcorr", "ttest", "bitest", "unitroot", "corrgram", "varsoc",
         "ranksum", "signrank", "kwallis", "spearman", "ktau", "ksmirnov",
-        "median_test", "robvar", "oneway",
+        "median_test", "robvar", "oneway", "loneway", "pscore",
         "xtsum", "xtserial", "sdtest", "ztest", "prtest", "sktest", "swilk", "ci",
     }  # fmt: skip
 )
@@ -61,10 +63,11 @@ _DESCRIPTIVE_TOOLS = frozenset(
 #: data, so a snippet containing it is refused.)
 _SKIPPED = re.compile(
     r"\s*(?:set\s+(?:more|linesize|matsize|scheme|graphics|type\s+double)|"
-    r"log\s|cap(?:ture)?\s+log\s|label\s|format\s|describe\b|desc\b|"
+    r"log\s|cap(?:ture)?\s+log\s|label\s|format\s|"
+    r"d(?:e(?:s(?:c(?:r(?:i(?:be?)?)?)?)?)?)?(?=\s|,|$)|"
     r"list\b|browse\b|notes?\b|codebook\b|labelbook\b|version\s|"
     r"inspect\b|lv\b|svydescribe\b|svydes\b|lookfor\b|outfile\s|"
-    r"clear\s+(?:all|matrix|mata)\s*$|"
+    r"clear\s+(?:matrix|mata)\s*$|"
     r"macro\s+drop|eststo\s+clear|graph\s+(?:export|save)|"
     r"return\s+list\b|ereturn\s+list\b|sysdir\b|help\s|xtdes(?:cribe)?\b|"
     r"irf\s+(?:create|set|drop|describe)\b|"
@@ -184,6 +187,13 @@ _CLASSIC_R: Dict[str, Any] = {
                          "w10": o.estimates["W10"], "p_w10": o.estimates["p_W10"],
                          "N": float(o.n_obs)},
     "oneway": _r_oneway,
+    "loneway": lambda o: {"rho": o.estimates["icc"], "se": o.estimates["icc_se"],
+                          "lb": o.estimates["icc_ci"][0],
+                          "ub": o.estimates["icc_ci"][1],
+                          "sd_b": o.estimates["sd_between"],
+                          "sd_w": o.estimates["sd_within"],
+                          "rho_t": o.estimates["reliability"],
+                          "N": float(o.n_obs)},
 }  # fmt: skip
 
 
@@ -1117,6 +1127,9 @@ class StataSession:
         if _SKIPPED.match(line):
             # session settings and output-only commands: nothing to run
             return False
+        if re.match(r"\s*vif\s*(?:,|$)", line, re.I):
+            # the name the command had before it became `estat vif`
+            line = "estat " + line.strip()
         if _NOT_PRODUCED.match(line):
             warnings.warn(
                 f"sp.stata: skipped {line.split()[0]!r}: graphs are not drawn "
@@ -1156,12 +1169,14 @@ class StataSession:
             # L.x / D.x / L(1/4).x against the declared time variable
             naming_only = re.match(r"\s*(?:test|lincom)\b", line) is not None
             try:
+                made = None if self._steps is None else self._steps.ts_derived
                 line, columns_added = rewrite_ts_operators(
-                    line, None if naming_only else data, self.panel
+                    line, None if naming_only else data, self.panel, made
                 )
                 if self._steps is not None:
+                    self._steps.ts_panel = self.panel
                     for name, values in columns_added.items():
-                        self._steps.add_column(name, values, double=True)
+                        self._steps.add_column(name, values, double=True, refresh=True)
             except StataExprError as exc:
                 raise MethodIncompatibility(
                     f"sp.stata: cannot run {line!r}: {exc}.",
@@ -1395,9 +1410,20 @@ class StataSession:
                         "(`... if name == 0`) and run the command again.",
                         diagnostics={"command": line},
                     ) from exc
+            if out["tool"] == "pscore":
+                try:
+                    pscore_before(self, line)
+                except StataExprError as exc:
+                    raise MethodIncompatibility(
+                        f"sp.stata: cannot run {line!r}: {exc}.",
+                        recovery_hint="Drop the variable or choose another name.",
+                        diagnostics={"command": line},
+                    ) from exc
             run_data = _weighted_sample(run_data, arguments.get("weights"))
             run_data = _factor_columns(run_data, arguments)
             self.output = fn(data=run_data, **arguments)
+            if out["tool"] == "pscore":
+                pscore_after(self, line)
             if out["tool"] not in _DESCRIPTIVE_TOOLS:
                 self.last = self.output
                 self.last_data = run_data

@@ -322,6 +322,27 @@ def heckman(
         "sigma": float(np.sqrt(sigma2)),
         "rho": float(lambda_coef / np.sqrt(sigma2)) if sigma2 > 0 else np.nan,
     }
+    # the first step, which Stata prints as the `select` equation
+    se_gamma = np.sqrt(np.maximum(np.diag(V_gamma), 0.0))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        z_gamma = gamma / se_gamma
+    model_info["selection_equation"] = pd.DataFrame(
+        {
+            "variable": ["const"] + list(z),
+            "coefficient": gamma,
+            "se": se_gamma,
+            "z": z_gamma,
+            "pvalue": 2 * stats.norm.sf(np.abs(z_gamma)),
+        }
+    )
+    # Wald test that the slopes of the outcome equation are jointly zero
+    if x:
+        slopes = slice(1, 1 + len(x))
+        b_x, V_x = beta[slopes], vcov[slopes, slopes]
+        wald = float(b_x @ np.linalg.pinv(V_x) @ b_x)
+        model_info["wald_chi2"] = wald
+        model_info["wald_df"] = len(x)
+        model_info["wald_pvalue"] = float(stats.chi2.sf(wald, len(x)))
 
     return LimitedDepResult(
         method="Heckman (1979) Selection Model",

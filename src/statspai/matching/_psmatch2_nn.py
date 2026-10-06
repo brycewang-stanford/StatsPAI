@@ -117,8 +117,14 @@ def psmatch2_nn(
     ate: bool,
     common_support: bool,
     caliper: Optional[float] = None,
+    treated_range: bool = False,
 ) -> Dict[str, object]:
     """psmatch2 ``neighbor(1)`` matching with the ``ties`` / ``ate`` options.
+
+    ``treated_range`` is the common support of Becker and Ichino's
+    ``pscore`` / ``attnd``: every unit whose score lies outside the range
+    of the treated scores is off support, so a control outside it cannot
+    be a match.
 
     All arrays are positional over the estimation sample.  Returns the
     matched-frame columns (``_support``, ``_weight``, ``_n1``, ``_nn``,
@@ -136,6 +142,10 @@ def psmatch2_nn(
             # psmatch2 ... ate common: controls outside the treated range too.
             lo, hi = p[t == 1].min(), p[t == 1].max()
             support[(t == 0) & ((p < lo) | (p > hi))] = False
+
+    if treated_range:
+        lo, hi = p[t == 1].min(), p[t == 1].max()
+        support[(p < lo) | (p > hi)] = False
 
     weight = np.where(t == 1, 0.0 if ate else 1.0, 0.0)
     matched_y = np.full(n, np.nan)

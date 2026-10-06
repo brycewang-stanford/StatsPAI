@@ -1109,6 +1109,34 @@ TIER3_ROUND_TRIPS = [
         "oneway",
         {"y": "y", "by": "g", "compare": "bonferroni"},
     ),
+    ("loneway y g, level(90)", "loneway", {"y": "y", "by": "g", "alpha": 0.1}),
+    # Becker and Ichino's pscore / attnd; McCrary's density test
+    (
+        "pscore d x1 x2, pscore(ps) blockid(b) logit comsup",
+        "pscore",
+        {
+            "treat": "d",
+            "covariates": ["x1", "x2"],
+            "ps_model": "logit",
+            "common_support": True,
+        },
+    ),
+    (
+        "attnd y d, pscore(ps) comsup",
+        "psmatch2",
+        {
+            "treat": "d",
+            "outcome": "y",
+            "pscore": "ps",
+            "ties": True,
+            "common_support": "treated",
+        },
+    ),
+    (
+        "DCdensity z, breakpoint(0.5) nograph",
+        "mccrary_test",
+        {"x": "z", "c": 0.5},
+    ),
     # Dynamic panel GMM (xtabond = difference GMM; xtdpdsys = system GMM,
     # which sp.xtdpdsys reproduces with Stata's instrument and H conventions).
     (
@@ -1514,6 +1542,10 @@ class TestStataHandlerCoverage:
         #   xtset / tsset — no sp equivalent; translator fails loud →
         #     test_xtset_handles_time_only_form
         covered.add("xtset")
+        #   pstest — reads the variables psmatch2 left in the data, so it
+        #     runs in an sp.stata session only →
+        #     test_stata_qiu_jiaping_syntax.py::test_pstest_reads_what_psmatch2_left
+        covered.add("pstest")
         # Each handler should have at least one alias covered.
         handler_to_aliases = {}
         for alias, h in STATA_COMMAND_MAP.items():

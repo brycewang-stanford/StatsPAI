@@ -956,8 +956,15 @@ def _apply_ties_ate(
     common_support: str,
     caliper: Optional[float],
     alpha: float,
+    refit: Optional[Any] = None,
+    bootstrap_reps: int = 200,
+    bootstrap_seed: Optional[int] = None,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """Redo the one-nearest-neighbour assignment with psmatch2 ties / ate."""
+    """Redo the one-nearest-neighbour assignment with psmatch2 ties / ate.
+
+    ``refit`` maps a vector of row positions (a bootstrap sample) to the
+    score of those rows; it is what ``se='bootstrap'`` resamples with.
+    """
     from scipy import stats as _stats
 
     from ._psmatch2_nn import psmatch2_nn
@@ -975,13 +982,14 @@ def _apply_ties_ate(
             diagnostics={"neighbor": k, "replace": replace},
             recovery_hint="Pass neighbor=1, replace=True.",
         )
-    if se_method != "psmatch2":
+    if se_method not in ("psmatch2", "bootstrap"):
         raise _psmatch2_error(
-            "ties= / ate= report psmatch2's default analytic ATT SE; "
-            f"se={se_method!r} is not available with them.",
+            "ties= / ate= report psmatch2's default analytic ATT SE or a "
+            f"bootstrap one; se={se_method!r} is not available with them.",
             diagnostics={"se": se_method},
-            recovery_hint="Leave se='psmatch2' (and ai=0).",
+            recovery_hint="Use se='psmatch2' or se='bootstrap' (and ai=0).",
         )
+    support_rule = str(common_support).lower()
     idx = matched.index
     pscore = matched[_mf.COL_PSCORE].to_numpy(dtype=float)
     treated = matched[_mf.COL_TREATED].to_numpy(dtype=float).astype(int)
@@ -992,8 +1000,9 @@ def _apply_ties_ate(
         yv,
         ties=ties,
         ate=ate,
-        common_support=str(common_support).lower() == "minmax",
+        common_support=support_rule == "minmax",
         caliper=caliper,
+        treated_range=support_rule == "treated",
     )
     matched = matched.copy()
     matched[_mf.COL_SUPPORT] = np.asarray(res["support"], dtype=float)
@@ -1008,6 +1017,37 @@ def _apply_ties_ate(
     if yv is not None:
         att = float(res["att"])  # type: ignore[arg-type]
         se_att = float(res["se_att"])  # type: ignore[arg-type]
+        if se_method == "bootstrap":
+            info["se_analytic"] = se_att
+            rng = np.random.default_rng(bootstrap_seed)
+            draws = []
+            n_rows = len(pscore)
+            for _ in range(int(bootstrap_reps)):
+                rows = rng.integers(0, n_rows, n_rows)
+                if treated[rows].min() == treated[rows].max():
+                    continue  # a resample with one arm only
+                score = pscore[rows] if refit is None else refit(rows)
+                rep = psmatch2_nn(
+                    score,
+                    treated[rows],
+                    yv[rows],
+                    ties=ties,
+                    ate=ate,
+                    common_support=support_rule == "minmax",
+                    caliper=caliper,
+                    treated_range=support_rule == "treated",
+                )
+                if np.isfinite(float(rep["att"])):  # type: ignore[arg-type]
+                    draws.append(float(rep["att"]))  # type: ignore[arg-type]
+            if len(draws) < 2:
+                raise _psmatch2_error(
+                    "psmatch2: the bootstrap produced fewer than two estimates.",
+                    diagnostics={"bootstrap_reps": bootstrap_reps},
+                    recovery_hint="Raise bootstrap_reps or use se='psmatch2'.",
+                )
+            se_att = float(np.std(draws, ddof=1))
+            info["se_method"] = "bootstrap"
+            info["bootstrap_reps_used"] = len(draws)
         z = att / se_att if se_att > 0 else float("nan")
         crit = float(_stats.norm.ppf(1 - alpha / 2))
         result.estimate = att
@@ -1043,6 +1083,7 @@ def psmatch2(
     replace: bool = True,
     ps_poly: int = 1,
     ps_model: str = "logit",
+    pscore: Optional[str] = None,
     distance: Optional[str] = None,
     bootstrap_reps: int = 200,
     bootstrap_seed: Optional[int] = None,
@@ -1072,6 +1113,12 @@ def psmatch2(
         Binary treatment indicator (0/1).  Stata's ``treated``.
     covariates : list of str
         Pre-treatment covariates entering the propensity-score model.
+        Optional when ``pscore`` names a fitted score.
+    pscore : str, optional
+        A column that already holds the propensity score: Stata
+        ``psmatch2 d, pscore(varname) outcome(y)``. The matching runs on
+        that column and no treatment model is fitted. ``covariates``, when
+        also given, are used for the balance table only.
     outcome, y : str, optional
         Outcome variable (``outcome`` mirrors Stata's ``outcome()``; ``y``
         is accepted as an alias).  **Optional**, exactly like Stata: when
@@ -1088,6 +1135,10 @@ def psmatch2(
         ``'minmax'`` drops treated units outside the control PS range
         before matching (Stata ``common``) and the ATT is taken over the
         on-support treated.
+        ``'treated'`` is the region of Becker and Ichino's ``pscore`` /
+        ``attnd, comsup``: every unit whose score lies outside the range of
+        the *treated* scores is set aside, so controls outside it cannot be
+        matches. It is available with ``ties=True`` (or ``ate=True``).
     method : {'neighbor', 'kernel', 'radius'}, default 'neighbor'
         Matching algorithm. ``'neighbor'`` is k-nearest-neighbour matching
         (Stata default; uses ``neighbor`` / ``caliper``). ``'kernel'`` is
@@ -1168,9 +1219,14 @@ def psmatch2(
     """
     from .match import match as _match
 
+    if pscore is not None:
+        data = _require_dataframe(data, "psmatch2 data")
+        pscore = _require_column(data, pscore, "pscore")
+        if covariates is None:
+            covariates = [pscore]
     if treat is None or covariates is None:
         raise _psmatch2_error(
-            "psmatch2 requires treat= and covariates=.",
+            "psmatch2 requires treat= and covariates= (or pscore=).",
             diagnostics={
                 "has_treat": treat is not None,
                 "has_covariates": covariates is not None,
@@ -1284,6 +1340,16 @@ def psmatch2(
         se_method = "abadie_imbens"
         ai_matches = int(ai)
 
+    treated_support = str(common_support).lower() == "treated"
+    if treated_support and not (ties or ate):
+        raise _psmatch2_error(
+            "common_support='treated' (the region of Becker and Ichino's "
+            "pscore / attnd) is implemented for ties=True or ate=True.",
+            diagnostics={"common_support": common_support, "ties": ties},
+            recovery_hint="Pass ties=True, or use common_support='minmax' "
+            "(psmatch2's rule: treated outside the range of the controls).",
+        )
+
     # Stata's outcome() is optional: when omitted we still produce the
     # matched frame (the PSM-DID use case needs only _weight), so match on a
     # synthetic constant outcome and leave the ATT undefined.
@@ -1318,10 +1384,12 @@ def psmatch2(
             ties="first",
             ps_poly=ps_poly,
             ps_model=ps_model,
-            common_support=common_support,
+            pscore=pscore,
+            common_support="none" if treated_support else common_support,
             kernel=kernel,
             bwidth=bwidth,
-            se_method=se_method,
+            # with ties / ate the standard error is computed further down
+            se_method="psmatch2" if (ties or ate) else se_method,
             ai_matches=ai_matches,
             bootstrap_reps=bootstrap_reps,
             bootstrap_seed=bootstrap_seed,
@@ -1341,7 +1409,7 @@ def psmatch2(
     model_info.update(
         {
             "psmatch2_method": method,
-            "propensity_model": str(ps_model).lower(),
+            "propensity_model": (str(ps_model).lower() if pscore is None else "given"),
             "estimand_scope": "ATT",
             "outcome_status": "observed" if out_var is not None else "omitted",
             "att_defined": out_var is not None,
@@ -1352,10 +1420,27 @@ def psmatch2(
         }
     )
     if ties or ate:
+        refit: Optional[Any] = None
+        if se_method == "bootstrap" and pscore is None:
+            from .match import MatchEstimator
+
+            design = data.loc[matched.index, covariates].to_numpy(dtype=float)
+            arm = matched[_mf.COL_TREATED].to_numpy(dtype=float)
+
+            def _score_of(rows: np.ndarray) -> np.ndarray:
+                return MatchEstimator._logit_propensity(
+                    design[rows], arm[rows], poly=ps_poly, model=ps_model
+                )
+
+            refit = _score_of
+
         matched, model_info = _apply_ties_ate(
             result,
             matched,
             model_info,
+            refit=refit,
+            bootstrap_reps=bootstrap_reps,
+            bootstrap_seed=bootstrap_seed,
             data=data,
             treat=treat,
             out_var=out_var,
