@@ -4,6 +4,41 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Two decisions left open by the Das pass
+
+#### ⚠️ Correctness
+
+- **`sp.match` keeps every tied match by default (`ties='all'`).** Under
+  matching with replacement the default was `ties='first'`: of several
+  controls at exactly the same distance, the one that came first in the
+  data. The estimate was then a function of the row order. On the Lalonde
+  sample (614 rows, 24 treated units with exact ties) the ATT was 1967.94,
+  and 2012.47 after shuffling the rows. With every tie kept it is 1968.80
+  in either order, which is Stata's
+  `teffects psmatch (re78) (treat ..., logit), atet` to the last digit
+  (1968.799715855857), with the Abadie-Imbens (2016) standard error equal
+  to 1e-6 (1126.3212). On the ECLS sample of the Das book the ATT moves
+  from -0.50 (SE 0.25) to -0.12 (SE 0.03). Data without exact ties are
+  unaffected: the NSW-DW parity row against R and Stata does not move.
+  `ties='first'` remains, warns as before, and is what `sp.psmatch2` uses,
+  since `psmatch2` without its `ties` option does the same. `model_info`
+  reports `n_units_with_tied_matches` under either rule.
+  `sp.match(estimand='ATE', se_method='abadie_imbens_2016')` now runs
+  without `ties='all'` having to be passed.
+
+#### Added
+
+- **`sp.pc_algorithm(collider_conflict='last')`** reproduces `pcalg::pc`
+  when a sample contradicts itself. Two colliders can claim one edge in
+  opposite directions; the algorithm does not say which wins. The default
+  `'first'` keeps the earlier one, pcalg lets the later one overwrite. On
+  24 small-sample reference graphs, 14 of them with such clashes, the
+  skeleton equals pcalg's under either rule, the CPDAG equals it in all 24
+  under `'last'`, and under `'first'` in exactly the cases where
+  `orientation_conflicts` is empty
+  (`tests/reference_parity/test_pc_pcalg_parity.py`). The default is
+  unchanged.
+
 ### Bayesian econometrics without PyMC
 
 Ramirez-Hassan's *Introduction to Bayesian Econometrics* (2026) teaches the

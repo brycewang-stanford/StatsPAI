@@ -960,7 +960,7 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
                 ("Adjusted OLS ATT ($)", 1548.2, 1548.2, "StatsPAI vs R parity"),
                 (
                     "1:1 NN PSM ATT ($)",
-                    1963.4,
+                    1968.8,
                     1794.0,
                     "StatsPAI vs DW (1999) Table 4 experimental benchmark",
                 ),

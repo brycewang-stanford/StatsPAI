@@ -51,6 +51,7 @@ def pc_algorithm(
     ci_test: str = "fisherz",
     forbidden: Optional[List[Tuple[str, str]]] = None,
     required: Optional[List[Tuple[str, str]]] = None,
+    collider_conflict: str = "first",
 ) -> Dict[str, Any]:
     """
     Learn causal structure using the PC algorithm.
@@ -89,6 +90,20 @@ def pc_algorithm(
         Background knowledge: directed edges ``a -> b`` that must appear
         in the CPDAG. The skeleton phase preserves them regardless of CI
         rejection, and the orientation phase pins their direction.
+
+    collider_conflict : {'first', 'last'}, default 'first'
+        Which collider decides when two of them claim one edge in opposite
+        directions, which a finite sample can produce and a faithful
+        distribution cannot. ``'first'`` keeps the orientation of the
+        collider met first in column order. ``'last'`` lets a later
+        collider overwrite an earlier one, which is what ``pcalg::pc`` does
+        by default: with it the CPDAG equals pcalg's edge for edge on the
+        24 small-sample reference cases of
+        ``tests/reference_parity/test_pc_pcalg_parity.py``, 14 of which
+        have such clashes. Neither choice is more right; the clashes are
+        listed in ``orientation_conflicts`` under both, and a graph with
+        any is one the sample contradicts itself about. Without clashes
+        the two give the same graph.
 
     Returns
     -------
@@ -141,6 +156,7 @@ def pc_algorithm(
         ci_test=ci_test,
         forbidden=forbidden,
         required=required,
+        collider_conflict=collider_conflict,
     )
     return est.fit()
 
@@ -245,7 +261,15 @@ class PCAlgorithm:
         ci_test: str = "fisherz",
         forbidden: Optional[List[Tuple[str, str]]] = None,
         required: Optional[List[Tuple[str, str]]] = None,
+        collider_conflict: str = "first",
     ) -> None:
+        self.collider_conflict = str(collider_conflict).lower()
+        if self.collider_conflict not in ("first", "last"):
+            raise MethodIncompatibility(
+                "pc_algorithm: collider_conflict must be 'first' or 'last', "
+                f"got {collider_conflict!r}",
+                recovery_hint="Use 'first' (default) or 'last' (pcalg::pc).",
+            )
         self.data = data
         self.variables = variables
         self.alpha = alpha
@@ -459,6 +483,147 @@ class PCAlgorithm:
 
         return adj, sep_sets
 
+    def _orient_edges_overwrite(
+        self,
+        adj: np.ndarray,
+        sep_sets: dict[tuple[int, int], set[int]],
+        d: int,
+    ) -> np.ndarray:
+        """
+        Orientation in which a later collider overwrites an earlier one.
+
+        Used for ``collider_conflict='last'``. Colliders are visited by
+        middle node and then by ordered pair of its neighbours, each
+        placing both arrowheads whatever is there already; Meek's rules
+        R1-R3 are then swept over the graph as it stood when the sweep
+        began (R4 only with ``required`` edges). An edge of the skeleton
+        is never dropped. Every collider that reversed an arrowhead is
+        recorded in ``self._conflicts``.
+        """
+        # cpdag[i, j] = 1 means i -> j (or i -- j if cpdag[j, i] is also 1)
+        cpdag = adj.copy()
+        pinned = [
+            (ia, ib)
+            for ia, ib in getattr(self, "_required_idx_directed", [])
+            if adj[ia, ib] == 1
+        ]
+        pinned_set = set(pinned)
+
+        def _point(a: int, b: int) -> bool:
+            """Orient a -> b unless background knowledge fixes b -> a."""
+            if (b, a) in pinned_set:
+                return False
+            changed = bool(cpdag[b, a] == 1 or cpdag[a, b] == 0)
+            cpdag[a, b] = 1
+            cpdag[b, a] = 0
+            return changed
+
+        conflicts: list[tuple[int, int, int]] = []
+        # Step 1: colliders on unshielded triples
+        for j in range(d):
+            for i in range(d):
+                if adj[i, j] == 0:
+                    continue
+                for k in range(d):
+                    if k == i or adj[k, j] == 0 or adj[i, k] == 1:
+                        continue
+                    # A pair that is non-adjacent by fiat (`forbidden`) has
+                    # no separating set, and so says nothing about j.
+                    sep = sep_sets.get((i, k), sep_sets.get((k, i)))
+                    if sep is None:
+                        continue
+                    if j not in sep:
+                        if cpdag[i, j] == 0 or cpdag[k, j] == 0:
+                            conflicts.append((int(i), int(j), int(k)))
+                        _point(i, j)
+                        _point(k, j)
+
+        for ia, ib in pinned:
+            cpdag[ia, ib] = 1
+            cpdag[ib, ia] = 0
+        self._conflicts = conflicts
+
+        def _directed(a: int, b: int, g: np.ndarray) -> bool:
+            return bool(g[a, b] == 1 and g[b, a] == 0)
+
+        def _undirected(a: int, b: int, g: np.ndarray) -> bool:
+            return bool(g[a, b] == 1 and g[b, a] == 1)
+
+        def _adjacent(a: int, b: int, g: np.ndarray) -> bool:
+            return bool(g[a, b] == 1 or g[b, a] == 1)
+
+        # Step 2: Meek's rules, each swept over the graph as it stood when
+        # the sweep began, until a full round leaves the graph unchanged.
+        use_r4 = bool(pinned)
+        while True:
+            before = cpdag.copy()
+
+            # R1: a -> b - c with a, c non-adjacent  =>  b -> c
+            g = cpdag.copy()
+            for a in range(d):
+                for b in range(d):
+                    if not _directed(a, b, g):
+                        continue
+                    for c in range(d):
+                        if c == a or not _undirected(b, c, g):
+                            continue
+                        if not _adjacent(a, c, g):
+                            _point(b, c)
+
+            # R2: a -> c -> b with a - b  =>  a -> b
+            g = cpdag.copy()
+            for a in range(d):
+                for b in range(d):
+                    if not _undirected(a, b, g):
+                        continue
+                    if any(_directed(a, c, g) and _directed(c, b, g) for c in range(d)):
+                        _point(a, b)
+
+            # R3: a - c1 -> b and a - c2 -> b with c1, c2 non-adjacent,
+            #     and a - b  =>  a -> b
+            g = cpdag.copy()
+            for a in range(d):
+                for b in range(d):
+                    if not _undirected(a, b, g):
+                        continue
+                    mids = [
+                        c
+                        for c in range(d)
+                        if _undirected(a, c, g) and _directed(c, b, g)
+                    ]
+                    if any(
+                        not _adjacent(c1, c2, g) for c1, c2 in combinations(mids, 2)
+                    ):
+                        _point(a, b)
+
+            # R4: a - b, a adjacent to both c and e, c -> e -> b with
+            #     c, b non-adjacent  =>  a -> b
+            if use_r4:
+                g = cpdag.copy()
+                for a in range(d):
+                    for b in range(d):
+                        if not _undirected(a, b, g):
+                            continue
+                        for c in range(d):
+                            if c in (a, b) or not _undirected(a, c, g):
+                                continue
+                            if _adjacent(c, b, g):
+                                continue
+                            if any(
+                                _directed(c, e, g)
+                                and _directed(e, b, g)
+                                and _adjacent(a, e, g)
+                                for e in range(d)
+                                if e not in (a, b, c)
+                            ):
+                                _point(a, b)
+                                break
+
+            if np.array_equal(before, cpdag):
+                break
+
+        return cpdag
+
     def _orient_edges(
         self,
         adj: np.ndarray,
@@ -471,6 +636,8 @@ class PCAlgorithm:
         1. Orient v-structures: X -> Z <- Y if X-Z-Y and Z not in sep(X,Y).
         2. Apply Meek's rules for completeness.
         """
+        if self.collider_conflict == "last":
+            return self._orient_edges_overwrite(adj, sep_sets, d)
         # Start with the skeleton as a directed graph
         # cpdag[i,j] = 1 means i -> j (or i -- j if cpdag[j,i] also 1)
         cpdag = adj.copy()

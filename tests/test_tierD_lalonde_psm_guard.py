@@ -52,22 +52,57 @@ def test_adjusted_ols_matches_matchit(lalonde):
 # absorbed by a wide band. Tracked in .tierd_campaign/CAMPAIGN.md.
 PSM_ATT_ANCHORS = (1967.94, 1963.43)
 
+# Since 1.39 the default keeps every tied control (ties='all'), so the 24
+# treated units with exact ties on the binary covariates no longer take
+# whichever control comes first. The value moves to 1968.80 and no longer
+# depends on the order of the rows; the anchors above are the fixed points of
+# ties='first'.
+PSM_ATT_ALL_TIES = 1968.80
+
 
 def test_psm_att_is_deterministic_and_pinned(lalonde):
     # Deterministic across runs; pinned to the known fixed points so any
     # tie-break / algorithm change in sp.match is caught.
-    vals = [
-        float(
-            sp.match(
-                data=lalonde, y="re78", treat="treat", covariates=COVS, method="nearest"
-            ).estimate
-        )
-        for _ in range(3)
-    ]
+    kw = dict(data=lalonde, y="re78", treat="treat", covariates=COVS, method="nearest")
+    vals = [float(sp.match(**kw).estimate) for _ in range(3)]
     assert len(set(round(v, 6) for v in vals)) == 1  # deterministic within a run
+    assert vals[0] == pytest.approx(PSM_ATT_ALL_TIES, abs=0.1)
+
+    with pytest.warns(UserWarning, match="equally close matches"):
+        first = float(sp.match(ties="first", **kw).estimate)
     assert any(
-        vals[0] == pytest.approx(anchor, abs=0.1) for anchor in PSM_ATT_ANCHORS
-    ), f"PSM ATT {vals[0]:.4f} is off both pinned anchors {PSM_ATT_ANCHORS}"
+        first == pytest.approx(anchor, abs=0.1) for anchor in PSM_ATT_ANCHORS
+    ), f"PSM ATT {first:.4f} is off both pinned anchors {PSM_ATT_ANCHORS}"
+
+
+def test_default_psm_att_equals_stata_teffects(lalonde):
+    """Stata 18, on the same 614 rows written with %.17g:
+
+        teffects psmatch (re78) (treat age educ black hispanic married ///
+            nodegree re74 re75, logit), atet
+
+    gives _b = 1968.799715855857 and _se = 1126.321219230800. teffects keeps
+    every tied match; so does the default here, and the two agree to the
+    last digit. The value ties='first' gives equals no reference.
+    """
+    kw = dict(data=lalonde, y="re78", treat="treat", covariates=COVS, method="nearest")
+    fit = sp.match(se_method="abadie_imbens_2016", **kw)
+    assert float(fit.estimate) == pytest.approx(1968.799715855857, rel=1e-12)
+    # the standard error goes through a numerically differentiated score
+    assert float(fit.se) == pytest.approx(1126.321219230800, rel=1e-6)
+
+
+def test_psm_att_does_not_depend_on_row_order(lalonde):
+    kw = dict(y="re78", treat="treat", covariates=COVS, method="nearest")
+    shuffled = lalonde.sample(frac=1.0, random_state=3).reset_index(drop=True)
+    base = float(sp.match(data=lalonde, **kw).estimate)
+    assert float(sp.match(data=shuffled, **kw).estimate) == pytest.approx(
+        base, abs=1e-6
+    )
+    with pytest.warns(UserWarning, match="equally close matches"):
+        moved = float(sp.match(data=shuffled, ties="first", **kw).estimate)
+    # under ties='first' the same data in another order gives another ATT
+    assert abs(moved - base) > 10
 
 
 def test_psm_recovers_experimental_benchmark(lalonde):

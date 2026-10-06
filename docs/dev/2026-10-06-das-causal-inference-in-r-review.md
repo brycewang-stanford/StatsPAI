@@ -95,11 +95,16 @@ the numbers. The fit now warns with the count of affected units, the number
 of tied candidates left out and, for the ATT, how many distinct controls
 the estimate rests on (52 here), and records the counts in `model_info`.
 
-**Open decision for Bryce.** Whether `ties='all'` should be the default with
-replacement. Stata's `teffects` and R's `Matching::Match` do it that way and
-the estimate would no longer depend on row order. It would change numbers on
-any data with exact ties and would move the default away from `psmatch2`
-and `MatchIt`. The warning is the conservative step.
+**Decided 2026-10-06 (Bryce delegated the call): `ties='all'` is now the
+default with replacement.** What settled it was the Lalonde sample of the
+original-data parity suite. Under `ties='first'` the ATT was 1967.94 and
+became 2012.47 when the rows were shuffled; with every tie kept it is
+1968.80 in either order, and that is Stata's `teffects psmatch` to the last
+digit (1968.799715855857), standard error included (1126.3212, Abadie-Imbens
+2016). The earlier default matched no reference: R's `MatchIt` returns
+2006.86 on the same data, with its own arbitrary tie order. The NSW-DW
+Track A row has no ties and does not move. `sp.psmatch2` passes
+`ties='first'` explicitly, because `psmatch2` does.
 
 ## Found here, fixed elsewhere: `sp.pc_algorithm`, `sp.fci`, `DAG.test_implications`
 
@@ -140,12 +145,14 @@ they are on main.** What it leaves for that line:
   differences is in a case where that implementation reports
   `orientation_conflicts`. So the two agree wherever the algorithm
   determines the answer and differ in the convention for a conflict. pcalg
-  lets the later collider (in variable order) overwrite the earlier one;
-  reproducing that gave 24 of 24. Whether to adopt pcalg's convention or to
-  keep a different one and say so is that line's call; "equals `pcalg::pc`"
-  holds without qualification only for the former.
-- **Where it is.** Local branch `das-pc-rewrite-backup` in this repository
-  (not pushed) holds the rewrite, the fixture
+  lets the later collider (in variable order) overwrite the earlier one.
+  **Closed 2026-10-06** after the Ness pass landed (`159d0cb5`): the
+  default stays "first collider keeps the edge", which that pass wrote
+  into the conventions, and `sp.pc_algorithm(collider_conflict='last')`
+  reproduces pcalg in 24 of 24. The fixture and its test are on main
+  (`tests/reference_parity/test_pc_pcalg_parity.py`).
+- **Where the first rewrite is.** Local branch `das-pc-rewrite-backup` in
+  this repository (not pushed) holds it, the fixture
   (`tests/reference_parity/_fixtures/pc_pcalg_data.csv`, `pc_pcalg_R.json`,
   the two generator scripts) and
   `tests/reference_parity/test_pc_pcalg_parity.py`. The test file runs

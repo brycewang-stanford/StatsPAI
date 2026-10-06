@@ -5,12 +5,13 @@ Covers: new orthogonal API (distance × method × bias_correction),
 legacy API backward compatibility, and all matching variants.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
-from statspai.matching import match, MatchEstimator, balance_diagnostics
+import pytest
+
 from statspai.core.results import CausalResult
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
+from statspai.matching import MatchEstimator, balance_diagnostics, match
 
 # ==================================================================
 # Fixtures
@@ -237,25 +238,39 @@ class TestNearestTieBreaking:
         )
         shuffled = df.loc[[20, 100, 30, 5, 200]]
 
-        r1 = match(
-            df,
-            y="y",
-            treat="treat",
-            covariates=["x"],
-            distance="euclidean",
-            method="nearest",
-        )
-        r2 = match(
-            shuffled,
-            y="y",
-            treat="treat",
-            covariates=["x"],
-            distance="euclidean",
-            method="nearest",
-        )
+        with pytest.warns(UserWarning, match="equally close matches"):
+            r1 = match(
+                df,
+                y="y",
+                treat="treat",
+                covariates=["x"],
+                distance="euclidean",
+                method="nearest",
+                ties="first",
+            )
+            r2 = match(
+                shuffled,
+                y="y",
+                treat="treat",
+                covariates=["x"],
+                distance="euclidean",
+                method="nearest",
+                ties="first",
+            )
 
         assert r1.estimate == pytest.approx(7.5, abs=1e-12)
         assert r2.estimate == pytest.approx(7.5, abs=1e-12)
+
+        # The default pools the tied controls, whatever their order.
+        a1 = match(
+            df, y="y", treat="treat", covariates=["x"],
+            distance="euclidean", method="nearest",
+        )  # fmt: skip
+        a2 = match(
+            shuffled, y="y", treat="treat", covariates=["x"],
+            distance="euclidean", method="nearest",
+        )  # fmt: skip
+        assert a1.estimate == pytest.approx(a2.estimate, abs=1e-12)
 
 
 class TestExactMatching:

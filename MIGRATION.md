@@ -5,6 +5,25 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.match` keeps every tied match by default
+
+**What changed.** `sp.match` (and `sp.psm`, `sp.MatchEstimator`) with
+`replace=True` now defaults to `ties='all'`: when several units are exactly
+as close as the `n_matches`-th nearest, all of them are matched and share
+the weight. The default was `ties='first'`, which kept the first in data
+order. The ATT, ATE, their standard errors and the matched frame change
+wherever the data have exact ties, which means discrete covariates or a
+propensity score with few distinct values. On the Lalonde sample the ATT
+goes from 1967.94 to 1968.80, the value of Stata `teffects psmatch`.
+
+**Who is affected.** Anyone who reported a nearest-neighbour matching
+estimate with replacement on data with exact ties. The earlier number
+depended on the order of the rows. `sp.psmatch2` is not affected, nor is
+matching without replacement, nor data with continuous covariates.
+
+**What to do.** Re-run. `ties='first'` gives the earlier number, with a
+warning that says how many units had ties.
+
 ## 1.38.0 → next: ⚠️ `sp.bayes_iv`, `sp.bayes_hte_iv` and `sp.bayes_fuzzy_rd` credible intervals
 
 **What changed.** `sp.bayes_iv` and `sp.bayes_hte_iv` used first-stage

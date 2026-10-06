@@ -215,7 +215,7 @@ def match(
     caliper: Optional[float] = None,
     caliper_scale: str = "raw",
     replace: bool = True,
-    ties: str = "first",
+    ties: str = "all",
     tie_tolerance: float = 0.0,
     m_order: str = "smallest_min_dist",
     mahalanobis_cov: str = "pooled",
@@ -280,6 +280,19 @@ def match(
         Maximum distance for a valid match.
     replace : bool, default True
         Match with replacement (nearest-neighbor only).
+    ties : {'all', 'first'}, default 'all'
+        What to do, under matching with replacement, when more units are
+        exactly as close as the ``n_matches``-th nearest. ``'all'`` keeps
+        every one of them and splits the weight, as Stata ``teffects`` and
+        R ``Matching::Match`` do, so the estimate does not depend on the
+        order of the rows. ``'first'`` keeps the first in data order, the
+        rule of Stata ``psmatch2`` without its ``ties`` option; a warning
+        then says how many units were affected. With continuous covariates
+        there are no exact ties and the two agree. Before 1.39 the default
+        was ``'first'``.
+    tie_tolerance : float, default 0
+        With ``ties='all'``, how far apart two scaled squared distances may
+        be and still count as tied.
     bias_correction : bool, default False
         Apply Abadie-Imbens (2011) bias correction via regression
         adjustment on the matching discrepancy.
@@ -792,7 +805,7 @@ class MatchEstimator:
         caliper: Optional[float] = None,
         caliper_scale: str = "raw",
         replace: bool = True,
-        ties: str = "first",
+        ties: str = "all",
         tie_tolerance: float = 0.0,
         m_order: str = "smallest_min_dist",
         mahalanobis_cov: str = "pooled",
@@ -1680,12 +1693,12 @@ class MatchEstimator:
         it; the count does.
         """
         stats = getattr(self, "_tie_stats", None)
-        if not stats or self.ties != "first" or not self.replace:
+        if not stats or not self.replace:
             return
         n_tied = int(stats["targets"])
         model_info["n_units_with_tied_matches"] = n_tied
         model_info["n_tied_matches_left_out"] = int(stats["left_out"])
-        if n_tied == 0:
+        if n_tied == 0 or self.ties != "first":
             return
         n_target = len(assignment["idx_t"])
         if self.estimand != "ATT":
@@ -2819,13 +2832,14 @@ class MatchEstimator:
 
             idx = _nearest_indices(d, k)
             with_ties = self._extend_with_ties(d, idx)
-            if self.ties == "all":
-                idx = with_ties
-            elif with_ties.size > idx.size:
-                # ties='first' kept the lowest-index unit(s) and left out
-                # others at exactly the same distance.
+            if with_ties.size > idx.size:
                 self._tie_stats["targets"] += 1
-                self._tie_stats["left_out"] += int(with_ties.size - idx.size)
+                if self.ties == "all":
+                    idx = with_ties
+                else:
+                    # ties='first' kept the lowest-index unit(s) and left
+                    # out others at exactly the same distance.
+                    self._tie_stats["left_out"] += int(with_ties.size - idx.size)
             matches[i] = idx
             weights[i] = np.ones(len(idx), dtype=float) / len(idx)
 

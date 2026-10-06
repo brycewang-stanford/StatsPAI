@@ -98,7 +98,8 @@ class TestScope:
         "kw",
         [
             {"distance": "mahalanobis"},
-            {"estimand": "ATE"},
+            # the 2016 variance of the ATE needs every tied match
+            {"estimand": "ATE", "ties": "first"},
             {"bias_correction": True},
         ],
     )

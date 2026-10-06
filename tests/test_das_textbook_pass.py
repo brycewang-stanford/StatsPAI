@@ -29,7 +29,7 @@ def _discrete_score_data(seed=0, n=1200):
 def test_match_warns_when_ties_first_picks_among_equals():
     df = _discrete_score_data()
     with pytest.warns(UserWarning, match="equally close matches") as rec:
-        fit = sp.match(df, y="y", treat="t", covariates=["a", "b"])
+        fit = sp.match(df, y="y", treat="t", covariates=["a", "b"], ties="first")
     message = next(str(w.message) for w in rec if "equally close" in str(w.message))
     n_treated = int(df["t"].sum())
     assert f"{n_treated} of {n_treated} matched units" in message
@@ -43,21 +43,20 @@ def test_match_estimate_under_ties_first_depends_on_row_order():
     df = _discrete_score_data()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        first = sp.match(df, y="y", treat="t", covariates=["a", "b"]).estimate
+        kw = dict(y="y", treat="t", covariates=["a", "b"])
+        first = sp.match(df, ties="first", **kw).estimate
         shuffled = df.sample(frac=1.0, random_state=1).reset_index(drop=True)
-        second = sp.match(shuffled, y="y", treat="t", covariates=["a", "b"]).estimate
-        all_1 = sp.match(
-            df, y="y", treat="t", covariates=["a", "b"], ties="all"
-        ).estimate
-        all_2 = sp.match(
-            shuffled, y="y", treat="t", covariates=["a", "b"], ties="all"
-        ).estimate
+        second = sp.match(shuffled, ties="first", **kw).estimate
+        # the default keeps every tied control
+        all_1 = sp.match(df, **kw).estimate
+        all_2 = sp.match(shuffled, **kw).estimate
+        assert sp.match(df, ties="all", **kw).estimate == all_1
     assert abs(first - second) > 0.05
     assert all_1 == pytest.approx(all_2, abs=1e-10)
     assert all_1 == pytest.approx(1.0, abs=0.2)
 
 
-def test_match_is_quiet_without_ties_and_with_ties_all():
+def test_match_is_quiet_without_ties_and_by_default():
     rng = np.random.default_rng(4)
     n = 400
     x = rng.standard_normal((n, 2))
@@ -67,11 +66,12 @@ def test_match_is_quiet_without_ties_and_with_ties_all():
     with warnings.catch_warnings(record=True) as rec:
         warnings.simplefilter("always")
         fit = sp.match(df, y="y", treat="t", covariates=["x1", "x2"])
-        sp.match(
-            _discrete_score_data(), y="y", treat="t", covariates=["a", "b"], ties="all"
-        )
+        tied = sp.match(_discrete_score_data(), y="y", treat="t", covariates=["a", "b"])
     assert not [w for w in rec if "equally close" in str(w.message)]
     assert fit.model_info["n_units_with_tied_matches"] == 0
+    # ties are still counted when they are pooled
+    assert tied.model_info["n_units_with_tied_matches"] > 0
+    assert tied.model_info["n_tied_matches_left_out"] == 0
 
 
 # ------------------------------------------------------- sp.adjust_pvalues

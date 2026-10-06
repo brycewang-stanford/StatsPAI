@@ -107,7 +107,11 @@ def test_psmatch_ate_variance_needs_the_matches_stata_makes(lalonde):
         estimand="ATE", se_method="abadie_imbens_2016",
     )  # fmt: skip
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="ties"):
-        sp.match(lalonde, **kw)
+        sp.match(lalonde, ties="first", **kw)
+    # the default keeps every tied match, which is what the variance needs
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert np.isfinite(sp.match(lalonde, **kw).se)
 
 
 @pytest.mark.parametrize(

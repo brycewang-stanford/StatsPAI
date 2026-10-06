@@ -5818,15 +5818,16 @@ def _build_registry() -> None:
                     "ties",
                     "str",
                     False,
-                    "first",
+                    "all",
                     (
                         "How equidistant controls are handled under matching "
-                        "with replacement. 'first' keeps the lowest-index "
-                        "one; 'all' pools them and splits the weight (the "
-                        "Matching::Match convention, which removes the "
-                        "row-order dependence)."
+                        "with replacement. 'all' (default) pools them and "
+                        "splits the weight (Stata teffects, Matching::Match), "
+                        "so the estimate does not depend on row order; "
+                        "'first' keeps the lowest-index one (psmatch2 without "
+                        "ties) and warns."
                     ),
-                    ["first", "all"],
+                    ["all", "first"],
                 ),
                 ParamSpec(
                     "tie_tolerance",

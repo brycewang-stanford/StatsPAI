@@ -1313,6 +1313,9 @@ def psmatch2(
             n_matches=k,
             caliper=caliper,
             replace=replace,
+            # psmatch2 without its `ties` option keeps the first of several
+            # equally close controls; `ties=True` is applied further down.
+            ties="first",
             ps_poly=ps_poly,
             ps_model=ps_model,
             common_support=common_support,
