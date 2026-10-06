@@ -187,7 +187,8 @@ Tests:
    `2m - 1`, and so on. Table 6.2 of Hyndman, Koehler, Ord and Snyder (2008)
    has it at `m`, `2m`. Shifting the term by one lag reproduces R to `1e-13`.
    A simulation of 400,000 paths agrees with the table. `sp.ets` follows the
-   table. The effect is small when `gamma` is small. Worth reporting upstream.
+   table. The effect is small when `gamma` is small. This is a defect of the
+   9.0.2 release, fixed in the development version (pull request #1173).
 2. **R's `ets` optimiser stops early.** It runs one Nelder-Mead search capped
    at 2,000 iterations. `sp.ets` evaluates the same likelihood (R's own C code
    at our parameters returns our value to `1e-7`) and restarts the search. On
@@ -233,57 +234,47 @@ Tests:
 ## Open items
 
 Every item of the first three rounds is closed (see "Fourth round" above).
-What is left is outside the scope of the package or waits on a person.
+What is left is outside the scope of the package.
 
 | Item | Note |
 | --- | --- |
 | Prophet, neural networks, foundation models | Outside the scope of the package (sections 12.2, chapters 14 and 15). |
 | Features not reproduced | Spectral entropy, Hurst exponent, the Terasvirta nonlinearity statistic, GARCH features, and the decomposition features of a non-seasonal series, which `tsfeatures` takes from `supsmu`. |
 | Prediction intervals of bagged forecasts | `sp.bagged_forecast` reports the range of the ensemble, as `forecast::baggedETS` does. It is not a prediction interval. |
-| Report the `forecast.ets` variance issue upstream | Draft below, for Bryce to send. |
 
-## Draft of an upstream report (for Bryce to send)
+## The `forecast.ets` variance defect is already fixed upstream
 
-Repository `robjhyndman/forecast`. Checked on version 9.0.2 with R 4.5.2.
+No report was sent. Before posting, the development version of
+`robjhyndman/forecast` was read: pull request #1173 (commit `84689588`,
+2026-06-11, "fix(forecast.ets): correct seasonal disturbance index") replaces
+`G[3, 1] <- par["gamma"]` by `G[p - m + 1, 1] <- par["gamma"]` in `class1()`.
+With no trend the seasonal states start at index 2, so the released code put
+`gamma` on the wrong state. That is the one-lag shift found here. The CRAN
+release 9.0.2 still has it; the next release will not.
 
-> **`forecast.ets`: prediction intervals of ETS(A,N,A) and ETS(M,N,A) are too
-> wide at horizons that are multiples of the seasonal period**
->
-> For the models with an additive season and no trend, the forecast standard
-> deviation at `h = m, 2m, ...` is larger than the formula in Table 6.2 of
-> Hyndman, Koehler, Ord and Snyder (2008) and than `simulate()` on the same
-> fit. The numbers are reproduced exactly if `gamma` enters `c_j` at
-> `j = m - 1, 2m - 1, ...` instead of `j = m, 2m, ...`. Models with a trend
-> (AAA, AAdA, MAA) agree with the table.
->
-> ```r
-> library(forecast)
-> set.seed(1)
-> y <- ts(10 + rep(c(2, -1, 0.5, -1.5), 20) + cumsum(rnorm(80, 0, 0.3)) + rnorm(80),
->         frequency = 4)
-> fit <- ets(y, model = "ANA", alpha = 0.3, gamma = 0.5)
-> fc <- forecast(fit, h = 9, level = 95)
-> sd_r <- as.numeric(fc$upper - fc$mean) / qnorm(0.975)
-> a <- 0.3; g <- 0.5; m <- 4
-> cj <- function(shift) a + g * (((1:8) + shift) %% m == 0)
-> sd_table <- sqrt(fit$sigma2 * c(1, 1 + cumsum(cj(0)^2)))  # gamma at j = m, 2m
-> sd_shift <- sqrt(fit$sigma2 * c(1, 1 + cumsum(cj(1)^2)))  # gamma at j = m-1, 2m-1
-> set.seed(2)
-> sims <- replicate(50000, simulate(fit, nsim = 9, future = TRUE))
-> round(cbind(h = 1:9, forecast_ets = sd_r, table_6.2 = sd_table,
->             shifted = sd_shift, simulated = apply(sims, 1, sd)), 4)
-> ```
->
-> | h | `forecast.ets` | Table 6.2 | shifted | simulated |
-> | --- | --- | --- | --- | --- |
-> | 3 | 1.2928 | 1.2928 | 1.2928 | 1.2920 |
-> | 4 | 1.6055 | 1.3412 | 1.6055 | 1.3465 |
-> | 5 | 1.6447 | 1.6447 | 1.6447 | 1.6473 |
-> | 8 | 1.9663 | 1.7571 | 1.9663 | 1.7702 |
-> | 9 | 1.9985 | 1.9985 | 1.9985 | 2.0028 |
->
-> With the usual small estimates of `gamma` the effect is in the fifth
-> digit, which is probably why it has gone unnoticed.
+Reproduction on 9.0.2, kept for the record:
+
+```r
+library(forecast)
+set.seed(1)
+y <- ts(10 + rep(c(2, -1, 0.5, -1.5), 20) + cumsum(rnorm(80, 0, 0.3)) + rnorm(80),
+        frequency = 4)
+fit <- ets(y, model = "ANA", alpha = 0.3, gamma = 0.5)
+fc <- forecast(fit, h = 9, level = 95)
+sd_r <- as.numeric(fc$upper - fc$mean) / qnorm(0.975)
+```
+
+| h | `forecast.ets` 9.0.2 | Table 6.2 | simulated |
+| --- | --- | --- | --- |
+| 3 | 1.2928 | 1.2928 | 1.2920 |
+| 4 | 1.6055 | 1.3412 | 1.3465 |
+| 8 | 1.9663 | 1.7571 | 1.7702 |
+| 9 | 1.9985 | 1.9985 | 2.0028 |
+
+When the fixture `forecasting_R.json` is regenerated with a later `forecast`,
+`test_r_seasonal_no_trend_intervals_have_gamma_one_lag_late` will fail. That
+is the signal to delete it and to drop the ANA / MNA exemption in
+`test_ets_forecast_mean_and_intervals_at_r_parameters`.
 
 ## Rerun recipe
 

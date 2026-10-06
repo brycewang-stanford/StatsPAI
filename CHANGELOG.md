@@ -679,10 +679,10 @@ is `docs/guides/forecasting_fpp.md`.
   have none. At the parameters `forecast::ets` estimates, the log
   likelihood, fitted values and intervals equal R's to `1e-13` on 15
   models. The optimiser is restarted, so the likelihood reached is at
-  least as high as R's on every model tested. R's forecast variance for
-  ETS(A,N,A) and ETS(M,N,A) enters `gamma` one lag late; `sp.ets` follows
-  the formula of Hyndman, Koehler, Ord and Snyder (2008), which a
-  simulation confirms.
+  least as high as R's on every model tested. The forecast variance of
+  ETS(A,N,A) and ETS(M,N,A) in `forecast` 9.0.2 enters `gamma` one lag
+  late (fixed in its development version); `sp.ets` follows the formula of
+  Hyndman, Koehler, Ord and Snyder (2008), which a simulation confirms.
 - **`sp.simple_forecast`**: the mean, naive, seasonal naive and drift
   methods with normal or bootstrapped intervals. Equal to `naive`,
   `snaive` and `rwf(drift=TRUE)` to `1e-14`.

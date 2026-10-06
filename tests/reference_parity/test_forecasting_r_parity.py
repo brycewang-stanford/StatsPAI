@@ -176,9 +176,13 @@ def test_ets_forecast_mean_and_intervals_at_r_parameters(tag):
 
 @pytest.mark.parametrize("tag", ["quarterly_ANA", "quarterly_MNA", "monthly_ANA"])
 def test_r_seasonal_no_trend_intervals_have_gamma_one_lag_late(tag):
-    """Documents the divergence: R's intervals for these models are
-    reproduced exactly by entering gamma at lags m - 1, 2m - 1, ...
-    instead of m, 2m, ... (Hyndman et al. 2008, Table 6.2)."""
+    """Documents the divergence: the intervals of forecast 9.0.2 for these
+    models are reproduced exactly by entering gamma at lags m - 1,
+    2m - 1, ... instead of m, 2m, ... (Hyndman et al. 2008, Table 6.2).
+
+    Fixed upstream after 9.0.2 (robjhyndman/forecast pull request 1173).
+    When the fixture is regenerated with a later release this test fails:
+    delete it, and the exemption in the test above."""
     r, (err, tr, se, m), (alpha, beta, gamma, phi), _, _, states, _, _ = (
         _run_at_r_parameters(tag)
     )
