@@ -6878,7 +6878,7 @@
     }
   },
   {
-    "description": "Path analysis and structural equation models with latent variables, written in lavaan syntax (y ~ a*x + m; f =~ a + b + c; m1 ~~ m2; y ~ 1; indirect := a*b) and fitted by normal-theory maximum likelihood: path models, confirmatory factor analysis, latent-variable regressions that correct for measurement error, mean structures and latent growth curves. Returns loadings, path coefficients, intercepts, factor scores, residual (co)variances, defined effects such as indirect and total effects through several mediators with delta-method standard errors, the standardised solution, the chi-square test of the over-identifying restrictions and CFI / TLI / RMSEA / SRMR. Equal labels constrain paths to be equal. Reproduces lavaan::sem / growth (and estimator='MLM' with se='robust'); auto_cov_y=True for sem()'s automatic covariances among terminal outcomes. Complete cases only: no full-information likelihood for missing data, no multiple groups, no categorical indicators. Validation: certified parity evidence.",
+    "description": "Path analysis and structural equation models with latent variables, written in lavaan syntax (y ~ a*x + m; f =~ a + b + c; m1 ~~ m2; y ~ 1; indirect := a*b) and fitted by normal-theory maximum likelihood: path models, confirmatory factor analysis, latent-variable regressions that correct for measurement error, mean structures and latent growth curves. Returns loadings, path coefficients, intercepts, factor scores, residual (co)variances, defined effects such as indirect and total effects through several mediators with delta-method standard errors, the standardised solution, the chi-square test of the over-identifying restrictions and CFI / TLI / RMSEA / SRMR. Equal labels constrain paths to be equal. Reproduces lavaan::sem / growth (and estimator='MLM' with se='robust'); auto_cov_y=True for sem()'s automatic covariances among terminal outcomes, missing='fiml' for full-information maximum likelihood with missing values (lavaan missing='ml', Stata method(mlmv)). No multiple groups, no categorical indicators. Validation: certified parity evidence.",
     "name": "path_analysis",
     "parameters": {
       "properties": {
@@ -6906,6 +6906,15 @@
           "default": false,
           "description": "Model the means too (intercepts of the observed endogenous variables free, latent means zero)",
           "type": "boolean"
+        },
+        "missing": {
+          "default": "listwise",
+          "description": "Drop incomplete rows, or use every observed value by full-information maximum likelihood (valid when missing at random)",
+          "enum": [
+            "listwise",
+            "fiml"
+          ],
+          "type": "string"
         },
         "model": {
           "description": "Model in lavaan syntax, one statement per line: 'y ~ b*m + c*x' (regression, optional labels), 'f =~ a + b + c' (latent variable and indicators), 'm1 ~~ m2' (residual covariance), 'y ~ 1' (intercept), 'ind := a*b' (defined parameter)",
