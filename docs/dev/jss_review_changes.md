@@ -2970,3 +2970,25 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the third round of the Neusser pass
+
+- **Commits.** `91fe7234` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 33 39 53 65 66
+  in `tests/r_parity/results/_implementation_trace.json` and the 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `0f897085`: `src/statspai/__init__.py` (new
+  exports); for module 33, `src/statspai/timeseries/var.py` and
+  `irf_bands.py` (bands for the variance decomposition, the bias-corrected
+  bootstrap); for module 39, `src/statspai/timeseries/arima.py` (a final
+  fit also starts from the estimates of the nested models).
+- **Reason.** Third round of the pass recorded in
+  `docs/dev/2026-10-06-neusser-time-series-econometrics-review.md`.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes. Modules 33 and 39 reproduce their committed results byte for
+  byte: `sp.var`'s estimation is untouched, and module 39's model was
+  already at its maximum. In both trace files only `exercised_sources`
+  digests and `seconds` differ. The registry census the paper quotes moves
+  to 1,490 registered functions across 89 submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
