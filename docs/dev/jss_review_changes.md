@@ -2825,3 +2825,25 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the Neusser time-series pass
+
+- **Commits.** `5d0773f6` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 33 53 65 66
+  in `tests/r_parity/results/_implementation_trace.json` and the 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `c3ac0134`: `src/statspai/__init__.py` (new
+  exports) and, for module 33, `src/statspai/timeseries/var.py` (`sp.irf`
+  gained `ci=`; the estimation in `sp.var` is untouched).
+- **Reason.** The pass recorded in
+  `docs/dev/2026-10-06-neusser-time-series-econometrics-review.md`. No
+  estimator on a Track A or original-data path changed; module 33
+  reproduces its committed result byte for byte.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves to 1,462
+  registered functions across 89 submodules. The correctness fix of the
+  same commit, the search in `sp.garch` for two or more lagged variances,
+  is outside Track A (no Track A module fits a GARCH model).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
