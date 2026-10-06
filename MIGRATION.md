@@ -5,6 +5,42 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.gsynth` with covariates
+
+**What changed.** The coefficients on `covariates` are estimated inside
+the interactive fixed effects model of the never-treated units, with unit
+effects, period effects and the factors, as in Xu (2017) and R `gsynth`.
+They used to come from a pooled regression of the outcome on the
+covariates alone, on pre-treatment control rows. The counterfactual, the
+effect and the per-period effects change whenever a covariate is
+correlated with the unit effects or the loadings. On one treated unit of
+the `gsynth` example data the effect moves from 6.68 to 5.70, which is
+what `gsynth` returns.
+
+Calls with covariates also change how they choose the number of factors
+(the leave-one-period-out error of the treated unit before treatment) and
+how they do inference (`inference=`, a bootstrap, in place of the placebo
+over donors). `placebo=` and `cv_folds=` are not used on that path.
+
+**Who is affected.** `sp.gsynth(..., covariates=[...])` and
+`sp.synth(method='gsynth', covariates=[...])` on the native backend.
+Calls without covariates return the same numbers as before.
+
+**What to do.** Re-run. To hold the number of factors fixed across the
+change, pass `n_factors=`. The panel has to be balanced on this path;
+`sp.fect` takes unbalanced panels.
+
+## 1.38.0 → next: `sp.aipw` says when it clips propensity scores
+
+**What changed.** No estimate changes. `model_info['n_propensity_clipped']`
+used to be 0 always; it is now the number of fitted scores outside
+`[trim, 1 - trim]`, and a `RuntimeWarning` is issued when it is positive.
+The bound is the new argument `trim`, default 0.01 as before.
+
+**What to do.** If the warning appears, look at overlap
+(`sp.overlap_plot`). `trim=0` gives the unclipped estimator; restricting
+the sample with `sp.trimming` changes the target population instead.
+
 ## 1.38.0 → next: ⚠️ `sp.network_exposure` rebuilt
 
 **What changed.** Exposure probabilities are exact under Bernoulli

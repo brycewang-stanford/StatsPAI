@@ -408,27 +408,98 @@ def _clustered_mean_var(
     return float(np.sum(summed**2) / np.sum(w) ** 2 * n_adj / (n_adj - 1))
 
 
+def subset_mask(subset: Any, n: int, context: str) -> Optional[np.ndarray]:
+    """Boolean mask over the training rows from ``subset`` (grf's argument).
+
+    ``subset`` is a boolean vector of length ``n`` or a vector of row
+    positions. ``None`` selects every row.
+    """
+    if subset is None:
+        return None
+    arr = np.asarray(subset)
+    if arr.dtype == bool:
+        if arr.ndim != 1 or len(arr) != n:
+            raise MethodIncompatibility(
+                f"{context}: a boolean subset must have one entry per "
+                f"training row ({n}); got shape {arr.shape}.",
+                recovery_hint="Pass a boolean mask aligned with the fit data.",
+            )
+        mask = arr.copy()
+    else:
+        try:
+            idx = np.asarray(subset, dtype=np.int64).ravel()
+        except (TypeError, ValueError) as exc:
+            raise MethodIncompatibility(
+                f"{context}: subset must be a boolean mask or row positions.",
+                recovery_hint="Pass a boolean mask aligned with the fit data.",
+            ) from exc
+        if not np.array_equal(idx, np.asarray(subset).ravel()):
+            raise MethodIncompatibility(
+                f"{context}: subset positions must be integers.",
+                recovery_hint="Pass a boolean mask aligned with the fit data.",
+            )
+        if idx.size and (idx.min() < 0 or idx.max() >= n):
+            raise MethodIncompatibility(
+                f"{context}: subset positions must lie in 0..{n - 1}.",
+                recovery_hint="Positions count the rows of the fit data from 0.",
+            )
+        if len(np.unique(idx)) != len(idx):
+            raise MethodIncompatibility(
+                f"{context}: subset positions must not repeat.",
+                recovery_hint="Each training row can enter the average once.",
+            )
+        mask = np.zeros(n, dtype=bool)
+        mask[idx] = True
+    if not mask.any():
+        raise DataInsufficient(
+            f"{context}: subset selects no rows.",
+            recovery_hint="Pass a subset with at least one training row.",
+        )
+    return mask
+
+
 def average_effect(
     forest: Any,
     target_sample: str,
     alpha: float,
     clip: float,
+    subset: Any = None,
 ) -> Dict[str, Any]:
-    """AIPW averages on the training sample with cluster-robust SEs."""
+    """AIPW averages on the training sample with cluster-robust SEs.
+
+    ``subset`` restricts the average to some of the training rows, as
+    ``grf::average_treatment_effect(subset=)`` does: the forest, its
+    out-of-bag predictions and its nuisances are those of the full fit, and
+    every sum below runs over the selected rows only.
+    """
     _require_dr(forest, "average_treatment_effect()")
     require_finite_oob(forest, "average_treatment_effect()")
-    n = int(len(forest._Y_original))
-    tau = np.asarray(forest._oob_tau, dtype=float)
-    w = _weights(forest, n)
+    n_full = int(len(forest._Y_original))
+    keep = subset_mask(subset, n_full, "average_treatment_effect()")
+    if keep is None:
+        keep = np.ones(n_full, dtype=bool)
+    n = int(keep.sum())
+    if n < 2:
+        raise DataInsufficient(
+            "average_treatment_effect(): subset must select at least two rows.",
+            recovery_hint="A standard error needs more than one observation.",
+        )
+    tau = np.asarray(forest._oob_tau, dtype=float)[keep]
+    w = _weights(forest, n_full)[keep]
     clustered = getattr(forest, "_clusters", None) is not None
-    clusters = _cluster_codes(forest, n) if clustered else None
+    clusters = None
+    if clustered:
+        clusters = np.unique(_cluster_codes(forest, n_full)[keep], return_inverse=True)[
+            1
+        ]
     z = float(stats.norm.ppf(1 - alpha / 2))
-    W = np.asarray(forest._T_original, dtype=float)
-    binary = bool(np.all(np.isin(np.unique(W), (0.0, 1.0))))
+    W = np.asarray(forest._T_original, dtype=float)[keep]
+    binary = bool(np.all(np.isin(np.unique(forest._T_original), (0.0, 1.0))))
+    Y_all = np.asarray(forest._Y_original, dtype=float)[keep]
 
     if target_sample == "overlap":
-        Y_res = np.asarray(forest._Y_original, dtype=float) - forest._m_insample
-        W_res = W - forest._e_insample
+        Y_res = Y_all - np.asarray(forest._m_insample, dtype=float)[keep]
+        W_res = W - np.asarray(forest._e_insample, dtype=float)[keep]
         design = np.column_stack([np.ones(n), W_res])
         XtWX = design.T @ (design * w[:, None])
         beta = np.linalg.solve(XtWX, design.T @ (w * Y_res))
@@ -441,7 +512,7 @@ def average_effect(
             vcov_type="HC1" if clustered else "HC3",
         )
         estimate, se = float(beta[1]), float(np.sqrt(V[1, 1]))
-        e = np.asarray(forest._e_insample, dtype=float)
+        e = np.asarray(forest._e_insample, dtype=float)[keep]
         estimand, ess, method = (
             "ATO",
             float(np.sum(w) ** 2 / np.sum(w**2)),
@@ -454,7 +525,10 @@ def average_effect(
                 "treatment.",
                 recovery_hint="Use target_sample='all' or 'overlap'.",
             )
-        scores, e, m, _ = dr_scores(forest, tau, clip)
+        scores, e, m, _ = dr_scores(
+            forest, np.asarray(forest._oob_tau, dtype=float), clip
+        )
+        scores, e, m = scores[keep], np.asarray(e)[keep], np.asarray(m)[keep]
         if target_sample == "all":
             estimate = float(np.sum(w * scores) / np.sum(w))
             se = float(np.sqrt(_clustered_mean_var(scores - estimate, w, clusters)))
@@ -481,7 +555,7 @@ def average_effect(
             gamma = np.zeros(n)
             gamma[control] = g_c / np.sum(w[control] * g_c) * np.sum(w)
             gamma[treated] = g_t / np.sum(w[treated] * g_t) * np.sum(w)
-            Y = np.asarray(forest._Y_original, dtype=float)
+            Y = Y_all
             mu0 = m - e * tau
             mu1 = m + (1.0 - e) * tau
             corr = W * gamma * (Y - mu1) - (1.0 - W) * gamma * (Y - mu0)
@@ -506,6 +580,7 @@ def average_effect(
         "pscore_min": float(np.min(e)),
         "pscore_max": float(np.max(e)),
         "cate_source": "out_of_bag",
+        **({} if subset is None else {"subset": True, "n_fit": n_full}),
     }
 
 

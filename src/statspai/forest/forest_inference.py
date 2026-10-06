@@ -1487,6 +1487,7 @@ def average_treatment_effect(
     clip: float = 0.01,
     variance: str = "forest",
     covariates: Any = "none",
+    subset: Any = None,
 ) -> Dict[str, Any]:
     """Aggregate CATE predictions into ATE/ATT/ATC/ATO targets.
 
@@ -1575,6 +1576,17 @@ def average_treatment_effect(
         effect modifiers and covariates that vary within units; use it when a
         time-varying covariate drives the untreated outcome and is not
         itself affected by the treatment.
+    subset : boolean mask or row positions, optional
+        Average over some of the training rows only, as
+        ``grf::average_treatment_effect(subset=)`` does. The forest, its
+        out-of-bag predictions and its nuisances stay those of the full
+        fit; the target is the effect among the selected rows. Choose the
+        rows from covariates. A subset built from the forest's own
+        predictions on these rows (``oob > median``) describes the fit but
+        its standard error does not account for the selection; see
+        :func:`statspai.rate_split` for a test of that kind. GRF-engine
+        forests without fixed effects only; for fixed-effects forests use
+        :func:`statspai.forest_group_effects`.
 
     Examples
     --------
@@ -1664,6 +1676,21 @@ def average_treatment_effect(
 
     from . import _grf_inference as _gi
 
+    if subset is not None and (
+        _gi.is_fe_forest(forest) or not _gi.is_grf_forest(forest)
+    ):
+        raise MethodIncompatibility(
+            "average_treatment_effect(): subset= is available for GRF-engine "
+            "forests without fixed effects.",
+            recovery_hint="Use sp.forest_group_effects(forest, by=...) for "
+            "averages within groups of a fixed-effects forest.",
+        )
+    if subset is not None and (X is not None or T is not None):
+        raise MethodIncompatibility(
+            "average_treatment_effect(): subset= selects training rows; do "
+            "not also pass X= or T=.",
+            recovery_hint="Drop X= / T=.",
+        )
     if _gi.is_fe_forest(forest):
         if X is not None or T is not None:
             _require_training_rows(forest, X, None, T, "average_treatment_effect()")
@@ -1774,7 +1801,15 @@ def average_treatment_effect(
     if grf_forest:
         _require_training_rows(forest, X, None, T, "average_treatment_effect()")
         if binary_treatment or target in ("all", "overlap"):
-            return _gi.average_effect(forest, target, alpha_value, clip_value)
+            return _gi.average_effect(
+                forest, target, alpha_value, clip_value, subset=subset
+            )
+        if subset is not None:
+            raise MethodIncompatibility(
+                "average_treatment_effect(): subset= with a continuous "
+                "treatment supports target_sample='all' or 'overlap'.",
+                recovery_hint="Use target_sample='all'.",
+            )
 
     # Outcome and propensity nuisances.  When aggregating on the training
     # sample we reuse the forest's own cross-fitted (cv=3) out-of-fold

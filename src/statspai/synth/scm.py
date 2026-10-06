@@ -850,6 +850,8 @@ def _dispatch_synth_impl(
     if method in ("factor", "gsynth"):
         from .gsynth import gsynth as _gsynth
 
+        if treatment is not None and treated_unit is None:
+            kwargs.setdefault("treat", treatment)
         return _gsynth(
             data=data,
             outcome=outcome,

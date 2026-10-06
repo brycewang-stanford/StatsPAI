@@ -3347,6 +3347,18 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("n_folds", "int", False, 5, "Cross-fitting folds"),
                 ParamSpec(
+                    "fold_indices",
+                    "array",
+                    False,
+                    None,
+                    "Explicit cross-fitting folds: one label per row (array "
+                    "or column name), or scikit-learn style splits, a list of "
+                    "(train, test) positional index pairs whose test sets "
+                    "partition the rows and whose training sets are their "
+                    "complements. Requires n_rep=1. With a shared partition "
+                    "the estimate is reproducible across implementations.",
+                ),
+                ParamSpec(
                     "n_rep",
                     "int",
                     False,
@@ -5663,6 +5675,24 @@ def _build_registry() -> None:
                     ["s", "t", "x", "r", "dr"],
                 ),
                 ParamSpec(
+                    "outcome_model",
+                    "sklearn estimator",
+                    False,
+                    None,
+                    "Outcome learner. For learner='t' or 'x' a pair "
+                    "(control_model, treated_model) fits a different learner "
+                    "in each arm.",
+                ),
+                ParamSpec(
+                    "cate_model",
+                    "sklearn estimator",
+                    False,
+                    None,
+                    "Final-stage CATE learner (x, r, dr). For learner='x' a "
+                    "pair (fit_on_controls, fit_on_treated) sets the two "
+                    "second-stage regressions separately.",
+                ),
+                ParamSpec(
                     "fold_indices",
                     "array",
                     False,
@@ -5778,7 +5808,9 @@ def _build_registry() -> None:
                     "caliper= to any nearest-neighbour variant. 'nnmatch' "
                     "is Abadie-Imbens covariate matching with ties kept, "
                     "bias adjustment and the Abadie-Imbens (2006) variance "
-                    "(Stata teffects nnmatch).",
+                    "(Stata teffects nnmatch). 'optimal' is optimal pair "
+                    "matching; 'full' is optimal full matching, which uses "
+                    "every unit (MatchIt method='full').",
                     [
                         "nearest",
                         "psm",
@@ -5790,6 +5822,7 @@ def _build_registry() -> None:
                         "stratify",
                         "cem",
                         "optimal",
+                        "full",
                         "genmatch",
                         "cardinality",
                         "ebalance",
@@ -29746,6 +29779,17 @@ def _build_registry() -> None:
                     "per-unit design probabilities (randomised trials). No "
                     "propensity model is fitted and nothing is clipped. Not "
                     "with se_method='sandwich'.",
+                ),
+                ParamSpec(
+                    "trim",
+                    "float",
+                    False,
+                    0.01,
+                    "Fitted propensity scores are clipped to [trim, 1 - trim] "
+                    "(rows are kept). trim=0 applies no clipping and gives the "
+                    "textbook AIPW formula. The number clipped is in "
+                    "model_info['n_propensity_clipped'] and a warning is "
+                    "issued when it is positive.",
                 ),
             ],
             returns="CausalResult",

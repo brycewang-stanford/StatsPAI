@@ -128,6 +128,7 @@ nav:
       - "Wager, Causal Inference: A Statistical Learning Approach, chapter by chapter": guides/wager_causal_inference.md
       - "Facure, Causal Inference in Python: the notebooks, chapter by chapter": guides/facure_causal_inference_in_python.md
       - "Schuler and van der Laan, Modern Causal Inference: plug-in, one-step, TMLE and the causal gap": guides/schuler_vanderlaan_modern_causal_inference.md
+      - "Yuksel and Aydede, Causal Inference and Machine Learning: the R calls, chapter by chapter": guides/yuksel_aydede_causal_ml.md
       - "Ness, Causal AI: graphs, interventions, counterfactuals, refutation": guides/ness_causal_ai.md
       - "Ding, Linear Model and Extensions: the R programs, chapter by chapter": guides/ding_linear_model.md
       - "Bayesian econometrics without PyMC: regression, panels, model averaging, diagnostics": guides/bayesian_econometrics.md

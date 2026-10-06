@@ -46,6 +46,7 @@ from ..exceptions import MethodIncompatibility
 from .balance_randomization import BalanceRandomizationResult, balance_vs_randomization
 from .cbps import cbps
 from .ebalance import ebalance
+from .full import FullMatchResult, full_match
 from .genmatch import GenMatchResult, genmatch
 
 # Underlying estimators — the dispatcher delegates here.
@@ -171,6 +172,9 @@ _MATCH_METHOD_ALIASES: Dict[str, str] = {
     "optimal_match": "optimal",
     "cardinality": "cardinality",
     "cardinality_match": "cardinality",
+    "full": "full",
+    "full_match": "full",
+    "fullmatch": "full",
 }
 
 
@@ -211,7 +215,9 @@ def match(
         - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``,
           ``'overlap'``.
         - **Genetic:** ``'genmatch'``.
-        - **Optimization:** ``'optimal'``, ``'cardinality'``.
+        - **Optimization:** ``'optimal'`` (pairs), ``'full'`` (optimal
+          full matching: every unit is used, in sets of one treated and
+          several comparison units or the reverse), ``'cardinality'``.
     **kwargs
         Forwarded to the chosen estimator.  Classical methods accept
         ``distance`` / ``estimand`` / ``n_matches`` / ``caliper`` /
@@ -308,6 +314,10 @@ def match(
     if canon == "nnmatch":
         return _nnmatch(data=data, y=y, treat=treat, covariates=covariates, **kwargs)
 
+    # ── Optimal full matching: shares distance= / caliper= ───────────
+    if canon == "full":
+        return full_match(data=data, y=y, treat=treat, covariates=covariates, **kwargs)
+
     # ── Advanced: strip classical-only kwargs and forward ────────────
     bad = [k for k in kwargs if k in _CLASSICAL_ONLY_KWARGS]
     if bad:
@@ -379,6 +389,8 @@ __all__ = [
     "balance_diagnostics",
     "BalanceDiagnosticsResult",
     "optimal_match",
+    "full_match",
+    "FullMatchResult",
     "cardinality_match",
     "OptimalMatchResult",
     "CardinalityMatchResult",

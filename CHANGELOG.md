@@ -4,6 +4,84 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Yuksel and Aydede, *Causal Inference and Machine Learning*: DML-DiD, full matching, gsynth with several treated units
+
+A pass over the causal chapters of the book against the R packages it
+uses. Experiments, regression adjustment, nearest-neighbour and caliper
+matching, weighting, PLR / PLIV with `rlasso`, `rdrobust`, synthetic DiD
+and augmented synthetic control already reproduced the references to 1e-9
+or better. What follows is what did not, and what was missing. Guide:
+`docs/guides/yuksel_aydede_causal_ml.md`; notes:
+`docs/dev/2026-10-07-yuksel-aydede-causal-ml-review.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.gsynth(covariates=...)` estimated the covariate coefficients by a
+  pooled regression of the outcome on the covariates alone**, with no
+  intercept, unit effects, period effects or factors, on pre-treatment
+  control rows. When a covariate is correlated with the unit effects or the
+  loadings, as in the example data of R `gsynth`, the counterfactual was
+  biased: 6.68 for one treated unit of those data, where `gsynth` gives
+  5.70. The coefficients are now estimated inside the interactive fixed
+  effects model of the never-treated units (Xu 2017), and the function
+  reproduces `gsynth` to 1e-12 with 0 to 3 factors. Calls without
+  covariates are unchanged to the last digit.
+- **`sp.aipw` reported `n_propensity_clipped = 0` whatever happened.** The
+  scores were clipped to [0.01, 0.99] once inside the propensity fit and
+  counted afterwards, so the count was always zero and the warning attached
+  to it never fired. On the book's design 538 of 20,000 scores were being
+  clipped. The count is now right, a warning is issued when it is not
+  zero, and the bound is the new argument `trim` (default 0.01, so
+  estimates are unchanged). `trim=0` applies no clipping and reproduces the
+  textbook formula.
+
+#### Added
+
+- **`sp.dml_did`**: double machine learning difference-in-differences for
+  two periods, on a panel (outcome change, or long form with `time` and
+  `id`) or on repeated cross-sections. Doubly robust score of Sant'Anna and
+  Zhao (2020); `in_sample_normalization=False` is the score of Chang
+  (2020). `score='experimental'` for randomised designs. With the same
+  folds and learners, estimates and standard errors equal Python
+  `DoubleML`'s `DoubleMLDID` and `DoubleMLDIDCS` to 1e-15 in all eight
+  configurations of each.
+- **`sp.full_match`, and `sp.match(method='full')`**: optimal full
+  matching (Rosenbaum 1991; Hansen 2004). Every unit is used. Solved
+  exactly as a minimum-cost edge cover; on 40 small problems it equals the
+  optimum found by enumeration, and its total distance is never above
+  `optmatch`'s. Weights for the ATT, ATC or ATE, a balance table, and the
+  matched-set-clustered standard error that `MatchIt` prescribes (equal to
+  `lm` + `sandwich::vcovCL` to 1e-9 given the same sets).
+- **`sp.gsynth(treat=...)`**: a 0/1 treatment column in place of
+  `treated_unit` / `treatment_time`, for several treated units and
+  staggered adoption. A list of treated units is also read. Effects by
+  period since adoption in `detail`; number of factors by the
+  leave-one-period-out criterion of Xu (2017); `inference='parametric'`
+  (the bootstrap of the paper) or `'nonparametric'`. `sp.synth(method=
+  'gsynth', treatment=...)` reaches it.
+- **`CausalForest.average_treatment_effect(subset=)`** and the same
+  argument of `sp.average_treatment_effect`: grf's `subset`, for all four
+  targets, with clusters and with `equalize_cluster_weights`. Equal to grf
+  to 1e-14 on grf's own forest outputs.
+- **`sp.metalearner(outcome_model=(control, treated))`** and, for the
+  X-learner, `cate_model=(control, treated)`: a different learner in each
+  arm.
+- **`sp.dml(fold_indices=...)` reads scikit-learn splits**, a list of
+  `(train, test)` index pairs, when the test sets partition the rows and
+  each training set is its complement.
+
+#### Fixed
+
+- `sp.causal_forest(data=, y=, d=, x=[...])` refused a text or `category`
+  column that the formula interface accepted. Both now expand it to one
+  indicator per level.
+- `effect()` and `predict()` of a forest fitted on a categorical column
+  asked for the indicator columns by name. They are rebuilt from the raw
+  column; a level not seen at fit time is an error.
+- `sp.dml(fold_indices=[(train, test), ...])` failed inside NumPy with
+  "inhomogeneous shape".
+- `sp.gsynth` with a list of treated units is no longer refused.
+
 ### Interference, adaptive experiments and balancing in high dimensions
 
 A pass over Wager, *Causal Inference: A Statistical Learning Approach*

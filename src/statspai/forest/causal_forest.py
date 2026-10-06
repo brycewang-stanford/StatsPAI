@@ -1067,6 +1067,12 @@ class CausalForest(BaseModel):
 
         if isinstance(data, pd.DataFrame):
             if feature_names:
+                # A forest fitted on a categorical column carries one
+                # feature per level, ``col[level]``; rebuild those from
+                # ``data[col]`` (an unseen level is an error).
+                from ._grf_family import one_hot_newdata
+
+                data = one_hot_newdata(data, feature_names)
                 missing = [name for name in feature_names if name not in data.columns]
                 if missing:
                     raise MethodIncompatibility(
@@ -1585,6 +1591,7 @@ class CausalForest(BaseModel):
         clip: float = 0.01,
         variance: str = "forest",
         covariates: Any = "none",
+        subset: Any = None,
     ) -> Dict[str, float]:
         """GRF-style ATE/ATT/ATC/ATO aggregation of CATE predictions.
 
@@ -1615,6 +1622,7 @@ class CausalForest(BaseModel):
             clip=clip,
             variance=variance,
             covariates=covariates,
+            subset=subset,
         )
 
     @accepts_aliases(_strict=True, controls="covariates")
@@ -2370,7 +2378,12 @@ def causal_forest(
             )
         Y = data[y].to_numpy()
         T = data[d].to_numpy()
-        X = data[x_cols].to_numpy()
+        # Effect modifiers may be categorical: one 0/1 column per level,
+        # as in the formula interface.
+        from ._grf_family import one_hot_covariates
+
+        x_block, x_cols = one_hot_covariates(data, x_cols, "causal_forest()")
+        X = x_block.to_numpy()
         W = data[w_cols].to_numpy() if w_cols else None
         data = None  # arrays fully specify the fit below
     else:

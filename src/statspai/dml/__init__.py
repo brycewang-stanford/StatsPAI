@@ -22,6 +22,7 @@ C1-C68. [@chernozhukov2018double]
 
 from ._diagnostics import DMLDiagnostics, dml_diagnostics
 from ._sensitivity import DMLSensitivityResult, dml_sensitivity
+from .did import dml_did
 from .double_ml import DoubleML, dml
 from .dynamic_dml import DynamicDMLResult, dynamic_dml
 from .iivm import DoubleMLIIVM
@@ -48,6 +49,7 @@ __all__ = [
     "DMLAveragingResult",
     # v1.7 long-panel DML (Clarke & Polselli 2025)
     "dml_panel",
+    "dml_did",
     "dynamic_dml",
     "DynamicDMLResult",
     "DMLPanelResult",

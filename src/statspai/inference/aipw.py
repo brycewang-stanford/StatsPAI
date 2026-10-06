@@ -54,6 +54,7 @@ def aipw(
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
     propensity: Optional[Union[float, str]] = None,
+    trim: float = 0.01,
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -137,6 +138,22 @@ def aipw(
         outcome regressions are, and the influence-function standard
         error needs no correction for a first-stage propensity fit. Not
         combinable with ``se_method='sandwich'``.
+    trim : float, default 0.01
+        Fitted propensity scores are clipped to ``[trim, 1 - trim]`` before
+        they enter the inverse-probability terms. A known ``propensity`` is
+        used as given and never clipped. Rows are kept, so the
+        target population does not change, but the estimate is no longer
+        the textbook AIPW formula on the rows that were clipped. ``trim=0``
+        applies no clipping and gives that formula exactly (what a
+        hand-written ``mean(psi)``, Stata ``teffects aipw`` and R ``AIPW``
+        without truncation compute). The number of clipped scores is in
+        ``model_info['n_propensity_clipped']`` and a warning is issued
+        when it is not zero. To drop rows with extreme scores instead,
+        subset the data first (:func:`statspai.trimming`).
+
+        .. versionchanged:: 1.39.0
+           The bound was fixed at 0.01 and could not be changed, and
+           ``n_propensity_clipped`` always read 0.
 
     Returns
     -------
@@ -211,6 +228,12 @@ def aipw(
             "propensity logit; with a known propensity there is none.",
             recovery_hint="Use se_method='influence'.",
         )
+    if not (isinstance(trim, (int, float)) and 0.0 <= float(trim) < 0.5):
+        raise MethodIncompatibility(
+            f"aipw: trim must lie in [0, 0.5), got {trim!r}.",
+            recovery_hint="Use trim=0.01 (the default) or trim=0 for no clipping.",
+        )
+    trim = float(trim)
     rng = np.random.default_rng(seed)
 
     extra = [c for c in (weights, cluster) if c is not None]
@@ -302,8 +325,27 @@ def aipw(
         e_hat = e_known
         n_clipped = 0
     else:
-        n_clipped = int(np.sum((e_hat < 0.01) | (e_hat > 0.99)))
-        np.clip(e_hat, 0.01, 0.99, out=e_hat)
+        n_clipped = int(np.sum((e_hat < trim) | (e_hat > 1.0 - trim)))
+        if trim > 0:
+            np.clip(e_hat, trim, 1.0 - trim, out=e_hat)
+        elif np.any((e_hat <= 0.0) | (e_hat >= 1.0)):
+            raise MethodIncompatibility(
+                "aipw: a fitted propensity score is exactly 0 or 1, so the "
+                "inverse-probability term is undefined with trim=0.",
+                recovery_hint="Use trim > 0, or restrict the sample to the "
+                "region of overlap with sp.trimming.",
+            )
+        if n_clipped:
+            warnings.warn(
+                f"aipw: {n_clipped} of {n} fitted propensity scores "
+                f"({100.0 * n_clipped / n:.1f}%) lie outside "
+                f"[{trim:g}, {1.0 - trim:g}] and were clipped to it. The "
+                "estimate differs from the unclipped AIPW formula on those "
+                "rows; pass trim=0 for no clipping, or restrict the sample "
+                "with sp.trimming.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     def _se_of(u: np.ndarray) -> float:
         """SE of a mean from its (already weight-scaled) influence rows.
@@ -333,7 +375,8 @@ def aipw(
             if n_clipped:
                 warnings.warn(
                     f"aipw: {n_clipped} propensity score(s) were clipped to "
-                    "[0.01, 0.99]; the stacked sandwich differentiates the "
+                    f"[{trim:g}, {1.0 - trim:g}]; the stacked sandwich "
+                    "differentiates the "
                     "unclipped logit and is only approximate for those rows.",
                     RuntimeWarning,
                     stacklevel=2,
@@ -393,6 +436,7 @@ def aipw(
         "cross_fit": bool(cross_fit),
         "se_method": se_method,
         "n_propensity_clipped": n_clipped,
+        "trim": float(trim),
         "potential_outcome_means": po_means,
         "potential_outcome_means_se": po_means_se,
         "weights": weights,
@@ -521,7 +565,7 @@ def _fit_propensity(
             res = sm.GLM(
                 D_train, X_tr, family=sm.families.Binomial(), freq_weights=w_train
             ).fit(tol=1e-12, maxiter=300)
-        return np.asarray(np.clip(res.predict(X_te), 0.01, 0.99), dtype=float)
+        return np.asarray(res.predict(X_te), dtype=float)
     except Exception as exc:
         # A constant propensity turns AIPW into regression-adjustment-only,
         # and the influence-function SE (which assumes both nuisances were

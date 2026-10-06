@@ -223,6 +223,58 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Five effect / standard error pairs from the book and Gelman and Carlin (2014). With degrees of freedom the package's exaggeration ratio is simulated from a shifted t and is not the exaggeration ratio of a t-test; that row is checked against a simulation of the test instead and is not part of this grade."
         ),
     },
+    # ---- Yuksel & Aydede, Causal Inference and Machine Learning (2026-10-07) ----
+    "dml_did": {
+        "status": "bit-exact",
+        "reference": "doubleml (Python) DoubleMLDID and DoubleMLDIDCS",
+        "reference_versions": {"doubleml": "0.11.3", "scikit-learn": "1.6.1"},
+        "tolerance": (
+            "estimate and standard error 1e-8 on a shared fold column, "
+            "linear and unpenalised-logit learners; two layouts x two "
+            "scores x with and without in-sample normalisation"
+        ),
+        "sides": ["py"],
+        "test": [
+            "tests/reference_parity/test_dml_did_doubleml_parity.py",
+            "tests/reference_parity/_fixtures/dml_did_doubleml.json",
+        ],
+        "note": (
+            "Cross-package pin against doubleml-for-py, the reference "
+            "implementation; R DoubleML 1.0.2 has no DiD model. The fixture "
+            "holds deterministic learners only, because a random forest's "
+            "fit depends on the scikit-learn version. The same file checks "
+            "the identity with the score of Chang (2020) and recovery of a "
+            "known effect."
+        ),
+    },
+    "full_match": {
+        "status": "aligned",
+        "reference": "MatchIt::matchit(method = 'full') 4.7.2, optmatch 0.10.8; lm + sandwich::vcovCL",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "MatchIt": "4.7.2",
+            "optmatch": "0.10.8",
+            "sandwich": "3.1.1",
+        },
+        "tolerance": (
+            "Total matched distance <= optmatch's, and equal to it to 1e-7 "
+            "at optmatch tol = 1e-9. Given optmatch's matched sets: ATT, ATE "
+            "and matched-set-clustered standard error 1e-9. The estimate "
+            "from StatsPAI's own sets is not pinned (5% screen): the optimum "
+            "is nearly flat and the sets are not unique."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py",
+            "tests/reference_parity/_fixtures/yuksel_aydede_causal_ml_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture. StatsPAI solves the matching exactly as a "
+            "minimum-cost edge cover; optmatch rounds distances to a "
+            "tolerance. Optimality is also checked by enumerating every "
+            "edge cover of 40 small problems."
+        ),
+    },
     # ---- Neusser, Time Series Econometrics (2026-10-06) ----
     "mswitch": {
         "status": "bit-exact",

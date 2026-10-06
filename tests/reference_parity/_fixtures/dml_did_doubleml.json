@@ -1,0 +1,59 @@
+{
+ "meta": {
+  "doubleml": "0.11.3",
+  "scikit-learn": "1.6.1",
+  "numpy": "2.2.6"
+ },
+ "panel": [
+  {
+   "score": "observational",
+   "in_sample_normalization": true,
+   "estimate": 1.992540072628527,
+   "se": 0.19509377680678333
+  },
+  {
+   "score": "observational",
+   "in_sample_normalization": false,
+   "estimate": 1.984531018756213,
+   "se": 0.20060554733245778
+  },
+  {
+   "score": "experimental",
+   "in_sample_normalization": true,
+   "estimate": 1.9474329952706781,
+   "se": 0.13717318212156304
+  },
+  {
+   "score": "experimental",
+   "in_sample_normalization": false,
+   "estimate": 1.9474329952706781,
+   "se": 0.13717318212156304
+  }
+ ],
+ "rcs": [
+  {
+   "score": "observational",
+   "in_sample_normalization": true,
+   "estimate": 1.6712635455076812,
+   "se": 0.26198308722875935
+  },
+  {
+   "score": "observational",
+   "in_sample_normalization": false,
+   "estimate": 1.670871479305198,
+   "se": 0.2625024546039032
+  },
+  {
+   "score": "experimental",
+   "in_sample_normalization": true,
+   "estimate": 1.4243182953335918,
+   "se": 0.22094552699548994
+  },
+  {
+   "score": "experimental",
+   "in_sample_normalization": false,
+   "estimate": 1.424590114164137,
+   "se": 0.22079978199536018
+  }
+ ]
+}

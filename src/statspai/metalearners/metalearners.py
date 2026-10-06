@@ -302,8 +302,11 @@ def _cross_fit_aipw_phi(
         X_tr, Y_tr, D_tr = X[tr], Y[tr], D[tr]
         W_tr = None if sample_weight is None else sample_weight[tr]
         X_te = X[te]
-        m1 = clone(outcome_model)
-        m0 = clone(outcome_model)
+        if isinstance(outcome_model, tuple):  # (control model, treated model)
+            m0, m1 = clone(outcome_model[0]), clone(outcome_model[1])
+        else:
+            m1 = clone(outcome_model)
+            m0 = clone(outcome_model)
         tr_mask1 = D_tr == 1
         tr_mask0 = D_tr == 0
         # Fit each arm if both arms present in the training fold; fall
@@ -973,14 +976,23 @@ def metalearner(
         column is expanded to indicator columns.
     learner : str, default 'dr'
         Meta-learner type: 's', 't', 'x', 'r', or 'dr'.
-    outcome_model : sklearn estimator, optional
-        Custom ML model for outcome nuisance.
+    outcome_model : sklearn estimator or (control, treated) pair, optional
+        Custom ML model for outcome nuisance. For ``learner='t'`` and
+        ``'x'`` a pair ``(control_model, treated_model)`` fits a different
+        learner in each arm, which is the point of those two learners when
+        the arms differ in size or in how smooth the response is (Kunzel
+        et al. fit a forest to the large arm and a linear model to the
+        small one). The pair is also used, arm by arm, in the AIPW scores
+        behind ``estimate`` and ``se``.
     propensity_model : sklearn estimator, optional
         Custom propensity score model (used by X/R/DR learners).
-    cate_model : sklearn estimator, optional
-        Custom model for final CATE stage (R/DR learners). Their default
-        is gradient boosting with at least 20 observations per leaf,
-        because the pseudo-outcomes they regress on have heavy tails.
+    cate_model : sklearn estimator or (control, treated) pair, optional
+        Custom model for final CATE stage (X/R/DR learners). The default
+        of the R- and DR-learners is gradient boosting with at least 20
+        observations per leaf, because the pseudo-outcomes they regress on
+        have heavy tails. For ``learner='x'`` a pair
+        ``(model_fit_on_controls, model_fit_on_treated)`` sets the two
+        second-stage regressions separately.
     n_folds : int, default 5
         Cross-fitting folds for nuisance estimation (used by R/DR
         learners and the unified AIPW SE path; see Notes).
@@ -1137,7 +1149,6 @@ def metalearner(
     if weights is not None:
         sw = data.loc[keep_rows, weights].to_numpy(dtype=float)
         if not np.all(np.isfinite(sw)) or np.any(sw <= 0):
-            from ..exceptions import MethodIncompatibility
 
             raise MethodIncompatibility(
                 "metalearner: weights must be finite and strictly positive."
@@ -1147,7 +1158,6 @@ def metalearner(
     if cluster is not None:
         cl_codes = pd.factorize(data.loc[keep_rows, cluster])[0]
         if int(cl_codes.max()) + 1 < n_folds:
-            from ..exceptions import DataInsufficient
 
             raise DataInsufficient(
                 f"metalearner(cluster=): {int(cl_codes.max()) + 1} clusters "
@@ -1169,7 +1179,6 @@ def metalearner(
             from sklearn.base import is_classifier
 
             if is_classifier(propensity_model):
-                from ..exceptions import MethodIncompatibility
 
                 raise MethodIncompatibility(
                     "metalearner(learner='r'): the treatment is not 0/1, so "
@@ -1207,7 +1216,6 @@ def metalearner(
                 cf[te] = k
             folds = cf[cl_codes]
         elif (pd.Series(folds).groupby(cl_codes).nunique() > 1).any():
-            from ..exceptions import MethodIncompatibility
 
             raise MethodIncompatibility(
                 "metalearner(cluster=): the supplied fold_indices split a "
@@ -1219,21 +1227,47 @@ def metalearner(
     if learner not in valid:
         raise ValueError(f"learner must be one of {valid}, got '{learner}'")
 
+    # A (control, treated) pair gives each arm its own learner. Only the
+    # T- and X-learners fit the arms separately.
+    for _name, _value, _ok in (
+        ("outcome_model", outcome_model, ("t", "x")),
+        ("cate_model", cate_model, ("x",)),
+    ):
+        if isinstance(_value, (tuple, list)):
+            if learner not in _ok or len(_value) != 2:
+                raise MethodIncompatibility(
+                    f"metalearner: {_name}= takes a (control, treated) pair "
+                    f"of estimators only for learner in {_ok}; got a "
+                    f"sequence of length {len(_value)} with "
+                    f"learner={learner!r}.",
+                    recovery_hint="Pass a single estimator, or use "
+                    "learner='t' / 'x' with a pair.",
+                )
+    if isinstance(outcome_model, list):
+        outcome_model = tuple(outcome_model)
+    if isinstance(cate_model, list):
+        cate_model = tuple(cate_model)
+
+    def _pair(model: Any) -> Tuple[Any, Any]:
+        if isinstance(model, tuple):
+            return model[0], model[1]
+        return model, (clone(model) if model is not None else None)
+
     # Build and fit the learner
     est: Any
     if learner == "s":
         est = SLearner(model=outcome_model)
     elif learner == "t":
-        est = TLearner(
-            model_0=outcome_model,
-            model_1=clone(outcome_model) if outcome_model is not None else None,
-        )
+        _m0, _m1 = _pair(outcome_model)
+        est = TLearner(model_0=_m0, model_1=_m1)
     elif learner == "x":
+        _m0, _m1 = _pair(outcome_model)
+        _c0, _c1 = _pair(cate_model)
         est = XLearner(
-            model_0=outcome_model,
-            model_1=clone(outcome_model) if outcome_model is not None else None,
-            cate_model_0=cate_model,
-            cate_model_1=clone(cate_model) if cate_model is not None else None,
+            model_0=_m0,
+            model_1=_m1,
+            cate_model_0=_c0,
+            cate_model_1=_c1,
             propensity_model=propensity_model,
         )
     elif learner == "r":
@@ -1438,12 +1472,26 @@ def metalearner(
         from ..output._lineage import attach_provenance as _attach_prov
 
         outcome_model_name = (
-            type(outcome_model).__name__ if outcome_model is not None else None
+            None
+            if outcome_model is None
+            else (
+                "+".join(type(m).__name__ for m in outcome_model)
+                if isinstance(outcome_model, tuple)
+                else type(outcome_model).__name__
+            )
         )
         propensity_model_name = (
             type(propensity_model).__name__ if propensity_model is not None else None
         )
-        cate_model_name = type(cate_model).__name__ if cate_model is not None else None
+        cate_model_name = (
+            None
+            if cate_model is None
+            else (
+                "+".join(type(m).__name__ for m in cate_model)
+                if isinstance(cate_model, tuple)
+                else type(cate_model).__name__
+            )
+        )
         _attach_prov(
             _result,
             function="sp.metalearner",

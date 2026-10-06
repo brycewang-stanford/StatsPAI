@@ -98,20 +98,40 @@ def _small_panel():
 
 
 @pytest.mark.parametrize("treated", [[1, 2], (1, 2), np.array([1, 2])])
-def test_gsynth_rejects_several_treated_units(treated):
+def test_gsynth_takes_several_treated_units(treated):
+    """A list of treated units is the same call as a treatment column."""
+    df = _small_panel()
+    listed = sp.gsynth(
+        df,
+        outcome="y",
+        unit="u",
+        time="t",
+        treated_unit=treated,
+        treatment_time=10,
+        n_factors=1,
+        inference="none",
+    )
+    df["d"] = (df["u"].isin([1, 2]) & (df["t"] >= 10)).astype(int)
+    column = sp.gsynth(
+        df, outcome="y", unit="u", time="t", treat="d", n_factors=1, inference="none"
+    )
+    assert listed.estimate == column.estimate
+    assert listed.model_info["n_treated_units"] == 2
+
+
+def test_gsynth_r_backend_still_takes_one_treated_unit():
     from statspai.exceptions import MethodIncompatibility
 
-    with pytest.raises(MethodIncompatibility, match="single treated_unit") as exc:
+    with pytest.raises(MethodIncompatibility, match="single treated unit"):
         sp.gsynth(
             _small_panel(),
             outcome="y",
             unit="u",
             time="t",
-            treated_unit=treated,
+            treated_unit=[1, 2],
             treatment_time=10,
-            placebo=False,
+            backend="r",
         )
-    assert "sp.fect" in exc.value.alternative_functions
 
 
 def test_gsynth_unknown_treated_unit_is_named():

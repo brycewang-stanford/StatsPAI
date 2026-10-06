@@ -124,7 +124,11 @@ def dml(
         ``model in {'plr', 'irm', 'pliv', 'iivm'}``.
     fold_indices : array-like or str, optional
         Explicit cross-fit fold labels. Pass either a 1-D array of length
-        ``len(data)`` or a column name. For internal fitting, labels must
+        ``len(data)`` or a column name. Scikit-learn style splits, a list of
+        ``(train, test)`` positional index pairs such as
+        ``list(KFold(5).split(X))``, are also read, provided the test sets
+        partition the rows and each training set is its complement. For
+        internal fitting, labels must
         define exactly ``n_folds`` non-empty folds and ``n_rep`` must be 1.
         External repeated IRM predictions may use the same labels when that
         partition is equivalent to every caller repeat.

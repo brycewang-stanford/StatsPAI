@@ -82,6 +82,63 @@ _DEFAULT_PLR_LEARNER_NOTE = (
 )
 
 
+def _splits_to_fold_labels(
+    fold_indices: Any, n: int, context: str
+) -> Optional[np.ndarray]:
+    """Fold labels from scikit-learn style ``[(train, test), ...]`` splits.
+
+    Returns ``None`` when ``fold_indices`` is not a sequence of index pairs,
+    so the caller reads it as one label per row. The test sets must be
+    positional row numbers that partition ``0 .. n - 1``; each training set
+    must be the complement of its test set, because that is the only split
+    the cross-fitting here will run.
+    """
+    if not isinstance(fold_indices, (list, tuple)) or len(fold_indices) < 2:
+        return None
+    if not all(isinstance(f, (list, tuple)) and len(f) == 2 for f in fold_indices):
+        return None
+    try:
+        pairs = [
+            (
+                np.asarray(tr, dtype=np.int64).ravel(),
+                np.asarray(te, dtype=np.int64).ravel(),
+            )
+            for tr, te in fold_indices
+        ]
+    except (TypeError, ValueError):
+        return None
+    if len(pairs) == n and all(tr.size == 1 and te.size == 1 for tr, te in pairs):
+        return None  # n rows of two labels each is not a split
+    labels = np.full(n, -1, dtype=np.int64)
+    for k, (train, test) in enumerate(pairs):
+        if test.size == 0 or test.min() < 0 or test.max() >= n:
+            raise MethodIncompatibility(
+                f"{context}: fold_indices split {k} has test rows outside "
+                f"0..{n - 1} (splits are positional row numbers)."
+            )
+        if np.any(labels[test] >= 0):
+            raise MethodIncompatibility(
+                f"{context}: fold_indices test sets overlap; each row must be "
+                "held out exactly once."
+            )
+        labels[test] = k
+        expected = np.setdiff1d(np.arange(n), test)
+        if not np.array_equal(np.sort(train), expected):
+            raise MethodIncompatibility(
+                f"{context}: in fold_indices split {k} the training rows are "
+                "not the complement of the test rows. Cross-fitting trains on "
+                "every row outside the held-out fold.",
+                recovery_hint="Pass one fold label per row, or splits from "
+                "KFold(...).split(X).",
+            )
+    if np.any(labels < 0):
+        raise MethodIncompatibility(
+            f"{context}: fold_indices test sets leave "
+            f"{int(np.sum(labels < 0))} row(s) never held out."
+        )
+    return labels
+
+
 class _DoubleMLBase:
     """Abstract base: common plumbing for all DML estimators."""
 
@@ -240,7 +297,8 @@ class _DoubleMLBase:
                 )
             self._fold_indices_input = fold_indices
         else:
-            arr = np.asarray(fold_indices)
+            labels = _splits_to_fold_labels(fold_indices, len(data), context)
+            arr = np.asarray(fold_indices) if labels is None else labels
             if arr.ndim != 1 or len(arr) != len(data):
                 raise MethodIncompatibility(
                     f"{context}: fold_indices must be 1-D of length {len(data)} "

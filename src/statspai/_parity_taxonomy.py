@@ -537,6 +537,7 @@ PYTHON_REFERENCE_ROWS: Dict[str, str] = {
     ),
     "direct_method": "obp (Python; Open Bandit Pipeline) 0.5.7 DirectMethod",
     "doubly_robust": "obp (Python; Open Bandit Pipeline) 0.5.7 DoublyRobust",
+    "dml_did": "doubleml (Python) 0.11.3 DoubleMLDID / DoubleMLDIDCS",
 }
 
 #: Parity grades backed by an artifact that is *not* an external software
