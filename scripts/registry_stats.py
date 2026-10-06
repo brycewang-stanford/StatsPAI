@@ -184,7 +184,7 @@ def render_table(stats: dict) -> str:
 # Loose floors we expect README.md to quote. The check passes as long as
 # the live count is at or above the floor and within ``DRIFT_TOLERANCE``
 # of it; otherwise the docs need refreshing.
-README_FLOOR = 1400  # registered-function floor quoted by the docs (1,400+)
+README_FLOOR = 1500  # registered-function floor quoted by the docs (1,500+)
 SUBMODULE_FLOOR = 80  # README.md says "80 submodules"
 DRIFT_TOLERANCE = 100  # bump the floor once we're > floor + tolerance
 # LOC is a vanity metric (docs/stats.md §5) that moves on every commit, so

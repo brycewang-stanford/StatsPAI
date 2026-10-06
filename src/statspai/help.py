@@ -82,7 +82,10 @@ CATEGORY_DESCRIPTIONS: Dict[str, str] = {
         "Recommender, compare_estimators, assumption_audit, pub_ready, " "workflow"
     ),
     "power": "Power analysis for RCT/DID/RD/IV/cluster-RCT and MDE",
-    "experimental": "Randomization, balance checks, attrition, optimal design",
+    "experimental": (
+        "Randomization, balance checks, attrition, optimal design; factorial, "
+        "space-filling and model-based designs, sensitivity analysis"
+    ),
     "missing": "MICE, multiple imputation, mi_estimate",
     "bayes": ("bayes_did / bayes_rd / bayes_iv / bayes_mte / BCF / " "policy weights"),
     "postestimation": "margins, contrast, pwcompare, test, lincom",
@@ -153,6 +156,7 @@ _MODULE_CATEGORY_PREFIXES: List[tuple[str, str]] = [
     ("statspai.workflow", "smart"),
     ("statspai.power", "power"),
     ("statspai.experimental", "experimental"),
+    ("statspai.doe", "experimental"),
     ("statspai.imputation", "missing"),
     ("statspai.bayes", "bayes"),
     ("statspai.mcmc", "bayes"),

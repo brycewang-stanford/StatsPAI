@@ -17651,6 +17651,22 @@ def _build_registry() -> None:
                 ParamSpec("restarts", "int", False, 4),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "interpolate",
+                    "bool",
+                    False,
+                    False,
+                    "Noise-free outcome (deterministic computer model): the "
+                    "fit passes through the data",
+                ),
+                ParamSpec(
+                    "likelihood",
+                    "str",
+                    False,
+                    "reml",
+                    "Treatment of the constant mean in the likelihood",
+                    enum=["reml", "ml"],
+                ),
             ],
             returns="GPResult",
             example='sp.gp_regress("y ~ x", df).predict(new)',
@@ -17662,6 +17678,892 @@ def _build_registry() -> None:
                 "More than a few thousand observations: cost grows with n cubed",
                 "Jumps or kinks in the regression function: a stationary "
                 "smooth kernel blurs them",
+            ],
+        )
+    )
+
+    # ------------------------------------------------------------------
+    # Design of experiments (statspai.doe)
+    # ------------------------------------------------------------------
+    register(
+        FunctionSpec(
+            name="space_filling",
+            category="experimental",
+            description=(
+                "Space-filling design: n runs spread evenly over a box of "
+                "factors. Maximum projection (default), maximin or uniform "
+                "Latin hypercube, random Latin hypercube, scrambled Sobol' / "
+                "Halton points. For simulation studies over a parameter "
+                "region, training runs of a surrogate, multi-start optimisers "
+                "and simulation draws (R SFDesign / MaxPro / lhs)."
+            ),
+            params=[
+                ParamSpec("n", "int", True, None, "Number of runs"),
+                ParamSpec(
+                    "factors",
+                    "int | list[str] | dict",
+                    True,
+                    None,
+                    "Number of factors, their names, or {name: (lower, upper)}",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "maxpro",
+                    "Kind of design",
+                    enum=[
+                        "maxpro",
+                        "maximin",
+                        "uniform",
+                        "lhs",
+                        "sobol",
+                        "halton",
+                        "random",
+                    ],
+                ),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+                ParamSpec(
+                    "n_starts", "int", False, 3, "Independent searches; best kept"
+                ),
+                ParamSpec("iterations", "int", False, None, "Swaps tried per search"),
+                ParamSpec(
+                    "polish",
+                    "bool",
+                    False,
+                    None,
+                    "Move levels continuously after the search (default: "
+                    "True for maxpro)",
+                ),
+                ParamSpec(
+                    "constraint",
+                    "callable",
+                    False,
+                    None,
+                    "Feasibility of candidate runs (DataFrame -> booleans); "
+                    "the design is then built greedily from feasible candidates",
+                ),
+                ParamSpec(
+                    "n_candidates",
+                    "int",
+                    False,
+                    None,
+                    "Candidate-set size under a constraint",
+                ),
+                ParamSpec(
+                    "delta",
+                    "float",
+                    False,
+                    0.0,
+                    "Added to squared differences in the MaxPro criterion",
+                ),
+                ParamSpec(
+                    "r",
+                    "float",
+                    False,
+                    None,
+                    "Power of the reciprocal-distance criterion (default 2p)",
+                ),
+            ],
+            returns="DesignResult",
+            example=(
+                'sp.space_filling(20, {"beta": (0.9, 0.99), "sigma": (1, 5)}, '
+                "seed=1)"
+            ),
+            tags=[
+                "design of experiments",
+                "latin hypercube",
+                "maxpro",
+                "maximin",
+                "computer experiment",
+                "quasi-monte carlo",
+            ],
+            reference="joseph2015maximum; morris1995exploratory; mckay1979comparison",
+            alternatives=["factorial_design", "doe_optimal", "support_points"],
+            not_recommended_when=[
+                "The model to be fitted is known: sp.doe_optimal puts the "
+                "runs where that model is estimated best",
+                "Factors are qualitative or have two or three levels: use "
+                "sp.factorial_design",
+                "A certified optimum is required: the search is stochastic "
+                "and returns a good design, not a proven best one",
+            ],
+            limitations=[
+                "Qualitative (categorical) factors: not yet supported",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="design_augment",
+            category="experimental",
+            description=(
+                "Add runs to an existing design so that the whole stays "
+                "space-filling: a second batch, validation runs, or a design "
+                "on an irregular region from feasible candidates. Greedy "
+                "maximum projection or maximin (R MaxPro::MaxProAugment)."
+            ),
+            params=[
+                ParamSpec(
+                    "design",
+                    "DataFrame | array | DesignResult",
+                    True,
+                    None,
+                    "Runs already made; kept as they are",
+                ),
+                ParamSpec("n_new", "int", True, None, "Runs to add"),
+                ParamSpec(
+                    "candidates",
+                    "DataFrame | array",
+                    False,
+                    None,
+                    "Points to choose from (default: a Sobol' set)",
+                ),
+                ParamSpec(
+                    "criterion",
+                    "str",
+                    False,
+                    "maxpro",
+                    "Criterion of the greedy choice",
+                    enum=["maxpro", "maximin"],
+                ),
+                ParamSpec(
+                    "bounds",
+                    "dict",
+                    False,
+                    None,
+                    "{factor: (lower, upper)} when the design is not on the "
+                    "unit cube",
+                ),
+                ParamSpec(
+                    "constraint",
+                    "callable",
+                    False,
+                    None,
+                    "Filters the default candidates",
+                ),
+                ParamSpec(
+                    "n_candidates",
+                    "int",
+                    False,
+                    None,
+                    "Size of the default candidate set",
+                ),
+                ParamSpec(
+                    "delta",
+                    "float",
+                    False,
+                    0.0,
+                    "Added to squared differences in the MaxPro criterion",
+                ),
+                ParamSpec("seed", "int", False, None, "Seed of the default candidates"),
+            ],
+            returns="DesignResult",
+            example="sp.design_augment(sp.space_filling(10, 2, seed=1), 10, seed=2)",
+            tags=["design of experiments", "sequential", "maxpro", "augment"],
+            reference="joseph2015maximum; johnson1990minimax",
+            alternatives=["space_filling", "sequential_design"],
+            not_recommended_when=[
+                "The responses of the first batch should guide the second: "
+                "use sp.sequential_design",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="design_criteria",
+            category="experimental",
+            description=(
+                "Space-filling measures of a design: maximin distance, "
+                "reciprocal distance, MaxPro criterion, wrap-around and "
+                "centered L2 discrepancy, fill distance, smallest projected "
+                "gap, largest correlation, and energy distance to a target "
+                "sample (R SFDesign maximin.crit / maxpro.crit / uniform.crit)."
+            ),
+            params=[
+                ParamSpec(
+                    "design",
+                    "DataFrame | array | DesignResult",
+                    True,
+                    None,
+                    "One row per run",
+                ),
+                ParamSpec(
+                    "bounds",
+                    "dict",
+                    False,
+                    None,
+                    "{factor: (lower, upper)}; the design is scaled to the "
+                    "unit cube with them",
+                ),
+                ParamSpec(
+                    "delta",
+                    "float",
+                    False,
+                    0.0,
+                    "Added to squared differences in the MaxPro criterion",
+                ),
+                ParamSpec(
+                    "r", "float", False, None, "Power of the reciprocal distance"
+                ),
+                ParamSpec(
+                    "target",
+                    "DataFrame | array",
+                    False,
+                    None,
+                    "Sample the runs should represent; adds energy_distance",
+                ),
+            ],
+            returns="Series",
+            example="sp.design_criteria(sp.space_filling(20, 3, seed=1))",
+            tags=["design of experiments", "discrepancy", "maximin", "maxpro"],
+            reference=(
+                "johnson1990minimax; joseph2015maximum; hickernell1998generalized"
+            ),
+            alternatives=["design_aberration"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="factorial_design",
+            category="experimental",
+            description=(
+                "Full factorial design for factors with any number of "
+                "levels, or a two-level fractional factorial 2^(k-m) from "
+                "generators or by minimum-aberration search, with defining "
+                "relation, resolution, word length pattern and alias "
+                "structure (R FrF2). For multi-factor experiments, conjoint "
+                "and factorial survey designs."
+            ),
+            params=[
+                ParamSpec(
+                    "factors",
+                    "int | list[str] | dict",
+                    True,
+                    None,
+                    "Number of factors, names, or {name: [level values]}",
+                ),
+                ParamSpec("levels", "int | list[int]", False, 2, "Levels per factor"),
+                ParamSpec(
+                    "n_runs",
+                    "int",
+                    False,
+                    None,
+                    "A power of two below 2^k asks for the minimum-aberration "
+                    "fraction of that size",
+                ),
+                ParamSpec(
+                    "generators",
+                    "list[str]",
+                    False,
+                    None,
+                    "Generators of a two-level fraction, e.g. ['E = ABC']",
+                ),
+                ParamSpec("center_points", "int", False, 0, "Centre runs added"),
+                ParamSpec("replicates", "int", False, 1, "Copies of the design"),
+                ParamSpec(
+                    "randomize", "bool", False, False, "Put the runs in random order"
+                ),
+                ParamSpec("seed", "int", False, None, "Seed of the run order"),
+                ParamSpec(
+                    "alias_order",
+                    "int",
+                    False,
+                    2,
+                    "Largest interaction listed in the alias structure",
+                ),
+            ],
+            returns="FactorialDesignResult",
+            example="sp.factorial_design(5, n_runs=16).summary()",
+            tags=[
+                "design of experiments",
+                "factorial",
+                "fractional factorial",
+                "resolution",
+                "aliasing",
+                "conjoint",
+            ],
+            reference="box2005statistics; wu2021experiments",
+            alternatives=["doe_optimal", "space_filling", "randomize"],
+            limitations=[
+                "Fractions are built for two-level factors only",
+                "Minimum-aberration search only up to 30,000 generator "
+                "choices (about 9 factors in 32 or 64 runs); beyond that "
+                "generators= is required",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="design_aberration",
+            category="experimental",
+            description=(
+                "Generalized word length pattern, resolution and strength "
+                "of any factorial design, regular or not, with factors at "
+                "any number of levels: how badly main effects and "
+                "interactions are confounded (R DoE.base::GWLP)."
+            ),
+            params=[
+                ParamSpec("design", "DataFrame", True, None, "One row per run"),
+                ParamSpec(
+                    "factors", "list[str]", False, None, "Columns to use (default all)"
+                ),
+                ParamSpec(
+                    "max_order",
+                    "int",
+                    False,
+                    None,
+                    "Largest word length (default min(factors, 6))",
+                ),
+            ],
+            returns="Series",
+            example="sp.design_aberration(sp.factorial_design(5, n_runs=16).design)",
+            tags=[
+                "design of experiments",
+                "factorial",
+                "aberration",
+                "orthogonal array",
+            ],
+            reference="xu2001generalized",
+            alternatives=["factorial_design", "design_criteria"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="factorial_effects",
+            category="experimental",
+            description=(
+                "Main effects and interactions of a two-level factorial "
+                "experiment, with Lenth's pseudo standard error, margins of "
+                "error and p-values for unreplicated designs (simulated null "
+                "as in R unrepx, or the t(m/3) approximation) and a "
+                "half-normal plot. Aliased terms are detected and reported."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per run"),
+                ParamSpec("y", "str", True, None, "Response column"),
+                ParamSpec(
+                    "factors",
+                    "list[str]",
+                    False,
+                    None,
+                    "Two-level factor columns (default: all two-valued columns)",
+                ),
+                ParamSpec("order", "int", False, None, "Largest interaction fitted"),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the margins"),
+                ParamSpec(
+                    "reference",
+                    "str",
+                    False,
+                    "simulated",
+                    "Null distribution of effect / PSE",
+                    enum=["simulated", "t"],
+                ),
+                ParamSpec("n_sim", "int", False, 20000, "Simulated null sets"),
+                ParamSpec("seed", "int", False, 0, "Seed of the simulation"),
+            ],
+            returns="FactorialEffectsResult",
+            example='sp.factorial_effects(df, "y", factors=["A", "B", "C"]).summary()',
+            tags=[
+                "design of experiments",
+                "factorial",
+                "effects",
+                "lenth",
+                "half-normal plot",
+                "unreplicated",
+            ],
+            reference="lenth1989quick; daniel1959use; box2005statistics",
+            assumptions=[
+                "Effect sparsity: only a minority of the effects are real",
+                "Errors with constant variance",
+            ],
+            alternatives=["regress", "factorial_design"],
+            not_recommended_when=[
+                "Factors have more than two levels: fit the model with sp.regress",
+                "Half or more of the effects are real: Lenth's pseudo "
+                "standard error is then inflated and nothing is detected",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="mixture_design",
+            category="experimental",
+            description=(
+                "Design for factors that are shares summing to one "
+                "(blends, budgets, portfolios, time use): simplex-lattice, "
+                "simplex-centroid, or space-filling over the simplex or a "
+                "constrained part of it (support points)."
+            ),
+            params=[
+                ParamSpec(
+                    "components", "int | list[str]", True, None, "Number or names"
+                ),
+                ParamSpec(
+                    "kind",
+                    "str",
+                    False,
+                    "simplex_lattice",
+                    "Kind of design",
+                    enum=["simplex_lattice", "simplex_centroid", "space_filling"],
+                ),
+                ParamSpec("degree", "int", False, 2, "Degree of the lattice"),
+                ParamSpec("n", "int", False, None, "Runs of a space-filling design"),
+                ParamSpec(
+                    "lower", "list[float]", False, None, "Lower bounds on the shares"
+                ),
+                ParamSpec(
+                    "constraint",
+                    "callable",
+                    False,
+                    None,
+                    "Feasibility of candidate blends (space_filling only)",
+                ),
+                ParamSpec("total", "float", False, 1.0, "What the shares sum to"),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+            ],
+            returns="DesignResult",
+            example='sp.mixture_design(["stocks", "bonds", "cash"], degree=3)',
+            tags=["design of experiments", "mixture", "simplex", "compositional"],
+            reference="scheffe1958experiments; scheffe1963simplex; mak2018support",
+            alternatives=["factorial_design", "support_points"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="doe_optimal",
+            category="experimental",
+            description=(
+                "D-, A- or I-optimal design for a given model: where to put "
+                "the runs so that the model is estimated most precisely. "
+                "Linear models by formula, nonlinear models with parameters "
+                "in braces (locally optimal at a guess, or averaged over a "
+                "prior), logit and Poisson responses. Approximate designs "
+                "(support points and weights, certified by the equivalence "
+                "theorem) or exact n-run designs by exchange (R "
+                "AlgDesign::optFederov, ICAOD)."
+            ),
+            params=[
+                ParamSpec(
+                    "model",
+                    "str",
+                    True,
+                    None,
+                    "Formula in the factors, or a nonlinear expression with "
+                    "{parameters} in braces",
+                ),
+                ParamSpec("factors", "dict", False, None, "{name: (lower, upper)}"),
+                ParamSpec(
+                    "n",
+                    "int",
+                    False,
+                    None,
+                    "Runs of an exact design; omitted, the approximate design",
+                ),
+                ParamSpec(
+                    "criterion",
+                    "str",
+                    False,
+                    "D",
+                    "Optimality criterion",
+                    enum=["D", "A", "I"],
+                ),
+                ParamSpec(
+                    "candidates",
+                    "DataFrame",
+                    False,
+                    None,
+                    "Admissible runs instead of factors (irregular regions, "
+                    "qualitative factors)",
+                ),
+                ParamSpec(
+                    "params",
+                    "dict",
+                    False,
+                    None,
+                    "Parameter values at which a nonlinear design is optimal",
+                ),
+                ParamSpec(
+                    "prior",
+                    "dict",
+                    False,
+                    None,
+                    "{parameter: (lower, upper)} or scipy distributions; the "
+                    "criterion is averaged over it",
+                ),
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    "gaussian",
+                    "Response distribution",
+                    enum=["gaussian", "binomial", "poisson"],
+                ),
+                ParamSpec("grid", "int", False, None, "Grid points per factor"),
+                ParamSpec("n_prior", "int", False, 32, "Draws from the prior"),
+                ParamSpec(
+                    "n_starts", "int", False, None, "Random starts of the exchange"
+                ),
+                ParamSpec(
+                    "max_iter", "int", False, 3000, "Iterations of the weight algorithm"
+                ),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+            ],
+            returns="ModelDesignResult",
+            example='sp.doe_optimal("x + I(x**2)", {"x": (-1, 1)})',
+            tags=[
+                "design of experiments",
+                "optimal design",
+                "d-optimal",
+                "fedorov",
+                "nonlinear",
+                "dose finding",
+            ],
+            reference=(
+                "kiefer1960equivalence; fedorov1972theory; yu2010monotonic; "
+                "chaloner1995bayesian"
+            ),
+            assumptions=[
+                "The model given is the model that will be fitted",
+                "For a nonlinear model without prior=: the parameter guess "
+                "is close to the truth",
+            ],
+            alternatives=["space_filling", "factorial_design", "optimal_design"],
+            not_recommended_when=[
+                "The functional form is in doubt: an optimal design puts "
+                "the runs on a few support points and cannot detect lack of fit",
+                "The question is how many units to randomise in an RCT: "
+                "that is sp.optimal_design / sp.power",
+                "A certified optimal exact design is required: the n-run "
+                "search is a multi-start exchange without a guarantee "
+                "(check .efficiency)",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="sobol_indices",
+            category="experimental",
+            description=(
+                "Variance-based global sensitivity analysis of a model: "
+                "first-order and total Sobol' indices of each input with "
+                "bootstrap intervals (Jansen or Saltelli estimator, Sobol' "
+                "sampling). Which parameters or assumptions drive the output "
+                "of a structural model, simulator or fitted surrogate "
+                "(R sensitivity::soboljansen)."
+            ),
+            params=[
+                ParamSpec(
+                    "func",
+                    "callable",
+                    True,
+                    None,
+                    "The model: receives the runs, returns one number per run",
+                ),
+                ParamSpec(
+                    "factors",
+                    "int | list[str] | dict",
+                    True,
+                    None,
+                    "Inputs: number, names, or {name: (lower, upper) | "
+                    "scipy distribution}",
+                ),
+                ParamSpec(
+                    "n", "int", False, 1024, "Base sample; n (p + 2) evaluations"
+                ),
+                ParamSpec(
+                    "estimator",
+                    "str",
+                    False,
+                    "jansen",
+                    "First-order estimator",
+                    enum=["jansen", "saltelli"],
+                ),
+                ParamSpec(
+                    "sampling",
+                    "str",
+                    False,
+                    "sobol",
+                    "How inputs are drawn",
+                    enum=["sobol", "random"],
+                ),
+                ParamSpec(
+                    "pass_as",
+                    "str",
+                    False,
+                    "frame",
+                    "What func receives",
+                    enum=["frame", "array", "rows"],
+                ),
+                ParamSpec("n_boot", "int", False, 200, "Bootstrap replications"),
+                ParamSpec("level", "float", False, 0.95, "Interval level"),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+                ParamSpec("A", "DataFrame | array", False, None, "First input sample"),
+                ParamSpec("B", "DataFrame | array", False, None, "Second input sample"),
+            ],
+            returns="SobolResult",
+            example=(
+                'sp.sobol_indices(model, {"beta": (0.9, 0.99), "gamma": (1, 5)}, '
+                "n=1024)"
+            ),
+            tags=[
+                "sensitivity analysis",
+                "sobol",
+                "variance decomposition",
+                "uncertainty quantification",
+                "structural model",
+            ],
+            reference=(
+                "sobol2001global; jansen1999analysis; saltelli2010variance; "
+                "harenberg2019uncertainty"
+            ),
+            assumptions=["Independent inputs"],
+            alternatives=["morris_screening", "sensemakr", "spec_curve"],
+            not_recommended_when=[
+                "Sensitivity of a causal estimate to unobserved confounding "
+                "is the question: that is sp.sensemakr / sp.evalue",
+                "Each model evaluation is expensive and there are many "
+                "inputs: screen with sp.morris_screening first, or run the "
+                "indices on a surrogate fitted by sp.gp_regress",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="morris_screening",
+            category="experimental",
+            description=(
+                "Morris elementary-effects screening of a model's inputs "
+                "with one-factor-at-a-time trajectories: mu, mu* and sigma "
+                "per input from r (p + 1) runs. A cheap first pass before "
+                "Sobol' indices (R sensitivity::morris)."
+            ),
+            params=[
+                ParamSpec(
+                    "func", "callable", True, None, "The model (None with design and y)"
+                ),
+                ParamSpec(
+                    "factors",
+                    "int | list[str] | dict",
+                    True,
+                    None,
+                    "Inputs: number, names, or {name: (lower, upper)}",
+                ),
+                ParamSpec("r", "int", False, 10, "Trajectories"),
+                ParamSpec("levels", "int", False, 4, "Grid points per input"),
+                ParamSpec(
+                    "grid_jump", "int", False, None, "Grid steps per move (levels // 2)"
+                ),
+                ParamSpec(
+                    "pass_as",
+                    "str",
+                    False,
+                    "frame",
+                    "What func receives",
+                    enum=["frame", "array", "rows"],
+                ),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+                ParamSpec(
+                    "design",
+                    "DataFrame | array",
+                    False,
+                    None,
+                    "Trajectories already run",
+                ),
+                ParamSpec("y", "list", False, None, "Outputs of design"),
+            ],
+            returns="MorrisResult",
+            example='sp.morris_screening(model, ["a", "b", "c"], r=10, seed=1)',
+            tags=["sensitivity analysis", "screening", "morris", "elementary effects"],
+            reference="morris1991factorial; campolongo2007effective",
+            alternatives=["sobol_indices", "factorial_design"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="support_points",
+            category="experimental",
+            description=(
+                "Support points: the n points that best represent a sample "
+                "or a distribution in energy distance. To propagate input "
+                "uncertainty through an expensive model with few runs, thin "
+                "an MCMC sample, or pick representative observations "
+                "(R support::sp)."
+            ),
+            params=[
+                ParamSpec(
+                    "data",
+                    "DataFrame | array | dict",
+                    True,
+                    None,
+                    "A sample, or {name: scipy.stats distribution}",
+                ),
+                ParamSpec("n", "int", True, None, "Number of points"),
+                ParamSpec("columns", "list[str]", False, None, "Columns to use"),
+                ParamSpec(
+                    "weights", "str | array", False, None, "Weights of the draws"
+                ),
+                ParamSpec(
+                    "subsample",
+                    "bool",
+                    False,
+                    False,
+                    "Return rows of the data nearest to the points",
+                ),
+                ParamSpec(
+                    "standardize", "bool", False, True, "Scale columns by their sd"
+                ),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+                ParamSpec("n_starts", "int", False, 1, "Random starts"),
+                ParamSpec("max_iter", "int", False, 500, "Iterations"),
+                ParamSpec("tol", "float", False, 1e-4, "Convergence tolerance"),
+                ParamSpec(
+                    "max_sample",
+                    "int",
+                    False,
+                    50000,
+                    "Larger samples are thinned for the optimisation",
+                ),
+            ],
+            returns="SupportPointsResult",
+            example="sp.support_points(draws, 50, seed=1).points",
+            tags=[
+                "representative points",
+                "energy distance",
+                "uncertainty propagation",
+                "subsampling",
+                "quasi-monte carlo",
+            ],
+            reference="mak2018support; szekely2013energy",
+            alternatives=["split_data", "space_filling", "energy_distance"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="split_data",
+            category="experimental",
+            description=(
+                "Split data into training and test sets that both resemble "
+                "the whole data set in joint distribution, outcome included: "
+                "SPlit (support points) or twinning. Removes the luck of a "
+                "random split from a measured test error (R SPlit, "
+                "twinning::twin)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per observation"),
+                ParamSpec("test_size", "float", False, 0.2, "Share of test rows"),
+                ParamSpec(
+                    "columns", "list[str]", False, None, "Columns that define the split"
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "auto",
+                    "Algorithm",
+                    enum=["auto", "support", "twinning"],
+                ),
+                ParamSpec(
+                    "start", "int", False, None, "Twinning: starting row position"
+                ),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+                ParamSpec("max_iter", "int", False, 500, "Support-point iterations"),
+                ParamSpec("tol", "float", False, 1e-4, "Support-point tolerance"),
+            ],
+            returns="DataSplitResult",
+            example="train, test = sp.split_data(df, test_size=0.2, seed=1)",
+            tags=["train test split", "data splitting", "twinning", "validation"],
+            reference="joseph2022split; vakayil2022data",
+            alternatives=["cross_validate", "support_points"],
+            not_recommended_when=[
+                "The procedure relies on the two parts being independent "
+                "random samples (cross-fitting in sp.dml, honest splitting "
+                "in forests, sample-split inference): use a random split there",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="sequential_design",
+            category="experimental",
+            description=(
+                "Choose the runs of an expensive function one at a time "
+                "with a Gaussian process: Bayesian optimisation by expected "
+                "improvement (minimise or maximise), or active learning of "
+                "the whole surface. For simulated-moments objectives, "
+                "expensive tuning, and building emulators."
+            ),
+            params=[
+                ParamSpec("func", "callable", True, None, "The function to evaluate"),
+                ParamSpec("factors", "dict", True, None, "{name: (lower, upper)}"),
+                ParamSpec("n_new", "int", False, 20, "Runs added sequentially"),
+                ParamSpec(
+                    "goal",
+                    "str",
+                    False,
+                    "minimize",
+                    "What the runs are chosen for",
+                    enum=["minimize", "maximize", "emulate"],
+                ),
+                ParamSpec(
+                    "n_init", "int", False, None, "Initial MaxPro runs (max(5p, 6))"
+                ),
+                ParamSpec("design", "DataFrame", False, None, "Runs already made"),
+                ParamSpec("y", "list", False, None, "Their responses"),
+                ParamSpec(
+                    "kernel",
+                    "str",
+                    False,
+                    "rbf",
+                    "Kernel of the surrogate",
+                    enum=["rbf", "matern52", "matern32"],
+                ),
+                ParamSpec(
+                    "noisy", "bool", False, False, "The function has random noise"
+                ),
+                ParamSpec(
+                    "n_candidates", "int", False, None, "Candidates scored per step"
+                ),
+                ParamSpec(
+                    "pass_as",
+                    "str",
+                    False,
+                    "frame",
+                    "What func receives",
+                    enum=["frame", "array", "rows"],
+                ),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+            ],
+            returns="SequentialDesignResult",
+            example=(
+                'sp.sequential_design(objective, {"a": (0, 1), "b": (0, 1)}, '
+                "n_new=20)"
+            ),
+            tags=[
+                "bayesian optimization",
+                "expected improvement",
+                "active learning",
+                "gaussian process",
+                "surrogate",
+            ],
+            reference="jones1998efficient; sacks1989design",
+            alternatives=["gp_regress", "space_filling", "design_augment"],
+            not_recommended_when=[
+                "The function is cheap: use a standard optimiser",
+                "More than about ten inputs, or a function with jumps: a "
+                "Gaussian process is a poor surrogate there",
             ],
         )
     )

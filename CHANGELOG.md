@@ -55,6 +55,81 @@ Guide: `docs/guides/schuler_vanderlaan_modern_causal_inference.md`.
   ratio scale, with the curve of the implied causal estimate over
   hypothetical gaps.
 
+### Design of experiments: `statspai.doe`
+
+From a pass over V. Roshan Joseph, *Experimental Design for Data Science
+and Engineering* (2025). Review: `docs/dev/
+2026-10-07-joseph-experimental-design-review.md`. Guide: `docs/guides/
+design_of_experiments.md`.
+
+#### Added
+
+- **`sp.factorial_design`**: full factorials for factors with any number
+  of levels and two-level fractions `2^(k-m)`, from generators or by a
+  minimum-aberration search, with defining relation, resolution, word
+  length pattern and alias structure. The word length patterns equal those
+  of R `FrF2` for 17 design sizes from 8 to 64 runs.
+- **`sp.factorial_effects`**: effects of a two-level factorial, with
+  Lenth's pseudo standard error, margins of error and p-values for designs
+  without replication, and a half-normal plot. The null distribution is
+  simulated, as in Lenth's R package `unrepx`; the t approximation of the
+  1989 paper (`reference='t'`) flags 2.1% of null effects at a nominal 5%
+  with seven effects. Aliased terms are detected and listed.
+- **`sp.design_aberration`**: generalized word length pattern of any
+  factorial design, regular or not, mixed levels included (R
+  `DoE.base::GWLP`, equal to 1e-10).
+- **`sp.mixture_design`**: simplex-lattice, simplex-centroid and
+  space-filling designs for factors that are shares.
+- **`sp.doe_optimal`**: D-, A- and I-optimal designs for a linear model
+  given by a formula, a nonlinear model with parameters in braces (locally
+  optimal, or averaged over a prior) and logit / Poisson responses.
+  Approximate designs carry the equivalence-theorem bound on their
+  efficiency; exact designs their efficiency relative to the approximate
+  optimum. The closed-form designs for polynomial, exponential and
+  logistic models are recovered, and two exact designs have the criterion
+  value of R `AlgDesign::optFederov`.
+- **`sp.space_filling`**, **`sp.design_augment`**,
+  **`sp.design_criteria`**: maximum projection, maximin and uniform Latin
+  hypercubes, random Latin hypercubes, scrambled Sobol' and Halton points;
+  greedy augmentation of an existing design, also on a constrained region;
+  and the measures by which such designs are compared. Criteria equal R
+  `SFDesign` to 1e-12 and augmentation picks the runs of
+  `MaxPro::MaxProAugment`. The search itself is stochastic: its designs
+  score on par with or better than `SFDesign`'s, which is a screen and not
+  a parity claim.
+- **`sp.sobol_indices`**, **`sp.morris_screening`**: global sensitivity
+  analysis of a model's inputs. First-order and total Sobol' indices with
+  bootstrap intervals, and elementary-effects screening. Equal to R
+  `sensitivity` from the same runs (for `soboljansen` after its `2n - 1`
+  divisor is undone; the paper divides by `2n`).
+- **`sp.support_points`**, **`sp.split_data`**: the `n` points that best
+  represent a sample or a distribution in energy distance, and a train /
+  test split in which the test set has the joint distribution of the data
+  (SPlit, or twinning for large data). Twinning returns the rows of R
+  `twinning::twin` from the same start.
+- **`sp.sequential_design`**: Bayesian optimisation by expected
+  improvement, or active learning of a whole surface, with a Gaussian
+  process surrogate.
+- **`sp.gp_regress(interpolate=True)`** for noise-free outcomes,
+  **`likelihood='ml'`** for the profile likelihood, and
+  **`GPResult.expected_improvement()`**.
+
+#### ⚠️ Correctness
+
+- **`sp.gp_regress` could return a fit that reverts to the mean between
+  the data points.** When the length scale is far below the spacing of the
+  data, the marginal likelihood does not depend on it and has zero
+  gradient. An optimiser that steps into that region stays there, and the
+  default start plus the random restarts could all end in it. On ten sites
+  observed twice with noise the function returned a length scale of 0.0014
+  with log likelihood -1.2447, where the maximum is at 0.048 with -1.2107
+  (the value R `rkriging` finds), and predictions between the sites were
+  off by up to 0.79 on a function of range 1.5. The likelihood is now
+  scanned over a coarse grid of length scales and noise shares first, and
+  the best two grid points are added as starts. Fits that were at the
+  maximum already are unchanged. A fit whose length scale is below a
+  quarter of the smallest gap in the data now says so in a note.
+
 ### `sp.callaway_santanna(balance=)`: the three rules for an unbalanced panel
 
 #### Added

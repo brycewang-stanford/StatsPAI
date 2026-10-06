@@ -53,6 +53,7 @@ def _fit_pieces(
     signal_var: float,
     noise_var: float,
     mean: Optional[float],
+    reml: bool = True,
 ) -> Dict[str, Any]:
     """Cholesky factor, mean, weights and log marginal likelihood."""
     n = y.size
@@ -66,13 +67,17 @@ def _fit_pieces(
         m = float(ki1 @ y) / s11
         resid = y - m
         w = linalg.cho_solve((chol, True), resid)
-        # restricted likelihood: the constant has a flat prior
-        lml = (
-            -0.5 * float(resid @ w)
-            - 0.5 * logdet
-            - 0.5 * np.log(s11)
-            - 0.5 * (n - 1) * np.log(2.0 * np.pi)
-        )
+        if reml:
+            # restricted likelihood: the constant has a flat prior
+            lml = (
+                -0.5 * float(resid @ w)
+                - 0.5 * logdet
+                - 0.5 * np.log(s11)
+                - 0.5 * (n - 1) * np.log(2.0 * np.pi)
+            )
+        else:
+            # profile likelihood: the constant is replaced by its estimate
+            lml = -0.5 * float(resid @ w) - 0.5 * logdet - 0.5 * n * np.log(2.0 * np.pi)
     else:
         m, ki1, s11 = float(mean), None, None
         resid = y - m
@@ -180,6 +185,46 @@ class GPResult(ResultProtocolMixin):
             index=index,
         )
 
+    def expected_improvement(
+        self,
+        newdata: pd.DataFrame,
+        minimize: bool = True,
+        best: Optional[float] = None,
+    ) -> pd.Series:
+        """Expected improvement over the best value seen so far.
+
+        The criterion of efficient global optimisation (Jones, Schonlau
+        and Welch 1998): large where the predicted value is good, or
+        where it is uncertain. The next point to evaluate is the one
+        that maximises it.
+
+        Parameters
+        ----------
+        newdata : DataFrame
+            Candidate points.
+        minimize : bool, default True
+            Whether small or large outcomes are wanted.
+        best : float, optional
+            The value to improve on. Default: the smallest (largest)
+            outcome in the sample.
+
+        Returns
+        -------
+        Series
+            ``E[max(best - Y(x), 0)]`` for each candidate (``Y(x) -
+            best`` when maximising), from the posterior of the
+            regression function.
+        """
+        pred = self.predict(newdata)
+        info = self.model_info
+        if best is None:
+            best = info["y_min"] if minimize else info["y_max"]
+        sd = np.maximum(pred["sd"].to_numpy(), 1e-12)
+        gap = (best - pred["mean"].to_numpy()) * (1.0 if minimize else -1.0)
+        u = gap / sd
+        ei = sd * (u * stats.norm.cdf(u) + stats.norm.pdf(u))
+        return pd.Series(ei, index=pred.index, name="expected_improvement")
+
     def summary(self) -> str:
         lines = [
             f"Gaussian process regression ({self.kernel} kernel)    {self.formula}",
@@ -221,6 +266,8 @@ def gp_regress(
     restarts: int = 4,
     seed: Optional[int] = None,
     level: float = 0.95,
+    interpolate: bool = False,
+    likelihood: str = "reml",
 ) -> GPResult:
     """Gaussian process regression.
 
@@ -256,12 +303,27 @@ def gp_regress(
     seed : int, optional
         For the random starting points.
     level : float, default 0.95
+    interpolate : bool, default False
+        The outcome has no noise (the output of a deterministic computer
+        model or simulator with fixed random numbers): the fit passes
+        through the data and the bands shrink to zero at the sample
+        points. The noise variance is fixed at a negligible value that
+        keeps the kernel matrix invertible instead of being estimated.
+    likelihood : {'reml', 'ml'}, default 'reml'
+        How the constant mean is treated when the hyperparameters are
+        estimated. ``'reml'`` integrates it out under a flat prior;
+        ``'ml'`` replaces it by its estimate (the profile likelihood, the
+        convention of kriging software such as R's ``rkriging`` and
+        ``DiceKriging``). They differ in small samples; REML gives
+        somewhat larger variances.
 
     Returns
     -------
     GPResult
         ``params`` holds the hyperparameters, ``predict()`` the posterior
-        mean and bands of the regression function at any points.
+        mean and bands of the regression function at any points,
+        ``expected_improvement()`` the criterion for choosing the next
+        point when the function is being minimised or maximised.
 
     Notes
     -----
@@ -299,6 +361,16 @@ def gp_regress(
         )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
+    lik = str(likelihood).lower()
+    if lik not in ("reml", "ml"):
+        raise MethodIncompatibility(
+            f"likelihood must be 'reml' or 'ml'; got {likelihood!r}."
+        )
+    reml = lik == "reml"
+    if interpolate and noise_var is not None:
+        raise MethodIncompatibility(
+            "interpolate=True fixes the noise variance; do not pass noise_var."
+        )
     y_df, X_df = create_design_matrices(formula, data)
     y = np.asarray(y_df, dtype=float).reshape(-1)
     Xall = np.asarray(X_df, dtype=float)
@@ -327,6 +399,11 @@ def gp_regress(
         len0 = np.broadcast_to(np.asarray(length_scale, dtype=float), (n_len,)).copy()
     sf0 = 0.5 * vy if signal_var is None else float(signal_var)
     sn0 = 0.5 * vy if noise_var is None else float(noise_var)
+    jitter = 1e-8 * vy
+    if interpolate:
+        sn0 = jitter
+        if signal_var is None:
+            sf0 = vy
     if np.any(len0 <= 0) or sf0 <= 0 or sn0 < 0:
         raise MethodIncompatibility(
             "length_scale and signal_var must be positive, noise_var non-negative."
@@ -343,8 +420,9 @@ def gp_regress(
                 y,
                 expand(np.exp(theta[:n_len])),
                 float(np.exp(theta[n_len])),
-                float(np.exp(theta[n_len + 1])),
+                jitter if interpolate else float(np.exp(theta[n_len + 1])),
                 mean,
+                reml,
             )
         except linalg.LinAlgError:
             return 1e25
@@ -359,6 +437,27 @@ def gp_regress(
             start + rng.normal(0.0, 1.0, start.size)
             for _ in range(max(int(restarts), 0))
         ]
+        # The likelihood is flat where the length scale is far below the
+        # spacing of the data (every point is then its own island), and an
+        # optimiser started there does not leave. So the surface is first
+        # scanned over a coarse grid of length scales and noise shares,
+        # and the best two points of the scan are added as starts.
+        if length_scale is None:
+            scan = []
+            for mult in (3.0, 1.0, 0.5, 0.2, 0.1, 0.05, 0.02):
+                for share in (0.5, 0.05, 0.005):
+                    cand = np.log(
+                        np.r_[
+                            mult * len0,
+                            vy * (1.0 if interpolate else 1.0 - share),
+                            max(share * vy, 1e-8 * vy),
+                        ]
+                    )
+                    scan.append((neg(cand), cand))
+                    if interpolate:
+                        break
+            scan.sort(key=lambda item: item[0])
+            starts += [cand for val, cand in scan[:2] if val < 1e24]
         lo = np.log(np.r_[np.full(n_len, 1e-3) * len0, 1e-6 * vy, 1e-10 * vy])
         hi = np.log(np.r_[np.full(n_len, 1e4) * len0, 1e6 * vy, 1e3 * vy])
         best = None
@@ -379,7 +478,7 @@ def gp_regress(
         length, sf, sn = (
             np.exp(th[:n_len]),
             float(np.exp(th[n_len])),
-            float(np.exp(th[n_len + 1])),
+            jitter if interpolate else float(np.exp(th[n_len + 1])),
         )
         estimation = "maximum marginal likelihood"
         at_bound = np.isclose(th, lo, atol=1e-6) | np.isclose(th, hi, atol=1e-6)
@@ -395,7 +494,22 @@ def gp_regress(
                 + ": a very large value means the regressor does not matter, "
                 "a very small one that the fit interpolates noise."
             )
-    pieces = _fit_pieces(kind, X, y, expand(length), sf, sn, mean)
+    gaps = []
+    for j in range(k):
+        u = np.unique(X[:, j])
+        gaps.append(float(np.diff(u).min()) if u.size > 1 else np.inf)
+    short = [nm for nm, lj, g in zip(names, expand(length), gaps) if lj < g / 4.0]
+    if short and k == 1:
+        notes.append(
+            "The length scale is below a quarter of the smallest gap between "
+            "the observed values of "
+            + ", ".join(short)
+            + ": the fit says nothing between the data points and reverts to "
+            "the mean there. With replicated or widely spaced designs the "
+            "likelihood can prefer this; fix length_scale if a smooth "
+            "function is expected."
+        )
+    pieces = _fit_pieces(kind, X, y, expand(length), sf, sn, mean, reml)
     labels = [f"length_scale[{nm}]" for nm in names] if ard else ["length_scale"]
     params = pd.Series(
         np.r_[length, sf, sn, pieces["mean"]],
@@ -429,6 +543,10 @@ def gp_regress(
             "estimation": estimation,
             "ard": bool(ard),
             "mean": "estimated (flat prior)" if mean is None else "fixed",
+            "interpolate": bool(interpolate),
+            "likelihood": lik,
+            "y_min": float(y.min()),
+            "y_max": float(y.max()),
             "notes": notes,
             "regressors": names,
         },

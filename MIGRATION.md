@@ -19,6 +19,25 @@ and `estimand='ATT'` spelled exactly so are unchanged.
 
 **What to do.** Rerun. The new value is the ATE that was asked for.
 
+## 1.38.0 → next: ⚠️ `sp.gp_regress` hyperparameters on coarse or replicated designs
+
+**What changed.** Before maximising the marginal likelihood the function
+now evaluates it on a coarse grid of length scales and noise shares and
+adds the two best grid points to the starting values. The likelihood is
+flat where the length scale is far below the spacing of the data, and a
+search that entered that region did not leave it.
+
+**Who is affected.** Fits that ended on that plateau: typically one
+regressor observed at few distinct, replicated or widely spaced values,
+with the default starting values. Such a fit had a very small length scale
+and predictions that returned to the mean between the data points. Fits
+that were at the maximum are unchanged, and so is every call with
+`optimize_hyper=False` or with `length_scale=` given.
+
+**What to do.** Nothing in calling code. If a stored fit had a length
+scale below the smallest gap between observed values, refit; the log
+marginal likelihood of the new fit is at least as high.
+
 ## 1.38.0 → next: ⚠️ aggregated SEs of weighted Callaway-Sant'Anna on repeated cross-sections
 
 **What changed.** After `sp.callaway_santanna(..., weights=...)` with
