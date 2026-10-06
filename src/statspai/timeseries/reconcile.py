@@ -279,6 +279,31 @@ class ReconcileResult(ResultProtocolMixin):
     weights: Optional[np.ndarray] = None
     shrinkage: Optional[float] = None
     adjustment: Optional[pd.DataFrame] = field(default=None, repr=False)
+    sd: Optional[pd.DataFrame] = field(default=None, repr=False)
+
+    def intervals(self, level: float = 95) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Lower and upper bounds of the reconciled normal prediction
+        intervals, laid out like ``forecasts``.
+
+        Available when ``sd=`` was given to :func:`statspai.reconcile`.
+        ``level`` is the coverage in percent.
+        """
+        if self.sd is None:
+            raise MethodIncompatibility(
+                "intervals: no forecast standard deviations were reconciled.",
+                recovery_hint="Pass sd= (the base forecasts' standard "
+                "deviations) to sp.reconcile.",
+            )
+        from scipy import stats
+
+        pct = float(level) * 100.0 if 0.0 < float(level) < 1.0 else float(level)
+        if not 0.0 < pct < 100.0:
+            raise MethodIncompatibility(
+                f"intervals: level={level!r} is not a coverage in percent.",
+                recovery_hint="Use e.g. level=95.",
+            )
+        z = float(stats.norm.ppf(0.5 + pct / 200.0))
+        return self.forecasts - z * self.sd, self.forecasts + z * self.sd
 
     def summary(self) -> str:
         n, nb = self.G.shape[1], self.G.shape[0]
@@ -330,6 +355,7 @@ def reconcile(
     residuals: Any = None,
     history: Any = None,
     proportions: str = "average",
+    sd: Any = None,
 ) -> ReconcileResult:
     """Reconcile base forecasts of a hierarchical or grouped structure.
 
@@ -366,11 +392,19 @@ def reconcile(
         the total. ``"of_averages"``: its mean divided by the mean of
         the total.
 
+    sd : pd.DataFrame or array-like, optional
+        Standard deviations of the base forecasts, laid out like ``base``
+        (for a forecast table, ``(upper - lower) / (2 z)``). When given,
+        the result carries the standard deviations of the reconciled
+        forecasts in ``sd`` and ``intervals(level)`` returns their normal
+        prediction intervals.
+
     Returns
     -------
     ReconcileResult
         ``forecasts`` (coherent), ``G``, ``weights``, ``shrinkage``,
-        ``adjustment`` (reconciled minus base).
+        ``adjustment`` (reconciled minus base), and with ``sd=`` the
+        reconciled ``sd`` and ``intervals(level)``.
 
     Notes
     -----
@@ -384,9 +418,16 @@ def reconcile(
     by the number of periods and do not centre them, as R's
     ``hts::MinT`` does.
 
-    Prediction intervals are not reconciled here. Under normal base
-    forecasts with covariance ``W_h`` the reconciled covariance is
-    ``S G W_h G' S'``; ``G`` is returned for that purpose.
+    Intervals. Under normal base forecasts with covariance ``W_h`` the
+    reconciled forecasts are normal with covariance ``S G W_h G' S'``
+    (Panagiotelis et al., 2023). With ``sd=``, ``W_h`` is built from the
+    base forecasts' standard deviations at each horizon and the
+    correlations of the residual covariance the method estimated
+    (``mint_shrink``, ``mint_cov``); the other methods estimate no
+    correlations and the base forecast errors are taken as uncorrelated.
+    Reconciled intervals are usually narrower than the base ones at the
+    aggregate levels. This is the ``Normality`` method of
+    hierarchicalforecast.
 
     Examples
     --------
@@ -406,7 +447,7 @@ def reconcile(
     References
     ----------
     wickramasuriya2019optimal, hyndman2011optimal, schafer2005shrinkage,
-    hyndman2026fpppy
+    panagiotelis2023probabilistic, hyndman2026fpppy
     """
     if isinstance(S, Hierarchy):
         S = S.S
@@ -575,6 +616,31 @@ def reconcile(
     else:
         out = pd.DataFrame(rec, columns=ids)
         adj = pd.DataFrame(rec - yhat, columns=ids)
+    sd_rec: Optional[pd.DataFrame] = None
+    if sd is not None:
+        sig = align(sd, "sd")
+        if sig.shape != yhat.shape:
+            raise MethodIncompatibility(
+                f"reconcile: sd has shape {sig.shape}, base {yhat.shape}.",
+                recovery_hint="One standard deviation per base forecast.",
+            )
+        if not np.isfinite(sig).all() or (sig < 0).any():
+            raise MethodIncompatibility(
+                "reconcile: sd has missing or negative values.",
+                recovery_hint="Give the standard deviation of every base forecast.",
+            )
+        corr = np.eye(n)
+        if W is not None and key in ("mint_shrink", "mint_cov"):
+            d = np.sqrt(np.diag(W))
+            corr = W / np.outer(d, d)
+        SG = Sm @ G
+        var = np.empty_like(sig)
+        for r in range(sig.shape[0]):
+            cov_h = corr * np.outer(sig[r], sig[r])
+            var[r] = np.einsum("ij,jk,ik->i", SG, cov_h, SG)
+        sd_rec = pd.DataFrame(
+            np.sqrt(np.maximum(var, 0.0)), index=out.index, columns=ids
+        )
     return ReconcileResult(
         forecasts=out,
         method=key,
@@ -582,4 +648,5 @@ def reconcile(
         weights=W,
         shrinkage=lam,
         adjustment=adj,
+        sd=sd_rec,
     )

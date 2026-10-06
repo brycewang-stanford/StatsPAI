@@ -903,3 +903,85 @@ def test_forecasting_functions_are_registered_and_ets_is_lazy():
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert out.returncode == 0, out.stderr
+
+
+# ----------------------------------------------------------------------
+# reconciled prediction intervals
+# ----------------------------------------------------------------------
+def _three_level():
+    S = np.array([[1, 1, 1, 1], [1, 1, 0, 0], [0, 0, 1, 1], *np.eye(4)], dtype=float)
+    ids = ["T", "A", "B", "a1", "a2", "b1", "b2"]
+    return pd.DataFrame(S, index=ids, columns=ids[3:]), ids
+
+
+def test_reconciled_sd_of_bottom_up_is_the_sum_of_independent_variances():
+    Sd, ids = _three_level()
+    base = pd.DataFrame([[100.0, 40.0, 60.0, 15.0, 25.0, 20.0, 40.0]], columns=ids)
+    sd = pd.DataFrame([[9.0, 5.0, 6.0, 1.0, 2.0, 3.0, 4.0]], columns=ids)
+    rec = sp.reconcile(base, Sd, method="bottom_up", sd=sd)
+    got = rec.sd.iloc[0]
+    assert got[["a1", "a2", "b1", "b2"]].tolist() == [1.0, 2.0, 3.0, 4.0]
+    assert got["A"] == pytest.approx(np.sqrt(1 + 4))
+    assert got["B"] == pytest.approx(np.sqrt(9 + 16))
+    assert got["T"] == pytest.approx(np.sqrt(30))
+    lo, hi = rec.intervals(95)
+    z = 1.959963984540054
+    np.testing.assert_allclose(hi - rec.forecasts, z * rec.sd, rtol=1e-12)
+    np.testing.assert_allclose(rec.forecasts - lo, z * rec.sd, rtol=1e-12)
+    lo80, _ = rec.intervals(0.8)
+    assert (lo80 > lo).all().all()
+
+
+@pytest.mark.parametrize("method", ["ols", "wls_struct", "wls_var", "mint_shrink"])
+def test_reconciled_sd_is_the_sd_of_reconciled_normal_draws(method):
+    """Independent evidence: draw base forecasts from the normal law the
+    intervals assume, reconcile each draw, and compare standard deviations."""
+    Sd, ids = _three_level()
+    rng = np.random.default_rng(5)
+    A = rng.normal(size=(7, 7))
+    res = pd.DataFrame(rng.normal(size=(80, 7)) @ A * 0.3, columns=ids)
+    base = pd.DataFrame(
+        [Sd.to_numpy() @ np.array([15.0, 25.0, 20.0, 40.0])], columns=ids
+    )
+    sd = pd.DataFrame([[4.0, 3.0, 3.5, 1.5, 2.0, 2.5, 3.0]], columns=ids)
+    rec = sp.reconcile(base, Sd, method=method, residuals=res, sd=sd)
+    corr = np.eye(7)
+    if method == "mint_shrink":
+        d = np.sqrt(np.diag(rec.weights))
+        corr = rec.weights / np.outer(d, d)
+    cov = corr * np.outer(sd.to_numpy()[0], sd.to_numpy()[0])
+    draws = rng.multivariate_normal(base.to_numpy()[0], cov, size=200_000)
+    SG = Sd.to_numpy() @ rec.G.to_numpy()
+    mc = (draws @ SG.T).std(axis=0)
+    # Monte Carlo error of a standard deviation from 200k draws: 0.16%
+    np.testing.assert_allclose(rec.sd.to_numpy()[0], mc, rtol=0.01)
+    # coherent forecasts of the aggregates are less uncertain than the base ones
+    assert rec.sd.iloc[0]["T"] < sd.iloc[0]["T"]
+
+
+def test_reconcile_intervals_validate_their_inputs():
+    Sd, ids = _three_level()
+    base = pd.DataFrame([[100.0, 40.0, 60.0, 15.0, 25.0, 20.0, 40.0]], columns=ids)
+    rec = sp.reconcile(base, Sd, method="ols")
+    assert rec.sd is None
+    with pytest.raises(MethodIncompatibility, match="no forecast standard deviations"):
+        rec.intervals()
+    with pytest.raises(MethodIncompatibility, match="sd has shape"):
+        sp.reconcile(base, Sd, method="ols", sd=np.ones((2, 7)))
+    with pytest.raises(MethodIncompatibility, match="missing or negative"):
+        sp.reconcile(base, Sd, method="ols", sd=-np.ones((1, 7)))
+    ok = sp.reconcile(base, Sd, method="ols", sd=np.ones((1, 7)))
+    with pytest.raises(MethodIncompatibility, match="coverage"):
+        ok.intervals(150)
+
+
+def test_gam_smooth_term_default_is_valid_on_every_supported_python():
+    """A dataclass default of ``slice(0, 0)`` made ``import statspai`` fail
+    on Python 3.11, where ``slice`` is unhashable."""
+    import dataclasses
+
+    from statspai.regression import gam
+
+    f = {x.name: x for x in dataclasses.fields(gam._Smooth)}["cols"]
+    assert f.default is dataclasses.MISSING
+    assert f.default_factory() == slice(0, 0)

@@ -233,6 +233,19 @@ rec = sp.reconcile(base, h, method="mint_shrink", residuals=resid)
 rec.forecasts.head()
 ```
 
+With the standard deviations of the base forecasts the intervals are
+reconciled too.
+
+```python
+z80 = 1.2815515655446004
+sd = pd.DataFrame({
+    c: ((f.forecast(8)["upper_80"] - f.forecast(8)["lower_80"]) / (2 * z80)).to_numpy()
+    for c, f in fits.items()
+})
+rec = sp.reconcile(base, h, method="mint_shrink", residuals=resid, sd=sd)
+lower, upper = rec.intervals(95)
+```
+
 Methods are `bottom_up`, `top_down`, `ols`, `wls_struct`, `wls_var`,
 `mint_shrink` and `mint_cov`. The results equal `hts::MinT` and `combinef`.
 hierarchicalforecast centres the residual covariance in `mint_shrink`, which
@@ -241,7 +254,7 @@ changes the third significant digit.
 ## What is not here
 
 Prophet, neural networks and foundation models (sections 12.2, chapters 14 and
-15) are outside the scope of the package. Intervals are not reconciled.
+15) are outside the scope of the package.
 Bagged forecasts and the full `tsfeatures` catalogue are not packaged.
 
 ## Reproducing the book's numbers

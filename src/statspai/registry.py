@@ -8839,6 +8839,14 @@ def _build_registry() -> None:
                     "Top-down proportions",
                     ["average", "of_averages"],
                 ),
+                ParamSpec(
+                    "sd",
+                    "DataFrame|array",
+                    False,
+                    None,
+                    "Standard deviations of the base forecasts; gives reconciled "
+                    "sd and result.intervals(level)",
+                ),
             ],
             returns="ReconcileResult",
             example=(

@@ -515,6 +515,12 @@ is `docs/guides/forecasting_fpp.md`.
   iterations and had no seasonal search. It now follows Hyndman and
   Khandakar (2008); see Changed.
 
+- **`import statspai` failed on Python 3.11.** A dataclass in
+  `regression/gam.py` used `slice(0, 0)` as a field default; dataclasses
+  on 3.11 refuse an unhashable default, and `slice` became hashable only
+  in 3.12. The default is now a factory. Python 3.10, 3.12 and 3.13 were
+  not affected.
+
 #### Added
 
 - **`sp.ets`**: exponential smoothing as innovations state space models.
@@ -562,6 +568,11 @@ is `docs/guides/forecasting_fpp.md`.
   bottom-up, top-down, by OLS, structural or variance weights, or by
   minimum trace with a shrunk or sample covariance. Equal to `hts::MinT`
   and `combinef` to `1e-14`.
+- `sp.reconcile(sd=...)`: reconciled standard deviations and
+  `result.intervals(level)`, the normal prediction intervals of the
+  coherent forecasts. Interval widths equal hierarchicalforecast's
+  `Normality` method to `1e-14` for bottom-up, OLS and structural
+  weights.
 - `ARIMAResult.forecast(level=(80, 95), exog=..., dof_adjust=...)`:
   several coverage levels, future values of the regressors, and the
   degrees-of-freedom adjusted variance that `forecast::Arima` uses.

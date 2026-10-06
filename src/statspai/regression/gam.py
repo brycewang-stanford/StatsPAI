@@ -53,7 +53,9 @@ class _Smooth:
     Q: np.ndarray  # k x (k - 1): columns span {c : colsums(X) c = 0}
     penalty: np.ndarray  # (k - 1) x (k - 1), in the constrained basis
     root: np.ndarray  # (k - 2) x (k - 1) with root'root = penalty
-    cols: slice = slice(0, 0)
+    # a factory, not a literal: ``slice`` is unhashable before Python 3.12
+    # and dataclasses on 3.11 refuse an unhashable default
+    cols: slice = field(default_factory=lambda: slice(0, 0))
     by: Optional[str] = None  # the curve multiplies this column
     level: Any = None  # ... or is switched on for one level of it
 

@@ -127,6 +127,21 @@ unchanged: 27 of 27 comparisons with `auto.arima` agree.
 `tests/test_arma_innovations_likelihood.py` checks the likelihood against the
 filter and against closed forms for AR(1) and MA(1).
 
+Third round: `sp.reconcile(sd=)` reconciles normal prediction intervals
+(section 11.6 of the book). The reconciled covariance is `S G W_h G' S'`, with
+`W_h` built from the base forecasts' standard deviations and the correlations
+of the residual covariance a MinT method estimated. On the book's tourism
+hierarchy the interval widths equal hierarchicalforecast's `Normality` method
+to `1e-14` for bottom-up, OLS and structural weights and to `2e-11` for
+variance weights. For `mint_shrink` they differ by up to 2%, the covariance
+convention of difference 7 below. A Monte Carlo test reconciles 200,000 normal
+draws and recovers the reported standard deviations.
+
+The same round fixed an import failure that was not this pass's: a dataclass in
+`regression/gam.py` had `slice(0, 0)` as a default, which Python 3.11 refuses
+(`slice` is unhashable before 3.12). `import statspai` raised on 3.11. The
+repository venv is 3.10, where it does not show.
+
 Tests:
 
 - `tests/reference_parity/test_forecasting_r_parity.py`, 92 tests against
@@ -192,7 +207,6 @@ Tests:
 
 | Item | Note |
 | --- | --- |
-| Intervals after reconciliation | `sp.reconcile` returns point forecasts and `G`. The book reconciles normal intervals in section 11.6. |
 | Top-down by forecast proportions, middle-out | Not implemented. |
 | Box-Cox inside the forecasters | `forecast` and `fable` take `lambda=` and bias-adjust the back-transform. Here the transform is the caller's job. The docstring of `sp.boxcox_lambda` gives the adjustment. |
 | Bagged forecasts (section 12.5) | The block bootstrap of STL remainders is not packaged. |
