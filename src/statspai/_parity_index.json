@@ -4750,6 +4750,57 @@
       "tolerance": ""
     },
     {
+      "function": "design_aberration",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "design_augment",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "design_criteria",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "design_robust_event_study",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -6001,6 +6052,23 @@
       "tolerance": ""
     },
     {
+      "function": "doe_optimal",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_dose_response_parity.py"
       ],
@@ -6949,6 +7017,40 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_hansen_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "factorial_design",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "factorial_effects",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
       ],
       "tolerance": ""
     },
@@ -8539,7 +8641,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_bayes_nonparametric_exact.py"
+        "tests/reference_parity/test_bayes_nonparametric_exact.py",
+        "tests/reference_parity/test_joseph_doe_parity.py"
       ],
       "tolerance": ""
     },
@@ -13133,6 +13236,23 @@
         "tests/reference_parity/test_spdep_parity.py"
       ],
       "tolerance": "Statistic 5e-16; the p-value at 1e-7 once X is supplied so the Cliff-Ord regression-residual null can be formed. Both spdep alternatives are recorded because lm.morantest defaults to one-sided."
+    },
+    {
+      "function": "morris_screening",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "mprobit",
@@ -20256,6 +20376,23 @@
       "tolerance": ""
     },
     {
+      "function": "sobol_indices",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_source_decompose_parity.py"
       ],
@@ -20281,6 +20418,23 @@
         "tests/reference_parity/test_decomp_R_parity.py"
       ],
       "tolerance": "With gini='population': total Gini, and each source's S_k, G_k, R_k and share of the total at 1e-12. The default n/(n-1)-corrected Gini differs by exactly that factor; S_k, R_k and shares are identical."
+    },
+    {
+      "function": "space_filling",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "spatial_did",
@@ -20445,6 +20599,23 @@
         "tests/reference_parity/test_did_synth_misc_parity.py"
       ],
       "tolerance": "Direct and ring effects, their SEs and every (group, onset cohort, period) cell at 1e-9 relative on a single-cohort and a staggered spatial panel; observed agreement 1e-14. The ring construction is recomputed independently in R from the coordinates."
+    },
+    {
+      "function": "split_data",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -21109,6 +21280,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_ml_causal_recovery_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "support_points",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
       ],
       "tolerance": ""
     },

@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 423 |
 | | aligned | 52 |
 | | **subtotal** | **475** |
-| **No external software reference** | analytical-only (T1) | 375 |
+| **No external software reference** | analytical-only (T1) | 386 |
 | | external-replication (published numbers) | 56 |
-| | **subtotal** | **431** |
-| No numerical evidence yet | unverified | 589 |
+| | **subtotal** | **442** |
+| No numerical evidence yet | unverified | 600 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 475 | 890 | 896 | 53.0% |
+| estimator callables | 475 | 901 | 909 | 52.3% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 379 | 0.0% |
-| **all registered** | 475 | 906 | 1495 | 31.8% |
+| result / exception classes | 0 | 3 | 388 | 0.0% |
+| **all registered** | 475 | 917 | 1517 | 31.3% |
 
 ### Coverage by estimator family
 
@@ -63,6 +63,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
 | mendelian | 18 | 20 | 20 |
+| experimental | 3 | 17 | 20 |
 | epi | 16 | 17 | 17 |
 | power | 7 | 12 | 12 |
 | structural | 6 | 11 | 11 |
@@ -74,7 +75,6 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | frontier | 5 | 9 | 9 |
 | causal_discovery | 2 | 7 | 7 |
 | postestimation | 6 | 7 | 7 |
-| experimental | 3 | 6 | 7 |
 | survey | 6 | 6 | 6 |
 | target_trial | 0 | 6 | 6 |
 | transport | 3 | 6 | 6 |
@@ -649,7 +649,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 375 functions
+## analytical-only — 386 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -755,6 +755,9 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `cs_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `deepiv` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) (+1) |
 | `demographic_parity` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
+| `design_aberration` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
+| `design_augment` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
+| `design_criteria` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
 | `design_robust_event_study` | [`test_oct2026_correctness_fixes.py`](../tests/reference_parity/test_oct2026_correctness_fixes.py) |
 | `diagnose` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `diagnose_result` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
@@ -783,6 +786,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `do_rule1` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `do_rule2` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `do_rule3` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
+| `doe_optimal` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
 | `double_negative_control` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `dragonnet` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `dynamic_dml` | [`test_dynamic_dml_econml_parity.py`](../tests/reference_parity/test_dynamic_dml_econml_parity.py) |
@@ -792,6 +796,8 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `evidence_factors` | [`test_rosenbaum_itos_parity.py`](../tests/reference_parity/test_rosenbaum_itos_parity.py) |
 | `evidence_without_injustice` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `factor` | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) |
+| `factorial_design` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
+| `factorial_effects` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
 | `fairness_audit` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `focal_cate` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `forest_diagnostics` | [`test_ml_causal_R_parity.py`](../tests/reference_parity/test_ml_causal_R_parity.py) |
@@ -809,7 +815,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `get_scores` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) |
 | `gformula_mc` | [`test_gformula_family_parity.py`](../tests/reference_parity/test_gformula_family_parity.py) (+1) |
 | `gnn_causal` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
-| `gp_regress` | [`test_bayes_nonparametric_exact.py`](../tests/reference_parity/test_bayes_nonparametric_exact.py) |
+| `gp_regress` | [`test_bayes_nonparametric_exact.py`](../tests/reference_parity/test_bayes_nonparametric_exact.py) (+1) |
 | `hal_tmle` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `hausman` | [`test_textbook_methods_stata_parity.py`](../tests/reference_parity/test_textbook_methods_stata_parity.py) |
 | `hausman_test` | [`test_diag_recovery_parity.py`](../tests/reference_parity/test_diag_recovery_parity.py) (+1) |
@@ -862,6 +868,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `ml_bounds` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `mmhc` | [`test_mmhc_bnlearn_parity.py`](../tests/reference_parity/test_mmhc_bnlearn_parity.py) |
 | `model_average` | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) |
+| `morris_screening` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
 | `mprobit` | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) |
 | `mr_clust` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `mr_lap` | [`test_mr_lap_parity.py`](../tests/reference_parity/test_mr_lap_parity.py) |
@@ -972,9 +979,12 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `sharp_ope_unobserved` | [`test_ope_parity.py`](../tests/reference_parity/test_ope_parity.py) |
 | `sktest` | [`test_dynamic_modelling_parity.py`](../tests/reference_parity/test_dynamic_modelling_parity.py) (+1) |
 | `snmm` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
+| `sobol_indices` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
+| `space_filling` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
 | `spatial_did` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) (+1) |
 | `spec_curve` | [`test_spec_curve_fe_Stata_parity.py`](../tests/reference_parity/test_spec_curve_fe_Stata_parity.py) |
 | `spillover` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
+| `split_data` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
 | `ssc` | [`test_ssc_presets_Stata_parity.py`](../tests/reference_parity/test_ssc_presets_Stata_parity.py) |
 | `stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+10) |
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
@@ -982,6 +992,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `structural_mdp` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `suest` | [`test_suest_Stata_parity.py`](../tests/reference_parity/test_suest_Stata_parity.py) |
 | `super_learner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
+| `support_points` | [`test_joseph_doe_parity.py`](../tests/reference_parity/test_joseph_doe_parity.py) |
 | `surrogate_index` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
 | `survival_forest` | [`test_grf_family_statistical_parity.py`](../tests/reference_parity/test_grf_family_statistical_parity.py) |
 | `survival_sensitivity` | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
@@ -1031,6 +1042,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 589 functions
+## unverified — 600 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

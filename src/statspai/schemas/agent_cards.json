@@ -35697,7 +35697,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_bayes_nonparametric_exact.py"
+        "tests/reference_parity/test_bayes_nonparametric_exact.py",
+        "tests/reference_parity/test_joseph_doe_parity.py"
       ],
       "tolerance": ""
     },
@@ -35754,6 +35755,11 @@
             "type": "string",
             "x-statspai-role": "formula"
           },
+          "interpolate": {
+            "default": false,
+            "description": "Noise-free outcome (deterministic computer model): the fit passes through the data",
+            "type": "boolean"
+          },
           "kernel": {
             "default": "rbf",
             "description": "``'rbf'`` (squared exponential) gives infinitely smooth functions, the Matern kernels rougher ones.",
@@ -35775,6 +35781,15 @@
             "default": 0.95,
             "description": "Confidence level or reporting level.",
             "type": "number"
+          },
+          "likelihood": {
+            "default": "reml",
+            "description": "Treatment of the constant mean in the likelihood",
+            "enum": [
+              "reml",
+              "ml"
+            ],
+            "type": "string"
           },
           "mean": {
             "description": "Known constant mean",
@@ -35816,6 +35831,1602 @@
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_nonparametric_exact.py"
     ],
     "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "factorial_design",
+      "doe_optimal",
+      "support_points"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Space-filling design: n runs spread evenly over a box of factors. Maximum projection (default), maximin or uniform Latin hypercube, random Latin hypercube, scrambled Sobol' / Halton points. For simulation studies over a parameter region, training runs of a surrogate, multi-start optimisers and simulation draws (R SFDesign / MaxPro / lhs). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Qualitative (categorical) factors: not yet supported. Do NOT use when: The model to be fitted is known: sp.doe_optimal puts the runs where that model is estimated best; Factors are qualitative or have two or three levels: use sp.factorial_design; A certified optimum is required: the search is stochastic and returns a good design, not a proven best one.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.space_filling(20, {\"beta\": (0.9, 0.99), \"sigma\": (1, 5)}, seed=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [
+      "Qualitative (categorical) factors: not yet supported"
+    ],
+    "name": "space_filling",
+    "not_recommended_when": [
+      "The model to be fitted is known: sp.doe_optimal puts the runs where that model is estimated best",
+      "Factors are qualitative or have two or three levels: use sp.factorial_design",
+      "A certified optimum is required: the search is stochastic and returns a good design, not a proven best one"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "joseph2015maximum; morris1995exploratory; mckay1979comparison",
+    "returns": {
+      "class": "DesignResult",
+      "description": "DesignResult",
+      "fields": {
+        "criteria": "Dict[str, float]",
+        "design": "pd.DataFrame",
+        "lower": "np.ndarray",
+        "method": "str",
+        "model_info": "Dict[str, Any]",
+        "unit": "np.ndarray",
+        "upper": "np.ndarray"
+      }
+    },
+    "signature": {
+      "description": "Space-filling design: n runs spread evenly over a box of factors. Maximum projection (default), maximin or uniform Latin hypercube, random Latin hypercube, scrambled Sobol' / Halton points. For simulation studies over a parameter region, training runs of a surrogate, multi-start optimisers and simulation draws (R SFDesign / MaxPro / lhs). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Qualitative (categorical) factors: not yet supported. Do NOT use when: The model to be fitted is known: sp.doe_optimal puts the runs where that model is estimated best; Factors are qualitative or have two or three levels: use sp.factorial_design; A certified optimum is required: the search is stochastic and returns a good design, not a proven best one.",
+      "name": "space_filling",
+      "parameters": {
+        "properties": {
+          "constraint": {
+            "description": "Feasibility of candidate runs (DataFrame -> booleans); the design is then built greedily from feasible candidates",
+            "enum": [
+              "maxpro",
+              "maximin"
+            ],
+            "type": "string"
+          },
+          "delta": {
+            "default": 0.0,
+            "description": "Added to squared differences in the MaxPro criterion",
+            "type": "number"
+          },
+          "factors": {
+            "description": "Number of factors, their names, or {name: (lower, upper)}",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "iterations": {
+            "description": "Swaps tried per search",
+            "type": "integer"
+          },
+          "method": {
+            "default": "maxpro",
+            "description": "Kind of design",
+            "enum": [
+              "maxpro",
+              "maximin",
+              "uniform",
+              "lhs",
+              "sobol",
+              "halton",
+              "random"
+            ],
+            "type": "string"
+          },
+          "n": {
+            "description": "Number of runs",
+            "type": "integer"
+          },
+          "n_candidates": {
+            "description": "Candidate-set size under a constraint",
+            "type": "integer"
+          },
+          "n_starts": {
+            "default": 3,
+            "description": "Independent searches; best kept",
+            "type": "integer"
+          },
+          "polish": {
+            "description": "Move levels continuously after the search (default: True for maxpro)",
+            "type": "boolean"
+          },
+          "r": {
+            "description": "Power of the reciprocal-distance criterion (default 2p)",
+            "type": "number"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "n",
+          "factors"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "space_filling",
+      "sequential_design"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Add runs to an existing design so that the whole stays space-filling: a second batch, validation runs, or a design on an irregular region from feasible candidates. Greedy maximum projection or maximin (R MaxPro::MaxProAugment). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The responses of the first batch should guide the second: use sp.sequential_design.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.design_augment(sp.space_filling(10, 2, seed=1), 10, seed=2)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "design_augment",
+    "not_recommended_when": [
+      "The responses of the first batch should guide the second: use sp.sequential_design"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "joseph2015maximum; johnson1990minimax",
+    "returns": {
+      "class": "DesignResult",
+      "description": "DesignResult",
+      "fields": {
+        "criteria": "Dict[str, float]",
+        "design": "pd.DataFrame",
+        "lower": "np.ndarray",
+        "method": "str",
+        "model_info": "Dict[str, Any]",
+        "unit": "np.ndarray",
+        "upper": "np.ndarray"
+      }
+    },
+    "signature": {
+      "description": "Add runs to an existing design so that the whole stays space-filling: a second batch, validation runs, or a design on an irregular region from feasible candidates. Greedy maximum projection or maximin (R MaxPro::MaxProAugment). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The responses of the first batch should guide the second: use sp.sequential_design.",
+      "name": "design_augment",
+      "parameters": {
+        "properties": {
+          "bounds": {
+            "description": "{factor: (lower, upper)} when the design is not on the unit cube",
+            "type": "object"
+          },
+          "candidates": {
+            "description": "Points to choose from (default: a Sobol' set)",
+            "type": "string"
+          },
+          "constraint": {
+            "description": "Filters the default candidates",
+            "type": "string"
+          },
+          "criterion": {
+            "default": "maxpro",
+            "description": "Criterion of the greedy choice",
+            "enum": [
+              "maxpro",
+              "maximin"
+            ],
+            "type": "string"
+          },
+          "delta": {
+            "default": 0.0,
+            "description": "Added to squared differences in the MaxPro criterion",
+            "type": "number"
+          },
+          "design": {
+            "description": "Runs already made; kept as they are",
+            "type": "string"
+          },
+          "n_candidates": {
+            "description": "Size of the default candidate set",
+            "type": "integer"
+          },
+          "n_new": {
+            "description": "Runs to add",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Seed of the default candidates",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "design",
+          "n_new"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "design_aberration"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Space-filling measures of a design: maximin distance, reciprocal distance, MaxPro criterion, wrap-around and centered L2 discrepancy, fill distance, smallest projected gap, largest correlation, and energy distance to a target sample (R SFDesign maximin.crit / maxpro.crit / uniform.crit). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.design_criteria(sp.space_filling(20, 3, seed=1))",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "design_criteria",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "johnson1990minimax; joseph2015maximum; hickernell1998generalized",
+    "returns": {
+      "class": "Series",
+      "description": "Series",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Space-filling measures of a design: maximin distance, reciprocal distance, MaxPro criterion, wrap-around and centered L2 discrepancy, fill distance, smallest projected gap, largest correlation, and energy distance to a target sample (R SFDesign maximin.crit / maxpro.crit / uniform.crit). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "design_criteria",
+      "parameters": {
+        "properties": {
+          "bounds": {
+            "description": "{factor: (lower, upper)}; the design is scaled to the unit cube with them",
+            "type": "object"
+          },
+          "delta": {
+            "default": 0.0,
+            "description": "Added to squared differences in the MaxPro criterion",
+            "type": "number"
+          },
+          "design": {
+            "description": "One row per run",
+            "type": "string"
+          },
+          "r": {
+            "description": "Power of the reciprocal distance",
+            "type": "number"
+          },
+          "target": {
+            "description": "Sample the runs should represent; adds energy_distance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "design"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "doe_optimal",
+      "space_filling",
+      "randomize"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Full factorial design for factors with any number of levels, or a two-level fractional factorial 2^(k-m) from generators or by minimum-aberration search, with defining relation, resolution, word length pattern and alias structure (R FrF2). For multi-factor experiments, conjoint and factorial survey designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Fractions are built for two-level factors only; Minimum-aberration search only up to 30,000 generator choices (about 9 factors in 32 or 64 runs); beyond that generators= is required.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.factorial_design(5, n_runs=16).summary()",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [
+      "Fractions are built for two-level factors only",
+      "Minimum-aberration search only up to 30,000 generator choices (about 9 factors in 32 or 64 runs); beyond that generators= is required"
+    ],
+    "name": "factorial_design",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "box2005statistics; wu2021experiments",
+    "returns": {
+      "class": "FactorialDesignResult",
+      "description": "FactorialDesignResult",
+      "fields": {
+        "aliases": "Dict[str, List[str]]",
+        "defining_relation": "List[str]",
+        "design": "pd.DataFrame",
+        "generators": "List[str]",
+        "kind": "str",
+        "model_info": "Dict[str, Any]",
+        "resolution": "Optional[int]",
+        "word_length_pattern": "List[int]"
+      }
+    },
+    "signature": {
+      "description": "Full factorial design for factors with any number of levels, or a two-level fractional factorial 2^(k-m) from generators or by minimum-aberration search, with defining relation, resolution, word length pattern and alias structure (R FrF2). For multi-factor experiments, conjoint and factorial survey designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Fractions are built for two-level factors only; Minimum-aberration search only up to 30,000 generator choices (about 9 factors in 32 or 64 runs); beyond that generators= is required.",
+      "name": "factorial_design",
+      "parameters": {
+        "properties": {
+          "alias_order": {
+            "default": 2,
+            "description": "Largest interaction listed in the alias structure",
+            "type": "integer"
+          },
+          "center_points": {
+            "default": 0,
+            "description": "Centre runs added",
+            "type": "integer"
+          },
+          "factors": {
+            "description": "Number of factors, names, or {name: [level values]}",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "generators": {
+            "description": "Generators of a two-level fraction, e.g. ['E = ABC']",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "levels": {
+            "default": 2,
+            "description": "Levels per factor",
+            "items": {
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "integer"
+            ]
+          },
+          "n_runs": {
+            "description": "A power of two below 2^k asks for the minimum-aberration fraction of that size",
+            "type": "integer"
+          },
+          "randomize": {
+            "default": false,
+            "description": "Put the runs in random order",
+            "type": "boolean"
+          },
+          "replicates": {
+            "default": 1,
+            "description": "Copies of the design",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Seed of the run order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "factors"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "factorial_design",
+      "design_criteria"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Generalized word length pattern, resolution and strength of any factorial design, regular or not, with factors at any number of levels: how badly main effects and interactions are confounded (R DoE.base::GWLP). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.design_aberration(sp.factorial_design(5, n_runs=16).design)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "design_aberration",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "xu2001generalized",
+    "returns": {
+      "class": "Series",
+      "description": "Series",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Generalized word length pattern, resolution and strength of any factorial design, regular or not, with factors at any number of levels: how badly main effects and interactions are confounded (R DoE.base::GWLP). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "design_aberration",
+      "parameters": {
+        "properties": {
+          "design": {
+            "description": "One row per run",
+            "type": "string"
+          },
+          "factors": {
+            "description": "Columns to use (default all)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "max_order": {
+            "description": "Largest word length (default min(factors, 6))",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "design"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "regress",
+      "factorial_design"
+    ],
+    "assumptions": [
+      "Effect sparsity: only a minority of the effects are real",
+      "Errors with constant variance"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Main effects and interactions of a two-level factorial experiment, with Lenth's pseudo standard error, margins of error and p-values for unreplicated designs (simulated null as in R unrepx, or the t(m/3) approximation) and a half-normal plot. Aliased terms are detected and reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Factors have more than two levels: fit the model with sp.regress; Half or more of the effects are real: Lenth's pseudo standard error is then inflated and nothing is detected.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.factorial_effects(df, \"y\", factors=[\"A\", \"B\", \"C\"]).summary()",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "factorial_effects",
+    "not_recommended_when": [
+      "Factors have more than two levels: fit the model with sp.regress",
+      "Half or more of the effects are real: Lenth's pseudo standard error is then inflated and nothing is detected"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "lenth1989quick; daniel1959use; box2005statistics",
+    "returns": {
+      "class": "FactorialEffectsResult",
+      "description": "FactorialEffectsResult",
+      "fields": {
+        "aliases": "Dict[str, List[str]]",
+        "df_resid": "int",
+        "effects": "pd.DataFrame",
+        "intercept": "float",
+        "me": "float",
+        "model_info": "Dict[str, Any]",
+        "pse": "float",
+        "sme": "float"
+      }
+    },
+    "signature": {
+      "description": "Main effects and interactions of a two-level factorial experiment, with Lenth's pseudo standard error, margins of error and p-values for unreplicated designs (simulated null as in R unrepx, or the t(m/3) approximation) and a half-normal plot. Aliased terms are detected and reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Factors have more than two levels: fit the model with sp.regress; Half or more of the effects are real: Lenth's pseudo standard error is then inflated and nothing is detected.",
+      "name": "factorial_effects",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the margins",
+            "type": "number"
+          },
+          "data": {
+            "description": "One row per run",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "factors": {
+            "description": "Two-level factor columns (default: all two-valued columns)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "n_sim": {
+            "default": 20000,
+            "description": "Simulated null sets",
+            "type": "integer"
+          },
+          "order": {
+            "description": "Largest interaction fitted",
+            "type": "integer"
+          },
+          "reference": {
+            "default": "simulated",
+            "description": "Null distribution of effect / PSE",
+            "enum": [
+              "simulated",
+              "t"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Seed of the simulation",
+            "type": "integer"
+          },
+          "y": {
+            "description": "Response column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "factorial_design",
+      "support_points"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points).",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.mixture_design([\"stocks\", \"bonds\", \"cash\"], degree=3)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "mixture_design",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "scheffe1958experiments; scheffe1963simplex; mak2018support",
+    "returns": {
+      "class": "DesignResult",
+      "description": "DesignResult",
+      "fields": {
+        "criteria": "Dict[str, float]",
+        "design": "pd.DataFrame",
+        "lower": "np.ndarray",
+        "method": "str",
+        "model_info": "Dict[str, Any]",
+        "unit": "np.ndarray",
+        "upper": "np.ndarray"
+      }
+    },
+    "signature": {
+      "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points).",
+      "name": "mixture_design",
+      "parameters": {
+        "properties": {
+          "components": {
+            "description": "Number or names",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "constraint": {
+            "description": "Feasibility of candidate blends (space_filling only)",
+            "type": "string"
+          },
+          "degree": {
+            "default": 2,
+            "description": "Degree of the lattice",
+            "type": "integer"
+          },
+          "kind": {
+            "default": "simplex_lattice",
+            "description": "Kind of design",
+            "enum": [
+              "simplex_lattice",
+              "simplex_centroid",
+              "space_filling"
+            ],
+            "type": "string"
+          },
+          "lower": {
+            "description": "Lower bounds on the shares",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "n": {
+            "description": "Runs of a space-filling design",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          },
+          "total": {
+            "default": 1.0,
+            "description": "What the shares sum to",
+            "type": "number"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "space_filling",
+      "factorial_design",
+      "optimal_design"
+    ],
+    "assumptions": [
+      "The model given is the model that will be fitted",
+      "For a nonlinear model without prior=: the parameter guess is close to the truth"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "D-, A- or I-optimal design for a given model: where to put the runs so that the model is estimated most precisely. Linear models by formula, nonlinear models with parameters in braces (locally optimal at a guess, or averaged over a prior), logit and Poisson responses. Approximate designs (support points and weights, certified by the equivalence theorem) or exact n-run designs by exchange (R AlgDesign::optFederov, ICAOD). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The functional form is in doubt: an optimal design puts the runs on a few support points and cannot detect lack of fit; The question is how many units to randomise in an RCT: that is sp.optimal_design / sp.power; A certified optimal exact design is required: the n-run search is a multi-start exchange without a guarantee (check .efficiency).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.doe_optimal(\"x + I(x**2)\", {\"x\": (-1, 1)})",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "doe_optimal",
+    "not_recommended_when": [
+      "The functional form is in doubt: an optimal design puts the runs on a few support points and cannot detect lack of fit",
+      "The question is how many units to randomise in an RCT: that is sp.optimal_design / sp.power",
+      "A certified optimal exact design is required: the n-run search is a multi-start exchange without a guarantee (check .efficiency)"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "kiefer1960equivalence; fedorov1972theory; yu2010monotonic; chaloner1995bayesian",
+    "returns": {
+      "class": "ModelDesignResult",
+      "description": "ModelDesignResult",
+      "fields": {
+        "criterion": "str",
+        "criterion_value": "float",
+        "design": "pd.DataFrame",
+        "efficiency": "float",
+        "information": "pd.DataFrame",
+        "model_info": "Dict[str, Any]",
+        "terms": "List[str]"
+      }
+    },
+    "signature": {
+      "description": "D-, A- or I-optimal design for a given model: where to put the runs so that the model is estimated most precisely. Linear models by formula, nonlinear models with parameters in braces (locally optimal at a guess, or averaged over a prior), logit and Poisson responses. Approximate designs (support points and weights, certified by the equivalence theorem) or exact n-run designs by exchange (R AlgDesign::optFederov, ICAOD). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The functional form is in doubt: an optimal design puts the runs on a few support points and cannot detect lack of fit; The question is how many units to randomise in an RCT: that is sp.optimal_design / sp.power; A certified optimal exact design is required: the n-run search is a multi-start exchange without a guarantee (check .efficiency).",
+      "name": "doe_optimal",
+      "parameters": {
+        "properties": {
+          "candidates": {
+            "description": "Admissible runs instead of factors (irregular regions, qualitative factors)",
+            "type": "string"
+          },
+          "criterion": {
+            "default": "D",
+            "description": "Optimality criterion",
+            "enum": [
+              "D",
+              "A",
+              "I"
+            ],
+            "type": "string"
+          },
+          "factors": {
+            "description": "{name: (lower, upper)}",
+            "type": "object"
+          },
+          "family": {
+            "default": "gaussian",
+            "description": "Response distribution",
+            "enum": [
+              "gaussian",
+              "binomial",
+              "poisson"
+            ],
+            "type": "string"
+          },
+          "grid": {
+            "description": "Grid points per factor",
+            "type": "integer"
+          },
+          "max_iter": {
+            "default": 3000,
+            "description": "Iterations of the weight algorithm",
+            "type": "integer"
+          },
+          "model": {
+            "description": "Formula in the factors, or a nonlinear expression with {parameters} in braces",
+            "type": "string"
+          },
+          "n": {
+            "description": "Runs of an exact design; omitted, the approximate design",
+            "type": "integer"
+          },
+          "n_prior": {
+            "default": 32,
+            "description": "Draws from the prior",
+            "type": "integer"
+          },
+          "n_starts": {
+            "description": "Random starts of the exchange",
+            "type": "integer"
+          },
+          "params": {
+            "description": "Parameter values at which a nonlinear design is optimal",
+            "type": "object"
+          },
+          "prior": {
+            "description": "{parameter: (lower, upper)} or scipy distributions; the criterion is averaged over it",
+            "type": "object"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "morris_screening",
+      "sensemakr",
+      "spec_curve"
+    ],
+    "assumptions": [
+      "Independent inputs"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Variance-based global sensitivity analysis of a model: first-order and total Sobol' indices of each input with bootstrap intervals (Jansen or Saltelli estimator, Sobol' sampling). Which parameters or assumptions drive the output of a structural model, simulator or fitted surrogate (R sensitivity::soboljansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Sensitivity of a causal estimate to unobserved confounding is the question: that is sp.sensemakr / sp.evalue; Each model evaluation is expensive and there are many inputs: screen with sp.morris_screening first, or run the indices on a surrogate fitted by sp.gp_regress.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.sobol_indices(model, {\"beta\": (0.9, 0.99), \"gamma\": (1, 5)}, n=1024)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "sobol_indices",
+    "not_recommended_when": [
+      "Sensitivity of a causal estimate to unobserved confounding is the question: that is sp.sensemakr / sp.evalue",
+      "Each model evaluation is expensive and there are many inputs: screen with sp.morris_screening first, or run the indices on a surrogate fitted by sp.gp_regress"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "sobol2001global; jansen1999analysis; saltelli2010variance; harenberg2019uncertainty",
+    "returns": {
+      "class": "SobolResult",
+      "description": "SobolResult",
+      "fields": {
+        "indices": "pd.DataFrame",
+        "mean": "float",
+        "model_info": "Dict[str, Any]",
+        "n_evaluations": "int",
+        "variance": "float"
+      }
+    },
+    "signature": {
+      "description": "Variance-based global sensitivity analysis of a model: first-order and total Sobol' indices of each input with bootstrap intervals (Jansen or Saltelli estimator, Sobol' sampling). Which parameters or assumptions drive the output of a structural model, simulator or fitted surrogate (R sensitivity::soboljansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Sensitivity of a causal estimate to unobserved confounding is the question: that is sp.sensemakr / sp.evalue; Each model evaluation is expensive and there are many inputs: screen with sp.morris_screening first, or run the indices on a surrogate fitted by sp.gp_regress.",
+      "name": "sobol_indices",
+      "parameters": {
+        "properties": {
+          "A": {
+            "description": "First input sample",
+            "type": "string"
+          },
+          "B": {
+            "description": "Second input sample",
+            "type": "string"
+          },
+          "estimator": {
+            "default": "jansen",
+            "description": "First-order estimator",
+            "enum": [
+              "jansen",
+              "saltelli"
+            ],
+            "type": "string"
+          },
+          "factors": {
+            "description": "Inputs: number, names, or {name: (lower, upper) | scipy distribution}",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "func": {
+            "description": "The model: receives the runs, returns one number per run",
+            "type": "string"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Interval level",
+            "type": "number"
+          },
+          "n": {
+            "default": 1024,
+            "description": "Base sample; n (p + 2) evaluations",
+            "type": "integer"
+          },
+          "n_boot": {
+            "default": 200,
+            "description": "Bootstrap replications",
+            "type": "integer"
+          },
+          "pass_as": {
+            "default": "frame",
+            "description": "What func receives",
+            "enum": [
+              "frame",
+              "array",
+              "rows"
+            ],
+            "type": "string"
+          },
+          "sampling": {
+            "default": "sobol",
+            "description": "How inputs are drawn",
+            "enum": [
+              "sobol",
+              "random"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "func",
+          "factors"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "sobol_indices",
+      "factorial_design"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Morris elementary-effects screening of a model's inputs with one-factor-at-a-time trajectories: mu, mu* and sigma per input from r (p + 1) runs. A cheap first pass before Sobol' indices (R sensitivity::morris). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.morris_screening(model, [\"a\", \"b\", \"c\"], r=10, seed=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "morris_screening",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "morris1991factorial; campolongo2007effective",
+    "returns": {
+      "class": "MorrisResult",
+      "description": "MorrisResult",
+      "fields": {
+        "design": "pd.DataFrame",
+        "effects": "pd.DataFrame",
+        "elementary_effects": "pd.DataFrame",
+        "model_info": "Dict[str, Any]",
+        "n_evaluations": "int"
+      }
+    },
+    "signature": {
+      "description": "Morris elementary-effects screening of a model's inputs with one-factor-at-a-time trajectories: mu, mu* and sigma per input from r (p + 1) runs. A cheap first pass before Sobol' indices (R sensitivity::morris). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "morris_screening",
+      "parameters": {
+        "properties": {
+          "design": {
+            "description": "Trajectories already run",
+            "type": "string"
+          },
+          "factors": {
+            "description": "Inputs: number, names, or {name: (lower, upper)}",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "func": {
+            "description": "The model (None with design and y)",
+            "type": "string"
+          },
+          "grid_jump": {
+            "description": "Grid steps per move (levels // 2)",
+            "type": "integer"
+          },
+          "levels": {
+            "default": 4,
+            "description": "Grid points per input",
+            "type": "integer"
+          },
+          "pass_as": {
+            "default": "frame",
+            "description": "What func receives",
+            "enum": [
+              "frame",
+              "array",
+              "rows"
+            ],
+            "type": "string"
+          },
+          "r": {
+            "default": 10,
+            "description": "Trajectories",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          },
+          "y": {
+            "description": "Outputs of design",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "func",
+          "factors"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "split_data",
+      "space_filling",
+      "energy_distance"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Support points: the n points that best represent a sample or a distribution in energy distance. To propagate input uncertainty through an expensive model with few runs, thin an MCMC sample, or pick representative observations (R support::sp). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.support_points(draws, 50, seed=1).points",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "support_points",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "mak2018support; szekely2013energy",
+    "returns": {
+      "class": "SupportPointsResult",
+      "description": "SupportPointsResult",
+      "fields": {
+        "energy": "float",
+        "energy_random": "float",
+        "index": "Optional[np.ndarray]",
+        "model_info": "Dict[str, Any]",
+        "points": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Support points: the n points that best represent a sample or a distribution in energy distance. To propagate input uncertainty through an expensive model with few runs, thin an MCMC sample, or pick representative observations (R support::sp). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "support_points",
+      "parameters": {
+        "properties": {
+          "columns": {
+            "description": "Columns to use",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "A sample, or {name: scipy.stats distribution}",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "max_iter": {
+            "default": 500,
+            "description": "Iterations",
+            "type": "integer"
+          },
+          "max_sample": {
+            "default": 50000,
+            "description": "Larger samples are thinned for the optimisation",
+            "type": "integer"
+          },
+          "n": {
+            "description": "Number of points",
+            "type": "integer"
+          },
+          "n_starts": {
+            "default": 1,
+            "description": "Random starts",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          },
+          "standardize": {
+            "default": true,
+            "description": "Scale columns by their sd",
+            "type": "boolean"
+          },
+          "subsample": {
+            "default": false,
+            "description": "Return rows of the data nearest to the points",
+            "type": "boolean"
+          },
+          "tol": {
+            "default": 0.0001,
+            "description": "Convergence tolerance",
+            "type": "number"
+          },
+          "weights": {
+            "description": "Weights of the draws",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "n"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "cross_validate",
+      "support_points"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Split data into training and test sets that both resemble the whole data set in joint distribution, outcome included: SPlit (support points) or twinning. Removes the luck of a random split from a measured test error (R SPlit, twinning::twin). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The procedure relies on the two parts being independent random samples (cross-fitting in sp.dml, honest splitting in forests, sample-split inference): use a random split there.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_joseph_doe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "train, test = sp.split_data(df, test_size=0.2, seed=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "split_data",
+    "not_recommended_when": [
+      "The procedure relies on the two parts being independent random samples (cross-fitting in sp.dml, honest splitting in forests, sample-split inference): use a random split there"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "joseph2022split; vakayil2022data",
+    "returns": {
+      "class": "DataSplitResult",
+      "description": "DataSplitResult",
+      "fields": {
+        "energy": "float",
+        "energy_random": "float",
+        "model_info": "Dict[str, Any]",
+        "test": "pd.DataFrame",
+        "test_index": "np.ndarray",
+        "train": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Split data into training and test sets that both resemble the whole data set in joint distribution, outcome included: SPlit (support points) or twinning. Removes the luck of a random split from a measured test error (R SPlit, twinning::twin). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The procedure relies on the two parts being independent random samples (cross-fitting in sp.dml, honest splitting in forests, sample-split inference): use a random split there.",
+      "name": "split_data",
+      "parameters": {
+        "properties": {
+          "columns": {
+            "description": "Columns that define the split",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "One row per observation",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "max_iter": {
+            "default": 500,
+            "description": "Support-point iterations",
+            "type": "integer"
+          },
+          "method": {
+            "default": "auto",
+            "description": "Algorithm",
+            "enum": [
+              "auto",
+              "support",
+              "twinning"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          },
+          "start": {
+            "description": "Twinning: starting row position",
+            "type": "integer"
+          },
+          "test_size": {
+            "default": 0.2,
+            "description": "Share of test rows",
+            "type": "number"
+          },
+          "tol": {
+            "default": 0.0001,
+            "description": "Support-point tolerance",
+            "type": "number"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "gp_regress",
+      "space_filling",
+      "design_augment"
+    ],
+    "assumptions": [],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Choose the runs of an expensive function one at a time with a Gaussian process: Bayesian optimisation by expected improvement (minimise or maximise), or active learning of the whole surface. For simulated-moments objectives, expensive tuning, and building emulators. Do NOT use when: The function is cheap: use a standard optimiser; More than about ten inputs, or a function with jumps: a Gaussian process is a poor surrogate there.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.sequential_design(objective, {\"a\": (0, 1), \"b\": (0, 1)}, n_new=20)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "sequential_design",
+    "not_recommended_when": [
+      "The function is cheap: use a standard optimiser",
+      "More than about ten inputs, or a function with jumps: a Gaussian process is a poor surrogate there"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "jones1998efficient; sacks1989design",
+    "returns": {
+      "class": "SequentialDesignResult",
+      "description": "SequentialDesignResult",
+      "fields": {
+        "best": "Dict[str, float]",
+        "design": "pd.DataFrame",
+        "fit": "Any",
+        "goal": "str",
+        "model_info": "Dict[str, Any]",
+        "trace": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Choose the runs of an expensive function one at a time with a Gaussian process: Bayesian optimisation by expected improvement (minimise or maximise), or active learning of the whole surface. For simulated-moments objectives, expensive tuning, and building emulators. Do NOT use when: The function is cheap: use a standard optimiser; More than about ten inputs, or a function with jumps: a Gaussian process is a poor surrogate there.",
+      "name": "sequential_design",
+      "parameters": {
+        "properties": {
+          "design": {
+            "description": "Runs already made",
+            "type": "string"
+          },
+          "factors": {
+            "description": "{name: (lower, upper)}",
+            "type": "object"
+          },
+          "func": {
+            "description": "The function to evaluate",
+            "type": "string"
+          },
+          "goal": {
+            "default": "minimize",
+            "description": "What the runs are chosen for",
+            "enum": [
+              "minimize",
+              "maximize",
+              "emulate"
+            ],
+            "type": "string"
+          },
+          "kernel": {
+            "default": "rbf",
+            "description": "Kernel of the surrogate",
+            "enum": [
+              "rbf",
+              "matern52",
+              "matern32"
+            ],
+            "type": "string"
+          },
+          "n_candidates": {
+            "description": "Candidates scored per step",
+            "type": "integer"
+          },
+          "n_init": {
+            "description": "Initial MaxPro runs (max(5p, 6))",
+            "type": "integer"
+          },
+          "n_new": {
+            "default": 20,
+            "description": "Runs added sequentially",
+            "type": "integer"
+          },
+          "noisy": {
+            "default": false,
+            "description": "The function has random noise",
+            "type": "boolean"
+          },
+          "pass_as": {
+            "default": "frame",
+            "description": "What func receives",
+            "enum": [
+              "frame",
+              "array",
+              "rows"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          },
+          "y": {
+            "description": "Their responses",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "func",
+          "factors"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
   },
   {
     "alias_of": null,

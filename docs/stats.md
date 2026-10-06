@@ -42,18 +42,18 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `did` | 53,410 | 70 | 97 |
 | `agent` | 42,524 | 69 | 4 |
 | `regression` | 31,911 | 42 | 60 |
-| `timeseries` | 31,176 | 55 | 88 |
+| `timeseries` | 31,180 | 55 | 88 |
 | `synth` | 30,394 | 40 | 56 |
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 16,231 | 18 | 32 |
-| `inference` | 15,279 | 31 | 56 |
+| `inference` | 15,321 | 31 | 56 |
 | `matching` | 14,897 | 24 | 36 |
 | `output` | 14,196 | 22 | 42 |
 | `diagnostics` | 13,813 | 25 | 45 |
 | `core` | 12,282 | 20 | 6 |
 | `panel` | 12,182 | 20 | 23 |
-| `mcmc` | 10,710 | 20 | 31 |
+| `mcmc` | 10,828 | 20 | 31 |
 | `decomposition` | 9,912 | 19 | 32 |
 | `dml` | 9,395 | 24 | 16 |
 | `iv` | 8,863 | 17 | 10 |
@@ -66,6 +66,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `bayes` | 5,352 | 12 | 20 |
 | `mendelian` | 5,187 | 13 | 41 |
 | `metalearners` | 5,165 | 10 | 25 |
+| `doe` | 4,986 | 12 | 22 |
 | `frontier` | 4,986 | 8 | 12 |
 | `structural` | 4,974 | 12 | 14 |
 | `utils` | 4,868 | 11 | 35 |
@@ -74,7 +75,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `gmm` | 4,277 | 12 | 4 |
 | `qte` | 4,152 | 9 | 13 |
 | `robustness` | 3,968 | 8 | 14 |
-| `tmle` | 3,697 | 6 | 11 |
+| `tmle` | 3,945 | 7 | 11 |
 | `network` | 3,514 | 9 | 33 |
 | `neural_causal` | 3,442 | 6 | 18 |
 | `postestimation` | 3,280 | 7 | 13 |
@@ -128,7 +129,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **612,963** | **1035** | **1495** |
+| **Total** | **619,719** | **1049** | **1517** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.
