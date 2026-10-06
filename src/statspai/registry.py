@@ -9901,7 +9901,9 @@ def _build_registry() -> None:
             returns="WeightedRankResult",
             example="sp.weighted_rank(y, gamma=[1, 2, 3], phi='u878')",
             tags=["sensitivity", "matching", "rosenbaum", "observational", "ranks"],
-            reference="rosenbaum2023bahadur; rosenbaum2011new; rosenbaum2025conditioning",
+            reference=(
+                "rosenbaum2023bahadur; rosenbaum2011new; rosenbaum2025conditioning"
+            ),
             assumptions=[
                 "Blocks are matched for the observed covariates; within a block, "
                 "two individuals differ in their odds of treatment by at most Gamma",
