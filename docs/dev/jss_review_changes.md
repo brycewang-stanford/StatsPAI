@@ -31,6 +31,42 @@ Rules:
 
 ## Entries
 
+### 2026-10-07 — call traces re-recorded after the Yuksel-Aydede pass
+
+- **Commits.** `d653a302` re-recorded the entries of Track A modules 03 07
+  08 13 15 19 24 25 26 27 52 53 65 66 71 in
+  `tests/r_parity/results/_implementation_trace.json` and of original-data
+  modules 03 07 08 in `tests/orig_parity/results/_implementation_trace.json`.
+  The source that staled them is in `e193c47a`:
+  `src/statspai/__init__.py` (new exports), `src/statspai/synth/scm.py`
+  (the `gsynth` branch of the dispatcher passes a treatment column on),
+  `src/statspai/synth/gsynth.py` (several treated units and covariates
+  are routed to a new estimator; the single-unit, no-covariate path that
+  module 19 runs is untouched), `src/statspai/dml/_base.py` and
+  `double_ml.py` (`fold_indices` also reads scikit-learn splits),
+  `src/statspai/forest/_grf_inference.py`, `forest_inference.py` and
+  `causal_forest.py` (`subset=` for averages; categorical columns on the
+  column-name interface), and `src/statspai/inference/aipw.py` (the
+  clipping bound became the argument `trim`, default unchanged).
+- **Reason.** The pass recorded in
+  `docs/dev/2026-10-07-yuksel-aydede-causal-ml-review.md`.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes. The modules whose estimation path changed (Track A 07 08 13 19
+  24 52 71, original-data 03 07 08) were rerun into a scratch directory
+  before re-recording: nine reproduce their committed `*_py.json` byte for
+  byte, and the NHEFS chapter 13 module to 1.9e-13 in relative terms, inside
+  the 1e-9 reproducibility tolerance, so its committed result stands. In
+  both trace files only `exercised_sources` digests and `seconds` differ.
+  Two things to fold in at the next re-anchor: the registry census moves to
+  1,551 registered functions across 90 submodules, and the list of
+  certified rows whose reference is a Python package
+  (`PYTHON_REFERENCE_ROWS`) gains `dml_did` (reference: `doubleml`
+  `DoubleMLDID` / `DoubleMLDIDCS`), so the manuscript sentence that
+  enumerates those rows needs it.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-07 — call traces re-recorded after the Gelman-Vehtari pass (collinear regressors, formula idioms)
 
 Commit `f6a8a215` re-recorded the entries of Track A modules 01 02 03 13 14
