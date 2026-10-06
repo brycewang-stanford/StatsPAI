@@ -688,3 +688,68 @@ def test_stochvol_and_bayes_arima_surface():
         sp.bayes_arima(y, horizon=-1)
     with pytest.raises(sp.DataInsufficient):
         sp.bayes_arima(y[:8], order=(2, 0, 2))
+
+
+def test_probit_systems_and_mixture_surface():
+    rng = np.random.default_rng(9)
+    n = 300
+    x = rng.normal(size=n)
+    e = rng.multivariate_normal([0, 0], [[1, 0.6], [0.6, 1]], size=n)
+    u = np.column_stack([np.zeros(n), 0.8 * x, -0.5 * x]) + rng.normal(size=(n, 3))
+    d = pd.DataFrame(
+        {
+            "x": x,
+            "y1": (0.5 * x + e[:, 0] > 0) * 1,
+            "y2": (-0.5 * x + e[:, 1] > 0) * 1,
+            "choice": np.array(["a", "b", "c"])[u.argmax(axis=1)],
+            "z": np.r_[rng.normal(-3, 0.5, n // 2), rng.normal(3, 0.5, n - n // 2)],
+        }
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", sp.ConvergenceWarning)
+        mv = sp.bayes_mvprobit(["y1 ~ x", "y2 ~ x"], d, draws=600, burnin=300, seed=1)
+        mn = sp.bayes_mnprobit("choice ~ x", d, draws=600, burnin=300, seed=1)
+    assert list(mv.params.index)[-1] == "corr(y1,y2)" and mv.params.iloc[-1] > 0.2
+    assert mv.params["y1:x"] > 0 > mv.params["y2:x"]
+    assert mv.cite().startswith("rossi2005bayesian")
+    assert mn.model_info["base_level"] == "a"
+    assert list(mn.params.index) == [
+        "b:Intercept",
+        "b:x",
+        "c:Intercept",
+        "c:x",
+        "var(c)",
+        "cov(b,c)",
+    ]
+    assert mn.params["b:x"] > 0 > mn.params["c:x"]
+    with pytest.raises(sp.MethodIncompatibility, match="at least two"):
+        sp.bayes_mvprobit(["y1 ~ x"], d)
+    with pytest.raises(sp.MethodIncompatibility, match="0 and 1"):
+        sp.bayes_mvprobit(["y1 ~ x", "z ~ x"], d)
+    with pytest.raises(sp.DataInsufficient, match="does not vary"):
+        sp.bayes_mvprobit(["y1 ~ x", "one ~ x"], d.assign(one=1))
+    with pytest.raises(sp.MethodIncompatibility, match="at least\n?\\s*three|three"):
+        sp.bayes_mnprobit("y1 ~ x", d)
+    with pytest.raises(sp.MethodIncompatibility, match="column"):
+        sp.bayes_mnprobit("nope ~ x", d)
+
+    mix = sp.bayes_mixture("z ~ 1", d, draws=400, burnin=200, seed=1)
+    assert mix.params["comp1:Intercept"] < 0 < mix.params["comp2:Intercept"]
+    assert mix.model_info["similarity"].shape == (n, n)
+    assert set(mix.model_info["cluster"]) == {1, 2}
+    assert mix.prior["data_dependent"] is True
+    assert {"y", "density", "lower", "upper"} == set(mix.model_info["density"].columns)
+    reg = sp.bayes_mixture(
+        "z ~ x", d, components="dp", alpha_prior=(2, 2), draws=300, burnin=200, seed=1
+    )
+    assert "density" not in reg.model_info and "alpha" in reg.params.index
+    with pytest.raises(sp.MethodIncompatibility, match="'dp'"):
+        sp.bayes_mixture("z ~ 1", d, components="many")
+    with pytest.raises(sp.MethodIncompatibility, match="at least 2"):
+        sp.bayes_mixture("z ~ 1", d, components=1)
+    with pytest.raises(sp.MethodIncompatibility, match="alpha_prior"):
+        sp.bayes_mixture("z ~ 1", d, components=2, alpha_prior=(1, 1))
+    with pytest.warns(sp.ConvergenceWarning, match="max_components"):
+        sp.bayes_mixture(
+            "z ~ 1", d, components="dp", max_components=2, draws=200, burnin=100, seed=1
+        )

@@ -24,6 +24,8 @@ from .diagnostics import (
 )
 from .iv import bayes_ivreg
 from .mixed import BayesMixedResult, bayes_mixed
+from .mixture import bayes_mixture
+from .mprobit import bayes_mnprobit, bayes_mvprobit
 from .regress import BayesRegressResult, bayes_regress
 from .shrinkage import bayes_shrink
 from .sur import bayes_sur
@@ -42,6 +44,9 @@ __all__ = [
     "bayes_regress",
     "bayes_shrink",
     "bayes_sur",
+    "bayes_mixture",
+    "bayes_mnprobit",
+    "bayes_mvprobit",
     "bayes_arima",
     "stochvol",
     "bma",

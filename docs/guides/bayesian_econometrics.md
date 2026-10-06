@@ -37,6 +37,9 @@ import statspai as sp
 | 8 | ARMA processes | `sp.bayes_arima(y, order=(p, d, q), horizon=)` |
 | 8 | stochastic volatility (`stochvol::svsample`) | `sp.stochvol(returns)` |
 | 7 | `MCMCregress` on several outcomes, `bayesm::rsurGibbs` | `sp.bayes_sur(["y1 ~ x", "y2 ~ z"], df)` |
+| 7 | `bayesm::rmvpGibbs` (multivariate probit) | `sp.bayes_mvprobit(["y1 ~ x", "y2 ~ x"], df)` |
+| 6 | `bayesm::rmnpGibbs` (multinomial probit) | `sp.bayes_mnprobit("choice ~ x", df)` |
+| 11 | finite mixtures, Dirichlet process mixtures | `sp.bayes_mixture("y ~ 1", df, components=3 / 'dp')` |
 | 7, 13 | `bayesm::rivGibbs` | `sp.bayes_ivreg("y ~ x + (d ~ z)", df)` |
 | 9 | `MCMChregress`, hierarchical logit and Poisson | `sp.bayes_mixed(family='normal' / 'logit' / 'poisson')` |
 | 10 | `BMA::bicreg`, `BMA::bic.glm` | `sp.bma(method='bic')` |

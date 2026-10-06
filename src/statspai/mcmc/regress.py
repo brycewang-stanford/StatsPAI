@@ -73,6 +73,9 @@ _CITATIONS = {
     "ssvs": ("george1993variable",),
     "iv": ("rossi2005bayesian",),
     "stochvol": ("kastner2014ancillarity",),
+    "mvprobit": ("rossi2005bayesian", "albert1993bayesian"),
+    "mnprobit": ("mcculloch1994exact", "rossi2005bayesian"),
+    "mixture": ("neal2000markov", "escobar1995bayesian"),
     "arima": ("metropolis1953equation", "hastings1970monte"),
 }
 

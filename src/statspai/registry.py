@@ -16564,6 +16564,153 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="bayes_mvprobit",
+            category="bayes",
+            description=(
+                "Bayesian multivariate probit by Gibbs sampling: several "
+                "binary outcomes with errors correlated across equations. "
+                "Reports probit coefficients and the error correlations. "
+                "NumPy only."
+            ),
+            params=[
+                ParamSpec(
+                    "formulas",
+                    "list",
+                    True,
+                    description="One formula per binary outcome",
+                ),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("prior_mean", "float | list", False, 0.0),
+                ParamSpec("prior_var", "float | list | matrix", False, 100.0),
+                ParamSpec(
+                    "sigma_prior",
+                    "tuple",
+                    False,
+                    None,
+                    "(df, scale) of the inverse-Wishart; default (M + 3, (M + 3) I)",
+                ),
+                ParamSpec("draws", "int", False, 10000),
+                ParamSpec("burnin", "int", False, 2000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("chains", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+            ],
+            returns="BayesRegressResult",
+            example='sp.bayes_mvprobit(["y1 ~ x", "y2 ~ x + z"], df, seed=1)',
+            tags=["bayes", "mcmc", "probit", "multivariate", "binary"],
+            reference="rossi2005bayesian",
+            assumptions=["Jointly normal latent errors, independent across rows"],
+            alternatives=["biprobit", "bayes_regress", "bayes_sur"],
+            not_recommended_when=[
+                "One binary outcome: use sp.bayes_regress(model='probit')",
+                "An outcome is a regressor of another equation: that is a "
+                "recursive system with an endogenous regressor",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_mnprobit",
+            category="bayes",
+            description=(
+                "Bayesian multinomial probit by Gibbs sampling: an unordered "
+                "outcome with correlated normal utility errors, so "
+                "independence of irrelevant alternatives is not imposed. "
+                "NumPy only."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="'choice ~ x1 + x2'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("prior_mean", "float | list", False, 0.0),
+                ParamSpec("prior_var", "float | list | matrix", False, 100.0),
+                ParamSpec(
+                    "sigma_prior",
+                    "tuple",
+                    False,
+                    None,
+                    "(df, scale) of the inverse-Wishart; default (J + 2, (J + 2) I)",
+                ),
+                ParamSpec("draws", "int", False, 10000),
+                ParamSpec("burnin", "int", False, 2000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("chains", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+            ],
+            returns="BayesRegressResult",
+            example='sp.bayes_mnprobit("choice ~ income", df, seed=1)',
+            tags=["bayes", "mcmc", "probit", "multinomial", "choice"],
+            reference="mcculloch1994exact",
+            assumptions=["Jointly normal utility errors, independent across rows"],
+            alternatives=["mlogit", "bayes_regress"],
+            not_recommended_when=[
+                "Only decision-maker regressors and no interest in the error "
+                "covariance: it is then nearly unidentified and the chain is "
+                "slow; sp.bayes_regress(model='mlogit') is the practical choice",
+                "Regressors that vary across alternatives (prices): not supported",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_mixture",
+            category="bayes",
+            description=(
+                "Bayesian mixture of normal regressions with a fixed number "
+                "of components or a Dirichlet process. 'y ~ 1' gives density "
+                "estimation and model-based clustering. Returns the number "
+                "of clusters, the posterior similarity matrix, a partition "
+                "and the density with bands. Collapsed Gibbs, NumPy only."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="'y ~ 1' or 'y ~ x'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("components", "int | str", False, 2, "Integer or 'dp'"),
+                ParamSpec(
+                    "alpha", "float", False, 1.0, "Dirichlet weight or DP concentration"
+                ),
+                ParamSpec(
+                    "alpha_prior", "tuple", False, None, "Gamma (shape, rate), DP only"
+                ),
+                ParamSpec("prior_mean", "list", False, None),
+                ParamSpec("prior_scale", "float | matrix", False, None),
+                ParamSpec("sigma2_prior", "tuple", False, None),
+                ParamSpec("max_components", "int", False, None),
+                ParamSpec("grid", "int", False, 200),
+                ParamSpec("draws", "int", False, 5000),
+                ParamSpec("burnin", "int", False, 1000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("chains", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+            ],
+            returns="BayesRegressResult",
+            example='sp.bayes_mixture("y ~ 1", df, components="dp", seed=1)',
+            tags=[
+                "bayes",
+                "mcmc",
+                "mixture",
+                "dirichlet-process",
+                "clustering",
+                "density",
+            ],
+            reference="neal2000markov",
+            assumptions=["Normal errors within each component"],
+            alternatives=["kdensity", "bayes_regress"],
+            not_recommended_when=[
+                "Reading per-component coefficients when components overlap: "
+                "labels are not identified; use the similarity matrix",
+                "Treating the number of occupied clusters as an estimate of "
+                "the number of subpopulations: it is not consistent for it",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="bayes_sur",
             category="bayes",
             description=(

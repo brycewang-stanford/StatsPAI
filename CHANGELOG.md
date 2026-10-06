@@ -430,6 +430,19 @@ user guide is `docs/guides/bayesian_econometrics.md`.
   and a proper uniform prior over the stationary and invertible region,
   posterior predictive forecasts, and marginal likelihoods for comparing
   orders. AR(1) and MA(1) posteriors are checked against grid integration.
+- **`sp.bayes_mvprobit`** and **`sp.bayes_mnprobit`**: multivariate and
+  multinomial probit by data augmentation on the unrestricted covariance,
+  reporting the identified coefficients and correlations. Checked by the
+  joint-distribution test and against importance sampling from the prior.
+  The multinomial probit covariance is weakly identified with
+  decision-maker regressors only and its chain is as slow as
+  `bayesm::rmnpGibbs` on the same data; the result warns.
+- **`sp.bayes_mixture`**: mixtures of normal regressions with a fixed
+  number of components or a Dirichlet process (`components='dp'`), by a
+  collapsed Gibbs sampler. Number of clusters, posterior similarity
+  matrix, a point partition, and for `"y ~ 1"` the density with bands.
+  With eight observations the sampler reproduces the posterior obtained
+  by enumerating all 4,140 partitions.
 - `sp.bayes_regress(model='mlogit')`: multinomial logit.
   `sp.bayes_regress(inference='vb')`: mean-field variational Bayes for the
   normal model, with the evidence lower bound.
