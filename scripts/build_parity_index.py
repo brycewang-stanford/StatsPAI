@@ -126,6 +126,34 @@ _FACTOR_NOTES: Dict[str, Tuple[str, ...]] = {
 # and the asserting test — no model-memory facts (CLAUDE.md §10).
 _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     # ---- Neusser, Time Series Econometrics (2026-10-06) ----
+    "mswitch": {
+        "status": "bit-exact",
+        "reference": "Stata 18 mswitch dr / ar, estat transition, estat duration, predict; statsmodels MarkovAutoregression",
+        "reference_versions": {"Stata": "18", "statsmodels": "0.14.6"},
+        "tolerance": "log likelihood, filtered and smoothed probabilities at Stata's estimates 1e-11; covariance 5e-6; estimates within 5e-5 standard errors",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_mswitch_parity.py",
+            "tests/reference_parity/_fixtures/mswitch_Stata_1.json",
+        ],
+        "note": (
+            "Frozen-Stata fixture: 18 models on a committed synthetic file. Three documented reference disagreements carry independent evidence in the test: Stata's predict after mswitch ar with switch(), Stata's three-state AR that does not converge, and statsmodels with switching variance at order two or more."
+        ),
+    },
+    "tvp_var": {
+        "status": "bit-exact",
+        "reference": "KFAS::KFS, logLik (method='kalman'); sp.dlm per equation",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "KFAS": "1.6.0"},
+        "tolerance": "proper prior: log likelihood, filtered and smoothed coefficients and variances 1e-11; diffuse prior: 1e-5 after the first k dates",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_tvp_var_parity.py",
+            "tests/reference_parity/_fixtures/tvp_var_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture for the Kalman estimator at fixed variances. method='forgetting' has no package reference; it is checked against discounted least squares and an independent implementation in the same test file."
+        ),
+    },
     #
     # Synthetic committed series, frozen references from R 4.5.2 (stats,
     # sandwich, urca, KFAS) and Stata 18. Tolerances are those of the

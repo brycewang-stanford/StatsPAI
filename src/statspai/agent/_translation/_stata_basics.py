@@ -471,6 +471,7 @@ def _h_arch(cmd: StataCommand) -> Dict[str, Any]:
         )
     opts = cmd.options
     model = "garch"
+    threshold_: Optional[int] = None
     if "earch" in opts or "egarch" in opts:
         # exponential GARCH: earch() carries both the signed shock and its
         # magnitude, egarch() the lagged log variances
@@ -502,16 +503,28 @@ def _h_arch(cmd: StataCommand) -> Dict[str, Any]:
             t_ = _order(opts.get("tarch"), cmd, "tarch")
             if isinstance(t_, dict):
                 return t_
-            if t_ != q_:
+            if t_ > q_:
                 return _bad(
                     cmd,
                     f"tarch({opts.get('tarch')}) with arch({opts.get('arch')}): "
-                    "sp.garch(model='gjr') has one threshold term per ARCH lag",
+                    "sp.garch(model='gjr') needs the ARCH term of every "
+                    "threshold lag",
                 )
             model = "gjr"
+            threshold_ = t_ if t_ != q_ else None
     args: Dict[str, Any] = {"y": cmd.varlist[0], "p": p_, "q": q_}
     if model != "garch":
         args["model"] = model
+    if threshold_ is not None:
+        args["threshold"] = threshold_
+    if "archm" in opts:
+        if "archmlags" in opts or "archmexp" in opts:
+            return _bad(
+                cmd,
+                "archmlags() / archmexp() are not translated; sp.garch puts "
+                "the current conditional variance in the mean",
+            )
+        args["in_mean"] = True
     if "noconstant" in opts:
         args["mean"] = False
     if "ar" in opts:
@@ -553,7 +566,10 @@ def _h_arch(cmd: StataCommand) -> Dict[str, Any]:
         semantics.append(
             "Stata writes the threshold term on positive shocks, sp.garch on "
             "negative ones: gamma = -tarch and alpha = arch + tarch. The "
-            "likelihood, the fitted variances and beta are the same."
+            "likelihood, the fitted variances and beta are the same. "
+            "sp.garch keeps alpha >= 0 (no fall of the variance after a "
+            "positive shock) and warns when the estimate stops there; Stata "
+            "does not impose it."
         )
     if model == "egarch":
         semantics.append(

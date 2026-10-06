@@ -139,7 +139,7 @@ def smooth_py(
     G: np.ndarray,
     mask: np.ndarray,
     F: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Fixed-interval smoother by the backward recursion in ``r`` and ``N``.
 
     ``r_{t-1} = G' S^{-1} v_t + L_t' r_t`` and
@@ -147,7 +147,8 @@ def smooth_py(
     ``L_t = F_{t+1} (I - K_t G_t)``; the smoothed moments are
     ``x_{t|t-1} + P_{t|t-1} r_{t-1}`` and
     ``P_{t|t-1} - P_{t|t-1} N_{t-1} P_{t|t-1}``. No predicted covariance is
-    inverted, so a singular ``Q`` needs no special case.
+    inverted, so a singular ``Q`` needs no special case. Also returns the
+    last ``r`` and ``N``, those of the first date.
     """
     T, m = xp.shape
     n = v.shape[1]
@@ -171,7 +172,7 @@ def smooth_py(
         xs[t] = xp[t] + Pp[t] @ r
         V = Pp[t] - Pp[t] @ N @ Pp[t]
         Ps[t] = 0.5 * (V + V.T)
-    return xs, Ps
+    return xs, Ps, r, N
 
 
 _KERNELS: Dict[str, Any] = {}
@@ -256,7 +257,7 @@ def initial_state(
     m = F.shape[1]
     if init not in ("auto", "stationary", "diffuse"):
         raise MethodIncompatibility(
-            f"init={init!r} is not one of 'auto', 'stationary', 'diffuse'."
+            f"init={init!r} is not one of 'auto', 'stationary', 'diffuse', " "'exact'."
         )
     mean = np.zeros(m) if x0 is None else np.array(x0, dtype=float).reshape(-1)
     if mean.shape != (m,):

@@ -122,7 +122,67 @@ Guide: `docs/guides/time_series_econometrics.md`.
   than 50 log-likelihood points above GARCH(1,1).
 - **`VARResult.fevd(ci="asymptotic" | "bootstrap")`**: standard errors and
   bands for the variance decomposition. The delta-method standard errors
-  equal Stata's `irf table fevd, stderr`.
+  equal Stata's `irf table fevd, stderr`. **`SVARResult.fevd(ci="bootstrap")`**
+  does the same for a short- or long-run identification.
+- **`sp.garch(in_mean=True)`**: the conditional variance in the mean (ARCH
+  in mean, Stata's `archm`), for every `model`, with `ar=` and `dist="t"`.
+  Five specifications against Stata 18: log-likelihood to 1e-8,
+  coefficients to 1e-4, standard errors to 2e-3. Stata holds its
+  pre-sample variance fixed while it climbs the likelihood; `sp.garch`
+  does the same, and a test shows that this, not noise, is what separates
+  the two candidate estimates. **`threshold=`** sets fewer threshold terms
+  than ARCH terms (`arch(1/2) tarch(1)`).
+- **`boot="kilian"`** in `sp.irf`, `VARResult.fevd`, `SVARResult.irf` and
+  `SVARResult.fevd`: Kilian's bias-corrected bootstrap. In a bivariate
+  VAR(1) with a root of 0.92 and 60 observations, 90% bands for the own
+  response at horizons 4 to 8 covered 38% of the time with the percentile
+  bootstrap, 56% with Hall's, 62% with the delta method and 86% with the
+  bias correction (300 samples). The uncorrected bootstraps now warn when
+  the largest estimated root exceeds 0.9.
+- **`sp.mswitch`**: Markov-switching regression (Hamilton filter, Kim
+  smoother). The constant, chosen coefficients, the AR terms or the
+  variance depend on an unobserved regime; dynamic regression or
+  Hamilton's autoregression in deviations from the regime mean. Eighteen
+  models against Stata 18 `mswitch dr` and `mswitch ar`: log-likelihood
+  and regime probabilities at Stata's estimates to 1e-11, covariance to
+  5e-6, estimates within 5e-5 standard errors, transition probabilities
+  and durations with their standard errors. Hamilton's GNP example gives
+  -181.263386 (Stata, slightly short of convergence, -181.263394). Several
+  starting values are tried and the number of distinct maxima is
+  reported. Three places where a reference disagrees with itself or with
+  another are documented with independent evidence in the test file.
+- **`sp.tvp_var`**: a VAR whose coefficients follow random walks. Equation
+  by equation with the Kalman filter and smoother and maximum-likelihood
+  innovation variances (each equation equal to `sp.dlm`, and to R `KFAS`
+  to 1e-12 under a proper prior), or by the forgetting-factor filter of
+  Koop and Korobilis, which has no parameters to estimate (equal to
+  discounted least squares to 1e-8). Coefficient paths with bands, impulse
+  responses of the VAR frozen at a date, companion roots over time,
+  forecasts.
+- **Exact diffuse initialisation** in `sp.kalman_filter` and
+  `sp.statespace` (`init="exact"`, or `diffuse=[...]` to mark some
+  states). Filter, smoother and diffuse likelihood equal R `KFAS` to 1e-12
+  on six models, including missing observations during the diffuse period
+  and time-varying matrices. The default is unchanged.
+- **`sp.beveridge_nelson(order=(p, q))`**: the decomposition from an ARMA
+  model fitted by exact maximum likelihood. The cycle equals the
+  long-horizon forecast of the fitted model to 5e-13. Integer orders keep
+  the OLS autoregression and give the same numbers as before.
+- **`sp.tsfilter`**: the one-sided (real-time) Hodrick-Prescott filter
+  (`one_sided=True`), the fixed-length symmetric Christiano-Fitzgerald
+  filter (`sma_order=`, Stata's `smaorder()`, to 1e-9), and the stationary
+  variant of the CF filter (`stationary=True`) as the Stata manual
+  defines it. Stata 18 itself computes something else for `cf,
+  stationary`: the weight on the first and last observation is the ideal
+  weight of the neighbouring lag. A test rebuilds Stata's numbers from
+  that rule to 1e-9 and a draft note to StataCorp is in `docs/dev/`.
+- **`sp.zivot_andrews`**: `lags="ttest"`, lag selection at every break
+  date (`lag_selection="break"`), and options that reproduce Stata's
+  `zandrews` (statistic to 5e-13, break date and lag order equal, 48
+  cases).
+- **`sp.read_data` reads workbooks written by EViews**, whose archive
+  members are named with backslashes (`xl\worksheets\sheet1.xml`) and which
+  pandas and openpyxl reject. The file is repaired in memory.
 - **`sp.irf(ci="asymptotic" | "bootstrap")`**: standard errors and bands for
   impulse responses. The delta-method standard errors equal Stata's
   `irf create` for simple, orthogonalised and cumulative responses, with
@@ -163,12 +223,17 @@ Guide: `docs/guides/time_series_econometrics.md`.
   `5% CV` at `alpha=0.01`. The result now carries `n_used`, `alpha`,
   `trend` and `var_names`. Statistics are unchanged.
 
-- **`sp.arima` tries a third starting point for a final fit**, every ARMA
-  coefficient at zero, where R's `arima(method="ML")` begins. On Swiss GDP
-  growth ARMA(5,2) stopped at a log-likelihood of -110.13 where R reaches
-  -107.03; it now reaches R's value. Over the 36 orders up to (5,5) the
-  likelihood is at least R's in every cell and higher in ten. Models that
-  already reached their maximum are unchanged.
+- **`sp.arima` tries more starting points for a final fit.** One with every
+  ARMA coefficient at zero, where R's `arima(method="ML")` begins: on
+  Swiss GDP growth ARMA(5,2) stopped at a log-likelihood of -110.13 where
+  R reaches -107.03, and now reaches R's value. And one from the estimates
+  of each model with one AR or one MA term fewer, the dropped coefficient
+  at zero: on the quarterly change of Swiss log GDP, MA(3) stopped at
+  -249.22 with a root on the unit circle, below the MA(2) it nests
+  (-244.90); R's `arima` stops at the same point. It now reaches -243.82.
+  A model no longer fits worse than the models it nests. Fits that were
+  at their maximum are unchanged (all 2,497 ARIMA and forecasting tests of
+  the earlier passes, and Track A module 39, to the last digit).
 
 #### Found in the book
 
@@ -178,7 +243,7 @@ Guide: `docs/guides/time_series_econometrics.md`.
   unaffected; variances are too large by up to 0.134, so the band in the
   book's figure is too wide.
 
-Twenty references added to `paper.bib`, each verified against the
+Twenty-five references added to `paper.bib`, each verified against the
 Crossref and OpenAlex records of its DOI.
 ### A causal-inference textbook's Stata code, run against Stata
 

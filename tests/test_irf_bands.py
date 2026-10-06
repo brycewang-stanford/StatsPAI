@@ -1,5 +1,7 @@
 """Bands around ``sp.irf``: bootstrap behaviour and argument checks."""
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -210,3 +212,133 @@ def test_fevd_bands(fit):
     assert float(first["se"].iloc[0]) == pytest.approx(0.0, abs=1e-12)
     with pytest.raises(MethodIncompatibility, match="ci="):
         fit.fevd(3, ci="bayes")
+
+
+# ---------------------------------------------------------------------------
+# Bias-corrected bootstrap and structural variance decompositions
+# ---------------------------------------------------------------------------
+
+PERSISTENT = np.array([[0.92, 0.0], [0.15, 0.5]])
+
+
+def _persistent(seed, T=60):
+    rng = np.random.default_rng(seed)
+    y = np.zeros((T + 100, 2))
+    for t in range(1, T + 100):
+        y[t] = PERSISTENT @ y[t - 1] + P @ rng.normal(size=2)
+    return pd.DataFrame(y[100:], columns=["a", "b"])
+
+
+def test_bias_correction_raises_the_persistence_estimate():
+    # OLS underestimates a large autoregressive coefficient in a short
+    # sample; the first bootstrap round measures that, and the corrected
+    # coefficient moves up without leaving the stationary region.
+    from statspai.timeseries import irf_bands
+
+    lifted = 0
+    for s in range(20):
+        fit = sp.var(_persistent(300 + s), lags=1)
+        A_hat = np.asarray(fit._B, float)[:2, :]
+        first = [Bb[:2] for Bb, _ in irf_bands._draws(fit, False, 200, s, None)]
+        bias = np.mean(first, axis=0) - A_hat
+        corrected = irf_bands._bias_corrected(A_hat, bias, 2, 1)
+        assert irf_bands._max_root(corrected, 2, 1) < 1.0
+        lifted += corrected[0, 0] > A_hat[0, 0]
+    assert lifted >= 18
+
+
+def test_explosive_correction_is_shrunk_and_a_unit_root_left_alone():
+    from statspai.timeseries import irf_bands
+
+    A_hat = np.array([[0.97]])
+    out = irf_bands._bias_corrected(A_hat, np.array([[-0.08]]), 1, 1)
+    assert 0.97 < out[0, 0] < 1.0  # full correction would give 1.05
+    unit = np.array([[1.01]])
+    assert irf_bands._bias_corrected(unit, np.array([[-0.05]]), 1, 1) is unit
+
+
+def test_kilian_band_covers_a_persistent_response_better_than_efron():
+    # T = 60 and an own root of 0.92: the response of a to its own shock
+    # at horizons 4-8. Nominal 90%. Over 100 samples the percentile band
+    # undercovers and the bias-corrected one is closer to nominal (the
+    # difference is well outside the binomial error of either rate).
+    truth = np.array(
+        [(np.linalg.matrix_power(PERSISTENT, h) @ P)[0, 0] for h in range(4, 9)]
+    )
+    hits = {"efron": 0.0, "kilian": 0.0}
+    n_mc = 100
+    for s in range(n_mc):
+        fit = sp.var(_persistent(2000 + s), lags=1)
+        for boot in hits:
+            with warnings.catch_warnings():
+                # the percentile bootstrap warns here, which is the point
+                warnings.simplefilter("ignore")
+                out = sp.irf(
+                    fit,
+                    periods=8,
+                    ci="bootstrap",
+                    alpha=0.10,
+                    reps=199,
+                    seed=s,
+                    boot=boot,
+                )
+            lo, hi = out["lower"]["a -> a"][4:], out["upper"]["a -> a"][4:]
+            hits[boot] += np.mean((lo <= truth) & (truth <= hi))
+    efron, kilian = hits["efron"] / n_mc, hits["kilian"] / n_mc
+    assert kilian > efron + 0.05, (efron, kilian)
+    assert 0.80 < kilian < 0.97, (efron, kilian)
+
+
+def test_kilian_is_reproducible_and_reaches_fevd_and_svar(fit):
+    one = sp.irf(fit, periods=3, ci="bootstrap", reps=60, seed=1, boot="kilian")
+    two = sp.irf(fit, periods=3, ci="bootstrap", reps=60, seed=1, boot="kilian")
+    np.testing.assert_array_equal(one["lower"]["a -> b"], two["lower"]["a -> b"])
+    assert one["ci"]["boot"] == "kilian"
+    shares = fit.fevd(3, ci="bootstrap", reps=60, seed=1, boot="kilian")
+    assert shares["lower"].min() >= 0 and shares["upper"].max() <= 1
+    chol = sp.svar(fit, B=[[np.nan, 0], [np.nan, np.nan]])
+    bands = chol.irf(3, ci="bootstrap", reps=60, seed=1, boot="kilian")
+    row = bands[(bands.shock == "shock1") & (bands.response == "b")]
+    # same generator, same identification
+    np.testing.assert_allclose(row["lower"], one["lower"]["a -> b"], atol=1e-8)
+    with pytest.raises(MethodIncompatibility, match="boot"):
+        fit.fevd(3, ci="bootstrap", boot="hall")
+
+
+def test_structural_fevd_bands(fit):
+    nan = np.nan
+    chol = sp.svar(fit, B=[[nan, 0], [nan, nan]])
+    structural = chol.fevd(4, ci="bootstrap", reps=80, seed=9)
+    assert list(structural.columns) == [
+        "shock",
+        "response",
+        "period",
+        "fevd",
+        "se",
+        "lower",
+        "upper",
+    ]
+    reduced = fit.fevd(4, ci="bootstrap", reps=80, seed=9)
+    a = structural[(structural.shock == "shock1") & (structural.response == "b")]
+    b = reduced[(reduced.shock == "a") & (reduced.response == "b")]
+    # a recursive structural model is the Cholesky decomposition
+    np.testing.assert_allclose(a["fevd"], b["fevd"], atol=1e-10)
+    np.testing.assert_allclose(a["lower"], b["lower"], atol=1e-8)
+    np.testing.assert_allclose(a["upper"], b["upper"], atol=1e-8)
+    assert structural["lower"].min() >= 0 and structural["upper"].max() <= 1
+    # without ci= the old columns
+    assert list(chol.fevd(2).columns) == ["shock", "response", "period", "fevd"]
+    sign = sp.svar(fit, sign={"s": {"a": "+", "b": "+"}}, n_draws=20, seed=0)
+    with pytest.raises(MethodIncompatibility, match="identified set"):
+        sign.fevd(3, ci="bootstrap")
+
+
+def test_uncorrected_bootstrap_warns_on_a_persistent_var():
+    from statspai.exceptions import AssumptionWarning
+
+    fit = sp.var(_persistent(2001, T=200), lags=1)
+    with pytest.warns(AssumptionWarning, match="kilian"):
+        sp.irf(fit, periods=2, ci="bootstrap", reps=30, seed=0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AssumptionWarning)
+        sp.irf(fit, periods=2, ci="bootstrap", reps=30, seed=0, boot="kilian")

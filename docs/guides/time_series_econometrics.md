@@ -61,7 +61,10 @@ hp.gain(np.linspace(0, np.pi, 200))    # what the filter does to each frequency
 ```
 
 `method=` also takes `"cf"` (Christiano-Fitzgerald), `"bw"` (Butterworth)
-and `"hamilton"` (the regression of `y[t + h]` on `p` lags). Three
+and `"hamilton"` (the regression of `y[t + h]` on `p` lags).
+`sp.tsfilter(df, "lgdp", one_sided=True)` is the real-time HP trend, which
+uses data up to each date only and is the one to use when the cycle feeds
+a forecast or a policy rule. Three
 cautions. The HP filter applied to data that are not seasonally adjusted
 leaves the seasonal component in the cycle. The HP filter is two-sided, so
 the last few cycle values are revised when new data arrive. And any of
@@ -74,7 +77,8 @@ have power there.
 ```python
 sp.unitroot(df, "lgdp", test="adf", trend="ct")     # also "pp", "kpss", "dfgls"
 sp.zivot_andrews(df, "lgdp", model="both", lags=2)  # one break, date unknown
-bn = sp.beveridge_nelson("lgdp", data=df)
+bn = sp.beveridge_nelson("lgdp", data=df)            # AR(p) by OLS
+sp.beveridge_nelson("lgdp", data=df, order=(1, 1))  # ARMA by exact ML
 bn.trend, bn.cycle, bn.long_run_multiplier
 ```
 
@@ -107,7 +111,10 @@ sp.garch("ret", data=df, model="gjr")       # threshold GARCH
 sp.garch("ret", data=df, model="egarch")    # exponential GARCH
 ```
 
-Both let bad news move the variance by more than good news. In the
+`in_mean=True` puts the conditional variance in the mean (a risk premium)
+and works with every model.
+
+Both asymmetric models let bad news move the variance by more than good news. In the
 threshold model `gamma > 0` is that leverage effect; in EGARCH it is
 `theta < 0`. Stata's `tarch` coefficient has the opposite sign of `gamma`
 because Stata attaches it to positive shocks. A coefficient estimated at zero is
@@ -146,6 +153,10 @@ fit.fevd(20, ci="asymptotic")        # variance shares with standard errors
 Orthogonalised responses depend on the order of the variables. The
 bootstrap regenerates the series from resampled residuals and re-estimates
 the VAR; `boot="hall"` reflects the percentile band about the estimate.
+For persistent series in short samples use `boot="kilian"`: the
+bootstrap replicates of a VAR with a root near one are biased towards
+less persistence, and the uncorrected bands can cover far less often than
+they claim. The call warns when the largest estimated root exceeds 0.9.
 
 ```python
 nan = np.nan
@@ -198,6 +209,42 @@ frequencies easy: a quarterly state observed through an annual series is
 an observation equation that is missing three quarters out of four.
 Any matrix may vary over time (give it a leading time axis). For a
 regression with slowly moving coefficients `sp.dlm` is shorter.
+`init="exact"` starts non-stationary states from an exactly diffuse
+prior; the default for them is a large finite variance.
+
+### Regimes (chapter 18)
+
+```python
+ms = sp.mswitch("growth", data=df, states=2, model="ar", ar=1)   # Hamilton
+ms.summary()
+ms.transition, ms.durations
+ms.smoothed          # probability of each regime at each date
+sp.mswitch("growth", data=df, states=2, switch_variance=True)   # dr model
+```
+
+`model="ar"` is Hamilton's model, in which the series adjusts gradually
+to a new regime mean. `model="dr"` lets the mean jump at once and treats
+lags of the series as ordinary regressors. The likelihood has several
+maxima, so several starting values are tried and the result says how many
+distinct maxima they reached. A likelihood-ratio test of one regime
+against two does not have a chi-squared distribution, because the
+transition probabilities are not identified under the null.
+
+### Coefficients that move (chapter 18)
+
+```python
+tv = sp.tvp_var(df, variables=["dy", "dp", "r"], lags=2)   # Kalman, ML variances
+tv.coefficients().head()      # date, equation, term, coef, se, band
+tv.stability()                # largest root of the VAR frozen at each date
+tv.irf(at=["1975Q1", "2005Q1"], periods=12)
+sp.tvp_var(df, lags=2, method="forgetting", lam=0.99, kappa=0.96)
+```
+
+Every coefficient follows a random walk. `method="kalman"` estimates how
+fast each one moves; a variance estimated at zero means that coefficient
+is constant. `method="forgetting"` discounts old data at a fixed rate and
+estimates nothing. The two can disagree about whether a response changed
+over time. Report both before claiming that it did.
 
 ## What each function is checked against
 
@@ -210,13 +257,15 @@ regression with slowly moving coefficients `sp.dlm` is shorter.
 | `sp.cumulative_periodogram_test` | Stata `wntestb` |
 | `sp.tsfilter` | Stata `tsfilter`, statsmodels |
 | `sp.unitroot` | statsmodels, Stata |
-| `sp.zivot_andrews` | R `urca::ur.za` |
+| `sp.zivot_andrews` | R `urca::ur.za`, Stata `zandrews` |
 | `sp.beveridge_nelson` | its definition (no package found) |
 | `sp.garch` | Stata `arch`, R `rugarch` |
 | `sp.xcorr` | R `ccf`, Stata `xcorr` |
 | `sp.var`, `sp.irf`, `sp.svar` | Stata `var`, `irf`, `svar`; R `vars` |
 | `sp.johansen`, `sp.vec`, `sp.johansen_lrtest` | Stata `vecrank`, `vec`; R `urca` |
 | `sp.kalman_filter`, `sp.statespace` | R `KFAS`, statsmodels |
+| `sp.mswitch` | Stata `mswitch`, statsmodels |
+| `sp.tvp_var` | `sp.dlm` and R `KFAS` (Kalman); discounted least squares (forgetting) |
 
 The bootstrap bands are random and have no cross-language reference; they
 are checked by coverage in simulations.

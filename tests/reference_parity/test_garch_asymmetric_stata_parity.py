@@ -129,3 +129,104 @@ def test_same_objective_at_statas_estimates(data, stata):
             np.array(theta), y, 1, 1, True, 0, dist, "stata", "egarch"
         )[3].sum()
         assert ll == pytest.approx(stata[name]["ll"], rel=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Variance in the mean (Stata archm)
+# ---------------------------------------------------------------------------
+
+# model -> (sp arguments, Stata positions of [mu, archm, then the rest])
+IN_MEAN = {
+    # Stata: mu, sigma2, arch, garch, omega
+    "mg": (dict(), ["mu", "archm", "alpha[1]", "beta[1]", "omega"]),
+    # Stata: mu, sigma2, ar, arch, garch, omega
+    "mar": (dict(ar=1), ["mu", "archm", "ar[1]", "alpha[1]", "beta[1]", "omega"]),
+    # Stata: mu, sigma2, earch, earch_a, egarch, omega
+    "meg": (
+        dict(model="egarch"),
+        ["mu", "archm", "theta[1]", "gamma[1]", "beta[1]", "omega"],
+    ),
+}
+
+
+@pytest.mark.parametrize("name", list(IN_MEAN))
+def test_variance_in_mean(data, stata, name):
+    kwargs, order = IN_MEAN[name]
+    ref = stata[name]
+    b, se = _vec(ref, "b", len(order)), _vec(ref, "se", len(order))
+    fit = sp.garch("r", data=data, in_mean=True, vce="opg", **kwargs)
+    assert fit.log_likelihood == pytest.approx(ref["ll"], rel=1e-8)
+    # the mean and the in-mean coefficient are nearly collinear, so the
+    # likelihood is flat along them: 1e-4 is still 0.003 standard errors
+    np.testing.assert_allclose(fit.params[order].to_numpy(), b, atol=1e-4)
+    np.testing.assert_allclose(fit.std_errors[order].to_numpy(), se, rtol=2e-3)
+    assert fit.archm == pytest.approx(b[1], abs=1e-4)
+
+
+def test_variance_in_mean_with_threshold_and_with_t(data, stata):
+    # Stata: mu, sigma2, arch, tarch, garch, omega
+    b = _vec(stata["mgjr"], "b", 6)
+    fit = sp.garch("r", data=data, model="gjr", in_mean=True, vce="opg")
+    assert fit.log_likelihood == pytest.approx(stata["mgjr"]["ll"], rel=1e-8)
+    assert fit.archm == pytest.approx(b[1], abs=1e-4)
+    assert fit.gamma[0] == pytest.approx(-b[3], abs=2e-4)
+    assert fit.alpha[0] == pytest.approx(b[2] + b[3], abs=2e-4)
+    # Stata: mu, sigma2, arch, garch, omega, ln(df - 2)
+    b = _vec(stata["mt"], "b", 6)
+    fit = sp.garch("r", data=data, dist="t", in_mean=True, vce="opg")
+    assert fit.log_likelihood == pytest.approx(stata["mt"]["ll"], rel=1e-8)
+    assert fit.archm == pytest.approx(b[1], abs=1e-4)
+    assert fit.nu == pytest.approx(2 + np.exp(b[5]), rel=2e-3)
+
+
+def test_presample_value_is_held_fixed_as_in_stata(data, stata):
+    """Stata's pre-sample variance is the mean squared innovation at the
+    estimates but is a constant while the likelihood is climbed. Treating
+    it as a function of the parameters gives a slightly higher value of
+    the same expression at a different point (0.008 standard errors away
+    here); the test documents that this is the reason and not noise."""
+    y = data["r"].to_numpy()
+    b = _vec(stata["mg"], "b", 5)
+    at_stata = np.array([b[0], b[1], b[4], b[2], b[3]])  # mu, psi, omega, a, b
+
+    def loglik(theta, m_fixed=None):
+        out = _general_filter(
+            theta, y, 1, 1, True, 0, "normal", "stata", "garch", 0, True, m_fixed
+        )
+        return float(out[3].sum()), float(np.mean(out[1] ** 2))
+
+    ll, m = loglik(at_stata)
+    assert ll == pytest.approx(stata["mg"]["ll"], rel=1e-9)
+    fit = sp.garch("r", data=data, in_mean=True)
+    ours = fit.params[["mu", "archm", "omega", "alpha[1]", "beta[1]"]].to_numpy()
+    # with the pre-sample value frozen, Stata's point is the maximum ...
+    assert loglik(ours, m)[0] == pytest.approx(loglik(at_stata, m)[0], abs=1e-6)
+    # ... while letting it move with the parameters there is a higher point
+    from scipy.optimize import minimize
+
+    free = minimize(
+        lambda th: -loglik(th)[0], ours, method="Nelder-Mead",
+        options={"xatol": 1e-9, "fatol": 1e-11, "maxiter": 5000},
+    )  # fmt: skip
+    assert -free.fun > ll + 5e-5
+    assert abs(free.x[0] - ours[0]) > 1e-4
+
+
+def test_threshold_at_fewer_lags_than_arch(data, stata):
+    # Stata: mu, arch1, arch2, tarch1, garch, omega
+    ref = stata["thr"]
+    b = _vec(ref, "b", 6)
+    y = data["r"].to_numpy()
+    # same objective: ours is (mu, omega, alpha1, alpha2, gamma1, beta)
+    theta = np.array([b[0], b[5], b[1] + b[3], b[2], -b[3], b[4]])
+    ll = _general_filter(theta, y, 1, 2, True, 0, "normal", "stata", "gjr", 1)[3]
+    assert ll.sum() == pytest.approx(ref["ll"], rel=1e-9)
+    # Stata's estimate has arch1 + tarch1 < 0: the variance would fall
+    # after a positive shock. sp.garch keeps alpha >= 0, stops on that
+    # boundary, says so, and fits slightly less well.
+    assert b[1] + b[3] < 0
+    with pytest.warns(RuntimeWarning, match="boundary"):
+        fit = sp.garch("r", data=data, model="gjr", q=2, threshold=1)
+    assert fit.alpha[0] == pytest.approx(0.0, abs=1e-8)
+    assert ref["ll"] - 0.5 < fit.log_likelihood < ref["ll"]
+    assert fit.gamma.shape == (1,)

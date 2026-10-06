@@ -19,6 +19,11 @@ from ..exceptions import MethodIncompatibility
 
 __all__: List[str] = []
 
+#: percentile band; band reflected about the estimate; bias-corrected
+BOOT_KINDS = ("efron", "hall", "kilian")
+#: above this largest companion root the uncorrected bootstrap warns
+PERSISTENT_ROOT = 0.9
+
 
 def response_array(
     B: np.ndarray,
@@ -211,11 +216,38 @@ def fevd_se(
     return out
 
 
+def _max_root(A_stack: np.ndarray, k: int, p: int) -> float:
+    """Largest modulus of the companion roots of the lag coefficients
+    (rows: lag 1 variables, lag 2 variables, ...; columns: equations)."""
+    kp = k * p
+    companion = np.zeros((kp, kp))
+    companion[:k, :] = A_stack.T
+    if p > 1:
+        companion[k:, :-k] = np.eye(kp - k)
+    return float(np.max(np.abs(np.linalg.eigvals(companion))))
+
+
+def _bias_corrected(A_hat: np.ndarray, bias: np.ndarray, k: int, p: int) -> np.ndarray:
+    """``A_hat - delta * bias`` with the largest ``delta`` in ``1, 0.99,
+    ...`` that leaves the VAR stationary (Kilian's adjustment). A
+    non-stationary estimate is returned unchanged."""
+    if _max_root(A_hat, k, p) >= 1.0:
+        return A_hat
+    delta = 1.0
+    while delta > 0.0:
+        cand = A_hat - delta * bias
+        if _max_root(cand, k, p) < 1.0:
+            return np.asarray(cand)
+        delta -= 0.01
+    return A_hat
+
+
 def bootstrap_fits(
     var_result: Any,
     unbiased: bool,
     reps: int,
     seed: Optional[int],
+    boot: str = "efron",
 ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
     """Coefficients and residual covariance of ``reps`` bootstrap samples.
 
@@ -223,7 +255,55 @@ def bootstrap_fits(
     residuals are drawn with replacement, the series is rebuilt from the
     first ``p`` observations with the estimated coefficients (deterministic
     and exogenous terms as in the sample), and the VAR is re-estimated.
+
+    ``boot='kilian'`` is the bias-corrected bootstrap ("bootstrap after
+    bootstrap"): a first round of ``reps`` samples estimates the
+    small-sample bias of the lag coefficients; the second round is
+    generated from the bias-corrected coefficients, and each of its
+    estimates is corrected by the same bias (both corrections shrunk when
+    they would make the VAR non-stationary).
     """
+    if boot == "kilian":
+        k, p = int(var_result._k), int(var_result._lags)
+        kp = k * p
+        A_hat = np.asarray(var_result._B, float)[:kp, :]
+        first = [Bb[:kp, :] for Bb, _ in _draws(var_result, unbiased, reps, seed, None)]
+        bias = np.mean(first, axis=0) - A_hat
+        A_tilde = _bias_corrected(A_hat, bias, k, p)
+        second = None if seed is None else seed + 1
+        for Bb, sigma_b in _draws(var_result, unbiased, reps, second, A_tilde):
+            Bc = Bb.copy()
+            Bc[:kp, :] = _bias_corrected(Bb[:kp, :], bias, k, p)
+            yield Bc, sigma_b
+        return
+    k, p = int(var_result._k), int(var_result._lags)
+    root = _max_root(np.asarray(var_result._B, float)[: k * p, :], k, p)
+    if root > PERSISTENT_ROOT:
+        import warnings
+
+        from ..exceptions import AssumptionWarning
+
+        warnings.warn(
+            f"The largest root of the estimated VAR is {root:.3f}. With "
+            "roots this close to one the bootstrap replicates are biased "
+            "towards less persistence and percentile bands undercover, "
+            f"badly in short samples (boot={boot!r}). boot='kilian' "
+            "corrects the bias.",
+            AssumptionWarning,
+            stacklevel=4,
+        )
+    yield from _draws(var_result, unbiased, reps, seed, None)
+
+
+def _draws(
+    var_result: Any,
+    unbiased: bool,
+    reps: int,
+    seed: Optional[int],
+    lag_coefs: Optional[np.ndarray],
+) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
+    """The residual bootstrap of :func:`bootstrap_fits`; ``lag_coefs``
+    replaces the estimated lag coefficients in the data-generating step."""
     B = np.asarray(var_result._B, float)
     X = np.asarray(var_result._X, float)
     levels = np.asarray(var_result._levels, float)
@@ -234,7 +314,7 @@ def bootstrap_fits(
     resid = np.asarray(var_result.residuals, float)
     resid = resid - resid.mean(axis=0)
     det = X[:, kp:] @ B[kp:, :] if m > kp else np.zeros((T, k))
-    A_stack = B[:kp, :]
+    A_stack = B[:kp, :] if lag_coefs is None else lag_coefs
     rng = np.random.default_rng(seed)
     start = levels[len(levels) - T - p : len(levels) - T]
     for _ in range(reps):
@@ -261,11 +341,13 @@ def bootstrap_responses(
     unbiased: bool,
     reps: int,
     seed: Optional[int],
+    boot: str = "efron",
 ) -> np.ndarray:
     """``reps`` bootstrap replicates of the response array."""
     k, p = int(var_result._k), int(var_result._lags)
     out = np.empty((reps, periods + 1, k, k))
-    for b, (Bb, sigma_b) in enumerate(bootstrap_fits(var_result, unbiased, reps, seed)):
+    fits = bootstrap_fits(var_result, unbiased, reps, seed, boot)
+    for b, (Bb, sigma_b) in enumerate(fits):
         out[b] = response_array(Bb, sigma_b, k, p, periods, orthogonal, cumulative)
     return out
 
@@ -315,8 +397,12 @@ def bands(
             recovery_hint="ci='asymptotic' is the delta method (Stata's "
             "default), ci='bootstrap' the residual bootstrap.",
         )
-    if boot not in ("efron", "hall"):
-        raise MethodIncompatibility("irf: boot must be 'efron' or 'hall'.")
+    if boot not in BOOT_KINDS:
+        raise MethodIncompatibility(
+            "irf: boot must be 'efron', 'hall' or 'kilian'.",
+            recovery_hint="'kilian' is the bias-corrected bootstrap, for "
+            "persistent series and short samples.",
+        )
     if reps < 20:
         raise MethodIncompatibility(
             f"irf: reps={reps} is too few for percentile bands.",
@@ -328,7 +414,7 @@ def bands(
             "sp.var(...) to bootstrap."
         )
     draws = bootstrap_responses(
-        var_result, periods, orthogonal, cumulative, unbiased, reps, seed
+        var_result, periods, orthogonal, cumulative, unbiased, reps, seed, boot
     )
     lo = np.quantile(draws, alpha / 2.0, axis=0)
     hi = np.quantile(draws, 1.0 - alpha / 2.0, axis=0)

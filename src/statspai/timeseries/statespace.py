@@ -29,6 +29,7 @@ import pandas as pd
 
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from . import _statespace_core as core
+from . import _statespace_diffuse as exact
 from ._statespace_results import KalmanResult, StateSpaceResult, inference, package
 
 __all__ = ["kalman_filter", "statespace", "KalmanResult", "StateSpaceResult"]
@@ -99,10 +100,14 @@ def _run(
     kappa: float,
     smooth: bool,
     compiled: bool,
+    diffuse: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Filter (and smooth) once; raises ``LinAlgError`` on a singular step."""
     T, n = yv.shape
     sysm, m = _system(mats, T, n)
+    if init == "exact":
+        start = (mats.get("x0"), mats.get("P0"), diffuse)
+        return exact.run_exact(yv, sysm, m, start, smooth, compiled)
     x0, P0, rule = core.initial_state(
         sysm["F"], sysm["Q"], mats.get("x0"), mats.get("P0"), init, kappa
     )
@@ -115,7 +120,7 @@ def _run(
     )
     res.update(sys=sysm, mask=mask, x0=x0, P0=P0, rule=rule, m=m)
     if smooth:
-        res["xs"], res["Ps"] = ks(
+        res["xs"], res["Ps"], _, _ = ks(
             res["xp"],
             res["Pp"],
             res["v"],
@@ -126,6 +131,19 @@ def _run(
             sysm["F"],
         )
     return res
+
+
+def _rule(init: str, diffuse: Optional[Any]) -> str:
+    """``'exact'`` whenever states are marked diffuse; else ``init``."""
+    if diffuse is None:
+        return init
+    if init not in ("auto", "exact"):
+        raise MethodIncompatibility(
+            f"diffuse= marks states for the exact diffuse filter; init={init!r} "
+            "asks for another initial state.",
+            recovery_hint="Leave init at 'auto' or set init='exact'.",
+        )
+    return "exact"
 
 
 def _singular(exc: Exception) -> MethodIncompatibility:
@@ -151,6 +169,7 @@ def kalman_filter(
     P0: Optional[Any] = None,
     init: str = "auto",
     kappa: float = 1e7,
+    diffuse: Optional[Sequence[bool]] = None,
     smooth: bool = True,
     burn: int = 0,
     data: Optional[pd.DataFrame] = None,
@@ -185,14 +204,24 @@ def kalman_filter(
     x0, P0 : array-like, optional
         Mean and covariance of the state one step before the first
         observation. ``x0`` defaults to zero; ``P0`` follows ``init``.
-    init : {'auto', 'stationary', 'diffuse'}, default 'auto'
+    init : {'auto', 'stationary', 'diffuse', 'exact'}, default 'auto'
         Rule for ``P0`` when it is not given. ``'stationary'`` solves
         ``P0 = F P0 F' + Q`` and needs constant ``F`` and ``Q`` with every
         eigenvalue of ``F`` inside the unit circle. ``'diffuse'`` sets
-        ``P0 = kappa I``. ``'auto'`` is stationary when ``F`` is stable
-        and diffuse otherwise.
+        ``P0 = kappa I``, an approximation. ``'auto'`` is stationary when
+        ``F`` is stable and ``'diffuse'`` otherwise. ``'exact'`` is the
+        exact diffuse filter and smoother: the states marked in
+        ``diffuse`` (all of them by default) start with infinite variance
+        and ``loglik`` is the diffuse log-likelihood; see Notes.
     kappa : float, default 1e7
-        Variance of the diffuse initial state.
+        Variance of the initial state under ``init='diffuse'``.
+    diffuse : sequence of bool, optional
+        One flag per state: ``True`` gives that element of ``X_0`` an
+        infinite variance. Passing it selects the exact diffuse filter
+        (``init`` must be ``'auto'`` or ``'exact'``). The other states
+        start from the matching block of ``P0`` when it is given and from
+        their stationary distribution otherwise, which needs constant
+        ``F`` and ``Q`` and those states not to depend on diffuse ones.
     smooth : bool, default True
         Also run the fixed-interval smoother.
     burn : int, default 0
@@ -207,7 +236,9 @@ def kalman_filter(
     KalmanResult
         Predicted, filtered and smoothed states with their covariances,
         prediction errors, the log-likelihood, ``.states()``,
-        ``.forecast()``, ``.summary()`` and ``.plot()``.
+        ``.forecast()``, ``.summary()`` and ``.plot()``. Under the exact
+        diffuse filter also ``predicted_cov_inf``, ``filtered_cov_inf``,
+        ``n_diffuse`` and ``P0_inf``.
 
     Raises
     ------
@@ -227,12 +258,43 @@ def kalman_filter(
     ``S_t`` the covariance of their prediction errors. Missing elements
     contribute nothing.
 
-    The diffuse initial state is the large-variance approximation, not the
-    exact diffuse filter: the first prediction errors have variance of
-    order ``kappa`` and enter the likelihood with it, and state moments at
-    the first dates lose about ``log10(kappa)`` digits. For a model whose
-    transient is short this does not affect later dates. Use ``burn`` to
-    leave the first dates out of the likelihood.
+    ``init='diffuse'`` is the large-variance approximation: the first
+    prediction errors have variance of order ``kappa`` and enter the
+    likelihood with it, and state moments differ from their limit by a
+    term of order ``1 / kappa`` at every date (about 1e-6 for the default
+    ``kappa`` on series of unit scale). Use ``burn`` to leave the first
+    dates out of the likelihood.
+
+    ``init='exact'`` is that limit itself. The initial covariance is
+    ``P0_* + kappa P0_inf`` with ``P0_inf = diag(diffuse)`` and ``kappa``
+    sent to infinity; the recursions carry the pair ``(P_*, P_inf)``,
+    reported as ``predicted_cov`` and ``predicted_cov_inf`` (likewise
+    filtered), until the data have used ``P_inf`` up, and are the ordinary
+    ones afterwards. During those dates the elements of ``Y_t`` enter one
+    at a time (after a rotation by the eigenvectors of ``R_t`` when it is
+    not diagonal), so several observables, missing values and
+    time-varying matrices need no special case. ``n_diffuse`` scalar
+    observations are absorbed by the initial state. Each contributes
+    ``-0.5 [log(2 pi) + log F_inf]`` to ``loglik``, ``F_inf`` being the
+    coefficient of ``kappa`` in its prediction-error variance, so that
+
+    ``loglik = lim [loglik(kappa) + 0.5 n_diffuse log(kappa)]``.
+
+    The normal constant is kept for every observation, as in Durbin and
+    Koopman and in statsmodels; R ``KFAS`` leaves it out for the absorbed
+    ones, which makes its ``logLik`` larger by
+    ``0.5 n_diffuse log(2 pi)``. The value also depends on which vector is
+    called diffuse: here it is ``X_0``, so the first predicted state has
+    ``P_inf = F_1 P0_inf F_1'``; software that puts ``P_inf = I`` on the
+    first predicted state differs by the constant
+    ``0.5 log pdet(F_1 P0_inf F_1')``, zero for random-walk states.
+    Smoothed moments, and predicted and filtered moments from the end of
+    the diffuse period, do not depend on that choice; predicted and
+    filtered states inside it do, in the directions that are still
+    unidentified, where ``.states()`` reports an infinite standard error.
+    On the diffuse dates ``innovations`` and ``innovations_cov`` hold the
+    joint prediction error and the finite part of its covariance, and
+    ``std_innovations`` is NaN.
 
     The covariance update uses the Joseph form, and the smoother the
     backward recursion that inverts only prediction-error covariances, so
@@ -264,15 +326,24 @@ def kalman_filter(
     >>> out.forecast(2)["obs"].shape
     (2, 1)
 
+    A local linear trend with an exact diffuse initial state:
+
+    >>> out = sp.kalman_filter(y, F=[[1.0, 1.0], [0.0, 1.0]], G=[1.0, 0.0],
+    ...                        Q=np.diag([0.25, 0.01]), R=1.0, init="exact")
+    >>> out.n_diffuse
+    2
+
     References
     ----------
     [@kalman1960new],
+    [@koopman1997exact],
     [@neusser2016time]
     """
     yv, names, index = _observations(y, data)
     mats = {"F": F, "G": G, "Q": Q, "R": R, "A": A, "x0": x0, "P0": P0}
+    rule = _rule(init, diffuse)
     try:
-        res = _run(yv, mats, init, kappa, bool(smooth), False)
+        res = _run(yv, mats, rule, kappa, bool(smooth), False, diffuse)
     except np.linalg.LinAlgError as exc:
         raise _singular(exc) from exc
     return package(res, names, index, burn, state_names, kappa)
@@ -288,6 +359,7 @@ def statespace(
     data: Optional[pd.DataFrame] = None,
     init: str = "auto",
     kappa: float = 1e7,
+    diffuse: Optional[Sequence[bool]] = None,
     burn: int = 0,
     method: str = "bfgs",
     vce: str = "hessian",
@@ -325,12 +397,14 @@ def statespace(
         ``lambda th: {"sigma2": np.exp(th[0])}``.
     data : DataFrame, optional
         Source of the columns named by ``y``.
-    init, kappa, burn
+    init, kappa, diffuse, burn
         As in :func:`kalman_filter`, applied when ``build`` returns no
         ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if
         ``F`` is stable there, the stationary initial state is used
         throughout and parameter values with an unstable ``F`` have
-        likelihood minus infinity.
+        likelihood minus infinity. With ``init='exact'`` or ``diffuse=``
+        the diffuse log-likelihood is maximised, and a ``P0`` returned by
+        ``build`` supplies the block of the states that are not diffuse.
     method : {'bfgs', 'l-bfgs-b', 'nelder-mead'}, default 'bfgs'
         First optimiser. Gradients are central differences.
     vce : {'hessian', 'opg', 'robust'}, default 'hessian'
@@ -392,6 +466,10 @@ def statespace(
     A parameter value at which a prediction-error covariance is not
     positive definite is given likelihood minus infinity.
 
+    Under the exact diffuse initial state ``aic`` and ``bic`` use the
+    diffuse log-likelihood and count the parameters in ``theta`` only.
+    Models compared this way must have the same diffuse states.
+
     Examples
     --------
     A regression whose slope follows a random walk:
@@ -414,9 +492,16 @@ def statespace(
     >>> fit.filter.smoothed_state.shape
     (120, 1)
 
+    The same model with the exact diffuse likelihood, no ``burn`` needed:
+
+    >>> exact = sp.statespace(y, build, [0.0, 0.0], init="exact")
+    >>> exact.filter.n_diffuse
+    1
+
     References
     ----------
     [@kalman1960new],
+    [@koopman1997exact],
     [@neusser2016time]
     """
     yv, names, index = _observations(y, data)
@@ -467,8 +552,8 @@ def statespace(
     # init='auto' is settled once, at the starting values: switching between
     # a stationary and a diffuse initial state as F crosses the unit circle
     # would put a jump in the likelihood
-    rule = init
-    if init == "auto":
+    rule = _rule(init, diffuse)
+    if rule == "auto":
         try:
             first = _run(yv, mats_at(theta0), init, kappa, False, False)
         except np.linalg.LinAlgError as exc:
@@ -477,7 +562,7 @@ def statespace(
 
     def contributions(theta: np.ndarray) -> np.ndarray:
         try:
-            res = _run(yv, mats_at(theta), rule, kappa, False, compiled)
+            res = _run(yv, mats_at(theta), rule, kappa, False, compiled, diffuse)
         except (np.linalg.LinAlgError, core.NotStationary):
             return np.full(T - burn, -np.inf)
         return np.asarray(res["ll"][burn:])
@@ -501,7 +586,7 @@ def statespace(
         )
 
     try:
-        res = _run(yv, mats_at(best), rule, kappa, True, False)
+        res = _run(yv, mats_at(best), rule, kappa, True, False, diffuse)
     except np.linalg.LinAlgError as exc:  # pragma: no cover - guarded by nll
         raise _singular(exc) from exc
     filt = package(res, names, index, burn, state_names, kappa)

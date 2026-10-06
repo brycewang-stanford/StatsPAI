@@ -442,7 +442,7 @@ def test_bad_inputs_fail_loudly():
     with pytest.raises(MethodIncompatibility, match="NaN"):
         kalman_filter(y, **{**ok, "F": np.full((2, 2), np.nan)})
     with pytest.raises(MethodIncompatibility, match="init="):
-        kalman_filter(y, init="exact", **ok)
+        kalman_filter(y, init="nonsense", **ok)
     with pytest.raises(MethodIncompatibility, match="P0"):
         kalman_filter(y, P0=np.eye(3), **ok)
     with pytest.raises(MethodIncompatibility, match="infinite"):
@@ -613,3 +613,277 @@ def test_auto_init_is_settled_at_the_start_and_keeps_the_stationary_region():
     # started outside, the rule is diffuse and stays diffuse
     out = statespace(y, build, [1.0, 0.0], burn=1)
     assert out.filter.init == "diffuse"
+
+
+# --- exact diffuse initial state ---------------------------------------------
+
+
+def diffuse_gls(y, F, G, Q, R, A, x0, Pstar, Pinf):
+    """Smoothed moments and diffuse likelihood without any recursion.
+
+    ``X_0 = x0 + B delta + e`` with ``B B' = Pinf``, ``Var(e) = Pstar`` and
+    ``delta`` an unknown constant. Stack the sample, estimate ``delta`` by
+    generalised least squares and add its variance to the conditional one:
+    that is the posterior under a flat prior on ``delta``. The diffuse
+    log-likelihood is the density of the data at the estimate less
+    ``0.5 log det(D' S^-1 D)``, with ``D`` the loadings of the data on
+    ``delta``. System matrices carry a leading time axis of length T.
+    """
+    T, n = y.shape
+    m = F.shape[-1]
+    w, U = np.linalg.eigh(Pinf)
+    B0 = U[:, w > 1e-10] * np.sqrt(w[w > 1e-10])
+    k = B0.shape[1]
+    mu = np.zeros((T, m))
+    B = np.zeros((T, m, k))
+    W = np.zeros((T, m, T + 1, m))  # loading of X_t on (e, V_1, ..., V_T)
+    cmu, cB = x0, B0
+    cW = np.zeros((m, T + 1, m))
+    cW[:, 0, :] = np.eye(m)
+    for t in range(T):
+        cmu, cB = F[t] @ cmu, F[t] @ cB
+        cW = np.einsum("ab,bjc->ajc", F[t], cW)
+        cW[:, t + 1, :] += np.eye(m)
+        mu[t], B[t], W[t] = cmu, cB, cW
+    shocks = np.zeros(((T + 1) * m, (T + 1) * m))
+    shocks[:m, :m] = Pstar
+    Gb = np.zeros((T * n, T * m))
+    Rb = np.zeros((T * n, T * n))
+    for t in range(T):
+        lo = (t + 1) * m
+        shocks[lo : lo + m, lo : lo + m] = Q[t]
+        Gb[t * n : (t + 1) * n, t * m : (t + 1) * m] = G[t]
+        Rb[t * n : (t + 1) * n, t * n : (t + 1) * n] = R[t]
+    Wf = W.reshape(T * m, (T + 1) * m)
+    Sxx = Wf @ shocks @ Wf.T
+    seen = np.isfinite(y).reshape(-1)
+    Gb, Rb = Gb[seen], Rb[np.ix_(seen, seen)]
+    yy = (y - A).reshape(-1)[seen]
+    Bx = B.reshape(T * m, k)
+    c, D = Gb @ mu.reshape(-1), Gb @ Bx
+    Syy = Gb @ Sxx @ Gb.T + Rb
+    Sxy = Sxx @ Gb.T
+    Si = np.linalg.inv(Syy)
+    info = D.T @ Si @ D
+    Vd = np.linalg.inv(info)
+    delta = Vd @ D.T @ Si @ (yy - c)
+    e = yy - c - D @ delta
+    xs = mu.reshape(-1) + Bx @ delta + Sxy @ Si @ e
+    H = Bx - Sxy @ Si @ D
+    V = (Sxx - Sxy @ Si @ Sxy.T + H @ Vd @ H.T).reshape(T, m, T, m)
+    ll = -0.5 * (
+        seen.sum() * np.log(2 * np.pi)
+        + np.linalg.slogdet(Syy)[1]
+        + np.linalg.slogdet(info)[1]
+        + e @ Si @ e
+    )
+    return xs.reshape(T, m), np.array([V[t, :, t, :] for t in range(T)]), float(ll)
+
+
+def diffuse_case(name, T=14, seed=7):
+    """Awkward models for the exact diffuse filter, with a time axis."""
+    rng = np.random.default_rng(seed)
+    if name == "coupled":
+        # diffuse states feed each other and the stationary one is separate;
+        # correlated measurement errors; whole and partial rows missing
+        F = np.array([[1.0, 0.7, 0.0], [0.3, 1.1, 0.2], [0.0, 0.0, 0.5]])
+        G = rng.normal(size=(2, 3))
+        Q = np.diag([0.3, 0.2, 0.4])
+        R = np.array([[0.5, 0.2], [0.2, 0.6]])
+        sysm = {"F": F, "G": G, "Q": Q, "R": R, "A": np.array([0.3, -0.2])}
+        y = rng.normal(size=(T, 2)).cumsum(axis=0)
+        y[0, 1] = y[2, 0] = y[6, 0] = np.nan
+        y[1, :] = np.nan
+        return y, sysm, [True, True, False]
+    if name == "varying":
+        # every matrix time-varying, first date missing, det F_1 != 1
+        ang = 0.3 + 0.2 * np.arange(T)
+        F = np.array([[[0.9 + 0.2 * np.sin(a), 0.1], [0.2, 1.1]] for a in ang])
+        Q = np.array([[[0.5 + 0.3 * np.cos(a) ** 2, 0.1], [0.1, 0.4]] for a in ang])
+        R = np.array([[[0.3 + 0.2 * np.sin(a) ** 2]] for a in ang])
+        G = np.array([[[1.0, np.cos(2 * a)]] for a in ang])
+        A = np.array([[0.05 * t] for t in range(T)])
+        y = rng.normal(size=(T, 1)).cumsum(axis=0)
+        y[[0, 4], 0] = np.nan
+        return y, {"F": F, "G": G, "Q": Q, "R": R, "A": A}, [True, True]
+    if name == "slow":
+        # a loading that is zero at first: observations that carry no
+        # information on the diffuse state arrive inside the diffuse period
+        F = np.diag([1.0, 0.6])
+        G = np.zeros((T, 1, 2))
+        G[:, 0, 1] = 1.0
+        G[3:, 0, 0] = np.linspace(0.5, 2.0, T - 3)
+        sysm = {"F": F, "G": G, "Q": np.diag([0.2, 0.5]), "R": 0.3, "A": [0.0]}
+        return rng.normal(size=(T, 1)), sysm, [True, False]
+    # three observables on two diffuse trends: more data than diffuse
+    # states at the first date, and a singular measurement covariance
+    F = np.array([[1.0, 1.0], [0.0, 1.0]])
+    G = np.array([[1.0, 0.0], [1.0, 0.5], [0.3, -1.0]])
+    R = np.diag([0.4, 0.0, 0.7])
+    sysm = {"F": F, "G": G, "Q": np.diag([0.3, 0.05]), "R": R, "A": np.zeros(3)}
+    y = rng.normal(size=(T, 3)).cumsum(axis=0)
+    y[3, 1] = np.nan
+    return y, sysm, [True, True]
+
+
+def with_time_axis(sysm, T, n):
+    out = {}
+    for key, ndim in (("F", 2), ("G", 2), ("Q", 2), ("R", 2), ("A", 1)):
+        arr = np.asarray(sysm[key], dtype=float)
+        if key == "R" and arr.ndim == 0:
+            arr = arr.reshape(1, 1)
+        out[key] = arr if arr.ndim == ndim + 1 else np.tile(arr, (T,) + (1,) * ndim)
+    return out
+
+
+@pytest.mark.parametrize("name", ["coupled", "varying", "slow", "wide"])
+def test_exact_diffuse_equals_generalised_least_squares(name):
+    y, sysm, flags = diffuse_case(name)
+    T, n = y.shape
+    m = len(flags)
+    x0 = np.linspace(0.1, 0.3, m)
+    out = kalman_filter(y, x0=x0, diffuse=flags, **sysm)
+    assert out.init == "exact"
+    full = with_time_axis(sysm, T, n)
+    xs, V, ll = diffuse_gls(y, x0=x0, Pstar=out.P0, Pinf=out.P0_inf, **full)
+    # two routes to the same closed form; the inverse of the stacked
+    # covariance (order T n, up to 42) is good to about 1e-8
+    np.testing.assert_allclose(out.smoothed_state, xs, atol=1e-7)
+    np.testing.assert_allclose(out.smoothed_cov, V, atol=1e-7)
+    assert out.loglik == pytest.approx(ll, abs=1e-7)
+    assert out.n_diffuse == sum(flags)
+    # filtered moments at t are the smoothed ones of the sample cut at t,
+    # once the diffuse state is identified
+    done = int(np.flatnonzero(~np.any(out.filtered_cov_inf, axis=(1, 2)))[0])
+    for t in (done, done + 2, T - 1):
+        cut = {k: v[: t + 1] for k, v in full.items()}
+        xt, Vt, _ = diffuse_gls(y[: t + 1], x0=x0, Pstar=out.P0, Pinf=out.P0_inf, **cut)
+        np.testing.assert_allclose(out.filtered_state[t], xt[-1], atol=1e-7)
+        np.testing.assert_allclose(out.filtered_cov[t], Vt[-1], atol=1e-7)
+
+
+@pytest.mark.parametrize("name", ["coupled", "varying", "slow", "wide"])
+def test_large_variance_filter_converges_to_the_exact_one(name):
+    y, sysm, flags = diffuse_case(name)
+    out = kalman_filter(y, diffuse=flags, **sysm)
+    done = int(np.flatnonzero(~np.any(out.filtered_cov_inf, axis=(1, 2)))[0])
+    gaps = []
+    for kappa in (1e3, 1e5):
+        P0 = out.P0 + kappa * out.P0_inf
+        approx = kalman_filter(y, P0=P0, **sysm)
+        err = [
+            np.max(np.abs(approx.smoothed_state - out.smoothed_state)),
+            np.max(np.abs(approx.filtered_state[done:] - out.filtered_state[done:])),
+            np.max(np.abs(approx.filtered_cov[done:] - out.filtered_cov[done:])),
+            abs(approx.loglik + 0.5 * out.n_diffuse * np.log(kappa) - out.loglik),
+        ]
+        gaps.append(max(err))
+    # the error is of order 1 / kappa: a hundred times smaller. (The
+    # smoothed covariance of the approximation is left out: it is a
+    # difference of terms of order kappa and loses digits as kappa grows.)
+    assert gaps[0] < 1.0
+    assert gaps[0] / 150 < gaps[1] < gaps[0] / 50
+    # inside the diffuse period too, the exact predicted and filtered
+    # states are the limit for a diffuse X_0
+    P0 = out.P0 + 1e8 * out.P0_inf
+    approx = kalman_filter(y, P0=P0, **sysm)
+    np.testing.assert_allclose(approx.filtered_state, out.filtered_state, atol=1e-4)
+    np.testing.assert_allclose(approx.predicted_state, out.predicted_state, atol=1e-4)
+
+
+def test_exact_local_level_conditions_on_the_first_observation():
+    rng = np.random.default_rng(2)
+    y = np.cumsum(rng.normal(size=60)) + rng.normal(size=60)
+    out = kalman_filter(y, F=1.0, G=1.0, Q=1.0, R=0.7, init="exact")
+    assert out.init == "exact" and out.n_diffuse == 1
+    assert "Exact diffuse" in out.summary()
+    # after y_1 the level is N(y_1, R); the absorbed observation leaves
+    # -0.5 log(2 pi) - 0.5 log F_inf with F_inf = 1
+    rest = kalman_filter(y[1:], F=1.0, G=1.0, Q=1.0, R=0.7, x0=y[0], P0=0.7)
+    assert out.loglik == pytest.approx(rest.loglik - 0.5 * np.log(2 * np.pi), abs=1e-11)
+    np.testing.assert_allclose(out.filtered_state[1:], rest.filtered_state, atol=1e-12)
+    np.testing.assert_allclose(out.smoothed_cov[1:], rest.smoothed_cov, atol=1e-12)
+    assert out.filtered_state[0, 0] == pytest.approx(y[0], abs=1e-14)
+    assert out.filtered_cov[0, 0, 0] == pytest.approx(0.7, abs=1e-14)
+    assert out.predicted_cov_inf[0, 0, 0] == 1.0 and not out.predicted_cov_inf[1:].any()
+    # predicted standard error is infinite until the level is identified
+    pred = out.states("predicted")
+    assert np.isinf(pred["x1_se"].iloc[0]) and np.isfinite(pred["x1_se"].iloc[1:]).all()
+    assert np.isnan(out.std_innovations[0, 0])
+    assert np.isfinite(out.std_innovations[1:]).all()
+    # the default keeps the large-variance approximation
+    assert kalman_filter(y, F=1.0, G=1.0, Q=1.0, R=0.7).init == "diffuse"
+
+
+def test_partly_diffuse_initial_state_and_its_arguments():
+    rng = np.random.default_rng(5)
+    y = rng.normal(size=30).cumsum()
+    sysm = {"F": np.diag([1.0, 0.7]), "G": [1.0, 1.0], "Q": np.diag([0.1, 0.5])}
+    out = kalman_filter(y, R=0.2, diffuse=[True, False], **sysm)
+    np.testing.assert_allclose(out.P0, np.diag([0.0, 0.5 / (1 - 0.49)]), atol=1e-14)
+    np.testing.assert_array_equal(out.P0_inf, np.diag([1.0, 0.0]))
+    # a given P0 supplies the block of the other states; its diffuse rows
+    # and columns are irrelevant
+    P0 = np.array([[9.0, 0.4], [0.4, 0.5 / (1 - 0.49)]])
+    same = kalman_filter(y, R=0.2, P0=P0, diffuse=[True, False], **sysm)
+    np.testing.assert_allclose(same.smoothed_state, out.smoothed_state, atol=1e-13)
+    assert same.loglik == pytest.approx(out.loglik, abs=1e-12)
+    # no diffuse state at all: the ordinary filter
+    none = kalman_filter(y, R=0.2, P0=np.eye(2), diffuse=[False, False], **sysm)
+    plain = kalman_filter(y, R=0.2, P0=np.eye(2), **sysm)
+    assert none.n_diffuse == 0
+    assert none.loglik == pytest.approx(plain.loglik, abs=1e-12)
+    np.testing.assert_allclose(none.smoothed_cov, plain.smoothed_cov, atol=1e-13)
+    with pytest.raises(MethodIncompatibility, match="one per state"):
+        kalman_filter(y, R=0.2, diffuse=[True], **sysm)
+    with pytest.raises(MethodIncompatibility, match="diffuse="):
+        kalman_filter(y, R=0.2, diffuse=[True, False], init="stationary", **sysm)
+    with pytest.raises(MethodIncompatibility, match="stable"):
+        kalman_filter(y, R=0.2, diffuse=[False, True], **sysm)
+    coupled = {**sysm, "F": np.array([[1.0, 0.0], [0.2, 0.7]])}
+    with pytest.raises(MethodIncompatibility, match="depends on a diffuse"):
+        kalman_filter(y, R=0.2, diffuse=[True, False], **coupled)
+    varying = {**sysm, "Q": np.tile(np.diag([0.1, 0.5]), (30, 1, 1))}
+    with pytest.raises(MethodIncompatibility, match="constant F and Q"):
+        kalman_filter(y, R=0.2, diffuse=[True, False], **varying)
+    # a noiseless observation that the state cannot explain
+    with pytest.raises(MethodIncompatibility, match="not positive definite"):
+        kalman_filter(y, F=1.0, G=np.zeros((30, 1)), Q=1.0, R=0.0, init="exact")
+
+
+def test_unidentified_diffuse_state_is_reported():
+    # the slope of a local linear trend needs two observations
+    y = np.array([1.0, np.nan, np.nan])
+    sysm = {"F": [[1.0, 1.0], [0.0, 1.0]], "G": [1.0, 0.0], "Q": np.eye(2), "R": 1.0}
+    out = kalman_filter(y, init="exact", **sysm)
+    assert out.n_diffuse == 1
+    assert "does not pin down" in out.summary()
+    assert np.isinf(out.states("filtered").iloc[-1][["x1_se", "x2_se"]]).all()
+    with pytest.raises(MethodIncompatibility, match="does not pin down"):
+        out.forecast(2)
+    assert np.all(np.isfinite(out.smoothed_state))
+    empty = kalman_filter(np.full(4, np.nan), init="exact", **sysm)
+    assert empty.loglik == 0.0 and empty.n_diffuse == 0
+
+
+def test_statespace_with_the_exact_diffuse_likelihood():
+    y = local_level()
+    fit = statespace(y, build_level, [0.0, 0.0], init="exact")
+    assert fit.converged and fit.filter.init == "exact"
+    assert fit.n_obs == len(y)
+    assert fit.loglik == pytest.approx(fit.filter.loglik, abs=1e-10)
+    # the approximation with its first date burnt maximises the same
+    # function up to a constant and terms of order 1 / kappa
+    approx = statespace(y, build_level, [0.0, 0.0], init="diffuse", burn=1)
+    np.testing.assert_allclose(fit.params, approx.params, atol=1e-5)
+    np.testing.assert_allclose(fit.se, approx.se, rtol=1e-4)
+    assert fit.loglik == pytest.approx(
+        approx.loglik - 0.5 * np.log(2 * np.pi), abs=1e-5
+    )
+    numba = statespace(
+        y, build_level, fit.params.to_numpy(), init="exact", engine="numba"
+    )
+    assert numba.loglik == pytest.approx(fit.loglik, abs=1e-9)
+    # diffuse= alone selects the exact filter
+    again = statespace(y, build_level, fit.params.to_numpy(), diffuse=[True])
+    assert again.loglik == pytest.approx(fit.loglik, abs=1e-9)

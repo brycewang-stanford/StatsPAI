@@ -221,9 +221,9 @@ class SVARResult(ResultProtocolMixin):
             replicate's shocks are signed to agree with the estimate.
         reps : int, default 500
         seed : int, optional
-        boot : {'efron', 'hall'}, default 'efron'
-            Percentile band, or the band reflected about the estimate (see
-            :func:`statspai.irf`).
+        boot : {'efron', 'hall', 'kilian'}, default 'efron'
+            Percentile band, the band reflected about the estimate, or the
+            bias-corrected bootstrap (see :func:`statspai.irf`).
         alpha : float, optional
             ``1 - alpha`` is the pointwise coverage; default the ``alpha``
             given to :func:`svar`.
@@ -261,8 +261,9 @@ class SVARResult(ResultProtocolMixin):
         seed: Optional[int],
         boot: str,
         alpha: Optional[float],
+        what: str = "irf",
     ) -> pd.DataFrame:
-        from .irf_bands import bootstrap_fits
+        from .irf_bands import BOOT_KINDS, bootstrap_fits
 
         if ci != "bootstrap":
             raise MethodIncompatibility(
@@ -281,8 +282,11 @@ class SVARResult(ResultProtocolMixin):
             raise MethodIncompatibility(
                 "svar: this result does not carry its VAR; re-run sp.svar."
             )
-        if boot not in ("efron", "hall"):
-            raise MethodIncompatibility("svar: boot must be 'efron' or 'hall'.")
+        if boot not in BOOT_KINDS:
+            raise MethodIncompatibility(
+                "svar: boot must be 'efron', 'hall' or 'kilian'.",
+                recovery_hint="'kilian' is the bias-corrected bootstrap.",
+            )
         if reps < 20:
             raise MethodIncompatibility(
                 f"svar: reps={reps} is too few for percentile bands.",
@@ -297,12 +301,14 @@ class SVARResult(ResultProtocolMixin):
         def path(lag_matrices: List[np.ndarray], impact: np.ndarray) -> np.ndarray:
             phi = ma_coefficients(lag_matrices, periods)
             theta = np.asarray(np.einsum("sij,jk->sik", phi, impact))
+            if what == "fevd":
+                return np.asarray(fevd_shares(theta))
             return np.cumsum(theta, axis=0) if cumulative else theta
 
         estimate = path(self._lag_matrices, self._impact)
         draws = []
         failed = 0
-        for Bb, sigma_b in bootstrap_fits(self._var_result, False, reps, seed):
+        for Bb, sigma_b in bootstrap_fits(self._var_result, False, reps, seed, boot):
             lag_b = [Bb[j * k : (j + 1) * k, :].T for j in range(p)]
             try:
                 impact_b = self._identify(sigma_b, lag_b)
@@ -338,7 +344,7 @@ class SVARResult(ResultProtocolMixin):
             lo, hi = 2.0 * estimate - hi, 2.0 * estimate - lo
         return self._long(
             {
-                "irf": estimate,
+                what: estimate,
                 "se": stack.std(axis=0, ddof=1),
                 "lower": lo,
                 "upper": hi,
@@ -346,12 +352,31 @@ class SVARResult(ResultProtocolMixin):
             periods,
         )
 
-    def fevd(self, periods: int = 20) -> pd.DataFrame:
+    def fevd(
+        self,
+        periods: int = 20,
+        *,
+        ci: Optional[str] = None,
+        reps: int = 500,
+        seed: Optional[int] = None,
+        boot: str = "efron",
+        alpha: Optional[float] = None,
+    ) -> pd.DataFrame:
         """Forecast-error variance decomposition: the share of the
         ``period``-step forecast-error variance of each response due to each
         shock (zero at ``period = 0``, as in Stata's ``irf table fevd``).
         With sign restrictions, the pointwise median over the admissible
-        set, with its quantile band."""
+        set, with its quantile band.
+
+        ``ci='bootstrap'`` adds ``se``, ``lower`` and ``upper`` for a
+        short- or long-run identification, by the bootstrap of
+        :meth:`irf` (same ``reps``, ``seed``, ``boot`` and ``alpha``). The
+        percentile bands stay inside the unit interval; ``boot='hall'``
+        reflects them about the estimate and need not."""
+        if ci is not None:
+            return self._bootstrap_irf(
+                periods, False, str(ci).lower(), reps, seed, boot, alpha, "fevd"
+            )
         if self._draws is None:
             return self._long(
                 {"fevd": fevd_shares(self._theta(periods, self._impact))}, periods

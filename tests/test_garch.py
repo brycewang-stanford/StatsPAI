@@ -225,6 +225,48 @@ def test_stata_asymmetric_arch_commands_are_translated():
         "dist": "t",
         "vce": "opg",
     }
-    # one threshold term per ARCH lag, or no translation
-    assert not sp.from_stata("arch r, arch(1/2) tarch(1) garch(1)").get("python_code")
-    assert not sp.from_stata("arch r, earch(1) garch(1)").get("python_code")
+    fewer = sp.from_stata("arch r, arch(1/2) tarch(1) garch(1)")
+    assert fewer["arguments"]["threshold"] == 1 and fewer["arguments"]["q"] == 2
+    in_mean = sp.from_stata("arch r, arch(1) garch(1) archm")
+    assert in_mean["arguments"]["in_mean"] is True
+    # a threshold lag without its ARCH term, mixed families, other forms
+    # of the in-mean term: no translation
+    for command in (
+        "arch r, arch(1) tarch(1/2) garch(1)",
+        "arch r, earch(1) garch(1)",
+        "arch r, arch(1) garch(1) archm archmlags(1)",
+    ):
+        assert not sp.from_stata(command).get("python_code")
+
+
+def test_in_mean_recovers_a_risk_premium():
+    rng = np.random.default_rng(12)
+    n, omega, alpha, beta, psi = 4000, 0.05, 0.15, 0.8, 0.4
+    s2 = np.full(n + 300, omega / (1 - alpha - beta))
+    eps = np.zeros(n + 300)
+    y = np.zeros(n + 300)
+    for t in range(1, n + 300):
+        s2[t] = omega + alpha * eps[t - 1] ** 2 + beta * s2[t - 1]
+        eps[t] = np.sqrt(s2[t]) * rng.standard_normal()
+        y[t] = 0.1 + psi * s2[t] + eps[t]
+    fit = sp.garch(y[300:], in_mean=True)
+    assert list(fit.params.index) == ["mu", "archm", "omega", "alpha[1]", "beta[1]"]
+    assert fit.archm == pytest.approx(psi, abs=4 * fit.std_errors["archm"])
+    assert fit.pvalues["archm"] < 0.01
+    assert "in mean" in fit.summary()
+    # the mean forecast carries the premium on the forecast variance
+    f = fit.forecast_mean(2)
+    assert f[0] == pytest.approx(fit.mu + fit.archm * fit.forecast(1)[0], rel=1e-10)
+    # without a premium in the data the coefficient is insignificant
+    flat = sp.garch(_simulate_general(rho=0.0), in_mean=True)
+    assert abs(flat.archm) < 3 * flat.std_errors["archm"]
+
+
+def test_threshold_and_in_mean_argument_errors():
+    y = np.random.default_rng(1).standard_normal(300)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="threshold"):
+        sp.garch(y, threshold=1)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="threshold"):
+        sp.garch(y, model="gjr", q=1, threshold=2)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="in_mean"):
+        sp.garch(y, in_mean=True, presample="rugarch")

@@ -17903,8 +17903,9 @@ def _build_registry() -> None:
                 "Trend-cycle decomposition by a linear filter: "
                 "Hodrick-Prescott, Baxter-King band-pass, "
                 "Christiano-Fitzgerald band-pass, Butterworth high-pass, or "
-                "Hamilton's regression filter. Returns trend, cycle and the "
-                "filter's gain. Stata tsfilter hp / bk / cf / bw."
+                "Hamilton's regression filter; one-sided HP and the "
+                "fixed-length symmetric CF filter. Returns trend, cycle and "
+                "the filter's gain. Stata tsfilter hp / bk / cf / bw."
             ),
             params=[
                 ParamSpec("data", "DataFrame | Series | array", True),
@@ -17932,6 +17933,21 @@ def _build_registry() -> None:
                 ParamSpec("order", "int", False, 2, "bw: order of the filter"),
                 ParamSpec("h", "int", False, 8, "hamilton: horizon"),
                 ParamSpec("p", "int", False, 4, "hamilton: lags"),
+                ParamSpec(
+                    "sma_order",
+                    "int",
+                    False,
+                    None,
+                    "cf: fixed-length symmetric filter with this many leads "
+                    "and lags (Stata smaorder)",
+                ),
+                ParamSpec(
+                    "one_sided",
+                    "bool",
+                    False,
+                    False,
+                    "hp: real-time trend, each date using data up to it only",
+                ),
             ],
             returns="FilterResult",
             example='sp.tsfilter(df, "lgdp", method="bk", low=6, high=32, K=12)',
@@ -17958,15 +17974,29 @@ def _build_registry() -> None:
             description=(
                 "Beveridge-Nelson decomposition of an integrated series "
                 "into a random walk with drift (the long-horizon forecast) "
-                "and a stationary cycle, from an autoregression for the "
-                "first difference. Reports the long-run multiplier psi(1)."
+                "and a stationary cycle, from an autoregression (OLS) or an "
+                "ARMA model (exact ML) for the first difference. Reports "
+                "the long-run multiplier psi(1)."
             ),
             params=[
                 ParamSpec("y", "str | Series | array", True, description="Level"),
                 ParamSpec("data", "DataFrame", False, None),
-                ParamSpec("order", "int", False, None, "AR order of the difference"),
-                ParamSpec("max_order", "int", False, None),
+                ParamSpec(
+                    "order",
+                    "int | tuple",
+                    False,
+                    None,
+                    "AR order (OLS), or (p, q) for an ARMA by exact ML",
+                ),
+                ParamSpec("max_order", "int | tuple", False, None),
                 ParamSpec("ic", "str", False, "bic", "", ["aic", "bic"]),
+                ParamSpec(
+                    "arma",
+                    "bool",
+                    False,
+                    False,
+                    "Search and fit ARMA models " "by exact ML",
+                ),
             ],
             returns="BeveridgeNelsonResult",
             example='sp.beveridge_nelson("lgdp", data=df)',
@@ -17991,7 +18021,8 @@ def _build_registry() -> None:
                 "level, the slope of the trend, or both, at a date chosen by "
                 "the data (the minimum t statistic over candidate dates). "
                 "Returns the statistic, the break date, the critical values "
-                "and the statistic at every date. urca ur.za."
+                "and the statistic at every date. urca ur.za; options "
+                "reproduce Stata zandrews."
             ),
             params=[
                 ParamSpec("data", "DataFrame | Series | array", True),
@@ -18004,10 +18035,41 @@ def _build_registry() -> None:
                     "Which break is allowed",
                     ["intercept", "trend", "both"],
                 ),
-                ParamSpec("lags", "int | str", False, 0, "Lagged differences"),
+                ParamSpec(
+                    "lags",
+                    "int | str",
+                    False,
+                    0,
+                    "Lagged differences: a number, or 'aic', 'bic', 'ttest'",
+                ),
                 ParamSpec("max_lags", "int", False, None),
                 ParamSpec("trim", "float", False, 0.15, "Share excluded per end"),
                 ParamSpec("time", "str", False, None, "Column dating the rows"),
+                ParamSpec(
+                    "lag_selection",
+                    "str",
+                    False,
+                    "once",
+                    "Choose the lag order once, or again at every break date",
+                    ["once", "break"],
+                ),
+                ParamSpec("lag_alpha", "float", False, 0.10, "Level of lags='ttest'"),
+                ParamSpec(
+                    "lag_rule",
+                    "str",
+                    False,
+                    "standard",
+                    "'zandrews' reproduces the Stata command's selection",
+                    ["standard", "zandrews"],
+                ),
+                ParamSpec(
+                    "trim_rule",
+                    "str",
+                    False,
+                    "floor",
+                    "'zandrews' reproduces the Stata command's candidates",
+                    ["floor", "zandrews"],
+                ),
             ],
             returns="ZivotAndrewsResult",
             example='sp.zivot_andrews(df, "lgdp", model="both", lags=2)',
@@ -18066,8 +18128,9 @@ def _build_registry() -> None:
                 "Kalman filter and fixed-interval smoother for a linear "
                 "state space model given by its matrices: X_t = F X_{t-1} + "
                 "V_t, Y_t = A + G X_t + W_t. Constant or time-varying "
-                "matrices, missing observations anywhere, stationary or "
-                "diffuse start. Predicted, filtered and smoothed states with "
+                "matrices, missing observations anywhere, stationary, "
+                "approximate or exact diffuse start. Predicted, filtered and "
+                "smoothed states with "
                 "covariances, innovations, log-likelihood, forecasts. "
                 "Agrees with R KFAS and statsmodels."
             ),
@@ -18085,10 +18148,18 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "auto",
-                    "Initial state when x0 / P0 are not given",
-                    ["auto", "stationary", "diffuse"],
+                    "Initial state when x0 / P0 are not given; 'exact' is "
+                    "the exact diffuse filter",
+                    ["auto", "stationary", "diffuse", "exact"],
                 ),
                 ParamSpec("kappa", "float", False, 1e7, "Diffuse prior variance"),
+                ParamSpec(
+                    "diffuse",
+                    "list",
+                    False,
+                    None,
+                    "One flag per state: exactly diffuse initial condition",
+                ),
                 ParamSpec("smooth", "bool", False, True),
                 ParamSpec(
                     "burn",
@@ -18144,9 +18215,21 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("data", "DataFrame", False, None),
                 ParamSpec(
-                    "init", "str", False, "auto", "", ["auto", "stationary", "diffuse"]
+                    "init",
+                    "str",
+                    False,
+                    "auto",
+                    "",
+                    ["auto", "stationary", "diffuse", "exact"],
                 ),
                 ParamSpec("kappa", "float", False, 1e7),
+                ParamSpec(
+                    "diffuse",
+                    "list",
+                    False,
+                    None,
+                    "One flag per state: exactly " "diffuse",
+                ),
                 ParamSpec("burn", "int", False, 0),
                 ParamSpec(
                     "method",
@@ -18189,6 +18272,180 @@ def _build_registry() -> None:
                 "The likelihood may have several local maxima and only one "
                 "start is tried",
             ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="tvp_var",
+            category="timeseries",
+            description=(
+                "Time-varying-parameter VAR: coefficients that follow random "
+                "walks, estimated equation by equation with the Kalman "
+                "filter and smoother and maximum-likelihood innovation "
+                "variances, or by the forgetting-factor filter with an "
+                "exponentially weighted error covariance (no parameters to "
+                "estimate). Coefficient paths with bands, impulse responses "
+                "of the VAR frozen at a date, companion roots over time, "
+                "forecasts."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("variables", "list", False, None),
+                ParamSpec("lags", "int", False, 1),
+                ParamSpec(
+                    "method", "str", False, "kalman", "", ["kalman", "forgetting"]
+                ),
+                ParamSpec("time", "str", False, None, "Column to sort and label by"),
+                ParamSpec(
+                    "common",
+                    "bool",
+                    False,
+                    False,
+                    "kalman: one innovation variance per equation",
+                ),
+                ParamSpec(
+                    "obs_var", "float | list", False, None, "Fix error variances"
+                ),
+                ParamSpec(
+                    "state_var", "float | list", False, None, "Fix innovation variances"
+                ),
+                ParamSpec("lam", "float", False, 0.99, "forgetting: forgetting factor"),
+                ParamSpec(
+                    "kappa",
+                    "float",
+                    False,
+                    0.96,
+                    "forgetting: decay of the " "error covariance",
+                ),
+                ParamSpec("sigma0", "matrix", False, None, "forgetting: initial Sigma"),
+                ParamSpec(
+                    "sigma_update",
+                    "str",
+                    False,
+                    "filtered",
+                    "",
+                    ["filtered", "predicted"],
+                ),
+                ParamSpec(
+                    "prior", "str", False, "diffuse", "", ["diffuse", "minnesota"]
+                ),
+                ParamSpec(
+                    "m0", "matrix", False, None, "Prior mean of the coefficients"
+                ),
+                ParamSpec("C0", "float | matrix", False, 1e7, "Prior variance"),
+                ParamSpec("prior_tightness", "float", False, 0.1),
+                ParamSpec("prior_own_lag", "float", False, 0.0),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="TVPVARResult",
+            example='sp.tvp_var(df, variables=["dy", "dp", "r"], lags=2)',
+            tags=["timeseries", "var", "time-varying", "kalman", "forgetting-factor"],
+            reference="koop2013large",
+            assumptions=[
+                "Coefficients move as random walks",
+                "kalman: constant error variance in each equation",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="An equation's error variance is estimated at zero",
+                    exception="statspai.StatsPAIWarning",
+                    remedy="The moving intercept absorbs all variation of "
+                    "that equation; use common=True or fix obs_var.",
+                ),
+            ],
+            alternatives=["var", "bvar", "dlm", "statespace", "structural_break"],
+            not_recommended_when=[
+                "Coefficients change at a few dates rather than gradually",
+                "A conclusion rests on whether a response changed over time: "
+                "the two methods can disagree; report both",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="mswitch",
+            category="timeseries",
+            description=(
+                "Markov-switching regression by maximum likelihood (Hamilton "
+                "filter, Kim smoother): the constant, selected coefficients, "
+                "the AR terms or the variance depend on an unobserved regime "
+                "that follows a Markov chain. Dynamic regression (the mean "
+                "adjusts at once) or autoregression in deviations from the "
+                "regime mean (Hamilton's model). Regime estimates, "
+                "transition probabilities and durations with standard "
+                "errors, filtered and smoothed regime probabilities. Stata "
+                "mswitch dr / ar."
+            ),
+            params=[
+                ParamSpec("y", "str | array", True, description="Dependent variable"),
+                ParamSpec(
+                    "x",
+                    "str | list | array",
+                    False,
+                    None,
+                    "Regressors with " "the same coefficient in every regime",
+                ),
+                ParamSpec("data", "DataFrame", False, None),
+                ParamSpec("states", "int", False, 2, "Number of regimes"),
+                ParamSpec("model", "str", False, "dr", "", ["dr", "ar"]),
+                ParamSpec("ar", "int", False, 0, "Autoregressive lags"),
+                ParamSpec(
+                    "switch",
+                    "str | list | array",
+                    False,
+                    None,
+                    "Regressors " "whose coefficients depend on the regime",
+                ),
+                ParamSpec("switch_ar", "bool", False, False, "AR terms by regime"),
+                ParamSpec(
+                    "switch_variance", "bool", False, False, "Variance by regime"
+                ),
+                ParamSpec(
+                    "constant",
+                    "bool | str",
+                    False,
+                    True,
+                    "True: one constant per regime; 'common': one constant; "
+                    "False: none",
+                ),
+                ParamSpec("vce", "str", False, "oim", "", ["oim", "robust"]),
+                ParamSpec("starts", "int", False, 5, "Starting values tried"),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("maxiter", "int", False, 500),
+                ParamSpec("tol", "float", False, 1e-9),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="MarkovSwitchingResult",
+            example='sp.mswitch("growth", data=df, states=2, model="ar", ar=1)',
+            tags=["timeseries", "markov-switching", "regime", "hamilton", "nonlinear"],
+            reference="hamilton1989new",
+            assumptions=[
+                "The regime follows a first-order Markov chain with constant "
+                "transition probabilities",
+                "Gaussian errors within a regime",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="A transition probability is estimated at 0 or 1",
+                    exception="statspai.ConvergenceWarning",
+                    remedy="A regime is absorbing or is never entered from "
+                    "another: fewer states may describe the data.",
+                ),
+                FailureMode(
+                    symptom="Different starting values end at different maxima",
+                    exception="",
+                    remedy="Reported in model_info['n_distinct_maxima']; "
+                    "raise starts= and compare.",
+                ),
+            ],
+            alternatives=["structural_break", "tvp_var", "arima", "garch"],
+            not_recommended_when=[
+                "Testing whether a second regime exists with a likelihood "
+                "ratio: the usual chi-squared reference does not apply",
+            ],
+            cost_profile="states**(ar + 1) regimes in the filter for model='ar'",
         )
     )
 

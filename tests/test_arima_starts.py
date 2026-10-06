@@ -46,3 +46,47 @@ def test_likelihood_not_below_a_plain_quasi_newton_fit(seed):
     assert ours >= ref.llf - 1e-4
     # and never below a model it nests
     assert ours >= nested - 1e-4
+
+
+# ---------------------------------------------------------------------------
+# Starts from the nested models
+# ---------------------------------------------------------------------------
+
+
+def _seasonal(seed, T=96):
+    """Quarterly growth with a fixed seasonal pattern left in: the kind of
+    series on which a moving-average root sits on the unit circle."""
+    rng = np.random.default_rng(seed)
+    pattern = np.tile([-6.0, 3.0, 1.5, 2.5], T // 4)
+    g = np.zeros(T)
+    for t in range(1, T):
+        g[t] = 0.5 * g[t - 1] + rng.normal(scale=0.6)
+    return 0.35 + pattern + g + rng.normal(scale=0.8, size=T)
+
+
+# log-likelihoods of releases through 1.38.0, which searched from the
+# default values, the conditional-sum-of-squares estimates and a simplex:
+# (seed, order) -> value. Starting from the estimates of the models with
+# one term fewer reaches a higher maximum in each of these.
+BEFORE = {
+    (1, (1, 0, 3)): -211.685,
+    (1, (0, 0, 3)): -231.728,
+    (7, (1, 0, 3)): -212.745,
+    (7, (0, 0, 3)): -239.194,
+    (2, (1, 0, 3)): -212.898,
+    (8, (1, 0, 3)): -215.558,
+}
+
+
+@pytest.mark.parametrize("seed,order", list(BEFORE))
+def test_nested_starts_reach_a_higher_maximum(seed, order):
+    x = _seasonal(seed)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.arima(x, order=order)
+        p, _, q = order
+        children = [(p - 1, 0, q), (p, 0, q - 1)]
+        nested = [sp.arima(x, order=c).log_likelihood for c in children if min(c) >= 0]
+    assert fit.log_likelihood > BEFORE[(seed, order)] + 1.0
+    # a model fits at least as well as the models it nests
+    assert fit.log_likelihood >= max(nested) - 1e-6

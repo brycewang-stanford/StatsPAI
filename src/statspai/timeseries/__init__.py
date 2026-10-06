@@ -26,6 +26,7 @@ from .its import ITSResult, its
 from .johansen_lrtest import JohansenLRTest, johansen_lrtest
 from .local_projections import LocalProjectionsResult, local_projections
 from .lrvar import LongRunVariance, lrvar
+from .mswitch import MarkovSwitchingResult, mswitch
 from .reconcile import Hierarchy, ReconcileResult, hierarchy, reconcile
 from .simple_forecast import SimpleForecastResult, simple_forecast
 from .spectral import (
@@ -48,6 +49,7 @@ from .ts_tools import (
     seasonal_dummies,
 )
 from .tsfilter import FilterResult, tsfilter
+from .tvp_var import TVPVARResult, tvp_var
 from .unit_root import UnitRootResult, unitroot
 from .var import VARResult, granger_causality, irf, var
 from .var_diagnostics import varsoc
@@ -134,6 +136,10 @@ __all__ = [
     "KalmanResult",
     "statespace",
     "StateSpaceResult",
+    "tvp_var",
+    "TVPVARResult",
+    "mswitch",
+    "MarkovSwitchingResult",
 ]
 
 

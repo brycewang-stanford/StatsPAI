@@ -879,6 +879,7 @@ def arima(
         seas_: Optional[Tuple[int, int, int, int]],
         constant: Optional[bool] = None,
         effort: int = 2,
+        nested: bool = True,
     ) -> "_Fit":
         """``effort`` 2: every optimiser path (a fit the user asked for, and
         the leading candidates of a search); 1: the simplex check from the
@@ -1034,6 +1035,7 @@ def arima(
             ma_r = np.roots(np.r_[th[::-1], 1.0]) if th.size else np.empty(0)
             return SimpleNamespace(
                 params=par,
+                names=[nm for nm in est.param_names if nm != "sigma2"],
                 llf=ll,
                 scale=sig,
                 arroots=ar_r,
@@ -1125,6 +1127,38 @@ def arima(
                     if alt is not None and np.isfinite(alt.llf):
                         if alt.llf > best.llf + 1e-7:
                             best = alt
+            # Further starts for a final fit: the estimates of the models
+            # with one AR or one MA term fewer, the dropped coefficient at
+            # zero. A model then never fits worse than the ones it nests,
+            # which the other starts do not guarantee (a moving-average
+            # root on the unit circle traps them).
+            p_, q_ = int(order_[0]), int(order_[2])
+            if effort >= 2 and nested and p_ + q_ >= 2:
+                from ..exceptions import NumericalInstability as _Unstable
+
+                names = list(est.param_names)
+                for child in ((p_ - 1, order_[1], q_), (p_, order_[1], q_ - 1)):
+                    if min(child[0], child[2]) < 0:
+                        continue
+                    try:
+                        sub = _fit(child, seas_, constant, effort=1, nested=False)
+                        inner = sub.probe
+                        known = dict(zip(inner.names, inner.params))
+                        known["sigma2"] = float(inner.scale)
+                        guess = np.array([known.get(nm, 0.0) for nm in names], float)
+                        alt = run("lbfgs", 500, guess)
+                    except (
+                        AttributeError,
+                        ValueError,
+                        FloatingPointError,
+                        np.linalg.LinAlgError,
+                        _Unstable,
+                    ):
+                        # a starting point that could not be built or used;
+                        # the other starts stand
+                        continue
+                    if np.isfinite(alt.llf) and alt.llf > best.llf + 1e-7:
+                        best = alt
         # The quasi-Newton search alone stops at an inferior local maximum
         # on a sizeable share of mixed and seasonal models (near-cancelling
         # roots, a moving-average root on the unit circle). A simplex

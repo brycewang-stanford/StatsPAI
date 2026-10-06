@@ -82,6 +82,7 @@ class GARCHResult(ResultProtocolMixin):
     model: str = "garch"  # 'garch', 'gjr' or 'egarch'
     gamma: Optional[np.ndarray] = None  # asymmetry terms (gjr, egarch)
     theta: Optional[np.ndarray] = None  # egarch: effect of the signed shock
+    archm: Optional[float] = None  # coefficient of the variance in the mean
 
     # ------------------------------------------------------------------
     # Agent-native accessors (params / std_errors / t / p), so GARCH
@@ -185,11 +186,13 @@ class GARCHResult(ResultProtocolMixin):
         rho = np.zeros(0) if self.ar is None else np.asarray(self.ar, float)
         source = self.residuals if self.disturbances is None else self.disturbances
         u = list(np.asarray(source, float))
+        psi = 0.0 if self.archm is None else float(self.archm)
+        variance = self.forecast(horizon) if psi else np.zeros(horizon)
         out = np.empty(horizon)
         for h in range(horizon):
             nxt = float(sum(rho[k] * u[-1 - k] for k in range(rho.size)))
             u.append(nxt)
-            out[h] = self.mu + nxt
+            out[h] = self.mu + psi * variance[h] + nxt
         return out
 
     def value_at_risk(self, alpha: float = 0.01) -> float:
@@ -219,6 +222,8 @@ class GARCHResult(ResultProtocolMixin):
         n_ar = 0 if self.ar is None else int(np.size(self.ar))
         if n_ar:
             head = f"AR({n_ar})-" + head
+        if self.archm is not None:
+            head += " in mean"
         if self.dist == "t":
             head += ", Student t innovations"
         lines = [
@@ -419,6 +424,75 @@ def _egarch_loop(
     return ls
 
 
+def _inmean_loop(
+    w: np.ndarray,
+    rho: np.ndarray,
+    psi: float,
+    omega: float,
+    alpha: np.ndarray,
+    gamma: np.ndarray,
+    beta: np.ndarray,
+    m: float,
+    code: int,
+    kappa: float,
+) -> tuple:
+    """Variances and innovations when the variance enters the mean.
+
+    ``w = y - mu``; the disturbance is ``u_t = w_t - psi sigma2_t`` and
+    the innovation ``eps_t = u_t - sum rho_k u_{t-k}``, so the variance at
+    ``t`` must be known before the innovation at ``t``: a sequential
+    recursion. ``code`` 0: GARCH, 1: threshold terms ``gamma`` on squared
+    negative shocks, 2: EGARCH (``alpha`` on the signed standardised
+    shock, ``gamma`` on its magnitude). Pre-sample squared shocks and
+    variances equal ``m``; pre-sample threshold and EGARCH shock terms are
+    zero, pre-sample disturbances are zero.
+    """
+    n = w.shape[0]
+    q = alpha.shape[0]
+    g = gamma.shape[0]
+    p = beta.shape[0]
+    k_ar = rho.shape[0]
+    s2 = np.empty(n)
+    eps = np.empty(n)
+    u = np.empty(n)
+    log_m = np.log(m)
+    for t in range(n):
+        v = omega
+        if code == 2:
+            for i in range(q):
+                k = t - 1 - i
+                if k >= 0:
+                    z = eps[k] / np.sqrt(s2[k])
+                    v += alpha[i] * z + gamma[i] * (abs(z) - kappa)
+            for j in range(p):
+                k = t - 1 - j
+                v += beta[j] * (np.log(s2[k]) if k >= 0 else log_m)
+            if v > 700.0:
+                v = 700.0
+            elif v < -700.0:
+                v = -700.0
+            v = np.exp(v)
+        else:
+            for i in range(q):
+                k = t - 1 - i
+                v += alpha[i] * (eps[k] * eps[k] if k >= 0 else m)
+            for i in range(g):
+                k = t - 1 - i
+                if k >= 0 and eps[k] < 0.0:
+                    v += gamma[i] * eps[k] * eps[k]
+            for j in range(p):
+                k = t - 1 - j
+                v += beta[j] * (s2[k] if k >= 0 else m)
+        s2[t] = v
+        u[t] = w[t] - psi * v
+        e = u[t]
+        for k in range(k_ar):
+            if t - 1 - k >= 0:
+                e -= rho[k] * u[t - 1 - k]
+        eps[t] = e
+    return s2, eps, u
+
+
 _COMPILED: dict = {}
 
 
@@ -436,6 +510,18 @@ def _egarch_kernel() -> Any:
     return _COMPILED["egarch"]
 
 
+def _inmean_kernel() -> Any:
+    """:func:`_inmean_loop`, compiled by numba on first use."""
+    if "inmean" not in _COMPILED:
+        try:
+            from numba import njit  # type: ignore[import-untyped]
+
+            _COMPILED["inmean"] = njit(cache=True)(_inmean_loop)
+        except ImportError:  # pragma: no cover - numba is a core dependency
+            _COMPILED["inmean"] = _inmean_loop
+    return _COMPILED["inmean"]
+
+
 def _general_filter(
     theta: np.ndarray,
     y: np.ndarray,
@@ -446,28 +532,78 @@ def _general_filter(
     dist: str,
     presample: str,
     model: str = "garch",
+    n_g: Optional[int] = None,
+    in_mean: bool = False,
+    m_fixed: Optional[float] = None,
 ) -> Any:
     """Variances, innovations, disturbances and log-likelihood terms of the
     model with AR(``n_ar``) disturbances and normal or Student t errors.
 
-    theta = (mu?, rho_1..rho_k, omega, alpha_1..alpha_q, [gamma_1..gamma_q],
-    beta_1..beta_p, nu?); for ``'egarch'`` the ``alpha`` block holds the
-    coefficients of the signed shock. The disturbance ``u_t = y_t - mu``
-    follows ``u_t = sum rho_k u_{t-k} + eps_t`` with pre-sample ``u`` equal
-    to 0.
+    theta = (mu?, psi?, rho_1..rho_k, omega, alpha_1..alpha_q,
+    [gamma_1..gamma_g], beta_1..beta_p, nu?); for ``'egarch'`` the
+    ``alpha`` block holds the coefficients of the signed shock. The
+    disturbance ``u_t = y_t - mu - psi sigma2_t`` follows ``u_t = sum rho_k
+    u_{t-k} + eps_t`` with pre-sample ``u`` equal to 0.
     """
     from scipy.signal import lfilter
     from scipy.special import gammaln
 
     j = int(mean)
     mu = float(theta[0]) if mean else 0.0
+    psi = float(theta[j]) if in_mean else 0.0
+    j += int(in_mean)
     rho = theta[j : j + n_ar]
     j += n_ar
     omega = float(theta[j])
     alpha = theta[j + 1 : j + 1 + q]
-    g = q if model != "garch" else 0
+    g = (q if model != "garch" else 0) if n_g is None else n_g
     gamma = theta[j + 1 + q : j + 1 + q + g]
     beta = theta[j + 1 + q + g : j + 1 + q + g + p]
+    if in_mean:
+        # The pre-sample value is the mean squared innovation of the model
+        # itself, which depends on the variances it starts: a fixed point,
+        # reached by iteration (the map is a contraction for the small
+        # psi of practice; it stops after 200 rounds regardless).
+        w = np.ascontiguousarray(y - mu, dtype=float)
+        code = {"garch": 0, "gjr": 1, "egarch": 2}[model]
+        args = (
+            np.ascontiguousarray(rho, dtype=float),
+            psi,
+            omega,
+            np.ascontiguousarray(alpha, dtype=float),
+            np.ascontiguousarray(gamma, dtype=float),
+            np.ascontiguousarray(beta, dtype=float),
+        )
+        kernel = _inmean_kernel()
+        kappa = float(np.sqrt(2.0 / np.pi))
+        m = float(np.mean(w * w)) if m_fixed is None else float(m_fixed)
+        s2 = eps = u = w
+        for _ in range(200 if m_fixed is None else 1):
+            if not (np.isfinite(m) and m > 0):
+                break
+            s2, eps, u = kernel(w, *args, m, code, kappa)
+            with np.errstate(over="ignore", invalid="ignore"):
+                # an explosive trial point; the caller rejects it
+                m_new = float(np.mean(eps * eps))
+            done = abs(m_new - m) <= 1e-13 * abs(m)
+            if m_fixed is None:
+                m = m_new
+            if done:
+                break
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            e2 = eps * eps
+            if dist == "t":
+                nu = float(theta[-1])
+                ll_t = (
+                    gammaln((nu + 1.0) / 2.0)
+                    - gammaln(nu / 2.0)
+                    - 0.5 * np.log(np.pi * (nu - 2.0))
+                    - 0.5 * np.log(s2)
+                    - 0.5 * (nu + 1.0) * np.log1p(e2 / ((nu - 2.0) * s2))
+                )
+            else:
+                ll_t = -0.5 * (np.log(2 * np.pi) + np.log(s2) + e2 / s2)
+        return s2, eps, u, ll_t
     u = y - mu
     eps = lfilter(np.concatenate([[1.0], -rho]), [1.0], u) if n_ar else u
     e2 = eps * eps
@@ -575,6 +711,8 @@ def garch(
     ar: int = 0,
     dist: str = "normal",
     model: str = "garch",
+    threshold: Optional[int] = None,
+    in_mean: bool = False,
     data: Optional[pd.DataFrame] = None,
 ) -> GARCHResult:
     """Fit GARCH(p,q) by conditional maximum likelihood.
@@ -634,6 +772,14 @@ def garch(
         ``theta < 0`` is the leverage effect. Stata's ``earch()`` is
         ``theta`` and its ``earch_a`` is ``gamma``; ``q`` counts the shock
         lags and ``p`` the lagged log variances.
+    threshold : int, optional
+        ``model='gjr'``: number of threshold terms, ``1 <= threshold <=
+        q`` (default ``q``, one per ARCH lag; Stata ``tarch(1/k)``).
+    in_mean : bool, default False
+        Let the conditional variance enter the mean: ``y_t = mu + archm
+        sigma2_t + u_t`` (ARCH in mean; Stata's ``archm``). A positive
+        ``archm`` is a risk premium. Works with every ``model``, with
+        ``ar=`` and with ``dist='t'``.
 
     Notes
     -----
@@ -658,11 +804,21 @@ def garch(
     threshold or EGARCH shock term. EGARCH centres ``|z|`` at
     ``sqrt(2 / pi)``, its mean under normality, under Student t innovations
     too (as Stata does); the difference is absorbed by ``omega``.
+    With ``in_mean=True`` the estimator is Stata's: the pre-sample
+    variance equals the mean squared innovation at the estimates, and is a
+    constant while the likelihood is climbed. (Letting it move with the
+    parameters during the climb gives another point, within a hundredth
+    of a standard error in the cases examined; the mean and ``archm`` are
+    nearly collinear, so the likelihood is flat between the two.)
+
     ``'gjr'`` requires ``alpha >= 0``, ``alpha + gamma >= 0`` and
     ``sum(alpha) + sum(gamma) / 2 + sum(beta) < 1``; ``'egarch'`` only
     ``|sum(beta)| < 1``. The multi-step :meth:`GARCHResult.forecast` of an
     EGARCH model is the exponential of the forecast log variance, which is
-    below the expected variance beyond one step.
+    below the expected variance beyond one step. Stata does not impose the
+    sign restrictions of ``'gjr'``; where its estimate has ``arch + tarch <
+    0`` (the variance falling after a positive shock), ``sp.garch`` stops
+    at ``alpha = 0`` and warns.
 
     Releases through 1.38.0 used a single simplex search. For GARCH(p,q)
     with ``p >= 2`` it could stop with a lagged-variance coefficient at
@@ -762,17 +918,44 @@ def garch(
             f"garch: presample={presample!r} is defined for model='garch' " "only.",
             recovery_hint="Leave presample at its default for 'gjr' and 'egarch'.",
         )
-    y_mean = float(y.mean()) if mean else 0.0
-    j0 = int(mean)
-    jv = j0 + n_ar  # position of omega
+    in_mean = bool(in_mean)
+    if in_mean and presample != "stata":
+        raise MethodIncompatibility(
+            "garch: in_mean=True is defined for presample='stata' only."
+        )
     n_g = q if model != "garch" else 0  # asymmetry terms
+    if threshold is not None:
+        if model != "gjr":
+            raise MethodIncompatibility(
+                "garch: threshold= sets the number of threshold terms of "
+                "model='gjr'.",
+                recovery_hint="Pass model='gjr', or drop threshold=.",
+            )
+        if int(threshold) != threshold or not 1 <= threshold <= q:
+            raise MethodIncompatibility(
+                f"garch: threshold={threshold!r} must be between 1 and q={q}.",
+                recovery_hint="A threshold term needs the ARCH term of the "
+                "same lag.",
+            )
+        n_g = int(threshold)
+    y_mean = float(y.mean()) if mean else 0.0
+    j0 = int(mean) + int(in_mean)  # position of the first AR coefficient
+    jv = j0 + n_ar  # position of omega
     n_var = 1 + q + n_g + p
     K = jv + n_var + int(dist == "t")
 
+    # in_mean: the pre-sample value held fixed during a round of the
+    # optimisation (None: recomputed as the model's own fixed point)
+    held: dict = {"m": None}
+
+    def _filter(theta: np.ndarray) -> Any:
+        return _general_filter(
+            theta, y, p, q, mean, n_ar, dist, presample, model, n_g, in_mean,
+            held["m"],
+        )  # fmt: skip
+
     def _terms(theta: np.ndarray) -> np.ndarray:
-        return np.asarray(
-            _general_filter(theta, y, p, q, mean, n_ar, dist, presample, model)[3]
-        )
+        return np.asarray(_filter(theta)[3])
 
     def _feasible(theta: np.ndarray) -> bool:
         omega = theta[jv]
@@ -787,7 +970,7 @@ def garch(
         if model == "gjr":
             # variance after a positive shock (alpha) and after a negative
             # one (alpha + gamma) both non-negative
-            ok = np.all(a >= 0) and np.all(a + g >= 0) and np.all(b >= 0)
+            ok = np.all(a >= 0) and np.all(a[:n_g] + g >= 0) and np.all(b >= 0)
             return bool(omega > 0 and ok and a.sum() + 0.5 * g.sum() + b.sum() < 1.0)
         return bool(
             omega > 0 and np.all(a >= 0) and np.all(b >= 0) and a.sum() + b.sum() < 1.0
@@ -831,7 +1014,7 @@ def garch(
         a = _spread(a_tot, q, shape)
         b = _spread(b_tot, p, shape)
         omega = var0 * max(1.0 - sum(a) - sum(b), 0.05)
-        head = ([y_mean] if mean else []) + list(rho0)
+        head = ([y_mean] if mean else []) + ([0.0] if in_mean else []) + list(rho0)
         tail = [8.0] if dist == "t" else []
         if model == "egarch":
             # no sign effect, a magnitude effect of twice the ARCH share,
@@ -840,7 +1023,7 @@ def garch(
             mid = [0.0] * q + [2.0 * v for v in a]
         elif model == "gjr":
             # the same persistence, all of the news effect on bad news
-            mid = [0.2 * v for v in a] + [1.6 * v for v in a]
+            mid = [0.2 * v for v in a] + [1.6 * v for v in a[:n_g]]
         else:
             mid = a
         return np.asarray(head + [omega] + mid + b + tail, float)
@@ -852,7 +1035,7 @@ def garch(
         var_bounds = (
             [(1e-12 * max(var0, 1e-300), None)]
             + [(0.0, 0.9999)] * q
-            + [(-0.9999, 1.9999)] * q
+            + [(-0.9999, 1.9999)] * n_g
             + [(0.0, 0.9999)] * p
         )
     else:
@@ -875,7 +1058,7 @@ def garch(
             if np.isfinite(res.fun) and res.fun < best_fun - 1e-9:
                 best_fun, best_theta = float(res.fun), np.asarray(res.x, float)
 
-    general = bool(n_ar or dist == "t" or model != "garch")
+    general = bool(n_ar or dist == "t" or model != "garch" or in_mean)
     scores: np.ndarray
     if not general:
 
@@ -946,28 +1129,43 @@ def garch(
         def _grad_norm(th: np.ndarray) -> float:
             return float(np.max(np.abs(_numeric_scores(_terms, th).sum(axis=0))))
 
-        for _ in range(3):
-            # unconstrained polish, kept only when it improves the fit
-            pol = minimize(_fast_neg_ll, theta, method="BFGS", options={"gtol": 1e-7})
-            if np.isfinite(pol.fun) and pol.fun <= _fast_neg_ll(theta):
-                theta = np.asarray(pol.x, float)
-            if _grad_norm(theta) < 1e-4:
-                break
-            simplex = minimize(
-                _fast_neg_ll,
-                theta,
-                method="Nelder-Mead",
-                options={"maxiter": 1000 * K, "xatol": 1e-9, "fatol": 1e-11},
-            )
-            if float(simplex.fun) < _fast_neg_ll(theta):
-                theta = np.asarray(simplex.x, float)
-        s2, eps, u, ll_t = _general_filter(
-            theta, y, p, q, mean, n_ar, dist, presample, model
-        )
+        def _polish(th: np.ndarray) -> np.ndarray:
+            for _ in range(3):
+                # unconstrained polish, kept only when it improves the fit
+                pol = minimize(_fast_neg_ll, th, method="BFGS", options={"gtol": 1e-7})
+                if np.isfinite(pol.fun) and pol.fun <= _fast_neg_ll(th):
+                    th = np.asarray(pol.x, float)
+                if _grad_norm(th) < 1e-4:
+                    break
+                simplex = minimize(
+                    _fast_neg_ll,
+                    th,
+                    method="Nelder-Mead",
+                    options={"maxiter": 1000 * K, "xatol": 1e-9, "fatol": 1e-11},
+                )
+                if float(simplex.fun) < _fast_neg_ll(th):
+                    th = np.asarray(simplex.x, float)
+            return th
+
+        theta = _polish(theta)
+        if in_mean:
+            # Stata's estimator: the pre-sample value is the mean squared
+            # innovation at the estimates, but it is a constant while the
+            # likelihood is climbed. Alternate until the two agree.
+            for _ in range(50):
+                held["m"] = None
+                m_now = float(np.mean(_filter(theta)[1] ** 2))
+                held["m"] = m_now
+                theta = _polish(theta)
+                m_next = float(np.mean(_filter(theta)[1] ** 2))
+                if abs(m_next - m_now) <= 1e-11 * abs(m_now):
+                    break
+        s2, eps, u, ll_t = _filter(theta)
         scores = _numeric_scores(_terms, theta)
         H = _numeric_hessian(_fast_neg_ll, theta)
 
     mu = float(theta[0]) if mean else 0.0
+    psi_hat = float(theta[int(mean)]) if in_mean else None
     rho = np.asarray(theta[j0:jv], float)
     omega = float(theta[jv])
     first = np.asarray(theta[jv + 1 : jv + 1 + q], float)
@@ -980,6 +1178,7 @@ def garch(
 
     param_names = (
         (["mu"] if mean else [])
+        + (["archm"] if in_mean else [])
         + [f"ar[{k + 1}]" for k in range(n_ar)]
         + ["omega"]
         + [f"{first_name}[{i + 1}]" for i in range(q)]
@@ -1053,6 +1252,7 @@ def garch(
         model=model,
         gamma=gamma_hat if n_g else None,
         theta=first if model == "egarch" else None,
+        archm=psi_hat,
     )
     _result.vce = vce
     _result.presample = presample
@@ -1073,6 +1273,8 @@ def garch(
                 "ar": n_ar,
                 "dist": dist,
                 "model": model,
+                "threshold": threshold,
+                "in_mean": in_mean,
             },
             data=None,
             overwrite=False,

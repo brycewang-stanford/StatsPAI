@@ -76,16 +76,19 @@ right and are unchanged (`urca` to 1e-8 in three deterministic cases).
 | Topic | Before | Now |
 | --- | --- | --- |
 | AR terms and heavy tails in GARCH (8.4) | constant mean, normal errors | `sp.garch(ar=, dist='t')`, `forecast_mean`, `value_at_risk` |
-| Asymmetric volatility (8.1) | none | `sp.garch(model='gjr' / 'egarch')` |
-| Bands for impulse responses (15.4) | point estimates only | `sp.irf(ci='asymptotic' / 'bootstrap')`, `SVARResult.irf(ci='bootstrap')`, `VARResult.fevd(ci=)` |
+| Asymmetric volatility, variance in the mean (8.1) | none | `sp.garch(model='gjr' / 'egarch', in_mean=True, threshold=)` |
+| Bands for impulse responses (15.4) | point estimates only | `sp.irf(ci='asymptotic' / 'bootstrap')`, `SVARResult.irf(ci='bootstrap')`, `VARResult.fevd(ci=)`, `SVARResult.fevd(ci=)`, `boot='kilian'` |
 | Restrictions on the cointegration space (16.5) | rank test only | `sp.johansen_lrtest` |
 | Unit root with a break (7) | none | `sp.zivot_andrews` |
 | Cross-correlation and prewhitening (11) | none | `sp.xcorr` |
 | Long-run variance (4.4) | inside `sp.regress(robust='hac')` only | `sp.lrvar` |
 | Spectral density (6) | none | `sp.periodogram`, `sp.cumulative_periodogram_test` |
-| Linear filters (6.5) | none | `sp.tsfilter` (HP, Baxter-King, Christiano-Fitzgerald, Butterworth, Hamilton) |
-| Beveridge-Nelson decomposition (7.1) | none | `sp.beveridge_nelson` |
-| State space models (17) | `sp.dlm` (random-walk regression only) | `sp.kalman_filter`, `sp.statespace` |
+| Linear filters (6.5) | none | `sp.tsfilter` (HP and one-sided HP, Baxter-King, Christiano-Fitzgerald in three variants, Butterworth, Hamilton) |
+| Beveridge-Nelson decomposition (7.1) | none | `sp.beveridge_nelson`, from an AR or an ARMA model |
+| State space models (17) | `sp.dlm` (random-walk regression only) | `sp.kalman_filter`, `sp.statespace`, exact diffuse start |
+| Time-varying coefficients (18) | none | `sp.tvp_var` |
+| Regime switching (18) | none | `sp.mswitch` |
+| Reading the book's EViews workbooks | pandas error | `sp.read_data` repairs them in memory |
 
 Evidence for each, all on committed simulated data with a generator script
 next to the reference file:
@@ -95,7 +98,9 @@ next to the reference file:
 | `sp.garch(ar=, dist='t')` | Stata 18 `arch, ar() distribution(t)` | coefficients 5e-5, standard errors 5e-4, log-likelihood 1e-8 |
 | `sp.garch(model='gjr' / 'egarch')` | Stata 18 `arch, tarch()` and `arch, earch() egarch()` | log-likelihood 1e-8, coefficients 2e-4, standard errors 2e-3, with normal and t errors and an AR term |
 | `sp.irf(ci='asymptotic')`, `fevd(ci='asymptotic')` | Stata 18 `irf create` | simple, orthogonalised and cumulative responses, variance shares and their standard errors to 1e-6, the precision of Stata's single-precision `.irf` file |
+| `sp.garch(in_mean=True)` | Stata 18 `arch, archm` | log-likelihood 1e-8, coefficients 1e-4, standard errors 2e-3 |
 | `sp.irf(ci='bootstrap')` | known truth | 90% bands cover between 80% and 97% over 150 samples; spread within a fifth of the delta method at T = 600 |
+| `boot='kilian'` | known truth | root 0.92, T = 60, nominal 90%: percentile 38%, Hall 56%, delta method 62%, bias-corrected 86% (300 samples) |
 | `sp.johansen_lrtest` | `urca` `blrtest`, `bh5lrtest`, `alrtest` | statistic 1e-8, degrees of freedom equal, three deterministic cases |
 | `sp.zivot_andrews` | `urca::ur.za` | statistic, path over break dates and regression to 1e-7, break date equal |
 | `sp.xcorr` | R `ccf` and `ar`, Stata `xcorr` | 1e-10 |
@@ -105,6 +110,13 @@ next to the reference file:
 | `sp.tsfilter` | Stata `tsfilter`, statsmodels | 1e-9 |
 | `sp.beveridge_nelson` | the long-horizon forecast that defines the trend | 1e-8; no package reference found |
 | `sp.kalman_filter`, `sp.statespace` | `KFAS`, statsmodels | filter and smoother 1e-9, estimates 1e-6 |
+| exact diffuse start | `KFAS` exact diffuse, statsmodels | smoothed states 5e-15, covariances 1e-12, diffuse likelihood 1e-12 (ours keeps the `2 pi` constant KFAS drops for the diffuse observations) |
+| `sp.beveridge_nelson(order=(p, q))` | long-horizon forecast of the same fitted model, R `arima` | cycle 5e-13 at common estimates |
+| `sp.tsfilter(sma_order=, one_sided=)` | Stata `tsfilter cf, smaorder()`; expanding-window HP | 1e-9; 1e-10 |
+| `sp.zivot_andrews` with `zandrews` options | Stata `zandrews` 1.0.5 (SSC) | statistic 5e-13, break date and lag equal, 48 cases |
+| `sp.mswitch` | Stata 18 `mswitch dr` / `ar`; statsmodels | likelihood and regime probabilities at Stata's estimates 1e-11, covariance 5e-6, 18 models |
+| `sp.tvp_var(method='kalman')` | `sp.dlm` per equation; R `KFAS` | 2e-11; 1e-12 under a proper prior, 2e-6 under the diffuse one |
+| `sp.tvp_var(method='forgetting')` | discounted least squares; independent implementation | 1e-8; 1e-10 |
 
 ## The book's examples
 
@@ -117,6 +129,10 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
   in one, ARMA(5,2), where R reaches -107.03 and we stopped at -110.13. A
   third start, from zero ARMA coefficients (where R begins), is now tried
   for a final fit; ARMA(5,2) reaches R's value and no other cell moves.
+  A second case came from the level series. For the quarterly change of
+  log GDP, MA(3) stopped at -249.22 with a root on the unit circle, below
+  the MA(2) it nests (-244.90); R stops at the same point. A start from
+  the estimates of each model with one term fewer now gives -243.82.
 - **8.4, Swiss Market Index.** The GARCH fix above. AR(1)-GARCH(1,1) with
   t errors gives 7.29 degrees of freedom (Stata 7.2867) and a likelihood
   177 points above the normal model. `rugarch` with its hybrid solver
@@ -159,7 +175,11 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
   the recursion needs `Pt*F'*inv(Ptp1)*(...)*inv(Ptp1)*F*Pt`. Smoothed
   means are unaffected. Smoothed variances are too large by up to 0.134,
   so the confidence band in the book's second figure is too wide. The
-  corrected recursion agrees with ours, KFAS and statsmodels to 1e-16.
+  corrected recursion agrees with `sp.kalman_filter` to 2e-16 (recomputed
+  for this note), and that smoother agrees with KFAS on six other models
+  to 5e-15. A draft note to the author is in
+  `docs/dev/2026-10-06-neusser-kalman-smoother-note-draft.md`; it has not
+  been sent.
 
 ## Conventions confirmed, not changed
 
@@ -184,22 +204,57 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
   Stata starts the threshold recursion with the full pre-sample value and
   centres EGARCH's `|z|` at `sqrt(2/pi)` under t errors too; both were
   identified by evaluating our likelihood at Stata's estimates.
+- `sp.garch(in_mean=True)` follows Stata's estimator. The pre-sample
+  variance is the mean squared innovation at the estimates, and Stata
+  treats it as a constant while climbing the likelihood. Treating it as a
+  function of the parameters gives a point 0.008 standard errors away
+  with a likelihood 8e-5 higher. Both are defensible; the default is the
+  reference's, and `test_presample_value_is_held_fixed_as_in_stata` shows
+  the mechanism.
+- Stata does not restrict the sign of `arch + tarch`. With `arch(1/2)
+  tarch(1)` on the test series its estimate has the variance falling
+  after a positive shock at lag one. `sp.garch` keeps `alpha >= 0`, stops
+  on the boundary, warns, and fits 0.15 log-likelihood points lower.
+- The default bootstrap band stays the percentile one, as in Stata and
+  `vars`, with a warning above a root of 0.9. The coverage numbers argue
+  for `boot='kilian'` as the default; that is a decision for Bryce.
+- Stata's `tsfilter cf, stationary` does not compute the formula of its
+  manual: at interior dates the weight on the first and on the last
+  observation is the ideal weight of the neighbouring lag. `sp.tsfilter`
+  implements the manual's formula; the test rebuilds Stata's numbers from
+  the rule above.
+- Stata's `zandrews` chooses the lag order once, from the regression
+  without a break, ignores `maxlags()` unless `lagmethod(input)`, and trims
+  with `int(trim T + 0.49)`. `lag_rule='zandrews'` and `trim_rule='zandrews'`
+  reproduce it; the defaults are unchanged.
+- Three findings about the Markov-switching references, each with
+  independent evidence in `test_mswitch_parity.py`. After `mswitch ar ...,
+  switch(z)` Stata's `predict` disagrees with Stata's own likelihood (our
+  likelihood equals `e(ll)` to 6e-14 and our probabilities equal
+  statsmodels to 1e-15; Stata's are off by up to 0.04). Stata's
+  three-state AR(1) on the test series stops unconverged, 22
+  log-likelihood points below the maximum. statsmodels with a switching
+  variance and two or more AR lags disagrees with both Stata and us.
+  Stata's default `predict, yhat` applies the transition matrix once more
+  than the one-step prediction; ours equals `yhat smethod(filter)`.
 - `sp.tsfilter(method='cf')` removes a drift by default, as the authors
   and statsmodels do; Stata does not. `drift=False` reproduces Stata.
 
 ## Open items
 
+Rounds two and three closed most of the first list. What is left:
+
 | Item | Why it is open |
 | --- | --- |
-| ARCH in mean; threshold terms at fewer lags than ARCH terms | `sp.garch(model='gjr')` has one threshold term per ARCH lag. `sp.from_stata` reports `archm` as untranslated and refuses `tarch()` with a different lag list. |
-| Bands for the variance decomposition of a structural VAR | `VARResult.fevd(ci=)` covers the recursive case; `SVARResult.fevd` returns shares only. |
-| Bias-corrected bootstrap for impulse responses | Kilian's correction is the usual choice for persistent VARs. `boot='hall'` is the only alternative to the percentile band. |
-| Exact diffuse initialisation in `sp.kalman_filter` | The large-variance approximation is used and said so. `burn=` removes the affected likelihood terms. |
-| Beveridge-Nelson from an ARMA model | AR(p) only. |
-| `tsfilter cf, stationary` and `smaorder()` | Stata's weights for the stationary variant did not match any published formula we could find, so they were not copied. |
-| Zivot-Andrews lag choice at every break date | The order is chosen once, without the break. Stata's `zandrews` (SSC) was not installed and not compared. |
-| Markov switching, time-varying VARs | Chapter 18, a survey chapter. Stochastic volatility arrived the same day from another pass (`sp.stochvol`); regime switching and time-varying VARs have nothing. |
-| A reader for EViews-written `.xlsx` | Only the test converter handles it. |
+| `archmlags()` and `archmexp()` | `sp.garch(in_mean=True)` puts the current variance in the mean; Stata's lagged and transformed variants are refused by `sp.from_stata`. |
+| The default bootstrap band | Still the percentile band of Stata and `vars`, with a warning above a root of 0.9. The coverage numbers argue for `boot='kilian'`; that is a decision for Bryce. |
+| Section 15.4.5, Blanchard (1989) | The book's AB restrictions could not be recovered without the text. |
+| `lag_selection='break'` in `sp.zivot_andrews` | No reference implementation chooses the lag order at every break date (Stata's `zandrews` chooses it once, without the break). Checked against an independent recomputation only. |
+| The forgetting-factor TVP-VAR | No package reference. The one CRAN implementation found (`ConnectednessApproach::TVPVAR`) computes a different recursion from its second step on. Checked against discounted least squares and an independent implementation in the test file. |
+| Likelihood-ratio test for the number of regimes | `sp.mswitch` estimates a given number of states. The test of one regime against two has a non-standard distribution and is not offered. |
+| TVP-VAR with stochastic volatility | `sp.tvp_var` has a constant error variance per equation (`method='kalman'`) or an exponentially weighted one (`'forgetting'`). The full Bayesian model of Primiceri is not implemented. |
+| A general `P0_inf` matrix in the exact diffuse filter | States are marked diffuse one by one. |
+| Two notes to third parties | `docs/dev/2026-10-06-neusser-kalman-smoother-note-draft.md` (the book's smoother) and `docs/dev/2026-10-06-stata-tsfilter-cf-stationary-note-draft.md` (Stata's `tsfilter cf, stationary`). Drafts; not sent. |
 
 ## How to rerun
 

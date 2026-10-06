@@ -48,6 +48,43 @@ _EXTENDED_MISSING_MODES = ("nan", "column")
 MISSING_CODE_SUFFIX = "__miss"
 
 
+def _excel_source(path: str, ext: str) -> Any:
+    """``path``, or a repaired in-memory copy of an ``.xlsx`` whose archive
+    member names use backslashes.
+
+    EViews writes workbooks whose parts are named ``xl\\worksheets\\
+    sheet1.xml`` next to empty placeholder sheets under the regular names.
+    The zip format requires forward slashes, so pandas and openpyxl look
+    for ``xl/sharedStrings.xml``, do not find it, and fail. The parts are
+    renamed and the placeholders they replace are dropped.
+    """
+    if ext != ".xlsx":
+        return path
+    import io
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(path) as src:
+            names = src.namelist()
+            fixed = {n.replace("\\", "/"): n for n in names if "\\" in n}
+            if not fixed:
+                return path
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as out:
+                for name in names:
+                    if "\\" in name or name in fixed:
+                        continue
+                    if name.startswith("xl/worksheets/sheet"):
+                        continue  # empty placeholders of the misnamed sheets
+                    out.writestr(name, src.read(name))
+                for good, bad in fixed.items():
+                    out.writestr(good, src.read(bad))
+    except zipfile.BadZipFile:
+        return path  # let pandas report the unreadable file
+    buf.seek(0)
+    return buf
+
+
 def read_data(
     path: str,
     encoding: Optional[str] = None,
@@ -131,7 +168,7 @@ def read_data(
     elif ext in (".csv", ".tsv"):
         df = pd.read_csv(path, encoding=encoding, **kwargs)
     elif ext in (".xlsx", ".xls"):
-        df = pd.read_excel(path, **kwargs)
+        df = pd.read_excel(_excel_source(path, ext), **kwargs)
     elif ext == ".parquet":
         df = pd.read_parquet(path, **kwargs)
         _restore_value_label_keys(df)

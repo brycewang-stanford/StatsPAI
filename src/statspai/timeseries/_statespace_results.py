@@ -53,7 +53,16 @@ class KalmanResult(ResultProtocolMixin):
     x0, P0 : ndarray
         Moments of the initial state that were used.
     init : str
-        ``'user'``, ``'stationary'`` or ``'diffuse'``.
+        ``'user'``, ``'stationary'``, ``'diffuse'`` or ``'exact'``.
+    predicted_cov_inf, filtered_cov_inf : ndarray or None
+        Under the exact diffuse initial state, the part of the covariance
+        that is multiplied by infinity, ``(T, m, m)``; zero once the data
+        have pinned the initial state down. ``predicted_cov`` and
+        ``filtered_cov`` are then the finite part. ``None`` otherwise.
+    n_diffuse : int
+        Scalar observations absorbed by the diffuse initial state.
+    P0_inf : ndarray or None
+        Diffuse part of the initial covariance.
 
     Examples
     --------
@@ -89,6 +98,10 @@ class KalmanResult(ResultProtocolMixin):
     index: Optional[pd.Index] = None
     model_info: Dict[str, Any] = field(default_factory=dict)
     _state: Dict[str, Any] = field(default_factory=dict, repr=False)
+    predicted_cov_inf: Optional[np.ndarray] = None
+    filtered_cov_inf: Optional[np.ndarray] = None
+    n_diffuse: int = 0
+    P0_inf: Optional[np.ndarray] = None
 
     _citation_keys = ("kalman1960new",)
 
@@ -96,7 +109,9 @@ class KalmanResult(ResultProtocolMixin):
         """State estimates with their standard errors as a DataFrame.
 
         ``which`` is ``'predicted'``, ``'filtered'`` or ``'smoothed'``; the
-        columns are the state names and ``<name>_se``.
+        columns are the state names and ``<name>_se``. Under the exact
+        diffuse initial state a standard error is infinite as long as the
+        data have not pinned that state down.
         """
         if which not in ("predicted", "filtered", "smoothed"):
             raise MethodIncompatibility(
@@ -109,6 +124,10 @@ class KalmanResult(ResultProtocolMixin):
                 "The smoother was not run.", recovery_hint="Call with smooth=True."
             )
         sd = np.sqrt(np.clip(np.einsum("tii->ti", cov), 0.0, None))
+        inf = None if which == "smoothed" else getattr(self, f"{which}_cov_inf")
+        if inf is not None:
+            scale = max(float(np.max(np.abs(inf))), 1.0)
+            sd = np.where(np.einsum("tii->ti", inf) > 1e-10 * scale, np.inf, sd)
         out = pd.DataFrame(mean, columns=self.state_names, index=self.index)
         for j, nm in enumerate(self.state_names):
             out[f"{nm}_se"] = sd[:, j]
@@ -138,6 +157,12 @@ class KalmanResult(ResultProtocolMixin):
         if int(steps) < 1:
             raise MethodIncompatibility("steps must be at least 1.")
         steps = int(steps)
+        if self.filtered_cov_inf is not None and np.any(self.filtered_cov_inf[-1]):
+            raise MethodIncompatibility(
+                "The sample does not pin down the diffuse initial state, so "
+                "forecasts have no finite mean squared error.",
+                recovery_hint="Use more data or a proper initial covariance.",
+            )
         unknown = sorted(set(future) - set(_SYSTEM))
         if unknown:
             raise MethodIncompatibility(f"Unknown system matrices {unknown}.")
@@ -264,6 +289,18 @@ def package(
             "prediction errors carry that variance into the likelihood; "
             "burn= leaves them out."
         )
+    if res["rule"] == "exact":
+        d = int(res["d"])
+        notes.append(
+            f"Exact diffuse initial state: {int(res['absorbed'])} observations "
+            f"on the first {d} dates were absorbed by it. loglik is the "
+            "diffuse log-likelihood."
+        )
+        if np.any(res["Pfi"][-1]):
+            notes.append(
+                "The sample does not pin down the diffuse initial state: "
+                "some state variances are still infinite at the last date."
+            )
     return KalmanResult(
         predicted_state=res["xp"],
         predicted_cov=res["Pp"],
@@ -286,6 +323,10 @@ def package(
         index=index,
         model_info={"burn": int(burn), "notes": notes},
         _state={"sys": res["sys"]},
+        predicted_cov_inf=res.get("Ppi"),
+        filtered_cov_inf=res.get("Pfi"),
+        n_diffuse=int(res.get("absorbed", 0)),
+        P0_inf=res.get("P0inf"),
     )
 
 

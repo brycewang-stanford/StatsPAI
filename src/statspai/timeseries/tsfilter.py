@@ -130,13 +130,58 @@ def _difference_filter(
     return np.asarray(smooth * np.convolve(z, diff), dtype=float)
 
 
-def _cf_cycle(x: np.ndarray, low: float, high: float, drift: bool) -> np.ndarray:
+def _hp_one_sided(x: np.ndarray, smooth: float) -> np.ndarray:
+    """Cycle of the one-sided Hodrick-Prescott filter.
+
+    The two-sided trend is the smoothed state of ``y = trend + e``,
+    ``second difference of trend = u`` with ``var(u) / var(e) = 1 /
+    smooth`` and a diffuse start, so its last point on the data up to
+    ``t`` is the filtered state. The first two observations identify the
+    two diffuse components exactly: state ``(trend_2, trend_1)`` has mean
+    ``(y_2, y_1)`` and identity covariance, from which the Kalman
+    recursion runs without any large-number approximation.
+    """
+    n = x.size
+    trend = x.copy()
+    a = np.array([x[1], x[0]])
+    P = np.eye(2)
+    T = np.array([[2.0, -1.0], [1.0, 0.0]])
+    q = 1.0 / smooth
+    for t in range(2, n):
+        a = T @ a
+        P = T @ P @ T.T
+        P[0, 0] += q
+        gain = P[:, 0] / (P[0, 0] + 1.0)
+        a = a + gain * (x[t] - a[0])
+        P = P - np.outer(gain, P[0, :])
+        P = 0.5 * (P + P.T)
+        trend[t] = a[0]
+    return np.asarray(x - trend, dtype=float)
+
+
+def _cf_sma_weights(low: float, high: float, q: int, stationary: bool) -> np.ndarray:
+    """Weights ``b_0..b_q`` of the fixed-length symmetric
+    Christiano-Fitzgerald filter: ideal up to ``q - 1``; the outermost is
+    the ideal one for a stationary series and otherwise the value that
+    makes the ``2 q + 1`` weights sum to zero."""
+    b = _ideal_weights(low, high, q)
+    if not stationary:
+        b[q] = -(0.5 * b[0] + b[1:q].sum())
+    return b
+
+
+def _cf_cycle(
+    x: np.ndarray, low: float, high: float, drift: bool, stationary: bool = False
+) -> np.ndarray:
     n = x.size
     if drift:
         x = x - np.arange(n) * (x[-1] - x[0]) / (n - 1)
     b = _ideal_weights(low, high, n - 1)
     idx = np.arange(n)
     w = b[np.abs(idx[:, None] - idx[None, :])]
+    if stationary:
+        # the ideal filter cut off at the ends of the sample
+        return np.asarray(w @ x, dtype=float)
     w[: n - 1, n - 1] = 0.0
     w[1:, 0] = 0.0
     # the weights of the two end observations stand for all the unobserved
@@ -202,8 +247,9 @@ class FilterResult(ResultProtocolMixin):
         Raises
         ------
         MethodIncompatibility
-            For ``method='cf'``, whose weights differ at every date, so
-            that no single gain describes it.
+            For ``method='cf'`` without ``sma_order``, whose weights
+            differ at every date, so that no single gain describes it,
+            and for the one-sided Hodrick-Prescott filter.
 
         Notes
         -----
@@ -211,9 +257,10 @@ class FilterResult(ResultProtocolMixin):
         ``s = smooth``. ``'bw'``: ``s (1 - cos w)**m / ((1 + cos w)**m +
         s (1 - cos w)**m)`` with ``m = order`` and
         ``s = tan(pi / high)**(-2 m)``. Both describe the filter away
-        from the ends of the sample. ``'bk'``:
-        ``|b_0 + 2 sum_j b_j cos(j w)|`` from the weights used, exact at
-        every date where the cycle is defined. ``'hamilton'``:
+        from the ends of the sample. ``'bk'`` and ``'cf'`` with
+        ``sma_order``: ``|b_0 + 2 sum_j b_j cos(j w)|`` from the weights
+        used, exact at every date where the cycle is defined.
+        ``'hamilton'``:
         ``|1 - sum_j beta_j exp(-i w (h + j))|`` from the estimated
         coefficients.
         """
@@ -223,6 +270,13 @@ class FilterResult(ResultProtocolMixin):
             else np.atleast_1d(np.asarray(omega, dtype=float))
         )
         p = self.params
+        if self.method == "hp" and p.get("one_sided"):
+            raise MethodIncompatibility(
+                "FilterResult.gain: the one-sided Hodrick-Prescott filter "
+                "shifts the phase and its weights change over the sample.",
+                recovery_hint="Use one_sided=False for the gain of the "
+                "two-sided filter.",
+            )
         if self.method == "hp":
             a = 4.0 * p["smooth"] * (1.0 - np.cos(w)) ** 2
             g = a / (1.0 + a)
@@ -230,7 +284,7 @@ class FilterResult(ResultProtocolMixin):
             m = p["order"]
             up = p["smooth"] * (1.0 - np.cos(w)) ** m
             g = up / ((1.0 + np.cos(w)) ** m + up)
-        elif self.method == "bk":
+        elif self.method == "bk" or "weights" in p:
             b = np.asarray(p["weights"])
             j = np.arange(1, b.size)
             g = np.abs(b[0] + 2.0 * np.cos(np.outer(w, j)) @ b[1:])
@@ -243,7 +297,8 @@ class FilterResult(ResultProtocolMixin):
                 "FilterResult.gain: the Christiano-Fitzgerald filter uses "
                 "different weights at every date and has no single gain.",
                 recovery_hint="Its target is the ideal band-pass filter: gain "
-                "1 for 2*pi/high <= omega <= 2*pi/low, 0 elsewhere.",
+                "1 for 2*pi/high <= omega <= 2*pi/low, 0 elsewhere. With "
+                "sma_order= the weights are fixed and the gain is defined.",
             )
         return pd.Series(np.asarray(g, dtype=float), index=pd.Index(w, name="omega"))
 
@@ -303,6 +358,8 @@ def tsfilter(
     order: int = 2,
     h: int = 8,
     p: int = 4,
+    sma_order: Optional[int] = None,
+    one_sided: bool = False,
 ) -> FilterResult:
     """Split a series into trend and cycle with a linear filter.
 
@@ -335,6 +392,13 @@ def tsfilter(
         ``'bk'``: use the truncated ideal weights as they are. By default
         a constant is subtracted so that they sum to zero, which removes a
         unit root; without it the "cycle" keeps part of the level.
+        ``'cf'``: use the ideal weights at every observation of the
+        sample, the best filter for a serially uncorrelated series. By
+        default the weights of the first and the last observation (with
+        ``sma_order``: of the two outermost ones) are replaced so that
+        they sum to zero. The same caveat applies: these weights do not
+        sum to zero, so subtract the mean of the series first, and set
+        ``drift=False`` unless a line is to be removed as well.
     order : int, default 2
         Order of the Butterworth filter; higher is closer to a sharp
         cut-off.
@@ -342,6 +406,16 @@ def tsfilter(
         Hamilton: horizon and number of lags. The cycle at ``t`` is the
         residual of a least-squares regression of ``y[t]`` on a constant
         and ``y[t-h], ..., y[t-h-p+1]``.
+    sma_order : int, optional
+        ``'cf'``: use the fixed-length symmetric Christiano-Fitzgerald
+        filter, a moving average of ``2 * sma_order + 1`` terms with the
+        same weights at every date. It must be below ``(T - 1) / 2``.
+        ``drift`` still removes the line through the first and the last
+        observation of the whole series.
+    one_sided : bool, default False
+        ``'hp'``: the trend at ``t`` is the end point of the
+        Hodrick-Prescott trend of the observations up to ``t``, so that
+        no later observation enters and no value is ever revised.
 
     Returns
     -------
@@ -361,7 +435,8 @@ def tsfilter(
     Missing values at the start or the end are set aside and come back as
     NaN. In addition the cycle is undefined, by construction and not for
     lack of data, at the first and last ``K`` observations for ``'bk'``
-    (a two-sided moving average of ``2 K + 1`` terms) and at the first
+    (a two-sided moving average of ``2 K + 1`` terms), the first and last
+    ``sma_order`` for ``'cf'`` with ``sma_order``, and at the first
     ``h + p - 1`` for ``'hamilton'``.
 
     ``'hp'`` minimises ``sum (y - trend)**2 + smooth * sum
@@ -372,10 +447,26 @@ def tsfilter(
     date gets a value; estimates near the ends are revised as data arrive.
     The same is true of ``'hp'`` and ``'bw'``.
 
+    With ``one_sided=True`` the Hodrick-Prescott trend is computed by the
+    Kalman filter of the model whose smoother is the two-sided filter
+    (the series is the trend plus noise, the second difference of the
+    trend is noise with ``1 / smooth`` times the variance), started from
+    the exact diffuse distribution. With one or two observations the
+    penalty is empty and the trend is the data, so the first two cycle
+    values are zero. The one-sided cycle lags the two-sided one and has a
+    different gain; the two are not interchangeable.
+
     ``'hp'``, ``'bk'``, ``'cf'`` and ``'bw'`` reproduce Stata's
-    ``tsfilter`` (``drift=False`` for its default ``cf``); statsmodels
-    agrees on the cycles, and reports as the trend of ``cffilter`` the
-    series less the drift line less the cycle.
+    ``tsfilter`` (``drift=False`` for its default ``cf``; ``sma_order``
+    is its ``smaorder()``); statsmodels agrees on the cycles, and reports
+    as the trend of ``cffilter`` the series less the drift line less the
+    cycle. The exception is ``'cf'`` with ``stationary=True``: the Stata
+    manual sets every weight to the ideal one, which is what is computed
+    here, but Stata 18 puts the ideal weight of the next smaller lag on
+    the first and the last observation of the sample (with
+    ``smaorder(q)``: ``b_{q-1}`` in place of ``b_q`` on the two outermost
+    terms) and keeps the sum-to-zero weights at the two end dates, so its
+    numbers differ from these.
 
     Examples
     --------
@@ -424,6 +515,17 @@ def tsfilter(
         )
     n = x.size
     params: Dict[str, Any]
+    if one_sided and method != "hp":
+        raise MethodIncompatibility(
+            f"sp.tsfilter: one_sided=True is defined for method='hp', not "
+            f"{method!r}.",
+            recovery_hint="method='hamilton' is one-sided by construction.",
+        )
+    if sma_order is not None and method != "cf":
+        raise MethodIncompatibility(
+            f"sp.tsfilter: sma_order= belongs to method='cf', not {method!r}.",
+            recovery_hint="The Baxter-King moving average takes K=.",
+        )
     if method in ("bk", "cf", "bw"):
         if not high > 2.0 or (method != "bw" and not 2.0 <= low < high):
             raise MethodIncompatibility(
@@ -449,8 +551,11 @@ def tsfilter(
             )
         if n < 4:
             raise short(4)
-        cycle = _difference_filter(x, 2, lam, butterworth=False)
-        params = {"smooth": lam}
+        if one_sided:
+            cycle = _hp_one_sided(x, lam)
+        else:
+            cycle = _difference_filter(x, 2, lam, butterworth=False)
+        params = {"smooth": lam, "one_sided": bool(one_sided)}
     elif method == "bw":
         if int(order) != order or order < 1:
             raise MethodIncompatibility(
@@ -485,8 +590,30 @@ def tsfilter(
     elif method == "cf":
         if n < 3:
             raise short(3)
-        cycle = _cf_cycle(x, low, high, bool(drift))
-        params = {"low": float(low), "high": float(high), "drift": bool(drift)}
+        params = {
+            "low": float(low),
+            "high": float(high),
+            "drift": bool(drift),
+            "stationary": bool(stationary),
+        }
+        if sma_order is None:
+            cycle = _cf_cycle(x, low, high, bool(drift), bool(stationary))
+        else:
+            if int(sma_order) != sma_order or sma_order < 1:
+                raise MethodIncompatibility(
+                    f"sp.tsfilter: sma_order={sma_order!r} is not a positive "
+                    "integer.",
+                    recovery_hint="Use sma_order=12 for quarterly data, or "
+                    "leave it out for the full-sample filter.",
+                )
+            q = int(sma_order)
+            if n <= 2 * q + 1:
+                raise short(2 * q + 2)
+            z = x - np.arange(n) * (x[-1] - x[0]) / (n - 1) if drift else x
+            b = _cf_sma_weights(low, high, q, bool(stationary))
+            cycle = np.full(n, np.nan)
+            cycle[q : n - q] = np.convolve(z, np.concatenate((b[:0:-1], b)), "valid")
+            params.update({"sma_order": q, "weights": b})
     else:
         if int(h) != h or int(p) != p or h < 1 or p < 1:
             raise MethodIncompatibility(

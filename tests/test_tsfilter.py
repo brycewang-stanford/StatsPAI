@@ -184,3 +184,137 @@ def test_bad_data(y: pd.Series) -> None:
         tsfilter([1.0, 2.0, 3.0], method="hp")
     with pytest.raises(DataInsufficient):
         tsfilter([np.nan, np.nan])
+
+
+# --- one-sided Hodrick-Prescott ------------------------------------------
+
+
+def _hp_end_point(v: np.ndarray, lam: float) -> float:
+    """Last point of the two-sided HP trend of ``v``, by a dense solve of
+    ``(I + lam D'D) trend = v``."""
+    m = v.size
+    if m < 3:
+        return float(v[-1])  # no second difference: the penalty is empty
+    D = np.zeros((m - 2, m))
+    i = np.arange(m - 2)
+    D[i, i], D[i, i + 1], D[i, i + 2] = 1.0, -2.0, 1.0
+    return float(np.linalg.solve(np.eye(m) + lam * D.T @ D, v)[-1])
+
+
+@pytest.mark.parametrize("lam", [6.25, 1600.0, 129600.0])
+def test_one_sided_hp_is_the_expanding_window_end_point(
+    y: pd.Series, lam: float
+) -> None:
+    v = y.to_numpy()
+    ref = np.array([_hp_end_point(v[: t + 1], lam) for t in range(v.size)])
+    res = tsfilter(y, method="hp", smooth=lam, one_sided=True)
+    # Kalman recursion against 160 dense solves whose condition number is
+    # about 16 * lam: observed 2e-15, 5e-13 and 3e-11 relative to the level
+    assert np.max(np.abs(res.trend.to_numpy() - ref)) < 1e-10 * np.max(np.abs(ref))
+    np.testing.assert_allclose(res.trend + res.cycle, v, rtol=1e-14)
+    assert res.params == {"smooth": lam, "one_sided": True}
+
+
+def test_one_sided_hp_first_values_and_no_revision(y: pd.Series) -> None:
+    res = tsfilter(y, method="hp", one_sided=True)
+    assert res.cycle.iloc[0] == 0.0 and res.cycle.iloc[1] == 0.0
+    assert res.cycle.notna().all()
+    short = tsfilter(y.iloc[:100], method="hp", one_sided=True)
+    # a later observation never changes an earlier value
+    np.testing.assert_array_equal(short.cycle, res.cycle.iloc[:100])
+    # and the last value is that of the two-sided filter on the same data
+    two = tsfilter(y, method="hp")
+    assert res.trend.iloc[-1] == pytest.approx(two.trend.iloc[-1], rel=1e-12)
+    with pytest.raises(MethodIncompatibility, match="one-sided"):
+        res.gain()
+    with pytest.raises(MethodIncompatibility, match="one_sided"):
+        tsfilter(y, method="bk", one_sided=True)
+
+
+# --- Christiano-Fitzgerald: stationary and fixed-length variants ---------
+
+
+def _ideal(j: int, low: float, high: float) -> float:
+    a, b = 2 * np.pi / high, 2 * np.pi / low
+    return (b - a) / np.pi if j == 0 else (np.sin(j * b) - np.sin(j * a)) / (np.pi * j)
+
+
+def test_cf_stationary_is_the_ideal_filter_cut_at_the_sample(y: pd.Series) -> None:
+    v = (y - y.mean()).to_numpy()
+    n = v.size
+    ref = [sum(_ideal(t - s, 6, 32) * v[s] for s in range(n)) for t in range(n)]
+    res = tsfilter(v, method="cf", stationary=True, drift=False)
+    np.testing.assert_allclose(res.cycle, ref, rtol=0, atol=1e-12)
+    assert res.params["stationary"] is True
+    # drift=True removes the line through the end points first
+    line = np.arange(n) * (v[-1] - v[0]) / (n - 1)
+    a = tsfilter(v, method="cf", stationary=True, drift=True)
+    b = tsfilter(v - line, method="cf", stationary=True, drift=False)
+    np.testing.assert_allclose(a.cycle, b.cycle, rtol=0, atol=1e-12)
+
+
+@pytest.mark.parametrize("stationary", [False, True])
+def test_cf_fixed_length_weights_and_gain(y: pd.Series, stationary: bool) -> None:
+    q = 12
+    v = y.to_numpy()
+    n = v.size
+    res = tsfilter(y, method="cf", sma_order=q, stationary=stationary, drift=False)
+    b = [_ideal(j, 6, 32) for j in range(q + 1)]
+    if not stationary:
+        b[q] = -(0.5 * b[0] + sum(b[1:q]))
+        # the 2q + 1 weights sum to zero: a constant is removed
+        assert abs(b[0] + 2 * sum(b[1:])) < 1e-15
+        flat = tsfilter(np.full(60, 7.0), method="cf", sma_order=q, drift=False)
+        assert np.nanmax(np.abs(flat.cycle)) < 1e-12
+    ref = np.full(n, np.nan)
+    for t in range(q, n - q):
+        ref[t] = sum(b[abs(j)] * v[t - j] for j in range(-q, q + 1))
+    assert int(res.cycle.isna().sum()) == 2 * q
+    np.testing.assert_allclose(res.cycle, ref, rtol=0, atol=1e-10)
+    np.testing.assert_allclose(res.params["weights"], b, rtol=0, atol=1e-15)
+    # gain = modulus of the transfer function of these weights
+    om = np.array([0.0, 0.2, 2 * np.pi / 16, 1.0, np.pi])
+    lags = np.arange(-q, q + 1)
+    w = np.array([b[abs(j)] for j in lags])
+    direct = np.abs(np.exp(-1j * np.outer(om, lags)) @ w)
+    np.testing.assert_allclose(res.gain(om), direct, rtol=0, atol=1e-13)
+    # a wave inside the band passes almost unchanged
+    assert 0.9 < float(res.gain([2 * np.pi / 16]).iloc[0]) < 1.1
+
+
+def test_cf_fixed_length_drift_uses_the_whole_sample(y: pd.Series) -> None:
+    v = y.to_numpy()
+    n = v.size
+    line = np.arange(n) * (v[-1] - v[0]) / (n - 1)
+    a = tsfilter(v, method="cf", sma_order=8, drift=True)
+    b = tsfilter(v - line, method="cf", sma_order=8, drift=False)
+    np.testing.assert_allclose(a.cycle, b.cycle, rtol=0, atol=1e-12, equal_nan=True)
+    # sum-to-zero symmetric weights annihilate a line: drift changes nothing
+    c = tsfilter(v, method="cf", sma_order=8, drift=False)
+    np.testing.assert_allclose(a.cycle, c.cycle, rtol=0, atol=1e-9, equal_nan=True)
+
+
+def test_cf_gain_needs_fixed_weights(y: pd.Series) -> None:
+    with pytest.raises(MethodIncompatibility, match="sma_order"):
+        tsfilter(y, method="cf").gain()
+
+
+@pytest.mark.parametrize(
+    "kw",
+    [
+        {"method": "cf", "sma_order": 0},
+        {"method": "cf", "sma_order": 2.5},
+        {"method": "bk", "sma_order": 4},
+        {"method": "hamilton", "one_sided": True},
+    ],
+)
+def test_bad_arguments_new_options(y: pd.Series, kw: dict) -> None:
+    with pytest.raises(MethodIncompatibility):
+        tsfilter(y, **kw)
+
+
+def test_cf_fixed_length_too_long(y: pd.Series) -> None:
+    # Stata: smaorder() must be below (T - 1) / 2
+    with pytest.raises(DataInsufficient):
+        tsfilter(y.iloc[:25], method="cf", sma_order=12)
+    assert tsfilter(y.iloc[:26], method="cf", sma_order=12).cycle.notna().sum() == 2

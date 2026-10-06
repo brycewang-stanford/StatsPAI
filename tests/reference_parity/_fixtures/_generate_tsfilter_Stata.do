@@ -23,6 +23,10 @@ tsfilter cf double c_cf_sma_dr = y, minperiod(6) maxperiod(32) smaorder(12) drif
 tsfilter cf double c_cf_st_sma = y, minperiod(6) maxperiod(32) smaorder(12) stationary trend(t_cf_st_sma)
 tsfilter bw double c_bw = y, maxperiod(32) order(2) trend(t_bw)
 tsfilter bw double c_bw_o4 = y, maxperiod(12) order(4) trend(t_bw_o4)
+* added 2026-10-06, after the columns above so that their order is kept
+tsfilter cf double c_cf_st_dr = y, minperiod(6) maxperiod(32) stationary drift trend(t_cf_st_dr)
+tsfilter cf double c_cf_st_sma_dr = y, minperiod(6) maxperiod(32) smaorder(12) stationary drift trend(t_cf_st_sma_dr)
+tsfilter cf double c_cf_sma5 = y, minperiod(2) maxperiod(8) smaorder(5) trend(t_cf_sma5)
 drop y
 format c_* t_* %24.17g
 export delimited using "tsfilter_Stata.csv", replace
