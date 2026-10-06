@@ -1455,7 +1455,7 @@
    "result_sha256": "8b129ec3af86b0b5899d0af0a37040fabcde7f11bb0cd7f455bdbf6a5881678b"
   },
   "39_arima": {
-   "seconds": 1.07,
+   "seconds": 1.04,
    "error": null,
    "boundary_calls": [
     {
@@ -1495,7 +1495,7 @@
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
-    "src/statspai/timeseries/arima.py": "0abe0e72f680a5f804dc0949d8daefdcf5068d4ff8ec84cb101b8af8cd7f4f99"
+    "src/statspai/timeseries/arima.py": "7a910f7ca4a80335a27289263df2f65248fff463bbdc29648e0ed0c1e6bdc160"
    },
    "dependency_versions": {
     "statsmodels": "0.14.6",
