@@ -125,6 +125,104 @@ _FACTOR_NOTES: Dict[str, Tuple[str, ...]] = {
 # tests/reference_parity/REFERENCES.md (the "Frozen R-value fixtures" table)
 # and the asserting test — no model-memory facts (CLAUDE.md §10).
 _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
+    # ---- Gelman, Hill and Vehtari, Regression and Other Stories (2026-10-07) ----
+    "loo": {
+        "status": "bit-exact",
+        "reference": "loo::loo on a log-likelihood matrix (pointwise elpd, p, Pareto k, n_eff, smoothed weights, estimates)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "loo": "2.9.0"},
+        "tolerance": "1e-9 abs on pointwise elpd, p, Pareto k and log weights; 1e-8 on the estimates; 1e-9 rel on n_eff",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_regression_stories_r_parity.py",
+            "tests/reference_parity/_fixtures/regression_stories_R.json",
+        ],
+        "note": (
+            "Three log-likelihood matrices built from a closed-form recipe (no random numbers, rebuilt on both sides and guarded by a checksum): well behaved, with two outlying observations whose Pareto shape exceeds 0.9, and 2,300 draws with relative efficiencies below one. PSIS was written from Vehtari et al. (2024) and Zhang and Stephens (2009); loo is GPL and was run, not read. The Monte Carlo standard error of elpd uses the delta method and agrees with loo's approximation to 1 percent only."
+        ),
+    },
+    "psis": {
+        "status": "bit-exact",
+        "reference": "loo::psis through loo::loo (smoothed log weights, Pareto k, n_eff)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "loo": "2.9.0"},
+        "tolerance": "1e-9 abs",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_regression_stories_r_parity.py",
+            "tests/reference_parity/_fixtures/regression_stories_R.json",
+        ],
+        "note": (
+            "Three log-likelihood matrices built from a closed-form recipe (no random numbers, rebuilt on both sides and guarded by a checksum): well behaved, with two outlying observations whose Pareto shape exceeds 0.9, and 2,300 draws with relative efficiencies below one. PSIS was written from Vehtari et al. (2024) and Zhang and Stephens (2009); loo is GPL and was run, not read. The Monte Carlo standard error of elpd uses the delta method and agrees with loo's approximation to 1 percent only."
+        ),
+    },
+    "waic": {
+        "status": "bit-exact",
+        "reference": "loo::waic (estimates, pointwise elpd and p)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "loo": "2.9.0"},
+        "tolerance": "1e-9 abs pointwise, 1e-8 on the estimates",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_regression_stories_r_parity.py",
+            "tests/reference_parity/_fixtures/regression_stories_R.json",
+        ],
+        "note": ("Same matrices as the leave-one-out comparison."),
+    },
+    "loo_compare": {
+        "status": "bit-exact",
+        "reference": "loo::loo_compare (elpd_diff, se_diff, ordering)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "loo": "2.9.0"},
+        "tolerance": "1e-8 abs",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_regression_stories_r_parity.py",
+            "tests/reference_parity/_fixtures/regression_stories_R.json",
+        ],
+        "note": ("Two models on each of the three matrices."),
+    },
+    "binned_residuals": {
+        "status": "bit-exact",
+        "reference": "arm::binned.resids (xbar, ybar, n, range, 2 se; default and chosen bin counts, binning on a regressor, tied values)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "arm": "1.15.3"},
+        "tolerance": "1e-8 abs",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_regression_stories_r_parity.py",
+            "tests/reference_parity/_fixtures/regression_stories_R.json",
+        ],
+        "note": (
+            "Residuals of a logit fit on 300 synthetic rows. The binning rule is the one printed in the book's notebook; arm is GPL and was run, not read."
+        ),
+    },
+    "standardize": {
+        "status": "bit-exact",
+        "reference": "arm::rescale (all four binary rules) and coefficients of arm::standardize(lm) refitted on sp.standardize(df, formula=)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "arm": "1.15.3"},
+        "tolerance": "1e-12 abs on rescaled columns, 1e-9 rel on refitted coefficients",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_regression_stories_r_parity.py",
+            "tests/reference_parity/_fixtures/regression_stories_R.json",
+        ],
+        "note": (
+            "A model with numeric, binary and factor inputs and an interaction. arm::standardize rescales the variable inside log(); sp.standardize leaves transformed terms alone, by design."
+        ),
+    },
+    "retrodesign": {
+        "status": "bit-exact",
+        "reference": "retrodesign::retro_design_closed_form (power, type S, type M); retrodesign::retrodesign power and type S with 20 degrees of freedom",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "retrodesign": "0.2.2",
+        },
+        "tolerance": "1e-9 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_regression_stories_r_parity.py",
+            "tests/reference_parity/_fixtures/regression_stories_R.json",
+        ],
+        "note": (
+            "Five effect / standard error pairs from the book and Gelman and Carlin (2014). With degrees of freedom the package's exaggeration ratio is simulated from a shifted t and is not the exaggeration ratio of a t-test; that row is checked against a simulation of the test instead and is not part of this grade."
+        ),
+    },
     # ---- Neusser, Time Series Econometrics (2026-10-06) ----
     "mswitch": {
         "status": "bit-exact",

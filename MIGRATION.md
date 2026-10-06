@@ -99,6 +99,44 @@ that were at the maximum are unchanged, and so is every call with
 scale below the smallest gap between observed values, refit; the log
 marginal likelihood of the new fit is at least as high.
 
+## 1.38.0 → next: ⚠️ collinear regressors are omitted by the likelihood-based estimators
+
+**What changed.** `sp.logit`, `sp.probit`, `sp.cloglog`, `sp.glm`,
+`sp.poisson`, `sp.nbreg`, `sp.ologit`, `sp.oprobit`, `sp.mlogit`,
+`sp.tobit`, `sp.qreg` and `sp.svydesign(...).glm` now omit a regressor that
+is an exact linear combination of earlier ones, warn with its name and
+list it in `model_info['omitted']`. `sp.regress` already did. Before, the
+optimiser was run on the rank-deficient design and returned one arbitrary
+point of a flat likelihood, with standard errors of zero, of order 1e6 or
+`nan`, sometimes without a warning.
+
+**Who is affected.** Fits whose design was rank deficient: all the
+indicators of a category next to the constant, a duplicated column, a
+regressor that is the sum of others. The result now has one coefficient
+fewer per dependent regressor, and the remaining coefficients and standard
+errors are those of the model without it. Fits on full-rank designs are
+unchanged to the last digit.
+
+**What to do.** Code that indexes coefficients by position should index by
+name. A stored coefficient for a regressor now reported as omitted was
+never identified and should be discarded with the numbers around it.
+
+## 1.38.0 → next: ⚠️ separation warnings from `sp.logit` and `sp.glm`
+
+**What changed.** A binary fit whose linear index classifies every
+observation correctly, or whose fitted probabilities reach 0 or 1 to
+machine precision, raises a `ConvergenceWarning`. `sp.logit` used to
+require in addition that 99 percent of the fitted probabilities be within
+0.01 of the boundary, which small samples often failed; `sp.glm` did not
+check.
+
+**Who is affected.** Fits on separated data that used to return silently.
+The numbers returned are the same as before and as meaningless as before.
+
+**What to do.** Treat the warning as a failed fit. A weakly informative
+prior gives a finite answer:
+`sp.bayes_regress(formula, df, model='logit', prior='weakly_informative')`.
+
 ## 1.38.0 → next: ⚠️ aggregated SEs of weighted Callaway-Sant'Anna on repeated cross-sections
 
 **What changed.** After `sp.callaway_santanna(..., weights=...)` with

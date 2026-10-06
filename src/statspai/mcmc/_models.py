@@ -76,6 +76,8 @@ class _Model:
         )
         self.B0inv_b0 = self.B0inv @ self.b0
         self.aux_names: List[str] = []
+        #: known term of the linear index (log exposure of a count model)
+        self.offset: Any = 0.0
         self._mode: Optional[np.ndarray] = None
         self._mode_cov: Optional[np.ndarray] = None
 
@@ -462,7 +464,7 @@ class LogitModel(_RWModel):
         _check_binary(self.y, "logit")
 
     def log_lik(self, theta: np.ndarray) -> float:
-        eta = self.X @ theta[: self.k]
+        eta = self.X @ theta[: self.k] + self.offset
         return float(self.y @ eta - np.logaddexp(0.0, eta).sum())
 
     def expected_value(self, eta: np.ndarray) -> np.ndarray:
@@ -493,7 +495,7 @@ class PoissonModel(_RWModel):
         self._lgam = float(special.gammaln(self.y + 1.0).sum())
 
     def log_lik(self, theta: np.ndarray) -> float:
-        eta = self.X @ theta[: self.k]
+        eta = self.X @ theta[: self.k] + self.offset
         with np.errstate(over="ignore"):
             return float(self.y @ eta - np.exp(eta).sum() - self._lgam)
 
@@ -502,7 +504,8 @@ class PoissonModel(_RWModel):
         # log of the mean on the intercept, when there is one
         const = np.where(np.ptp(self.X, axis=0) == 0)[0]
         if const.size:
-            u[const[0]] = np.log(max(self.y.mean(), 1e-8)) / self.X[0, const[0]]
+            level = np.log(max(self.y.mean(), 1e-8)) - float(np.mean(self.offset))
+            u[const[0]] = level / self.X[0, const[0]]
         return u
 
     def expected_value(self, eta: np.ndarray) -> np.ndarray:
@@ -552,7 +555,7 @@ class NegBinModel(_RWModel):
 
     def log_lik(self, theta: np.ndarray) -> float:
         beta, r = theta[: self.k], 1.0 / theta[-1]
-        eta = self.X @ beta
+        eta = self.X @ beta + self.offset
         with np.errstate(over="ignore"):
             mu = np.exp(eta)
         y = self.y
@@ -577,7 +580,8 @@ class NegBinModel(_RWModel):
         u = np.zeros(self.k + 1)
         const = np.where(np.ptp(self.X, axis=0) == 0)[0]
         if const.size:
-            u[const[0]] = np.log(max(self.y.mean(), 1e-8)) / self.X[0, const[0]]
+            level = np.log(max(self.y.mean(), 1e-8)) - float(np.mean(self.offset))
+            u[const[0]] = level / self.X[0, const[0]]
         return u
 
     def expected_value(self, eta: np.ndarray) -> np.ndarray:
@@ -1031,6 +1035,8 @@ class MultinomialLogitModel(_RWModel):
         if (np.bincount(self.yi, minlength=self.J) == 0).any():
             raise DataInsufficient("An outcome category has no observations.")
         base_names = [str(c) for c in xnames]
+        #: columns of the design, before they are repeated per level
+        self.base_xnames = base_names
         self.xnames = [f"{lv}:{c}" for lv in self.levels[1:] for c in base_names]
         self.k = self.kx * (self.J - 1)
         self.b0, self.B0, self.B0inv = normal_prior(

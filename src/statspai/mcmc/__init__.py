@@ -11,7 +11,19 @@ from __future__ import annotations
 from .arima import bayes_arima
 from .bma import BMAResult, bma
 from .bootstrap import bayes_bootstrap
+from .checks import BayesR2Result, PPCResult, bayes_r2, loo_r2, mad_sd, ppc
 from .compare import BayesFactorResult, bayes_factor, savage_dickey
+from .crossval import (
+    LOOResult,
+    PSISResult,
+    kfold,
+    kfold_split,
+    loo,
+    loo_compare,
+    loo_predict,
+    psis,
+    waic,
+)
 from .diagnostics import (
     MCMCDiagnostic,
     gelman_rubin,
@@ -36,6 +48,21 @@ from .trees import BARTResult, bart
 
 __all__ = [
     "MCMCDiagnostic",
+    "LOOResult",
+    "PSISResult",
+    "PPCResult",
+    "BayesR2Result",
+    "loo",
+    "waic",
+    "kfold",
+    "kfold_split",
+    "loo_compare",
+    "loo_predict",
+    "psis",
+    "ppc",
+    "bayes_r2",
+    "loo_r2",
+    "mad_sd",
     "BayesRegressResult",
     "BayesFactorResult",
     "BayesMixedResult",

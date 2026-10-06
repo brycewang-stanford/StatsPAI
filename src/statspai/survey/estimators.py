@@ -576,6 +576,18 @@ def svyglm(
     X = X_df.values
     w = design.weights[pos]
     var_names = list(X_df.columns)
+    # A dependent regressor (all the dummies of a category next to the
+    # constant) made the bread singular: least squares picked the minimum
+    # norm solution and the sandwich returned nan or a wrong standard error.
+    from ..core._collinear import drop_collinear
+
+    X, var_names, _omitted, _ = drop_collinear(
+        np.asarray(X, dtype=float),
+        var_names,
+        "svyglm",
+        formula=r_formula_idioms(formula),
+        design_info=getattr(X_df, "design_info", None),
+    )
     n, k = X.shape
 
     if family == "gaussian":

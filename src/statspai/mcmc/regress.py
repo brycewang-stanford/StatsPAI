@@ -29,6 +29,7 @@ from ..exceptions import (
     StatsPAIWarning,
 )
 from . import _models as M
+from . import _workflow as W
 from ._core import check_mcmc_args, design_for, normal_prior, spawn_rngs
 from .diagnostics import (
     _spectrum0_ar,
@@ -173,7 +174,230 @@ class _ConjugateNormal:
 
 
 @dataclass
-class BayesRegressResult(ResultProtocolMixin):
+class _OffsetSpec:
+    """The known term of the linear index and how to rebuild it."""
+
+    values: np.ndarray
+    column: Optional[str]
+    log: bool
+    label: str
+
+    @classmethod
+    def build(
+        cls,
+        offset: Any,
+        exposure: Optional[str],
+        data: pd.DataFrame,
+        frame: pd.DataFrame,
+        model_key: str,
+    ) -> Optional["_OffsetSpec"]:
+        if offset is None and exposure is None:
+            return None
+        if offset is not None and exposure is not None:
+            raise MethodIncompatibility("Pass offset or exposure, not both.")
+        if model_key not in ("logit", "poisson", "negbin"):
+            raise MethodIncompatibility(
+                "offset / exposure are for the logit, poisson and negbin "
+                f"models; got model='{model_key}'."
+            )
+        if exposure is not None and model_key == "logit":
+            raise MethodIncompatibility("exposure is for count models.")
+        name = exposure if exposure is not None else offset
+        take_log = exposure is not None
+        if isinstance(name, str):
+            if name not in data.columns:
+                raise MethodIncompatibility(f"Column {name!r} is not in data.")
+            raw = frame[name].to_numpy(dtype=float)
+            column: Optional[str] = name
+            label = f"log({name})" if take_log else name
+        else:
+            arr = np.asarray(name, dtype=float).reshape(-1)
+            if arr.size != len(data):
+                raise MethodIncompatibility(
+                    f"offset has {arr.size} entries for {len(data)} rows of data."
+                )
+            raw = pd.Series(arr, index=data.index).loc[frame.index].to_numpy()
+            column, label = None, "array"
+        if take_log:
+            if np.any(raw <= 0):
+                raise MethodIncompatibility("exposure must be positive.")
+            raw = np.log(raw)
+        if not np.all(np.isfinite(raw)):
+            raise MethodIncompatibility(
+                "The offset has missing or infinite values on the estimation " "sample."
+            )
+        return cls(values=raw, column=column, log=take_log, label=label)
+
+    def for_data(self, data: pd.DataFrame) -> np.ndarray:
+        if self.column is None:
+            raise MethodIncompatibility(
+                "The offset was passed as an array, so it cannot be rebuilt "
+                "for new data. Fit with offset='<column>'."
+            )
+        if self.column not in data.columns:
+            raise MethodIncompatibility(
+                f"The new data lack the offset column {self.column!r}."
+            )
+        raw = data[self.column].to_numpy(dtype=float)
+        return np.asarray(np.log(raw) if self.log else raw)
+
+
+class _PredictiveMethods:
+    """Predictive distribution and pointwise likelihood of a fitted model."""
+
+    _model: Any
+    _offset: Any
+    _frame: Any
+    _call: Dict[str, Any]
+    _design_info: Any
+    draws: pd.DataFrame
+    formula: str
+    model: str
+    #: provided by the result class
+    _design: Any
+
+    def _offset_for(self, data: Optional[pd.DataFrame]) -> Any:
+        if self._offset is None:
+            return 0.0
+        if data is None:
+            return self._offset.values
+        return self._offset.for_data(data)
+
+    def _linear_index(
+        self, draws: np.ndarray, X: np.ndarray, data: Optional[pd.DataFrame]
+    ) -> np.ndarray:
+        """Linear index by draw and row, with the offset when there is one.
+
+        Goes through the model's own ``linear_predictor`` so that the
+        result classes built on a shim (mixed models, systems) keep
+        working.
+        """
+        eta = self._model.linear_predictor(draws, X)
+        if self._offset is None:
+            return np.asarray(eta)
+        return np.asarray(eta + self._offset_for(data))
+
+    def _predictive_model(self, what: str) -> Any:
+        mdl = self._model
+        if mdl is None or getattr(mdl, "name", None) not in W.PREDICTIVE_MODELS:
+            raise MethodIncompatibility(
+                f"{what} is available for the fits of sp.bayes_regress and "
+                "sp.bayes_shrink, not for this model."
+            )
+        return mdl
+
+    def _draw_rows(self, index: Optional[Any]) -> np.ndarray:
+        d = self.draws.to_numpy()
+        return np.asarray(d if index is None else d[np.asarray(index)])
+
+    def _outcome_and_rows(self, data: pd.DataFrame) -> Tuple[np.ndarray, pd.DataFrame]:
+        """Outcome of new data on the model's scale, and the rows used."""
+        if self.model in ("oprobit", "mlogit"):
+            lhs = self.formula.split("~", 1)[0].strip()
+            if lhs not in data.columns:
+                raise MethodIncompatibility(f"The new data lack the outcome {lhs!r}.")
+            rows = data.loc[data[lhs].notna()]
+            levels = list(self._model.levels)
+            codes = pd.Categorical(rows[lhs], categories=levels).codes
+            if np.any(codes < 0):
+                raise MethodIncompatibility(
+                    "The new data have outcome values the model was not "
+                    f"fitted to; known levels: {levels}."
+                )
+            return np.asarray(codes, dtype=float), rows
+        y_df, _ = create_design_matrices(self.formula, data)
+        rows = data.loc[y_df.index]
+        return np.asarray(y_df, dtype=float).reshape(-1), rows
+
+    def posterior_linpred(
+        self, data: Optional[pd.DataFrame] = None, index: Optional[Any] = None
+    ) -> np.ndarray:
+        """Draws of the linear index: one row per draw, one column per row
+        of ``data`` (the estimation sample when omitted). ``index``
+        selects draws."""
+        X = self._design(data)
+        return np.asarray(self._linear_index(self._draw_rows(index), X, data))
+
+    def posterior_epred(
+        self, data: Optional[pd.DataFrame] = None, index: Optional[Any] = None
+    ) -> np.ndarray:
+        """Draws of the expected outcome ``E[y | x]``: the probability for
+        binary models, the rate for count models. Uncertainty about the
+        coefficients only; see :meth:`posterior_predict` for new
+        outcomes."""
+        return np.asarray(
+            self._model.expected_value(self.posterior_linpred(data, index))
+        )
+
+    def posterior_predict(
+        self,
+        data: Optional[pd.DataFrame] = None,
+        draws: Optional[int] = None,
+        seed: Optional[int] = None,
+    ) -> np.ndarray:
+        """Draws of new outcomes from the posterior predictive distribution.
+
+        One simulated outcome per posterior draw and row of ``data``:
+        coefficient uncertainty plus the observation noise of the model.
+        Ordered and multinomial outcomes come back as positions in the
+        list of levels.
+
+        Parameters
+        ----------
+        data : DataFrame, optional
+            New data; the estimation sample when omitted.
+        draws : int, optional
+            Use this many posterior draws, evenly spaced; all by default.
+        seed : int, optional
+        """
+        total = len(self.draws)
+        index = None
+        if draws is not None:
+            if not 1 <= int(draws) <= total:
+                raise MethodIncompatibility(
+                    f"draws must be between 1 and {total}; got {draws}."
+                )
+            index = np.unique(np.linspace(0, total - 1, int(draws)).round().astype(int))
+        mdl = self._predictive_model("posterior_predict()")
+        X = self._design(data)
+        rng = np.random.default_rng(seed)
+        return W.predictive_draws(
+            mdl, self._draw_rows(index), X, rng, self._offset_for(data)
+        )
+
+    def log_lik(
+        self, data: Optional[pd.DataFrame] = None, index: Optional[Any] = None
+    ) -> np.ndarray:
+        """Pointwise log-likelihood: one row per draw, one column per
+        observation of ``data`` (the estimation sample when omitted).
+
+        The input of :func:`statspai.loo` and :func:`statspai.waic`. For
+        new data the outcome column must be present; rows with missing
+        values are dropped.
+        """
+        mdl = self._predictive_model("log_lik()")
+        d = self._draw_rows(index)
+        if data is None:
+            y = mdl.yi if self.model in ("oprobit", "mlogit") else mdl.y
+            return W.pointwise_log_lik(mdl, d, y, mdl.X, self._offset_for(None))
+        y, rows = self._outcome_and_rows(data)
+        X = self._design(rows)
+        return W.pointwise_log_lik(mdl, d, y, X, self._offset_for(rows))
+
+    def _refit(self, data: pd.DataFrame) -> Any:
+        """The same model fitted to other data (cross-validation)."""
+        call = dict(self._call)
+        if call.get("offset") is not None and not isinstance(call["offset"], str):
+            raise MethodIncompatibility(
+                "Refitting needs the offset as a column name, not an array."
+            )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", StatsPAIWarning)
+            return bayes_regress(self.formula, data, **call)
+
+
+@dataclass
+class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
     """Posterior of a model fitted by :func:`bayes_regress`.
 
     Attributes
@@ -239,6 +463,9 @@ class BayesRegressResult(ResultProtocolMixin):
     _extras: Dict[str, Any] = field(default_factory=dict, repr=False)
     _design_info: Any = field(default=None, repr=False)
     _lml_cache: Dict[str, Dict[str, float]] = field(default_factory=dict, repr=False)
+    _frame: Any = field(default=None, repr=False)
+    _call: Dict[str, Any] = field(default_factory=dict, repr=False)
+    _offset: Any = field(default=None, repr=False)
 
     #: every paper a model of this family rests on; ``cite()`` returns the
     #: ones of the fitted model
@@ -428,7 +655,10 @@ class BayesRegressResult(ResultProtocolMixin):
             )
         if data is None:
             return np.asarray(self._model.X)
-        return design_for(self._design_info, self._model.xnames, data)
+        # a multinomial logit repeats the design columns once per level;
+        # its coefficient names are not column names
+        names = getattr(self._model, "base_xnames", self._model.xnames)
+        return design_for(self._design_info, names, data)
 
     def predict(
         self,
@@ -464,9 +694,9 @@ class BayesRegressResult(ResultProtocolMixin):
                 )
             probs = self._model.category_probabilities(d, X)
             return pd.DataFrame(probs, columns=[str(v) for v in self._model.levels])
-        eta = self._model.linear_predictor(d, X)
+        eta = self._linear_index(d, X, data)
         if what == "linear":
-            return eta.mean(axis=0)
+            return np.asarray(eta.mean(axis=0))
         mu = self._model.expected_value(eta)
         if what == "mean":
             return mu.mean(axis=0)
@@ -716,7 +946,7 @@ def bayes_regress(
     model: str = "normal",
     prior_mean: Any = 0.0,
     prior_var: Any = None,
-    sigma2_prior: Tuple[float, float] = (0.001, 0.001),
+    sigma2_prior: Optional[Tuple[float, float]] = None,
     draws: int = 10000,
     burnin: int = 2000,
     thin: int = 1,
@@ -730,9 +960,12 @@ def bayes_regress(
     lower: Optional[float] = None,
     upper: Optional[float] = None,
     dof: float = 5.0,
-    size_prior: Tuple[float, float] = (0.5, 0.1),
+    size_prior: Optional[Tuple[float, float]] = None,
     cut_prior_var: float = 1.0,
     inference: str = "mcmc",
+    prior: str = "vague",
+    offset: Any = None,
+    exposure: Optional[str] = None,
 ) -> BayesRegressResult:
     """Bayesian regression by MCMC.
 
@@ -775,9 +1008,11 @@ def bayes_regress(
         multiplies ``sigma2``, and for the scale-free binary and ordered
         models 100). The default is vague only for regressors on a
         moderate scale; a note is attached to the result when it is not.
-    sigma2_prior : (alpha0, delta0), default (0.001, 0.001)
+    sigma2_prior : (alpha0, delta0), optional
         ``sigma2 ~ InvGamma(alpha0 / 2, delta0 / 2)`` for the normal,
-        conjugate, t and tobit models.
+        conjugate, t and tobit models. Default ``(0.001, 0.001)``; with
+        ``prior='weakly_informative'`` the default is instead
+        ``sigma ~ Exponential(1 / sd(y))``.
     draws : int, default 10000
         Draws kept per chain.
     burnin : int, default 2000
@@ -808,8 +1043,10 @@ def bayes_regress(
         a point are treated as censored there.
     dof : float, default 5
         Degrees of freedom for ``model='t'``.
-    size_prior : (shape, rate), default (0.5, 0.1)
+    size_prior : (shape, rate), optional
         Gamma prior on the size ``1 / alpha`` of the negative binomial.
+        Default ``(0.5, 0.1)``; ``(1, 1)``, an Exponential(1), with
+        ``prior='weakly_informative'``.
     cut_prior_var : float, default 1
         Prior variance of the log distance between consecutive cutpoints
         of the ordered probit (mean zero).
@@ -821,6 +1058,24 @@ def bayes_regress(
         are dependent a posteriori. ``draws`` are then independent draws
         from the approximation and ``model_info['elbo']`` is the evidence
         lower bound.
+    prior : {'vague', 'weakly_informative'}, default 'vague'
+        ``'vague'`` uses ``prior_mean`` and ``prior_var`` as given.
+        ``'weakly_informative'`` scales independent normal priors to the
+        data (models normal, logit, probit, poisson, negbin): standard
+        deviation ``2.5 sd(y) / sd(x)`` for each slope and ``2.5 sd(y)``
+        for the intercept, centred at ``mean(y)``, with the regressors
+        centred; ``sd(y)`` is replaced by 1 and ``mean(y)`` by 0 outside
+        the Gaussian model. These are the defaults of R ``rstanarm``.
+        They rule out effects that are absurd on the scale of the data
+        and little else, so the result does not depend on the units of
+        the regressors, as it does under a fixed ``prior_var``.
+        ``prior_mean`` and ``prior_var`` must be left at their defaults.
+    offset : str or array, optional
+        A term added to the linear index with coefficient one (logit,
+        Poisson and negative binomial models): a column of ``data`` or
+        an array. Predictions for new data need the column form.
+    exposure : str, optional
+        Column whose logarithm is the offset of a count model.
 
     Returns
     -------
@@ -833,6 +1088,14 @@ def bayes_regress(
     split potential scale reduction factor exceeds 1.05.
     ``result.diagnostics()`` runs the Geweke, Heidelberger-Welch and
     Raftery-Lewis diagnostics.
+
+    The result carries the predictive side of the model:
+    ``posterior_linpred`` (linear index), ``posterior_epred`` (expected
+    outcome) and ``posterior_predict`` (new outcomes, with observation
+    noise) return one row per draw, and ``log_lik`` the pointwise
+    log-likelihoods that :func:`statspai.loo`, :func:`statspai.waic` and
+    :func:`statspai.kfold` consume. See also :func:`statspai.ppc`,
+    :func:`statspai.bayes_r2` and :func:`statspai.loo_r2`.
 
     The ordered probit reports the slopes and ``J - 1`` cutpoints and has
     no intercept, as ``sp.oprobit``. The prior ``N(prior_mean, prior_var)``
@@ -855,7 +1118,8 @@ def bayes_regress(
     ----------
     albert1993bayesian, cowles1996accelerating, chib1992bayes,
     chib1995marginal, gelfand1990sampling, gelfand1994bayesian,
-    geweke1999using, kozumi2011gibbs, ramirezhassan2026introduction
+    geweke1999using, kozumi2011gibbs, ramirezhassan2026introduction,
+    gelman2008weakly, gelman2020regression
     """
     model_in = str(model).lower()
     model_key = _MODEL_ALIASES.get(model_in, model_in)
@@ -864,6 +1128,40 @@ def bayes_regress(
             f"Unknown model {model!r}. Available: {', '.join(M.MODELS)}."
         )
     check_mcmc_args(draws, burnin, thin, chains)
+    call = {
+        "model": model,
+        "prior_mean": prior_mean,
+        "prior_var": prior_var,
+        "sigma2_prior": sigma2_prior,
+        "draws": draws,
+        "burnin": burnin,
+        "thin": thin,
+        "chains": chains,
+        "seed": seed,
+        "level": level,
+        "tune": tune,
+        "quantile": quantile,
+        "scale": scale,
+        "scale_prior": scale_prior,
+        "lower": lower,
+        "upper": upper,
+        "dof": dof,
+        "size_prior": size_prior,
+        "cut_prior_var": cut_prior_var,
+        "inference": inference,
+        "prior": prior,
+        "offset": offset,
+        "exposure": exposure,
+    }
+    prior_kind = str(prior).lower().replace("-", "_")
+    if prior_kind in ("weakly_informative", "weak", "auto", "rstanarm"):
+        prior_kind = "weakly_informative"
+    elif prior_kind not in ("vague", "default"):
+        raise MethodIncompatibility(
+            f"prior must be 'vague' or 'weakly_informative'; got {prior!r}."
+        )
+    else:
+        prior_kind = "vague"
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if not isinstance(data, pd.DataFrame):
@@ -911,7 +1209,30 @@ def bayes_regress(
             "meaningful."
         )
 
-    default_prior = prior_var is None
+    frame = work.loc[y_df.index] if hasattr(y_df, "index") else work
+    offset_spec = _OffsetSpec.build(offset, exposure, work, frame, model_key)
+
+    default_prior = prior_var is None and prior_kind == "vague"
+    weak_info: Dict[str, Any] = {}
+    exp_sigma_rate: Optional[float] = None
+    if prior_kind == "weakly_informative":
+        if prior_var is not None or np.any(np.asarray(prior_mean) != 0.0):
+            raise MethodIncompatibility(
+                "prior='weakly_informative' sets the coefficient prior from "
+                "the data; leave prior_mean and prior_var at their defaults, "
+                "or use prior='vague' with your own."
+            )
+        if inference != "mcmc":
+            raise MethodIncompatibility(
+                "prior='weakly_informative' is available with inference='mcmc'."
+            )
+        prior_mean, prior_var, weak_info = W.weakly_informative_prior(
+            model_key, y, X, xnames
+        )
+        if model_key == "normal" and sigma2_prior is None:
+            exp_sigma_rate = 1.0 / float(np.std(y, ddof=1))
+        if size_prior is None:
+            size_prior = (1.0, 1.0)
     if prior_var is None:
         prior_var = {
             "probit": 100.0,
@@ -919,13 +1240,18 @@ def bayes_regress(
             "oprobit": 100.0,
             "mlogit": 100.0,
         }.get(model_key, 1000.0)
-    a0, d0 = (float(v) for v in sigma2_prior)
+    a0, d0 = (float(v) for v in (sigma2_prior or (0.001, 0.001)))
+    if size_prior is None:
+        size_prior = (0.5, 0.1)
 
-    prior: Dict[str, Any] = {
+    prior_info: Dict[str, Any] = {
         "coefficients": "normal",
         "prior_mean": prior_mean,
         "prior_var": prior_var,
     }
+    if weak_info:
+        prior_info.update(weak_info)
+        prior_info["kind"] = "weakly_informative"
     info: Dict[str, Any] = {}
 
     if model_key == "conjugate":
@@ -940,7 +1266,7 @@ def bayes_regress(
         table = conj.exact_table(level)
         table.insert(2, "mcse", 0.0)
         table.insert(3, "ess", float(draws))
-        prior.update(
+        prior_info.update(
             {
                 "coefficients": "normal, scaled by sigma2",
                 "sigma2": f"InvGamma({a0 / 2:g}, {d0 / 2:g})",
@@ -968,12 +1294,14 @@ def bayes_regress(
             chains=1,
             sampler=conj.sampler,
             acceptance_rate=None,
-            prior=prior,
+            prior=prior_info,
             level=level,
             model_info=info,
             diagnostics_info={"warnings": []},
             _model=conj,
             _design_info=design_info,
+            _frame=frame,
+            _call=call,
         )
         _note_default_prior(
             res, default_prior, conj.b0, conj.B0 * table.loc["sigma2", "mean"]
@@ -987,16 +1315,21 @@ def bayes_regress(
         raise MethodIncompatibility(
             "inference='vb' is implemented for model='normal' only."
         )
-    if model_key == "normal":
-        mdl: Any = M.NormalModel(y, X, xnames, prior_mean, prior_var, a0, d0)
-        prior["sigma2"] = f"InvGamma({a0 / 2:g}, {d0 / 2:g})"
+    if model_key == "normal" and exp_sigma_rate is not None:
+        mdl: Any = W.NormalExpSigmaModel(
+            y, X, xnames, prior_mean, prior_var, exp_sigma_rate
+        )
+        prior_info["sigma"] = f"Exponential(rate {exp_sigma_rate:.5g})"
+    elif model_key == "normal":
+        mdl = M.NormalModel(y, X, xnames, prior_mean, prior_var, a0, d0)
+        prior_info["sigma2"] = f"InvGamma({a0 / 2:g}, {d0 / 2:g})"
         if inference == "vb":
-            res = _vb_normal(mdl, formula, draws, seed, level, prior, design_info)
+            res = _vb_normal(mdl, formula, draws, seed, level, prior_info, design_info)
             _note_default_prior(res, default_prior, mdl.b0, mdl.B0)
             return res
     elif model_key == "t":
         mdl = M.StudentTModel(y, X, xnames, prior_mean, prior_var, a0, d0, dof)
-        prior["sigma2"] = f"InvGamma({a0 / 2:g}, {d0 / 2:g})"
+        prior_info["sigma2"] = f"InvGamma({a0 / 2:g}, {d0 / 2:g})"
         info["dof"] = float(dof)
     elif model_key == "probit":
         mdl = M.ProbitModel(y, X, xnames, prior_mean, prior_var)
@@ -1007,10 +1340,10 @@ def bayes_regress(
     elif model_key == "negbin":
         sh, rt = (float(v) for v in size_prior)
         mdl = M.NegBinModel(y, X, xnames, prior_mean, prior_var, tune, sh, rt)
-        prior["size"] = f"Gamma({sh:g}, rate {rt:g}) on 1 / alpha"
+        prior_info["size"] = f"Gamma({sh:g}, rate {rt:g}) on 1 / alpha"
     elif model_key == "tobit":
         mdl = M.TobitModel(y, X, xnames, prior_mean, prior_var, a0, d0, lower, upper)
-        prior["sigma2"] = f"InvGamma({a0 / 2:g}, {d0 / 2:g})"
+        prior_info["sigma2"] = f"InvGamma({a0 / 2:g}, {d0 / 2:g})"
         info.update(
             {
                 "lower": mdl.lower,
@@ -1026,7 +1359,7 @@ def bayes_regress(
         )
         info["quantile"] = float(quantile)
         if scale is None:
-            prior["sigma"] = f"InvGamma({n0 / 2:g}, {s0 / 2:g})"
+            prior_info["sigma"] = f"InvGamma({n0 / 2:g}, {s0 / 2:g})"
         else:
             info["scale"] = float(scale)
     elif model_key == "mlogit":
@@ -1048,11 +1381,15 @@ def bayes_regress(
         mdl = M.OrderedProbitModel(
             y, X, xnames, prior_mean, prior_var, tune, cut_prior_var, levels
         )
-        prior["cutpoints"] = (
+        prior_info["cutpoints"] = (
             f"log increments ~ N(0, {cut_prior_var:g}); "
             "minus the first cutpoint shares the coefficient prior"
         )
         info["levels"] = [str(v) for v in levels]
+
+    if offset_spec is not None:
+        mdl.offset = offset_spec.values
+        info["offset"] = offset_spec.label
 
     n_iter = burnin + draws * thin
     rngs = spawn_rngs(seed, chains)
@@ -1132,13 +1469,16 @@ def bayes_regress(
         chains=chains,
         sampler=mdl.sampler,
         acceptance_rate=float(np.mean(accepts)) if accepts else None,
-        prior=prior,
+        prior=prior_info,
         level=level,
         model_info=info,
         diagnostics_info=diag_info,
         _model=mdl,
         _extras=extras,
         _design_info=design_info,
+        _frame=frame,
+        _call=call,
+        _offset=offset_spec,
     )
 
     msgs = []
@@ -1306,7 +1646,8 @@ def _note_default_prior(
             "The default prior is not vague for " + ", ".join(map(str, bad)) + ": "
             "its standard deviation is of the same order as the "
             "coefficient or its posterior uncertainty, so it pulls the "
-            "estimate toward zero. Set prior_var= (and prior_mean=) to "
+            "estimate toward zero. Use prior='weakly_informative' (priors "
+            "scaled to the data), set prior_var= (and prior_mean=) to "
             "match the scale of these regressors, or rescale them."
         )
         res.diagnostics_info["warnings"].append(text)

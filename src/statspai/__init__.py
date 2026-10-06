@@ -101,6 +101,8 @@ from .diagnostics import (
     amplify,
     anderson_rubin_test,
     bias_factor,
+    binned_residuals,
+    binned_residuals_plot,
     causal_gap,
     cmtest,
     confounder_adjust,
@@ -524,6 +526,7 @@ from .regression.iv import IVRegression, ivreg
 from .regression.ols import regress
 from .regression.prais import prais
 from .regression.rolling import rolling
+from .regression.scaling import invlogit, standardize
 from .synth import (
     SynthComparison,
     SyntheticControl,
@@ -852,10 +855,14 @@ from .mcmc import (
     BARTResult,
     BayesFactorResult,
     BayesMixedResult,
+    BayesR2Result,
     BayesRegressResult,
     BMAResult,
     GPResult,
+    LOOResult,
     MCMCDiagnostic,
+    PPCResult,
+    PSISResult,
     abc,
     bart,
     bayes_arima,
@@ -866,6 +873,7 @@ from .mcmc import (
     bayes_mixture,
     bayes_mnprobit,
     bayes_mvprobit,
+    bayes_r2,
     bayes_regress,
     bayes_shrink,
     bayes_sur,
@@ -875,11 +883,21 @@ from .mcmc import (
     gp_regress,
     heidel_diag,
     hpd_interval,
+    kfold,
+    kfold_split,
+    loo,
+    loo_compare,
+    loo_predict,
+    loo_r2,
+    mad_sd,
     mcmc_ess,
     mcmc_summary,
+    ppc,
+    psis,
     raftery_diag,
     savage_dickey,
     stochvol,
+    waic,
 )
 from .metalearners import (
     AutoCATEResult,
@@ -987,6 +1005,7 @@ from .policy_learning import (
 )
 from .power import (
     PowerResult,
+    RetrodesignResult,
     mde,
     power,
     power_case_control,
@@ -999,6 +1018,7 @@ from .power import (
     power_rd,
     power_ttest,
     power_two_proportions,
+    retrodesign,
 )
 
 # Distributional Treatment Effects
@@ -2046,6 +2066,29 @@ __all__ = [
     "BayesFactorResult",
     "savage_dickey",
     "bayes_bootstrap",
+    "loo",
+    "LOOResult",
+    "waic",
+    "kfold",
+    "kfold_split",
+    "loo_compare",
+    "loo_predict",
+    "psis",
+    "PSISResult",
+    "ppc",
+    "PPCResult",
+    "bayes_r2",
+    "loo_r2",
+    "BayesR2Result",
+    "mad_sd",
+    "binned_residuals",
+    "binned_residuals_plot",
+    "standardize",
+    "invlogit",
+    "retrodesign",
+    "RetrodesignResult",
+    "poststratify",
+    "PoststratResult",
     "mcmc_summary",
     "mcmc_ess",
     "hpd_interval",
@@ -3711,6 +3754,8 @@ _register_lazy(
     "svyglm",
     "rake",
     "linear_calibration",
+    "poststratify",
+    "PoststratResult",
 )
 _register_lazy(
     "survival",

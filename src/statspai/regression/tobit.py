@@ -173,6 +173,9 @@ def tobit(
             diagnostics={"missing": missing_cols},
         )
     df = data[list(dict.fromkeys([y] + list(x) + extra))].dropna()
+    from ..core._collinear import drop_collinear_names
+
+    x, collinear_omitted = drop_collinear_names(df, x, "tobit")
     Y = df[y].values.astype(float)
     X = np.column_stack([np.ones(len(df))] + [df[v].values.astype(float) for v in x])
     n, k = X.shape
@@ -327,6 +330,7 @@ def tobit(
     ci = (main_coef - z_crit * main_se, main_coef + z_crit * main_se)
 
     model_info = {
+        "omitted": collinear_omitted,
         "method": "Tobit MLE",
         "sigma": float(sigma),
         "n_censored": int(n_censored),

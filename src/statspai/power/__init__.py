@@ -7,6 +7,7 @@ designs (two-proportion, log-rank/survival, case-control) — with power
 curves, minimum detectable effect (MDE), and sample-size solving.
 """
 
+from .design_analysis import RetrodesignResult, retrodesign
 from .power import (
     PowerResult,
     mde,
@@ -35,4 +36,6 @@ __all__ = [
     "power_logrank",
     "power_case_control",
     "power_ttest",
+    "retrodesign",
+    "RetrodesignResult",
 ]

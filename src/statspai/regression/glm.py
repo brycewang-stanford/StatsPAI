@@ -12,6 +12,7 @@ References
 - Cameron, A.C. and Trivedi, P.K. (2005). Microeconometrics: Methods and Applications. [@mccullagh1989generalized]
 """
 
+import re
 import warnings
 from typing import Any, Dict, List, Optional, Type, Union
 
@@ -252,6 +253,52 @@ class CauchitLink(LinkFunction):
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
         eta = np.tan(np.pi * (mu - 0.5))
         return _as_float_array(np.pi * (1.0 + eta**2))
+
+
+class RobitLink(LinkFunction):
+    """Student-t quantile link, ``mu = T_dof(eta)`` (Liu 2004).
+
+    Binary regression whose latent error is Student-t rather than
+    logistic or normal. With few degrees of freedom an observation far
+    on the wrong side of the fitted index costs little likelihood, so
+    isolated miscoded or atypical outcomes move the coefficients less
+    than under logit. ``dof = 1`` is the cauchit link, ``dof -> inf``
+    the probit link; with ``dof = 7`` the curve is close to the
+    logistic one after dividing the index by about 1.55.
+
+    ``unit_variance=True`` rescales the latent error to variance one
+    (scale ``sqrt((dof - 2) / dof)``, needs ``dof > 2``), the
+    parameterisation of Gelman, Hill and Vehtari (2020). The fitted
+    probabilities are the same; the coefficients are multiplied by that
+    scale.
+    """
+
+    name = "robit"
+
+    def __init__(self, dof: float = 7.0, unit_variance: bool = False):
+        if not dof > 0:
+            raise MethodIncompatibility(
+                f"The robit link needs positive degrees of freedom; got {dof}."
+            )
+        if unit_variance and not dof > 2:
+            raise MethodIncompatibility(
+                "A unit-variance robit link needs more than 2 degrees of freedom."
+            )
+        self.dof = float(dof)
+        self.scale = float(np.sqrt((dof - 2.0) / dof)) if unit_variance else 1.0
+        self.name = f"robit({dof:g})"
+
+    def link(self, mu: np.ndarray) -> np.ndarray:
+        mu = np.clip(mu, 1e-15, 1 - 1e-15)
+        return _as_float_array(self.scale * stats.t.ppf(mu, self.dof))
+
+    def inverse(self, eta: np.ndarray) -> np.ndarray:
+        return _as_float_array(stats.t.cdf(np.asarray(eta) / self.scale, self.dof))
+
+    def deriv(self, mu: np.ndarray) -> np.ndarray:
+        mu = np.clip(mu, 1e-15, 1 - 1e-15)
+        z = stats.t.ppf(mu, self.dof)
+        return _as_float_array(self.scale / stats.t.pdf(z, self.dof))
 
 
 class PowerLink(LinkFunction):
@@ -651,11 +698,85 @@ def _get_family(family: str) -> Family:
     return FAMILIES[key]()
 
 
+_CBIND_LHS = re.compile(r"^\s*cbind\(\s*([^,()]+?)\s*,\s*([^()]+?)\s*\)\s*~")
+
+
+def _grouped_binomial(
+    match: Any, formula: str, data: pd.DataFrame, family: str, weights: Any
+) -> tuple:
+    """``cbind(successes, failures) ~ x`` as a share weighted by trials.
+
+    R's way of writing a binomial regression on grouped counts. The
+    likelihood of ``successes`` out of ``successes + failures`` trials is
+    the Bernoulli likelihood of the share with the number of trials as a
+    frequency weight, which is how the fit is carried out.
+    """
+    if "binomial" not in str(family).lower():
+        raise MethodIncompatibility(
+            "A cbind(successes, failures) outcome is for family='binomial'.",
+            recovery_hint="Pass family='binomial'.",
+            diagnostics={"family": family},
+        )
+    if weights is not None:
+        raise MethodIncompatibility(
+            "With a cbind(successes, failures) outcome the number of trials "
+            "is the weight; weights= cannot be combined with it.",
+            recovery_hint="Drop weights=, or fit the share with your own weights.",
+            diagnostics={"weights": weights},
+        )
+    try:
+        successes = np.asarray(data.eval(match.group(1)), dtype=float)
+        failures = np.asarray(data.eval(match.group(2)), dtype=float)
+    except (
+        SyntaxError,
+        NameError,
+        KeyError,
+        TypeError,
+        ValueError,
+        AttributeError,
+        pd.errors.UndefinedVariableError,
+    ) as exc:
+        raise MethodIncompatibility(
+            f"Could not evaluate cbind({match.group(1)}, {match.group(2)}) "
+            f"on the data: {exc}",
+            recovery_hint="Use column names or arithmetic on columns.",
+            diagnostics={"formula": formula},
+        ) from exc
+    trials = successes + failures
+    bad = (successes < 0) | (failures < 0)
+    if np.any(bad[np.isfinite(trials)]):
+        raise MethodIncompatibility(
+            "Successes and failures must be non-negative counts.",
+            recovery_hint="Check the two columns inside cbind().",
+            diagnostics={"n_negative": int(np.sum(bad))},
+        )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        share = np.where(trials > 0, successes / trials, np.nan)
+    label = f"cbind({match.group(1)}, {match.group(2)})"
+    frame = data.assign(**{label: share, "_trials": trials})
+    frame = frame.loc[trials > 0]
+    rhs = formula.split("~", 1)[1]
+    return f'Q("{label}") ~{rhs}', frame, "_trials"
+
+
+_ROBIT_SPEC = re.compile(r"^robit(?:\(([0-9.eE+]+)(,unit)?\))?$")
+
+
 def _get_link(link: Optional[str], family: Family) -> LinkFunction:
     if link is None:
         link = family.canonical_link
     link = _require_string(link, "link")
     key = link.lower()
+    robit = _ROBIT_SPEC.match(key.replace(" ", ""))
+    if robit is not None:
+        if not isinstance(family, Binomial):
+            raise MethodIncompatibility(
+                "The robit link is for family='binomial'.",
+                recovery_hint="Use family='binomial' with link='robit(dof)'.",
+                diagnostics={"link": link},
+            )
+        dof = float(robit.group(1)) if robit.group(1) else 7.0
+        return RobitLink(dof, unit_variance=robit.group(2) is not None)
     if key not in LINK_FUNCTIONS:
         raise MethodIncompatibility(
             f"Unknown link function '{link}'. Choose from: "
@@ -859,6 +980,11 @@ class GLMEstimator(BaseEstimator):
         # Final NB alpha update
         if isinstance(family, NegativeBinomial):
             family.alpha = self._estimate_nb_alpha(y, mu, weights, family.alpha)
+
+        if isinstance(family, Binomial) and np.all((y == 0) | (y == 1)):
+            from .logit_probit import _warn_if_separated
+
+            _warn_if_separated(y, mu)
 
         # ----------------------------------------------------------------
         # Variance-covariance matrix
@@ -1353,6 +1479,19 @@ class GLMRegression(BaseModel):
                 },
             )
 
+        # A dependent regressor has no maximum-likelihood coefficient; IRLS
+        # used to run to its iteration limit and return values of order 1e14.
+        from ..core._collinear import drop_collinear
+
+        self.X, self.var_names, collinear_omitted, _ = drop_collinear(
+            np.asarray(self.X, dtype=float),
+            self.var_names,
+            "glm",
+            formula=self.formula if self.data is not None else None,
+            design_info=getattr(self, "_design_info", None),
+            stacklevel=4,
+        )
+
         n = len(self.y)
         if n == 0:
             raise DataInsufficient(
@@ -1504,6 +1643,7 @@ class GLMRegression(BaseModel):
         )
 
         model_info = {
+            "omitted": collinear_omitted,
             "model_type": "GLM",
             "method": "IRLS (MLE)",
             "family": self.family.name,
@@ -1847,7 +1987,14 @@ def glm(
     Parameters
     ----------
     formula : str, optional
-        Model formula (e.g. ``"y ~ x1 + x2"``).
+        Model formula (e.g. ``"y ~ x1 + x2"``). With
+        ``family="binomial"`` the outcome may be grouped counts written
+        the R way, ``"cbind(successes, failures) ~ x"``: the share of
+        successes is fitted with the number of trials as weight.
+        Coefficients, standard errors and deviance are those of the
+        binomial model; the reported log-likelihood is that of the
+        ungrouped 0 / 1 data and omits the binomial coefficients, a
+        constant that cancels in likelihood-ratio tests.
     data : pd.DataFrame, optional
         Data frame containing the variables.
     y : str, optional
@@ -1857,12 +2004,20 @@ def glm(
     family : str, default ``"gaussian"``
         Distribution family. One of ``"gaussian"``, ``"binomial"``,
         ``"poisson"``, ``"gamma"``, ``"inverse_gaussian"``,
-        ``"negative_binomial"``.
+        ``"negative_binomial"``. ``"quasipoisson"`` and
+        ``"quasibinomial"`` (R's names) fit the Poisson / binomial mean
+        model with ``scale="x2"``: same coefficients, standard errors
+        multiplied by the square root of the Pearson dispersion, so
+        overdispersed counts do not produce overconfident intervals.
     link : str or None
         Link function. If ``None`` the canonical link for the chosen
         family is used. Options: ``"identity"``, ``"log"``, ``"logit"``,
         ``"probit"``, ``"inverse"``, ``"cloglog"``, ``"cauchit"``,
-        ``"power"``, ``"sqrt"``.
+        ``"power"``, ``"sqrt"``, and for a binary outcome
+        ``"robit(dof)"``: a Student-t link with ``dof`` degrees of
+        freedom (``"robit"`` alone is 7), robust to isolated outcomes
+        the index predicts badly; ``"robit(dof,unit)"`` scales the
+        latent error to variance one.
     robust : str, default ``"nonrobust"``
         Standard-error type (``"nonrobust"``, ``"hc0"``-``"hc3"``,
         ``"hac"``).
@@ -1946,6 +2101,27 @@ def glm(
     >>> res = sp.glm("cost ~ x1 + x2", data=df, family="gamma", link="log")
     >>> bool(np.isfinite(res.params['x1']))
     True
+
+    A robit (Student-t link) fit of the binary outcome:
+
+    >>> res = sp.glm("admit ~ x1 + x2", data=df, family="binomial",
+    ...              link="robit(4)")
+    >>> bool(res.params['x1'] > 0)
+    True
+
+    Notes
+    -----
+    A regressor that is an exact linear combination of earlier ones (all
+    the indicators of a category next to the constant, a duplicated
+    column) has no maximum-likelihood coefficient. It is omitted with a
+    note, the later member of the dependent set going first as in Stata,
+    and listed in ``result.model_info["omitted"]``. With a binary outcome
+    a ``ConvergenceWarning`` is raised when the outcome is separated by
+    the linear index.
+
+    References
+    ----------
+    liu2004robit, gelman2020regression
     """
     # Handle y/x style specification
     if data is not None:
@@ -1969,6 +2145,20 @@ def glm(
                 "has_x": x is not None,
             },
         )
+
+    grouped = _CBIND_LHS.match(formula) if isinstance(formula, str) else None
+    if grouped is not None and data is not None:
+        formula, data, weights = _grouped_binomial(
+            grouped, formula, data, family, weights
+        )
+
+    quasi = str(family).lower().replace("-", "").replace("_", "")
+    if quasi in ("quasipoisson", "quasibinomial"):
+        # R's spelling of "same mean model, dispersion estimated from the
+        # Pearson statistic"; the coefficients are those of the base family.
+        family = quasi[len("quasi") :]
+        if scale is None and robust == "nonrobust" and cluster is None:
+            scale = "x2"
 
     model = GLMRegression(formula=formula, data=data, family=family, link=link)
     return model.fit(

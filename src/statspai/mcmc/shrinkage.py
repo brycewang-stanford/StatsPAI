@@ -30,10 +30,16 @@ from .regress import BayesRegressResult
 
 
 class _ShrinkShim:
-    def __init__(self, X: np.ndarray, names: List[str]):
+    #: the predictive side treats the fit as a Gaussian linear model
+    name = "normal"
+
+    def __init__(self, X: np.ndarray, names: List[str], y: Any = None):
         self.X = X
         self.k = X.shape[1]
         self.xnames = names
+        self.y = None if y is None else np.asarray(y, dtype=float)
+        #: column of the draws that holds sigma2 (hyperparameters may follow)
+        self.sigma2_index = self.k
 
     def linear_predictor(self, draws: np.ndarray, X: np.ndarray) -> np.ndarray:
         return np.asarray(draws[:, : self.k] @ X.T)
@@ -59,6 +65,8 @@ def bayes_shrink(
     thin: int = 1,
     seed: Optional[int] = None,
     level: float = 0.95,
+    global_scale: Optional[float] = None,
+    p0: Optional[float] = None,
 ) -> BayesRegressResult:
     """Linear regression with a shrinkage or a variable-selection prior.
 
@@ -71,10 +79,16 @@ def bayes_shrink(
     formula : str
         ``'y ~ x1 + x2 + ...'``; the intercept is kept and not shrunk.
     data : DataFrame
-    prior : {'lasso', 'ssvs'}
+    prior : {'lasso', 'ssvs', 'horseshoe'}
         ``'lasso'``: ``beta_j | sigma ~ Laplace(0, sigma / lam)``.
         ``'ssvs'``: ``beta_j ~ (1 - g_j) N(0, spike^2) + g_j N(0, slab^2)``
         with ``g_j ~ Bernoulli(inclusion)``.
+        ``'horseshoe'``: ``beta_j | sigma ~ N(0, sigma^2 tau^2 lam_j^2)``
+        with half-Cauchy local scales ``lam_j ~ C+(0, 1)`` and global
+        scale ``tau ~ C+(0, global_scale)`` (Carvalho, Polson and Scott
+        2010). Small coefficients are shrunk hard toward zero and large
+        ones almost not at all, which neither the lasso nor a ridge
+        prior does.
     lam : float, optional
         Lasso penalty. When omitted it is estimated, with the prior
         ``lam^2 ~ Gamma(shape, rate)`` given by ``lam_prior``.
@@ -93,6 +107,15 @@ def bayes_shrink(
         thousands of dollars differently.
     draws, burnin, thin, seed, level
         As in :func:`statspai.bayes_regress`.
+    global_scale : float, optional
+        Horseshoe: scale of the half-Cauchy prior on ``tau``. Default 1
+        (the original horseshoe) unless ``p0`` is given.
+    p0 : float, optional
+        Horseshoe: prior guess of the number of coefficients that are
+        far from zero. Sets ``global_scale = p0 / (p - p0) / sqrt(n)``,
+        the calibration of Piironen and Vehtari (2017); with many
+        regressors and few expected signals this is far smaller than 1
+        and keeps the noise coefficients from adding up.
 
     Returns
     -------
@@ -100,7 +123,12 @@ def bayes_shrink(
         ``model='lasso'`` or ``'ssvs'``. Coefficients are on the original
         scale. For SSVS ``table['pip']`` is the posterior inclusion
         probability; for the lasso ``lam`` is among the parameters when
-        estimated.
+        estimated. For the horseshoe ``tau`` is among the parameters,
+        ``table['shrinkage']`` is the posterior mean of each
+        coefficient's shrinkage factor (0: untouched, 1: shrunk to zero)
+        and ``model_info['m_eff']`` the posterior mean of the effective
+        number of unshrunk coefficients. The fit supports
+        ``posterior_predict``, ``log_lik`` and so :func:`statspai.loo`.
 
     Notes
     -----
@@ -126,11 +154,16 @@ def bayes_shrink(
 
     References
     ----------
-    park2008bayesian, george1993variable
+    park2008bayesian, george1993variable, carvalho2010horseshoe,
+    makalic2016simple, piironen2017sparsity
     """
     prior = str(prior).lower()
-    if prior not in ("lasso", "ssvs"):
-        raise MethodIncompatibility("prior must be 'lasso' or 'ssvs'.")
+    if prior in ("hs", "horseshoe"):
+        prior = "horseshoe"
+    if prior not in ("lasso", "ssvs", "horseshoe"):
+        raise MethodIncompatibility("prior must be 'lasso', 'ssvs' or 'horseshoe'.")
+    if prior != "horseshoe" and (global_scale is not None or p0 is not None):
+        raise MethodIncompatibility("global_scale and p0 belong to prior='horseshoe'.")
     check_mcmc_args(draws, burnin, thin)
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
@@ -173,6 +206,26 @@ def bayes_shrink(
             raise MethodIncompatibility("lam must be positive.")
         r_l, d_l = (float(v) for v in lam_prior)
         lam2 = float(lam) ** 2 if lam is not None else 1.0
+    elif prior == "horseshoe":
+        if global_scale is not None and p0 is not None:
+            raise MethodIncompatibility("Pass global_scale or p0, not both.")
+        if p0 is not None:
+            if not 0 < p0 < p:
+                raise MethodIncompatibility(
+                    f"p0 must be between 0 and the number of regressors ({p})."
+                )
+            tau0 = float(float(p0) / (p - float(p0)) / np.sqrt(n))
+        else:
+            tau0 = 1.0 if global_scale is None else float(global_scale)
+        if not tau0 > 0:
+            raise MethodIncompatibility("global_scale must be positive.")
+        loc2 = np.ones(p)  # lam_j^2
+        nu_aux = np.ones(p)
+        glob2 = min(1.0, tau0**2)  # tau^2
+        xi_aux = 1.0
+        out_k = np.zeros(p)
+        m_eff_sum = 0.0
+        zvar = np.diag(ZtZ) / n
     else:
         if not (0 < spike_sd < slab_sd):
             raise MethodIncompatibility("Need 0 < spike_sd < slab_sd.")
@@ -204,6 +257,27 @@ def bayes_shrink(
             tau2 = 1.0 / np.maximum(rng.wald(mu, lam2), 1e-12)
             if est_lam:
                 lam2 = float(rng.gamma(r_l + p, 1.0 / (d_l + tau2.sum() / 2.0)))
+        elif prior == "horseshoe":
+            # Makalic and Schmidt (2016): every full conditional is inverse
+            # gamma once each half-Cauchy is written as a scale mixture
+            scale2 = np.maximum(glob2 * loc2, 1e-300)
+            beta, _ = rmvnorm_prec(rng, Zty / s2, (ZtZ + np.diag(1.0 / scale2)) / s2)
+            ssr = yty - 2.0 * beta @ Zty + beta @ ZtZ @ beta
+            b2 = beta * beta
+            s2 = rinvgamma(
+                rng,
+                (a0 + n - 1 + p) / 2.0,
+                (d0 + ssr + float((b2 / scale2).sum())) / 2.0,
+            )
+            loc2 = (1.0 / nu_aux + b2 / (2.0 * glob2 * s2)) / rng.gamma(1.0, size=p)
+            loc2 = np.clip(loc2, 1e-300, 1e300)
+            glob2 = float(
+                (1.0 / xi_aux + float((b2 / loc2).sum()) / (2.0 * s2))
+                / rng.gamma((p + 1.0) / 2.0)
+            )
+            glob2 = min(max(glob2, 1e-300), 1e300)
+            nu_aux = (1.0 + 1.0 / loc2) / rng.gamma(1.0, size=p)
+            xi_aux = float((1.0 / tau0**2 + 1.0 / glob2) / rng.gamma(1.0))
         else:
             dvar = np.where(gam, v1, v0)
             beta, _ = rmvnorm_prec(rng, Zty / s2, ZtZ / s2 + np.diag(1.0 / dvar))
@@ -216,6 +290,11 @@ def bayes_shrink(
             out_b[kept] = beta / sx
             out_s[kept] = s2
             out_l[kept] = np.sqrt(lam2) if prior == "lasso" else np.nan
+            if prior == "horseshoe":
+                out_l[kept] = np.sqrt(glob2)
+                kappa = 1.0 / (1.0 + n * zvar * glob2 * loc2)
+                out_k += kappa
+                m_eff_sum += float((1.0 - kappa).sum())
             # intercept | beta, s2 ~ N(ybar - xbar'b, s2 / n) under the flat prior
             out_a[kept] = (
                 ybar - xbar @ out_b[kept] + np.sqrt(s2 / n) * rng.standard_normal()
@@ -229,6 +308,8 @@ def bayes_shrink(
     cols["sigma2"] = out_s
     if est_lam:
         cols["lam"] = out_l
+    if prior == "horseshoe":
+        cols["tau"] = out_l
     d_df = pd.DataFrame(cols)
     summ = mcmc_summary(d_df, quantiles=())
     lo = (1.0 - level) / 2.0
@@ -250,6 +331,11 @@ def bayes_shrink(
         pip.loc[names] = out_g / draws
         table["pip"] = pip
         info.update({"spike_sd": spike_sd, "slab_sd": slab_sd, "inclusion": inclusion})
+    elif prior == "horseshoe":
+        shrink = pd.Series(np.nan, index=table.index)
+        shrink.loc[names] = out_k / draws
+        table["shrinkage"] = shrink
+        info.update({"global_scale": tau0, "m_eff": m_eff_sum / draws})
     elif lam is not None:
         info["lam"] = float(lam)
     diag: Dict[str, Any] = {"warnings": [], "min_ess": float(table["ess"].min())}
@@ -276,7 +362,7 @@ def bayes_shrink(
         level=level,
         model_info=info,
         diagnostics_info=diag,
-        _model=_ShrinkShim(np.column_stack([np.ones(n), X]), ["Intercept"] + names),
+        _model=_ShrinkShim(np.column_stack([np.ones(n), X]), ["Intercept"] + names, y),
         _design_info=getattr(X_df, "design_info", None),
     )
     if diag["min_ess"] < 100:

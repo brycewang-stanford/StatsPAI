@@ -1374,6 +1374,9 @@ def poisson(
     True
     """
     y_arr, X, var_names, dep_var, _, data = _parse_formula_or_xy(formula, data, y, x)
+    from ..core._collinear import drop_collinear
+
+    X, var_names, collinear_omitted, _ = drop_collinear(X, var_names, "poisson")
     n, k = X.shape
 
     # Offset / exposure
@@ -1483,6 +1486,7 @@ def poisson(
     se_series = pd.Series(se_report, index=var_names)
 
     model_info = {
+        "omitted": collinear_omitted,
         "model_type": "Poisson",
         "family": "Poisson",
         "link": "log",
@@ -1656,6 +1660,9 @@ def nbreg(
     X, var_names, fe_level_counts = _append_fixed_effect_dummies(
         X, var_names, data, formula_fe
     )
+    from ..core._collinear import drop_collinear
+
+    X, var_names, collinear_omitted, _kept = drop_collinear(X, var_names, "nbreg")
     n, k = X.shape
     n_fe_params = sum(max(v - 1, 0) for v in fe_level_counts.values())
 
@@ -1799,6 +1806,7 @@ def nbreg(
     se_series = pd.Series(se_report, index=var_names)
 
     model_info = {
+        "omitted": collinear_omitted,
         "model_type": f"NegBin ({nb_label})",
         "family": "Negative Binomial",
         "link": "log",

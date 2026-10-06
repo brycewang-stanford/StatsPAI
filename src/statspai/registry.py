@@ -17036,8 +17036,38 @@ def _build_registry() -> None:
                     "sigma2_prior",
                     "tuple",
                     False,
-                    (0.001, 0.001),
-                    "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2)",
+                    None,
+                    "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2). "
+                    "Default (0.001, 0.001); with prior='weakly_informative' "
+                    "the default is sigma ~ Exponential(1 / sd(y))",
+                ),
+                ParamSpec(
+                    "prior",
+                    "str",
+                    False,
+                    "vague",
+                    "'weakly_informative': independent normal priors scaled "
+                    "to the data (sd 2.5 sd(y)/sd(x) per slope, intercept "
+                    "centred at mean(y) with the regressors centred), the "
+                    "defaults of R rstanarm; results then do not depend on "
+                    "the units of the regressors. Models normal, logit, "
+                    "probit, poisson, negbin",
+                    ["vague", "weakly_informative"],
+                ),
+                ParamSpec(
+                    "offset",
+                    "str | array",
+                    False,
+                    None,
+                    "Term added to the linear index with coefficient one "
+                    "(logit, poisson, negbin): a column name or an array",
+                ),
+                ParamSpec(
+                    "exposure",
+                    "str",
+                    False,
+                    None,
+                    "Count models: column whose logarithm is the offset",
                 ),
                 ParamSpec("draws", "int", False, 10000, "Draws kept per chain"),
                 ParamSpec("burnin", "int", False, 2000, "Iterations discarded"),
@@ -17077,8 +17107,10 @@ def _build_registry() -> None:
                     "size_prior",
                     "tuple",
                     False,
-                    (0.5, 0.1),
-                    "negbin: Gamma(shape, rate) prior on the size 1 / alpha",
+                    None,
+                    "negbin: Gamma(shape, rate) prior on the size 1 / alpha. "
+                    "Default (0.5, 0.1); (1, 1) with "
+                    "prior='weakly_informative'",
                 ),
                 ParamSpec(
                     "cut_prior_var",
@@ -18724,9 +18756,10 @@ def _build_registry() -> None:
             category="bayes",
             description=(
                 "Linear regression with a shrinkage or variable-selection "
-                "prior: the Bayesian lasso (Park and Casella 2008) or "
+                "prior: the Bayesian lasso (Park and Casella 2008), "
                 "stochastic search variable selection (George and McCulloch "
-                "1993) with posterior inclusion probabilities. Regressors "
+                "1993) with posterior inclusion probabilities, or the "
+                "horseshoe (Carvalho, Polson and Scott 2010). Regressors "
                 "standardised for the prior, coefficients reported on the "
                 "original scale. NumPy only."
             ),
@@ -18739,7 +18772,23 @@ def _build_registry() -> None:
                     False,
                     "lasso",
                     "Prior on the slopes",
-                    ["lasso", "ssvs"],
+                    ["lasso", "ssvs", "horseshoe"],
+                ),
+                ParamSpec(
+                    "global_scale",
+                    "float",
+                    False,
+                    None,
+                    "horseshoe: scale of the half-Cauchy prior on the global "
+                    "shrinkage tau (default 1)",
+                ),
+                ParamSpec(
+                    "p0",
+                    "float",
+                    False,
+                    None,
+                    "horseshoe: prior guess of the number of non-negligible "
+                    "coefficients; sets global_scale = p0/(p-p0)/sqrt(n)",
                 ),
                 ParamSpec(
                     "lam", "float", False, None, "Lasso penalty; estimated when omitted"
@@ -19992,6 +20041,645 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=["bayes_factor"],
+        )
+    )
+
+    # ---- regression workflow: predictive accuracy, checks, design ----
+    register(
+        FunctionSpec(
+            name="loo",
+            category="bayes",
+            description=(
+                "Leave-one-out cross-validation by Pareto smoothed importance "
+                "sampling: expected log predictive density (elpd) for new "
+                "data from one fit, the effective number of parameters, and "
+                "a Pareto k diagnostic per observation that says whether "
+                "the estimate can be trusted. Takes a sp.bayes_regress / "
+                "sp.bayes_shrink fit or any draws-by-observations matrix of "
+                "pointwise log-likelihoods."
+            ),
+            params=[
+                ParamSpec(
+                    "x",
+                    "BayesRegressResult | ndarray",
+                    True,
+                    description="Fitted model with log_lik(), or the pointwise "
+                    "log-likelihood matrix (draws by observations)",
+                ),
+                ParamSpec(
+                    "r_eff",
+                    "float | ndarray",
+                    False,
+                    None,
+                    "Relative efficiency of the draws per observation; from "
+                    "the model's chains when omitted, 1 for a bare matrix",
+                ),
+                ParamSpec(
+                    "save_weights",
+                    "bool",
+                    False,
+                    True,
+                    "Keep the smoothed log weights (needed by loo_predict, loo_r2)",
+                ),
+            ],
+            returns="LOOResult",
+            example="sp.loo(sp.bayes_regress('y ~ x', df, seed=1))",
+            tags=["bayes", "cross-validation", "loo", "psis", "model-comparison"],
+            reference="vehtari2017practical",
+            assumptions=[
+                "Observations are conditionally independent given the "
+                "parameters, so the likelihood factorises over them",
+                "The posterior draws represent the posterior (converged chain)",
+                "No single observation dominates the posterior: Pareto k "
+                "below the threshold min(1 - 1/log10(S), 0.7)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Pareto k values exceed the threshold",
+                    exception="statspai.StatsPAIWarning",
+                    remedy="Those observations are highly influential or the "
+                    "model is misspecified; refit by cross-validation.",
+                    alternative="sp.kfold",
+                ),
+                FailureMode(
+                    symptom="log-likelihood matrix has infinite entries",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="An observation has zero likelihood under some "
+                    "draw; check the model for that observation.",
+                ),
+            ],
+            alternatives=["kfold", "waic", "bayes_factor"],
+            not_recommended_when=[
+                "Whole groups must be predicted (clustered or panel data): "
+                "leave-one-observation-out answers a different question; "
+                "use sp.kfold with sp.kfold_split(groups=)",
+                "Time series forecasting: use sp.tscv",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="waic",
+            category="bayes",
+            description=(
+                "Widely applicable information criterion: within-sample log "
+                "predictive density minus the posterior variance of each "
+                "pointwise log-likelihood. Asymptotically equal to "
+                "leave-one-out cross-validation; sp.loo is more robust in "
+                "finite samples and carries a diagnostic."
+            ),
+            params=[
+                ParamSpec(
+                    "x",
+                    "BayesRegressResult | ndarray",
+                    True,
+                    description="Fitted model with log_lik(), or the pointwise "
+                    "log-likelihood matrix (draws by observations)",
+                ),
+            ],
+            returns="LOOResult",
+            example="sp.waic(fit)",
+            tags=["bayes", "waic", "information-criterion", "model-comparison"],
+            reference="watanabe2010asymptotic",
+            assumptions=[
+                "Observations are conditionally independent given the parameters",
+                "Pointwise posterior variances of the log-likelihood are "
+                "small (below about 0.4)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="pointwise variances exceed 0.4",
+                    exception="statspai.StatsPAIWarning",
+                    remedy="The approximation is poor for those observations.",
+                    alternative="sp.loo",
+                ),
+            ],
+            alternatives=["loo", "kfold"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="kfold",
+            category="bayes",
+            description=(
+                "K-fold cross-validation of a Bayesian model by refitting: "
+                "each held-out observation is scored by its log predictive "
+                "density under the fit that did not see it. No importance "
+                "sampling approximation; the remedy for high Pareto k in "
+                "sp.loo and the valid choice when groups are held out."
+            ),
+            params=[
+                ParamSpec(
+                    "fit", "BayesRegressResult", True, description="Fitted model"
+                ),
+                ParamSpec("k", "int", False, 10, "Number of folds"),
+                ParamSpec(
+                    "folds",
+                    "ndarray",
+                    False,
+                    None,
+                    "Fold of each observation (e.g. from sp.kfold_split with "
+                    "groups=); overrides k and seed",
+                ),
+                ParamSpec("seed", "int", False, None, "Seed of the fold assignment"),
+                ParamSpec(
+                    "refit",
+                    "callable",
+                    False,
+                    None,
+                    "refit(train) -> fitted model, for models without their "
+                    "own refitting recipe; needs data",
+                ),
+                ParamSpec(
+                    "data", "DataFrame", False, None, "Estimation data, with refit"
+                ),
+            ],
+            returns="LOOResult",
+            example="sp.kfold(fit, k=10, seed=1)",
+            tags=["bayes", "cross-validation", "kfold", "model-comparison"],
+            reference="vehtari2017practical",
+            assumptions=[
+                "Folds are exchangeable: observations (or the groups passed "
+                "to sp.kfold_split) are independent draws",
+                "Each training fold is large enough to refit the model",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="model does not carry a refitting recipe",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Pass refit=lambda train: <fit on train> and data=.",
+                ),
+            ],
+            alternatives=["loo", "waic", "cross_validate"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="loo_compare",
+            category="bayes",
+            description=(
+                "Compare models on expected log predictive density: "
+                "difference from the best model and its standard error from "
+                "the paired pointwise differences. Accepts sp.loo / sp.waic "
+                "/ sp.kfold results or fitted models."
+            ),
+            params=[
+                ParamSpec(
+                    "models",
+                    "LOOResult | BayesRegressResult | dict",
+                    True,
+                    description="Two or more results (positional), or one "
+                    "dict of name -> result",
+                ),
+                ParamSpec("names", "list", False, None, "Model labels"),
+            ],
+            returns="DataFrame",
+            example="sp.loo_compare({'small': fit_small, 'large': fit_large})",
+            tags=["bayes", "model-comparison", "loo", "elpd"],
+            reference="vehtari2017practical",
+            assumptions=[
+                "All models are evaluated on the same observations of the "
+                "same outcome (a transformed outcome needs its Jacobian "
+                "added to the pointwise log-likelihoods)",
+                "Enough observations (about 100) for the normal "
+                "approximation behind se_diff",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="models evaluated on different numbers of observations",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Drop rows with missing values in any model's "
+                    "variables before fitting all of them.",
+                ),
+            ],
+            alternatives=["bayes_factor", "bma"],
+            not_recommended_when=[
+                "elpd differences below about 4: they are small whatever "
+                "their standard error",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="psis",
+            category="bayes",
+            description=(
+                "Pareto smoothed importance sampling: stabilises importance "
+                "weights by replacing the largest with order statistics of a "
+                "fitted generalized Pareto tail; the fitted shape k is the "
+                "reliability diagnostic."
+            ),
+            params=[
+                ParamSpec(
+                    "log_ratios",
+                    "ndarray",
+                    True,
+                    description="Log importance ratios, draws or draws by "
+                    "observations",
+                ),
+                ParamSpec(
+                    "r_eff",
+                    "float | ndarray",
+                    False,
+                    None,
+                    "Relative efficiency of the draws (default 1)",
+                ),
+            ],
+            returns="PSISResult",
+            example="sp.psis(-fit.log_lik())",
+            tags=["bayes", "importance-sampling", "psis", "pareto"],
+            reference="vehtari2024pareto",
+            assumptions=[
+                "The ratios have a finite mean; k below 0.7 for a usable "
+                "estimate, below 0.5 for a finite variance",
+                "At least 25 draws, in practice several hundred",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="k is inf",
+                    exception="",
+                    remedy="The tail has fewer than five distinct values and "
+                    "was left unsmoothed; use more draws.",
+                ),
+            ],
+            alternatives=["loo"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ppc",
+            category="bayes",
+            description=(
+                "Posterior predictive check: simulate replicated data sets "
+                "from a fitted Bayesian regression and compare a statistic "
+                "of each (min, max, sd, share of zeros, skewness, or a "
+                "user function) with the same statistic of the data."
+            ),
+            params=[
+                ParamSpec(
+                    "fit", "BayesRegressResult", True, description="Fitted model"
+                ),
+                ParamSpec(
+                    "stat",
+                    "str | callable",
+                    False,
+                    "mean",
+                    "Test statistic: 'mean', 'sd', 'var', 'min', 'max', "
+                    "'median', 'skew', 'prop_zero', or a function of one "
+                    "data vector",
+                ),
+                ParamSpec("draws", "int", False, 1000, "Replicated data sets"),
+                ParamSpec("seed", "int", False, None),
+            ],
+            returns="PPCResult",
+            example="sp.ppc(fit, stat='prop_zero', seed=1)",
+            tags=["bayes", "model-checking", "posterior-predictive", "diagnostics"],
+            reference="gabry2019visualization",
+            assumptions=[
+                "The statistic is not one the model fits by construction "
+                "(the mean of a regression with an intercept always passes)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="p-value near 0 or 1",
+                    exception="",
+                    remedy="The model cannot reproduce this feature of the "
+                    "data: change the likelihood (negbin for overdispersed "
+                    "counts, t for heavy tails) or the mean model.",
+                ),
+            ],
+            alternatives=["binned_residuals", "loo"],
+            not_recommended_when=[
+                "A calibrated test is needed: the p-value uses the data "
+                "twice and is conservative",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_r2",
+            category="bayes",
+            description=(
+                "Bayesian R-squared (Gelman, Goodrich, Gabry, Vehtari 2019): "
+                "variance of the fit over variance of the fit plus residual "
+                "variance, draw by draw, so it has a posterior and cannot "
+                "exceed one. Gaussian, Student-t, binary and count models."
+            ),
+            params=[
+                ParamSpec(
+                    "fit", "BayesRegressResult", True, description="Fitted model"
+                ),
+                ParamSpec(
+                    "kind",
+                    "str",
+                    False,
+                    "model",
+                    "'model': residual variance the model expects (rstanarm); "
+                    "'residual': variance of y minus the fit of each draw",
+                    ["model", "residual"],
+                ),
+                ParamSpec("level", "float", False, 0.95, "Interval mass"),
+            ],
+            returns="BayesR2Result",
+            example="sp.bayes_r2(fit)",
+            tags=["bayes", "r-squared", "goodness-of-fit"],
+            reference="gelman2019rsquared",
+            assumptions=[
+                "The outcome has a variance for the model to explain "
+                "(not ordered, multinomial, censored or quantile models)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="model is oprobit / mlogit / quantile / tobit",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Compare models by predictive density instead.",
+                    alternative="sp.loo",
+                ),
+            ],
+            alternatives=["loo_r2", "loo"],
+            not_recommended_when=[
+                "Choosing between models: it rises with every added "
+                "regressor; use sp.loo_r2 or sp.loo_compare",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="loo_r2",
+            category="bayes",
+            description=(
+                "Leave-one-out R-squared: 1 - Var(y - yhat_loo) / Var(y) "
+                "with each observation predicted from a posterior that did "
+                "not see it. Estimates variance explained in new data; "
+                "falls when a regressor only adds noise."
+            ),
+            params=[
+                ParamSpec(
+                    "fit", "BayesRegressResult", True, description="Fitted model"
+                ),
+                ParamSpec(
+                    "loo_result", "LOOResult", False, None, "Output of sp.loo(fit)"
+                ),
+                ParamSpec("n_boot", "int", False, 4000, "Bayesian bootstrap draws"),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95, "Interval mass"),
+            ],
+            returns="BayesR2Result",
+            example="sp.loo_r2(fit, seed=1)",
+            tags=["bayes", "r-squared", "cross-validation", "loo"],
+            reference="gelman2019rsquared",
+            assumptions=[
+                "The assumptions of sp.loo (independent observations, "
+                "Pareto k below the threshold)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="estimate is negative",
+                    exception="",
+                    remedy="The model predicts new observations worse than "
+                    "their mean does; it is overfitted or misspecified.",
+                ),
+            ],
+            alternatives=["bayes_r2", "loo"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="retrodesign",
+            category="power",
+            description=(
+                "Design analysis (Gelman and Carlin 2014): for a "
+                "hypothesised true effect and a standard error, the power, "
+                "the probability that a significant estimate has the wrong "
+                "sign (type S) and its expected exaggeration factor (type "
+                "M). Closed form; exact for a t-test when dof is given."
+            ),
+            params=[
+                ParamSpec(
+                    "effect",
+                    "float | list",
+                    True,
+                    description="Hypothesised true effect, from outside "
+                    "information, never the estimate under review",
+                ),
+                ParamSpec("se", "float | list", True, description="Standard error"),
+                ParamSpec("alpha", "float", False, 0.05, "Two-sided level"),
+                ParamSpec(
+                    "dof",
+                    "float",
+                    False,
+                    None,
+                    "Degrees of freedom of the estimated standard error "
+                    "(t-test); known standard error when omitted",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "exact",
+                    "With dof: 'exact' for the t-test, 'shifted' for the "
+                    "approximation in the published code",
+                    ["exact", "shifted"],
+                ),
+            ],
+            returns="RetrodesignResult",
+            example="sp.retrodesign(0.1, 3.28)",
+            tags=["power", "design", "type-s", "type-m", "replication"],
+            reference="gelman2014beyond",
+            assumptions=[
+                "The estimate is normally distributed around the true "
+                "effect with the stated standard error",
+                "The hypothesised effect comes from external information",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="effect is exactly zero",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="A zero effect has no sign to get wrong; every "
+                    "significant result is then a false positive.",
+                ),
+            ],
+            alternatives=["power", "mde", "power_ttest"],
+            not_recommended_when=[
+                "The effect size plugged in is the study's own significant "
+                "estimate: that estimate is the exaggerated quantity",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="binned_residuals",
+            category="diagnostics",
+            description=(
+                "Average residuals within equal-count bins of the fitted "
+                "value or of a regressor, with a +/- 2 se band: the "
+                "residual plot for binary and count models, whose raw "
+                "residuals show nothing."
+            ),
+            params=[
+                ParamSpec(
+                    "x",
+                    "result | ndarray",
+                    True,
+                    description="Fitted model (logit, probit, glm, poisson, "
+                    "bayes_regress) or the values to bin on",
+                ),
+                ParamSpec(
+                    "residuals",
+                    "ndarray",
+                    False,
+                    None,
+                    "Observed minus fitted; required when x is an array",
+                ),
+                ParamSpec("n_bins", "int", False, None, "Default floor(sqrt(n))"),
+                ParamSpec(
+                    "by",
+                    "ndarray",
+                    False,
+                    None,
+                    "Bin on this variable instead of the fitted values",
+                ),
+            ],
+            returns="DataFrame",
+            example="sp.binned_residuals(sp.logit('y ~ x', df))",
+            tags=["diagnostics", "residuals", "logit", "model-checking"],
+            reference="gelman2006data",
+            assumptions=[
+                "Under a correct mean model about 95 percent of bin "
+                "averages fall inside the band",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="bins flagged where fitted probabilities are near 0 or 1",
+                    exception="",
+                    remedy="The band 2 sd / sqrt(n) collapses where the "
+                    "outcome hardly varies; read those bins by eye.",
+                ),
+            ],
+            alternatives=["logit_gof", "ppc", "estat"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="standardize",
+            category="regression",
+            description=(
+                "Centre numeric inputs and divide by two standard "
+                "deviations (Gelman 2008), so a coefficient compares one sd "
+                "below with one sd above the mean and is comparable with "
+                "the coefficient of a binary input; binary inputs are "
+                "centred. Returns the rescaled data to refit on."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame | Series", True),
+                ParamSpec("columns", "list", False, None, "Columns to rescale"),
+                ParamSpec(
+                    "formula",
+                    "str",
+                    False,
+                    None,
+                    "Rescale the numeric columns on the right-hand side",
+                ),
+                ParamSpec("exclude", "list", False, None, "Columns to leave alone"),
+                ParamSpec(
+                    "binary",
+                    "str",
+                    False,
+                    "center",
+                    "Treatment of two-valued inputs",
+                    ["center", "full", "0/1", "-0.5/0.5", "none"],
+                ),
+                ParamSpec("divisor", "float", False, 2.0, "1 gives z-scores"),
+            ],
+            returns="DataFrame",
+            example="sp.regress(f, sp.standardize(df, formula=f))",
+            tags=["regression", "scaling", "standardize", "interpretation"],
+            reference="gelman2008scaling",
+            assumptions=[
+                "Coefficients are to be compared across inputs; the fit "
+                "itself (predictions, R-squared) does not change",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="a requested column is not numeric",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Categorical inputs are compared through their "
+                    "indicators; leave them out of columns=.",
+                ),
+            ],
+            alternatives=["winsor"],
+            not_recommended_when=[
+                "The input has a natural unit readers care about (years of "
+                "schooling): report the raw coefficient as well",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="poststratify",
+            category="survey",
+            description=(
+                "Poststratification: average a model's predictions over the "
+                "cells of a known population, weighting by cell counts, "
+                "draw by draw for a Bayesian fit so the estimate carries "
+                "the regression's uncertainty; overall and by subgroup."
+            ),
+            params=[
+                ParamSpec(
+                    "fit",
+                    "result | ndarray",
+                    True,
+                    description="Model with posterior_epred(data) or "
+                    "predict(data), or predictions per cell (draws by cells)",
+                ),
+                ParamSpec(
+                    "cells",
+                    "DataFrame",
+                    True,
+                    description="One row per population cell: the model's "
+                    "columns and the cell count",
+                ),
+                ParamSpec(
+                    "count", "str", False, "N", "Column of cell counts or shares"
+                ),
+                ParamSpec(
+                    "by", "str | list", False, None, "Also report within these columns"
+                ),
+                ParamSpec("level", "float", False, 0.95, "Interval mass"),
+            ],
+            returns="PoststratResult",
+            example="sp.poststratify(fit, cells, count='N')",
+            tags=["survey", "poststratification", "mrp", "weighting"],
+            reference="gelman2020regression",
+            assumptions=[
+                "Within a cell, respondents resemble the population they "
+                "stand for (ignorable selection given the cell variables)",
+                "Population cell counts are known",
+                "The model's cell means are right",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="predictions for fewer cells than the table has",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="A cell has missing values in a model column.",
+                ),
+            ],
+            alternatives=["rake", "svydesign", "direct_standardize"],
+            not_recommended_when=[
+                "Many sparse cells with a classical fit: cell estimates "
+                "are noisy; use a multilevel model for the cell means",
+            ],
         )
     )
 

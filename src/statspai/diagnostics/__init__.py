@@ -7,6 +7,7 @@ Provides:
 """
 
 from .battery import diagnose_result
+from .binned import binned_residuals, binned_residuals_plot
 from .causal_gap import causal_gap
 from .cmtest import cmtest
 from .confounder_bias import confounder_adjust, confounder_tip
@@ -56,6 +57,8 @@ __all__ = [
     "sensemakr",
     "rddensity",
     "hausman",
+    "binned_residuals",
+    "binned_residuals_plot",
     "influence_measures",
     "logit_gof",
     "logit_influence",

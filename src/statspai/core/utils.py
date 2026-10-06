@@ -556,6 +556,79 @@ def _unalias(text: str, aliases: Dict[str, str]) -> str:
     return text
 
 
+_QUOTED = re.compile(r"""(["'`]).*?\1""")
+_DOT_TERM = re.compile(r"(?<![\w.)\]])\.(?![\w.(])")
+_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def expand_dot(formula: str, data: pd.DataFrame) -> str:
+    """Write out the ``.`` of ``y ~ .`` as every other column of ``data``.
+
+    R's shorthand for "regress on everything else": the dot stands for
+    all columns not named on the left-hand side. Terms can still be
+    removed or added around it (``y ~ . - id``, ``y ~ . + I(x**2)``).
+    Columns whose names are not Python identifiers are quoted. A formula
+    without a free-standing dot, or with the ``|`` of an instrument or
+    fixed-effect part, is returned unchanged.
+    """
+    if "~" not in formula or "|" in formula or "." not in formula:
+        return formula
+    lhs, rhs = formula.split("~", 1)
+    masked = _QUOTED.sub(lambda m: "_" * len(m.group(0)), rhs)
+    spots = [m.start() for m in _DOT_TERM.finditer(masked)]
+    if not spots:
+        return formula
+    outcome = set(_IDENTIFIER.findall(lhs)) | {lhs.strip().strip("`")}
+    terms = []
+    for col in data.columns:
+        name = str(col)
+        if name in outcome:
+            continue
+        if _IDENTIFIER.fullmatch(name):
+            terms.append(name)
+        else:
+            escaped = name.replace("\\", "\\\\").replace('"', '\\"')
+            terms.append(f'Q("{escaped}")')
+    if not terms:
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            "The '.' in the formula stands for every other column of the "
+            "data, and there is none."
+        )
+    expansion = "(" + " + ".join(terms) + ")"
+    out = rhs
+    for pos in reversed(spots):
+        out = out[:pos] + expansion + out[pos + 1 :]
+    return f"{lhs}~{out}"
+
+
+def _logical_outcome_as_indicator(y: Any, return_type: str) -> Any:
+    """A true / false left-hand side as one 0 / 1 column.
+
+    ``(earn > 0) ~ height`` is how R writes a binary outcome defined on
+    the fly. patsy codes a logical term as two indicator columns,
+    ``[False]`` and ``[True]``; every estimator downstream expects one
+    outcome column and failed on the doubled length. The ``[True]``
+    column is the outcome, named by the expression.
+    """
+    info = getattr(y, "design_info", None)
+    names = list(getattr(info, "column_names", []) or [])
+    if len(names) != 2:
+        return y
+    first, second = str(names[0]), str(names[1])
+    if not (first.endswith("[False]") and second.endswith("[True]")):
+        return y
+    if first[: -len("[False]")] != second[: -len("[True]")]:
+        return y
+    label = second[: -len("[True]")]
+    if return_type == "dataframe":
+        out = y.iloc[:, [1]].copy()
+        out.columns = [label]
+        return out
+    return np.asarray(y)[:, [1]]
+
+
 def create_design_matrices(
     formula: str, data: pd.DataFrame, return_type: str = "dataframe"
 ) -> Tuple[Any, Any]:
@@ -576,6 +649,7 @@ def create_design_matrices(
     Tuple[pd.DataFrame, pd.DataFrame]
         (y, X) matrices
     """
+    formula = expand_dot(formula, data)
     formula = r_formula_idioms(formula)
     fast = _try_simple_numeric_design_matrices(formula, data, return_type)
     if fast is not None:
@@ -595,6 +669,7 @@ def create_design_matrices(
         if aliases and return_type == "dataframe":
             for frame in (y, X):
                 frame.columns = [_unalias(str(c), aliases) for c in frame.columns]
+        y = _logical_outcome_as_indicator(y, return_type)
         return y, X
     except Exception as patsy_error:
         # Fallback to manual parsing if patsy fails

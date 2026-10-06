@@ -233,6 +233,103 @@ design_of_experiments.md`.
   maximum already are unchanged. A fit whose length scale is below a
   quarter of the smallest gap in the data now says so in a note.
 
+### The regression workflow of Gelman, Hill and Vehtari: priors on the scale of the data, predictive checks, leave-one-out
+
+A pass over *Regression and Other Stories* (2020) and its companion
+*Active Statistics* (Gelman and Vehtari, 2024), whose examples are written
+around `rstanarm::stan_glm`, `loo` and `arm`. Thirty-three of the book's
+classical fits were rerun against R `lm` / `glm` / `MASS` / `AER`, and the
+Bayesian workflow against `rstanarm` 2.32.2 and `loo` 2.9.0. Review in
+`docs/dev/2026-10-07-gelman-vehtari-active-statistics-review.md`, guide in
+`docs/guides/regression_and_other_stories.md`.
+
+#### ⚠️ Correctness
+
+- **Perfectly collinear regressors were handed to the optimiser by every
+  likelihood-based estimator except `sp.regress`.** `sp.logit`,
+  `sp.probit`, `sp.cloglog`, `sp.glm`, `sp.poisson`, `sp.nbreg`,
+  `sp.ologit`, `sp.oprobit`, `sp.mlogit`, `sp.tobit`, `sp.qreg` and
+  `sp.svydesign(...).glm` returned one arbitrary point of a flat
+  likelihood: coefficients of order 1e13 from `sp.glm` and `sp.nbreg`,
+  standard errors of exactly zero from `sp.probit` and the ordered
+  models, of order 1e6 from `sp.logit`, `nan` from the survey
+  regression, in several cases with no warning at all. The trigger is
+  the most common specification mistake there is: every indicator of a
+  category next to the constant. The book's child care example does it
+  twice in one propensity score model. These estimators now omit the
+  later member of each dependent set, as Stata does and as R reports with
+  `NA`, announce it (`note: white omitted because of collinearity`) and
+  list it in `model_info['omitted']`. The shared step is
+  `core/_collinear.py`. Fits on full-rank designs are unchanged.
+- **`sp.logit` and `sp.glm(family='binomial')` could stay silent under
+  complete separation.** The detector required 99 percent of the fitted
+  probabilities to lie within 0.01 of the boundary. With sixty
+  observations one point near the separating threshold was enough to
+  silence it while the slope reached 1,412. Any fit whose linear index
+  classifies every observation correctly now raises the
+  `ConvergenceWarning`, as does one with fitted probabilities equal to 0
+  or 1 to machine precision (the event R warns about). `sp.glm` had no
+  check at all and now shares it.
+- **A true / false outcome written in the formula failed everywhere.**
+  `"(earn > 0) ~ height + male"`, the book's way of writing the first part
+  of a two-part model, raised an `IndexError` in `sp.logit` and
+  `sp.probit` and a shape error in `sp.regress`, `sp.glm` and
+  `sp.bayes_regress`, because the formula parser codes a logical term as
+  two columns. It is now one 0 / 1 outcome.
+- **`factor(y) ~ x` in `sp.ologit` / `sp.oprobit` / `sp.mlogit`** (the
+  spelling R's `polr` requires) failed with `Ordered model requires J >=
+  3 categories, got 2` or a `KeyError`. The wrapper is now read as the
+  bare outcome.
+- **`sp.bayes_regress(model='mlogit').predict(new_data)`** raised "the
+  new data lack the regressors" for a formula of plain columns.
+
+#### Added
+
+- **`sp.bayes_regress(prior='weakly_informative')`**: independent normal
+  priors scaled to the data, the default of `rstanarm` (slope standard
+  deviation `2.5 sd(y) / sd(x)`, intercept `N(mean(y), 2.5 sd(y))` with
+  the regressors centred, `sigma ~ Exponential(1 / sd(y))`), for the
+  normal, logit, probit, Poisson and negative binomial models. Results
+  no longer depend on the units of the regressors. The scales match
+  `prior_summary()` to nine digits and each sampler matches its exact
+  posterior on a grid. Also `offset=` and `exposure=` for logit and
+  count models.
+- **Predictive methods on every `sp.bayes_regress` fit**:
+  `posterior_linpred`, `posterior_epred`, `posterior_predict` and
+  `log_lik`, each returning draws by observations, for all eleven
+  likelihoods and for `sp.bayes_shrink`.
+- **`sp.loo`, `sp.waic`, `sp.kfold`, `sp.loo_compare`, `sp.loo_predict`,
+  `sp.psis`, `sp.kfold_split`**: expected log predictive density by
+  Pareto smoothed importance sampling, with the draw-dependent
+  reliability threshold of Vehtari et al. (2024). Given the same
+  log-likelihood matrix the pointwise values, Pareto shapes and
+  comparison match R `loo` 2.9.0 to 1e-9; on the conjugate normal model
+  they match exact leave-one-out. They accept any draws-by-observations
+  matrix, so a PyMC trace works too.
+- **`sp.ppc`** (posterior predictive checks with a test statistic),
+  **`sp.bayes_r2`** and **`sp.loo_r2`** (Gelman, Goodrich, Gabry and
+  Vehtari 2019; the operator matches `rstanarm::bayes_R2` to 1e-9 and
+  extends to count models), **`sp.mad_sd`**.
+- **`sp.bayes_shrink(prior='horseshoe')`** with `global_scale=` or the
+  `p0=` calibration of Piironen and Vehtari (2017); Gibbs sampler of
+  Makalic and Schmidt (2016), checked against the exact posterior.
+- **`sp.retrodesign`**: power, type S error and exaggeration ratio
+  (Gelman and Carlin 2014) in closed form. With `dof=` the test is a
+  t-test and the answer is exact for it; `method='shifted'` reproduces
+  the published approximation.
+- **`sp.binned_residuals`**, **`sp.binned_residuals_plot`** and
+  **`sp.standardize`** (centre and divide by two standard deviations,
+  Gelman 2008), equal to `arm::binned.resids` and `arm::rescale` to 1e-8
+  or better; **`sp.invlogit`**.
+- **`sp.poststratify`**: population-weighted average of cell predictions,
+  draw by draw for a Bayesian fit, overall and by subgroup.
+- **`sp.glm`**: `link='robit(dof)'` (Student-t link, Liu 2004; equal to R
+  `glm` with a user-defined link), `family='quasipoisson'` /
+  `'quasibinomial'`, and grouped binomial outcomes written
+  `cbind(successes, failures) ~ x`.
+- **`y ~ .`** in any formula entry point: the dot stands for every other
+  column.
+
 ### `sp.callaway_santanna(balance=)`: the three rules for an unbalanced panel
 
 #### Added

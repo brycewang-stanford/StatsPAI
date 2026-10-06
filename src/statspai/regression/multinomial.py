@@ -25,6 +25,7 @@ McFadden, D. (1973).
 """
 
 import functools
+import re
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -51,6 +52,29 @@ def _as_float_array(value: Any) -> np.ndarray:
     return np.asarray(value, dtype=float)
 
 
+_FACTOR_LHS = re.compile(
+    r"^\s*(?:as\.)?(?:factor|ordered|C)\(\s*([A-Za-z_][A-Za-z0-9_.]*)\s*\)\s*$"
+)
+
+
+def _bare_outcome(formula: Optional[str]) -> Optional[str]:
+    """``factor(y) ~ x`` read as ``y ~ x``.
+
+    R's ``polr`` and ``multinom`` want the outcome wrapped in
+    ``factor()``; here the outcome of a categorical model is categorical
+    by construction, so the wrapper carries no information. Left in
+    place, patsy expanded it into indicator columns and the model saw
+    two categories.
+    """
+    if formula is None or "~" not in formula:
+        return formula
+    lhs, rhs = formula.split("~", 1)
+    match = _FACTOR_LHS.match(lhs)
+    if match is None:
+        return formula
+    return f"{match.group(1)} ~{rhs}"
+
+
 def _parse_inputs(
     formula: Optional[str],
     data: Optional[pd.DataFrame],
@@ -58,6 +82,7 @@ def _parse_inputs(
     x: Optional[List[str]],
 ) -> Tuple[str, List[str]]:
     """Resolve formula / y+x inputs into variable names."""
+    formula = _bare_outcome(formula)
     if formula is not None:
         parsed = parse_formula(formula)
         y_name = str(parsed["dependent"])
@@ -104,6 +129,40 @@ def _formula_design(
     add_constant: bool,
     extra_cols: Optional[List[str]] = None,
 ) -> Tuple[np.ndarray, np.ndarray, pd.DataFrame, List[str], str]:
+    """Design of a categorical-outcome model, dependent regressors omitted.
+
+    See :func:`_formula_design_raw` for the parsing. A regressor that is a
+    combination of earlier ones (given the constant, which in an ordered
+    model is carried by the cutpoints) has no identified coefficient; it is
+    omitted with a note, as Stata does, and listed in
+    ``df.attrs['omitted']``.
+    """
+    from ..core._collinear import drop_collinear
+
+    Y, X, df, names, y_name = _formula_design_raw(
+        formula, data, y, x, add_constant, extra_cols
+    )
+    who = "mlogit" if add_constant else "ordered model"
+    if add_constant:
+        X, names, omitted, _ = drop_collinear(X, names, who, stacklevel=4)
+    else:
+        full = np.column_stack([np.ones(len(X)), X])
+        full, kept, omitted, _ = drop_collinear(
+            full, ["_cons"] + list(names), who, stacklevel=4
+        )
+        X, names = full[:, 1:], [v for v in kept if v != "_cons"]
+    df.attrs["omitted"] = omitted
+    return Y, X, df, names, y_name
+
+
+def _formula_design_raw(
+    formula: Optional[str],
+    data: Optional[pd.DataFrame],
+    y: Optional[str],
+    x: Optional[List[str]],
+    add_constant: bool,
+    extra_cols: Optional[List[str]] = None,
+) -> Tuple[np.ndarray, np.ndarray, pd.DataFrame, List[str], str]:
     """Y, X, the estimation frame, regressor names and the outcome name.
 
     Formulas made of bare column names keep the direct path. Anything else
@@ -112,6 +171,7 @@ def _formula_design(
     fail with ``KeyError: ['C'] not in index``). Ordered models drop the
     intercept (the cutpoints absorb it); the rest call it ``_cons``.
     """
+    formula = _bare_outcome(formula)
     y_name, x_names = _parse_inputs(formula, data, y, x)
     if formula is None or all(
         isinstance(v, str) and data is not None and v in data.columns for v in x_names

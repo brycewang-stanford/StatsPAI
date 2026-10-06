@@ -28,6 +28,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+from scipy.special import expit as _expit
 
 from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
@@ -51,13 +52,9 @@ def _as_float_array(value: Any) -> np.ndarray:
 
 def _logit_cdf(z: np.ndarray) -> np.ndarray:
     """Logistic CDF  Λ(z) = 1/(1+exp(-z))  (numerically stable)."""
-    return _as_float_array(
-        np.where(
-            z >= 0,
-            1.0 / (1.0 + np.exp(-z)),
-            np.exp(z) / (1.0 + np.exp(z)),
-        )
-    )
+    # both branches of a np.where are evaluated, so the "stable" two-sided
+    # form still overflowed (with a RuntimeWarning) on a large index
+    return _as_float_array(_expit(np.asarray(z, dtype=float)))
 
 
 def _logit_pdf(z: np.ndarray) -> np.ndarray:
@@ -187,40 +184,64 @@ def _hessian(
 def _warn_if_separated(y: np.ndarray, p_hat: np.ndarray) -> None:
     """Warn on (quasi-)complete separation, where the MLE does not exist.
 
-    Under perfect separation Newton-Raphson does not diverge loudly — it
-    "converges" by the step tolerance while coefficients drift toward ±∞ and
-    the fitted probabilities pile up at 0/1, so the reported estimates and
-    standard errors are artefacts of the stopping rule, not a finite optimum.
+    Under separation Newton-Raphson does not diverge loudly: it "converges"
+    by the step tolerance while coefficients drift toward +/- infinity, so
+    the reported estimates and standard errors are artefacts of the stopping
+    rule, not a finite optimum.
 
-    The signature is scale-free: every observation is perfectly classified AND
-    essentially all fitted probabilities sit at the 0/1 extremes. Strong but
-    overlapping signal does not trip it (some fitted probabilities stay in the
-    interior), so it does not fire on well-identified models.
+    Two signatures, either one enough:
+
+    * every observation is classified correctly by the sign of the fitted
+      index. That *is* complete separation: a linear index that puts all
+      the ones on one side and all the zeros on the other can be scaled up
+      without bound, each step raising the likelihood.
+    * some fitted probabilities are 0 or 1 to machine precision (R ``glm``
+      warns on the same event). A finite maximum of a binary likelihood
+      does not put an observation there; it is what quasi-complete
+      separation looks like, e.g. a category in which the outcome never
+      varies.
+
+    An earlier version also required 99 percent of the fitted probabilities
+    to lie within 0.01 of the boundary. With a few dozen observations one
+    point near the separating threshold was enough to silence the warning
+    while the slope ran into the thousands.
     """
     y_arr = np.asarray(y).ravel()
     p = np.asarray(p_hat).ravel()
-    if p.size == 0:
+    if p.size == 0 or np.unique(y_arr).size < 2:
         return
-    if not np.array_equal((p >= 0.5).astype(int), y_arr.astype(int)):
+    complete = np.array_equal((p >= 0.5).astype(int), y_arr.astype(int))
+    eps = 10.0 * np.finfo(float).eps
+    n_boundary = int(np.sum((p < eps) | (p > 1.0 - eps)))
+    if not complete and n_boundary == 0:
         return
-    frac_extreme = float(np.mean((p < 1e-2) | (p > 1.0 - 1e-2)))
-    if frac_extreme >= 0.99:
-        from ..exceptions import ConvergenceWarning
-        from ..exceptions import warn as _sp_warn
+    from ..exceptions import ConvergenceWarning
+    from ..exceptions import warn as _sp_warn
 
-        _sp_warn(
-            ConvergenceWarning,
-            "Perfect or quasi-complete separation detected: the outcome is "
-            "perfectly predicted by the linear index, so the maximum-likelihood "
-            "estimates do not exist. The reported coefficients and standard "
-            "errors are driven by the optimizer's stopping rule, not a finite "
-            "optimum, and should not be interpreted.",
-            recovery_hint=(
-                "Use penalized (Firth) logistic regression, drop the perfectly "
-                "separating predictor, or pool sparse categories."
-            ),
-            stacklevel=3,
+    if complete:
+        what = (
+            "Complete separation detected: the linear index classifies every "
+            "observation correctly"
         )
+    else:
+        what = (
+            f"Quasi-complete separation suspected: {n_boundary} fitted "
+            "probabilities are numerically 0 or 1"
+        )
+    _sp_warn(
+        ConvergenceWarning,
+        what + ", so the maximum-likelihood estimates do not exist. The "
+        "reported coefficients and standard errors are driven by the "
+        "optimizer's stopping rule, not a finite optimum, and should not be "
+        "interpreted.",
+        recovery_hint=(
+            "Use a weakly informative prior "
+            "(sp.bayes_regress(..., model='logit', "
+            "prior='weakly_informative')), drop the perfectly separating "
+            "predictor, or pool sparse categories."
+        ),
+        stacklevel=3,
+    )
 
 
 def _binary_r2(
@@ -643,6 +664,23 @@ def _fit_binary(
         raise ValueError("Provide either (formula, data) or (y, x, data).")
     row_index = X_df.index if formula is not None and data is not None else clean.index
 
+    # A dependent regressor leaves the likelihood flat in one direction;
+    # omit it (Stata's rule) instead of reporting wherever Newton stopped.
+    from ..core._collinear import drop_collinear
+
+    X_mat, var_names, collinear_omitted, _ = drop_collinear(
+        np.asarray(X_mat, dtype=float),
+        var_names,
+        link,
+        formula=formula if data is not None else None,
+        design_info=(
+            getattr(X_df, "design_info", None)
+            if formula is not None and data is not None
+            else None
+        ),
+        stacklevel=4,
+    )
+
     # Stata drops indicator regressors that predict the outcome perfectly
     # together with the rows they predict; keeping them leaves an MLE that
     # does not exist and a sample that differs from Stata's (silently).
@@ -808,6 +846,7 @@ def _fit_binary(
         "auc": auc,
         "perfect_prediction": perfect_prediction,
         "perfect_prediction_omitted": list(pp_dropped),
+        "omitted": collinear_omitted,
         "n_perfect_prediction_dropped": n_pp,
     }
 

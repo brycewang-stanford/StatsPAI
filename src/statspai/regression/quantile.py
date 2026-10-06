@@ -268,6 +268,9 @@ def qreg(
             "qreg: no complete rows after dropping missing values.",
             diagnostics={"columns": cols},
         )
+    from ..core._collinear import drop_collinear_names
+
+    x_names, collinear_omitted = drop_collinear_names(df, x_names, "qreg")
     Y = df[y_name].values.astype(float)
     X = np.column_stack(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in x_names]
@@ -342,6 +345,7 @@ def qreg(
     ci = (main_coef - t_crit * main_se, main_coef + t_crit * main_se)
 
     model_info = {
+        "omitted": collinear_omitted,
         "quantile": quantile,
         "pseudo_r2": _pseudo_r2(Y, resid, quantile, w_obs),
         "weighted": w_obs is not None,

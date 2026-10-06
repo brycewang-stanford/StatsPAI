@@ -620,8 +620,11 @@ def test_sur_shrink_and_mlogit_surface(df):
         seed=1,
     )
     assert scaled.params["big"] * 1000 == pytest.approx(ss.params["x1"], rel=1e-6)
-    with pytest.raises(sp.MethodIncompatibility, match="'lasso' or 'ssvs'"):
-        sp.bayes_shrink("y ~ x1", d, prior="horseshoe")
+    # the horseshoe was refused here until it was implemented
+    with pytest.raises(
+        sp.MethodIncompatibility, match="'lasso', 'ssvs' or 'horseshoe'"
+    ):
+        sp.bayes_shrink("y ~ x1", d, prior="ridge")
     with pytest.raises(sp.MethodIncompatibility, match="intercept"):
         sp.bayes_shrink("y ~ x1 - 1", d)
     with pytest.raises(sp.MethodIncompatibility, match="at least three"):
