@@ -328,6 +328,13 @@ from .diagnostics.rddensity import rddensity as rddensity
 from .diagnostics.rosenbaum import RosenbaumResult as RosenbaumResult
 from .diagnostics.rosenbaum import rosenbaum_bounds as rosenbaum_bounds
 from .diagnostics.rosenbaum import rosenbaum_bounds as rosenbaum_gamma
+from .diagnostics.rosenbaum_strata import EvidenceFactorsResult as EvidenceFactorsResult
+from .diagnostics.rosenbaum_strata import SensitivityTestResult as SensitivityTestResult
+from .diagnostics.rosenbaum_strata import amplify as amplify
+from .diagnostics.rosenbaum_strata import evidence_factors as evidence_factors
+from .diagnostics.rosenbaum_strata import noether_test as noether_test
+from .diagnostics.rosenbaum_strata import rosenbaum_stratified as rosenbaum_stratified
+from .diagnostics.rosenbaum_strata import truncated_product as truncated_product
 from .diagnostics.sensemakr import sensemakr as sensemakr
 from .diagnostics.sensitivity import mccrary_test as mccrary_test
 from .diagnostics.sensitivity import oster_bounds as oster_bounds
@@ -341,6 +348,12 @@ from .diagnostics.weak_iv import anderson_rubin_test as anderson_rubin_test
 from .diagnostics.weak_iv import effective_f_test as effective_f_test
 from .diagnostics.weak_iv import tF_critical_value as tF_critical_value
 from .diagnostics.weak_iv import weakrobust as weakrobust
+from .diagnostics.weighted_rank import (
+    WeightedRankPowerResult as WeightedRankPowerResult,
+)
+from .diagnostics.weighted_rank import WeightedRankResult as WeightedRankResult
+from .diagnostics.weighted_rank import weighted_rank as weighted_rank
+from .diagnostics.weighted_rank import weighted_rank_power as weighted_rank_power
 from .did import did as did
 from .did._absorbing import check_absorbing as check_absorbing
 from .did._equivalence import pretrends_equivalence as pretrends_equivalence
@@ -625,6 +638,7 @@ from .inference.jackknife import cr2_se as cr2_se
 from .inference.jackknife import jackknife_se as jackknife_se
 from .inference.jackknife import wild_cluster_boot as wild_cluster_boot
 from .inference.lm_lin import lm_lin as lm_lin
+from .inference.loneway import loneway as loneway
 from .inference.meta_analysis import MetaAnalysisResult as MetaAnalysisResult
 from .inference.meta_analysis import meta_analysis as meta_analysis
 from .inference.multiway_cluster import cluster_robust_se as cluster_robust_se
@@ -709,6 +723,12 @@ from .longitudinal.regime import always_treat as always_treat
 from .longitudinal.regime import never_treat as never_treat
 from .longitudinal.regime import regime as regime
 from .matching import match as match
+from .matching.balance_randomization import (
+    BalanceRandomizationResult as BalanceRandomizationResult,
+)
+from .matching.balance_randomization import (
+    balance_vs_randomization as balance_vs_randomization,
+)
 from .matching.cbps import cbps as cbps
 from .matching.ebalance import ebalance as ebalance
 from .matching.genmatch import GenMatchResult as GenMatchResult
@@ -735,12 +755,18 @@ from .matching.ps_weights import energy_distance as energy_distance
 from .matching.ps_weights import ess as ess
 from .matching.ps_weights import implied_weights as implied_weights
 from .matching.ps_weights import ps_weights as ps_weights
+from .matching.pscore import PScoreResult as PScoreResult
+from .matching.pscore import pscore as pscore
 from .matching.psmatch2 import PSMatch2Result as PSMatch2Result
 from .matching.psmatch2 import psmatch2 as psmatch2
 from .matching.sbw import SBWResult as SBWResult
 from .matching.sbw import sbw as sbw
+from .matching.two_criteria import TwoCriteriaMatchResult as TwoCriteriaMatchResult
+from .matching.two_criteria import tighten_blocks as tighten_blocks
+from .matching.two_criteria import two_criteria_match as two_criteria_match
 from .matrix_completion.mc_panel import MCPanel as MCPanel
 from .matrix_completion.mc_panel import mc_panel as mc_panel
+from .mcmc.arima import bayes_arima as bayes_arima
 from .mcmc.bma import BMAResult as BMAResult
 from .mcmc.bma import bma as bma
 from .mcmc.bootstrap import bayes_bootstrap as bayes_bootstrap
@@ -755,11 +781,22 @@ from .mcmc.diagnostics import hpd_interval as hpd_interval
 from .mcmc.diagnostics import mcmc_ess as mcmc_ess
 from .mcmc.diagnostics import mcmc_summary as mcmc_summary
 from .mcmc.diagnostics import raftery_diag as raftery_diag
+from .mcmc.gp import GPResult as GPResult
+from .mcmc.gp import gp_regress as gp_regress
 from .mcmc.iv import bayes_ivreg as bayes_ivreg
 from .mcmc.mixed import BayesMixedResult as BayesMixedResult
 from .mcmc.mixed import bayes_mixed as bayes_mixed
+from .mcmc.mixture import bayes_mixture as bayes_mixture
+from .mcmc.mprobit import bayes_mnprobit as bayes_mnprobit
+from .mcmc.mprobit import bayes_mvprobit as bayes_mvprobit
 from .mcmc.regress import BayesRegressResult as BayesRegressResult
 from .mcmc.regress import bayes_regress as bayes_regress
+from .mcmc.shrinkage import bayes_shrink as bayes_shrink
+from .mcmc.simulation import abc as abc
+from .mcmc.sur import bayes_sur as bayes_sur
+from .mcmc.sv import stochvol as stochvol
+from .mcmc.trees import BARTResult as BARTResult
+from .mcmc.trees import bart as bart
 from .mediation.four_way import FourWayResult as FourWayResult
 from .mediation.four_way import four_way_decomposition as four_way_decomposition
 from .mediation.mediate import MediationAnalysis as MediationAnalysis
@@ -1442,6 +1479,8 @@ from .target_trial.emulate import TargetTrialResult as TargetTrialResult
 from .target_trial.protocol import TargetTrialProtocol as TargetTrialProtocol
 from .timeseries._ets import ETSResult as ETSResult
 from .timeseries._ets import ets as ets
+from .timeseries._statespace_results import KalmanResult as KalmanResult
+from .timeseries._statespace_results import StateSpaceResult as StateSpaceResult
 from .timeseries.abnormal_returns import AbnormalReturnsResult as AbnormalReturnsResult
 from .timeseries.abnormal_returns import abnormal_returns as abnormal_returns
 from .timeseries.ardl import ARDLResult as ARDLResult
@@ -1452,6 +1491,8 @@ from .timeseries.bagging import BaggedForecastResult as BaggedForecastResult
 from .timeseries.bagging import bagged_forecast as bagged_forecast
 from .timeseries.bagging import bootstrap_series as bootstrap_series
 from .timeseries.bds import bds as bds
+from .timeseries.beveridge_nelson import BeveridgeNelsonResult as BeveridgeNelsonResult
+from .timeseries.beveridge_nelson import beveridge_nelson as beveridge_nelson
 from .timeseries.bvar import BVARResult as BVARResult
 from .timeseries.bvar import bvar as bvar
 from .timeseries.chow import chow_test as chow_test
@@ -1459,6 +1500,8 @@ from .timeseries.cointegration import CointegrationResult as CointegrationResult
 from .timeseries.cointegration import engle_granger as engle_granger
 from .timeseries.cointegration import johansen as johansen
 from .timeseries.corrgram import corrgram as corrgram
+from .timeseries.dlm import DLMResult as DLMResult
+from .timeseries.dlm import dlm as dlm
 from .timeseries.forecast_accuracy import TSCVResult as TSCVResult
 from .timeseries.forecast_accuracy import forecast_accuracy as forecast_accuracy
 from .timeseries.forecast_accuracy import tscv as tscv
@@ -1466,16 +1509,30 @@ from .timeseries.garch import GARCHResult as GARCHResult
 from .timeseries.garch import garch as garch
 from .timeseries.its import ITSResult as ITSResult
 from .timeseries.its import its as its
+from .timeseries.johansen_lrtest import JohansenLRTest as JohansenLRTest
+from .timeseries.johansen_lrtest import johansen_lrtest as johansen_lrtest
 from .timeseries.local_projections import (
     LocalProjectionsResult as LocalProjectionsResult,
 )
 from .timeseries.local_projections import local_projections as local_projections
+from .timeseries.lrvar import LongRunVariance as LongRunVariance
+from .timeseries.lrvar import lrvar as lrvar
 from .timeseries.reconcile import Hierarchy as Hierarchy
 from .timeseries.reconcile import ReconcileResult as ReconcileResult
 from .timeseries.reconcile import hierarchy as hierarchy
 from .timeseries.reconcile import reconcile as reconcile
 from .timeseries.simple_forecast import SimpleForecastResult as SimpleForecastResult
 from .timeseries.simple_forecast import simple_forecast as simple_forecast
+from .timeseries.spectral import (
+    CumulativePeriodogramResult as CumulativePeriodogramResult,
+)
+from .timeseries.spectral import SpectrumResult as SpectrumResult
+from .timeseries.spectral import (
+    cumulative_periodogram_test as cumulative_periodogram_test,
+)
+from .timeseries.spectral import periodogram as periodogram
+from .timeseries.statespace import kalman_filter as kalman_filter
+from .timeseries.statespace import statespace as statespace
 from .timeseries.stl import DecompositionResult as DecompositionResult
 from .timeseries.stl import classical_decompose as classical_decompose
 from .timeseries.stl import stl as stl
@@ -1491,6 +1548,8 @@ from .timeseries.ts_tools import ljungbox as ljungbox
 from .timeseries.ts_tools import ndiffs as ndiffs
 from .timeseries.ts_tools import nsdiffs as nsdiffs
 from .timeseries.ts_tools import seasonal_dummies as seasonal_dummies
+from .timeseries.tsfilter import FilterResult as FilterResult
+from .timeseries.tsfilter import tsfilter as tsfilter
 from .timeseries.unit_root import UnitRootResult as UnitRootResult
 from .timeseries.unit_root import unitroot as unitroot
 from .timeseries.var import VARResult as VARResult
@@ -1500,6 +1559,10 @@ from .timeseries.var import var as var
 from .timeseries.var_diagnostics import varsoc as varsoc
 from .timeseries.vecm import VECResult as VECResult
 from .timeseries.vecm import vec as vec
+from .timeseries.xcorr import CrossCorrelogram as CrossCorrelogram
+from .timeseries.xcorr import xcorr as xcorr
+from .timeseries.zivot_andrews import ZivotAndrewsResult as ZivotAndrewsResult
+from .timeseries.zivot_andrews import zivot_andrews as zivot_andrews
 from .tmle.hal_tmle import HALClassifier as HALClassifier
 from .tmle.hal_tmle import HALRegressor as HALRegressor
 from .tmle.hal_tmle import hal_tmle as hal_tmle

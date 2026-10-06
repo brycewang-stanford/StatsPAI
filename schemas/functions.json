@@ -7084,6 +7084,601 @@
     }
   },
   {
+    "description": "Sensitivity analysis for an observational block design (matched sets with one or more treated individuals) using a weighted rank statistic: bounds the p-value under hidden bias of magnitude Gamma, solves for the Gamma at which the conclusion changes, and optionally bounds the Hodges-Lehmann estimate and confidence interval. Covers the stratified Wilcoxon and Quade tests, the U-statistic weights with higher design sensitivity, the adaptive choice among weights, and the test conditional on extreme responses (R weightedRank: wgtRank, wgtRankCI, wgtRanktt, dwgtRank, gwgtRank, gwgtRankC). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The matched sets vary in size -- use sp.rosenbaum_stratified; The phi with the best p-value was picked after looking -- pass the candidates as a list so the choice is accounted for.",
+    "name": "weighted_rank",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "greater",
+          "description": "Direction of the effect; 'two-sided' doubles the smaller one-sided bound",
+          "enum": [
+            "greater",
+            "less",
+            "two-sided"
+          ],
+          "type": "string"
+        },
+        "block": {
+          "description": "Block identifier column of data",
+          "type": "string"
+        },
+        "block_scale": {
+          "default": "range",
+          "description": "Dispersion by which blocks are ranked",
+          "enum": [
+            "range",
+            "gap"
+          ],
+          "type": "string"
+        },
+        "bound": {
+          "default": "separable",
+          "description": "Separable approximation, or the Taylor bound that does not rely on it",
+          "enum": [
+            "separable",
+            "taylor"
+          ],
+          "type": "string"
+        },
+        "conditional": {
+          "default": false,
+          "description": "Use only the largest and smallest response of each block",
+          "type": "boolean"
+        },
+        "data": {
+          "description": "Long-format data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "estimates": {
+          "default": false,
+          "description": "Also bound the Hodges-Lehmann estimate and confidence interval",
+          "type": "boolean"
+        },
+        "gamma": {
+          "default": 1.0,
+          "description": "Sensitivity parameter(s), >= 1: the factor by which two matched individuals may differ in their odds of treatment because of an unobserved covariate. 1 is a randomization test",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "phi": {
+          "default": "u868",
+          "description": "Block weight as a function of the block's dispersion rank: 'wilcoxon', 'quade', 'u868', 'u878', 'u888', 'u858', 'mixed', a triple (m, m1, m2), or a callable. A list of two or more requests the adaptive test",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "string"
+          ]
+        },
+        "scores": {
+          "description": "Within-block scores replacing the ranks 1..J",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "treat": {
+          "description": "0/1 treatment column of data",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treated": {
+          "default": 1,
+          "description": "For an array y: number of leading treated columns, or a 0/1 array of the shape of y",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Blocks-by-individuals outcome array, or with data= the outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Jackknife estimate, from pilot blocks, of the power of a weighted rank sensitivity analysis at each Gamma, for a study with sample_ratio times as many blocks (R weightedRank::estPower). A design tool for choosing weights and sample size. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Choosing phi by estimated power and then testing the same outcomes -- use the adaptive test, sp.weighted_rank(phi=[...]).",
+    "name": "weighted_rank_power",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the one-sided test",
+          "type": "number"
+        },
+        "block": {
+          "description": "Block identifier column",
+          "type": "string"
+        },
+        "data": {
+          "description": "Long-format data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "gammas": {
+          "description": "Values of Gamma, >= 1",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "phi": {
+          "default": "u868",
+          "description": "Block weights",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "string"
+          ]
+        },
+        "sample_ratio": {
+          "default": 1.0,
+          "description": "Blocks planned divided by blocks observed",
+          "type": "number"
+        },
+        "treat": {
+          "description": "0/1 treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treated": {
+          "default": 1,
+          "description": "Treated columns of y",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Outcomes, as in weighted_rank",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y",
+        "gammas"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Rosenbaum bounds for a treated-versus-control comparison within strata of any size and composition, or in one stratum (the two-sample case): bounds the p-value of the sum of treated scores under hidden bias Gamma (R senstrat and sen2sample). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Time O(sum over strata of N_s * n_treated_s) per Gamma; a stratum of 2,000 with 500 treated takes about a tenth of a second.",
+    "name": "rosenbaum_stratified",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "greater",
+          "description": "Direction of the effect; 'two-sided' doubles the smaller one-sided bound",
+          "enum": [
+            "greater",
+            "less",
+            "two-sided"
+          ],
+          "type": "string"
+        },
+        "bound": {
+          "default": "taylor",
+          "description": "Taylor bound (holds for any strata) or separable approximation",
+          "enum": [
+            "taylor",
+            "separable"
+          ],
+          "type": "string"
+        },
+        "data": {
+          "description": "One row per individual",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "gamma": {
+          "default": 1.0,
+          "description": "Sensitivity parameter(s), >= 1: the factor by which two matched individuals may differ in their odds of treatment because of an unobserved covariate. 1 is a randomization test",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "score": {
+          "default": "rank",
+          "description": "Scores summed over the treated: overall ranks, within-stratum ranks, aligned ranks, or the outcome itself",
+          "enum": [
+            "rank",
+            "stratum_rank",
+            "aligned_rank",
+            "raw"
+          ],
+          "type": "string"
+        },
+        "strata": {
+          "description": "Stratum column; None for one stratum",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "0/1 treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Sign test restricted to the matched pairs with the largest absolute differences, with its exact bound under hidden bias Gamma (R iTOS::noether). Less sensitive to unmeasured bias than the sign test or Wilcoxon's test when the effect is not small. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "noether_test",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level for gamma_critical",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "greater",
+          "description": "Direction of the effect; 'two-sided' doubles the smaller one-sided bound",
+          "enum": [
+            "greater",
+            "less",
+            "two-sided"
+          ],
+          "type": "string"
+        },
+        "control": {
+          "description": "Control outcomes",
+          "type": "string"
+        },
+        "f": {
+          "default": 0.6666666666666666,
+          "description": "Fraction of pairs set aside, 0 <= f < 1",
+          "type": "number"
+        },
+        "gamma": {
+          "default": 1.0,
+          "description": "Sensitivity parameter(s), >= 1: the factor by which two matched individuals may differ in their odds of treatment because of an unobserved covariate. 1 is a randomization test",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "treated": {
+          "description": "Treated outcomes, or pair differences when control is omitted",
+          "type": "string"
+        }
+      },
+      "required": [
+        "treated"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Two evidence factors from blocks with one treated individual and one control from each of two control groups: treated versus the first control, and the second control versus the other two, each with its own sensitivity parameter, combined by the truncated product (R weightedRank::ef2C). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "evidence_factors",
+    "parameters": {
+      "properties": {
+        "alternative": {
+          "default": "greater",
+          "description": "Direction",
+          "enum": [
+            "greater",
+            "less"
+          ],
+          "type": "string"
+        },
+        "block_scale": {
+          "default": "gap",
+          "description": "Block dispersion of the second factor",
+          "enum": [
+            "gap",
+            "range"
+          ],
+          "type": "string"
+        },
+        "gamma": {
+          "default": 1.0,
+          "description": "Bias allowed in factor 1",
+          "type": "number"
+        },
+        "phi": {
+          "description": "Block weights of the two factors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "scores": {
+          "description": "Scores of the second factor",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "trunc": {
+          "default": 0.2,
+          "description": "Truncation point",
+          "type": "number"
+        },
+        "upsilon": {
+          "default": 1.0,
+          "description": "Bias allowed in factor 2",
+          "type": "number"
+        },
+        "y": {
+          "description": "I x 3 outcomes: treated, first control, second control",
+          "type": "string"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Combine independent p-values by the truncated product: the product of those at most trunc, referred to its exact null distribution. trunc=1 is Fisher's method (R sensitivitymv::truncatedP). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "truncated_product",
+    "parameters": {
+      "properties": {
+        "pvalues": {
+          "description": "Independent p-values",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "trunc": {
+          "default": 0.2,
+          "description": "Truncation point in (0, 1]",
+          "type": "number"
+        }
+      },
+      "required": [
+        "pvalues"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Amplification of a sensitivity analysis: express the sensitivity parameter Gamma of a matched-pair analysis as pairs (Lambda, Delta), the factor by which an unobserved covariate multiplies the odds of treatment and the odds of a positive outcome difference (R iTOS::amplify). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "amplify",
+    "parameters": {
+      "properties": {
+        "gamma": {
+          "description": "Sensitivity parameter, > 1",
+          "type": "number"
+        },
+        "treatment_odds": {
+          "description": "Lambda: effect on the odds of treatment, each > gamma",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "gamma",
+        "treatment_odds"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Optimal matching by minimum-cost flow with two distances: one decides who is paired with whom, the other only which controls are selected, so that covariates can be matched closely within sets or balanced between groups. Fine and near-fine balance, near-exact matching, calipers, directional penalties, 1:k matching and optimal subset matching (R iTOS::makematch). Outcomes are not used. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: An effect estimate is wanted in the same call -- this builds the design; analyse .matched afterwards, e.g. with sp.weighted_rank. Cost: Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second.",
+    "name": "two_criteria_match",
+    "parameters": {
+      "properties": {
+        "balance": {
+          "description": "Balance distance: list of cost terms, each a dict with 'type' in mahalanobis / near_exact / integer / caliper / quantile, the column(s) it is 'on' and a 'penalty'; or a treated-by-control matrix",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "control_cost": {
+          "description": "Non-negative cost of using each control",
+          "type": "string"
+        },
+        "data": {
+          "description": "One row per unit",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "pair": {
+          "description": "Pairing distance: list of cost terms, each a dict with 'type' in mahalanobis / near_exact / integer / caliper / quantile, the column(s) it is 'on' and a 'penalty'; or a treated-by-control matrix",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ps": {
+          "description": "Propensity score column, or covariates of a logit fitted to make one; terms refer to it as 'pscore'",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ratio": {
+          "default": 1,
+          "description": "Controls per treated unit",
+          "type": "integer"
+        },
+        "subset_cost": {
+          "description": "Price of leaving a treated unit unmatched (ratio=1)",
+          "type": "number"
+        },
+        "treat": {
+          "description": "0/1 treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "treat"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "tighten_blocks",
+    "parameters": {
+      "properties": {
+        "block": {
+          "description": "Block identifier",
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Covariates of the within-block Mahalanobis distance",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "The block design",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "fine_balance": {
+          "description": "Nominal covariates to balance between the retained groups",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "penalty_scale": {
+          "default": 10.0,
+          "description": "Factor separating priorities",
+          "type": "number"
+        },
+        "ratio": {
+          "default": 1,
+          "description": "Controls kept per block",
+          "type": "integer"
+        },
+        "subset_cost": {
+          "description": "Price of dropping a block",
+          "type": "number"
+        },
+        "treat": {
+          "description": "0/1 treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "treat",
+        "block"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized.",
+    "name": "balance_vs_randomization",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Threshold for small p-values",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Numeric covariates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "The matched sample",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "max_levels": {
+          "default": 2,
+          "description": "See test",
+          "type": "integer"
+        },
+        "n_sim": {
+          "default": 1000,
+          "description": "Simulated experiments",
+          "type": "integer"
+        },
+        "random_state": {
+          "description": "Seed",
+          "type": "integer"
+        },
+        "test": {
+          "default": "auto",
+          "description": "Two-sample test; 'auto' is chi-square for covariates with at most max_levels values and Wilcoxon otherwise",
+          "enum": [
+            "auto",
+            "wilcoxon",
+            "t"
+          ],
+          "type": "string"
+        },
+        "treat": {
+          "description": "0/1 treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trunc": {
+          "default": 0.2,
+          "description": "Truncation of the product",
+          "type": "number"
+        }
+      },
+      "required": [
+        "data",
+        "treat",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Kruskal-Wallis rank test that several groups have the same distribution (Stata kwallis, R kruskal.test). Reports the statistic with and without the correction for ties, on k - 1 degrees of freedom. Validation: certified parity evidence.",
     "name": "kwallis",
     "parameters": {
