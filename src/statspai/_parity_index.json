@@ -7867,6 +7867,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_neusser_time_series.py",
+        "tests/reference_parity/test_garch_asymmetric_stata_parity.py",
         "tests/reference_parity/test_garch_extensions_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"

@@ -57585,6 +57585,16 @@
           "description": "Estimate a constant mean mu; if False, mu = 0.",
           "type": "boolean"
         },
+        "model": {
+          "default": "garch",
+          "description": "The variance equation. ``'gjr'`` (threshold GARCH of Glosten, Jagannathan and Runkle): ``sigma2_t = omega + sum_i (alpha_i + gamma_i 1[eps_{t-i} < 0]) eps2_{t-i} + sum_j beta_j sigma2_{t-j}``. ``gamma > 0`` is the leverage effect: bad news raises the variance more than good news. Stata's ``arch, arch() tarch() garch()`` writes the threshold term on positive shocks, so ``gamma = -tarch`` and ``alpha = arch + tarch``; the likelihood is the same. ``'egarch'`` (Nelson's exponential GARCH): ``ln sigma2_t = omega + sum_i [theta_i z_{t-i} + gamma_i (|z_{t-i}| - sqrt(2 / pi))] + sum_j beta_j ln sigma2_{t-j}`` with ``z = eps / sigma``. ``theta < 0`` is the leverage effect. Stata's ``earch()`` is ``theta`` and its ``earch_a`` is ``gamma``; ``q`` counts the shock lags and ``p`` the lagged log variances.",
+          "enum": [
+            "garch",
+            "gjr",
+            "egarch"
+          ],
+          "type": "string"
+        },
         "p": {
           "default": 1,
           "description": "Number of GARCH (lagged sigma2) terms (Stata ``garch(p)``).",

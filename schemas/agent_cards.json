@@ -122895,7 +122895,7 @@
       "pre_conditions": "family",
       "reference": "docstring"
     },
-    "reference": "@engle1982autoregressive; @bollerslev1986generalized; @bollerslev1987conditionally",
+    "reference": "@engle1982autoregressive; @bollerslev1986generalized; @bollerslev1987conditionally; @glosten1993relation; @nelson1991conditional",
     "returns": {
       "class": "GARCHResult",
       "description": "",
@@ -122908,7 +122908,9 @@
         "coef": "Optional[np.ndarray]",
         "dist": "str",
         "disturbances": "Optional[np.ndarray]",
+        "gamma": "Optional[np.ndarray]",
         "log_likelihood": "float",
+        "model": "str",
         "mu": "float",
         "n": "int",
         "nu": "Optional[float]",
@@ -122919,7 +122921,8 @@
         "residuals": "np.ndarray",
         "se_vec": "Optional[np.ndarray]",
         "sigma2": "np.ndarray",
-        "std_residuals": "np.ndarray"
+        "std_residuals": "np.ndarray",
+        "theta": "Optional[np.ndarray]"
       }
     },
     "signature": {
@@ -122950,6 +122953,16 @@
             "default": true,
             "description": "Estimate a constant mean mu; if False, mu = 0.",
             "type": "boolean"
+          },
+          "model": {
+            "default": "garch",
+            "description": "The variance equation. ``'gjr'`` (threshold GARCH of Glosten, Jagannathan and Runkle): ``sigma2_t = omega + sum_i (alpha_i + gamma_i 1[eps_{t-i} < 0]) eps2_{t-i} + sum_j beta_j sigma2_{t-j}``. ``gamma > 0`` is the leverage effect: bad news raises the variance more than good news. Stata's ``arch, arch() tarch() garch()`` writes the threshold term on positive shocks, so ``gamma = -tarch`` and ``alpha = arch + tarch``; the likelihood is the same. ``'egarch'`` (Nelson's exponential GARCH): ``ln sigma2_t = omega + sum_i [theta_i z_{t-i} + gamma_i (|z_{t-i}| - sqrt(2 / pi))] + sum_j beta_j ln sigma2_{t-j}`` with ``z = eps / sigma``. ``theta < 0`` is the leverage effect. Stata's ``earch()`` is ``theta`` and its ``earch_a`` is ``gamma``; ``q`` counts the shock lags and ``p`` the lagged log variances.",
+            "enum": [
+              "garch",
+              "gjr",
+              "egarch"
+            ],
+            "type": "string"
           },
           "p": {
             "default": 1,
@@ -122997,9 +123010,9 @@
     "validation_notes": [
       "Cross-language parity (aligned) vs Stata 18 arch; rugarch::ugarchfit 1.5.6 [R version 4.5.2 (2025-10-31), Stata 18, rugarch 1.5.6]; tolerance log-likelihood at the reference optimum 1e-12 (observed 8.5e-16); vs Stata: b 1e-5, SE 2e-5 (observed 8.2e-6 / 1e-5); vs rugarch: params 5e-4, SE at their parameters 1e-2 -- tests/reference_parity/test_timeseries_R_parity.py",
       "tests/external_parity/test_neusser_time_series.py",
+      "tests/reference_parity/test_garch_asymmetric_stata_parity.py",
       "tests/reference_parity/test_garch_extensions_stata_parity.py",
-      "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
-      "tests/reference_parity/test_timeseries_parity.py"
+      "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
     ],
     "validation_status": "certified"
   },
