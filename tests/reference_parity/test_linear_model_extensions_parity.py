@@ -873,6 +873,28 @@ def test_gam_by_smooth_matches_mgcv_and_reads_as_an_effect_curve(df, R):
         fit.partial("x1")
 
 
+def test_gam_factor_by_fits_one_curve_per_level_as_mgcv(df, R):
+    ref = R["gam"]["by_factor"]
+    data = df.assign(sf=df["site"].astype(str))
+    fit = sp.gam(
+        "ly ~ C(sf) + s(x1, k=8, by=sf)",
+        data,
+        lambda_=np.array([2.0, 5.0, 9.0]) / 16,
+        method="gcv",
+    )
+    assert list(fit.smooth_terms["term"]) == ["s(x1):sf1", "s(x1):sf2", "s(x1):sf3"]
+    close(fit.params, ref["par"], EXACT)
+    close(fit.smooth_terms["edf"], ref["edf"], EXACT)
+    close(fit.gcv, ref["score"], EXACT)
+    close(fit.fitted_values, ref["fitted"], EXACT)
+    curve = fit.partial("s(x1):sf2", grid=[-1.0, 0.0, 1.0])
+    close(curve["fit"], ref["level2"], 1e-8)
+    close(curve["se"], ref["level2_se"], 1e-8)
+    close(fit.predict(data.head(9)), fit.fitted_values[:9], 1e-10)
+    with pytest.warns(UserWarning, match="Add C\\(sf\\)"):
+        sp.gam("ly ~ s(x1, k=8, by=sf)", data, lambda_=1.0)
+
+
 def test_gam_recovers_an_effect_that_varies_with_a_covariate():
     rng = np.random.default_rng(9)
     n = 1500

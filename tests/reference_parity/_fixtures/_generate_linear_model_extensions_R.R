@@ -146,6 +146,13 @@ tb = predict(gb, newdata = at, type = "terms", se.fit = TRUE)
 out$gam$by = list(intercept = unname(coef(gb)[1]), edf = unname(summary(gb)$s.table[, 1]), score = unname(gb$gcv.ubre),
                   fitted = unname(fitted(gb)), base = unname(tb$fit[, 1]), base_se = unname(tb$se.fit[, 1]),
                   effect = unname(tb$fit[, 2]), effect_se = unname(tb$se.fit[, 2]))
+## one curve per level of a factor
+d$sf = factor(d$site)
+gf = gam(ly ~ sf + s(x1, bs = "ps", k = 8, by = sf), data = d, sp = c(2, 5, 9))
+tf = predict(gf, newdata = data.frame(x1 = c(-1, 0, 1), sf = factor(2, levels = 1:3)), type = "terms", se.fit = TRUE)
+out$gam$by_factor = list(par = unname(coef(gf)[1:3]), edf = unname(summary(gf)$s.table[, 1]), score = unname(gf$gcv.ubre),
+                         fitted = unname(fitted(gf)), level2 = unname(tf$fit[, "s(x1):sf2"]),
+                         level2_se = unname(tf$se.fit[, "s(x1):sf2"]))
 ## curved outcomes built from the committed columns, so that the selected
 ## smoothing parameters are interior
 d$nl = d$ly + sin(2 * d$x1) + 0.3 * d$x3^2

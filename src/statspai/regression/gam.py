@@ -55,10 +55,24 @@ class _Smooth:
     root: np.ndarray  # (k - 2) x (k - 1) with root'root = penalty
     cols: slice = slice(0, 0)
     by: Optional[str] = None  # the curve multiplies this column
+    level: Any = None  # ... or is switched on for one level of it
 
     @property
     def label(self) -> str:
-        return f"s({self.var})" if self.by is None else f"s({self.var}):{self.by}"
+        if self.by is None:
+            return f"s({self.var})"
+        suffix = "" if self.level is None else str(self.level)
+        return f"s({self.var}):{self.by}{suffix}"
+
+    def multiplier(self, data: pd.DataFrame) -> Optional[np.ndarray]:
+        """What the curve is multiplied by, row by row (``None``: nothing)."""
+        if self.by is None:
+            return None
+        if self.level is None:
+            return np.asarray(data[self.by].to_numpy(dtype=float))
+        return np.asarray(
+            (data[self.by].astype(str) == str(self.level)).to_numpy(dtype=float)
+        )
 
     def raw(self, x: np.ndarray) -> np.ndarray:
         basis = BSpline(self.knots, np.eye(self.k), _DEGREE, extrapolate=True)
@@ -71,7 +85,13 @@ class _Smooth:
         return Z
 
 
-def _make_smooth(var: str, x: np.ndarray, k: int, by: Optional[str] = None) -> _Smooth:
+def _make_smooth(
+    var: str,
+    x: np.ndarray,
+    k: int,
+    by: Optional[str] = None,
+    level: Any = None,
+) -> _Smooth:
     if k < _DEGREE + 2:
         raise MethodIncompatibility(
             f"gam: s({var}, k={k}) needs k >= {_DEGREE + 2} basis functions.",
@@ -97,15 +117,27 @@ def _make_smooth(var: str, x: np.ndarray, k: int, by: Optional[str] = None) -> _
     raw = np.asarray(
         BSpline(knots, np.eye(k), _DEGREE, extrapolate=True)(x), dtype=float
     )
-    if by is not None:
+    if by is not None and level is None:
         # a curve that multiplies another column carries its own level
         # (the coefficient on that column), so nothing is removed
         return _Smooth(var=var, k=k, knots=knots, Q=np.eye(k), penalty=S, root=D, by=by)
-    # sum-to-zero over the sample: f is identified apart from the intercept
+    # sum-to-zero over the sample: f is identified apart from the intercept.
+    # A curve for one level of a factor is centred the same way, over all
+    # rows and not only its own (mgcv's convention; the factor's own
+    # coefficients absorb the difference, the fit is the same either way).
     c = raw.sum(axis=0)[:, None]
     Qfull, _ = np.linalg.qr(c, mode="complete")
     Q = Qfull[:, 1:]
-    return _Smooth(var=var, k=k, knots=knots, Q=Q, penalty=Q.T @ S @ Q, root=D @ Q)
+    return _Smooth(
+        var=var,
+        k=k,
+        knots=knots,
+        Q=Q,
+        penalty=Q.T @ S @ Q,
+        root=D @ Q,
+        by=by,
+        level=level,
+    )
 
 
 def _split_terms(rhs: str) -> List[str]:
@@ -261,10 +293,7 @@ class GAMResult(ResultProtocolMixin):
                 recovery_hint="Drop or fill them before predicting.",
             )
         blocks = [P] + [
-            sm.design(
-                data[sm.var].to_numpy(dtype=float),
-                None if sm.by is None else data[sm.by].to_numpy(dtype=float),
-            )
+            sm.design(data[sm.var].to_numpy(dtype=float), sm.multiplier(data))
             for sm in self._smooths
         ]
         return np.column_stack(blocks)
@@ -537,6 +566,12 @@ def gam(
     centred (it contains the level shift), so ``d`` must not also enter
     linearly.
 
+    When ``by=`` names a column that is not numeric (strings, categories),
+    it is a factor and the term becomes one curve per level, each with its
+    own smoothing parameter, labelled ``s(x):g<level>``. These are centred
+    like any other smooth, so the factor itself belongs in the formula as
+    well: ``"y ~ C(g) + s(x, by=g)"``.
+
     ``lambda_`` multiplies the plain difference penalty ``D'D``. mgcv
     divides that matrix by a constant (``S.scale`` in its fitted object)
     before applying its ``sp``, so ``lambda_ = sp / S.scale`` reproduces a
@@ -599,6 +634,12 @@ def gam(
             [v for v, _, _ in smooth_specs] + [b for _, _, b in smooth_specs if b]
         )
     )
+    # a by= column that is not numeric is a factor: one curve per level
+    factor_by = {
+        b
+        for _, _, b in smooth_specs
+        if b and b in data.columns and not pd.api.types.is_numeric_dtype(data[b])
+    }
     missing = [v for v in names_s if v not in data.columns]
     if missing:
         raise MethodIncompatibility(
@@ -606,7 +647,7 @@ def gam(
             diagnostics={"missing": missing},
         )
     for v in names_s:
-        if not pd.api.types.is_numeric_dtype(data[v]):
+        if v not in factor_by and not pd.api.types.is_numeric_dtype(data[v]):
             raise MethodIncompatibility(
                 f"gam: {v} must be numeric to be smoothed or to multiply a " "smooth.",
                 recovery_hint=f"Enter {v} as C({v}), or code a by= variable " "as 0/1.",
@@ -641,17 +682,30 @@ def gam(
     smooths: List[_Smooth] = []
     blocks = [P]
     at = P.shape[1]
+    used = frame.loc[rows]
+    for b in sorted(factor_by):
+        if not any(re.search(rf"\b{re.escape(b)}\b", t) for t in linear):
+            warnings.warn(
+                f"gam: s(..., by={b}) fits one centred curve per level of "
+                f"{b}, so the levels' means are not in the model. Add "
+                f"C({b}) to the formula unless that is intended.",
+                UserWarning,
+                stacklevel=2,
+            )
     for var, kk, by_name in smooth_specs:
-        xv = frame.loc[rows, var].to_numpy(dtype=float)
-        sm = _make_smooth(var, xv, kk, by=by_name)
-        by_values = (
-            None if by_name is None else frame.loc[rows, by_name].to_numpy(dtype=float)
-        )
-        Z = sm.design(xv, by_values)
-        sm.cols = slice(at, at + Z.shape[1])
-        at += Z.shape[1]
-        smooths.append(sm)
-        blocks.append(Z)
+        xv = used[var].to_numpy(dtype=float)
+        if by_name in factor_by:
+            made = []
+            for lv in sorted(used[by_name].astype(str).unique()):
+                made.append(_make_smooth(var, xv, kk, by=by_name, level=lv))
+        else:
+            made = [_make_smooth(var, xv, kk, by=by_name)]
+        for sm in made:
+            Z = sm.design(xv, sm.multiplier(used))
+            sm.cols = slice(at, at + Z.shape[1])
+            at += Z.shape[1]
+            smooths.append(sm)
+            blocks.append(Z)
     M = np.column_stack(blocks)
     p = M.shape[1]
     if n <= p:

@@ -255,6 +255,12 @@ who uses this package.
   sandwich = TRUE)` is about 1% larger on the committed file; it applies
   a finite-sample adjustment that is neither HC2, HC3 nor `n / (n - edf)`,
   and it is not claimed as a reference.
+- **Done, a round later: `by=` with a factor.** A `by=` column that is
+  not numeric gives one curve per level, each with its own smoothing
+  parameter, labelled `s(x):g<level>`. mgcv centres each of them over the
+  whole sample, not over its own level; with that convention the
+  coefficients and curves match to 1e-9. `sp.gam` warns when the factor
+  itself is missing from the formula.
 - **Left: tensor-product and bivariate smooths.** The penalties of a
   tensor term overlap, so the REML determinant no longer splits by term;
   that is a second engine, and interactions between two continuous
@@ -266,14 +272,14 @@ who uses this package.
 ## Open items
 
 - **`sp.gam`**: no tensor products, bivariate smooths, thin plate basis or
-  random-effect terms; `by=` takes a numeric column, not a factor; bands
-  are pointwise; no test of whether a smooth is needed at all.
+  random-effect terms (left on purpose, see above); bands are pointwise;
+  no test of whether a smooth is needed at all.
 - **`sp.kaplan_meier`**: flip the default interval to `'log-log'` in 1.40.
 - **Zero-inflated `diagnostics`**: remove the deprecated keys in 1.41.
 
 ## Evidence
 
-- `tests/reference_parity/test_linear_model_extensions_parity.py`: 91
+- `tests/reference_parity/test_linear_model_extensions_parity.py`: 92
   tests on the committed synthetic file. R (`sandwich`, `MASS`, `leaps`,
   `gee`, `quantreg`, `survival`) to 1e-9 on closed forms and convex
   problems; Stata 18 (`xtgee`, `boxcox`, `stcox`, `sts`) to 1e-6, its own

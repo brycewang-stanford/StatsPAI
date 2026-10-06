@@ -10485,8 +10485,8 @@ def _build_registry() -> None:
                     True,
                     description="e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; "
                     "s(x) marks a smooth of one numeric column, s(x, by=d) a "
-                    "curve that multiplies column d (an effect of d varying "
-                    "with x)",
+                    "curve that multiplies numeric column d (an effect of d "
+                    "varying with x) or, for a factor d, one curve per level",
                 ),
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec(
