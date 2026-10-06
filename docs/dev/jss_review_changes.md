@@ -2555,3 +2555,16 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the FCI, mediation, hill-climbing and forest-tuning batch
+
+- **Commits.** `c2adac47` re-recorded the entries of Track A modules
+  03 08 11 13 15 24 25 26 27 36 53 65 66 70 71 in
+  `tests/r_parity/results/_implementation_trace.json` and of modules
+  04 04b 08 in `tests/orig_parity/results/_implementation_trace.json`.
+  The source that staled them is in `284c81a9`.
+- **Reason.** Four new functions (`hill_climb`, `bootstrap_edges`, `tune_causal_forest`, and the non-linear outcome models of `sp.mediate`), the completed `sp.fci`, and a higher cap on the MCP tool manifest; notes in `docs/dev/2026-10-06-das-causal-inference-in-r-review.md`. The feature commit is the one before the cited source commit. No parity script calls the changed estimation code.
+- **Effect on the paper.** None. No committed result file changed; in both trace files only source digests and `seconds` differ. The registry gains three entries.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
