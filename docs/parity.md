@@ -33,7 +33,7 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **No external software reference** | analytical-only (T1) | 374 |
 | | external-replication (published numbers) | 56 |
 | | **subtotal** | **430** |
-| No numerical evidence yet | unverified | 585 |
+| No numerical evidence yet | unverified | 589 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 475 | 889 | 893 | 53.2% |
+| estimator callables | 475 | 889 | 895 | 53.1% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 377 | 0.0% |
-| **all registered** | 475 | 905 | 1490 | 31.9% |
+| result / exception classes | 0 | 3 | 379 | 0.0% |
+| **all registered** | 475 | 905 | 1494 | 31.8% |
 
 ### Coverage by estimator family
 
@@ -54,7 +54,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | --- | ---: | ---: | ---: |
 | causal | 151 | 337 | 339 |
 | regression | 43 | 56 | 56 |
-| timeseries | 24 | 51 | 51 |
+| timeseries | 24 | 51 | 53 |
 | inference | 28 | 49 | 49 |
 | bayes | 8 | 38 | 38 |
 | diagnostics | 23 | 37 | 37 |
@@ -1030,6 +1030,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 585 functions
+## unverified — 589 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

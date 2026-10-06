@@ -13704,6 +13704,12 @@
       "tolerance": "coefficients and cluster SEs 1e-9 rel (observed 1.5e-13); Stata regress / logit [pw] 1e-7"
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_neusser_time_series.py"
+      ],
+      "also_verified_by": [
+        "external_parity"
+      ],
       "function": "mswitch",
       "notes": [
         "Frozen-Stata fixture: 18 models on a committed synthetic file. Three documented reference disagreements carry independent evidence in the test: Stata's predict after mswitch ar with switch(), Stata's three-state AR that does not converge, and statsmodels with switching variance at order two or more."

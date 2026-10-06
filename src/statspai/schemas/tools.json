@@ -14055,9 +14055,27 @@
           "type": "string"
         },
         "in_mean": {
-          "default": false,
-          "description": "Let the conditional variance enter the mean: ``y_t = mu + archm sigma2_t + u_t`` (ARCH in mean; Stata's ``archm``). A positive ``archm`` is a risk premium. Works with every ``model``, with ``ar=`` and with ``dist='t'``.",
-          "type": "boolean"
+          "description": "Let the conditional variance enter the mean: ``y_t = mu + archm g(sigma2_t) + u_t`` (ARCH in mean; Stata's ``archm``). ``True`` or ``'variance'``: ``g`` is the identity; ``'sd'``: the conditional standard deviation (Stata ``archmexp(sqrt(X))``); ``'log'``: the log variance (``archmexp(ln(X))``). A positive ``archm`` is a risk premium. Works with every ``model``, with ``ar=`` and with ``dist='t'``. Default: False.",
+          "enum": [
+            "variance",
+            "sd",
+            "log"
+          ],
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "in_mean_lags": {
+          "default": 0,
+          "description": "Which variances enter the mean: ``0`` the current one, ``[0, 1]`` the current one and its first lag (Stata ``archm archmlags(1)``), ``[1]`` the first lag alone (``archmlags(1)`` without ``archm``). The coefficients are named ``archm`` and ``archm[L1]``, ...",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "mean": {
           "default": true,
@@ -18062,7 +18080,7 @@
           "type": "integer"
         },
         "diffuse": {
-          "description": "One flag per state: exactly diffuse initial condition",
+          "description": "One flag per state: exactly diffuse initial condition; or the matrix P0_inf",
           "items": {
             "type": "string"
           },
@@ -21970,6 +21988,13 @@
           "description": "Seed of the random starting values.",
           "type": "integer"
         },
+        "start_params": {
+          "description": "Extra starting vectors, in the order and scale of result.theta, tried after the built-in ones",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "starts": {
           "default": 5,
           "description": "Starting values tried",
@@ -22030,6 +22055,117 @@
       "type": "object"
     },
     "name": "mswitch"
+  },
+  {
+    "description": "Parametric-bootstrap likelihood-ratio test of the number of regimes in a Markov-switching regression: k0 regimes against k. The chi-squared reference does not apply (the transition probabilities are not identified under the null), so the null distribution is simulated from the fitted null model, with the same search for the maximum on every simulated series. Do NOT use when: switch_variance=True: the likelihood is unbounded and the statistic depends on the variance floor. Cost: About 0.5 to 1.5 s per replicate; n_jobs spreads them Assumptions: Gaussian errors under the null (the simulated series use them). Failure modes: Many replicates with several distinct maxima -> Counted in result.diagnostics; the size of the test does not depend on finding the global maximum because the same search is used throughout, the power does. Raise starts=. Alternatives: sp.mswitch, sp.structural_break, sp.bds.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of ``reject``.",
+          "type": "number"
+        },
+        "ar": {
+          "default": 0,
+          "description": "The model, as in :func:`mswitch`.",
+          "type": "integer"
+        },
+        "constant": {
+          "default": true,
+          "description": "The model, as in :func:`mswitch`.",
+          "type": "boolean"
+        },
+        "maxiter": {
+          "default": 500,
+          "description": "As in :func:`mswitch`.",
+          "type": "integer"
+        },
+        "method": {
+          "default": "bootstrap",
+          "description": "The only reference distribution offered.",
+          "enum": [
+            "bootstrap"
+          ],
+          "type": "string"
+        },
+        "model": {
+          "default": "dr",
+          "description": "The model, as in :func:`mswitch`.",
+          "enum": [
+            "dr",
+            "ar"
+          ],
+          "type": "string"
+        },
+        "n_jobs": {
+          "default": 1,
+          "description": "Worker processes",
+          "type": "integer"
+        },
+        "null_states": {
+          "description": "Regimes under the null (default states - 1)",
+          "type": "integer"
+        },
+        "reps": {
+          "default": 199,
+          "description": "Bootstrap replications",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Seed of the simulations and of the starting values. The result does not depend on ``n_jobs``.",
+          "type": "integer"
+        },
+        "starts": {
+          "default": 10,
+          "description": "Starting values per fit",
+          "type": "integer"
+        },
+        "states": {
+          "default": 2,
+          "description": "Regimes under the alternative",
+          "type": "integer"
+        },
+        "switch": {
+          "description": "The model, as in :func:`mswitch`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "switch_ar": {
+          "default": false,
+          "description": "The model, as in :func:`mswitch`.",
+          "type": "boolean"
+        },
+        "switch_variance": {
+          "default": false,
+          "description": "The model, as in :func:`mswitch`.",
+          "type": "boolean"
+        },
+        "tol": {
+          "default": 1e-09,
+          "description": "As in :func:`mswitch`.",
+          "type": "number"
+        },
+        "x": {
+          "description": "The model, as in :func:`mswitch`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "mswitch_lrtest"
   },
   {
     "description": "Multi-arm causal forest (grf::multi_arm_causal_forest): CATEs of K-1 arms against a reference, estimated jointly by one forest whose trees split on the gradient of all contrasts (multi-arm R-learner with GRF weights). Propensities from a probability forest, doubly-robust per-arm ATEs, BLPs per contrast. Operators match grf to 1e-13 (T2); forest statistics are screened against grf on known-truth designs (a stochastic screen, not a seed-replicated equivalence test). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: unconfoundedness given X; overlap for every arm. Pre-conditions: every arm observed; propensities bounded away from zero. Failure modes: DataInsufficient: need at least two treatment arms -> Pass a treatment with two or more values; UserWarning: smallest estimated arm propensity -> Poor overlap: pass propensity_bounds= or trim. Alternatives: sp.causal_forest, sp.multi_treatment, sp.metalearner. Typical minimum N: 1000.",
@@ -38353,6 +38489,111 @@
       "type": "object"
     },
     "name": "tvp_var"
+  },
+  {
+    "description": "Time-varying-parameter VAR with stochastic volatility (Primiceri): coefficients, the contemporaneous relations and the log volatilities of the shocks all follow random walks. Gibbs sampler with the corrected ordering of the mixture indicators. Posterior medians and bands of the coefficient, volatility and covariance paths, impulse responses at chosen dates, share of explosive draws, convergence diagnostics. Do NOT use when: Short samples: the training sample is removed and the prior then matters a great deal. Cost: About 5 ms per sweep at K=3, p=2, T=160; numba kernels compile on first use Assumptions: Random-walk coefficients, covariances and log volatilities; Recursive ordering of the variables for the structural shocks. Failure modes: Coefficient paths that barely move when the data suggest drift -> The default k_Q = 0.01 is a tight prior on drift; raise it and report the sensitivity; A prior shock variance near the offset -> Rescale the series (for example to percent) or lower offset=. Alternatives: sp.tvp_var, sp.bvar, sp.stochvol, sp.var.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Bands are equal-tailed with pointwise coverage ``1 - alpha``.",
+          "type": "number"
+        },
+        "burnin": {
+          "default": 2000,
+          "description": "burnin parameter (int).",
+          "type": "integer"
+        },
+        "draws": {
+          "default": 5000,
+          "description": "Draws kept",
+          "type": "integer"
+        },
+        "k_A": {
+          "default": 4.0,
+          "description": "Prior variance of the states at the first date, as multiples of the least-squares covariance (coefficients, covariance states) or of the identity (log volatilities). Used with ``training`` only.",
+          "type": "number"
+        },
+        "k_B": {
+          "default": 4.0,
+          "description": "Prior variance of the states at the first date, as multiples of the least-squares covariance (coefficients, covariance states) or of the identity (log volatilities). Used with ``training`` only.",
+          "type": "number"
+        },
+        "k_Q": {
+          "default": 0.01,
+          "description": "Prior drift of coefficients",
+          "type": "number"
+        },
+        "k_S": {
+          "default": 0.1,
+          "description": "Prior drift of covariances",
+          "type": "number"
+        },
+        "k_W": {
+          "default": 0.01,
+          "description": "Prior drift of volatilities",
+          "type": "number"
+        },
+        "k_sig": {
+          "default": 1.0,
+          "description": "Prior variance of the states at the first date, as multiples of the least-squares covariance (coefficients, covariance states) or of the identity (log volatilities). Used with ``training`` only.",
+          "type": "number"
+        },
+        "lags": {
+          "default": 1,
+          "description": "lags parameter (int).",
+          "type": "integer"
+        },
+        "max_tries": {
+          "default": 100,
+          "description": "max_tries parameter (int).",
+          "type": "integer"
+        },
+        "offset": {
+          "default": 0.001,
+          "description": "Added before the log",
+          "type": "number"
+        },
+        "prior": {
+          "description": "Override prior elements",
+          "type": "object"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "stationary": {
+          "default": false,
+          "description": "Reject explosive coefficient paths",
+          "type": "boolean"
+        },
+        "thin": {
+          "default": 1,
+          "description": "Keep every ``thin``-th sweep.",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Column to sort and label by",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "training": {
+          "default": 40,
+          "description": "Initial observations that calibrate the prior and are then dropped; None for a simple prior",
+          "type": "integer"
+        },
+        "variables": {
+          "description": "In recursive order",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "tvp_var_sv"
   },
   {
     "description": "TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin-D'Haultfoeuille weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Conditional parallel trends between treated and comparison groups absent treatment; No anticipation of treatment before its onset; Treatment effects may be heterogeneous across cohorts and time (no homogeneity required). Pre-conditions: Panel or repeated cross-section with a unit (or group) identifier and a time identifier; At least one never-treated or not-yet-treated comparison group; Pre-treatment periods to assess parallel trends. Failure modes: Pre-treatment event-study coefficients are jointly non-zero (pre-trend violation) -> Use honest DiD bounds to quantify robustness to trend violations, or condition on covariates; Two-way fixed-effects estimate is contaminated by 'forbidden' comparisons / negative weights -> Use a heterogeneity-robust estimator (Callaway-Sant'Anna, Borusyak et al., Gardner two-stage). Alternatives: sp.callaway_santanna, sp.did, sp.honest_did. Typical minimum N: 100.",
