@@ -3715,6 +3715,11 @@
           ],
           "type": "string"
         },
+        "strata": {
+          "description": "With method='stratify': column holding the stratum of each row (the blocks of sp.pscore; Stata atts)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "tie_tolerance": {
           "default": 0.0,
           "description": "With ties='all', how close squared distances (scaled by the variance of the distance measure) must be to count as tied. 1e-5 reproduces Matching::Match's distance.tolerance default.",

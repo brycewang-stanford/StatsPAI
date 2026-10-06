@@ -2949,3 +2949,24 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces of modules 11 and 43 re-recorded after the second round on Qiu Jiaping's textbook
+
+- **Commits.** `b3e40777` changed two files on a Track A estimation path:
+  `src/statspai/matching/match.py` (the stratification estimator takes its
+  strata from a column on request) and `src/statspai/regression/heckman.py`
+  (a two-step rho outside [-1, 1] is truncated; the selection equation is
+  returned). The commit after it re-recorded the entries of modules 11 and
+  43 in `tests/r_parity/results/_implementation_trace.json` and the 12
+  modules of `tests/orig_parity/results/_implementation_trace.json`.
+- **Reason.** The second round recorded in
+  `docs/dev/2026-10-06-qiu-jiaping-review.md`.
+- **Effect on the paper.** None. `11_psm_py.json` and `43_heckman_py.json`
+  reproduce byte for byte (module 43's rho is inside the interval, so the
+  truncation does not apply; module 11 does not stratify), and so do the
+  original-data modules 04 and 04b. In both trace files only
+  `exercised_sources` digests and `seconds` differ. No function was added,
+  so the registry census does not move with this commit.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
