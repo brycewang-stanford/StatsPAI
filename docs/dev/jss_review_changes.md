@@ -2665,3 +2665,27 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after `sp.mprobit`, `sp.series` and the chapter 26 translations (Hansen)
+
+- **Commits.** `b485e277` re-recorded the entries of Track A modules
+  03 13 15 24 25 26 27 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and rewrote
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `29a44c6d`. The exercised files whose digests moved:
+  `src/statspai/__init__.py`.
+- **Reason.** Audit in `docs/dev/2026-10-05-hansen-econometrics-review.md`
+  (findings 20 to 26). New functions in new files (`sp.mprobit`,
+  `sp.series`), new arguments with unchanged defaults (`sp.nlogit`,
+  `sp.xthtaylor`), a rotation method on the factor result, the covariance
+  matrix kept by `sp.mixlogit`, and translator additions. In
+  `postestimation/hypothesis.py` one pattern now also reads the name of a
+  factor level nested in another (`C(t)[3]`), which matters only to
+  `testparm` on a product of factors.
+- **Effect on the paper.** None. No committed result file changed. In both
+  trace files only `exercised_sources` digests and `seconds` differ
+  (lines that are neither: 0); no implementation classification
+  moved. The registry gains two entries (`mprobit`, `series`).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
