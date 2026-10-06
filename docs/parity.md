@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 410 |
+| **Compared against R/Stata** (T2) | bit-exact | 411 |
 | | aligned | 52 |
-| | **subtotal** | **462** |
-| **No external software reference** | analytical-only (T1) | 346 |
+| | **subtotal** | **463** |
+| **No external software reference** | analytical-only (T1) | 347 |
 | | external-replication (published numbers) | 54 |
-| | **subtotal** | **400** |
+| | **subtotal** | **401** |
 | No numerical evidence yet | unverified | 567 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 462 | 846 | 854 | 54.1% |
+| estimator callables | 463 | 848 | 856 | 54.1% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 355 | 0.0% |
-| **all registered** | 462 | 862 | 1429 | 32.3% |
+| **all registered** | 463 | 864 | 1431 | 32.4% |
 
 ### Coverage by estimator family
 
@@ -72,6 +72,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | survival | 8 | 9 | 9 |
 | frontier | 5 | 9 | 9 |
 | nonparametric | 2 | 8 | 8 |
+| causal_discovery | 2 | 7 | 7 |
 | postestimation | 6 | 7 | 7 |
 | experimental | 3 | 6 | 7 |
 | survey | 6 | 6 | 6 |
@@ -80,7 +81,6 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | interference | 0 | 6 | 6 |
 | fairness | 0 | 6 | 6 |
 | neural_causal | 0 | 5 | 5 |
-| causal_discovery | 1 | 5 | 5 |
 | longitudinal | 0 | 5 | 5 |
 | bartik | 4 | 4 | 4 |
 | other | 2 | 4 | 4 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 410 functions
+## bit-exact — 411 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -327,6 +327,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `mixed` | lme4::lmer | R 4.5.2; lme4 2.0.1 | rel_est<=1e-06, rel_se<=1e-06 | 2.6e-12 / 8.3e-11 | [`25_lmm.py`](../tests/r_parity/25_lmm.py) (+2) |
 | `mixlogit` | Stata mixlogit 1.4.0 (SSC, Hole), nrep(50) burn(15), on identical Halton draws | Stata 18 MP; mixlogit 1.4.0 | means / SDs / Sigma / SEs rtol 1e-6 (observed <= 2.2e-7), log-likelihood rtol 1e-10 (observed 5e-13) | — / — | [`test_panel_mixlogit_parity.py`](../tests/reference_parity/test_panel_mixlogit_parity.py) |
 | `mlogit` | nnet::multinom | R 4.5.2; nnet 7.3.20 | rel_est<=1e-06, rel_se<=5e-05 | 2.6e-07 / 1.5e-11 | [`44_mlogit.py`](../tests/r_parity/44_mlogit.py) (+2) |
+| `mmpc` | R bnlearn::mmpc and si.hiton.pc (tests "cor" / "mi", alpha 0.05) | R 4.5.2; bnlearn 5.2.1 | exact: the skeleton is a set of edges | — / — | [`test_mmhc_bnlearn_parity.py`](../tests/reference_parity/test_mmhc_bnlearn_parity.py) (+1) |
 | `moran` | R spdep::moran.test (randomisation null) | spdep 1.4.2; spatialreg 1.4.3 | I 1.9e-15, expectation, variance and z all at 1e-15 on the row-standardised lattice. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `moran_local` | R spdep::localmoran | spdep 1.4.2; spatialreg 1.4.3 | Every Ii at 8.1e-15. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `moran_residuals` | R spdep::lm.morantest | spdep 1.4.2; spatialreg 1.4.3 | Statistic 5e-16; the p-value at 1e-7 once X is supplied so the Cliff-Ord regression-residual null can be formed. Both spdep alternatives are recorded because lm.morantest defaults to one-sided. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
@@ -634,7 +635,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 346 functions
+## analytical-only — 347 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -828,6 +829,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `mi_test` | [`test_mi_test_parity.py`](../tests/reference_parity/test_mi_test_parity.py) |
 | `mice` | [`test_imputation_parity.py`](../tests/reference_parity/test_imputation_parity.py) (+1) |
 | `ml_bounds` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
+| `mmhc` | [`test_mmhc_bnlearn_parity.py`](../tests/reference_parity/test_mmhc_bnlearn_parity.py) |
 | `model_average` | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) |
 | `mr_clust` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `mr_lap` | [`test_mr_lap_parity.py`](../tests/reference_parity/test_mr_lap_parity.py) |

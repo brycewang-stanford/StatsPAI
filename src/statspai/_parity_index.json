@@ -8651,6 +8651,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_mmhc_bnlearn_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -12525,6 +12528,48 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+    },
+    {
+      "function": "mmhc",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_mmhc_bnlearn_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "mmpc",
+      "notes": [
+        "Frozen-R fixture: on 24 simulated data sets (five to eight variables, Gaussian and categorical, 500 to 3,000 rows) the skeletons of both local searches equal bnlearn's. The hybrid sp.mmhc is not a parity row: both searches stop at a local optimum, and the test asserts only that the BIC is never below bnlearn's (equal on 18, higher on 6). Regenerate via _generate_mmhc_data.py and _generate_mmhc_bnlearn.R."
+      ],
+      "reference": "R bnlearn::mmpc and si.hiton.pc (tests \"cor\" / \"mi\", alpha 0.05)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "bnlearn": "5.2.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_mmhc_bnlearn_parity.py",
+        "tests/reference_parity/_fixtures/mmhc_bnlearn_R.json"
+      ],
+      "tolerance": "exact: the skeleton is a set of edges"
     },
     {
       "function": "model_average",

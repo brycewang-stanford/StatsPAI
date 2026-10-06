@@ -135,6 +135,8 @@ from .causal_discovery.lingam import LiNGAMResult as LiNGAMResult
 from .causal_discovery.lingam import lingam as lingam
 from .causal_discovery.lpcmci import LPCMCIResult as LPCMCIResult
 from .causal_discovery.lpcmci import lpcmci as lpcmci
+from .causal_discovery.mmhc import mmhc as mmhc
+from .causal_discovery.mmhc import mmpc as mmpc
 from .causal_discovery.notears import NOTEARS as NOTEARS
 from .causal_discovery.notears import notears as notears
 from .causal_discovery.pc import PCAlgorithm as PCAlgorithm

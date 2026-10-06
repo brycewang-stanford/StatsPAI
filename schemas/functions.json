@@ -7005,6 +7005,110 @@
     }
   },
   {
+    "description": "Local structure learning: the parents and children of every variable, by max-min parents and children (MMPC) or semi-interleaved HITON-PC. Each variable keeps the others that no subset of its candidate neighbours separates from it; an edge stays if both ends agree. Returns an undirected skeleton. Needs only small conditioning sets, so it scales to many variables. R bnlearn::mmpc / si.hiton.pc. Validation: certified parity evidence.",
+    "name": "mmpc",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the tests",
+          "type": "number"
+        },
+        "data": {
+          "description": "Data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "data_type": {
+          "default": "auto",
+          "description": "Categorical (likelihood-ratio test) or continuous (partial-correlation t test); 'auto' refuses a mixture",
+          "enum": [
+            "auto",
+            "discrete",
+            "gaussian"
+          ],
+          "type": "string"
+        },
+        "max_cond": {
+          "description": "Largest conditioning set",
+          "type": "integer"
+        },
+        "method": {
+          "default": "mmpc",
+          "description": "Max-min heuristic, or semi-interleaved HITON-PC",
+          "enum": [
+            "mmpc",
+            "hiton"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Columns to use",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Hybrid structure learning: max-min hill climbing. Tests first find the pairs of variables no conditioning set separates (sp.mmpc), then greedy hill climbing on the BIC orients and prunes arcs among those pairs only. Faster than an unrestricted score search and free of the arcs it adds between variables related only through others. R bnlearn::mmhc / rsmax2. Returns the DAG, its CPDAG, the score and the candidate edges. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "mmhc",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the tests",
+          "type": "number"
+        },
+        "data": {
+          "description": "Data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "data_type": {
+          "default": "auto",
+          "description": "Treat columns as categorical or continuous",
+          "enum": [
+            "auto",
+            "discrete",
+            "gaussian"
+          ],
+          "type": "string"
+        },
+        "max_cond": {
+          "description": "Largest conditioning set",
+          "type": "integer"
+        },
+        "restrict": {
+          "default": "mmpc",
+          "description": "Local search that proposes the candidate edges",
+          "enum": [
+            "mmpc",
+            "hiton"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "Columns to use",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Stability of a learned graph: refit a structure-learning algorithm (pc, hill_climb, ges, fci, lingam, notears or a callable) on bootstrap resamples and report, for each pair of variables, the share of resamples in which they are adjacent (strength) and the share in which the arc points each way (direction). R bnlearn::boot.strength. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bootstrap_edges",
     "parameters": {
@@ -7020,6 +7124,7 @@
           "enum": [
             "pc",
             "hill_climb",
+            "mmhc",
             "ges",
             "fci",
             "lingam",
