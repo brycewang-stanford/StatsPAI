@@ -458,6 +458,10 @@
           "description": "Cross-fitting folds (>= 2)",
           "type": "integer"
         },
+        "propensity": {
+          "description": "Known treatment probability: one number, or a column of per-unit design probabilities (randomised trials). No propensity model is fitted and nothing is clipped. Not with se_method='sandwich'.",
+          "type": "number"
+        },
         "se_method": {
           "default": "influence",
           "description": "``'influence'`` reports ``sd(psi) / sqrt(n)`` from the estimated efficient influence function, treating the nuisance fits as known (the cross-fitting / DML convention; R ``AIPW`` reports the same quantity). ``'sandwich'`` stacks the logit score, the two OLS normal equations and the AIPW moment and reports the M-estimation sandwich (divisor ``n``), which accounts for the estimated nuisance parameters at finite ``n``.",
@@ -4202,6 +4206,56 @@
       "type": "object"
     },
     "name": "causal_forest"
+  },
+  {
+    "description": "Critical causal gap: the smallest difference between the statistical estimand and the causal one at which the confidence interval reaches the null (or a threshold of practical interest). Needs only an estimate and its interval; makes no assumption about where the gap comes from. Difference or ratio scale; also returns the curve of the implied causal estimate over hypothetical gaps. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A specific violation can be parametrised (an unmeasured confounder of stated strength): the dedicated tools then say more. Assumptions: The interval is valid for the statistical estimand; A gap moves the centre of the interval and not its width. Failure modes: critical_gap is 0 (1 on the ratio scale) -> The interval already covers the null; there is no conclusion for a gap to overturn. Alternatives: sp.evalue, sp.sensemakr, sp.confounder_tip, sp.manski_bounds.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the interval built from se",
+          "type": "number"
+        },
+        "ci": {
+          "description": "Confidence interval for the statistical estimand; takes precedence over se",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "estimate": {
+          "description": "Point estimate, or a fitted result with scalar .estimate and .ci",
+          "type": "number"
+        },
+        "n_grid": {
+          "default": 101,
+          "description": "Number of hypothetical gaps in .attrs['curve']",
+          "type": "integer"
+        },
+        "null": {
+          "description": "Value(s) the interval must stay clear of: the null (default 0, or 1 on the ratio scale) or the smallest effect of practical interest",
+          "type": "number"
+        },
+        "scale": {
+          "default": "difference",
+          "description": "Whether a gap shifts the estimate or divides it",
+          "enum": [
+            "difference",
+            "ratio"
+          ],
+          "type": "string"
+        },
+        "se": {
+          "description": "Standard error (of the log estimate on scale='ratio'); not needed with ci",
+          "type": "number"
+        }
+      },
+      "required": [
+        "estimate"
+      ],
+      "type": "object"
+    },
+    "name": "causal_gap"
   },
   {
     "description": "Causal impact of an intervention on a time series: pre-period OLS on the covariate series with an AR(1) latent state (Kalman filter), post-period counterfactual forecasts and frequentist prediction intervals for pointwise, average and cumulative effects. Not the Bayesian structural time-series model of R CausalImpact. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: No simultaneous shocks affect treated and control series differently at intervention; Pre-period relationship extrapolates into the post-period absent treatment. Pre-conditions: Observed time series has a clearly defined intervention date; Pre-intervention period is long enough to fit the counterfactual model. Failure modes: Poor pre-period fit or unstable posterior predictive interval -> Add controls, lengthen the pre-period, or use synthetic control as a robustness check. Alternatives: sp.synth, sp.sequential_sdid, sp.local_projections. Typical minimum N: 30.",
@@ -37796,9 +37850,13 @@
     "name": "tighten_blocks"
   },
   {
-    "description": "Targeted Maximum Likelihood Estimation for ATE/ATT with double-robustness. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1 on the estimand support; Consistent estimation of at least one of Q(a, x) = E[Y|A, X] or g(x) = P(A=1|X) (double robustness). Pre-conditions: binary treatment 0/1; covariates comprise the confounding set; n >= 500 for asymptotic efficiency. Failure modes: Extreme propensity scores (ATE IF denominator ~ 0) -> Bound propensity scores away from 0/1 (e.g. 0.025 / 0.975) or trim; Super-learner cross-validated risk not improving over baseline -> Nuisances not learnable; widen the candidate library or use stronger base learners. Alternatives: sp.dml, sp.aipw, sp.metalearner, sp.ltmle. Typical minimum N: 500.",
+    "description": "Targeted Maximum Likelihood Estimation with Super Learner: ATE, ATT / ATC, treatment-specific means, and the marginal risk ratio and odds ratio, each with influence-function inference. Equals R tmle for the means and their contrasts. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1 on the estimand support; Consistent estimation of at least one of Q(a, x) = E[Y|A, X] or g(x) = P(A=1|X) (double robustness). Pre-conditions: binary treatment 0/1; covariates comprise the confounding set; n >= 500 for asymptotic efficiency. Failure modes: Extreme propensity scores (ATE IF denominator ~ 0) -> Bound propensity scores away from 0/1 (e.g. 0.025 / 0.975) or trim; Super-learner cross-validated risk not improving over baseline -> Nuisances not learnable; widen the candidate library or use stronger base learners. Alternatives: sp.dml, sp.aipw, sp.metalearner, sp.ltmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
+        "Q": {
+          "description": "Initial outcome predictions, shape (n, 2) = [Q(0,W), Q(1,W)] on the outcome scale, replacing the Super Learner.",
+          "type": "string"
+        },
         "cluster": {
           "description": "Cluster column: influence function summed within clusters with G/(G-1) (R tmle id= for equal cluster sizes).",
           "type": "string",
@@ -37817,16 +37875,33 @@
         },
         "estimand": {
           "default": "ATE",
-          "description": "Target estimand",
+          "description": "ATE; ATT / ATC (effect among the treated / the controls); EY1 / EY0 (treatment-specific means); RR (marginal risk ratio, non-negative outcome); OR (marginal odds ratio, outcome in [0, 1]). Case-insensitive; any other value raises. For EY1 / EY0 / RR / OR result.detail lists every parameter and the ratio intervals are built on the log scale.",
           "enum": [
             "ATE",
-            "ATT"
+            "ATT",
+            "ATC",
+            "EY1",
+            "EY0",
+            "RR",
+            "OR"
+          ],
+          "type": "string"
+        },
+        "fluctuation": {
+          "description": "'single' (default for ATE): one clever covariate. 'per_arm' (R tmle's submodel; default and required for EY1 / EY0 / RR / OR): one per arm, fills result.detail (except for ATT / ATC).",
+          "enum": [
+            "single",
+            "per_arm"
           ],
           "type": "string"
         },
         "fold_indices": {
           "description": "Opt-in CV-TMLE: one integer label 0..K-1 (K >= 2) per row of data. Q and g are then Super Learners fitted outside each fold and predicted inside it; the fluctuation is fitted on the pooled out-of-fold predictions and the SE is the EIF at the targeted fits. The default (None) fits both nuisances on the full sample (not cross-fitted). Not combinable with Q / g1W.",
           "type": "string"
+        },
+        "g1W": {
+          "description": "Propensity P(A=1|W) replacing the Super Learner; one number is a known randomisation probability.",
+          "type": "number"
         },
         "q_bound": {
           "default": 1e-05,

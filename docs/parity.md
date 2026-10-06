@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 423 |
 | | aligned | 52 |
 | | **subtotal** | **475** |
-| **No external software reference** | analytical-only (T1) | 374 |
+| **No external software reference** | analytical-only (T1) | 375 |
 | | external-replication (published numbers) | 56 |
-| | **subtotal** | **430** |
+| | **subtotal** | **431** |
 | No numerical evidence yet | unverified | 589 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 475 | 889 | 895 | 53.1% |
+| estimator callables | 475 | 890 | 896 | 53.0% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 379 | 0.0% |
-| **all registered** | 475 | 905 | 1494 | 31.8% |
+| **all registered** | 475 | 906 | 1495 | 31.8% |
 
 ### Coverage by estimator family
 
@@ -56,8 +56,8 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | regression | 43 | 56 | 56 |
 | timeseries | 24 | 51 | 53 |
 | inference | 28 | 49 | 49 |
+| diagnostics | 23 | 38 | 38 |
 | bayes | 8 | 38 | 38 |
-| diagnostics | 23 | 37 | 37 |
 | panel | 28 | 34 | 34 |
 | spatial | 28 | 33 | 33 |
 | decomposition | 20 | 24 | 24 |
@@ -649,7 +649,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 374 functions
+## analytical-only — 375 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -714,6 +714,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `causal_bandit` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `causal_discovery` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `causal_dqn` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
+| `causal_gap` | [`test_causal_gap_known_values.py`](../tests/reference_parity/test_causal_gap_known_values.py) |
 | `causal_impact` | [`test_did_synth_misc_parity.py`](../tests/reference_parity/test_did_synth_misc_parity.py) |
 | `causal_kalman` | [`test_assimilation_parity.py`](../tests/reference_parity/test_assimilation_parity.py) |
 | `causal_policy_forest` | [`test_ope_parity.py`](../tests/reference_parity/test_ope_parity.py) |

@@ -25,7 +25,7 @@ Hansen, C., Newey, W. and Robins, J. (2018).
 """
 
 import warnings
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -53,6 +53,7 @@ def aipw(
     se_method: str = "influence",
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
+    propensity: Optional[Union[float, str]] = None,
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -124,6 +125,18 @@ def aipw(
     cluster : str, optional
         Column identifying clusters. Standard errors sum the influence
         function within clusters (Stata ``vce(cluster c)``).
+    propensity : float or str, optional
+        Known probability of treatment: one number (a trial randomised
+        with that probability) or the name of a column holding each
+        unit's design probability (stratified or covariate-adaptive
+        randomisation). No propensity model is fitted and nothing is
+        clipped; only the outcome regressions are estimated. Knowing the
+        treatment mechanism does not change the efficiency bound of the
+        ATE, so the estimator has the same influence function as with an
+        estimated propensity, but it is then consistent whatever the
+        outcome regressions are, and the influence-function standard
+        error needs no correction for a first-stage propensity fit. Not
+        combinable with ``se_method='sandwich'``.
 
     Returns
     -------
@@ -192,9 +205,17 @@ def aipw(
             "cross_fit=False and estimand='ATE'.",
             recovery_hint="Use se_method='influence'.",
         )
+    if propensity is not None and se_method == "sandwich":
+        raise MethodIncompatibility(
+            "aipw: se_method='sandwich' stacks the score of a fitted "
+            "propensity logit; with a known propensity there is none.",
+            recovery_hint="Use se_method='influence'.",
+        )
     rng = np.random.default_rng(seed)
 
     extra = [c for c in (weights, cluster) if c is not None]
+    if isinstance(propensity, str):
+        extra.append(propensity)
     missing_cols = [c for c in [y, treat] + list(covariates) + extra if c not in data]
     if missing_cols:
         raise MethodIncompatibility(
@@ -229,6 +250,20 @@ def aipw(
                 "aipw: cluster= needs at least two clusters.",
                 diagnostics={"cluster": cluster},
             )
+    e_known: Optional[np.ndarray] = None
+    if propensity is not None:
+        if isinstance(propensity, str):
+            e_known = df[propensity].to_numpy(dtype=float)
+        else:
+            e_known = np.full(n, float(propensity))
+        if not np.all(np.isfinite(e_known)) or np.any((e_known <= 0) | (e_known >= 1)):
+            raise MethodIncompatibility(
+                "aipw: a known propensity must lie strictly between 0 and 1.",
+                diagnostics={
+                    "min": float(np.nanmin(e_known)),
+                    "max": float(np.nanmax(e_known)),
+                },
+            )
     design_based = omega is not None or groups is not None
     om = np.ones(n) if omega is None else omega
 
@@ -249,8 +284,9 @@ def aipw(
         X_te = X[test_mask]
         w_tr = None if omega is None else omega[train_mask]
 
-        # Propensity score (logistic regression)
-        e_hat[test_mask] = _fit_propensity(X_tr, D_tr, X_te, w_tr)
+        # Propensity score (logistic regression), unless it is known
+        if e_known is None:
+            e_hat[test_mask] = _fit_propensity(X_tr, D_tr, X_te, w_tr)
 
         # Outcome regressions (OLS on treated and control separately)
         t1, t0 = D_tr == 1, D_tr == 0
@@ -261,9 +297,13 @@ def aipw(
             X_tr[t0], Y_tr[t0], X_te, None if w_tr is None else w_tr[t0]
         )
 
-    # Clip propensity scores
-    n_clipped = int(np.sum((e_hat < 0.01) | (e_hat > 0.99)))
-    np.clip(e_hat, 0.01, 0.99, out=e_hat)
+    # Clip propensity scores (a design probability is used as given)
+    if e_known is not None:
+        e_hat = e_known
+        n_clipped = 0
+    else:
+        n_clipped = int(np.sum((e_hat < 0.01) | (e_hat > 0.99)))
+        np.clip(e_hat, 0.01, 0.99, out=e_hat)
 
     def _se_of(u: np.ndarray) -> float:
         """SE of a mean from its (already weight-scaled) influence rows.
@@ -357,6 +397,7 @@ def aipw(
         "potential_outcome_means_se": po_means_se,
         "weights": weights,
         "cluster": cluster,
+        "propensity": "known" if e_known is not None else "logit",
         "n_clusters": None if groups is None else int(groups.max() + 1),
         # Provenance for the cross-fitting split: None means the caller
         # explicitly opted into a fresh entropy-seeded split, so this
@@ -394,6 +435,7 @@ def aipw(
                 "se_method": se_method,
                 "weights": weights,
                 "cluster": cluster,
+                "propensity": propensity,
             },
             data=data,
             overwrite=False,

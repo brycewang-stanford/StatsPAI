@@ -8312,7 +8312,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Targeted Maximum Likelihood Estimation for ATE/ATT with double-robustness. Validation: certified parity evidence.",
+    "description": "Targeted Maximum Likelihood Estimation with Super Learner: ATE, ATT / ATC, treatment-specific means, and the marginal risk ratio and odds ratio, each with influence-function inference. Equals R tmle for the means and their contrasts. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -8389,10 +8389,14 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Targeted Maximum Likelihood Estimation for ATE/ATT with double-robustness. Validation: certified parity evidence.",
+      "description": "Targeted Maximum Likelihood Estimation with Super Learner: ATE, ATT / ATC, treatment-specific means, and the marginal risk ratio and odds ratio, each with influence-function inference. Equals R tmle for the means and their contrasts. Validation: certified parity evidence.",
       "name": "tmle",
       "parameters": {
         "properties": {
+          "Q": {
+            "description": "Initial outcome predictions, shape (n, 2) = [Q(0,W), Q(1,W)] on the outcome scale, replacing the Super Learner.",
+            "type": "string"
+          },
           "cluster": {
             "description": "Cluster column: influence function summed within clusters with G/(G-1) (R tmle id= for equal cluster sizes).",
             "type": "string",
@@ -8416,16 +8420,33 @@
           },
           "estimand": {
             "default": "ATE",
-            "description": "Target estimand",
+            "description": "ATE; ATT / ATC (effect among the treated / the controls); EY1 / EY0 (treatment-specific means); RR (marginal risk ratio, non-negative outcome); OR (marginal odds ratio, outcome in [0, 1]). Case-insensitive; any other value raises. For EY1 / EY0 / RR / OR result.detail lists every parameter and the ratio intervals are built on the log scale.",
             "enum": [
               "ATE",
-              "ATT"
+              "ATT",
+              "ATC",
+              "EY1",
+              "EY0",
+              "RR",
+              "OR"
+            ],
+            "type": "string"
+          },
+          "fluctuation": {
+            "description": "'single' (default for ATE): one clever covariate. 'per_arm' (R tmle's submodel; default and required for EY1 / EY0 / RR / OR): one per arm, fills result.detail (except for ATT / ATC).",
+            "enum": [
+              "single",
+              "per_arm"
             ],
             "type": "string"
           },
           "fold_indices": {
             "description": "Opt-in CV-TMLE: one integer label 0..K-1 (K >= 2) per row of data. Q and g are then Super Learners fitted outside each fold and predicted inside it; the fluctuation is fitted on the pooled out-of-fold predictions and the SE is the EIF at the targeted fits. The default (None) fits both nuisances on the full sample (not cross-fitted). Not combinable with Q / g1W.",
             "type": "string"
+          },
+          "g1W": {
+            "description": "Propensity P(A=1|W) replacing the Super Learner; one number is a known randomisation probability.",
+            "type": "number"
           },
           "q_bound": {
             "default": 1e-05,
@@ -19375,6 +19396,125 @@
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "evalue",
+      "sensemakr",
+      "confounder_tip",
+      "manski_bounds"
+    ],
+    "assumptions": [
+      "The interval is valid for the statistical estimand",
+      "A gap moves the centre of the interval and not its width"
+    ],
+    "category": "diagnostics",
+    "cost_profile": "",
+    "description": "Critical causal gap: the smallest difference between the statistical estimand and the causal one at which the confidence interval reaches the null (or a threshold of practical interest). Needs only an estimate and its interval; makes no assumption about where the gap comes from. Difference or ratio scale; also returns the curve of the implied causal estimate over hypothetical gaps. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A specific violation can be parametrised (an unmeasured confounder of stated strength): the dedicated tools then say more.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_causal_gap_known_values.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.causal_gap(1.0, ci=(0.5, 1.5), null=[0.0, 0.3])",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "The interval already covers the null; there is no conclusion for a gap to overturn",
+        "symptom": "critical_gap is 0 (1 on the ratio scale)"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "causal_gap",
+    "not_recommended_when": [
+      "A specific violation can be parametrised (an unmeasured confounder of stated strength): the dedicated tools then say more"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "schuler2022introduction",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Critical causal gap: the smallest difference between the statistical estimand and the causal one at which the confidence interval reaches the null (or a threshold of practical interest). Needs only an estimate and its interval; makes no assumption about where the gap comes from. Difference or ratio scale; also returns the curve of the implied causal estimate over hypothetical gaps. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A specific violation can be parametrised (an unmeasured confounder of stated strength): the dedicated tools then say more.",
+      "name": "causal_gap",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the interval built from se",
+            "type": "number"
+          },
+          "ci": {
+            "description": "Confidence interval for the statistical estimand; takes precedence over se",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "estimate": {
+            "description": "Point estimate, or a fitted result with scalar .estimate and .ci",
+            "type": "number"
+          },
+          "n_grid": {
+            "default": 101,
+            "description": "Number of hypothetical gaps in .attrs['curve']",
+            "type": "integer"
+          },
+          "null": {
+            "description": "Value(s) the interval must stay clear of: the null (default 0, or 1 on the ratio scale) or the smallest effect of practical interest",
+            "type": "number"
+          },
+          "scale": {
+            "default": "difference",
+            "description": "Whether a gap shifts the estimate or divides it",
+            "enum": [
+              "difference",
+              "ratio"
+            ],
+            "type": "string"
+          },
+          "se": {
+            "description": "Standard error (of the log estimate on scale='ratio'); not needed with ci",
+            "type": "number"
+          }
+        },
+        "required": [
+          "estimate"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_causal_gap_known_values.py"
     ],
     "validation_status": "validated"
   },
@@ -59647,6 +59787,10 @@
             "description": "Cross-fitting folds (>= 2)",
             "type": "integer"
           },
+          "propensity": {
+            "description": "Known treatment probability: one number, or a column of per-unit design probabilities (randomised trials). No propensity model is fitted and nothing is clipped. Not with se_method='sandwich'.",
+            "type": "number"
+          },
           "se_method": {
             "default": "influence",
             "description": "``'influence'`` reports ``sd(psi) / sqrt(n)`` from the estimated efficient influence function, treating the nuisance fits as known (the cross-fitting / DML convention; R ``AIPW`` reports the same quantity). ``'sandwich'`` stacks the logit score, the two OLS normal equations and the AIPW moment and reports the M-estimation sandwich (divisor ``n``), which accounts for the estimated nuisance parameters at finite ``n``.",
@@ -59691,8 +59835,8 @@
       "Cross-language parity (bit-exact) vs Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 stratified_fit(k_split = 1) [AIPW 0.6.9.3, R version 4.5.2 (2025-10-31), Stata 18, SuperLearner 2.0.40]; tolerance 1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14) -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_ness_causal_ai.py",
-      "tests/reference_parity/test_paper_parity.py",
-      "tests/reference_parity/test_teffects_design_stata_parity.py"
+      "tests/reference_parity/test_causal_gap_known_values.py",
+      "tests/reference_parity/test_paper_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -90337,7 +90481,7 @@
         "covariates": "List[str]",
         "data": "DataFrame",
         "estimand": "str",
-        "fluctuation": "str",
+        "fluctuation": "Optional[str]",
         "fold_indices": "Optional[Any]",
         "g1W": "Optional[np.ndarray]",
         "n_folds": "int",
@@ -90389,8 +90533,7 @@
             "type": "string"
           },
           "fluctuation": {
-            "default": "single",
-            "description": "fluctuation parameter (str).",
+            "description": "fluctuation parameter (Optional[str]).",
             "type": "string"
           },
           "fold_indices": {

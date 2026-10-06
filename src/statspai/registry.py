@@ -6330,8 +6330,11 @@ def _build_registry() -> None:
             name="tmle",
             category="causal",
             description=(
-                "Targeted Maximum Likelihood Estimation for ATE/ATT with "
-                "double-robustness."
+                "Targeted Maximum Likelihood Estimation with Super Learner: "
+                "ATE, ATT / ATC, treatment-specific means, and the "
+                "marginal risk ratio and odds ratio, each with "
+                "influence-function inference. Equals R tmle for the means "
+                "and their contrasts."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -6340,7 +6343,47 @@ def _build_registry() -> None:
                     "treat", "str", True, description="Binary treatment column (0/1)"
                 ),
                 ParamSpec("covariates", "list", True),
-                ParamSpec("estimand", "str", False, "ATE", "Target estimand"),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "ATE; ATT / ATC (effect among the treated / the "
+                    "controls); EY1 / EY0 (treatment-specific means); RR "
+                    "(marginal risk ratio, non-negative outcome); OR (marginal "
+                    "odds ratio, outcome in [0, 1]). Case-insensitive; any "
+                    "other value raises. For EY1 / EY0 / RR / OR result.detail "
+                    "lists every parameter and the ratio intervals are built "
+                    "on the log scale.",
+                    ["ATE", "ATT", "ATC", "EY1", "EY0", "RR", "OR"],
+                ),
+                ParamSpec(
+                    "fluctuation",
+                    "str",
+                    False,
+                    None,
+                    "'single' (default for ATE): one clever covariate. "
+                    "'per_arm' (R tmle's submodel; default and required for "
+                    "EY1 / EY0 / RR / OR): one per arm, fills result.detail "
+                    "(except for ATT / ATC).",
+                    enum=["single", "per_arm"],
+                ),
+                ParamSpec(
+                    "Q",
+                    "array",
+                    False,
+                    None,
+                    "Initial outcome predictions, shape (n, 2) = [Q(0,W), "
+                    "Q(1,W)] on the outcome scale, replacing the Super Learner.",
+                ),
+                ParamSpec(
+                    "g1W",
+                    "array | float",
+                    False,
+                    None,
+                    "Propensity P(A=1|W) replacing the Super Learner; one "
+                    "number is a known randomisation probability.",
+                ),
                 ParamSpec(
                     "q_bound",
                     "float",
@@ -11867,6 +11910,98 @@ def _build_registry() -> None:
                 "or sp.sensemakr, which need no such specification",
             ],
             alternatives=["confounder_tip", "evalue", "sensemakr", "rosenbaum_bounds"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="causal_gap",
+            category="diagnostics",
+            description=(
+                "Critical causal gap: the smallest difference between the "
+                "statistical estimand and the causal one at which the "
+                "confidence interval reaches the null (or a threshold of "
+                "practical interest). Needs only an estimate and its "
+                "interval; makes no assumption about where the gap comes "
+                "from. Difference or ratio scale; also returns the curve of "
+                "the implied causal estimate over hypothetical gaps."
+            ),
+            params=[
+                ParamSpec(
+                    "estimate",
+                    "float | result",
+                    True,
+                    None,
+                    "Point estimate, or a fitted result with scalar "
+                    ".estimate and .ci",
+                ),
+                ParamSpec(
+                    "se",
+                    "float",
+                    False,
+                    None,
+                    "Standard error (of the log estimate on scale='ratio'); "
+                    "not needed with ci",
+                ),
+                ParamSpec(
+                    "ci",
+                    "tuple",
+                    False,
+                    None,
+                    "Confidence interval for the statistical estimand; takes "
+                    "precedence over se",
+                ),
+                ParamSpec(
+                    "null",
+                    "float | array",
+                    False,
+                    None,
+                    "Value(s) the interval must stay clear of: the null "
+                    "(default 0, or 1 on the ratio scale) or the smallest "
+                    "effect of practical interest",
+                ),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "Level of the interval built from se"
+                ),
+                ParamSpec(
+                    "scale",
+                    "str",
+                    False,
+                    "difference",
+                    "Whether a gap shifts the estimate or divides it",
+                    ["difference", "ratio"],
+                ),
+                ParamSpec(
+                    "n_grid",
+                    "int",
+                    False,
+                    101,
+                    "Number of hypothetical gaps in .attrs['curve']",
+                ),
+            ],
+            returns="DataFrame",
+            example="sp.causal_gap(1.0, ci=(0.5, 1.5), null=[0.0, 0.3])",
+            tags=["sensitivity", "identification", "causal_gap"],
+            reference="schuler2022introduction",
+            assumptions=[
+                "The interval is valid for the statistical estimand",
+                "A gap moves the centre of the interval and not its width",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="critical_gap is 0 (1 on the ratio scale)",
+                    exception="",
+                    remedy="The interval already covers the null; there is "
+                    "no conclusion for a gap to overturn",
+                    alternative="",
+                ),
+            ],
+            not_recommended_when=[
+                "A specific violation can be parametrised (an unmeasured "
+                "confounder of stated strength): the dedicated tools then "
+                "say more",
+            ],
+            alternatives=["evalue", "sensemakr", "confounder_tip", "manski_bounds"],
         )
     )
 
@@ -27585,6 +27720,16 @@ def _build_registry() -> None:
                     None,
                     "Cluster column: SEs sum the influence function within "
                     "clusters (Stata vce(cluster c)).",
+                ),
+                ParamSpec(
+                    "propensity",
+                    "float | str",
+                    False,
+                    None,
+                    "Known treatment probability: one number, or a column of "
+                    "per-unit design probabilities (randomised trials). No "
+                    "propensity model is fitted and nothing is clipped. Not "
+                    "with se_method='sandwich'.",
                 ),
             ],
             returns="CausalResult",

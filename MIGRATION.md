@@ -5,6 +5,20 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.tmle` validates `estimand`
+
+**What changed.** `sp.tmle(estimand=...)` used to treat every value other
+than the exact string `'ATE'` as the ATT and to label the result with
+whatever was passed. `estimand='ate'` therefore returned the ATT. The
+argument is now case-insensitive and anything outside `ATE`, `ATT`, `ATC`,
+`EY1`, `EY0`, `RR`, `OR` raises.
+
+**Who is affected.** Anyone who passed a lower-case or misspelled
+`estimand` and read the result as an ATE. Results from `estimand='ATE'`
+and `estimand='ATT'` spelled exactly so are unchanged.
+
+**What to do.** Rerun. The new value is the ATE that was asked for.
+
 ## 1.38.0 → next: ⚠️ aggregated SEs of weighted Callaway-Sant'Anna on repeated cross-sections
 
 **What changed.** After `sp.callaway_santanna(..., weights=...)` with

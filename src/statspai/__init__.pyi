@@ -309,6 +309,7 @@ from .decomposition.yu_elwert import yu_elwert_decompose as yu_elwert_decompose
 from .deepiv.deep_iv import DeepIV as DeepIV
 from .deepiv.deep_iv import deepiv as deepiv
 from .diagnostics.battery import diagnose_result as diagnose_result
+from .diagnostics.causal_gap import causal_gap as causal_gap
 from .diagnostics.cmtest import cmtest as cmtest
 from .diagnostics.confounder_bias import confounder_adjust as confounder_adjust
 from .diagnostics.confounder_bias import confounder_tip as confounder_tip

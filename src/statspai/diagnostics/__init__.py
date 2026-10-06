@@ -7,6 +7,7 @@ Provides:
 """
 
 from .battery import diagnose_result
+from .causal_gap import causal_gap
 from .cmtest import cmtest
 from .confounder_bias import confounder_adjust, confounder_tip
 from .estat import estat
@@ -68,6 +69,7 @@ __all__ = [
     "evalue_from_result",
     "evalue_rd",
     "bias_factor",
+    "causal_gap",
     "confounder_adjust",
     "confounder_tip",
     "diagnose_result",

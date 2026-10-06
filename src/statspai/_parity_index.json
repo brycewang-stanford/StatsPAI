@@ -290,6 +290,7 @@
       "additional_tests": [
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_ness_causal_ai.py",
+        "tests/reference_parity/test_causal_gap_known_values.py",
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",
         "tests/reference_parity/test_teffects_probit_stata.py",
@@ -2776,6 +2777,23 @@
       ],
       "tier": "moderate",
       "tolerance": "rel_est<=0.01, rel_se<=0.05"
+    },
+    {
+      "function": "causal_gap",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_causal_gap_known_values.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "causal_impact",
@@ -22179,7 +22197,8 @@
         "tests/reference_parity/_fixtures/tmle_R.json",
         "tests/reference_parity/test_r2_teffects_parity.py",
         "tests/reference_parity/test_teffects_R_parity.py",
-        "tests/reference_parity/test_tmle_design_R_parity.py"
+        "tests/reference_parity/test_tmle_design_R_parity.py",
+        "tests/reference_parity/test_tmle_parameters_R_parity.py"
       ],
       "also_verified_by": [
         "reference_parity_frozen",

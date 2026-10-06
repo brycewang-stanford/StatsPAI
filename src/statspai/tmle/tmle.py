@@ -48,7 +48,11 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
+from ._targeting import cluster_se, parameter_table
 from .super_learner import SuperLearner
+
+_ARM_ESTIMANDS = ("RR", "OR", "EY1", "EY0")
+_ESTIMANDS = ("ATE", "ATT", "ATC") + _ARM_ESTIMANDS
 
 # ======================================================================
 # Public API
@@ -71,7 +75,7 @@ def tmle(
     random_state: int = 42,
     Q: "Optional[np.ndarray]" = None,
     g1W: "Optional[np.ndarray]" = None,
-    fluctuation: str = "single",
+    fluctuation: Optional[str] = None,
     q_bound: float = 1e-5,
     fold_indices: "Optional[Any]" = None,
     weights: Optional[str] = None,
@@ -99,12 +103,42 @@ def tmle(
     n_folds : int, default 5
         Cross-validation folds for Super Learner.
     estimand : str, default 'ATE'
-        'ATE' or 'ATT'.
+        What the targeted fit is asked for (case-insensitive; anything
+        else raises):
+
+        - ``'ATE'``: ``E[Y(1)] - E[Y(0)]``.
+        - ``'ATT'`` / ``'ATC'``: the effect among the treated / among the
+          controls (see Notes).
+        - ``'EY1'`` / ``'EY0'``: the treatment-specific means.
+        - ``'RR'``: ``E[Y(1)] / E[Y(0)]``, the marginal (causal) risk
+          ratio; needs a non-negative outcome.
+        - ``'OR'``: the marginal odds ratio; needs an outcome in [0, 1].
+          It is not the coefficient of a logistic regression, which is a
+          conditional odds ratio.
+
+        For the last four each arm's mean is targeted
+        (``fluctuation='per_arm'``), and ``result.detail`` lists all of
+        EY1, EY0, ATE, RR and OR that are defined for the outcome. The
+        ratio and odds-ratio intervals are built on the log scale and are
+        not symmetric; ``result.se`` is the natural-scale delta-method
+        standard error and ``detail['se_log']`` the one the interval uses.
     alpha : float, default 0.05
         Significance level.
     propensity_bounds : tuple, default (0.025, 0.975)
         Bounds for propensity score truncation.
     random_state : int, default 42
+    Q : array of shape (n, 2), optional
+        Initial outcome predictions ``[Q(0, W), Q(1, W)]`` on the outcome's
+        own scale, replacing the Super Learner fit.
+    g1W : array of length n or float, optional
+        Propensity ``P(A = 1 | W)``, replacing the Super Learner fit. One
+        number is a known randomisation probability.
+    fluctuation : {'single', 'per_arm'}, optional
+        ``'single'`` (the default for ATE) fluctuates along one clever
+        covariate ``A/g - (1-A)/(1-g)``; ``'per_arm'`` (R ``tmle``'s
+        submodel, and the default for EY1 / EY0 / RR / OR) uses one per
+        arm, so the two arm-specific score equations are solved
+        separately and ``result.detail`` is filled.
     q_bound : float, default 1e-5
         The initial outcome predictions, on the [0, 1] scale the logistic
         fluctuation works on (continuous outcomes are min-max rescaled),
@@ -167,16 +201,34 @@ def tmle(
     ``model_info["cross_fitted"]`` is ``False`` on this path. Pass
     ``fold_indices`` for out-of-fold initial fits.
 
-    **ATT.** With ``estimand='ATT'`` only the outcome model is targeted;
-    ``g`` is held at its (truncated) initial fit and is not updated. The
-    clever covariate is ``H(A, W) = A - (1 - A) g / (1 - g)`` (so
-    ``H(0, W) = -g / (1 - g)``), and the reported estimate uses the
+    **ATT and ATC.** With ``estimand='ATT'`` only the outcome model is
+    targeted; ``g`` is held at its (truncated) initial fit. The clever
+    covariate is ``H(A, W) = A - (1 - A) g / (1 - g)`` (so
+    ``H(0, W) = -g / (1 - g)``). The estimate is written in the
     estimating-equation form
     ``mean(A (Y - Q*(0,W)) / p - (1 - A) g (Y - Q*(0,W)) / ((1 - g) p))``
-    with ``p`` the treated share of the retained sample, not the plug-in
-    ``mean over treated of Q*(1,W) - Q*(0,W)``. The SE is the standard
-    deviation of the corresponding influence function (the summand minus
-    ``psi A / p``) over ``sqrt(n)``.
+    with ``p`` the treated share of the retained sample. Because the
+    fluctuation solves ``sum H (Y - Q*) = 0``, that is the same number as
+    the plug-in mean of ``Q*(1,W) - Q*(0,W)`` over the treated, so the
+    estimate is a substitution estimator at the empirical distribution of
+    ``W`` among the treated and the efficient influence function of the
+    ATT has mean zero at it. The SE is the standard deviation of that
+    influence function (the summand minus ``psi A / p``) over ``sqrt(n)``.
+    ``estimand='ATC'`` is the same computation with the arms relabelled
+    (and the sign restored). R ``tmle`` reports a different, equally valid
+    TMLE for both: it also updates ``g``, along a small-step path, on the
+    rows with ``g >= min(g | A = 1)`` only, and stops when the likelihood
+    stops improving rather than when the influence-function equation is
+    solved. The two agree to a small fraction of a standard error; see
+    ``tests/reference_parity/test_r2_teffects_parity.py``.
+
+    **Influence function.** ``model_info['influence_function']`` holds the
+    per-row efficient influence function at the targeted fit, in the row
+    order of the complete cases. Its mean is zero up to the Newton
+    tolerance; that is the equation targeting solves, and it is what
+    makes the plug-in free of first-order bias. Use it to combine
+    estimates (a covariance between two fits on the same rows is the
+    covariance of their influence functions over ``n``).
 
     References
     ----------
@@ -240,6 +292,7 @@ def tmle(
                 "cross_fitted": fold_indices is not None,
                 "weights": weights,
                 "cluster": cluster,
+                "fluctuation": est.fluctuation,
                 "outcome_library": (
                     [type(m).__name__ for m in outcome_library]
                     if outcome_library
@@ -355,7 +408,7 @@ class TMLE:
         random_state: int = 42,
         Q: "Optional[np.ndarray]" = None,
         g1W: "Optional[np.ndarray]" = None,
-        fluctuation: str = "single",
+        fluctuation: Optional[str] = None,
         q_bound: float = 1e-5,
         fold_indices: "Optional[Any]" = None,
         weights: Optional[str] = None,
@@ -366,11 +419,37 @@ class TMLE:
                 f"tmle: q_bound must lie in (0, 0.5), got {q_bound!r}"
             )
         self.q_bound = float(q_bound)
-        if fluctuation not in ("single", "per_arm"):
+        if not isinstance(estimand, str) or estimand.upper() not in _ESTIMANDS:
+            raise MethodIncompatibility(
+                f"tmle: unknown estimand={estimand!r}.",
+                recovery_hint="Use one of " + ", ".join(_ESTIMANDS) + ".",
+                diagnostics={"estimand": estimand},
+            )
+        estimand = estimand.upper()
+        if fluctuation not in (None, "single", "per_arm"):
             raise ValueError(
                 f"tmle: unknown fluctuation={fluctuation!r}; use "
                 "'single' or 'per_arm'."
             )
+        on_treated = estimand in ("ATT", "ATC")
+        if weights is not None and on_treated:
+            raise MethodIncompatibility(
+                "tmle: weights= is not implemented for estimand='ATT' / 'ATC'.",
+                recovery_hint="Drop weights= or use estimand='ATE'.",
+            )
+        if estimand in _ARM_ESTIMANDS:
+            # A treatment-specific mean is only targeted when its own score
+            # equation is solved; the single clever covariate solves the
+            # equation of the difference alone.
+            if fluctuation == "single":
+                raise MethodIncompatibility(
+                    f"tmle: estimand={estimand!r} needs each arm's mean to be "
+                    "targeted, which fluctuation='single' does not do.",
+                    recovery_hint="Drop fluctuation= or pass 'per_arm'.",
+                )
+            fluctuation = "per_arm"
+        elif fluctuation is None:
+            fluctuation = "single"
         self.fluctuation = fluctuation
         self.Q_init = None if Q is None else np.asarray(Q, dtype=np.float64)
         self.g1W_init = None if g1W is None else np.asarray(g1W, dtype=np.float64)
@@ -402,11 +481,6 @@ class TMLE:
                 "(fold_indices) path; its per-fold Super Learners would be "
                 "fitted unweighted.",
                 recovery_hint="Drop fold_indices, or drop weights=.",
-            )
-        if weights is not None and estimand != "ATE":
-            raise MethodIncompatibility(
-                "tmle: weights= is implemented for estimand='ATE' only.",
-                recovery_hint="Drop weights= or use estimand='ATE'.",
             )
         self.weights = weights
         self.cluster = cluster
@@ -542,6 +616,9 @@ class TMLE:
         # Propensity model: g(A | W)
         if self.g1W_init is not None:
             g_hat_raw = np.asarray(self.g1W_init, dtype=np.float64).ravel()
+            if g_hat_raw.shape[0] == 1:
+                # One number: a trial randomised with that probability.
+                g_hat_raw = np.full(n, float(g_hat_raw[0]))
             if g_hat_raw.shape[0] != n:
                 raise ValueError(
                     f"tmle: g1W must have length n = {n}; " f"got {g_hat_raw.shape[0]}."
@@ -609,8 +686,20 @@ class TMLE:
         # Step 2: Targeting step (fluctuation parameter epsilon)
         # ---------------------------------------------------------------
 
+        se_of = cluster_se(cl_codes, n)
+        detail: "Optional[pd.DataFrame]" = None
+        # The effect on the controls is minus the effect on the treated of
+        # the relabelled treatment: swap the arms, run the same targeting,
+        # and swap back.
+        on_treated = self.estimand in ("ATT", "ATC")
+        flip = self.estimand == "ATC"
+        if flip:
+            A = 1.0 - A
+            Q_bar_1, Q_bar_0 = Q_bar_0, Q_bar_1
+            g_hat = 1.0 - g_hat
+
         # Clever covariate H(A, W)
-        if self.estimand == "ATE":
+        if not on_treated:
             H_A = A / g_hat - (1 - A) / (1 - g_hat)
             H_1 = 1.0 / g_hat
             H_0 = -1.0 / (1 - g_hat)
@@ -646,7 +735,7 @@ class TMLE:
         else:
             # Per-arm covariates, evaluated at the observed A for fitting
             # and at each arm for the counterfactual updates.
-            if self.estimand == "ATE":
+            if not on_treated:
                 H1_A = A / g_hat
                 H0_A = -(1 - A) / (1 - g_hat)
                 H1_at1, H0_at1 = 1.0 / g_hat, np.zeros(n)
@@ -680,7 +769,7 @@ class TMLE:
             Q_star_0_orig = Q_star_0
             Q_star_A_orig = Q_star_A
 
-        if self.estimand == "ATE" and obs_w is not None:
+        if not on_treated and obs_w is not None:
             # R tmle: mu_a = mean(w * Q*_a), IC = w * (... - (mu1 - mu0)).
             psi = float(np.mean(obs_w * (Q_star_1_orig - Q_star_0_orig)))
             EIF = obs_w * (
@@ -689,7 +778,7 @@ class TMLE:
                 - (1 - A) * (Y - Q_star_A_orig) / (1 - g_hat)
                 - psi
             )
-        elif self.estimand == "ATE":
+        elif not on_treated:
             psi = float(np.mean(Q_star_1_orig - Q_star_0_orig))
 
             # Efficient influence function
@@ -714,25 +803,70 @@ class TMLE:
                 - psi * A / p_treat
             )
 
+        if self.fluctuation == "per_arm" and not on_treated:
+            # Both arm-specific score equations are solved, so each
+            # targeted mean is itself a TMLE and so is any smooth
+            # function of the pair.
+            ow = np.ones(n) if obs_w is None else obs_w
+            ey1 = float(np.mean(ow * Q_star_1_orig))
+            ey0 = float(np.mean(ow * Q_star_0_orig))
+            ic1 = ow * (A * (Y - Q_star_A_orig) / g_hat + Q_star_1_orig - ey1)
+            ic0 = ow * (
+                (1 - A) * (Y - Q_star_A_orig) / (1 - g_hat) + Q_star_0_orig - ey0
+            )
+            detail = parameter_table(
+                ic1,
+                ic0,
+                ey1,
+                ey0,
+                se_of,
+                self.alpha,
+                nonnegative_outcome=bool(Y.min() >= 0.0),
+                unit_interval_outcome=bool(Y.min() >= 0.0 and Y.max() <= 1.0),
+            )
+
+        if flip:
+            psi, EIF = -psi, -EIF
+            Q_star_1_orig, Q_star_0_orig = Q_star_0_orig, Q_star_1_orig
+            A = 1.0 - A
+            g_hat = 1.0 - g_hat
+
         # Standard error from influence function
-        if cl_codes is None:
-            se = float(np.std(EIF, ddof=1) / np.sqrt(n))
-        else:
-            # Cluster sums of the influence function, centred, with the
-            # G/(G-1) factor: equals the line above when every row is its
-            # own cluster, and R tmle's id= variance for equal cluster sizes.
-            S = np.bincount(cl_codes, weights=EIF)
-            G = S.shape[0]
-            se = float(np.sqrt(G / (G - 1) * np.sum((S - S.mean()) ** 2)) / n)
-
-        if se > 0:
-            z_stat = psi / se
-            pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
-        else:
-            pvalue = 0.0
-
+        se = se_of(EIF)
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
         ci = (psi - z_crit * se, psi + z_crit * se)
+        pvalue = float(2 * sp_stats.norm.sf(abs(psi / se))) if se > 0 else 0.0
+        eif_scale = "estimate"
+
+        if self.estimand in _ARM_ESTIMANDS:
+            assert detail is not None
+            row = detail.loc[detail["parameter"] == self.estimand]
+            if row.empty:
+                raise MethodIncompatibility(
+                    f"tmle: estimand={self.estimand!r} is not defined for this "
+                    "outcome: the ratio needs a non-negative outcome with "
+                    "positive targeted means, and the odds ratio an outcome "
+                    "in [0, 1] with both means strictly inside it.",
+                    recovery_hint="Use estimand='ATE'.",
+                    diagnostics={
+                        "EY1": float(detail["estimate"].iloc[0]),
+                        "EY0": float(detail["estimate"].iloc[1]),
+                    },
+                )
+            r0 = row.iloc[0]
+            psi, se = float(r0["estimate"]), float(r0["se"])
+            ci = (float(r0["ci_lower"]), float(r0["ci_upper"]))
+            pvalue = float(r0["pvalue"])
+            ey1, ey0 = (float(v) for v in detail["estimate"].iloc[:2])
+            if self.estimand == "EY1":
+                EIF = ic1
+            elif self.estimand == "EY0":
+                EIF = ic0
+            elif self.estimand == "RR":
+                EIF, eif_scale = ic1 / ey1 - ic0 / ey0, "log"
+            else:
+                EIF = ic1 / (ey1 * (1 - ey1)) - ic0 / (ey0 * (1 - ey0))
+                eif_scale = "log"
 
         # Model info
         model_info = {
@@ -812,6 +946,12 @@ class TMLE:
             # carries the full vector in both modes.
             "epsilon": (float(epsilon) if self.fluctuation == "single" else None),
             "epsilon_vec": [float(v) for v in np.atleast_1d(epsilon_vec)],
+            # Per-row efficient influence function at the targeted fit, in
+            # the row order of the retained (complete-case) sample. For the
+            # ratio and the odds ratio it is the influence function of the
+            # log of the estimate (``influence_function_scale == 'log'``).
+            "influence_function": np.asarray(EIF, dtype=float),
+            "influence_function_scale": eif_scale,
         }
 
         # One fitted Super Learner, or one per fold under CV-TMLE.
@@ -839,7 +979,7 @@ class TMLE:
             ci=ci,
             alpha=self.alpha,
             n_obs=n,
-            detail=None,
+            detail=detail,
             model_info=model_info,
             _citation_key="tmle",
         )

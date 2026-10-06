@@ -4,6 +4,57 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Targeted learning after Schuler and van der Laan's *Modern Causal Inference*
+
+The book has no data and no code. It was audited as a description of what
+a plug-in, a one-step estimator and a TMLE must satisfy, and `sp.tmle` was
+checked against those properties, against known truth, and against R
+`tmle` 2.1.1. Review: `docs/dev/2026-10-07-schuler-vanderlaan-review.md`.
+Guide: `docs/guides/schuler_vanderlaan_modern_causal_inference.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.tmle(estimand=...)` returned the ATT for every string other than
+  `'ATE'`**, and labelled the result with the string it was given.
+  `estimand='ate'` gave the ATT under the name `ate`; so did `'ATC'`,
+  `'RR'` or a typo. The argument is now validated and case-insensitive.
+  Results from `estimand='ATE'` and `estimand='ATT'` spelled exactly so
+  were not affected.
+
+#### Added
+
+- **`sp.tmle(estimand='ATC' | 'EY1' | 'EY0' | 'RR' | 'OR')`.** The effect
+  among the controls (the ATT computation with the arms relabelled), the
+  two treatment-specific means, and the marginal risk ratio and odds
+  ratio, each with influence-function inference; the ratio intervals are
+  built on the log scale. `result.detail` lists every
+  parameter whenever each arm is targeted (`fluctuation='per_arm'`, the
+  default for these estimands). With shared initial fits the means, the
+  difference, the risk ratio and the odds ratio agree with R `tmle` to
+  1e-11 in estimate, variance, interval and p-value, with and without
+  observation weights and clusters
+  (`tests/reference_parity/test_tmle_parameters_R_parity.py`). Two
+  documented differences. R's influence curve for the log odds ratio is
+  not centred, which inflates its variance when observation weights vary
+  (0.3% to 2% on the fixture); ours is centred and the test rebuilds R's
+  number from it. R's ATT and ATC are a different TMLE of the same
+  parameter (it also updates the propensity, on a trimmed sample); they
+  are within 0.02 standard errors of ours, and the ATT numbers are
+  unchanged by this release.
+- **`model_info['influence_function']` on every `sp.tmle` result**: the
+  per-row efficient influence function at the targeted fit. Its mean is
+  zero to Newton tolerance, which is the equation targeting solves.
+- **`sp.tmle(g1W=0.5)` and `sp.aipw(propensity=)`** take a known
+  treatment probability, one number or a column of design probabilities,
+  for randomised trials. No propensity model is fitted and nothing is
+  clipped.
+- **`sp.causal_gap`**: the critical causal gap of the book's section 2.3.
+  Given an estimate and its interval, the smallest difference between the
+  statistical and the causal estimand at which the interval reaches the
+  null or a threshold of practical interest, on the difference or the
+  ratio scale, with the curve of the implied causal estimate over
+  hypothetical gaps.
+
 ### `sp.callaway_santanna(balance=)`: the three rules for an unbalanced panel
 
 #### Added
