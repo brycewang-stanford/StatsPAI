@@ -772,6 +772,20 @@ def _h_matchit(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, An
             args["estimand"] = estimand
         else:
             read.remove("estimand")
+        if not replace:
+            # Without replacement the order in which treated units pick
+            # their match decides the pairs. MatchIt starts from the
+            # largest propensity score; sp.match has another default, so
+            # MatchIt's is written out.
+            order = _strip_quotes(kw.get("m.order", "largest")).lower()
+            if order in ("largest", "smallest", "data", "closest", "farthest"):
+                read.append("m.order")
+                args["m_order"] = order
+            else:
+                notes.append(
+                    f"m.order = {order!r} has no sp.match counterpart; the "
+                    "pairs, and the estimate, will differ from MatchIt's."
+                )
     distance = kw.get("distance")
     if distance:
         args["distance"] = _strip_quotes(distance)

@@ -202,8 +202,12 @@ so the tests bound the gap and do not call it agreement.
    Data utilities rather than estimators; not added.
 7. AdaBoost and RUSBoost (`farr::rusboost`). scikit-learn and
    imbalanced-learn cover them; not added.
-8. `MatchIt` nearest-neighbour matching was translated but not compared
-   pair by pair (also open from the Barrett review).
+8. Closed in the third round. `sp.match` already reproduces MatchIt's
+   pairs for every `m.order` (`tests/reference_parity/
+   test_matching_r_parity.py`); what was wrong was the translation, which
+   left the order out and so returned a different estimate (0.533 against
+   0.542) without a note. `sp.from_r` now writes MatchIt's order into the
+   call and six translated calls reproduce MatchIt 4.7.2 to 1e-15.
 9. Closed in the third round: `robreg ..., eff()` is read.
 
 ## Second round

@@ -562,6 +562,14 @@ against R and Stata 18. Notes are in
   in `model_info['separated_terms']`. The starting values are `glm`'s
   (`mu = y + 0.1`); the old ones could overflow on counts in the thousands.
   Converged fits are unchanged.
+- **`sp.from_r` translated `matchit()` to a call that gave another
+  estimate.** Without replacement the matched pairs depend on the order
+  in which treated units choose. MatchIt starts from the largest
+  propensity score; `sp.match` has a different default, and the
+  translation left the order out. On a 1,200-unit file the translated call
+  returned 0.533 where MatchIt returns 0.542. The translation now writes
+  `m_order='largest'` (or the `m.order` given), and the six calls tested
+  reproduce MatchIt 4.7.2 to 1e-15.
 - **`sp.from_r` dropped the clustering of a `feols` call without a note.**
   `feols(y ~ x | f, ~ firm + year, data = d)` and `vcov = ~ firm + year`
   translated to `sp.feols('y ~ x | f', data=df)`. Both forms now give

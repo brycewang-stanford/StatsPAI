@@ -463,3 +463,43 @@ def test_poisson_with_a_separated_regressor_converges_to_glm(cross, R):
         warnings.simplefilter("ignore")
         robust = sp.poisson("fines ~ x1 + x2 + rare + factor(ind)", cross, robust="hc1")
     assert rel(robust.std_errors[names], ref["se_hc1"]) < ITER
+
+
+# ---------------------------------------------------------------------------
+# the translated matchit() call gives MatchIt's estimate
+# ---------------------------------------------------------------------------
+
+MATCHIT_CALLS = {
+    "default": "matchit(d ~ x1 + x2, data = d)",
+    "caliper_sd": "matchit(d ~ x1 + x2, data = d, caliper = 0.2)",
+    "caliper_raw": "matchit(d ~ x1 + x2, data = d, caliper = 0.03, std.caliper = FALSE)",
+    "smallest": 'matchit(d ~ x1 + x2, data = d, m.order = "smallest")',
+    "data": 'matchit(d ~ x1 + x2, data = d, m.order = "data")',
+    "replace": "matchit(d ~ x1 + x2, data = d, replace = TRUE)",
+}
+
+
+@pytest.mark.parametrize("name", list(MATCHIT_CALLS))
+def test_translated_matchit_call_reproduces_matchit(name):
+    """Without replacement the pairs depend on the order in which treated
+    units choose. MatchIt starts from the largest propensity score and
+    sp.match does not by default, so the translation that left the order
+    out gave a different estimate (0.533 against 0.542 on this file) and
+    said nothing."""
+    df = pd.read_csv(FIX / "matchit_translation.csv")
+    ref = json.loads((FIX / "matchit_translation_R.json").read_text(encoding="utf-8"))
+    out = sp.from_r(MATCHIT_CALLS[name])
+    assert out["ok"] and "untranslated_arguments" not in out
+    code = out["python_code"].replace("sp.match(", "sp.match(y='y', ", 1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = eval(code, {"sp": sp, "df": df})  # noqa: S307
+    assert rel(res.estimate, ref[name]["att"]) < EXACT
+    if name != "replace":
+        assert out["arguments"]["m_order"] in ("largest", "smallest", "data")
+
+
+def test_matchit_order_without_a_counterpart_is_reported():
+    out = sp.from_r('matchit(d ~ x1 + x2, data = d, m.order = "random")')
+    assert out["untranslated_arguments"] == ["m.order"]
+    assert "m_order" not in out["arguments"]

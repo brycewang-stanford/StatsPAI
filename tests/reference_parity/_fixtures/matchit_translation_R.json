@@ -1,0 +1,30 @@
+{
+  "default": {
+    "att": 0.541520737091465,
+    "n_matched": 328
+  },
+  "caliper_sd": {
+    "att": 0.482115437867414,
+    "n_matched": 313
+  },
+  "caliper_raw": {
+    "att": 0.497254834659556,
+    "n_matched": 314
+  },
+  "smallest": {
+    "att": 0.536607744012197,
+    "n_matched": 328
+  },
+  "data": {
+    "att": 0.536535976796038,
+    "n_matched": 328
+  },
+  "replace": {
+    "att": 0.399482209116157,
+    "n_matched": 328
+  },
+  "versions": {
+    "R": "R version 4.5.2 (2025-10-31)",
+    "MatchIt": "4.7.2"
+  }
+}
