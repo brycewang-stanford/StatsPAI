@@ -3100,6 +3100,29 @@ only the recorded source hashes move.
   changes; in both trace files only `exercised_sources` digests and
   `seconds` differ. The registry census the paper quotes moves to 1,517
   registered functions across 90 submodules.
+
+### 2026-10-07 — call traces re-recorded after the pass over Wager's textbook
+
+- **Commits.** `a579b13a` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+  in `tests/r_parity/results/_implementation_trace.json` and of module 08
+  in `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is `src/statspai/__init__.py` (new exports), changed in
+  `d8703987` and, to remove a duplicated block of names, in `a579b13a`
+  itself.
+- **Reason.** The pass recorded in
+  `docs/dev/2026-10-07-wager-causal-inference-review.md`. No estimator on
+  a Track A or original-data path changed. The functions that did change
+  (`sp.network_exposure`, `sp.iv.mte`, the default final stage of the R-
+  and DR-learners) are not on either ledger.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes. Each of the eleven modules was rerun before the re-record and
+  reproduces its committed result byte for byte; in both trace files only
+  `exercised_sources` digests and `seconds` differ. The registry census
+  the paper quotes moves to 1,525 registered functions across 90
+  submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
