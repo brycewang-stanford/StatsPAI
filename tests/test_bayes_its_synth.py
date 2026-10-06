@@ -131,3 +131,42 @@ def test_exports():
     names = [str(getattr(f, "name", f)) for f in sp.list_functions()]
     assert "bayes_its" in names
     assert "bayes_synth" in names
+
+
+def test_bayes_synth_interval_includes_the_treated_units_own_noise():
+    """Known asymptotics. With a long pre-period the weights are pinned
+    down, and what remains uncertain about the average effect over ``T1``
+    post periods is the treated unit's own noise, ``sigma / sqrt(T1)``.
+    Before 1.39 the posterior had the weights' uncertainty only, here a
+    fifth of the right standard deviation."""
+    rng = np.random.default_rng(5)
+    n_donors, t0, t1, sigma = 5, 80, 5, 0.5
+    T = t0 + t1
+    factor = np.cumsum(rng.normal(size=T)) * 0.5
+    load = rng.uniform(0.5, 1.5, size=n_donors)
+    donors = np.outer(factor, load) + 0.05 * rng.normal(size=(T, n_donors))
+    w = np.array([0.5, 0.3, 0.2, 0.0, 0.0])
+    treated = donors @ w + sigma * rng.normal(size=T)
+    treated[t0:] += 2.0
+    Y = np.column_stack([treated, donors])
+    rows = [(u, t, Y[t, u]) for u in range(n_donors + 1) for t in range(T)]
+    df = pd.DataFrame(rows, columns=["unit", "time", "y"])
+    r = sp.bayes_synth(
+        df,
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit=0,
+        treatment_time=t0,
+        draws=800,
+        tune=800,
+        chains=2,
+        random_state=3,
+    )
+    floor = sigma / np.sqrt(t1)  # 0.224
+    assert 0.8 * floor < r.posterior_sd < 1.4 * floor
+    assert r.hdi_lower < 2.0 < r.hdi_upper
+    # the band is predictive after treatment, a band for the mean before
+    d = r.model_info["detail"]
+    width = d["cf_upper"] - d["cf_lower"]
+    assert width[d["post"]].mean() > 3 * width[~d["post"]].mean()

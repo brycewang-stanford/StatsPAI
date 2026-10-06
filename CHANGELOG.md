@@ -313,6 +313,16 @@ user guide is `docs/guides/bayesian_econometrics.md`.
   `bivariate_normal` average 0.98 to 0.99 and each covers in 11.
   Intervals from the polynomial mode are wider than before, because local
   IV uses the variation in the propensity only.
+- **`sp.bayes_synth` reported intervals that were too narrow.** The effect
+  was the treated unit's post-period mean minus the synthetic control's,
+  with only the donor weights uncertain. The model's own likelihood says
+  the treated unit's untreated outcome is the synthetic control plus
+  noise of variance `sigma^2`; over `T1` post periods that noise averages
+  to a term of variance `sigma^2 / T1`, which is unobserved and was left
+  out. In a factor-model design with a true effect of 2 (30 samples) the
+  posterior sd was 0.057 where the estimates varied by 0.093, and 25
+  intervals covered; now 0.090 and 30. The post-period counterfactual
+  band is predictive for the same reason.
 - **`sp.bayes_fuzzy_rd` treated the errors of the outcome and take-up
   equations as independent.** They are correlated whenever the effect is
   not zero, and that correlation enters the variance of the ratio of the
@@ -344,6 +354,13 @@ user guide is `docs/guides/bayesian_econometrics.md`.
   under a strong instrument; `rho`, the error correlation, is the
   posterior counterpart of a Hausman test. Warns when the first-stage F
   is below 10. No PyMC needed.
+- **`sp.dlm`**: dynamic linear models, that is regression with
+  coefficients that follow random walks (`"y ~ 1"` is the local level
+  model). Kalman filter and smoother, variances by maximum likelihood or
+  by Gibbs with forward filtering and backward sampling, coefficient
+  paths with intervals, forecasts, `constant=` for coefficients that do
+  not move. Filter, smoother and likelihood agree with R `dlm` to 1e-9;
+  the Gibbs sampler is checked against an exact posterior.
 - **`sp.bma`**: Bayesian model averaging. `method='bic'` with Occam's
   window for Gaussian, binomial, Poisson and gamma outcomes, and
   `method='gprior'` with the benchmark g-priors for Gaussian outcomes, by
@@ -385,6 +402,8 @@ user guide is `docs/guides/bayesian_econometrics.md`.
   within 2 percent of the least squares standard errors and coverage of
   37 and 39 out of 40. `sp.bayes_did` has a posterior standard deviation
   of 0.107 against the analytic 0.105 and covers in 36 of 40.
+  `sp.bayes_dml` (60 samples): posterior standard deviation 0.0365,
+  estimates vary by 0.034, 57 cover.
 
 #### Changed
 

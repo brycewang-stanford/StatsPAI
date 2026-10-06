@@ -62,6 +62,23 @@ IV identifies the MTE from variation in the propensity alone.
 
 **What to do.** Re-run. There is no switch for the earlier numbers.
 
+## 1.38.0 → next: ⚠️ `sp.bayes_synth` credible intervals
+
+**What changed.** The posterior of the effect now includes the treated
+unit's own post-period noise, `N(0, sigma^2 / T1)`, in addition to the
+uncertainty of the donor weights. The posterior mean is unchanged. The
+posterior standard deviation, the interval, `prob_positive` and the ROPE
+probability change; intervals are wider, most of all with few post
+periods or a noisy pre-period fit. The post-period counterfactual band in
+`model_info['detail']` is now a predictive band.
+
+**Who is affected.** Anyone who reported an interval or a probability
+from `sp.bayes_synth`.
+
+**What to do.** Re-run. The earlier interval answered a different
+question (how well the weights are known) and did not cover the effect at
+its nominal rate.
+
 ## 1.38.0 → next: ⚠️ `sp.bayes_iv`, `sp.bayes_hte_iv` and `sp.bayes_fuzzy_rd` credible intervals
 
 **What changed.** `sp.bayes_iv` and `sp.bayes_hte_iv` used first-stage

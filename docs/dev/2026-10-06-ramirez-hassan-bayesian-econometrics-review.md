@@ -109,6 +109,16 @@ coverage was simulated under known truth.
    wrong estimator one argument away, and it imposes normality that local
    IV does not need.
 
+6. **`sp.bayes_synth` left the treated unit's noise out of the effect.**
+   Also from a known-truth screen. The effect was
+   `ybar_post - donors_post' w` with `w` the only unknown. The pre-period
+   likelihood is `y_t = donors_t' w + eps_t`; after treatment the
+   untreated outcome still has its `eps_t`, so the average effect over
+   `T1` periods is uncertain by `sigma / sqrt(T1)` even with known
+   weights. Thirty samples from a two-factor design with a true effect of
+   2: posterior sd 0.057 against a spread of estimates of 0.093, 25
+   intervals covering. With the noise term in the model: 0.090 and 30.
+
 Items 1 and 3 are the same mistake: a two-step Bayesian model in which
 the first step's uncertainty, or its correlation with the second, never
 reaches the posterior. `sp.bayes_mte` offers `first_stage='joint'` and
@@ -122,6 +132,7 @@ agree, so that option was left alone.
 | `sp.bayes_regress` | ten likelihoods, normal prior, Gibbs / data augmentation / random-walk Metropolis | exact posterior on a grid, all ten |
 | `sp.bayes_mixed` | random intercepts and slopes; normal, logit, Poisson | exact posterior (analytic and Gauss-Hermite) |
 | `sp.bayes_ivreg` | one endogenous regressor, Gibbs for the joint normal model | exact posterior with the covariance integrated out; agrees with the PyMC `sp.bayes_iv` |
+| `sp.dlm` | time-varying coefficient regression: Kalman filter / smoother, MLE or FFBS Gibbs | R `dlm` at 1e-9 (filter, smoother, likelihood), 1e-5 (MLE); exact posterior of the variances |
 | `sp.bma` | BIC with Occam's window; g-prior by enumeration or MC3 | `BMA`, `BMS` at 1e-9; brute force over 512 models |
 | `sp.bayes_factor`, `sp.savage_dickey` | model comparison | exact identities under the conjugate prior |
 | `sp.bayes_bootstrap` | Rubin's bootstrap | Rubin's variance of a mean |
@@ -262,9 +273,9 @@ here gives the same number.
 
 - Multinomial probit and logit, multivariate probit, SUR by Gibbs
   (chapter 7). `sp.bayes_ivreg` handles one endogenous regressor.
-- State-space models, stochastic volatility (chapter 8). `sp.arima` and
-  `sp.garch` are the frequentist counterparts; there is no Kalman
-  filter / FFBS entry point.
+- Stochastic volatility and Bayesian ARMA (chapter 8). `sp.dlm` covers
+  the chapter's dynamic linear models with random-walk states; seasonal
+  and trend components and a general transition matrix are not exposed.
 - Dirichlet process mixtures, Bayesian splines (chapter 11); Bayesian
   lasso, stochastic search variable selection, BART, Gaussian processes
   (chapter 12); ABC, synthetic likelihood, INLA, variational Bayes
@@ -278,8 +289,8 @@ here gives the same number.
 - Known-truth screens of the other PyMC estimators, 40 samples each, found
   nothing: `sp.bayes_rd` (posterior sd 0.993 of the least squares standard
   error, coverage 37/40), `sp.bayes_its` (1.014, 39/40), `sp.bayes_did`
-  (posterior sd 0.107 against the analytic 0.105, 36/40). `sp.bayes_synth`
-  and `sp.bayes_dml` were not screened.
+  (posterior sd 0.107 against the analytic 0.105, 36/40), `sp.bayes_dml`
+  (0.0365 against a spread of 0.034, 57/60).
 - No marginal likelihood for hierarchical models; `sp.bayes_regress` has
   no `weights=` or offset; `sp.stata` does not translate the `bayes:`
   prefix (Stata's default priors differ, so a translation would have to

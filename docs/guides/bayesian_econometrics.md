@@ -31,6 +31,7 @@ import statspai as sp
 | 6 | `MCMCquantreg` | `model='quantile', quantile=` |
 | 6 | heteroskedastic errors by a scale mixture (exercise) | `model='t', dof=` |
 | 6 | Bayesian bootstrap | `sp.bayes_bootstrap` |
+| 8 | `dlm::dlmModReg`, `dlmMLE`, `dlmFilter`, `dlmSmooth`, `dlmGibbsDIG` | `sp.dlm("y ~ x", df)`, `method='mle'` or `'gibbs'` |
 | 8 | Minnesota-prior VAR | `sp.bvar` |
 | 7, 13 | `bayesm::rivGibbs` | `sp.bayes_ivreg("y ~ x + (d ~ z)", df)` |
 | 9 | `MCMChregress`, hierarchical logit and Poisson | `sp.bayes_mixed(family='normal' / 'logit' / 'poisson')` |
@@ -40,7 +41,7 @@ import statspai as sp
 | 13 | Bayesian IV, DiD, RD | `sp.bayes_iv`, `sp.bayes_did`, `sp.bayes_rd`, `sp.bayes_fuzzy_rd` (PyMC) |
 
 Not covered yet: multinomial probit and logit, multivariate probit, SUR by
-Gibbs, more than one endogenous regressor, state-space models and stochastic volatility, Dirichlet process
+Gibbs, more than one endogenous regressor, stochastic volatility, Dirichlet process
 mixtures, BART and Gaussian processes, approximate Bayesian computation
 and variational Bayes. The frequentist counterparts of several of these
 are in StatsPAI (`sp.mlogit`, `sp.sureg`, `sp.arima`, `sp.garch`).
@@ -242,6 +243,25 @@ error scales. The two agree. `bayesm::rivGibbs` uses an identity scale for
 the inverse-Wishart prior of the error covariance; the default here adds
 0.02 to the sums of squared residuals, and `sigma_prior=(3, 1.0)` is the
 `bayesm` prior.
+
+## Time-varying coefficients
+
+```python
+fit = sp.dlm("y ~ x", df)                      # variances by maximum likelihood
+fit = sp.dlm("y ~ x", df, method="gibbs", constant=["Intercept"], seed=1)
+fit.smoothed       # coefficient paths given the whole sample, with intervals
+fit.filtered       # given the data up to each date
+fit.variances      # observation variance and one state variance per term
+fit.forecast(4, new)
+fit.plot()
+```
+
+Each coefficient follows a random walk. `"y ~ 1"` is the local level
+model, and `constant=` holds a coefficient fixed. A state variance
+estimated at zero says the data do not ask for that coefficient to move.
+The filter, smoother and likelihood are those of the R package `dlm` and
+agree with it to nine digits; `dlm::dlmLL` is the negative log likelihood
+without the `2 pi` constant.
 
 ## Diagnostics for any chain
 

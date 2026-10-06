@@ -16323,6 +16323,122 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="dlm",
+            category="timeseries",
+            description=(
+                "Dynamic linear model: regression whose coefficients follow "
+                "random walks (time-varying parameters; 'y ~ 1' is the local "
+                "level model). Kalman filter and smoother, variances by "
+                "maximum likelihood or by Gibbs sampling with forward "
+                "filtering and backward sampling. Returns filtered and "
+                "smoothed coefficient paths with intervals and forecasts. "
+                "Filter, smoother and likelihood as R dlm."
+            ),
+            params=[
+                ParamSpec(
+                    "formula", "str", True, description="'y ~ x1 + x2' or 'y ~ 1'"
+                ),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "mle",
+                    "How the variances are obtained",
+                    ["mle", "gibbs"],
+                ),
+                ParamSpec("time", "str", False, None, "Column to sort by"),
+                ParamSpec(
+                    "constant",
+                    "list",
+                    False,
+                    None,
+                    "Terms whose coefficient does not vary",
+                ),
+                ParamSpec(
+                    "obs_var", "float", False, None, "Fix the observation variance"
+                ),
+                ParamSpec(
+                    "state_var",
+                    "float | list",
+                    False,
+                    None,
+                    "Fix the state variances (one number or one per term)",
+                ),
+                ParamSpec(
+                    "m0", "float | list", False, 0.0, "Prior mean of the coefficients"
+                ),
+                ParamSpec(
+                    "C0",
+                    "float | list | matrix",
+                    False,
+                    1e7,
+                    "Prior covariance of the coefficients (diffuse by default)",
+                ),
+                ParamSpec(
+                    "obs_var_prior",
+                    "tuple",
+                    False,
+                    (0.001, 0.001),
+                    "gibbs: V ~ InvGamma(alpha0/2, delta0/2)",
+                ),
+                ParamSpec(
+                    "state_var_prior",
+                    "tuple",
+                    False,
+                    (0.001, 0.001),
+                    "gibbs: each W ~ InvGamma(alpha0/2, delta0/2)",
+                ),
+                ParamSpec("draws", "int", False, 5000, "Gibbs draws kept"),
+                ParamSpec("burnin", "int", False, 1000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95, "Interval coverage"),
+            ],
+            returns="DLMResult",
+            example='sp.dlm("y ~ x", df)',
+            tags=[
+                "timeseries",
+                "state-space",
+                "kalman",
+                "time-varying",
+                "bayes",
+                "dlm",
+            ],
+            reference="petris2009dynamic",
+            assumptions=[
+                "Coefficients follow independent random walks",
+                "Gaussian, serially uncorrelated observation errors",
+            ],
+            pre_conditions=[
+                "Rows ordered in time (or time= given), equally spaced, no "
+                "missing values",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Rows with missing values",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Fill or drop them explicitly; dropping silently "
+                    "would join dates that are not adjacent.",
+                ),
+                FailureMode(
+                    symptom="A state variance is estimated at zero",
+                    exception="",
+                    remedy="The data do not ask for that coefficient to "
+                    "vary; list it in constant= or read it as constant.",
+                ),
+            ],
+            alternatives=["regress", "arima", "ets", "structural_break", "rolling"],
+            not_recommended_when=[
+                "Coefficients change at a few dates rather than gradually: "
+                "use sp.structural_break",
+            ],
+            cost_profile="O(T k^3) per likelihood evaluation; Gibbs O(draws T k^3)",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="bayes_ivreg",
             category="bayes",
             description=(

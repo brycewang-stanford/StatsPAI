@@ -125,6 +125,29 @@ _FACTOR_NOTES: Dict[str, Tuple[str, ...]] = {
 # tests/reference_parity/REFERENCES.md (the "Frozen R-value fixtures" table)
 # and the asserting test — no model-memory facts (CLAUDE.md §10).
 _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
+    # sp.dlm against R dlm on the committed dlm.csv (2026-10-07).
+    "dlm": {
+        "status": "bit-exact",
+        "reference": "dlm::dlmFilter, dlmSmooth, dlmLL, dlmMLE",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "dlm": "1.1.6.1"},
+        "tolerance": "filtered and smoothed means, filtered variances, one-step "
+        "forecasts and the log likelihood 1e-9 rel at fixed variances; "
+        "smoothed variances 1e-5 under the diffuse prior; maximum-likelihood "
+        "variances 1e-5 with a likelihood at least as high",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_dlm_parity.py",
+            "tests/reference_parity/_fixtures/dlm_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: a time-varying regression and a local level "
+            "model on a committed synthetic series of 140 dates. Under the "
+            "diffuse prior C0 = 1e7 I the first k dates are ill-conditioned "
+            "by construction and are compared from date k + 1. The Gibbs "
+            "sampler has no cross-language reference; it is checked against "
+            "an exact posterior in the same test file."
+        ),
+    },
     # ---- tools of empirical accounting research (Gow and Ding) ----
     #
     # Two synthetic files, two frozen references: R 4.5.2 (plm, sandwich,

@@ -2655,8 +2655,6 @@ def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
             "heckman needs `select(<eq>)` (selection equation).", command="heckman"
         )
     # Stata syntax: ``select(d = z1 z2)``
-    import re
-
     # ``select(z1 z2)`` without a selection variable: selected where the
     # outcome is observed (sp.heckman's select=None)
     head, eq, tail = select.partition("=")

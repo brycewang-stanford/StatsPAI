@@ -1186,6 +1186,7 @@ from .timeseries import (
     vec,
 )
 from .timeseries.abnormal_returns import AbnormalReturnsResult, abnormal_returns
+from .timeseries.dlm import DLMResult, dlm
 
 # Eager: ``tmle`` collides (function + subpackage of same name).
 from .tmle import (
@@ -2436,6 +2437,8 @@ __all__ = [
     "arima",
     "ARIMAResult",
     "bvar",
+    "dlm",
+    "DLMResult",
     "BVARResult",
     "garch",
     "GARCHResult",
