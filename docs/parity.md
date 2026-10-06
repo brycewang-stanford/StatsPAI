@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 411 |
+| **Compared against R/Stata** (T2) | bit-exact | 412 |
 | | aligned | 52 |
-| | **subtotal** | **463** |
+| | **subtotal** | **464** |
 | **No external software reference** | analytical-only (T1) | 352 |
 | | external-replication (published numbers) | 55 |
 | | **subtotal** | **407** |
-| No numerical evidence yet | unverified | 563 |
+| No numerical evidence yet | unverified | 564 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 463 | 854 | 858 | 54.0% |
+| estimator callables | 464 | 855 | 859 | 54.0% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 355 | 0.0% |
-| **all registered** | 463 | 870 | 1433 | 32.3% |
+| result / exception classes | 0 | 3 | 356 | 0.0% |
+| **all registered** | 464 | 871 | 1435 | 32.3% |
 
 ### Coverage by estimator family
 
@@ -55,7 +55,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | causal | 151 | 333 | 335 |
 | regression | 43 | 56 | 56 |
 | inference | 28 | 47 | 47 |
-| timeseries | 12 | 38 | 38 |
+| timeseries | 13 | 39 | 39 |
 | panel | 28 | 34 | 34 |
 | spatial | 28 | 33 | 33 |
 | diagnostics | 23 | 31 | 31 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 411 functions
+## bit-exact — 412 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -177,6 +177,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `discos` | DiSCos::DiSCo 0.1.4 (Gunsilius distributional synthetic controls), mixture = FALSE; mixture = TRUE vs GLPK on DiSCo's LP | R 4.5.2; DiSCos 0.1.4; pracma 2.4.6; quadprog 1.5.8; CVXR 1.8.2; Rglpk 0.6.5.1 | quantile weights 1e-11 abs (observed 4.9e-13), counterfactual quantile functions 1e-10 rel, quantile effects 1e-10 abs (observed 1.9e-12); mixture LP weights vs GLPK 1e-12 abs, vs DiSCo's SCS solution 5e-6 abs (observed 7.1e-7) | — / — | [`test_did_synth_synthvar_parity.py`](../tests/reference_parity/test_did_synth_synthvar_parity.py) (+1) |
 | `distance_band` | R spdep::dnearneigh | spdep 1.4.2; spatialreg 1.4.3 | Neighbour sets identical for all 120 points at a 0.25 radius. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `distributional_did` | didFF::distDD 0.1.0 (Roth & Sant'Anna) | R 4.5.2; didFF 0.1.0; did 2.3.0 | per-bin effect & SE 1e-9 (observed est 2.6e-12 abs, SE 2.5e-10 rel) | — / — | [`test_did_synth_didvar_parity.py`](../tests/reference_parity/test_did_synth_didvar_parity.py) (+3) |
+| `dlm` | dlm::dlmFilter, dlmSmooth, dlmLL, dlmMLE | R 4.5.2; dlm 1.1.6.1 | filtered and smoothed means, filtered variances, one-step forecasts and the log likelihood 1e-9 rel at fixed variances; smoothed variances 1e-5 under the diffuse prior; maximum-likelihood variances 1e-5 with a likelihood at least as high | — / — | [`test_dlm_parity.py`](../tests/reference_parity/test_dlm_parity.py) (+1) |
 | `dml` | DoubleML::DoubleMLPLR | R 4.5.2; DoubleML 1.0.2 | rel_est<=1e-10, rel_se<=1e-10 | 0 / 3.7e-15 | [`08_dml.py`](../tests/r_parity/08_dml.py) (+2) |
 | `dml_panel` | fixest::demean 0.14.0 (unit and unit+time absorption, balanced and unbalanced) and ddml::ddml_plm 0.3.1 (OLS learner, unit clusters, shared folds) | R 4.5.2; fixest 0.14.0; ddml 0.3.1; sandwich 3.1.1; doubleml 0.11.3; scikit-learn 1.6.1 | within transform 1e-10 abs (observed 2.6e-14); estimate 1e-10 rel vs ddml and DoubleML (observed 4.1e-16); SE 1e-10 rel vs DoubleML (observed 1.4e-15) and vs ddml after the CR1 factor | — / — | [`test_ml_causal_dml_parity.py`](../tests/reference_parity/test_ml_causal_dml_parity.py) (+2) |
 | `dml_sensitivity` | doubleml (Python) DoubleML.sensitivity_analysis | — | bias_bound and adjusted theta bounds 1e-12 (observed 2.5e-15); RV 1e-6 (observed 9.2e-8); RVa is a documented convention gap (<5e-3, observed 1.4e-3) because StatsPAI exhausts |theta|-z*se with the unadjusted SE while doubleml lets the SE move with the confounding scenario | — / — | [`test_dml_sensitivity_parity.py`](../tests/external_parity/test_dml_sensitivity_parity.py) |
@@ -995,6 +996,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 563 functions
+## unverified — 564 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

@@ -32896,6 +32896,227 @@
   {
     "alias_of": null,
     "alternatives": [
+      "regress",
+      "arima",
+      "ets",
+      "structural_break",
+      "rolling"
+    ],
+    "assumptions": [
+      "Coefficients follow independent random walks",
+      "Gaussian, serially uncorrelated observation errors"
+    ],
+    "category": "timeseries",
+    "cost_profile": "O(T k^3) per likelihood evaluation; Gibbs O(draws T k^3)",
+    "description": "Dynamic linear model: regression whose coefficients follow random walks (time-varying parameters; 'y ~ 1' is the local level model). Kalman filter and smoother, variances by maximum likelihood or by Gibbs sampling with forward filtering and backward sampling. Returns filtered and smoothed coefficient paths with intervals and forecasts. Filter, smoother and likelihood as R dlm. Validation: certified parity evidence. Do NOT use when: Coefficients change at a few dates rather than gradually: use sp.structural_break. Cost: O(T k^3) per likelihood evaluation; Gibbs O(draws T k^3)",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "dlm::dlmFilter, dlmSmooth, dlmLL, dlmMLE",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "dlm": "1.1.6.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_dlm_parity.py",
+        "tests/reference_parity/_fixtures/dlm_R.json"
+      ],
+      "tolerance": "filtered and smoothed means, filtered variances, one-step forecasts and the log likelihood 1e-9 rel at fixed variances; smoothed variances 1e-5 under the diffuse prior; maximum-likelihood variances 1e-5 with a likelihood at least as high"
+    },
+    "example": "sp.dlm(\"y ~ x\", df)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fill or drop them explicitly; dropping silently would join dates that are not adjacent.",
+        "symptom": "Rows with missing values"
+      },
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "The data do not ask for that coefficient to vary; list it in constant= or read it as constant.",
+        "symptom": "A state variance is estimated at zero"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "dlm",
+    "not_recommended_when": [
+      "Coefficients change at a few dates rather than gradually: use sp.structural_break"
+    ],
+    "pre_conditions": [
+      "Rows ordered in time (or time= given), equally spaced, no missing values"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "cost_profile": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "petris2009dynamic",
+    "returns": {
+      "class": "DLMResult",
+      "description": "DLMResult",
+      "fields": {
+        "draws": "Optional[pd.DataFrame]",
+        "filtered": "pd.DataFrame",
+        "fitted": "pd.Series",
+        "formula": "str",
+        "level": "float",
+        "loglik": "float",
+        "method": "str",
+        "model_info": "Dict[str, Any]",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "smoothed": "pd.DataFrame",
+        "variances": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Dynamic linear model: regression whose coefficients follow random walks (time-varying parameters; 'y ~ 1' is the local level model). Kalman filter and smoother, variances by maximum likelihood or by Gibbs sampling with forward filtering and backward sampling. Returns filtered and smoothed coefficient paths with intervals and forecasts. Filter, smoother and likelihood as R dlm. Validation: certified parity evidence. Do NOT use when: Coefficients change at a few dates rather than gradually: use sp.structural_break. Cost: O(T k^3) per likelihood evaluation; Gibbs O(draws T k^3)",
+      "name": "dlm",
+      "parameters": {
+        "properties": {
+          "C0": {
+            "default": 10000000.0,
+            "description": "Prior covariance of the coefficients (diffuse by default)",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
+          },
+          "burnin": {
+            "default": 1000,
+            "description": "Gibbs settings; ``draws`` are kept after ``burnin``.",
+            "type": "integer"
+          },
+          "constant": {
+            "description": "Terms whose coefficient does not vary",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 5000,
+            "description": "Gibbs draws kept",
+            "type": "integer"
+          },
+          "formula": {
+            "description": "'y ~ x1 + x2' or 'y ~ 1'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Interval coverage",
+            "type": "number"
+          },
+          "m0": {
+            "default": 0.0,
+            "description": "Prior mean of the coefficients",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
+          },
+          "method": {
+            "default": "mle",
+            "description": "How the variances are obtained",
+            "enum": [
+              "mle",
+              "gibbs"
+            ],
+            "type": "string"
+          },
+          "obs_var": {
+            "description": "Fix the observation variance",
+            "type": "number"
+          },
+          "obs_var_prior": {
+            "default": [
+              0.001,
+              0.001
+            ],
+            "description": "gibbs: V ~ InvGamma(alpha0/2, delta0/2)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "seed": {
+            "description": "Gibbs settings; ``draws`` are kept after ``burnin``.",
+            "type": "integer"
+          },
+          "state_var": {
+            "description": "Fix the state variances (one number or one per term)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "state_var_prior": {
+            "default": [
+              0.001,
+              0.001
+            ],
+            "description": "gibbs: each W ~ InvGamma(alpha0/2, delta0/2)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "thin": {
+            "default": 1,
+            "description": "Gibbs settings; ``draws`` are kept after ``burnin``.",
+            "type": "integer"
+          },
+          "time": {
+            "description": "Column to sort by",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs dlm::dlmFilter, dlmSmooth, dlmLL, dlmMLE [R version 4.5.2 (2025-10-31), dlm 1.1.6.1]; tolerance filtered and smoothed means, filtered variances, one-step forecasts and the log likelihood 1e-9 rel at fixed variances; smoothed variances 1e-5 under the diffuse prior; maximum-likelihood variances 1e-5 with a likelihood at least as high -- tests/reference_parity/test_dlm_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "ivreg",
       "bayes_iv",
       "bayes_regress",

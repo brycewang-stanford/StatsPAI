@@ -13913,6 +13913,129 @@
     }
   },
   {
+    "description": "Dynamic linear model: regression whose coefficients follow random walks (time-varying parameters; 'y ~ 1' is the local level model). Kalman filter and smoother, variances by maximum likelihood or by Gibbs sampling with forward filtering and backward sampling. Returns filtered and smoothed coefficient paths with intervals and forecasts. Filter, smoother and likelihood as R dlm. Validation: certified parity evidence. Do NOT use when: Coefficients change at a few dates rather than gradually: use sp.structural_break. Cost: O(T k^3) per likelihood evaluation; Gibbs O(draws T k^3)",
+    "name": "dlm",
+    "parameters": {
+      "properties": {
+        "C0": {
+          "default": 10000000.0,
+          "description": "Prior covariance of the coefficients (diffuse by default)",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "burnin": {
+          "default": 1000,
+          "description": "Gibbs settings; ``draws`` are kept after ``burnin``.",
+          "type": "integer"
+        },
+        "constant": {
+          "description": "Terms whose coefficient does not vary",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "default": 5000,
+          "description": "Gibbs draws kept",
+          "type": "integer"
+        },
+        "formula": {
+          "description": "'y ~ x1 + x2' or 'y ~ 1'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Interval coverage",
+          "type": "number"
+        },
+        "m0": {
+          "default": 0.0,
+          "description": "Prior mean of the coefficients",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "method": {
+          "default": "mle",
+          "description": "How the variances are obtained",
+          "enum": [
+            "mle",
+            "gibbs"
+          ],
+          "type": "string"
+        },
+        "obs_var": {
+          "description": "Fix the observation variance",
+          "type": "number"
+        },
+        "obs_var_prior": {
+          "default": [
+            0.001,
+            0.001
+          ],
+          "description": "gibbs: V ~ InvGamma(alpha0/2, delta0/2)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "Gibbs settings; ``draws`` are kept after ``burnin``.",
+          "type": "integer"
+        },
+        "state_var": {
+          "description": "Fix the state variances (one number or one per term)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "state_var_prior": {
+          "default": [
+            0.001,
+            0.001
+          ],
+          "description": "gibbs: each W ~ InvGamma(alpha0/2, delta0/2)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "thin": {
+          "default": 1,
+          "description": "Gibbs settings; ``draws`` are kept after ``burnin``.",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Column to sort by",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Bayesian linear instrumental variables by Gibbs sampling, NumPy only: the joint normal model of the first stage and the structural equation with one endogenous regressor, normal priors on the coefficients and an inverse-Wishart prior on the error covariance. The posterior of the effect carries first-stage uncertainty; rho, the error correlation, measures endogeneity. Same formula syntax as sp.ivreg. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Heteroskedastic or clustered errors matter for inference: the likelihood is homoskedastic normal; use sp.ivreg with robust or clustered standard errors. Cost: O(iterations x n); a few seconds for thousands of rows",
     "name": "bayes_ivreg",
     "parameters": {

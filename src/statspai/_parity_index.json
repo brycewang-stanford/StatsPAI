@@ -5475,6 +5475,31 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "dlm",
+      "notes": [
+        "Frozen-R fixture: a time-varying regression and a local level model on a committed synthetic series of 140 dates. Under the diffuse prior C0 = 1e7 I the first k dates are ill-conditioned by construction and are compared from date k + 1. The Gibbs sampler has no cross-language reference; it is checked against an exact posterior in the same test file."
+      ],
+      "reference": "dlm::dlmFilter, dlmSmooth, dlmLL, dlmMLE",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "dlm": "1.1.6.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_dlm_parity.py",
+        "tests/reference_parity/_fixtures/dlm_R.json"
+      ],
+      "tolerance": "filtered and smoothed means, filtered variances, one-step forecasts and the log likelihood 1e-9 rel at fixed variances; smoothed variances 1e-5 under the diffuse prior; maximum-likelihood variances 1e-5 with a likelihood at least as high"
+    },
+    {
       "additional_tests": [
         "tests/r_parity/71_dml_family.py",
         "tests/r_parity/71_dml_family.R",
@@ -17796,6 +17821,7 @@
         "tests/reference_parity/test_did_synth_shiftshare_parity.py",
         "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_difference_in_means_estimatr.py",
+        "tests/reference_parity/test_dlm_parity.py",
         "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_feols_bias_reduced_parity.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",

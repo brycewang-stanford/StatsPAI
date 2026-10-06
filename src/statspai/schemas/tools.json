@@ -9977,6 +9977,123 @@
     "name": "dl_propensity_score"
   },
   {
+    "description": "Dynamic linear model: regression whose coefficients follow random walks (time-varying parameters; 'y ~ 1' is the local level model). Kalman filter and smoother, variances by maximum likelihood or by Gibbs sampling with forward filtering and backward sampling. Returns filtered and smoothed coefficient paths with intervals and forecasts. Filter, smoother and likelihood as R dlm. Validation: certified parity evidence. Do NOT use when: Coefficients change at a few dates rather than gradually: use sp.structural_break. Cost: O(T k^3) per likelihood evaluation; Gibbs O(draws T k^3) Assumptions: Coefficients follow independent random walks; Gaussian, serially uncorrelated observation errors. Pre-conditions: Rows ordered in time (or time= given), equally spaced, no missing values. Failure modes: Rows with missing values -> Fill or drop them explicitly; dropping silently would join dates that are not adjacent; A state variance is estimated at zero -> The data do not ask for that coefficient to vary; list it in constant= or read it as constant. Alternatives: sp.regress, sp.arima, sp.ets, sp.structural_break.",
+    "input_schema": {
+      "properties": {
+        "C0": {
+          "default": 10000000.0,
+          "description": "Prior covariance of the coefficients (diffuse by default)",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "burnin": {
+          "default": 1000,
+          "description": "Gibbs settings; ``draws`` are kept after ``burnin``.",
+          "type": "integer"
+        },
+        "constant": {
+          "description": "Terms whose coefficient does not vary",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "draws": {
+          "default": 5000,
+          "description": "Gibbs draws kept",
+          "type": "integer"
+        },
+        "formula": {
+          "description": "'y ~ x1 + x2' or 'y ~ 1'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Interval coverage",
+          "type": "number"
+        },
+        "m0": {
+          "default": 0.0,
+          "description": "Prior mean of the coefficients",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "method": {
+          "default": "mle",
+          "description": "How the variances are obtained",
+          "enum": [
+            "mle",
+            "gibbs"
+          ],
+          "type": "string"
+        },
+        "obs_var": {
+          "description": "Fix the observation variance",
+          "type": "number"
+        },
+        "obs_var_prior": {
+          "default": [
+            0.001,
+            0.001
+          ],
+          "description": "gibbs: V ~ InvGamma(alpha0/2, delta0/2)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "Gibbs settings; ``draws`` are kept after ``burnin``.",
+          "type": "integer"
+        },
+        "state_var": {
+          "description": "Fix the state variances (one number or one per term)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "state_var_prior": {
+          "default": [
+            0.001,
+            0.001
+          ],
+          "description": "gibbs: each W ~ InvGamma(alpha0/2, delta0/2)",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "thin": {
+          "default": 1,
+          "description": "Gibbs settings; ``draws`` are kept after ``burnin``.",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Column to sort by",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "formula"
+      ],
+      "type": "object"
+    },
+    "name": "dlm"
+  },
+  {
     "description": "Double/Debiased Machine Learning supports PLR, binary-D IRM, PLIV, and binary-D/binary-Z IIVM. Python-only external OOFPredictions supports unweighted, unnormalised IRM ATE scoring with exact alignment; caller_declared records are declarations rather than proof against leakage. Validation: certified evidence with scoped limitations. Known limitations: external_predictions, store_oof, and observation_ids are Python-only and absent from JSON/MCP inputs; external records accept no dict, JSON string, or file path; store_oof=True retains individual-level records for get_oof() and get_residuals() in memory only; ordinary serialization omits them; Retained IRM needs at least 10 rows per treatment arm in each training fold or raises DataInsufficient instead of fallback; internal explicit fold_indices require n_rep=1, while external repeated IRM records are allowed when the explicit partition is equivalent for every repeat. Do NOT use when: the treatment is assigned repeatedly and moves later covariates -- static DML is biased; use sp.dynamic_dml; unit fixed effects carry the confounding -- use sp.dml_panel. Cost: n_folds x n_rep nuisance fits per model (two learners for PLR / IRM, three o...",
     "input_schema": {
       "properties": {
