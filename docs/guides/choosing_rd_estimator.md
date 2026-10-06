@@ -58,6 +58,7 @@ Fuzzy RD identifies a LATE for compliers. Also report:
 | Heterogeneous effects                       | `sp.rdhte`, `sp.rd_forest`      |
 | ML-based extrapolation beyond cutoff        | `sp.rd_extrapolate`             |
 | Honest inference (Armstrong-Kolesar)        | `sp.rd_honest`                  |
+| Optimized weights under a curvature bound (Imbens-Wager); discrete running variable | `sp.rd_optimized` |
 | Manipulation / bunching at cutoff           | `sp.bunching` + `sp.rddensity`  |
 
 ## 4. Mandatory diagnostics

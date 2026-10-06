@@ -62,36 +62,73 @@ References: Hudgens & Halloran (2008), *JASA*; Aronow & Samii (2017),
 
 ## 2. Network interference — Aronow-Samii exposure mapping
 
-### `sp.network_exposure` — Horvitz-Thompson under arbitrary interference
+### `sp.interference_test` — is there any spillover at all?
+
+Before estimating spillovers, test for them. Under the hypothesis that a
+unit's outcome depends only on its own treatment, the outcomes of a set
+of *focal* units do not change when the treatments of the other units are
+reshuffled. That gives an exact randomization test.
+
+```python
+t = sp.interference_test(Y=y, Z=z, adjacency=A)      # H0: no spillovers
+t.pvalue
+sp.interference_test(Y=y, Z=z, null="no_effect")     # H0: no effect at all
+```
+
+The focal set is drawn from a seed, never from the realised assignment,
+which is what keeps the test valid. It applies to Bernoulli and
+completely randomized assignment. The two hypotheses are nested, so
+testing them in that order needs no multiplicity correction.
+
+References: Aronow (2012); Athey, Eckles & Imbens (2018); Basse, Feller &
+Toulis (2019).
+
+### `sp.network_exposure` — exposure effects on a known network
 
 The general-network generalization of `spillover`. You supply:
 - Observed outcomes `Y` and treatment vector `Z`.
-- An **adjacency** (matrix, DataFrame, or edge list).
+- An **adjacency** (matrix, sparse matrix, DataFrame, or edge list).
 - An **exposure mapping** that reduces the full `Z` vector to a
   low-dimensional categorical exposure per unit (e.g. the Aronow-Samii
   4-cell partition `c00 / c10 / c01 / c11`).
 
-The estimator is Horvitz-Thompson with exposure probabilities computed
-by Monte-Carlo simulation under the known (Bernoulli) design:
+Each exposure level's mean outcome is an inverse-probability weighted
+mean. Under Bernoulli assignment the exposure probabilities are exact
+functions of a unit's degree:
 
 ```python
 r = sp.network_exposure(
     Y=y, Z=z, adjacency=A,
     mapping="as4",     # or "fraction" (by share of treated neighbors)
     p_treat=0.3,
-    n_sim=3000,
-    seed=0,
 )
 print(r.contrasts)     # direct / spillover / composite contrasts
-print(r.estimates)     # HT mean per exposure level
+print(r.estimates)     # mean, se, smallest probability and effective
+                       # sample size per exposure level
 ```
 
-**When to use it**: you have the full graph and know the randomization
-design (Bernoulli with known `p_treat`). SEs use the conservative
-Aronow-Samii Theorem 1 bound. Not suitable for observational data
-without a known design — for that see `network_hte` below.
+Three choices matter.
 
-References: Aronow & Samii (2017), *AOAS* 11(4).
+- `estimator="hajek"` (default) divides by the sum of the weights.
+  `"ht"` is the Horvitz-Thompson mean, which is unbiased but changes
+  when a constant is added to the outcome and is far noisier.
+- `variance="hac_psd"` (default) sums over pairs of units that share a
+  neighbour, using the positive semidefinite part of that dependency
+  graph, and is conservative for the randomization variance. `"hac"` is
+  the unadjusted form, which is tighter when overlap is good and can be
+  too small when it is not.
+- `min_prob=` restricts the averages to units for which every exposure
+  has at least that probability. A unit with ten neighbours has no
+  treated neighbour with probability `(1 - p) ** 10`; if it is ever seen
+  in that state it carries an enormous weight. The function warns when
+  an exposure probability is below 0.01.
+
+**When to use it**: you have the full graph and know the randomization
+design (Bernoulli with known `p_treat`). Not suitable for observational
+data without a known design — for that see `network_hte` below.
+
+References: Aronow & Samii (2017), *AOAS* 11(4); Leung (2022),
+*Econometrica* 90(1); Gao & Ding (2025), *Journal of Econometrics* 252.
 
 ### `sp.peer_effects` — linear-in-means (Manski / Bramoullé)
 
@@ -279,7 +316,8 @@ I have clusters that don't interact across cluster boundaries
   → sp.spillover
 
 I have the full network + a known randomization design
-  → sp.network_exposure (HT + Aronow-Samii mapping)
+  → sp.interference_test (is there spillover at all?)
+  → sp.network_exposure (exposure mapping, network-robust variance)
 
 I want to decompose β_endogenous vs γ_contextual peer effects
   → sp.peer_effects
@@ -309,10 +347,11 @@ I suspect unmeasured network confounding (homophily, latent groups)
 
 ## Diagnostics every interference analysis should report
 
-1. **Exposure balance**. Tabulate the realized exposure levels
-   (`c00`, `c10`, `c01`, `c11`) — if any cell has fewer than ~30 units
-   the HT estimator will be unstable. Visible in
-   `network_exposure(...).estimates["n_at_level"]`.
+1. **Exposure balance and overlap**. Tabulate the realized exposure
+   levels (`c00`, `c10`, `c01`, `c11`) — if any cell has fewer than ~30
+   units, or an effective sample size far below its count, the estimate
+   rests on a few heavily weighted units. Visible in
+   `network_exposure(...).estimates[["n_at_level", "min_prob", "ess"]]`.
 2. **Identification check for `peer_effects`**. Compute `W2 = W @ W`
    and confirm there exists at least one `(i, j)` with `W2[i,j] > 0`
    and `W[i,j] == 0`. No such pair → 2SLS is under-identified.
