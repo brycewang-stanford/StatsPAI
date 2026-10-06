@@ -2499,6 +2499,70 @@
     "name": "bidirectional_pci"
   },
   {
+    "description": "Average residuals within equal-count bins of the fitted value or of a regressor, with a +/- 2 se band: the residual plot for binary and count models, whose raw residuals show nothing. Validation: certified parity evidence. Assumptions: Under a correct mean model about 95 percent of bin averages fall inside the band. Failure modes: bins flagged where fitted probabilities are near 0 or 1 -> The band 2 sd / sqrt(n) collapses where the outcome hardly varies; read those bins by eye. Alternatives: sp.logit_gof, sp.ppc, sp.estat.",
+    "input_schema": {
+      "properties": {
+        "by": {
+          "description": "Bin on this variable instead of the fitted values",
+          "type": "string"
+        },
+        "n_bins": {
+          "description": "Default floor(sqrt(n))",
+          "type": "integer"
+        },
+        "residuals": {
+          "description": "Observed minus fitted; required when x is an array",
+          "type": "string"
+        },
+        "x": {
+          "description": "Fitted model (logit, probit, glm, poisson, bayes_regress) or the values to bin on",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    },
+    "name": "binned_residuals"
+  },
+  {
+    "description": "Plot of :func:`binned_residuals` with its ``+/- 2 se`` band.",
+    "input_schema": {
+      "properties": {
+        "ax": {
+          "description": "ax parameter.",
+          "type": "string"
+        },
+        "by": {
+          "description": "by parameter (Optional[Any]).",
+          "type": "string"
+        },
+        "n_bins": {
+          "description": "Number of bins.",
+          "type": "integer"
+        },
+        "residuals": {
+          "description": "residuals parameter (Optional[Any]).",
+          "type": "string"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        },
+        "xlabel": {
+          "description": "xlabel parameter (Optional[str]).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    },
+    "name": "binned_residuals_plot"
+  },
+  {
     "description": "Bivariate probit model. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance. Assumptions: The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects; Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure; No perfect separation: every outcome category occurs at every level of each discrete covariate. Pre-conditions: Outcome is coded as integers (0/1, ordered levels, or category ids), not as floats or strings; Each outcome category has enough cases (rule of thumb: >= 10 events per estimated coefficient). Failure modes: ConvergenceWarning / coefficients drifting to +/-inf -> Quasi-complete separation: drop or coarsen the separating covariate, or use a penalised (Firth-type) or linear-probability specification; Coefficients reported but the question is about effects on the probability scale -> Report average marginal effects with sp.margins rather than raw index coeffici...",
     "input_schema": {
       "properties": {
@@ -14775,7 +14839,7 @@
         },
         "family": {
           "default": "gaussian",
-          "description": "Distribution family. One of ``\"gaussian\"``, ``\"binomial\"``, ``\"poisson\"``, ``\"gamma\"``, ``\"inverse_gaussian\"``, ``\"negative_binomial\"``.",
+          "description": "Distribution family. One of ``\"gaussian\"``, ``\"binomial\"``, ``\"poisson\"``, ``\"gamma\"``, ``\"inverse_gaussian\"``, ``\"negative_binomial\"``. ``\"quasipoisson\"`` and ``\"quasibinomial\"`` (R's names) fit the Poisson / binomial mean model with ``scale=\"x2\"``: same coefficients, standard errors multiplied by the square root of the Pearson dispersion, so overdispersed counts do not produce overconfident intervals.",
           "enum": [
             "gaussian",
             "binomial",
@@ -14787,7 +14851,7 @@
           "type": "string"
         },
         "formula": {
-          "description": "Model formula (e.g. ``\"y ~ x1 + x2\"``).",
+          "description": "Model formula (e.g. ``\"y ~ x1 + x2\"``). With ``family=\"binomial\"`` the outcome may be grouped counts written the R way, ``\"cbind(successes, failures) ~ x\"``: the share of successes is fitted with the number of trials as weight. Coefficients, standard errors and deviance are those of the binomial model; the reported log-likelihood is that of the ungrouped 0 / 1 data and omits the binomial coefficients, a constant that cancels in likelihood-ratio tests.",
           "type": "string",
           "x-statspai-role": "formula"
         },
@@ -14801,7 +14865,7 @@
           "type": "string"
         },
         "link": {
-          "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"cauchit\"``, ``\"power\"``, ``\"sqrt\"``.",
+          "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"cauchit\"``, ``\"power\"``, ``\"sqrt\"``, and for a binary outcome ``\"robit(dof)\"``: a Student-t link with ``dof`` degrees of freedom (``\"robit\"`` alone is 7), robust to isolated outcomes the index predicts badly; ``\"robit(dof,unit)\"`` scales the latent error to variance one.",
           "enum": [
             "identity",
             "log",
@@ -16747,6 +16811,22 @@
       "type": "object"
     },
     "name": "interpret_result"
+  },
+  {
+    "description": "Inverse logit, ``1 / (1 + exp(-x))``.",
+    "input_schema": {
+      "properties": {
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    },
+    "name": "invlogit"
   },
   {
     "description": "Inverse propensity score OPE. Validation: certified parity evidence. Assumptions: Logging (behaviour) policy propensities are known or correctly estimated; Positivity / common support: the logging policy assigns positive probability to every action the target policy takes; No unmeasured confounding in the logged data. Pre-conditions: X (context), A (logged action), R (reward) and logging propensities are available. Failure modes: High-variance estimate from extreme importance weights when the target policy diverges from logging -> Use self-normalised IPS (snips) or the doubly-robust estimator to reduce variance. Alternatives: sp.snips, sp.doubly_robust, sp.direct_method. Typical minimum N: 500.",
@@ -35249,6 +35329,52 @@
       "type": "object"
     },
     "name": "staggered_synth"
+  },
+  {
+    "description": "Centre numeric inputs and divide by two standard deviations (Gelman 2008), so a coefficient compares one sd below with one sd above the mean and is comparable with the coefficient of a binary input; binary inputs are centred. Returns the rescaled data to refit on. Validation: certified parity evidence. Do NOT use when: The input has a natural unit readers care about (years of schooling): report the raw coefficient as well. Assumptions: Coefficients are to be compared across inputs; the fit itself (predictions, R-squared) does not change. Failure modes: a requested column is not numeric -> Categorical inputs are compared through their indicators; leave them out of columns=. Alternatives: sp.winsor.",
+    "input_schema": {
+      "properties": {
+        "binary": {
+          "default": "center",
+          "description": "Treatment of two-valued inputs",
+          "enum": [
+            "center",
+            "full",
+            "0/1",
+            "-0.5/0.5",
+            "none"
+          ],
+          "type": "string"
+        },
+        "columns": {
+          "description": "Columns to rescale",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "divisor": {
+          "default": 2.0,
+          "description": "1 gives z-scores",
+          "type": "number"
+        },
+        "exclude": {
+          "description": "Columns to leave alone",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "formula": {
+          "description": "Rescale the numeric columns on the right-hand side",
+          "type": "string",
+          "x-statspai-role": "formula"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "standardize"
   },
   {
     "description": "Maximum-likelihood estimation of a user-written linear state space model: build(theta) returns the system matrices, the Kalman-filter likelihood is maximised, and the estimates come with standard errors, information criteria and the filtered and smoothed states. Handles mixed frequencies and missing observations. Validation: certified parity evidence. Do NOT use when: The likelihood may have several local maxima and only one start is tried. Assumptions: Linear Gaussian state space model; Parameters identified from the observed series. Failure modes: Hessian not positive definite at the optimum -> The likelihood is flat in some direction or the search stopped early: try other starting values or a more restricted model. Alternatives: sp.kalman_filter, sp.dlm, sp.arima, sp.ardl.",

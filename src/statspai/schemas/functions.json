@@ -14457,7 +14457,7 @@
           "type": "number"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "standard deviation ``2.5 sd(y) / sd(x)`` for each slope and ``2.5 sd(y)`` for the intercept, centred at ``mean(y)``, with the regressors centred; ``sd(y)`` is replaced by 1 and ``mean(y)`` by 0 outside the Gaussian model. These are the defaults of R ``rstanarm``. They rule out effects that are absurd on the scale of the data and little else, so the result does not depend on the units of the regressors, as it does under a fixed ``prior_var``. ``prior_mean`` and ``prior_var`` must be left at their defaults.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -14470,6 +14470,11 @@
           "default": 10000,
           "description": "Draws kept per chain",
           "type": "integer"
+        },
+        "exposure": {
+          "description": "Count models: column whose logarithm is the offset",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "formula": {
           "description": "e.g. 'y ~ x1 + x2'",
@@ -14509,6 +14514,20 @@
             "tobit",
             "quantile",
             "mlogit"
+          ],
+          "type": "string"
+        },
+        "offset": {
+          "description": "Term added to the linear index with coefficient one (logit, poisson, negbin): a column name or an array",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "prior": {
+          "default": "vague",
+          "description": "'weakly_informative': independent normal priors scaled to the data (sd 2.5 sd(y)/sd(x) per slope, intercept centred at mean(y) with the regressors centred), the defaults of R rstanarm; results then do not depend on the units of the regressors. Models normal, logit, probit, poisson, negbin",
+          "enum": [
+            "vague",
+            "weakly_informative"
           ],
           "type": "string"
         },
@@ -14555,24 +14574,16 @@
           "type": "integer"
         },
         "sigma2_prior": {
-          "default": [
-            0.001,
-            0.001
-          ],
-          "description": "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2)",
+          "description": "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2). Default (0.001, 0.001); with prior='weakly_informative' the default is sigma ~ Exponential(1 / sd(y))",
           "items": {
-            "type": "number"
+            "type": "string"
           },
           "type": "array"
         },
         "size_prior": {
-          "default": [
-            0.5,
-            0.1
-          ],
-          "description": "negbin: Gamma(shape, rate) prior on the size 1 / alpha",
+          "description": "negbin: Gamma(shape, rate) prior on the size 1 / alpha. Default (0.5, 0.1); (1, 1) with prior='weakly_informative'",
           "items": {
-            "type": "number"
+            "type": "string"
           },
           "type": "array"
         },
@@ -16464,7 +16475,7 @@
     }
   },
   {
-    "description": "Linear regression with a shrinkage or variable-selection prior: the Bayesian lasso (Park and Casella 2008) or stochastic search variable selection (George and McCulloch 1993) with posterior inclusion probabilities. Regressors standardised for the prior, coefficients reported on the original scale. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Inference on one coefficient with many controls is the goal: shrunk intervals are not confidence intervals; use sp.rlasso_effect or sp.dml.",
+    "description": "Linear regression with a shrinkage or variable-selection prior: the Bayesian lasso (Park and Casella 2008), stochastic search variable selection (George and McCulloch 1993) with posterior inclusion probabilities, or the horseshoe (Carvalho, Polson and Scott 2010). Regressors standardised for the prior, coefficients reported on the original scale. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Inference on one coefficient with many controls is the goal: shrunk intervals are not confidence intervals; use sp.rlasso_effect or sp.dml.",
     "name": "bayes_shrink",
     "parameters": {
       "properties": {
@@ -16487,6 +16498,10 @@
           "description": "'y ~ x1 + x2 + ...'",
           "type": "string",
           "x-statspai-role": "formula"
+        },
+        "global_scale": {
+          "description": "horseshoe: scale of the half-Cauchy prior on the global shrinkage tau (default 1)",
+          "type": "number"
         },
         "inclusion": {
           "default": 0.5,
@@ -16513,12 +16528,17 @@
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "number"
         },
+        "p0": {
+          "description": "horseshoe: prior guess of the number of non-negligible coefficients; sets global_scale = p0/(p-p0)/sqrt(n)",
+          "type": "number"
+        },
         "prior": {
           "default": "lasso",
           "description": "Prior on the slopes",
           "enum": [
             "lasso",
-            "ssvs"
+            "ssvs",
+            "horseshoe"
           ],
           "type": "string"
         },
@@ -18052,6 +18072,386 @@
       "required": [
         "result",
         "param"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Leave-one-out cross-validation by Pareto smoothed importance sampling: expected log predictive density (elpd) for new data from one fit, the effective number of parameters, and a Pareto k diagnostic per observation that says whether the estimate can be trusted. Takes a sp.bayes_regress / sp.bayes_shrink fit or any draws-by-observations matrix of pointwise log-likelihoods. Validation: certified parity evidence. Do NOT use when: Whole groups must be predicted (clustered or panel data): leave-one-observation-out answers a different question; use sp.kfold with sp.kfold_split(groups=); Time series forecasting: use sp.tscv.",
+    "name": "loo",
+    "parameters": {
+      "properties": {
+        "r_eff": {
+          "description": "Relative efficiency of the draws per observation; from the model's chains when omitted, 1 for a bare matrix",
+          "type": "number"
+        },
+        "save_weights": {
+          "default": true,
+          "description": "Keep the smoothed log weights (needed by loo_predict, loo_r2)",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "Fitted model with log_lik(), or the pointwise log-likelihood matrix (draws by observations)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Widely applicable information criterion: within-sample log predictive density minus the posterior variance of each pointwise log-likelihood. Asymptotically equal to leave-one-out cross-validation; sp.loo is more robust in finite samples and carries a diagnostic. Validation: certified parity evidence.",
+    "name": "waic",
+    "parameters": {
+      "properties": {
+        "x": {
+          "description": "Fitted model with log_lik(), or the pointwise log-likelihood matrix (draws by observations)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "K-fold cross-validation of a Bayesian model by refitting: each held-out observation is scored by its log predictive density under the fit that did not see it. No importance sampling approximation; the remedy for high Pareto k in sp.loo and the valid choice when groups are held out. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "kfold",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Estimation data, with refit",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "fit": {
+          "description": "Fitted model",
+          "type": "string"
+        },
+        "folds": {
+          "description": "Fold of each observation (e.g. from sp.kfold_split with groups=); overrides k and seed",
+          "type": "string"
+        },
+        "k": {
+          "default": 10,
+          "description": "Number of folds",
+          "type": "integer"
+        },
+        "refit": {
+          "description": "refit(train) -> fitted model, for models without their own refitting recipe; needs data",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Seed of the fold assignment",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fit"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Compare models on expected log predictive density: difference from the best model and its standard error from the paired pointwise differences. Accepts sp.loo / sp.waic / sp.kfold results or fitted models. Validation: certified parity evidence. Do NOT use when: elpd differences below about 4: they are small whatever their standard error.",
+    "name": "loo_compare",
+    "parameters": {
+      "properties": {
+        "models": {
+          "description": "Two or more results (positional), or one dict of name -> result",
+          "type": "object"
+        },
+        "names": {
+          "description": "Model labels",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "models"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Pareto smoothed importance sampling: stabilises importance weights by replacing the largest with order statistics of a fitted generalized Pareto tail; the fitted shape k is the reliability diagnostic. Validation: certified parity evidence.",
+    "name": "psis",
+    "parameters": {
+      "properties": {
+        "log_ratios": {
+          "description": "Log importance ratios, draws or draws by observations",
+          "type": "string"
+        },
+        "r_eff": {
+          "description": "Relative efficiency of the draws (default 1)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "log_ratios"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Posterior predictive check: simulate replicated data sets from a fitted Bayesian regression and compare a statistic of each (min, max, sd, share of zeros, skewness, or a user function) with the same statistic of the data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A calibrated test is needed: the p-value uses the data twice and is conservative.",
+    "name": "ppc",
+    "parameters": {
+      "properties": {
+        "draws": {
+          "default": 1000,
+          "description": "Replicated data sets",
+          "type": "integer"
+        },
+        "fit": {
+          "description": "Fitted model",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "stat": {
+          "default": "mean",
+          "description": "Test statistic: 'mean', 'sd', 'var', 'min', 'max', 'median', 'skew', 'prop_zero', or a function of one data vector",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fit"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bayesian R-squared (Gelman, Goodrich, Gabry, Vehtari 2019): variance of the fit over variance of the fit plus residual variance, draw by draw, so it has a posterior and cannot exceed one. Gaussian, Student-t, binary and count models. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Choosing between models: it rises with every added regressor; use sp.loo_r2 or sp.loo_compare.",
+    "name": "bayes_r2",
+    "parameters": {
+      "properties": {
+        "fit": {
+          "description": "Fitted model",
+          "type": "string"
+        },
+        "kind": {
+          "default": "model",
+          "description": "'model': residual variance the model expects (rstanarm); 'residual': variance of y minus the fit of each draw",
+          "enum": [
+            "model",
+            "residual"
+          ],
+          "type": "string"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Interval mass",
+          "type": "number"
+        }
+      },
+      "required": [
+        "fit"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Leave-one-out R-squared: 1 - Var(y - yhat_loo) / Var(y) with each observation predicted from a posterior that did not see it. Estimates variance explained in new data; falls when a regressor only adds noise. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "loo_r2",
+    "parameters": {
+      "properties": {
+        "fit": {
+          "description": "Fitted model",
+          "type": "string"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Interval mass",
+          "type": "number"
+        },
+        "loo_result": {
+          "description": "Output of sp.loo(fit)",
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 4000,
+          "description": "Bayesian bootstrap draws",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fit"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Design analysis (Gelman and Carlin 2014): for a hypothesised true effect and a standard error, the power, the probability that a significant estimate has the wrong sign (type S) and its expected exaggeration factor (type M). Closed form; exact for a t-test when dof is given. Validation: certified parity evidence. Do NOT use when: The effect size plugged in is the study's own significant estimate: that estimate is the exaggerated quantity.",
+    "name": "retrodesign",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Two-sided level",
+          "type": "number"
+        },
+        "dof": {
+          "description": "Degrees of freedom of the estimated standard error (t-test); known standard error when omitted",
+          "type": "number"
+        },
+        "effect": {
+          "description": "Hypothesised true effect, from outside information, never the estimate under review",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "method": {
+          "default": "exact",
+          "description": "With dof: 'exact' for the t-test, 'shifted' for the approximation in the published code",
+          "enum": [
+            "exact",
+            "shifted"
+          ],
+          "type": "string"
+        },
+        "se": {
+          "description": "Standard error",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "effect",
+        "se"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Average residuals within equal-count bins of the fitted value or of a regressor, with a +/- 2 se band: the residual plot for binary and count models, whose raw residuals show nothing. Validation: certified parity evidence.",
+    "name": "binned_residuals",
+    "parameters": {
+      "properties": {
+        "by": {
+          "description": "Bin on this variable instead of the fitted values",
+          "type": "string"
+        },
+        "n_bins": {
+          "description": "Default floor(sqrt(n))",
+          "type": "integer"
+        },
+        "residuals": {
+          "description": "Observed minus fitted; required when x is an array",
+          "type": "string"
+        },
+        "x": {
+          "description": "Fitted model (logit, probit, glm, poisson, bayes_regress) or the values to bin on",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Centre numeric inputs and divide by two standard deviations (Gelman 2008), so a coefficient compares one sd below with one sd above the mean and is comparable with the coefficient of a binary input; binary inputs are centred. Returns the rescaled data to refit on. Validation: certified parity evidence. Do NOT use when: The input has a natural unit readers care about (years of schooling): report the raw coefficient as well.",
+    "name": "standardize",
+    "parameters": {
+      "properties": {
+        "binary": {
+          "default": "center",
+          "description": "Treatment of two-valued inputs",
+          "enum": [
+            "center",
+            "full",
+            "0/1",
+            "-0.5/0.5",
+            "none"
+          ],
+          "type": "string"
+        },
+        "columns": {
+          "description": "Columns to rescale",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "A Series (or array) is rescaled and returned.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "divisor": {
+          "default": 2.0,
+          "description": "1 gives z-scores",
+          "type": "number"
+        },
+        "exclude": {
+          "description": "Columns to leave alone",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "formula": {
+          "description": "Rescale the numeric columns on the right-hand side",
+          "type": "string",
+          "x-statspai-role": "formula"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Poststratification: average a model's predictions over the cells of a known population, weighting by cell counts, draw by draw for a Bayesian fit so the estimate carries the regression's uncertainty; overall and by subgroup. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Many sparse cells with a classical fit: cell estimates are noisy; use a multilevel model for the cell means.",
+    "name": "poststratify",
+    "parameters": {
+      "properties": {
+        "by": {
+          "description": "Also report within these columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cells": {
+          "description": "One row per population cell: the model's columns and the cell count",
+          "type": "string"
+        },
+        "count": {
+          "default": "N",
+          "description": "Column of cell counts or shares",
+          "type": "string"
+        },
+        "fit": {
+          "description": "Model with posterior_epred(data) or predict(data), or predictions per cell (draws by cells)",
+          "type": "string"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Interval mass",
+          "type": "number"
+        }
+      },
+      "required": [
+        "fit",
+        "cells"
       ],
       "type": "object"
     }
@@ -39118,7 +39518,7 @@
         },
         "family": {
           "default": "gaussian",
-          "description": "Distribution family. One of ``\"gaussian\"``, ``\"binomial\"``, ``\"poisson\"``, ``\"gamma\"``, ``\"inverse_gaussian\"``, ``\"negative_binomial\"``.",
+          "description": "Distribution family. One of ``\"gaussian\"``, ``\"binomial\"``, ``\"poisson\"``, ``\"gamma\"``, ``\"inverse_gaussian\"``, ``\"negative_binomial\"``. ``\"quasipoisson\"`` and ``\"quasibinomial\"`` (R's names) fit the Poisson / binomial mean model with ``scale=\"x2\"``: same coefficients, standard errors multiplied by the square root of the Pearson dispersion, so overdispersed counts do not produce overconfident intervals.",
           "enum": [
             "gaussian",
             "binomial",
@@ -39130,7 +39530,7 @@
           "type": "string"
         },
         "formula": {
-          "description": "Model formula (e.g. ``\"y ~ x1 + x2\"``).",
+          "description": "Model formula (e.g. ``\"y ~ x1 + x2\"``). With ``family=\"binomial\"`` the outcome may be grouped counts written the R way, ``\"cbind(successes, failures) ~ x\"``: the share of successes is fitted with the number of trials as weight. Coefficients, standard errors and deviance are those of the binomial model; the reported log-likelihood is that of the ungrouped 0 / 1 data and omits the binomial coefficients, a constant that cancels in likelihood-ratio tests.",
           "type": "string",
           "x-statspai-role": "formula"
         },
@@ -39144,7 +39544,7 @@
           "type": "string"
         },
         "link": {
-          "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"cauchit\"``, ``\"power\"``, ``\"sqrt\"``.",
+          "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"cauchit\"``, ``\"power\"``, ``\"sqrt\"``, and for a binary outcome ``\"robit(dof)\"``: a Student-t link with ``dof`` degrees of freedom (``\"robit\"`` alone is 7), robust to isolated outcomes the index predicts badly; ``\"robit(dof,unit)\"`` scales the latent error to variance one.",
           "enum": [
             "identity",
             "log",
@@ -45378,6 +45778,145 @@
       "required": [
         "data",
         "y",
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Assign ``n`` observations to ``k`` folds of near-equal size.",
+    "name": "kfold_split",
+    "parameters": {
+      "properties": {
+        "groups": {
+          "description": "Keep the observations of a group in one fold (clustered data).",
+          "type": "string"
+        },
+        "k": {
+          "default": 10,
+          "description": "k parameter (int).",
+          "type": "integer"
+        },
+        "n": {
+          "description": "n parameter (int).",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "stratify": {
+          "description": "Spread the levels of this variable evenly over folds.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "n"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Leave-one-out prediction of each observation from the other ones.",
+    "name": "loo_predict",
+    "parameters": {
+      "properties": {
+        "draws": {
+          "description": "Predict this quantity instead, e.g. a matrix of your own posterior functionals.",
+          "type": "string"
+        },
+        "fit": {
+          "description": "A result with ``predict(what='draws')`` (``sp.bayes_regress``).",
+          "type": "string"
+        },
+        "loo_result": {
+          "description": "The output of ``sp.loo(fit)``; computed when omitted.",
+          "type": "string"
+        },
+        "what": {
+          "default": "mean",
+          "description": "Scale of the prediction: the expected outcome or the linear index.",
+          "enum": [
+            "mean",
+            "linear"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "fit"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Median absolute deviation scaled to a standard deviation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "mad_sd",
+    "parameters": {
+      "properties": {
+        "axis": {
+          "default": 0,
+          "description": "Axis to reduce; ``None`` flattens.",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Plot of :func:`binned_residuals` with its ``+/- 2 se`` band.",
+    "name": "binned_residuals_plot",
+    "parameters": {
+      "properties": {
+        "ax": {
+          "description": "ax parameter.",
+          "type": "string"
+        },
+        "by": {
+          "description": "by parameter (Optional[Any]).",
+          "type": "string"
+        },
+        "n_bins": {
+          "description": "Number of bins.",
+          "type": "integer"
+        },
+        "residuals": {
+          "description": "residuals parameter (Optional[Any]).",
+          "type": "string"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        },
+        "xlabel": {
+          "description": "xlabel parameter (Optional[str]).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Inverse logit, ``1 / (1 + exp(-x))``.",
+    "name": "invlogit",
+    "parameters": {
+      "properties": {
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        }
+      },
+      "required": [
         "x"
       ],
       "type": "object"

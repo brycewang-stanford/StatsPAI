@@ -573,7 +573,7 @@
       "tests/external_parity/test_causalml_book.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/external_parity/test_dogan_python_econometrics.py",
-      "tests/external_parity/test_gow_ding_accounting.py"
+      "tests/external_parity/test_gelman_ros_examples.py"
     ],
     "validation_status": "certified"
   },
@@ -9347,10 +9347,10 @@
     "typical_n_min": 30,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survey::svydesign + svymean/svytotal/svyglm/degf (strata, nested PSUs, fpc, survey.lonely.psu); Stata svyset + svy: mean/total/regress/logit/poisson + estat effects [R version 4.5.2 (2025-10-31), Stata 18 MP, survey 4.5]; tolerance estimates, SEs, DEFF, CI bounds 1e-10 rel, p-values 1e-9 rel (observed <= 4e-14; p 6e-13) -- tests/reference_parity/test_survey_design_R_parity.py",
+      "tests/external_parity/test_gelman_ros_examples.py",
       "tests/reference_parity/test_survey_calib_R_parity.py",
       "tests/reference_parity/test_survey_calibrated_design_parity.py",
       "tests/reference_parity/test_survey_domain_parity.py",
-      "tests/reference_parity/test_survey_parity.py",
       "API/unit contract evidence: tests/test_survey.py"
     ],
     "validation_status": "certified"
@@ -34153,6 +34153,7 @@
       "source": "external_parity",
       "status": "external-replication",
       "tests": [
+        "tests/external_parity/test_gelman_ros_examples.py",
         "tests/external_parity/test_ramirez_hassan_bayes.py"
       ],
       "tolerance": ""
@@ -34246,7 +34247,7 @@
             "type": "number"
           },
           "data": {
-            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "description": "standard deviation ``2.5 sd(y) / sd(x)`` for each slope and ``2.5 sd(y)`` for the intercept, centred at ``mean(y)``, with the regressors centred; ``sd(y)`` is replaced by 1 and ``mean(y)`` by 0 outside the Gaussian model. These are the defaults of R ``rstanarm``. They rule out effects that are absurd on the scale of the data and little else, so the result does not depend on the units of the regressors, as it does under a fixed ``prior_var``. ``prior_mean`` and ``prior_var`` must be left at their defaults.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
@@ -34259,6 +34260,11 @@
             "default": 10000,
             "description": "Draws kept per chain",
             "type": "integer"
+          },
+          "exposure": {
+            "description": "Count models: column whose logarithm is the offset",
+            "type": "string",
+            "x-statspai-role": "column"
           },
           "formula": {
             "description": "e.g. 'y ~ x1 + x2'",
@@ -34298,6 +34304,20 @@
               "tobit",
               "quantile",
               "mlogit"
+            ],
+            "type": "string"
+          },
+          "offset": {
+            "description": "Term added to the linear index with coefficient one (logit, poisson, negbin): a column name or an array",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "prior": {
+            "default": "vague",
+            "description": "'weakly_informative': independent normal priors scaled to the data (sd 2.5 sd(y)/sd(x) per slope, intercept centred at mean(y) with the regressors centred), the defaults of R rstanarm; results then do not depend on the units of the regressors. Models normal, logit, probit, poisson, negbin",
+            "enum": [
+              "vague",
+              "weakly_informative"
             ],
             "type": "string"
           },
@@ -34344,24 +34364,16 @@
             "type": "integer"
           },
           "sigma2_prior": {
-            "default": [
-              0.001,
-              0.001
-            ],
-            "description": "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2)",
+            "description": "(alpha0, delta0): sigma2 ~ InvGamma(alpha0/2, delta0/2). Default (0.001, 0.001); with prior='weakly_informative' the default is sigma ~ Exponential(1 / sd(y))",
             "items": {
-              "type": "number"
+              "type": "string"
             },
             "type": "array"
           },
           "size_prior": {
-            "default": [
-              0.5,
-              0.1
-            ],
-            "description": "negbin: Gamma(shape, rate) prior on the size 1 / alpha",
+            "description": "negbin: Gamma(shape, rate) prior on the size 1 / alpha. Default (0.5, 0.1); (1, 1) with prior='weakly_informative'",
             "items": {
-              "type": "number"
+              "type": "string"
             },
             "type": "array"
           },
@@ -34389,9 +34401,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ramirez_hassan_bayes.py",
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gelman_ros_examples.py",
       "tests/reference_parity/test_bayes_more_exact_posterior.py",
-      "tests/reference_parity/test_bayes_regress_exact_posterior.py"
+      "tests/reference_parity/test_bayes_regress_exact_posterior.py",
+      "tests/reference_parity/test_bayes_workflow_exact_posterior.py"
     ],
     "validation_status": "validated"
   },
@@ -37970,7 +37983,7 @@
     ],
     "category": "bayes",
     "cost_profile": "",
-    "description": "Linear regression with a shrinkage or variable-selection prior: the Bayesian lasso (Park and Casella 2008) or stochastic search variable selection (George and McCulloch 1993) with posterior inclusion probabilities. Regressors standardised for the prior, coefficients reported on the original scale. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Inference on one coefficient with many controls is the goal: shrunk intervals are not confidence intervals; use sp.rlasso_effect or sp.dml.",
+    "description": "Linear regression with a shrinkage or variable-selection prior: the Bayesian lasso (Park and Casella 2008), stochastic search variable selection (George and McCulloch 1993) with posterior inclusion probabilities, or the horseshoe (Carvalho, Polson and Scott 2010). Regressors standardised for the prior, coefficients reported on the original scale. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Inference on one coefficient with many controls is the goal: shrunk intervals are not confidence intervals; use sp.rlasso_effect or sp.dml.",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -37983,7 +37996,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_bayes_more_exact_posterior.py"
+        "tests/reference_parity/test_bayes_more_exact_posterior.py",
+        "tests/reference_parity/test_bayes_workflow_exact_posterior.py"
       ],
       "tolerance": ""
     },
@@ -38030,7 +38044,7 @@
       }
     },
     "signature": {
-      "description": "Linear regression with a shrinkage or variable-selection prior: the Bayesian lasso (Park and Casella 2008) or stochastic search variable selection (George and McCulloch 1993) with posterior inclusion probabilities. Regressors standardised for the prior, coefficients reported on the original scale. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Inference on one coefficient with many controls is the goal: shrunk intervals are not confidence intervals; use sp.rlasso_effect or sp.dml.",
+      "description": "Linear regression with a shrinkage or variable-selection prior: the Bayesian lasso (Park and Casella 2008), stochastic search variable selection (George and McCulloch 1993) with posterior inclusion probabilities, or the horseshoe (Carvalho, Polson and Scott 2010). Regressors standardised for the prior, coefficients reported on the original scale. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Inference on one coefficient with many controls is the goal: shrunk intervals are not confidence intervals; use sp.rlasso_effect or sp.dml.",
       "name": "bayes_shrink",
       "parameters": {
         "properties": {
@@ -38053,6 +38067,10 @@
             "description": "'y ~ x1 + x2 + ...'",
             "type": "string",
             "x-statspai-role": "formula"
+          },
+          "global_scale": {
+            "description": "horseshoe: scale of the half-Cauchy prior on the global shrinkage tau (default 1)",
+            "type": "number"
           },
           "inclusion": {
             "default": 0.5,
@@ -38079,12 +38097,17 @@
             "description": "As in :func:`statspai.bayes_regress`.",
             "type": "number"
           },
+          "p0": {
+            "description": "horseshoe: prior guess of the number of non-negligible coefficients; sets global_scale = p0/(p-p0)/sqrt(n)",
+            "type": "number"
+          },
           "prior": {
             "default": "lasso",
             "description": "Prior on the slopes",
             "enum": [
               "lasso",
-              "ssvs"
+              "ssvs",
+              "horseshoe"
             ],
             "type": "string"
           },
@@ -41109,6 +41132,1323 @@
     "typical_n_min": null,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_regress_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "kfold",
+      "waic",
+      "bayes_factor"
+    ],
+    "assumptions": [
+      "Observations are conditionally independent given the parameters, so the likelihood factorises over them",
+      "The posterior draws represent the posterior (converged chain)",
+      "No single observation dominates the posterior: Pareto k below the threshold min(1 - 1/log10(S), 0.7)"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Leave-one-out cross-validation by Pareto smoothed importance sampling: expected log predictive density (elpd) for new data from one fit, the effective number of parameters, and a Pareto k diagnostic per observation that says whether the estimate can be trusted. Takes a sp.bayes_regress / sp.bayes_shrink fit or any draws-by-observations matrix of pointwise log-likelihoods. Validation: certified parity evidence. Do NOT use when: Whole groups must be predicted (clustered or panel data): leave-one-observation-out answers a different question; use sp.kfold with sp.kfold_split(groups=); Time series forecasting: use sp.tscv.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "loo::loo on a log-likelihood matrix (pointwise elpd, p, Pareto k, n_eff, smoothed weights, estimates)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "loo": "2.9.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regression_stories_r_parity.py",
+        "tests/reference_parity/_fixtures/regression_stories_R.json"
+      ],
+      "tolerance": "1e-9 abs on pointwise elpd, p, Pareto k and log weights; 1e-8 on the estimates; 1e-9 rel on n_eff"
+    },
+    "example": "sp.loo(sp.bayes_regress('y ~ x', df, seed=1))",
+    "failure_modes": [
+      {
+        "alternative": "sp.kfold",
+        "exception": "statspai.StatsPAIWarning",
+        "remedy": "Those observations are highly influential or the model is misspecified; refit by cross-validation.",
+        "symptom": "Pareto k values exceed the threshold"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "An observation has zero likelihood under some draw; check the model for that observation.",
+        "symptom": "log-likelihood matrix has infinite entries"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "loo",
+    "not_recommended_when": [
+      "Whole groups must be predicted (clustered or panel data): leave-one-observation-out answers a different question; use sp.kfold with sp.kfold_split(groups=)",
+      "Time series forecasting: use sp.tscv"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "vehtari2017practical",
+    "returns": {
+      "class": "LOOResult",
+      "description": "LOOResult",
+      "fields": {
+        "elpd": "float",
+        "estimates": "pd.DataFrame",
+        "ic": "float",
+        "k_threshold": "float",
+        "kind": "str",
+        "log_weights": "Optional[np.ndarray]",
+        "mcse_elpd": "float",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "notes": "List[str]",
+        "p": "float",
+        "pointwise": "pd.DataFrame",
+        "se_elpd": "float",
+        "se_ic": "float",
+        "se_p": "float"
+      }
+    },
+    "signature": {
+      "description": "Leave-one-out cross-validation by Pareto smoothed importance sampling: expected log predictive density (elpd) for new data from one fit, the effective number of parameters, and a Pareto k diagnostic per observation that says whether the estimate can be trusted. Takes a sp.bayes_regress / sp.bayes_shrink fit or any draws-by-observations matrix of pointwise log-likelihoods. Validation: certified parity evidence. Do NOT use when: Whole groups must be predicted (clustered or panel data): leave-one-observation-out answers a different question; use sp.kfold with sp.kfold_split(groups=); Time series forecasting: use sp.tscv.",
+      "name": "loo",
+      "parameters": {
+        "properties": {
+          "r_eff": {
+            "description": "Relative efficiency of the draws per observation; from the model's chains when omitted, 1 for a bare matrix",
+            "type": "number"
+          },
+          "save_weights": {
+            "default": true,
+            "description": "Keep the smoothed log weights (needed by loo_predict, loo_r2)",
+            "type": "boolean"
+          },
+          "x": {
+            "description": "Fitted model with log_lik(), or the pointwise log-likelihood matrix (draws by observations)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs loo::loo on a log-likelihood matrix (pointwise elpd, p, Pareto k, n_eff, smoothed weights, estimates) [R version 4.5.2 (2025-10-31), loo 2.9.0]; tolerance 1e-9 abs on pointwise elpd, p, Pareto k and log weights; 1e-8 on the estimates; 1e-9 rel on n_eff -- tests/reference_parity/test_regression_stories_r_parity.py",
+      "tests/external_parity/test_gelman_ros_examples.py",
+      "tests/reference_parity/test_bayes_workflow_exact_posterior.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "loo",
+      "kfold"
+    ],
+    "assumptions": [
+      "Observations are conditionally independent given the parameters",
+      "Pointwise posterior variances of the log-likelihood are small (below about 0.4)"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Widely applicable information criterion: within-sample log predictive density minus the posterior variance of each pointwise log-likelihood. Asymptotically equal to leave-one-out cross-validation; sp.loo is more robust in finite samples and carries a diagnostic. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "loo::waic (estimates, pointwise elpd and p)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "loo": "2.9.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regression_stories_r_parity.py",
+        "tests/reference_parity/_fixtures/regression_stories_R.json"
+      ],
+      "tolerance": "1e-9 abs pointwise, 1e-8 on the estimates"
+    },
+    "example": "sp.waic(fit)",
+    "failure_modes": [
+      {
+        "alternative": "sp.loo",
+        "exception": "statspai.StatsPAIWarning",
+        "remedy": "The approximation is poor for those observations.",
+        "symptom": "pointwise variances exceed 0.4"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "waic",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "watanabe2010asymptotic",
+    "returns": {
+      "class": "LOOResult",
+      "description": "LOOResult",
+      "fields": {
+        "elpd": "float",
+        "estimates": "pd.DataFrame",
+        "ic": "float",
+        "k_threshold": "float",
+        "kind": "str",
+        "log_weights": "Optional[np.ndarray]",
+        "mcse_elpd": "float",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "notes": "List[str]",
+        "p": "float",
+        "pointwise": "pd.DataFrame",
+        "se_elpd": "float",
+        "se_ic": "float",
+        "se_p": "float"
+      }
+    },
+    "signature": {
+      "description": "Widely applicable information criterion: within-sample log predictive density minus the posterior variance of each pointwise log-likelihood. Asymptotically equal to leave-one-out cross-validation; sp.loo is more robust in finite samples and carries a diagnostic. Validation: certified parity evidence.",
+      "name": "waic",
+      "parameters": {
+        "properties": {
+          "x": {
+            "description": "Fitted model with log_lik(), or the pointwise log-likelihood matrix (draws by observations)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs loo::waic (estimates, pointwise elpd and p) [R version 4.5.2 (2025-10-31), loo 2.9.0]; tolerance 1e-9 abs pointwise, 1e-8 on the estimates -- tests/reference_parity/test_regression_stories_r_parity.py",
+      "tests/reference_parity/test_bayes_workflow_exact_posterior.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "loo",
+      "waic",
+      "cross_validate"
+    ],
+    "assumptions": [
+      "Folds are exchangeable: observations (or the groups passed to sp.kfold_split) are independent draws",
+      "Each training fold is large enough to refit the model"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "K-fold cross-validation of a Bayesian model by refitting: each held-out observation is scored by its log predictive density under the fit that did not see it. No importance sampling approximation; the remedy for high Pareto k in sp.loo and the valid choice when groups are held out. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_gelman_ros_examples.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.kfold(fit, k=10, seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass refit=lambda train: <fit on train> and data=.",
+        "symptom": "model does not carry a refitting recipe"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "kfold",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "vehtari2017practical",
+    "returns": {
+      "class": "LOOResult",
+      "description": "LOOResult",
+      "fields": {
+        "elpd": "float",
+        "estimates": "pd.DataFrame",
+        "ic": "float",
+        "k_threshold": "float",
+        "kind": "str",
+        "log_weights": "Optional[np.ndarray]",
+        "mcse_elpd": "float",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "notes": "List[str]",
+        "p": "float",
+        "pointwise": "pd.DataFrame",
+        "se_elpd": "float",
+        "se_ic": "float",
+        "se_p": "float"
+      }
+    },
+    "signature": {
+      "description": "K-fold cross-validation of a Bayesian model by refitting: each held-out observation is scored by its log predictive density under the fit that did not see it. No importance sampling approximation; the remedy for high Pareto k in sp.loo and the valid choice when groups are held out. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "kfold",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Estimation data, with refit",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "fit": {
+            "description": "Fitted model",
+            "type": "string"
+          },
+          "folds": {
+            "description": "Fold of each observation (e.g. from sp.kfold_split with groups=); overrides k and seed",
+            "type": "string"
+          },
+          "k": {
+            "default": 10,
+            "description": "Number of folds",
+            "type": "integer"
+          },
+          "refit": {
+            "description": "refit(train) -> fitted model, for models without their own refitting recipe; needs data",
+            "type": "string"
+          },
+          "seed": {
+            "description": "Seed of the fold assignment",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fit"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gelman_ros_examples.py",
+      "tests/reference_parity/test_bayes_workflow_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "bayes_factor",
+      "bma"
+    ],
+    "assumptions": [
+      "All models are evaluated on the same observations of the same outcome (a transformed outcome needs its Jacobian added to the pointwise log-likelihoods)",
+      "Enough observations (about 100) for the normal approximation behind se_diff"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Compare models on expected log predictive density: difference from the best model and its standard error from the paired pointwise differences. Accepts sp.loo / sp.waic / sp.kfold results or fitted models. Validation: certified parity evidence. Do NOT use when: elpd differences below about 4: they are small whatever their standard error.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "loo::loo_compare (elpd_diff, se_diff, ordering)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "loo": "2.9.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regression_stories_r_parity.py",
+        "tests/reference_parity/_fixtures/regression_stories_R.json"
+      ],
+      "tolerance": "1e-8 abs"
+    },
+    "example": "sp.loo_compare({'small': fit_small, 'large': fit_large})",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Drop rows with missing values in any model's variables before fitting all of them.",
+        "symptom": "models evaluated on different numbers of observations"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "loo_compare",
+    "not_recommended_when": [
+      "elpd differences below about 4: they are small whatever their standard error"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "vehtari2017practical",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Compare models on expected log predictive density: difference from the best model and its standard error from the paired pointwise differences. Accepts sp.loo / sp.waic / sp.kfold results or fitted models. Validation: certified parity evidence. Do NOT use when: elpd differences below about 4: they are small whatever their standard error.",
+      "name": "loo_compare",
+      "parameters": {
+        "properties": {
+          "models": {
+            "description": "Two or more results (positional), or one dict of name -> result",
+            "type": "object"
+          },
+          "names": {
+            "description": "Model labels",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "models"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs loo::loo_compare (elpd_diff, se_diff, ordering) [R version 4.5.2 (2025-10-31), loo 2.9.0]; tolerance 1e-8 abs -- tests/reference_parity/test_regression_stories_r_parity.py",
+      "tests/external_parity/test_gelman_ros_examples.py",
+      "tests/reference_parity/test_bayes_workflow_exact_posterior.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "loo"
+    ],
+    "assumptions": [
+      "The ratios have a finite mean; k below 0.7 for a usable estimate, below 0.5 for a finite variance",
+      "At least 25 draws, in practice several hundred"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Pareto smoothed importance sampling: stabilises importance weights by replacing the largest with order statistics of a fitted generalized Pareto tail; the fitted shape k is the reliability diagnostic. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "loo::psis through loo::loo (smoothed log weights, Pareto k, n_eff)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "loo": "2.9.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regression_stories_r_parity.py",
+        "tests/reference_parity/_fixtures/regression_stories_R.json"
+      ],
+      "tolerance": "1e-9 abs"
+    },
+    "example": "sp.psis(-fit.log_lik())",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "The tail has fewer than five distinct values and was left unsmoothed; use more draws.",
+        "symptom": "k is inf"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "psis",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "vehtari2024pareto",
+    "returns": {
+      "class": "PSISResult",
+      "description": "PSISResult",
+      "fields": {
+        "k_threshold": "float",
+        "log_weights": "np.ndarray",
+        "n_eff": "np.ndarray",
+        "pareto_k": "np.ndarray",
+        "r_eff": "np.ndarray"
+      }
+    },
+    "signature": {
+      "description": "Pareto smoothed importance sampling: stabilises importance weights by replacing the largest with order statistics of a fitted generalized Pareto tail; the fitted shape k is the reliability diagnostic. Validation: certified parity evidence.",
+      "name": "psis",
+      "parameters": {
+        "properties": {
+          "log_ratios": {
+            "description": "Log importance ratios, draws or draws by observations",
+            "type": "string"
+          },
+          "r_eff": {
+            "description": "Relative efficiency of the draws (default 1)",
+            "type": "number"
+          }
+        },
+        "required": [
+          "log_ratios"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs loo::psis through loo::loo (smoothed log weights, Pareto k, n_eff) [R version 4.5.2 (2025-10-31), loo 2.9.0]; tolerance 1e-9 abs -- tests/reference_parity/test_regression_stories_r_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "binned_residuals",
+      "loo"
+    ],
+    "assumptions": [
+      "The statistic is not one the model fits by construction (the mean of a regression with an intercept always passes)"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Posterior predictive check: simulate replicated data sets from a fitted Bayesian regression and compare a statistic of each (min, max, sd, share of zeros, skewness, or a user function) with the same statistic of the data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A calibrated test is needed: the p-value uses the data twice and is conservative.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_gelman_ros_examples.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.ppc(fit, stat='prop_zero', seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "The model cannot reproduce this feature of the data: change the likelihood (negbin for overdispersed counts, t for heavy tails) or the mean model.",
+        "symptom": "p-value near 0 or 1"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ppc",
+    "not_recommended_when": [
+      "A calibrated test is needed: the p-value uses the data twice and is conservative"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "gabry2019visualization",
+    "returns": {
+      "class": "PPCResult",
+      "description": "PPCResult",
+      "fields": {
+        "observed": "float",
+        "p_value": "float",
+        "replicated": "np.ndarray",
+        "stat": "str",
+        "y": "np.ndarray",
+        "y_rep": "np.ndarray"
+      }
+    },
+    "signature": {
+      "description": "Posterior predictive check: simulate replicated data sets from a fitted Bayesian regression and compare a statistic of each (min, max, sd, share of zeros, skewness, or a user function) with the same statistic of the data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A calibrated test is needed: the p-value uses the data twice and is conservative.",
+      "name": "ppc",
+      "parameters": {
+        "properties": {
+          "draws": {
+            "default": 1000,
+            "description": "Replicated data sets",
+            "type": "integer"
+          },
+          "fit": {
+            "description": "Fitted model",
+            "type": "string"
+          },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "stat": {
+            "default": "mean",
+            "description": "Test statistic: 'mean', 'sd', 'var', 'min', 'max', 'median', 'skew', 'prop_zero', or a function of one data vector",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fit"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gelman_ros_examples.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "loo_r2",
+      "loo"
+    ],
+    "assumptions": [
+      "The outcome has a variance for the model to explain (not ordered, multinomial, censored or quantile models)"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Bayesian R-squared (Gelman, Goodrich, Gabry, Vehtari 2019): variance of the fit over variance of the fit plus residual variance, draw by draw, so it has a posterior and cannot exceed one. Gaussian, Student-t, binary and count models. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Choosing between models: it rises with every added regressor; use sp.loo_r2 or sp.loo_compare.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_gelman_ros_examples.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bayes_r2(fit)",
+    "failure_modes": [
+      {
+        "alternative": "sp.loo",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Compare models by predictive density instead.",
+        "symptom": "model is oprobit / mlogit / quantile / tobit"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_r2",
+    "not_recommended_when": [
+      "Choosing between models: it rises with every added regressor; use sp.loo_r2 or sp.loo_compare"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "gelman2019rsquared",
+    "returns": {
+      "class": "BayesR2Result",
+      "description": "BayesR2Result",
+      "fields": {
+        "draws": "np.ndarray",
+        "estimate": "float",
+        "kind": "str",
+        "level": "float",
+        "lower": "float",
+        "mean": "float",
+        "sd": "float",
+        "upper": "float"
+      }
+    },
+    "signature": {
+      "description": "Bayesian R-squared (Gelman, Goodrich, Gabry, Vehtari 2019): variance of the fit over variance of the fit plus residual variance, draw by draw, so it has a posterior and cannot exceed one. Gaussian, Student-t, binary and count models. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Choosing between models: it rises with every added regressor; use sp.loo_r2 or sp.loo_compare.",
+      "name": "bayes_r2",
+      "parameters": {
+        "properties": {
+          "fit": {
+            "description": "Fitted model",
+            "type": "string"
+          },
+          "kind": {
+            "default": "model",
+            "description": "'model': residual variance the model expects (rstanarm); 'residual': variance of y minus the fit of each draw",
+            "enum": [
+              "model",
+              "residual"
+            ],
+            "type": "string"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Interval mass",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fit"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gelman_ros_examples.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "bayes_r2",
+      "loo"
+    ],
+    "assumptions": [
+      "The assumptions of sp.loo (independent observations, Pareto k below the threshold)"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Leave-one-out R-squared: 1 - Var(y - yhat_loo) / Var(y) with each observation predicted from a posterior that did not see it. Estimates variance explained in new data; falls when a regressor only adds noise. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_gelman_ros_examples.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.loo_r2(fit, seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "The model predicts new observations worse than their mean does; it is overfitted or misspecified.",
+        "symptom": "estimate is negative"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "loo_r2",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "gelman2019rsquared",
+    "returns": {
+      "class": "BayesR2Result",
+      "description": "BayesR2Result",
+      "fields": {
+        "draws": "np.ndarray",
+        "estimate": "float",
+        "kind": "str",
+        "level": "float",
+        "lower": "float",
+        "mean": "float",
+        "sd": "float",
+        "upper": "float"
+      }
+    },
+    "signature": {
+      "description": "Leave-one-out R-squared: 1 - Var(y - yhat_loo) / Var(y) with each observation predicted from a posterior that did not see it. Estimates variance explained in new data; falls when a regressor only adds noise. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "loo_r2",
+      "parameters": {
+        "properties": {
+          "fit": {
+            "description": "Fitted model",
+            "type": "string"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Interval mass",
+            "type": "number"
+          },
+          "loo_result": {
+            "description": "Output of sp.loo(fit)",
+            "type": "string"
+          },
+          "n_boot": {
+            "default": 4000,
+            "description": "Bayesian bootstrap draws",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fit"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gelman_ros_examples.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "power",
+      "mde",
+      "power_ttest"
+    ],
+    "assumptions": [
+      "The estimate is normally distributed around the true effect with the stated standard error",
+      "The hypothesised effect comes from external information"
+    ],
+    "category": "power",
+    "cost_profile": "",
+    "description": "Design analysis (Gelman and Carlin 2014): for a hypothesised true effect and a standard error, the power, the probability that a significant estimate has the wrong sign (type S) and its expected exaggeration factor (type M). Closed form; exact for a t-test when dof is given. Validation: certified parity evidence. Do NOT use when: The effect size plugged in is the study's own significant estimate: that estimate is the exaggerated quantity.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "retrodesign::retro_design_closed_form (power, type S, type M); retrodesign::retrodesign power and type S with 20 degrees of freedom",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "retrodesign": "0.2.2"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regression_stories_r_parity.py",
+        "tests/reference_parity/_fixtures/regression_stories_R.json"
+      ],
+      "tolerance": "1e-9 rel"
+    },
+    "example": "sp.retrodesign(0.1, 3.28)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "A zero effect has no sign to get wrong; every significant result is then a false positive.",
+        "symptom": "effect is exactly zero"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "retrodesign",
+    "not_recommended_when": [
+      "The effect size plugged in is the study's own significant estimate: that estimate is the exaggerated quantity"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "gelman2014beyond",
+    "returns": {
+      "class": "RetrodesignResult",
+      "description": "RetrodesignResult",
+      "fields": {
+        "alpha": "float",
+        "dof": "float",
+        "notes": "list",
+        "power": "float",
+        "table": "pd.DataFrame",
+        "type_m": "float",
+        "type_s": "float"
+      }
+    },
+    "signature": {
+      "description": "Design analysis (Gelman and Carlin 2014): for a hypothesised true effect and a standard error, the power, the probability that a significant estimate has the wrong sign (type S) and its expected exaggeration factor (type M). Closed form; exact for a t-test when dof is given. Validation: certified parity evidence. Do NOT use when: The effect size plugged in is the study's own significant estimate: that estimate is the exaggerated quantity.",
+      "name": "retrodesign",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Two-sided level",
+            "type": "number"
+          },
+          "dof": {
+            "description": "Degrees of freedom of the estimated standard error (t-test); known standard error when omitted",
+            "type": "number"
+          },
+          "effect": {
+            "description": "Hypothesised true effect, from outside information, never the estimate under review",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "method": {
+            "default": "exact",
+            "description": "With dof: 'exact' for the t-test, 'shifted' for the approximation in the published code",
+            "enum": [
+              "exact",
+              "shifted"
+            ],
+            "type": "string"
+          },
+          "se": {
+            "description": "Standard error",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "effect",
+          "se"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs retrodesign::retro_design_closed_form (power, type S, type M); retrodesign::retrodesign power and type S with 20 degrees of freedom [R version 4.5.2 (2025-10-31), retrodesign 0.2.2]; tolerance 1e-9 rel -- tests/reference_parity/test_regression_stories_r_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "logit_gof",
+      "ppc",
+      "estat"
+    ],
+    "assumptions": [
+      "Under a correct mean model about 95 percent of bin averages fall inside the band"
+    ],
+    "category": "diagnostics",
+    "cost_profile": "",
+    "description": "Average residuals within equal-count bins of the fitted value or of a regressor, with a +/- 2 se band: the residual plot for binary and count models, whose raw residuals show nothing. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "arm::binned.resids (xbar, ybar, n, range, 2 se; default and chosen bin counts, binning on a regressor, tied values)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "arm": "1.15.3"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regression_stories_r_parity.py",
+        "tests/reference_parity/_fixtures/regression_stories_R.json"
+      ],
+      "tolerance": "1e-8 abs"
+    },
+    "example": "sp.binned_residuals(sp.logit('y ~ x', df))",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "The band 2 sd / sqrt(n) collapses where the outcome hardly varies; read those bins by eye.",
+        "symptom": "bins flagged where fitted probabilities are near 0 or 1"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "binned_residuals",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "gelman2006data",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Average residuals within equal-count bins of the fitted value or of a regressor, with a +/- 2 se band: the residual plot for binary and count models, whose raw residuals show nothing. Validation: certified parity evidence.",
+      "name": "binned_residuals",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Bin on this variable instead of the fitted values",
+            "type": "string"
+          },
+          "n_bins": {
+            "description": "Default floor(sqrt(n))",
+            "type": "integer"
+          },
+          "residuals": {
+            "description": "Observed minus fitted; required when x is an array",
+            "type": "string"
+          },
+          "x": {
+            "description": "Fitted model (logit, probit, glm, poisson, bayes_regress) or the values to bin on",
+            "type": "string"
+          }
+        },
+        "required": [
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs arm::binned.resids (xbar, ybar, n, range, 2 se; default and chosen bin counts, binning on a regressor, tied values) [R version 4.5.2 (2025-10-31), arm 1.15.3]; tolerance 1e-8 abs -- tests/reference_parity/test_regression_stories_r_parity.py",
+      "tests/external_parity/test_gelman_ros_examples.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "winsor"
+    ],
+    "assumptions": [
+      "Coefficients are to be compared across inputs; the fit itself (predictions, R-squared) does not change"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Centre numeric inputs and divide by two standard deviations (Gelman 2008), so a coefficient compares one sd below with one sd above the mean and is comparable with the coefficient of a binary input; binary inputs are centred. Returns the rescaled data to refit on. Validation: certified parity evidence. Do NOT use when: The input has a natural unit readers care about (years of schooling): report the raw coefficient as well.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "arm::rescale (all four binary rules) and coefficients of arm::standardize(lm) refitted on sp.standardize(df, formula=)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "arm": "1.15.3"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regression_stories_r_parity.py",
+        "tests/reference_parity/_fixtures/regression_stories_R.json"
+      ],
+      "tolerance": "1e-12 abs on rescaled columns, 1e-9 rel on refitted coefficients"
+    },
+    "example": "sp.regress(f, sp.standardize(df, formula=f))",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Categorical inputs are compared through their indicators; leave them out of columns=.",
+        "symptom": "a requested column is not numeric"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "standardize",
+    "not_recommended_when": [
+      "The input has a natural unit readers care about (years of schooling): report the raw coefficient as well"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "gelman2008scaling",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Centre numeric inputs and divide by two standard deviations (Gelman 2008), so a coefficient compares one sd below with one sd above the mean and is comparable with the coefficient of a binary input; binary inputs are centred. Returns the rescaled data to refit on. Validation: certified parity evidence. Do NOT use when: The input has a natural unit readers care about (years of schooling): report the raw coefficient as well.",
+      "name": "standardize",
+      "parameters": {
+        "properties": {
+          "binary": {
+            "default": "center",
+            "description": "Treatment of two-valued inputs",
+            "enum": [
+              "center",
+              "full",
+              "0/1",
+              "-0.5/0.5",
+              "none"
+            ],
+            "type": "string"
+          },
+          "columns": {
+            "description": "Columns to rescale",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "A Series (or array) is rescaled and returned.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "divisor": {
+            "default": 2.0,
+            "description": "1 gives z-scores",
+            "type": "number"
+          },
+          "exclude": {
+            "description": "Columns to leave alone",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "formula": {
+            "description": "Rescale the numeric columns on the right-hand side",
+            "type": "string",
+            "x-statspai-role": "formula"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs arm::rescale (all four binary rules) and coefficients of arm::standardize(lm) refitted on sp.standardize(df, formula=) [R version 4.5.2 (2025-10-31), arm 1.15.3]; tolerance 1e-12 abs on rescaled columns, 1e-9 rel on refitted coefficients -- tests/reference_parity/test_regression_stories_r_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "rake",
+      "svydesign",
+      "direct_standardize"
+    ],
+    "assumptions": [
+      "Within a cell, respondents resemble the population they stand for (ignorable selection given the cell variables)",
+      "Population cell counts are known",
+      "The model's cell means are right"
+    ],
+    "category": "survey",
+    "cost_profile": "",
+    "description": "Poststratification: average a model's predictions over the cells of a known population, weighting by cell counts, draw by draw for a Bayesian fit so the estimate carries the regression's uncertainty; overall and by subgroup. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Many sparse cells with a classical fit: cell estimates are noisy; use a multilevel model for the cell means.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_gelman_ros_examples.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.poststratify(fit, cells, count='N')",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "A cell has missing values in a model column.",
+        "symptom": "predictions for fewer cells than the table has"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "poststratify",
+    "not_recommended_when": [
+      "Many sparse cells with a classical fit: cell estimates are noisy; use a multilevel model for the cell means"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "gelman2020regression",
+    "returns": {
+      "class": "PoststratResult",
+      "description": "PoststratResult",
+      "fields": {
+        "cells": "pd.DataFrame",
+        "draws": "Optional[pd.DataFrame]",
+        "estimate": "float",
+        "level": "float",
+        "lower": "float",
+        "sd": "float",
+        "table": "pd.DataFrame",
+        "upper": "float"
+      }
+    },
+    "signature": {
+      "description": "Poststratification: average a model's predictions over the cells of a known population, weighting by cell counts, draw by draw for a Bayesian fit so the estimate carries the regression's uncertainty; overall and by subgroup. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Many sparse cells with a classical fit: cell estimates are noisy; use a multilevel model for the cell means.",
+      "name": "poststratify",
+      "parameters": {
+        "properties": {
+          "by": {
+            "description": "Also report within these columns",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "cells": {
+            "description": "One row per population cell: the model's columns and the cell count",
+            "type": "string"
+          },
+          "count": {
+            "default": "N",
+            "description": "Column of cell counts or shares",
+            "type": "string"
+          },
+          "fit": {
+            "description": "Model with posterior_epred(data) or predict(data), or predictions per cell (draws by cells)",
+            "type": "string"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Interval mass",
+            "type": "number"
+          }
+        },
+        "required": [
+          "fit",
+          "cells"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gelman_ros_examples.py"
     ],
     "validation_status": "validated"
   },
@@ -83182,8 +84522,8 @@
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"logit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 57_logit -- tests/r_parity/57_logit.py",
       "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/external_parity/test_ding_linear_model.py",
-      "tests/external_parity/test_gow_ding_accounting.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      "tests/external_parity/test_gelman_ros_examples.py",
+      "tests/external_parity/test_gow_ding_accounting.py"
     ],
     "validation_status": "certified"
   },
@@ -83603,9 +84943,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "docstring",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "liu2004robit, gelman2020regression",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: Fitted model results with coefficients, standard errors, diagnostics, and marginal effects.",
@@ -83646,7 +84987,7 @@
           },
           "family": {
             "default": "gaussian",
-            "description": "Distribution family. One of ``\"gaussian\"``, ``\"binomial\"``, ``\"poisson\"``, ``\"gamma\"``, ``\"inverse_gaussian\"``, ``\"negative_binomial\"``.",
+            "description": "Distribution family. One of ``\"gaussian\"``, ``\"binomial\"``, ``\"poisson\"``, ``\"gamma\"``, ``\"inverse_gaussian\"``, ``\"negative_binomial\"``. ``\"quasipoisson\"`` and ``\"quasibinomial\"`` (R's names) fit the Poisson / binomial mean model with ``scale=\"x2\"``: same coefficients, standard errors multiplied by the square root of the Pearson dispersion, so overdispersed counts do not produce overconfident intervals.",
             "enum": [
               "gaussian",
               "binomial",
@@ -83658,7 +84999,7 @@
             "type": "string"
           },
           "formula": {
-            "description": "Model formula (e.g. ``\"y ~ x1 + x2\"``).",
+            "description": "Model formula (e.g. ``\"y ~ x1 + x2\"``). With ``family=\"binomial\"`` the outcome may be grouped counts written the R way, ``\"cbind(successes, failures) ~ x\"``: the share of successes is fitted with the number of trials as weight. Coefficients, standard errors and deviance are those of the binomial model; the reported log-likelihood is that of the ungrouped 0 / 1 data and omits the binomial coefficients, a constant that cancels in likelihood-ratio tests.",
             "type": "string",
             "x-statspai-role": "formula"
           },
@@ -83672,7 +85013,7 @@
             "type": "string"
           },
           "link": {
-            "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"cauchit\"``, ``\"power\"``, ``\"sqrt\"``.",
+            "description": "Link function. If ``None`` the canonical link for the chosen family is used. Options: ``\"identity\"``, ``\"log\"``, ``\"logit\"``, ``\"probit\"``, ``\"inverse\"``, ``\"cloglog\"``, ``\"cauchit\"``, ``\"power\"``, ``\"sqrt\"``, and for a binary outcome ``\"robit(dof)\"``: a Student-t link with ``dof`` degrees of freedom (``\"robit\"`` alone is 7), robust to isolated outcomes the index predicts badly; ``\"robit(dof,unit)\"`` scales the latent error to variance one.",
             "enum": [
               "identity",
               "log",
@@ -83748,9 +85089,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs base R stats::glm (binomial logit + Poisson log) [R version 4.5.2 (2025-10-31)]; tolerance coef / logLik / AIC 1e-8 abs (observed <= 5e-13); SE ~1e-3 rel -- tests/reference_parity/test_glm_parity.py",
       "tests/external_parity/test_ding_linear_model.py",
+      "tests/external_parity/test_gelman_ros_examples.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_margins_ext_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -84404,9 +85745,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 margins, at(...); R marginaleffects::avg_predictions [R version 4.5.2 (2025-10-31), Stata 18, marginaleffects 0.32.0]; tolerance 1e-10 rel (observed <= 3.5e-15 est / SE; marginaleffects SE 1.8e-10, numerical Jacobian) -- tests/reference_parity/test_r2_postest_parity.py",
       "tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/external_parity/test_gelman_ros_examples.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
-      "tests/reference_parity/test_margins_at_parity.py",
-      "tests/reference_parity/test_margins_ext_parity.py"
+      "tests/reference_parity/test_margins_at_parity.py"
     ],
     "validation_status": "certified"
   },
