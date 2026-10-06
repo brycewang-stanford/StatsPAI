@@ -753,3 +753,74 @@ def test_probit_systems_and_mixture_surface():
         sp.bayes_mixture(
             "z ~ 1", d, components="dp", max_components=2, draws=200, burnin=100, seed=1
         )
+
+
+def test_gp_abc_and_bart_surface():
+    from scipy import stats
+
+    rng = np.random.default_rng(10)
+    n = 150
+    d = pd.DataFrame({"x": rng.uniform(0, 6, n), "g": rng.choice(["a", "b"], n)})
+    d["y"] = np.sin(d["x"]) + (d["g"] == "b") * 1.0 + 0.2 * rng.normal(size=n)
+    d["b"] = (d["y"] > d["y"].median()) * 1
+    new = pd.DataFrame({"x": [1.0, 2.0, 3.0], "g": ["a", "b", "a"]})
+
+    gp = sp.gp_regress("y ~ x + g", d, seed=1)
+    assert isinstance(gp, sp.GPResult)
+    assert list(gp.params.index)[-3:] == ["signal_var", "noise_var", "mean"]
+    band, obs = gp.predict(new), gp.predict(new, noise=True)
+    assert (obs["sd"] > band["sd"]).all() and band.shape == (3, 4)
+    assert gp.predict().shape == (n, 4)
+    assert "Gaussian process" in gp.summary() and gp.cite()
+    assert gp.to_dict()["kernel"] == "rbf"
+    shared = sp.gp_regress("y ~ x", d, kernel="matern", ard=False, restarts=0)
+    assert shared.kernel == "matern52" and "length_scale" in shared.params.index
+    with pytest.raises(sp.MethodIncompatibility, match="kernel"):
+        sp.gp_regress("y ~ x", d, kernel="periodic")
+    with pytest.raises(sp.MethodIncompatibility, match="no regressor"):
+        sp.gp_regress("y ~ 1", d)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", sp.ConvergenceWarning)
+        bt = sp.bart("y ~ x + g", d, n_trees=30, draws=150, burnin=100, seed=1)
+        again = sp.bart("y ~ x + g", d, n_trees=30, draws=150, burnin=100, seed=1)
+        bb = sp.bart(
+            "b ~ x + g", d, family="binary", n_trees=30, draws=150, burnin=100, seed=1
+        )
+    assert isinstance(bt, sp.BARTResult)
+    assert bt.fitted["mean"].equals(again.fitted["mean"])  # reproducible by seed
+    assert np.corrcoef(bt.fitted["mean"], d["y"])[0, 1] > 0.9
+    assert bt.predict(new).shape == (3, 4)
+    assert bt.predict_draws(new).shape == (150, 3)
+    assert bt.predict(level=0.5)["upper"].lt(bt.fitted["upper"]).mean() > 0.9
+    assert bt.variable_importance.sum() == pytest.approx(1.0)
+    assert "Trees: 30" in bt.summary() and bt.to_dict()["n_trees"] == 30
+    assert bb.sigma is None and bb.fitted["mean"].between(0, 1).all()
+    assert bb.predict(new)["mean"].between(0, 1).all()
+    with pytest.raises(sp.MethodIncompatibility, match="family"):
+        sp.bart("y ~ x", d, family="poisson")
+    with pytest.raises(sp.MethodIncompatibility, match="0/1"):
+        sp.bart("y ~ x", d, family="binary")
+    with pytest.raises(sp.MethodIncompatibility, match="max_depth"):
+        sp.bart("y ~ x", d, max_depth=40)
+
+    def simulate(theta, r):
+        return [r.normal(theta[0], 0.2)]
+
+    fit = sp.abc(simulate, [1.0], [stats.norm(0, 2)], n_sim=3000, quantile=0.05, seed=1)
+    assert fit.model == "abc" and fit.model_info["n_accepted"] == 150
+    assert abs(fit.params["theta1"] - 1.0) < 0.2
+    sampler = sp.abc(
+        simulate, [1.0], lambda r, size: r.normal(0, 2, size), n_sim=2000, seed=1
+    )
+    assert sampler.prior["prior"] == "user sampler"
+    with pytest.raises(sp.MethodIncompatibility, match="list of scipy"):
+        sp.abc(
+            simulate, [1.0], lambda r, size: r.normal(0, 2, size), method="synthetic"
+        )
+    with pytest.raises(sp.MethodIncompatibility, match="summaries"):
+        sp.abc(simulate, [1.0, 2.0], [stats.norm(0, 2)], n_sim=500)
+    with pytest.raises(sp.DataInsufficient, match="tolerance"):
+        sp.abc(simulate, [1.0], [stats.norm(0, 2)], n_sim=500, tol=1e-6, scale=None)
+    with pytest.raises(sp.MethodIncompatibility, match="method"):
+        sp.abc(simulate, [1.0], [stats.norm(0, 2)], method="smc")

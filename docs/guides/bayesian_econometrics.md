@@ -46,14 +46,39 @@ import statspai as sp
 | 10 | g-prior model averaging, MC3 | `sp.bma(method='gprior')` |
 | 10 | Savage-Dickey, Chib, Gelfand-Dey | `sp.savage_dickey`; `.log_marginal_likelihood(method=)` |
 | 12 | Bayesian lasso, stochastic search variable selection | `sp.bayes_shrink(prior='lasso' / 'ssvs')` |
+| 12 | BART | `sp.bart("y ~ x1 + x2", df)`, `family='binary'` |
+| 12 | Gaussian process regression | `sp.gp_regress("y ~ x", df)` |
+| 14 | approximate Bayesian computation, synthetic likelihood | `sp.abc(simulate, s_obs, prior, method='rejection' / 'synthetic')` |
 | 14 | variational Bayes for the linear model | `sp.bayes_regress(inference='vb')` |
 | 13 | Bayesian IV, DiD, RD | `sp.bayes_iv`, `sp.bayes_did`, `sp.bayes_rd`, `sp.bayes_fuzzy_rd` (PyMC) |
 
-Not covered yet: multinomial probit and logit, multivariate probit, SUR by
-Gibbs, more than one endogenous regressor, stochastic volatility, Dirichlet process
-mixtures, BART and Gaussian processes, approximate Bayesian computation
-and variational Bayes. The frequentist counterparts of several of these
-are in StatsPAI (`sp.mlogit`, `sp.sureg`, `sp.arima`, `sp.garch`).
+Not covered: more than one endogenous regressor in `sp.bayes_ivreg`,
+multinomial probit with regressors that vary across alternatives,
+Bayesian splines, INLA, and chapter 13's exponentially tilted empirical
+likelihood and general Bayes posteriors.
+
+## How each sampler is checked
+
+A Markov chain cannot be compared digit by digit with another package, so
+each sampler is tested against a posterior obtained without it.
+
+- A small model whose posterior is integrated on a grid, with the
+  integrand written separately from `scipy.stats` (all of
+  `sp.bayes_regress`, `sp.bayes_mixed`, `sp.bayes_ivreg`, `sp.bayes_sur`,
+  `sp.bayes_shrink`, `sp.bayes_arima`).
+- Enumeration: all 4,140 partitions of eight observations for
+  `sp.bayes_mixture`, all five trees of a two-cutpoint problem for
+  `sp.bart`.
+- Importance sampling from the prior for the probit systems.
+- The joint-distribution test, for samplers with latent states
+  (`sp.stochvol`, the probit systems, `sp.bart`). Each sweep is followed
+  by a fresh draw of the data given the current state. If every
+  conditional is right, the parameters are then distributed as the prior.
+- Deterministic pieces against a reference to 1e-9 or better: `coda`,
+  `BMA`, `BMS`, `dlm`, scikit-learn.
+
+Comparisons with long runs of MCMCpack, bayesm, stochvol and dbarts are
+screens. Both sides are simulation output.
 
 ## A regression
 

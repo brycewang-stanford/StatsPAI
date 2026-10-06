@@ -16711,6 +16711,148 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="gp_regress",
+            category="bayes",
+            description=(
+                "Gaussian process regression: nonparametric regression with "
+                "closed-form posterior bands. RBF or Matern kernel, one "
+                "length scale per regressor, hyperparameters by maximum "
+                "marginal likelihood, constant mean estimated with its "
+                "uncertainty."
+            ),
+            params=[
+                ParamSpec("formula", "str", True),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "kernel", "str", False, "rbf", enum=["rbf", "matern52", "matern32"]
+                ),
+                ParamSpec("ard", "bool", False, True),
+                ParamSpec("length_scale", "float | list", False, None),
+                ParamSpec("signal_var", "float", False, None),
+                ParamSpec("noise_var", "float", False, None),
+                ParamSpec("mean", "float", False, None, "Known constant mean"),
+                ParamSpec("optimize_hyper", "bool", False, True),
+                ParamSpec("restarts", "int", False, 4),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+            ],
+            returns="GPResult",
+            example='sp.gp_regress("y ~ x", df).predict(new)',
+            tags=["bayes", "nonparametric", "gaussian-process", "kernel", "regression"],
+            reference="rasmussen2005gaussian",
+            assumptions=["Normal noise with constant variance", "Stationary kernel"],
+            alternatives=["lpoly", "bart", "npregress"],
+            not_recommended_when=[
+                "More than a few thousand observations: cost grows with n cubed",
+                "Jumps or kinks in the regression function: a stationary "
+                "smooth kernel blurs them",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="abc",
+            category="bayes",
+            description=(
+                "Simulation-based Bayesian inference for models without a "
+                "tractable likelihood: rejection ABC with optional local "
+                "linear adjustment, and Bayesian synthetic likelihood. The "
+                "user supplies a simulator of summary statistics and a prior."
+            ),
+            params=[
+                ParamSpec(
+                    "simulate", "callable", True, description="simulate(theta, rng)"
+                ),
+                ParamSpec("observed", "list", True, description="Observed summaries"),
+                ParamSpec("prior", "list | callable", True),
+                ParamSpec(
+                    "method", "str", False, "rejection", enum=["rejection", "synthetic"]
+                ),
+                ParamSpec("n_sim", "int", False, 100000),
+                ParamSpec("tol", "float", False, None),
+                ParamSpec("quantile", "float", False, 0.01),
+                ParamSpec("adjust", "str", False, "none", enum=["none", "linear"]),
+                ParamSpec("scale", "str | list", False, "mad"),
+                ParamSpec("n_synthetic", "int", False, 100),
+                ParamSpec("draws", "int", False, 5000),
+                ParamSpec("burnin", "int", False, 1000),
+                ParamSpec("names", "list", False, None),
+                ParamSpec("vectorized", "bool", False, False),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+            ],
+            returns="BayesRegressResult",
+            example="sp.abc(simulate, s_obs, [stats.norm(0, 3)], seed=1)",
+            tags=[
+                "bayes",
+                "abc",
+                "simulation",
+                "likelihood-free",
+                "synthetic-likelihood",
+            ],
+            reference="beaumont2002approximate",
+            assumptions=[
+                "The summaries carry the information about the parameters",
+                "Synthetic likelihood: summaries are approximately normal",
+            ],
+            alternatives=["smm", "bayes_regress"],
+            not_recommended_when=[
+                "The likelihood is available: use it",
+                "Many summaries with rejection ABC: distances stop "
+                "discriminating; reduce them or use method='synthetic'",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bart",
+            category="bayes",
+            description=(
+                "Bayesian additive regression trees: a sum of many small "
+                "trees sampled by Bayesian backfitting. Finds nonlinearities "
+                "and interactions without specification and returns "
+                "posterior bands for the regression function. Continuous "
+                "and binary (probit) outcomes. Own engine in numba."
+            ),
+            params=[
+                ParamSpec("formula", "str", True),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "family", "str", False, "gaussian", enum=["gaussian", "binary"]
+                ),
+                ParamSpec("n_trees", "int", False, 200),
+                ParamSpec("k", "float", False, 2.0),
+                ParamSpec("base", "float", False, 0.95),
+                ParamSpec("power", "float", False, 2.0),
+                ParamSpec("nu", "float", False, 3.0),
+                ParamSpec("q", "float", False, 0.9),
+                ParamSpec("numcut", "int", False, 100),
+                ParamSpec("max_depth", "int", False, 8),
+                ParamSpec("min_leaf", "int", False, 5),
+                ParamSpec("draws", "int", False, 1000),
+                ParamSpec("burnin", "int", False, 500),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+            ],
+            returns="BARTResult",
+            example='sp.bart("y ~ x1 + x2 + x3", df, seed=1).predict(new)',
+            tags=["bayes", "mcmc", "trees", "nonparametric", "machine-learning"],
+            reference="chipman2010bart",
+            assumptions=["Normal errors with constant variance (gaussian family)"],
+            alternatives=["gp_regress", "causal_forest", "regression_forest"],
+            not_recommended_when=[
+                "A causal effect is the target: the fit regularises the "
+                "outcome model, not the effect; use a causal estimator",
+                "Bands are needed to nominal accuracy: they are approximate",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="bayes_sur",
             category="bayes",
             description=(

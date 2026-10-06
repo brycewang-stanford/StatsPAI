@@ -520,6 +520,21 @@ user guide is `docs/guides/bayesian_econometrics.md`.
   matrix, a point partition, and for `"y ~ 1"` the density with bands.
   With eight observations the sampler reproduces the posterior obtained
   by enumerating all 4,140 partitions.
+- **`sp.gp_regress`**: Gaussian process regression with RBF and Matern
+  kernels, one length scale per regressor, hyperparameters by maximum
+  marginal likelihood, and a constant mean estimated with its uncertainty
+  in the bands. Agrees with scikit-learn to 1e-10 at fixed
+  hyperparameters.
+- **`sp.bart`**: Bayesian additive regression trees for continuous and
+  binary outcomes, on an engine written from the published model (numba,
+  birth and death moves). Posterior bands, prediction at new points,
+  share of splitting rules per regressor. The sampler is checked against
+  the exact posterior of a model small enough to enumerate and by the
+  joint-distribution test for a sum of trees; on a Friedman sample its
+  test error is within the range of R `dbarts` across seeds.
+- **`sp.abc`**: inference for models that can only be simulated.
+  Rejection ABC with an optional local linear adjustment, and Bayesian
+  synthetic likelihood. All three are checked against exact posteriors.
 - `sp.bayes_regress(model='mlogit')`: multinomial logit.
   `sp.bayes_regress(inference='vb')`: mean-field variational Bayes for the
   normal model, with the evidence lower bound.

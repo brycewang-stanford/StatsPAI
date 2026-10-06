@@ -133,6 +133,15 @@ agree, so that option was left alone.
 | `sp.bayes_mixed` | random intercepts and slopes; normal, logit, Poisson | exact posterior (analytic and Gauss-Hermite) |
 | `sp.bayes_ivreg` | one endogenous regressor, Gibbs for the joint normal model | exact posterior with the covariance integrated out; agrees with the PyMC `sp.bayes_iv` |
 | `sp.dlm` | time-varying coefficient regression: Kalman filter / smoother, MLE or FFBS Gibbs | R `dlm` at 1e-9 (filter, smoother, likelihood), 1e-5 (MLE); exact posterior of the variances |
+| `sp.bayes_sur`, `sp.bayes_shrink` | SUR by Gibbs; Bayesian lasso and stochastic search variable selection | exact posterior with the covariance (SUR) or the flat intercept (shrinkage) integrated out |
+| `sp.bayes_regress(model='mlogit')`, `inference='vb'` | multinomial logit; mean-field variational Bayes | exact posterior on a grid; evidence lower bound below the exact marginal likelihood |
+| `sp.stochvol` | stochastic volatility, mixture sampler with one interweaving step | joint-distribution test; screen against R `stochvol` |
+| `sp.bayes_arima` | exact-likelihood ARIMA, proper uniform prior on the stationary and invertible region | Kalman likelihood against the dense normal density (1e-10); AR(1) and MA(1) posteriors on a grid |
+| `sp.bayes_mvprobit`, `sp.bayes_mnprobit` | probit systems by data augmentation on the unrestricted covariance | joint-distribution test; importance sampling from the prior |
+| `sp.bayes_mixture` | finite and Dirichlet process mixtures of normal regressions, collapsed Gibbs | enumeration of all 4,140 partitions of eight observations |
+| `sp.gp_regress` | Gaussian process regression | scikit-learn at 1e-10; textbook formulas for the estimated constant |
+| `sp.bart` | Bayesian additive regression trees, own numba engine | enumeration of a five-tree posterior; joint-distribution test for a sum of trees; screen against R `dbarts` |
+| `sp.abc` | rejection ABC, local linear adjustment, synthetic likelihood | exact tolerance posterior; exact posterior of a normal model; exact posterior on a grid |
 | `sp.bma` | BIC with Occam's window; g-prior by enumeration or MC3 | `BMA`, `BMS` at 1e-9; brute force over 512 models |
 | `sp.bayes_factor`, `sp.savage_dickey` | model comparison | exact identities under the conjugate prior |
 | `sp.bayes_bootstrap` | Rubin's bootstrap | Rubin's variance of a mean |
@@ -271,22 +280,38 @@ here gives the same number.
 
 ## Open items
 
-- Multinomial probit and logit, multivariate probit, SUR by Gibbs
-  (chapter 7). `sp.bayes_ivreg` handles one endogenous regressor.
-- Stochastic volatility and Bayesian ARMA (chapter 8). `sp.dlm` covers
-  the chapter's dynamic linear models with random-walk states; seasonal
-  and trend components and a general transition matrix are not exposed.
-- Dirichlet process mixtures, Bayesian splines (chapter 11); Bayesian
-  lasso, stochastic search variable selection, BART, Gaussian processes
-  (chapter 12); ABC, synthetic likelihood, INLA, variational Bayes
-  (chapter 14).
-- Chapter 13's Bayesian exponentially tilted empirical likelihood, general
-  Bayes posteriors and doubly robust Bayesian inference have no
-  counterpart.
-- `sp.bayes_mte(mte_method='hv_latent')` after the fix: a 12-sample run
-  suggested a narrow posterior (0.09 against a spread of 0.12). Forty
-  samples settle it: mean 1.02, posterior sd 0.092, spread of estimates
-  0.093, 37 intervals covering. Nothing to fix.
+- `sp.bayes_mnprobit` takes regressors of the decision maker only. With
+  those alone the error covariance is close to unidentified, and the
+  chain is as slow as `bayesm::rmnpGibbs` on the same data (effective
+  sample size about 20 from 20,000 draws at n = 1,500). Regressors that
+  vary across alternatives would identify it and are the natural next
+  step. A marginal data augmentation scheme would help the chain but
+  not the identification.
+- `sp.bart` uses birth and death moves only. On the Friedman sample its
+  test error is about 4 percent above the average of five `dbarts` seeds
+  and its bands about 5 percent narrower, both inside the spread of
+  those seeds. Change and swap moves are the likely difference. The error
+  scale mixes slowly in both engines (effective sample size 15 to 40
+  from 1,000 draws); `model_info['sigma_ess']` reports it.
+- `sp.bcf` is not built on BART: its nuisance functions are gradient
+  boosting. Rebuilding it on the `sp.bart` engine is a separate piece of
+  work with its own evidence requirements.
+- `sp.stochvol` has no leverage effect, no heavy tails and no regressors.
+  The seven-component mixture constants are standard in the stochastic
+  volatility literature. Their original source is not cited by key
+  because the two bibliographic records checked misspell an author; the
+  test suite checks the constants against the exact log chi-square
+  density instead.
+- `sp.bayes_arima` has no seasonal part and no regressors.
+- `sp.bayes_ivreg` handles one endogenous regressor. `sp.dlm` covers
+  random-walk states; seasonal and trend components and a general
+  transition matrix are not exposed.
+- Bayesian splines (chapter 11), INLA (chapter 14), and chapter 13's
+  exponentially tilted empirical likelihood, general Bayes posteriors
+  and doubly robust Bayesian inference have no counterpart.
+- `sp.bayes_mte(mte_method='hv_latent')` after the fix: forty samples
+  give mean 1.02, posterior sd 0.092, spread of estimates 0.093, 37
+  intervals covering. Nothing to fix.
 - Known-truth screens of the other PyMC estimators, 40 samples each, found
   nothing: `sp.bayes_rd` (posterior sd 0.993 of the least squares standard
   error, coverage 37/40), `sp.bayes_its` (1.014, 39/40), `sp.bayes_did`
