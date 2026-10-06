@@ -2772,13 +2772,15 @@ only the recorded source hashes move.
 ### 2026-10-06 — call traces re-recorded after the small never-treated group warning
 
 - **Commits.** `2f6b29a4` re-recorded the entries of Track A modules
-  04 79 in `tests/r_parity/results/_implementation_trace.json`. The source
-  that staled them is in the same commit.
+  04 79 in `tests/r_parity/results/_implementation_trace.json`, and
+  `6c82c328` the entry of module 02 in
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in the first of the two.
 - **Reason.** `sp.callaway_santanna` now warns when fewer than five
   never-treated units plus one per covariate serve as the comparison group,
   and `sp.cs_jackknife` warns when only its delete-one samples fall below
   that size. The edit is in `did/callaway_santanna.py`, which modules 04
-  and 79 execute.
+  and 79 and the original-data module 02 execute.
 - **Effect on the paper.** None on any estimate. The Track C
   Callaway-Sant'Anna timing was taken on earlier source;
   `scripts/trace_perf_path.py --check` already listed `02_csdid` as stale
@@ -2786,3 +2788,4 @@ only the recorded source hashes move.
   the next re-anchor in any case (see the entry above).
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
