@@ -4,6 +4,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Missing data in `sp.path_analysis`
+
+#### Added
+
+- **`sp.path_analysis(missing='fiml')`**: full-information maximum
+  likelihood. Each row contributes the likelihood of the values it has, so
+  a row with one indicator missing still informs the rest of the model.
+  The estimates are consistent when values are missing at random given
+  the observed ones; listwise deletion, the default, needs them missing
+  completely at random and discards information either way. Standard
+  errors come from the observed information, the chi-square compares the
+  model with the saturated moments found by EM, and factor scores are
+  computed from whatever each row observes. Rows missing an exogenous
+  variable are still dropped. On four models (a path model, a two-factor
+  CFA, a structural model with a covariate, a growth curve; up to 16
+  missing-data patterns) the parameter table, the standardised solution,
+  the fit measures and the factor scores equal `lavaan`'s
+  `missing = "ml"` to 1e-5. `se='robust'` is refused with it.
+
 ### Local and hybrid structure learning
 
 #### Added

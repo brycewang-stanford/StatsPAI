@@ -25,9 +25,8 @@ the restrictions the path diagram imposes; and latent variables measured by
 several error-prone indicators, whose effects a regression on any one
 indicator would attenuate.
 
-The estimation is in :mod:`statspai.structural._sem_engine`. Missing data by
-full-information likelihood, multiple groups and categorical indicators are
-not implemented.
+The estimation is in :mod:`statspai.structural._sem_engine`. Multiple groups
+and categorical indicators are not implemented.
 """
 
 from __future__ import annotations
@@ -80,6 +79,9 @@ class PathAnalysisResult(ResultProtocolMixin):
         Share of each endogenous variable's variance the model explains
         (for an indicator, its reliability).
     n_obs : int
+        Rows used. ``n_dropped`` counts the rest, and ``n_patterns`` the
+        distinct patterns of missing values among the rows used (one with
+        complete data).
 
     Examples
     --------
@@ -114,6 +116,7 @@ class PathAnalysisResult(ResultProtocolMixin):
         latent_cov: Optional[pd.DataFrame] = None,
         implied_mean: Optional[pd.Series] = None,
         factor_scores: Optional[pd.DataFrame] = None,
+        n_patterns: int = 1,
     ) -> None:
         self.params = params
         self.fit = fit
@@ -128,6 +131,7 @@ class PathAnalysisResult(ResultProtocolMixin):
         self.latent_cov = latent_cov if latent_cov is not None else pd.DataFrame()
         self.implied_mean = implied_mean
         self.factor_scores = factor_scores
+        self.n_patterns = n_patterns
 
     def effect(self, name: str) -> pd.Series:
         """The row of a defined (``:=``) or labelled parameter."""
@@ -151,7 +155,12 @@ class PathAnalysisResult(ResultProtocolMixin):
             + " (maximum likelihood)",
             "=" * 66,
             f"  Observations : {self.n_obs}"
-            + (f"   ({self.n_dropped} dropped, missing)" if self.n_dropped else ""),
+            + (f"   ({self.n_dropped} dropped, missing)" if self.n_dropped else "")
+            + (
+                f"   ({self.n_patterns} missing-data patterns)"
+                if self.n_patterns > 1
+                else ""
+            ),
             f"  Free params  : {f['npar']}",
             f"  Std. errors  : {self.se}",
             f"  Model test   : chi2({f['df']}) = {f['chisq']:.3f}"
@@ -341,6 +350,7 @@ def path_analysis(
     std_lv: bool = False,
     growth: bool = False,
     auto_cov_y: bool = False,
+    missing: str = "listwise",
 ) -> PathAnalysisResult:
     """Fit a path model or a structural equation model by maximum likelihood.
 
@@ -368,8 +378,8 @@ def path_analysis(
         * ``x1:x2`` on the right-hand side is the product of two columns.
         * ``#`` starts a comment.
     data : pandas.DataFrame
-        One numeric column per observed variable. Rows with a missing value
-        in any variable of the model are dropped.
+        One numeric column per observed variable. See ``missing`` for rows
+        with missing values.
     se : {'standard', 'robust'}, default 'standard'
         ``'standard'`` uses the expected information matrix and is correct
         under multivariate normality. ``'robust'`` is the Satorra-Bentler
@@ -396,6 +406,17 @@ def path_analysis(
         that predict nothing) covary without being asked. ``lavaan::sem``
         does this; Stata's ``sem`` does not, and neither does the default
         here, which fits the model as written.
+    missing : {'listwise', 'fiml'}, default 'listwise'
+        ``'listwise'`` drops every row with a missing value in a variable of
+        the model. ``'fiml'`` is full-information maximum likelihood: each
+        row contributes the likelihood of the values it does have, so no
+        endogenous value is thrown away. It is consistent when values are
+        missing at random given the observed ones, where listwise deletion
+        needs them missing completely at random; and it is more precise
+        either way. Rows missing an exogenous variable are still dropped,
+        since the model is conditional on those. It implies a mean
+        structure, and standard errors come from the observed information
+        (lavaan's ``missing = "ml"``; Stata's ``method(mlmv)``).
 
     Returns
     -------
@@ -412,8 +433,9 @@ def path_analysis(
 
     The estimates, standard errors, standardised solution, test statistic
     and fit indices reproduce ``lavaan::sem(model, data)`` (``growth()``
-    with ``growth=True``), and with ``se='robust'`` its
-    ``estimator = "MLM"``. The one default that differs is ``auto_cov_y``:
+    with ``growth=True``), with ``se='robust'`` its ``estimator = "MLM"``
+    and with ``missing='fiml'`` its ``missing = "ml"``. The one default
+    that differs is ``auto_cov_y``:
     a model with two or more terminal outcomes needs ``auto_cov_y=True`` to
     reproduce ``sem()``, or the covariance written out.
 
@@ -472,6 +494,11 @@ def path_analysis(
         )
     if not (0.0 < alpha < 1.0):
         raise MethodIncompatibility("path_analysis: alpha must be between 0 and 1.")
+    how = {"ml": "fiml", "mlmv": "fiml"}.get(str(missing).lower(), str(missing).lower())
+    if how not in ("listwise", "fiml"):
+        raise MethodIncompatibility(
+            f"path_analysis: missing must be 'listwise' or 'fiml', got {missing!r}."
+        )
     spec = _parse(model)
     pieces = fit_sem(
         spec,
@@ -483,5 +510,6 @@ def path_analysis(
         growth=bool(growth),
         auto_cov_y=bool(auto_cov_y),
         evaluate=_safe_eval,
+        missing=how,
     )
     return PathAnalysisResult(model=model, se=se, **pieces)

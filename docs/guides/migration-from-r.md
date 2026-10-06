@@ -196,7 +196,8 @@ from statspai import SLearner, TLearner, XLearner, RLearner, DRLearner
 | `AER::dispersiontest(fit, trafo = 2)`          | `sp.poisson(...).diagnostics["Overdispersion test (C-T)"]` |
 | `lavaan::sem(model, data)`, `cfa()` | `sp.path_analysis(model, df)` with the same model string, latent variables (`=~`) included; `se="robust"` for `estimator = "MLM"`, `std_lv=True` for `std.lv`, `meanstructure=True` likewise. `fit.effect("indirect")` reads a `:=` row, `fit.factor_scores` is `lavPredict`. With two or more terminal outcomes pass `auto_cov_y=True`: `sem()` lets their disturbances covary without being asked, StatsPAI fits the model as written |
 | `lavaan::growth(model, data)` | `sp.path_analysis(model, df, growth=True)` |
-| `sem(..., missing = "ML")`, `group =` | Not available. Rows with a missing value are dropped and counted in `n_dropped` |
+| `sem(..., missing = "ML")` | `sp.path_analysis(model, df, missing="fiml")`. The default drops incomplete rows and counts them in `n_dropped` |
+| `sem(..., group = )`, `ordered = ` | Not available |
 | `rbounds::psens(x, y, Gamma = 2)`              | `sp.rosenbaum_bounds(x, y, gamma_grid=[1, 1.5, 2])`   |
 | `MatchIt::matchit(method = "subclass")`        | `sp.match(df, y=, treat=, covariates=, method="stratify", n_strata=6)` |
 

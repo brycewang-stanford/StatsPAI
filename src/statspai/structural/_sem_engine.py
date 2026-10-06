@@ -24,6 +24,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._sem_missing import _patterns, _saturated_moments
 
 __all__ = ["fit_sem"]
 
@@ -79,6 +80,7 @@ def fit_sem(
     growth: bool,
     auto_cov_y: bool,
     evaluate: Callable[[str, Dict[str, float]], float],
+    missing: str = "listwise",
 ) -> Dict[str, Any]:
     """Fit the parsed model; returns the pieces of the result object."""
     loadings = spec["loadings"]
@@ -131,21 +133,44 @@ def fit_sem(
 
     frame = _columns(data, ov_y + ov_x)
     n_all = len(frame)
-    frame = frame.dropna()
+    fiml = missing == "fiml"
+    if fiml:
+        # a row needs its exogenous variables, which are conditioned on, and
+        # at least one endogenous value
+        usable = frame[ov_y].notna().any(axis=1)
+        if ov_x:
+            usable &= frame[ov_x].notna().all(axis=1)
+        frame = frame[usable]
+        fiml = bool(frame.isna().to_numpy().any())  # else: complete data
+    else:
+        frame = frame.dropna()
     n = len(frame)
     if n <= p + 1:
-        raise DataInsufficient(f"path_analysis: {n} complete rows for {p} variables.")
+        raise DataInsufficient(f"path_analysis: {n} usable rows for {p} variables.")
     Z = frame.to_numpy()
-    zbar = Z.mean(axis=0)
-    Zc = Z - zbar
-    S = Zc.T @ Zc / n
+    patterns: List[Dict[str, Any]] = []
+    if fiml:
+        if se == "robust":
+            raise MethodIncompatibility(
+                "path_analysis: se='robust' is not available with " "missing='fiml'.",
+                recovery_hint="Use se='standard' (observed information), or "
+                "missing='listwise' with se='robust'.",
+            )
+        patterns = _patterns(Z)
+        zbar, S = _saturated_moments(Z, patterns)
+        Zc = np.zeros((0, p))
+    else:
+        zbar = Z.mean(axis=0)
+        Zc = Z - zbar
+        S = Zc.T @ Zc / n
     if np.linalg.matrix_rank(S) < p:
         raise DataInsufficient(
             "path_analysis: the variables are linearly dependent; the sample "
             "covariance matrix is singular."
         )
     Sxx = S[q:, q:]
-    mean_on = bool(meanstructure or growth or spec["intercepts"])
+    # full information implies a mean structure, missing values or not
+    mean_on = bool(meanstructure or growth or spec["intercepts"] or missing == "fiml")
 
     # ---- parameter table ------------------------------------------------
     entries: List[Dict[str, Any]] = []
@@ -344,7 +369,51 @@ def fit_sem(
     logdet_S = float(np.linalg.slogdet(S)[1])
     bad = (1e10, np.zeros(n_free))
 
+    def casewise(
+        Sigma: np.ndarray, mu: np.ndarray
+    ) -> Optional[Tuple[float, np.ndarray, np.ndarray]]:
+        """-2 log-likelihood / n of the incomplete data, less its constant,
+        with its derivatives with respect to Sigma and mu."""
+        total = 0.0
+        G = np.zeros((p, p))
+        w_all = np.zeros(p)
+        for g in patterns:
+            o = g["idx"]
+            Sg = Sigma[np.ix_(o, o)]
+            sgn, logdet = np.linalg.slogdet(Sg)
+            if sgn <= 0 or not np.isfinite(logdet):
+                return None
+            inv = np.linalg.inv(Sg)
+            d = g["mean"] - mu[o]
+            w = inv @ d
+            total += g["n"] * (logdet + float(np.sum(g["S"] * inv)) + float(d @ w))
+            G[np.ix_(o, o)] += g["n"] * (inv @ (Sg - g["S"]) @ inv - np.outer(w, w))
+            w_all[o] += g["n"] * w
+        return total / n, G / n, w_all / n
+
+    # the same quantity at the saturated moments: the floor a model can reach
+    F_sat = 0.0
+    if fiml:
+        floor = casewise(S, zbar)
+        if floor is None:
+            raise DataInsufficient(
+                "path_analysis: the covariance matrix of the incomplete data "
+                "is not positive definite."
+            )
+        F_sat = floor[0]
+
     def objective(theta: np.ndarray) -> Tuple[float, np.ndarray]:
+        if fiml:
+            try:
+                mom = implied(theta)
+                parts = casewise(mom["Sigma"], mom["mu"])
+            except np.linalg.LinAlgError:
+                return bad
+            if parts is None:
+                return bad
+            dS, dM = jacobian(mom)
+            grad = np.einsum("ij,kij->k", parts[1], dS) - 2.0 * dM @ parts[2]
+            return float(parts[0] - F_sat), grad
         try:
             mom = implied(theta)
             Sigma = mom["Sigma"]
@@ -368,8 +437,20 @@ def fit_sem(
         return float(F), grad
 
     def information(mom: Dict[str, np.ndarray]) -> np.ndarray:
-        Sinv = np.linalg.inv(mom["Sigma"])
         dS, dM = jacobian(mom)
+        if fiml:  # expected information, pattern by pattern
+            info = np.zeros((n_free, n_free))
+            for g in patterns:
+                o = g["idx"]
+                inv = np.linalg.inv(mom["Sigma"][np.ix_(o, o)])
+                dSo = dS[:, o][:, :, o]
+                dMo = dM[:, o]
+                info += (g["n"] / n) * (
+                    0.5 * np.einsum("aij,jk,bkl,li->ab", dSo, inv, dSo, inv)
+                    + dMo @ inv @ dMo.T
+                )
+            return info
+        Sinv = np.linalg.inv(mom["Sigma"])
         info = 0.5 * np.einsum("aij,jk,bkl,li->ab", dS, Sinv, dS, Sinv)
         if mean_on:
             info = info + dM @ Sinv @ dM.T
@@ -451,6 +532,18 @@ def fit_sem(
     # ---- covariance of the estimates -------------------------------------
     dS, dM = jacobian(mom) if n_free else (np.zeros((0, p, p)), np.zeros((0, p)))
     info = information(mom) if n_free else np.zeros((0, 0))
+    if fiml and n_free:
+        # With missing values the expected information assumes the pattern
+        # of missingness carries no information; the observed information
+        # (the Hessian) does not, and is what lavaan and Stata report.
+        hess = np.zeros((n_free, n_free))
+        for a_ in range(n_free):
+            h = 1e-5 * max(1.0, abs(theta[a_]))
+            up, dn = theta.copy(), theta.copy()
+            up[a_] += h
+            dn[a_] -= h
+            hess[a_] = (objective(up)[1] - objective(dn)[1]) / (2 * h)
+        info = 0.25 * (hess + hess.T)  # per observation: half of d2 F
     rows_i, cols_i = np.tril_indices(p)
     if n_free:
         try:
@@ -613,15 +706,25 @@ def fit_sem(
     chisq = n * F_min
     dev = zbar - mom["mu"] if mean_on else np.zeros(p)
     logdet_Sigma = float(np.linalg.slogdet(Sigma)[1])
-    logl_joint = -0.5 * n * (
-        p * math.log(2 * math.pi) + logdet_Sigma + float(np.trace(S @ Sinv))
-        + float(dev @ Sinv @ dev)
-    )  # fmt: skip
     logdet_xx = float(np.linalg.slogdet(Sxx)[1]) if k else 0.0
+    base_df = p * (p + 1) // 2 - k * (k + 1) // 2 - q
+    if fiml:
+        cells = sum(g["n"] * len(g["idx"]) for g in patterns)
+        logl_joint = -0.5 * (cells * math.log(2 * math.pi) + n * (F_min + F_sat))
+        # independence model: each endogenous variable on its own rows
+        base = n * (logdet_xx + k)
+        for j in range(q):
+            col = Z[:, j][~np.isnan(Z[:, j])]
+            base += len(col) * (math.log(float(np.var(col))) + 1.0)
+        base_chisq = base - n * F_sat
+    else:
+        logl_joint = -0.5 * n * (
+            p * math.log(2 * math.pi) + logdet_Sigma + float(np.trace(S @ Sinv))
+            + float(dev @ Sinv @ dev)
+        )  # fmt: skip
+        base_chisq = n * (float(np.sum(np.log(np.diag(S)[:q]))) + logdet_xx - logdet_S)
     logl_x = -0.5 * n * (k * math.log(2 * math.pi) + logdet_xx + k) if k else 0.0
     logl = logl_joint - logl_x
-    base_df = p * (p + 1) // 2 - k * (k + 1) // 2 - q
-    base_chisq = n * (float(np.sum(np.log(np.diag(S)[:q]))) + logdet_xx - logdet_S)
     d_m = max(chisq - df_model, 0.0)
     d_b = max(base_chisq - base_df, 0.0)
     cfi = 1.0 - d_m / max(d_m, d_b) if max(d_m, d_b) > 0 else 1.0
@@ -686,11 +789,16 @@ def fit_sem(
     if n_lat:
         # regression-method scores: E[latent | observed] under the model
         centre = mom["mu"] if mean_on else zbar
-        weights = full[p:, :p] @ Sinv
         lat_mean = mom["eta"][p:]
-        scores = pd.DataFrame(
-            (Z - centre) @ weights.T + lat_mean, index=frame.index, columns=latents
-        )
+        values = np.empty((n, n_lat))
+        if fiml:  # each row is scored from the variables it observes
+            for g in patterns:
+                o = g["idx"]
+                w_g = full[p:][:, o] @ np.linalg.inv(Sigma[np.ix_(o, o)])
+                values[g["rows"]] = (Z[np.ix_(g["rows"], o)] - centre[o]) @ w_g.T
+        else:
+            values = (Z - centre) @ (full[p:, :p] @ Sinv).T
+        scores = pd.DataFrame(values + lat_mean, index=frame.index, columns=latents)
     return {
         "params": params,
         "fit": fit,
@@ -700,6 +808,7 @@ def fit_sem(
         "r2": r2,
         "n_obs": int(n),
         "n_dropped": int(n_all - n),
+        "n_patterns": len(patterns) if fiml else 1,
         "latent_cov": pd.DataFrame(full[p:, p:], index=latents, columns=latents),
         "implied_mean": (pd.Series(mom["mu"], index=obs_names) if mean_on else None),
         "factor_scores": scores,

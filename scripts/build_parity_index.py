@@ -2510,6 +2510,8 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "tests/reference_parity/_fixtures/path_analysis_lavaan_R.json",
             "tests/reference_parity/test_sem_latent_lavaan_parity.py",
             "tests/reference_parity/_fixtures/sem_latent_lavaan_R.json",
+            "tests/reference_parity/test_sem_fiml_lavaan_parity.py",
+            "tests/reference_parity/_fixtures/sem_fiml_lavaan_R.json",
         ],
         "note": (
             "Frozen-R fixture: four observed-variable path models (parallel "
@@ -2525,9 +2527,13 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "constraints, a mean structure, a linear growth curve, and two "
             "models where sem()'s automatic outcome covariances matter; "
             "parameter tables under ML and MLM, fit measures and "
-            "lavPredict factor scores. Regenerate via "
-            "_generate_path_analysis_lavaan.R and "
-            "_generate_sem_latent_lavaan.R."
+            "lavPredict factor scores. A third fixture removes values "
+            "(completely at random and at random given a covariate) and "
+            'compares missing="fiml" with lavaan missing = "ml" on four '
+            "models, to 1e-5. Regenerate via "
+            "_generate_path_analysis_lavaan.R, "
+            "_generate_sem_latent_lavaan.R and "
+            "_generate_sem_fiml_lavaan.R."
         ),
     },
     "power_ttest": {

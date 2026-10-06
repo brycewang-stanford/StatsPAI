@@ -224,9 +224,10 @@ they are on main.** What it leaves for that line:
    `sem()` lets the disturbances of terminal outcomes covary without being
    asked, and `sp.path_analysis` does not. That default stays (it is
    Stata's, and it fits the model the user wrote); `auto_cov_y=True`
-   gives lavaan's, and the docstring now says so. Still open:
-   full-information ML for missing data, multiple groups, categorical
-   indicators.
+   gives lavaan's, and the docstring now says so. `missing='fiml'`
+   followed (lavaan's `missing = "ML"`, which the chapter's call uses),
+   equal to lavaan on four models with values removed. Still open:
+   multiple groups, categorical indicators.
 2. **Mediation with a binary outcome.** Closed 2026-10-06:
    `sp.mediate(inference='robust', outcome_model='logit')`, with
    `treat_values=(0, 1)` for the book's count treatment. On the book's data
@@ -253,8 +254,8 @@ they are on main.** What it leaves for that line:
 7. **Proportion mediated** now has a percentile interval in the bootstrap
    path.
 
-Still open after this: full-information likelihood, multiple groups and
-categorical indicators in `sp.path_analysis`. Nothing the book's code
+Still open after this: multiple groups and categorical indicators in
+`sp.path_analysis`. Nothing the book's code
 calls is left without a counterpart.
 
 ## Mistakes in the book's code

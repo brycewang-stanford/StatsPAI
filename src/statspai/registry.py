@@ -9573,9 +9573,10 @@ def _build_registry() -> None:
                 "RMSEA / SRMR. Equal labels constrain paths to be equal. "
                 "Reproduces lavaan::sem / growth (and estimator='MLM' with "
                 "se='robust'); auto_cov_y=True for sem()'s automatic "
-                "covariances among terminal outcomes. Complete cases only: "
-                "no full-information likelihood for missing data, no "
-                "multiple groups, no categorical indicators. "
+                "covariances among terminal outcomes, missing='fiml' for "
+                "full-information maximum likelihood with missing values "
+                "(lavaan missing='ml', Stata method(mlmv)). No multiple "
+                "groups, no categorical indicators. "
             ),
             params=[
                 ParamSpec(
@@ -9632,6 +9633,16 @@ def _build_registry() -> None:
                     "Let the disturbances of terminal outcomes covary "
                     "without being asked, as lavaan::sem does",
                 ),
+                ParamSpec(
+                    "missing",
+                    "str",
+                    False,
+                    "listwise",
+                    "Drop incomplete rows, or use every observed value by "
+                    "full-information maximum likelihood (valid when "
+                    "missing at random)",
+                    ["listwise", "fiml"],
+                ),
             ],
             returns="PathAnalysisResult",
             example=("sp.path_analysis('m ~ a*x\\ny ~ b*m + c*x\\nind := a*b', df)"),
@@ -9659,6 +9670,9 @@ def _build_registry() -> None:
                 "Exogenous variables are conditioned on (lavaan fixed.x)",
                 "Indicators of a latent variable are related only through "
                 "it, unless a residual covariance is declared",
+                "missing='fiml': values missing at random given the observed "
+                "ones, and multivariate normality; missing='listwise': "
+                "missing completely at random",
             ],
             alternatives=["mediate", "mediation_decompose", "sem_gmm", "dag", "sur"],
         )
