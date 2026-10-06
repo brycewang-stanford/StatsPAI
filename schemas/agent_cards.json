@@ -17419,12 +17419,12 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Generalized additive model: g(E[y]) = linear terms + smooth functions s(x) of numeric columns, each a penalised cubic B-spline (P-spline) with its own smoothing parameter chosen by REML (default) or GCV / UBRE. Same basis, penalty and criteria as R mgcv::gam with s(x, bs='ps'). Returns parametric coefficients with standard errors, the effective degrees of freedom of each curve, partial(term) for the estimated functions with bands, predict() and plot(). Validation: certified parity evidence. Do NOT use when: The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml; The regression function has a jump at a known point -- use sp.rdrobust; Clustered or panel data without cluster= -- the default standard errors assume independent rows.",
+    "description": "Generalized additive model: g(E[y]) = linear terms + smooth functions of numeric columns: P-spline or thin plate curves s(x), effect curves s(x, by=d), tensor-product surfaces te(x, z) and random intercepts s(g, bs='re'). Smoothing parameters by REML (default) or GCV / UBRE. Same bases, penalties and criteria as R mgcv::gam. Returns parametric coefficients with standard errors (Bayesian, sandwich or clustered), each term's effective degrees of freedom and an approximate test that it is zero, partial(term) for the estimated functions with pointwise or simultaneous bands, predict() and plot(). Validation: certified parity evidence. Do NOT use when: The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml; The regression function has a jump at a known point -- use sp.rdrobust; Clustered or panel data without cluster= -- the default standard errors assume independent rows.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "mgcv::gam with s(x, bs = 'ps'), methods GCV.Cp and REML",
+      "reference": "mgcv::gam with s(x, bs = 'ps' | 'tp' | 're'), te(x, z), methods GCV.Cp and REML; summary.gam for the term tests",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
         "mgcv": "1.9.3"
@@ -17439,7 +17439,7 @@
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/_fixtures/linear_model_extensions_R.json"
       ],
-      "tolerance": "at given smoothing parameters, Gaussian, binomial and Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; selected smoothing parameters 1e-4 rel, the resulting fit 1e-5"
+      "tolerance": "at given smoothing parameters, Gaussian, binomial and Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; selected smoothing parameters 1e-4 rel, the resulting fit 1e-5; tensor, thin plate and random-effect terms 1e-9 at given parameters, 1e-5 under REML (2e-3 for the random-effect model); term tests: ref.df 1e-9, p-values 5e-6 abs"
     },
     "example": "sp.gam(\"logwk ~ s(educ) + s(exper) + black\", df)",
     "failure_modes": [
@@ -17492,6 +17492,7 @@
         "fitted_values": "Any",
         "formula": "str",
         "gcv": "float",
+        "lambdas": "Any",
         "link": "str",
         "n_obs": "int",
         "params": "pd.Series",
@@ -17503,7 +17504,7 @@
       }
     },
     "signature": {
-      "description": "Generalized additive model: g(E[y]) = linear terms + smooth functions s(x) of numeric columns, each a penalised cubic B-spline (P-spline) with its own smoothing parameter chosen by REML (default) or GCV / UBRE. Same basis, penalty and criteria as R mgcv::gam with s(x, bs='ps'). Returns parametric coefficients with standard errors, the effective degrees of freedom of each curve, partial(term) for the estimated functions with bands, predict() and plot(). Validation: certified parity evidence. Do NOT use when: The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml; The regression function has a jump at a known point -- use sp.rdrobust; Clustered or panel data without cluster= -- the default standard errors assume independent rows.",
+      "description": "Generalized additive model: g(E[y]) = linear terms + smooth functions of numeric columns: P-spline or thin plate curves s(x), effect curves s(x, by=d), tensor-product surfaces te(x, z) and random intercepts s(g, bs='re'). Smoothing parameters by REML (default) or GCV / UBRE. Same bases, penalties and criteria as R mgcv::gam. Returns parametric coefficients with standard errors (Bayesian, sandwich or clustered), each term's effective degrees of freedom and an approximate test that it is zero, partial(term) for the estimated functions with pointwise or simultaneous bands, predict() and plot(). Validation: certified parity evidence. Do NOT use when: The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml; The regression function has a jump at a known point -- use sp.rdrobust; Clustered or panel data without cluster= -- the default standard errors assume independent rows.",
       "name": "gam",
       "parameters": {
         "properties": {
@@ -17534,7 +17535,7 @@
             "type": "string"
           },
           "formula": {
-            "description": "e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; s(x) marks a smooth of one numeric column, s(x, by=d) a curve that multiplies numeric column d (an effect of d varying with x) or, for a factor d, one curve per level",
+            "description": "e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; s(x) marks a smooth of one numeric column, s(x, by=d) a curve that multiplies numeric column d (an effect of d varying with x) or, for a factor d, one curve per level; te(x, z) a surface; s(g, bs='re') a random intercept; s(x, bs='tp') a thin plate spline",
             "type": "string",
             "x-statspai-role": "formula"
           },
@@ -17599,7 +17600,7 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs mgcv::gam with s(x, bs = 'ps'), methods GCV.Cp and REML [R version 4.5.2 (2025-10-31), mgcv 1.9.3]; tolerance at given smoothing parameters, Gaussian, binomial and Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; selected smoothing parameters 1e-4 rel, the resulting fit 1e-5 -- tests/reference_parity/test_linear_model_extensions_parity.py",
+      "Cross-language parity (bit-exact) vs mgcv::gam with s(x, bs = 'ps' | 'tp' | 're'), te(x, z), methods GCV.Cp and REML; summary.gam for the term tests [R version 4.5.2 (2025-10-31), mgcv 1.9.3]; tolerance at given smoothing parameters, Gaussian, binomial and Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; selected smoothing parameters 1e-4 rel, the resulting fit 1e-5; tensor, thin plate and random-effect terms 1e-9 at given parameters, 1e-5 under REML (2e-3 for the random-effect model); term tests: ref.df 1e-9, p-values 5e-6 abs -- tests/reference_parity/test_linear_model_extensions_parity.py",
       "tests/external_parity/test_ding_linear_model.py"
     ],
     "validation_status": "certified"
