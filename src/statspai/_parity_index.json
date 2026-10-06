@@ -435,6 +435,7 @@
         "tests/external_parity/test_dogan_python_econometrics.py",
         "tests/external_parity/test_hyndman_fpp_pythonic.py",
         "tests/external_parity/test_maitra_static_dynamic.py",
+        "tests/external_parity/test_neusser_time_series.py",
         "tests/reference_parity/test_arima_default_stata_parity.py",
         "tests/reference_parity/test_bayes_timeseries_exact_posterior.py",
         "tests/reference_parity/test_forecasting_r_parity.py",
@@ -1642,6 +1643,23 @@
         "tests/reference_parity/test_network_centrality_parity.py"
       ],
       "tolerance": "Normalised and raw on karate, raw on the directed graph, all at 1e-10."
+    },
+    {
+      "function": "beveridge_nelson",
+      "notes": [
+        "No package reference was found; the committed R script evaluates the definition by brute force with lm and iterated forecasts."
+      ],
+      "reference": "closed form against the long-horizon forecast that defines the trend",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_beveridge_nelson_parity.py"
+      ],
+      "tolerance": "trend 1e-8 rel against a 400-step forecast"
     },
     {
       "function": "beyond_average_late",
@@ -4242,6 +4260,27 @@
         "tests/reference_parity/_fixtures/survival_epi_stata.json"
       ],
       "tolerance": "1e-10 rel (observed: CIF 6e-16, Gray variance 3e-13, delta SE 2e-16, Gray test 9e-15)"
+    },
+    {
+      "function": "cumulative_periodogram_test",
+      "notes": [
+        "Stata truncates the Kolmogorov series at about 1e-8; the test shows that the first four terms of ours equal Stata's p-value to 1e-13."
+      ],
+      "reference": "Stata 18 wntestb",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_spectral_parity.py",
+        "tests/reference_parity/_fixtures/spectral_Stata_scalars.csv"
+      ],
+      "tolerance": "statistic 1e-12 rel; p-value 2e-8 abs"
     },
     {
       "additional_tests": [
@@ -7793,10 +7832,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_neusser_time_series.py",
+        "tests/reference_parity/test_garch_extensions_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "garch",
@@ -9634,10 +9676,13 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_neusser_time_series.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
+        "tests/reference_parity/test_irf_bands_stata_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "irf",
@@ -10134,7 +10179,9 @@
     {
       "additional_tests": [
         "tests/external_parity/test_maitra_static_dynamic.py",
+        "tests/external_parity/test_neusser_time_series.py",
         "tests/reference_parity/test_dynamic_modelling_parity.py",
+        "tests/reference_parity/test_johansen_lrtest_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"
       ],
@@ -10165,6 +10212,35 @@
         "tests/reference_parity/_fixtures/timeseries_Stata.json"
       ],
       "tolerance": "eigenvalues, trace & max-eigenvalue statistics 1e-11 rel vs ca.jo, 1e-10 vs vecrank (observed 8.2e-14); Osterwald-Lenum table equal to Stata _vecgetcv cell by cell"
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_neusser_time_series.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "johansen_lrtest",
+      "notes": [
+        "Frozen-R fixture on a synthetic four-variable system, in the three deterministic cases ca.jo supports."
+      ],
+      "reference": "urca::blrtest, bh5lrtest, alrtest",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "urca": "1.3.4"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_johansen_lrtest_parity.py",
+        "tests/reference_parity/_fixtures/johansen_lrtest_R.json"
+      ],
+      "tolerance": "LR statistic 1e-8 rel, degrees of freedom equal, restricted vectors 1e-6"
     },
     {
       "additional_tests": [
@@ -10220,6 +10296,29 @@
         "tests/reference_parity/test_jwdid_Stata_parity.py"
       ],
       "tolerance": "Link-scale simple ATT 1e-9 and its SE 1e-7 relative (observed <= 3e-14 and <= 3e-11); response-scale ATT and its default (response_se='margins') SE 1e-6 (Stata margins takes numerical derivatives; observed <= 2e-7). Sixteen specifications: every hettype(), never, i.xcat / xc covariates, over(xcat), and exovar(i.year#i.xcat), never exovar(i.year#i.xcat), exovar(c.xc#i.xcat)."
+    },
+    {
+      "function": "kalman_filter",
+      "notes": [
+        "Frozen-R fixture: six synthetic models including missing observations, time-varying matrices and singular covariances. The diffuse start is the large-variance approximation, not the exact one."
+      ],
+      "reference": "KFAS::KFS, logLik; statsmodels KalmanSmoother",
+      "reference_versions": {
+        "KFAS": "1.6.0",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "statsmodels": "0.14.6"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_statespace_parity.py",
+        "tests/reference_parity/_fixtures/statespace_R.json"
+      ],
+      "tolerance": "log likelihood, predicted, filtered and smoothed states and covariances 1e-9 rel"
     },
     {
       "function": "kan_dlate",
@@ -11458,6 +11557,28 @@
         "tests/reference_parity/test_panel_icc_lrtest_parity.py"
       ],
       "tolerance": "chi2 rtol 1e-6, df exact, p rtol 1e-5 (observed chi2 <= 1e-9)"
+    },
+    {
+      "function": "lrvar",
+      "notes": [
+        "Frozen-R fixture, one and two series. The multivariate small-sample factor differs by documented convention (T/(T-1) here, T/(T-K) in sandwich for an lm with K responses) and is converted in the test."
+      ],
+      "reference": "sandwich::kernHAC, bwAndrews, bwNeweyWest, NeweyWest, lrvar",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sandwich": "3.1.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_lrvar_parity.py",
+        "tests/reference_parity/_fixtures/lrvar_R.json"
+      ],
+      "tolerance": "long-run variance and bandwidth 1e-9 rel over 104 kernel x bandwidth x prewhitening cases"
     },
     {
       "additional_tests": [
@@ -15076,6 +15197,30 @@
         "tests/reference_parity/test_peer_effects_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "function": "periodogram",
+      "notes": [
+        "Frozen fixtures on committed synthetic series. fast=True reproduces R's padding to a 2-3-5 length; the default keeps the Fourier frequencies of the sample."
+      ],
+      "reference": "stats::spec.pgram, stats::spec.ar; Stata 18 pergram",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_spectral_parity.py",
+        "tests/reference_parity/_fixtures/spectral_R.json",
+        "tests/reference_parity/_fixtures/spectral_Stata.csv"
+      ],
+      "tolerance": "frequencies, spectrum, degrees of freedom, bandwidth and band 1e-9 rel"
     },
     {
       "additional_tests": [
@@ -20394,6 +20539,29 @@
       "tolerance": ""
     },
     {
+      "function": "statespace",
+      "notes": [
+        "The likelihood is the Kalman filter's, checked against KFAS on the frozen fixture; the optimum and its standard errors are compared live with statsmodels in the same test file."
+      ],
+      "reference": "statsmodels MLEModel; KFAS likelihood",
+      "reference_versions": {
+        "KFAS": "1.6.0",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "statsmodels": "0.14.6"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_statespace_parity.py",
+        "tests/reference_parity/_fixtures/statespace_R.json"
+      ],
+      "tolerance": "likelihood 1e-9 rel at common parameters; estimates 1e-6; standard errors 1e-5"
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_stepwise_parity.py"
@@ -20874,19 +21042,25 @@
       "tolerance": "Stata: every block at 1e-6; observed 3e-10 or better on coefficients, standard errors and the frailty variance, 5e-12 on the log-likelihood, with ml's stopping rule tightened in the do-file. R: coefficients and log-scale 5e-5 abs against a frozen fixture."
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "svar",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
       ],
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "external_parity",
+      "status": "external-replication",
       "test": [
-        "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+        "tests/external_parity/test_neusser_time_series.py"
       ],
       "tolerance": ""
     },
@@ -22085,6 +22259,28 @@
       "tolerance": ""
     },
     {
+      "function": "tsfilter",
+      "notes": [
+        "Frozen-Stata fixture. Stata's tsfilter cf, stationary and smaorder() are not implemented; the Hamilton filter is checked against the regression that defines it."
+      ],
+      "reference": "Stata 18 tsfilter hp, bk, cf, bw; statsmodels hpfilter, bkfilter, cffilter",
+      "reference_versions": {
+        "Stata": "18",
+        "statsmodels": "0.14.6"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_tsfilter_parity.py",
+        "tests/reference_parity/_fixtures/tsfilter_Stata.csv"
+      ],
+      "tolerance": "trend and cycle 1e-9 rel"
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_difference_in_means_estimatr.py",
         "tests/reference_parity/test_dynamic_modelling_parity.py",
@@ -22321,8 +22517,10 @@
     {
       "additional_tests": [
         "tests/external_parity/test_maitra_static_dynamic.py",
+        "tests/external_parity/test_neusser_time_series.py",
         "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
+        "tests/reference_parity/test_irf_bands_stata_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_timeseries_R_parity.py",
@@ -22794,6 +22992,37 @@
         "tests/reference_parity/test_prodest_parity.py"
       ],
       "tolerance": "Default GMM (free Markov polynomial) recovers labour 0.60, capital 0.30 and rho 0.70 on the parity panel within 0.05 / 0.10 / 0.05. convention='prodest' matches Stata's stacked 2SLS coefficients and unadjusted variance at 1e-8 (polynomial degree 2 and 3), and R prodestWRDG is rebuilt from the same design at 1e-12."
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_neusser_time_series.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "xcorr",
+      "notes": [
+        "Frozen fixtures on a committed synthetic pair. Stata's lag is the mirror image of R's and ours. Order selection by OLS on a common sample follows statsmodels, not ar.ols; fixed-order residuals agree with ar.ols."
+      ],
+      "reference": "stats::ccf, stats::ar; Stata 18 xcorr",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_xcorr_parity.py",
+        "tests/reference_parity/_fixtures/xcorr_R.json",
+        "tests/reference_parity/_fixtures/xcorr_Stata.csv"
+      ],
+      "tolerance": "cross-correlations 1e-10; AR coefficients 1e-9; Haugh statistic 1e-9"
     },
     {
       "function": "xlearner",
@@ -23305,6 +23534,34 @@
         "tests/reference_parity/_fixtures/r2_frontier_stata.json"
       ],
       "tolerance": "estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4)"
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_neusser_time_series.py"
+      ],
+      "also_verified_by": [
+        "external_parity"
+      ],
+      "function": "zivot_andrews",
+      "notes": [
+        "Frozen-R fixture: two synthetic series, three break models, two lag orders, with trim=0 (urca searches every date)."
+      ],
+      "reference": "urca::ur.za",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "urca": "1.3.4"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_zivot_andrews_parity.py",
+        "tests/reference_parity/_fixtures/zivot_andrews_R.json"
+      ],
+      "tolerance": "minimum t statistic, the path over break dates and the regression at the break 1e-7 rel; break date equal"
     },
     {
       "function": "ztest",

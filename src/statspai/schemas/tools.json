@@ -2227,6 +2227,40 @@
     "name": "betareg"
   },
   {
+    "description": "Beveridge-Nelson decomposition of an integrated series into a random walk with drift (the long-horizon forecast) and a stationary cycle, from an autoregression for the first difference. Reports the long-run multiplier psi(1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Seasonally unadjusted data: the seasonal lags dominate the cycle. Assumptions: The series is I(1) and its difference is a stationary AR(p). Alternatives: sp.tsfilter, sp.unitroot, sp.arima.",
+    "input_schema": {
+      "properties": {
+        "ic": {
+          "default": "bic",
+          "description": "Criterion for the order, ``N log(RSS / N) + penalty * (p + 1)`` with every order fitted on the same ``N`` observations (the differences after the first ``max_order``). The chosen order is refitted on all the differences it can use.",
+          "enum": [
+            "aic",
+            "bic"
+          ],
+          "type": "string"
+        },
+        "max_order": {
+          "description": "Largest order considered. Default ``min(8, (T - 1) // 4)``.",
+          "type": "integer"
+        },
+        "order": {
+          "description": "AR order of the difference",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Level",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "beveridge_nelson"
+  },
+  {
     "description": "Beyond-average LATE (Xie-Wu 2025). Identifies the entire treatment-effect distribution among compliers under incomplete compliance, not just its mean. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse. Alternatives: sp.qte, sp.iv, sp.dml. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
@@ -6803,6 +6837,26 @@
       "type": "object"
     },
     "name": "cuminc"
+  },
+  {
+    "description": "Bartlett's test for white noise from the cumulative periodogram: a Kolmogorov-Smirnov statistic for the distance between the normalised cumulative periodogram and the straight line of white noise. Stata wntestb. Validation: certified parity evidence. Alternatives: sp.ljungbox, sp.bds, sp.periodogram.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the band reported in ``.band`` and drawn by ``.plot()``.",
+          "type": "number"
+        },
+        "y": {
+          "description": "Column of data",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "cumulative_periodogram_test"
   },
   {
     "description": "CUSUM test for parameter stability. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention. Assumptions: Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions. Pre-conditions: A regularly spaced time index without gaps; enough observations per parameter (rule of thumb: >= 50 for ARIMA, more for VAR / GARCH). Failure modes: Serially correlated residuals or a break near the sample edge: stability tests over-reject and the break date is imprecise -> Model the dynamics first, trim the sample ends and report the break date with its interval. Alternatives: sp.sp.arima, sp.sp.its, sp.sp.causal_impact.",
@@ -13825,9 +13879,23 @@
     "name": "gap_closing"
   },
   {
-    "description": "Fit GARCH(p,q) by conditional Gaussian MLE. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention. Assumptions: Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions. Pre-conditions: A regularly spaced time index without gaps; enough observations per parameter (rule of thumb: >= 50 for ARIMA, more for VAR / GARCH). Failure modes: GARCH / state-space likelihood fails to converge -> Rescale the series (percent returns), reduce the order, or supply starting values. Alternatives: sp.sp.arima, sp.sp.its, sp.sp.causal_impact.",
+    "description": "Fit GARCH(p,q) by conditional maximum likelihood. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention. Assumptions: Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions. Pre-conditions: A regularly spaced time index without gaps; enough observations per parameter (rule of thumb: >= 50 for ARIMA, more for VAR / GARCH). Failure modes: GARCH / state-space likelihood fails to converge -> Rescale the series (percent returns), reduce the order, or supply starting values. Alternatives: sp.sp.arima, sp.sp.its, sp.sp.causal_impact.",
     "input_schema": {
       "properties": {
+        "ar": {
+          "default": 0,
+          "description": "Autoregressive terms of the mean equation, written as AR",
+          "type": "integer"
+        },
+        "dist": {
+          "default": "normal",
+          "description": "Distribution of the standardised innovation ``z_t``. ``'t'`` is Student t scaled to unit variance, with the degrees of freedom ``nu > 2`` estimated (Stata ``distribution(t)``, ``rugarch`` ``'std'``). Stata reports ``ln(nu - 2)``; ``nu`` itself is the parameter here.",
+          "enum": [
+            "normal",
+            "t"
+          ],
+          "type": "string"
+        },
         "mean": {
           "default": true,
           "description": "Estimate a constant mean mu; if False, mu = 0.",
@@ -16490,6 +16558,28 @@
     "description": "Compute impulse response functions from VAR. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention. Assumptions: Stationarity after the chosen differencing (ARIMA, VAR, Granger); unit-root series need cointegration analysis (Engle-Granger, Johansen), not levels regressions; Impulse responses depend on the identification scheme (Cholesky ordering, sign restrictions); interrupted time series assumes no concurrent shock at the intervention date. Pre-conditions: A regularly spaced time index without gaps; enough observations per parameter (rule of thumb: >= 50 for ARIMA, more for VAR / GARCH). Failure modes: Unit root detected in a series used in levels -> Difference the series or test for cointegration (sp.engle_granger / sp.johansen) before modelling. Alternatives: sp.sp.arima, sp.sp.its, sp.sp.causal_impact.",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "The band has nominal pointwise coverage ``1 - alpha``.",
+          "type": "number"
+        },
+        "boot": {
+          "default": "efron",
+          "description": "Bootstrap band: Efron's percentile interval (the quantiles of the replicates, as ``vars`` and Stata report) or Hall's (the quantiles reflected about the estimate, which corrects for the bias of the replicates rather than doubling it).",
+          "enum": [
+            "efron",
+            "hall"
+          ],
+          "type": "string"
+        },
+        "ci": {
+          "description": "Add standard errors and a band. ``'asymptotic'``: delta method on the joint normal limit of the coefficients and the residual covariance (Stata's ``irf create`` standard errors). ``'bootstrap'``: residual bootstrap, the series regenerated recursively from its first ``lags`` observations and the VAR re-estimated (``irf create, bs``; ``vars::irf(boot = TRUE)``).",
+          "enum": [
+            "asymptotic",
+            "bootstrap"
+          ],
+          "type": "string"
+        },
         "cumulative": {
           "default": false,
           "description": "Return cumulative responses ``sum_{j<=s}`` (Stata ``cirf`` / ``coirf``; ``vars::irf(cumulative = TRUE)``).",
@@ -16509,9 +16599,18 @@
           "description": "Number of periods for IRF.",
           "type": "integer"
         },
+        "reps": {
+          "default": 1000,
+          "description": "Bootstrap replications.",
+          "type": "integer"
+        },
         "response": {
           "description": "Response variable (if None, all).",
           "type": "string"
+        },
+        "seed": {
+          "description": "Seed of the bootstrap draws.",
+          "type": "integer"
         },
         "sigma_df": {
           "description": "Divisor of the residual covariance that the orthogonalisation uses: ``'ml'`` = ``T`` (Stata ``irf create`` after ``var``), ``'unbiased'`` = ``T - m`` with ``m`` regressors per equation (``vars::Psi``, and Stata after ``var, dfk``). Default follows the fitted model's ``se_df`` (``'stata'``/``'ml'`` -> ``'ml'``, ``'r'``/``'unbiased'`` -> ``'unbiased'``). Irrelevant when ``orthogonal=False``.",
@@ -17594,6 +17693,58 @@
     "name": "johansen"
   },
   {
+    "description": "Likelihood-ratio tests in a cointegrated VAR with the rank held fixed: the same linear restrictions on every cointegrating vector, given vectors lying in the cointegration space, or restrictions on the loadings (weak exogeneity). Chi-squared reference. urca blrtest / bh5lrtest / alrtest. Validation: certified parity evidence. Assumptions: The cointegration rank is correct; Gaussian VAR with the stated lag order. Pre-conditions: Choose the rank with sp.johansen first. Alternatives: sp.johansen, sp.vec, sp.engle_granger.",
+    "input_schema": {
+      "properties": {
+        "beta": {
+          "description": "H in beta = H phi",
+          "type": "string"
+        },
+        "beta_known": {
+          "description": "Known cointegrating vectors",
+          "type": "string"
+        },
+        "lags": {
+          "default": 1,
+          "description": "Lagged differences",
+          "type": "integer"
+        },
+        "loading": {
+          "description": "A in alpha = A psi",
+          "type": "string"
+        },
+        "rank": {
+          "description": "Cointegration rank",
+          "type": "integer"
+        },
+        "trend": {
+          "default": "c",
+          "description": "Deterministic terms, as in :func:`statspai.johansen`. In the restricted cases (``'rc'``, ``'rt'``) the cointegrating vector has ``K + 1`` elements, the last being the constant or the trend.",
+          "enum": [
+            "c",
+            "rc",
+            "n",
+            "rt",
+            "ct"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "The system, in order; all numeric columns when omitted.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "rank"
+      ],
+      "type": "object"
+    },
+    "name": "johansen_lrtest"
+  },
+  {
     "description": "Wooldridge ETWFE with Stata ``jwdid``'s option names. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
@@ -17698,6 +17849,89 @@
       "type": "object"
     },
     "name": "jwdid"
+  },
+  {
+    "description": "Kalman filter and fixed-interval smoother for a linear state space model given by its matrices: X_t = F X_{t-1} + V_t, Y_t = A + G X_t + W_t. Constant or time-varying matrices, missing observations anywhere, stationary or diffuse start. Predicted, filtered and smoothed states with covariances, innovations, log-likelihood, forecasts. Agrees with R KFAS and statsmodels. Validation: certified parity evidence. Assumptions: Linear state and observation equations with known matrices; Likelihood and intervals: Gaussian disturbances. Alternatives: sp.statespace, sp.dlm, sp.arima, sp.particle_filter.",
+    "input_schema": {
+      "properties": {
+        "A": {
+          "description": "Observation intercept",
+          "type": "string"
+        },
+        "F": {
+          "description": "State transition",
+          "type": "string"
+        },
+        "G": {
+          "description": "Observation loadings",
+          "type": "string"
+        },
+        "P0": {
+          "description": "Its covariance",
+          "type": "string"
+        },
+        "Q": {
+          "description": "State noise covariance",
+          "type": "string"
+        },
+        "R": {
+          "description": "Observation noise cov.",
+          "type": "string"
+        },
+        "burn": {
+          "default": 0,
+          "description": "Leading periods left out of the likelihood",
+          "type": "integer"
+        },
+        "init": {
+          "default": "auto",
+          "description": "Initial state when x0 / P0 are not given",
+          "enum": [
+            "auto",
+            "stationary",
+            "diffuse"
+          ],
+          "type": "string"
+        },
+        "kappa": {
+          "default": 10000000.0,
+          "description": "Diffuse prior variance",
+          "type": "number"
+        },
+        "smooth": {
+          "default": true,
+          "description": "Also run the fixed-interval smoother.",
+          "type": "boolean"
+        },
+        "state_names": {
+          "description": "Names of the states. Default ``x1, x2, ...``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "x0": {
+          "description": "Mean of the initial state",
+          "type": "string"
+        },
+        "y": {
+          "description": "T x n",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "F",
+        "G",
+        "Q",
+        "R",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "kalman_filter"
   },
   {
     "description": "Kaplan-Meier non-parametric survival function estimator. Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray. Assumptions: Non-informative (independent) censoring conditional on covariates. Pre-conditions: One duration column (> 0) and one event indicator (1 = event, 0 = censored) per subject; competing risks need an event-type code; Time-varying covariates need a (start, stop] counting-process layout. Failure modes: Few subjects at risk in the right tail: the last steps of the curve rest on a handful of observations -> Report the number at risk under the curve and stop the plotted range where it is small; Competing events treated as censoring: 1 - KM overstates the cumulative incidence of the event of interest -> Estimate the cumulative incidence function with the Aalen-Johansen estimator. Alternatives: sp.sp.aft, sp.sp.finegray. Typical minimum N: 50.",
@@ -19097,6 +19331,68 @@
       "type": "object"
     },
     "name": "lrtest"
+  },
+  {
+    "description": "Long-run variance (sum of all autocovariances, the HAC variance of a mean times T) of one or several series. Bartlett, Parzen, quadratic spectral, Tukey-Hanning or truncated kernel; Andrews or Newey-West automatic bandwidth; VAR prewhitening. Reproduces R sandwich kernHAC / NeweyWest / lrvar. Validation: certified parity evidence. Assumptions: Stationary series with summable autocovariances. Alternatives: sp.regress, sp.corrgram, sp.periodogram.",
+    "input_schema": {
+      "properties": {
+        "adjust": {
+          "default": false,
+          "description": "Small-sample factor",
+          "type": "boolean"
+        },
+        "bandwidth": {
+          "default": "andrews",
+          "description": "A number, or 'andrews', 'newey-west', 'rule', 'sw'",
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "demean": {
+          "default": true,
+          "description": "Subtract the sample mean of each series. ``False`` is for series known to have mean zero, such as moment conditions at the truth.",
+          "type": "boolean"
+        },
+        "integer_lag": {
+          "default": false,
+          "description": "Truncate the bandwidth to whole lags (sandwich NeweyWest)",
+          "type": "boolean"
+        },
+        "kernel": {
+          "default": "bartlett",
+          "description": "``'bartlett'``, ``'parzen'``, ``'qs'`` (quadratic spectral), ``'tukey-hanning'`` or ``'truncated'``. Bartlett, Parzen and QS give a non-negative estimate; the other two need not.",
+          "enum": [
+            "bartlett",
+            "parzen",
+            "qs",
+            "tukey-hanning",
+            "truncated"
+          ],
+          "type": "string"
+        },
+        "prewhite": {
+          "default": 0,
+          "description": "VAR order of the prewhitening",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-07,
+          "description": "Weights below it are dropped",
+          "type": "number"
+        },
+        "y": {
+          "description": "Column(s) of data",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "lrvar"
   },
   {
     "description": "Longitudinal TMLE for static regime contrasts. Validation: certified parity evidence. Assumptions: Sequential exchangeability (no unmeasured time-varying confounding) at every treatment time point; Positivity at each time point conditional on the past; Correctly specified outcome (Q) and treatment (g) models, though TMLE is doubly robust to one of them. Pre-conditions: Long-format data with time-varying treatment, confounders and the static regime contrast of interest. Failure modes: Near-positivity violation: estimated treatment probabilities approach 0 or 1, inflating variance -> Bound (truncate) the cumulative weights or use a marginal structural model with stabilised weights. Alternatives: sp.tmle, sp.g_computation, sp.msm. Typical minimum N: 500.",
@@ -23970,6 +24266,90 @@
       "type": "object"
     },
     "name": "pcmci"
+  },
+  {
+    "description": "Spectral density of a series: raw periodogram, periodogram smoothed with modified Daniell kernels, or the spectrum of an autoregression fitted by Yule-Walker. Frequencies, cycle lengths, the estimate and its chi-squared band. R spec.pgram / spec.ar, Stata pergram. Validation: certified parity evidence. Do NOT use when: Reading single ordinates of the raw periodogram: it is not consistent; smooth it or fit the AR spectrum. Assumptions: Stationary series. Alternatives: sp.corrgram, sp.tsfilter, sp.cumulative_periodogram_test.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "``lower`` and ``upper`` are a pointwise ``1 - alpha`` interval.",
+          "type": "number"
+        },
+        "detrend": {
+          "default": "linear",
+          "description": "What is removed before the transform: a least-squares line, the mean, or nothing. ``'ar'`` always removes the mean only.",
+          "enum": [
+            "linear",
+            "mean",
+            "none"
+          ],
+          "type": "string"
+        },
+        "fast": {
+          "default": false,
+          "description": "Pad to a 2-3-5 length as R does",
+          "type": "boolean"
+        },
+        "max_order": {
+          "description": "Largest order considered. Default ``min(n - 1, floor(10 * log10(n)))``.",
+          "type": "integer"
+        },
+        "method": {
+          "default": "raw",
+          "description": "``'raw'`` is the periodogram at the Fourier frequencies ``j / n``, ``j = 1, ..., floor(n / 2)``. ``'smoothed'`` averages neighbouring periodogram ordinates with the modified Daniell kernel(s) given by ``spans``. ``'ar'`` fits an autoregression by Yule-Walker and returns its spectral density on ``n_freq`` equally spaced frequencies from 0 to 1/2.",
+          "enum": [
+            "raw",
+            "smoothed",
+            "ar"
+          ],
+          "type": "string"
+        },
+        "n_freq": {
+          "default": 500,
+          "description": "method='ar': grid size",
+          "type": "integer"
+        },
+        "order": {
+          "description": "method='ar': fixed order",
+          "type": "integer"
+        },
+        "pad": {
+          "default": 0.0,
+          "description": "Zero padding, share of n",
+          "type": "number"
+        },
+        "scale": {
+          "default": "cycles",
+          "description": "Density per cycle (R) or per radian (textbook)",
+          "enum": [
+            "cycles",
+            "radians"
+          ],
+          "type": "string"
+        },
+        "spans": {
+          "description": "Daniell spans",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "taper": {
+          "default": 0.1,
+          "description": "Cosine-bell share per end",
+          "type": "number"
+        },
+        "y": {
+          "description": "Column of data",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "periodogram"
   },
   {
     "description": "End-to-end DID workflow: preflight -> did/CS estimator -> audit -> honest-DID sensitivity -> bacon decomposition -> brief. Returns one markdown report + the primary result_id. Use this when the user pastes a DID dataset and asks 'is the effect real?' -- the pipeline runs every diagnostic the literature expects.",
@@ -33965,6 +34345,118 @@
     "name": "staggered_synth"
   },
   {
+    "description": "Maximum-likelihood estimation of a user-written linear state space model: build(theta) returns the system matrices, the Kalman-filter likelihood is maximised, and the estimates come with standard errors, information criteria and the filtered and smoothed states. Handles mixed frequencies and missing observations. Validation: certified parity evidence. Do NOT use when: The likelihood may have several local maxima and only one start is tried. Assumptions: Linear Gaussian state space model; Parameters identified from the observed series. Failure modes: Hessian not positive definite at the optimum -> The likelihood is flat in some direction or the search stopped early: try other starting values or a more restricted model. Alternatives: sp.kalman_filter, sp.dlm, sp.arima, sp.ardl.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the confidence intervals.",
+          "type": "number"
+        },
+        "build": {
+          "description": "theta -> dict with F, G, Q, R and optionally A, x0, P0",
+          "type": "string"
+        },
+        "burn": {
+          "default": 0,
+          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity.",
+          "type": "integer"
+        },
+        "engine": {
+          "default": "auto",
+          "description": "How the filter runs inside the optimiser. ``'numba'`` compiles the recursion on first use (several seconds, cached afterwards) and falls back to NumPy when numba is not installed; ``'auto'`` asks for it when ``T`` times the number of parameters is at least 400. The two agree to rounding error.",
+          "enum": [
+            "auto",
+            "numpy",
+            "numba"
+          ],
+          "type": "string"
+        },
+        "init": {
+          "default": "auto",
+          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity.",
+          "enum": [
+            "auto",
+            "stationary",
+            "diffuse"
+          ],
+          "type": "string"
+        },
+        "kappa": {
+          "default": 10000000.0,
+          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity.",
+          "type": "number"
+        },
+        "maxiter": {
+          "default": 1000,
+          "description": "Iteration limit of each optimiser run.",
+          "type": "integer"
+        },
+        "method": {
+          "default": "bfgs",
+          "description": "Optimiser",
+          "enum": [
+            "bfgs",
+            "l-bfgs-b",
+            "nelder-mead"
+          ],
+          "type": "string"
+        },
+        "param_names": {
+          "description": "Names of the parameters. Default ``theta1, theta2, ...``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "start": {
+          "description": "Starting values",
+          "type": "string"
+        },
+        "state_names": {
+          "description": "Names of the states.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tol": {
+          "default": 1e-05,
+          "description": "Gradient tolerance",
+          "type": "number"
+        },
+        "transform": {
+          "description": "theta -> quantities of interest (delta-method errors)",
+          "type": "string"
+        },
+        "vce": {
+          "default": "hessian",
+          "description": "Covariance of the estimates: inverse of the numerical Hessian of the negative log-likelihood, inverse of the outer product of the per-date scores, or the sandwich of the two.",
+          "enum": [
+            "hessian",
+            "opg",
+            "robust"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "T x n",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "build",
+        "start",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "statespace"
+  },
+  {
     "description": "Stepwise variable selection for OLS regression. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Stepwise / lasso selection: post-selection inference on the selected model is invalid without sample splitting or debiasing -- treat them as screening tools; Conditional mean independence: E[u|X] = 0; No perfect collinearity. Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Altern...",
     "input_schema": {
       "properties": {
@@ -37015,6 +37507,78 @@
     "name": "tscv"
   },
   {
+    "description": "Trend-cycle decomposition by a linear filter: Hodrick-Prescott, Baxter-King band-pass, Christiano-Fitzgerald band-pass, Butterworth high-pass, or Hamilton's regression filter. Returns trend, cycle and the filter's gain. Stata tsfilter hp / bk / cf / bw. Validation: certified parity evidence. Do NOT use when: Seasonally unadjusted data with the HP filter: the seasonal component ends up in the cycle; Reading the last few HP cycle values as current conditions: the filter is two-sided and revises them. Assumptions: The cycle of interest lives in the frequency band the filter passes. Alternatives: sp.stl, sp.beveridge_nelson, sp.classical_decompose.",
+    "input_schema": {
+      "properties": {
+        "K": {
+          "default": 12,
+          "description": "bk: leads and lags of the filter",
+          "type": "integer"
+        },
+        "drift": {
+          "default": true,
+          "description": "cf: remove a linear drift",
+          "type": "boolean"
+        },
+        "h": {
+          "default": 8,
+          "description": "hamilton: horizon",
+          "type": "integer"
+        },
+        "high": {
+          "default": 32.0,
+          "description": "Longest cycle kept",
+          "type": "number"
+        },
+        "low": {
+          "default": 6.0,
+          "description": "Shortest cycle kept",
+          "type": "number"
+        },
+        "method": {
+          "default": "hp",
+          "description": "Hodrick-Prescott, Baxter-King, Christiano-Fitzgerald, Butterworth (high-pass) or Hamilton's regression filter.",
+          "enum": [
+            "hp",
+            "bk",
+            "cf",
+            "bw",
+            "hamilton"
+          ],
+          "type": "string"
+        },
+        "order": {
+          "default": 2,
+          "description": "bw: order of the filter",
+          "type": "integer"
+        },
+        "p": {
+          "default": 4,
+          "description": "hamilton: lags",
+          "type": "integer"
+        },
+        "smooth": {
+          "default": 1600.0,
+          "description": "hp: smoothing parameter",
+          "type": "number"
+        },
+        "stationary": {
+          "default": false,
+          "description": "bk: weights not forced to sum to zero",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Column of data",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "tsfilter"
+  },
+  {
     "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Independent observations within each group (paired differences for a paired test); Sample means approximately normal: normal data or a sample large enough for the central limit theorem; Equal variances only when the pooled test is requested. Pre-conditions: A numeric outcome; for two samples a grouping column with exactly two values. Failure modes: Clustered or repeated observations treated as independent -> Regress the outcome on the group indicator with clustered standard errors; Heavy tails or gross outliers in a small sample -> Compare medians or ranks instead. Alternatives: sp.regress, sp.median_test, sp.sdtest, sp.prtest. Typical...",
     "input_schema": {
       "properties": {
@@ -38185,6 +38749,74 @@
     "name": "wooldridge_did"
   },
   {
+    "description": "Cross-correlogram of two series at leads and lags, raw or after prewhitening each series with its own autoregression, with the band under no cross-correlation and the Haugh portmanteau test. Raw cross-correlations of autocorrelated series are not readable; the prewhitened ones are. R ccf, Stata xcorr (mirror image of the lag). Validation: certified parity evidence. Do NOT use when: Reading leads and lags off raw cross-correlations of autocorrelated series: use prewhiten='ar'. Assumptions: Both series stationary; Band and Haugh test: the two prewhitened series are white noise under the null of no relation. Alternatives: sp.granger_causality, sp.var, sp.corrgram.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the band",
+          "type": "number"
+        },
+        "ar_method": {
+          "default": "ols",
+          "description": "``'ols'``: regression of the series on a constant and its lags. The order is chosen on the common sample that starts after ``max_order`` periods and the chosen order is then refitted on all rows it can use. ``'yw'``: Yule-Walker equations from the sample autocovariances, as R ``ar()`` does by default.",
+          "enum": [
+            "ols",
+            "yule-walker"
+          ],
+          "type": "string"
+        },
+        "ar_order": {
+          "description": "Fixed AR order(s)",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "ic": {
+          "default": "aic",
+          "description": "ic parameter (str).",
+          "enum": [
+            "aic",
+            "bic"
+          ],
+          "type": "string"
+        },
+        "lags": {
+          "description": "Leads and lags shown",
+          "type": "integer"
+        },
+        "max_order": {
+          "description": "Largest order considered. Default ``min(n - 1, floor(10 log10 n))``.",
+          "type": "integer"
+        },
+        "prewhiten": {
+          "description": "'ar': AR residuals of each series; 'x': filter both with the AR of x",
+          "enum": [
+            "ar",
+            "x"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "First series",
+          "type": "string"
+        },
+        "y": {
+          "description": "Second series",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xcorr"
+  },
+  {
     "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Validation: certified parity evidence. Assumptions: No second-order serial correlation in differenced errors; Internal instruments are valid and not too numerous. Pre-conditions: Panel data include unit, time, outcome, and lagged dependent variable structure; Number of time periods is moderate relative to units. Failure modes: Instrument proliferation or AR(2) test rejects -> Collapse instruments, reduce lag depth, or compare with fixed-effects estimates. Alternatives: sp.panel, sp.feols. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
@@ -39002,6 +39634,50 @@
       "type": "object"
     },
     "name": "zip_model"
+  },
+  {
+    "description": "Zivot-Andrews unit-root test allowing one break in the level, the slope of the trend, or both, at a date chosen by the data (the minimum t statistic over candidate dates). Returns the statistic, the break date, the critical values and the statistic at every date. urca ur.za. Validation: certified parity evidence. Assumptions: Under the null: a unit root with drift and no break; At most one break under the alternative. Alternatives: sp.unitroot, sp.structural_break, sp.chow_test.",
+    "input_schema": {
+      "properties": {
+        "lags": {
+          "default": 0,
+          "description": "Lagged differences",
+          "type": "integer"
+        },
+        "max_lags": {
+          "description": "Largest order searched; default ``floor(12 (T / 100)^{1/4})``.",
+          "type": "integer"
+        },
+        "model": {
+          "default": "intercept",
+          "description": "Which break is allowed",
+          "enum": [
+            "intercept",
+            "trend",
+            "both"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Column dating the rows",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trim": {
+          "default": 0.15,
+          "description": "Share excluded per end",
+          "type": "number"
+        },
+        "y": {
+          "description": "Column of data",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "zivot_andrews"
   },
   {
     "description": "z test on a mean or on a difference of two means when the population standard deviation is known (Stata ztest / ztesti). Takes data or summary statistics (n=, mean=). Returns the estimate, its standard error, z, the two-sided and both one-sided p-values and the confidence interval. Use sp.ttest when the standard deviation is estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: sd is the sample standard deviation -- use sp.ttest, which accounts for estimating it. Assumptions: The population standard deviation is known, not estimated from the sample being tested; Independent observations; a normal population, or a sample large enough for the mean to be approximately normal. Alternatives: sp.ttest.",

@@ -14672,6 +14672,698 @@
     }
   },
   {
+    "description": "Cross-correlogram of two series at leads and lags, raw or after prewhitening each series with its own autoregression, with the band under no cross-correlation and the Haugh portmanteau test. Raw cross-correlations of autocorrelated series are not readable; the prewhitened ones are. R ccf, Stata xcorr (mirror image of the lag). Validation: certified parity evidence. Do NOT use when: Reading leads and lags off raw cross-correlations of autocorrelated series: use prewhiten='ar'.",
+    "name": "xcorr",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the band",
+          "type": "number"
+        },
+        "ar_method": {
+          "default": "ols",
+          "description": "``'ols'``: regression of the series on a constant and its lags. The order is chosen on the common sample that starts after ``max_order`` periods and the chosen order is then refitted on all rows it can use. ``'yw'``: Yule-Walker equations from the sample autocovariances, as R ``ar()`` does by default.",
+          "enum": [
+            "ols",
+            "yule-walker"
+          ],
+          "type": "string"
+        },
+        "ar_order": {
+          "description": "Fixed AR order(s)",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "Frame holding x and y",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "ic": {
+          "default": "aic",
+          "description": "ic parameter (str).",
+          "enum": [
+            "aic",
+            "bic"
+          ],
+          "type": "string"
+        },
+        "lags": {
+          "description": "Leads and lags shown",
+          "type": "integer"
+        },
+        "max_order": {
+          "description": "Largest order considered. Default ``min(n - 1, floor(10 log10 n))``.",
+          "type": "integer"
+        },
+        "prewhiten": {
+          "description": "'ar': AR residuals of each series; 'x': filter both with the AR of x",
+          "enum": [
+            "ar",
+            "x"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "First series",
+          "type": "string"
+        },
+        "y": {
+          "description": "Second series",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Long-run variance (sum of all autocovariances, the HAC variance of a mean times T) of one or several series. Bartlett, Parzen, quadratic spectral, Tukey-Hanning or truncated kernel; Andrews or Newey-West automatic bandwidth; VAR prewhitening. Reproduces R sandwich kernHAC / NeweyWest / lrvar. Validation: certified parity evidence.",
+    "name": "lrvar",
+    "parameters": {
+      "properties": {
+        "adjust": {
+          "default": false,
+          "description": "Small-sample factor",
+          "type": "boolean"
+        },
+        "bandwidth": {
+          "default": "andrews",
+          "description": "A number, or 'andrews', 'newey-west', 'rule', 'sw'",
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "data": {
+          "description": "The series in time order; a ``T x K`` array or several columns give the ``K x K`` long-run covariance matrix.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "demean": {
+          "default": true,
+          "description": "Subtract the sample mean of each series. ``False`` is for series known to have mean zero, such as moment conditions at the truth.",
+          "type": "boolean"
+        },
+        "integer_lag": {
+          "default": false,
+          "description": "Truncate the bandwidth to whole lags (sandwich NeweyWest)",
+          "type": "boolean"
+        },
+        "kernel": {
+          "default": "bartlett",
+          "description": "``'bartlett'``, ``'parzen'``, ``'qs'`` (quadratic spectral), ``'tukey-hanning'`` or ``'truncated'``. Bartlett, Parzen and QS give a non-negative estimate; the other two need not.",
+          "enum": [
+            "bartlett",
+            "parzen",
+            "qs",
+            "tukey-hanning",
+            "truncated"
+          ],
+          "type": "string"
+        },
+        "prewhite": {
+          "default": 0,
+          "description": "VAR order of the prewhitening",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-07,
+          "description": "Weights below it are dropped",
+          "type": "number"
+        },
+        "y": {
+          "description": "Column(s) of data",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Spectral density of a series: raw periodogram, periodogram smoothed with modified Daniell kernels, or the spectrum of an autoregression fitted by Yule-Walker. Frequencies, cycle lengths, the estimate and its chi-squared band. R spec.pgram / spec.ar, Stata pergram. Validation: certified parity evidence. Do NOT use when: Reading single ordinates of the raw periodogram: it is not consistent; smooth it or fit the AR spectrum.",
+    "name": "periodogram",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "``lower`` and ``upper`` are a pointwise ``1 - alpha`` interval.",
+          "type": "number"
+        },
+        "data": {
+          "description": "The series, in time order. With a DataFrame, ``y`` names the column.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "detrend": {
+          "default": "linear",
+          "description": "What is removed before the transform: a least-squares line, the mean, or nothing. ``'ar'`` always removes the mean only.",
+          "enum": [
+            "linear",
+            "mean",
+            "none"
+          ],
+          "type": "string"
+        },
+        "fast": {
+          "default": false,
+          "description": "Pad to a 2-3-5 length as R does",
+          "type": "boolean"
+        },
+        "max_order": {
+          "description": "Largest order considered. Default ``min(n - 1, floor(10 * log10(n)))``.",
+          "type": "integer"
+        },
+        "method": {
+          "default": "raw",
+          "description": "``'raw'`` is the periodogram at the Fourier frequencies ``j / n``, ``j = 1, ..., floor(n / 2)``. ``'smoothed'`` averages neighbouring periodogram ordinates with the modified Daniell kernel(s) given by ``spans``. ``'ar'`` fits an autoregression by Yule-Walker and returns its spectral density on ``n_freq`` equally spaced frequencies from 0 to 1/2.",
+          "enum": [
+            "raw",
+            "smoothed",
+            "ar"
+          ],
+          "type": "string"
+        },
+        "n_freq": {
+          "default": 500,
+          "description": "method='ar': grid size",
+          "type": "integer"
+        },
+        "order": {
+          "description": "method='ar': fixed order",
+          "type": "integer"
+        },
+        "pad": {
+          "default": 0.0,
+          "description": "Zero padding, share of n",
+          "type": "number"
+        },
+        "scale": {
+          "default": "cycles",
+          "description": "Density per cycle (R) or per radian (textbook)",
+          "enum": [
+            "cycles",
+            "radians"
+          ],
+          "type": "string"
+        },
+        "spans": {
+          "description": "Daniell spans",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "taper": {
+          "default": 0.1,
+          "description": "Cosine-bell share per end",
+          "type": "number"
+        },
+        "y": {
+          "description": "Column of data",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bartlett's test for white noise from the cumulative periodogram: a Kolmogorov-Smirnov statistic for the distance between the normalised cumulative periodogram and the straight line of white noise. Stata wntestb. Validation: certified parity evidence.",
+    "name": "cumulative_periodogram_test",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the band reported in ``.band`` and drawn by ``.plot()``.",
+          "type": "number"
+        },
+        "data": {
+          "description": "The series, in time order. With a DataFrame, ``y`` names the column.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "y": {
+          "description": "Column of data",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Trend-cycle decomposition by a linear filter: Hodrick-Prescott, Baxter-King band-pass, Christiano-Fitzgerald band-pass, Butterworth high-pass, or Hamilton's regression filter. Returns trend, cycle and the filter's gain. Stata tsfilter hp / bk / cf / bw. Validation: certified parity evidence. Do NOT use when: Seasonally unadjusted data with the HP filter: the seasonal component ends up in the cycle; Reading the last few HP cycle values as current conditions: the filter is two-sided and revises them.",
+    "name": "tsfilter",
+    "parameters": {
+      "properties": {
+        "K": {
+          "default": 12,
+          "description": "bk: leads and lags of the filter",
+          "type": "integer"
+        },
+        "data": {
+          "description": "The series, in time order. With a DataFrame, ``y`` names the column.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "drift": {
+          "default": true,
+          "description": "cf: remove a linear drift",
+          "type": "boolean"
+        },
+        "h": {
+          "default": 8,
+          "description": "hamilton: horizon",
+          "type": "integer"
+        },
+        "high": {
+          "default": 32.0,
+          "description": "Longest cycle kept",
+          "type": "number"
+        },
+        "low": {
+          "default": 6.0,
+          "description": "Shortest cycle kept",
+          "type": "number"
+        },
+        "method": {
+          "default": "hp",
+          "description": "Hodrick-Prescott, Baxter-King, Christiano-Fitzgerald, Butterworth (high-pass) or Hamilton's regression filter.",
+          "enum": [
+            "hp",
+            "bk",
+            "cf",
+            "bw",
+            "hamilton"
+          ],
+          "type": "string"
+        },
+        "order": {
+          "default": 2,
+          "description": "bw: order of the filter",
+          "type": "integer"
+        },
+        "p": {
+          "default": 4,
+          "description": "hamilton: lags",
+          "type": "integer"
+        },
+        "smooth": {
+          "default": 1600.0,
+          "description": "hp: smoothing parameter",
+          "type": "number"
+        },
+        "stationary": {
+          "default": false,
+          "description": "bk: weights not forced to sum to zero",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Column of data",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Beveridge-Nelson decomposition of an integrated series into a random walk with drift (the long-horizon forecast) and a stationary cycle, from an autoregression for the first difference. Reports the long-run multiplier psi(1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Seasonally unadjusted data: the seasonal lags dominate the cycle.",
+    "name": "beveridge_nelson",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "ic": {
+          "default": "bic",
+          "description": "Criterion for the order, ``N log(RSS / N) + penalty * (p + 1)`` with every order fitted on the same ``N`` observations (the differences after the first ``max_order``). The chosen order is refitted on all the differences it can use.",
+          "enum": [
+            "aic",
+            "bic"
+          ],
+          "type": "string"
+        },
+        "max_order": {
+          "description": "Largest order considered. Default ``min(8, (T - 1) // 4)``.",
+          "type": "integer"
+        },
+        "order": {
+          "description": "AR order of the difference",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Level",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Zivot-Andrews unit-root test allowing one break in the level, the slope of the trend, or both, at a date chosen by the data (the minimum t statistic over candidate dates). Returns the statistic, the break date, the critical values and the statistic at every date. urca ur.za. Validation: certified parity evidence.",
+    "name": "zivot_andrews",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "The series, in time order; a frame needs ``y``.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "lags": {
+          "default": 0,
+          "description": "Lagged differences",
+          "type": "integer"
+        },
+        "max_lags": {
+          "description": "Largest order searched; default ``floor(12 (T / 100)^{1/4})``.",
+          "type": "integer"
+        },
+        "model": {
+          "default": "intercept",
+          "description": "Which break is allowed",
+          "enum": [
+            "intercept",
+            "trend",
+            "both"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Column dating the rows",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trim": {
+          "default": 0.15,
+          "description": "Share excluded per end",
+          "type": "number"
+        },
+        "y": {
+          "description": "Column of data",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Likelihood-ratio tests in a cointegrated VAR with the rank held fixed: the same linear restrictions on every cointegrating vector, given vectors lying in the cointegration space, or restrictions on the loadings (weak exogeneity). Chi-squared reference. urca blrtest / bh5lrtest / alrtest. Validation: certified parity evidence.",
+    "name": "johansen_lrtest",
+    "parameters": {
+      "properties": {
+        "beta": {
+          "description": "H in beta = H phi",
+          "type": "string"
+        },
+        "beta_known": {
+          "description": "Known cointegrating vectors",
+          "type": "string"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "lags": {
+          "default": 1,
+          "description": "Lagged differences",
+          "type": "integer"
+        },
+        "loading": {
+          "description": "A in alpha = A psi",
+          "type": "string"
+        },
+        "rank": {
+          "description": "Cointegration rank",
+          "type": "integer"
+        },
+        "trend": {
+          "default": "c",
+          "description": "Deterministic terms, as in :func:`statspai.johansen`. In the restricted cases (``'rc'``, ``'rt'``) the cointegrating vector has ``K + 1`` elements, the last being the constant or the trend.",
+          "enum": [
+            "c",
+            "rc",
+            "n",
+            "rt",
+            "ct"
+          ],
+          "type": "string"
+        },
+        "variables": {
+          "description": "The system, in order; all numeric columns when omitted.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data",
+        "rank"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Kalman filter and fixed-interval smoother for a linear state space model given by its matrices: X_t = F X_{t-1} + V_t, Y_t = A + G X_t + W_t. Constant or time-varying matrices, missing observations anywhere, stationary or diffuse start. Predicted, filtered and smoothed states with covariances, innovations, log-likelihood, forecasts. Agrees with R KFAS and statsmodels. Validation: certified parity evidence.",
+    "name": "kalman_filter",
+    "parameters": {
+      "properties": {
+        "A": {
+          "description": "Observation intercept",
+          "type": "string"
+        },
+        "F": {
+          "description": "State transition",
+          "type": "string"
+        },
+        "G": {
+          "description": "Observation loadings",
+          "type": "string"
+        },
+        "P0": {
+          "description": "Its covariance",
+          "type": "string"
+        },
+        "Q": {
+          "description": "State noise covariance",
+          "type": "string"
+        },
+        "R": {
+          "description": "Observation noise cov.",
+          "type": "string"
+        },
+        "burn": {
+          "default": 0,
+          "description": "Leading periods left out of the likelihood",
+          "type": "integer"
+        },
+        "data": {
+          "description": "Source of the columns named by ``y``.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "init": {
+          "default": "auto",
+          "description": "Initial state when x0 / P0 are not given",
+          "enum": [
+            "auto",
+            "stationary",
+            "diffuse"
+          ],
+          "type": "string"
+        },
+        "kappa": {
+          "default": 10000000.0,
+          "description": "Diffuse prior variance",
+          "type": "number"
+        },
+        "smooth": {
+          "default": true,
+          "description": "Also run the fixed-interval smoother.",
+          "type": "boolean"
+        },
+        "state_names": {
+          "description": "Names of the states. Default ``x1, x2, ...``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "x0": {
+          "description": "Mean of the initial state",
+          "type": "string"
+        },
+        "y": {
+          "description": "T x n",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "y",
+        "F",
+        "G",
+        "Q",
+        "R"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Maximum-likelihood estimation of a user-written linear state space model: build(theta) returns the system matrices, the Kalman-filter likelihood is maximised, and the estimates come with standard errors, information criteria and the filtered and smoothed states. Handles mixed frequencies and missing observations. Validation: certified parity evidence. Do NOT use when: The likelihood may have several local maxima and only one start is tried.",
+    "name": "statespace",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the confidence intervals.",
+          "type": "number"
+        },
+        "build": {
+          "description": "theta -> dict with F, G, Q, R and optionally A, x0, P0",
+          "type": "string"
+        },
+        "burn": {
+          "default": 0,
+          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity.",
+          "type": "integer"
+        },
+        "data": {
+          "description": "Source of the columns named by ``y``.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "engine": {
+          "default": "auto",
+          "description": "How the filter runs inside the optimiser. ``'numba'`` compiles the recursion on first use (several seconds, cached afterwards) and falls back to NumPy when numba is not installed; ``'auto'`` asks for it when ``T`` times the number of parameters is at least 400. The two agree to rounding error.",
+          "enum": [
+            "auto",
+            "numpy",
+            "numba"
+          ],
+          "type": "string"
+        },
+        "init": {
+          "default": "auto",
+          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity.",
+          "enum": [
+            "auto",
+            "stationary",
+            "diffuse"
+          ],
+          "type": "string"
+        },
+        "kappa": {
+          "default": 10000000.0,
+          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity.",
+          "type": "number"
+        },
+        "maxiter": {
+          "default": 1000,
+          "description": "Iteration limit of each optimiser run.",
+          "type": "integer"
+        },
+        "method": {
+          "default": "bfgs",
+          "description": "Optimiser",
+          "enum": [
+            "bfgs",
+            "l-bfgs-b",
+            "nelder-mead"
+          ],
+          "type": "string"
+        },
+        "param_names": {
+          "description": "Names of the parameters. Default ``theta1, theta2, ...``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "start": {
+          "description": "Starting values",
+          "type": "string"
+        },
+        "state_names": {
+          "description": "Names of the states.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "tol": {
+          "default": 1e-05,
+          "description": "Gradient tolerance",
+          "type": "number"
+        },
+        "transform": {
+          "description": "theta -> quantities of interest (delta-method errors)",
+          "type": "string"
+        },
+        "vce": {
+          "default": "hessian",
+          "description": "Covariance of the estimates: inverse of the numerical Hessian of the negative log-likelihood, inverse of the outer product of the per-date scores, or the sandwich of the two.",
+          "enum": [
+            "hessian",
+            "opg",
+            "robust"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "T x n",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "y",
+        "build",
+        "start"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Bayesian linear instrumental variables by Gibbs sampling, NumPy only: the joint normal model of the first stage and the structural equation with one endogenous regressor, normal priors on the coefficients and an inverse-Wishart prior on the error covariance. The posterior of the effect carries first-stage uncertainty; rho, the error correlation, measures endogeneity. Same formula syntax as sp.ivreg. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Heteroskedastic or clustered errors matter for inference: the likelihood is homoskedastic normal; use sp.ivreg with robust or clustered standard errors. Cost: O(iterations x n); a few seconds for thousands of rows",
     "name": "bayes_ivreg",
     "parameters": {
@@ -45324,6 +46016,28 @@
     "name": "irf",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "The band has nominal pointwise coverage ``1 - alpha``.",
+          "type": "number"
+        },
+        "boot": {
+          "default": "efron",
+          "description": "Bootstrap band: Efron's percentile interval (the quantiles of the replicates, as ``vars`` and Stata report) or Hall's (the quantiles reflected about the estimate, which corrects for the bias of the replicates rather than doubling it).",
+          "enum": [
+            "efron",
+            "hall"
+          ],
+          "type": "string"
+        },
+        "ci": {
+          "description": "Add standard errors and a band. ``'asymptotic'``: delta method on the joint normal limit of the coefficients and the residual covariance (Stata's ``irf create`` standard errors). ``'bootstrap'``: residual bootstrap, the series regenerated recursively from its first ``lags`` observations and the VAR re-estimated (``irf create, bs``; ``vars::irf(boot = TRUE)``).",
+          "enum": [
+            "asymptotic",
+            "bootstrap"
+          ],
+          "type": "string"
+        },
         "cumulative": {
           "default": false,
           "description": "Return cumulative responses ``sum_{j<=s}`` (Stata ``cirf`` / ``coirf``; ``vars::irf(cumulative = TRUE)``).",
@@ -45343,9 +46057,18 @@
           "description": "Number of periods for IRF.",
           "type": "integer"
         },
+        "reps": {
+          "default": 1000,
+          "description": "Bootstrap replications.",
+          "type": "integer"
+        },
         "response": {
           "description": "Response variable (if None, all).",
           "type": "string"
+        },
+        "seed": {
+          "description": "Seed of the bootstrap draws.",
+          "type": "integer"
         },
         "sigma_df": {
           "description": "Divisor of the residual covariance that the orthogonalisation uses: ``'ml'`` = ``T`` (Stata ``irf create`` after ``var``), ``'unbiased'`` = ``T - m`` with ``m`` regressors per equation (``vars::Psi``, and Stata after ``var, dfk``). Default follows the fitted model's ``se_df`` (``'stata'``/``'ml'`` -> ``'ml'``, ``'r'``/``'unbiased'`` -> ``'unbiased'``). Irrelevant when ``orthogonal=False``.",
@@ -56546,14 +57269,28 @@
     }
   },
   {
-    "description": "Fit GARCH(p,q) by conditional Gaussian MLE. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
+    "description": "Fit GARCH(p,q) by conditional maximum likelihood. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "garch",
     "parameters": {
       "properties": {
+        "ar": {
+          "default": 0,
+          "description": "Autoregressive terms of the mean equation, written as AR",
+          "type": "integer"
+        },
         "data": {
           "description": "Frame holding the column ``y``, in time order. Leading and trailing missing values (the first row of a differenced series) are dropped.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "dist": {
+          "default": "normal",
+          "description": "Distribution of the standardised innovation ``z_t``. ``'t'`` is Student t scaled to unit variance, with the degrees of freedom ``nu > 2`` estimated (Stata ``distribution(t)``, ``rugarch`` ``'std'``). Stata reports ``ln(nu - 2)``; ``nu`` itself is the parameter here.",
+          "enum": [
+            "normal",
+            "t"
+          ],
+          "type": "string"
         },
         "mean": {
           "default": true,
