@@ -31305,7 +31305,7 @@
             "type": "boolean"
           },
           "re_prior": {
-            "description": "(df, scale): D ~ InvWishart(df, df * scale); default df = q + 2, identity scale",
+            "description": "(df, scale): D ~ InvWishart(df, df * scale); default df = q + 1, scale 0.02 / df (weak on every scale; MCMCpack's identity scale is (q + 2, 1.0))",
             "items": {
               "type": "string"
             },
@@ -31345,6 +31345,197 @@
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ramirez_hassan_bayes.py",
       "tests/reference_parity/test_bayes_mixed_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "ivreg",
+      "bayes_iv",
+      "bayes_regress",
+      "liml"
+    ],
+    "assumptions": [
+      "Instrument exogeneity and exclusion",
+      "Instrument relevance",
+      "Jointly normal errors, constant effect"
+    ],
+    "category": "bayes",
+    "cost_profile": "O(iterations x n); a few seconds for thousands of rows",
+    "description": "Bayesian linear instrumental variables by Gibbs sampling, NumPy only: the joint normal model of the first stage and the structural equation with one endogenous regressor, normal priors on the coefficients and an inverse-Wishart prior on the error covariance. The posterior of the effect carries first-stage uncertainty; rho, the error correlation, measures endogeneity. Same formula syntax as sp.ivreg. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Heteroskedastic or clustered errors matter for inference: the likelihood is homoskedastic normal; use sp.ivreg with robust or clustered standard errors. Cost: O(iterations x n); a few seconds for thousands of rows",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_regress_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bayes_ivreg(\"y ~ x + (d ~ z)\", df, seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "sp.anderson_rubin_ci",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "The posterior is far from normal and prior-sensitive: report the median and interval and vary prior_var; consider sp.anderson_rubin_ci.",
+        "symptom": "First-stage F below 10"
+      },
+      {
+        "alternative": "sp.ivreg",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use sp.ivreg; the Gibbs sampler here handles one.",
+        "symptom": "More than one endogenous regressor"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_ivreg",
+    "not_recommended_when": [
+      "Heteroskedastic or clustered errors matter for inference: the likelihood is homoskedastic normal; use sp.ivreg with robust or clustered standard errors"
+    ],
+    "pre_conditions": [
+      "One endogenous regressor and at least one excluded instrument"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "cost_profile": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "rossi2005bayesian",
+    "returns": {
+      "class": "BayesRegressResult",
+      "description": "BayesRegressResult",
+      "fields": {
+        "acceptance_rate": "Optional[float]",
+        "burnin": "int",
+        "chain": "np.ndarray",
+        "chains": "int",
+        "diagnostics_info": "Dict[str, Any]",
+        "draws": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model": "str",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "prior": "Dict[str, Any]",
+        "sampler": "str",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame",
+        "thin": "int"
+      }
+    },
+    "signature": {
+      "description": "Bayesian linear instrumental variables by Gibbs sampling, NumPy only: the joint normal model of the first stage and the structural equation with one endogenous regressor, normal priors on the coefficients and an inverse-Wishart prior on the error covariance. The posterior of the effect carries first-stage uncertainty; rho, the error correlation, measures endogeneity. Same formula syntax as sp.ivreg. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Heteroskedastic or clustered errors matter for inference: the likelihood is homoskedastic normal; use sp.ivreg with robust or clustered standard errors. Cost: O(iterations x n); a few seconds for thousands of rows",
+      "name": "bayes_ivreg",
+      "parameters": {
+        "properties": {
+          "burnin": {
+            "default": 2000,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "chains": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 10000,
+            "description": "Draws kept per chain",
+            "type": "integer"
+          },
+          "first_stage_prior_var": {
+            "default": 1000.0,
+            "description": "Prior variance of the first-stage coefficients",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
+          },
+          "formula": {
+            "description": "'y ~ x1 + (d ~ z1 + z2)'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Credible interval mass",
+            "type": "number"
+          },
+          "prior_mean": {
+            "default": 0.0,
+            "description": "Prior mean of the structural coefficients (exogenous terms, then the endogenous regressor)",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
+          },
+          "prior_var": {
+            "default": 1000.0,
+            "description": "Prior variance of the structural coefficients",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
+          },
+          "seed": {
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "sigma_prior": {
+            "description": "(df, scale): Sigma ~ InvWishart(df, scale); default (3, 0.02); bayesm::rivGibbs uses (3, 1.0)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "thin": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_regress_exact_posterior.py"
     ],
     "validation_status": "validated"
   },
