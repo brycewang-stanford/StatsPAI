@@ -40,17 +40,17 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
 | `did` | 53,298 | 70 | 97 |
-| `agent` | 42,007 | 69 | 4 |
-| `regression` | 31,860 | 42 | 60 |
+| `agent` | 42,309 | 69 | 4 |
+| `regression` | 31,911 | 42 | 60 |
 | `synth` | 30,394 | 40 | 56 |
-| `timeseries` | 24,604 | 45 | 80 |
+| `timeseries` | 28,606 | 51 | 84 |
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
 | `forest` | 16,231 | 18 | 32 |
 | `inference` | 15,279 | 31 | 56 |
-| `matching` | 14,725 | 23 | 36 |
-| `output` | 14,193 | 22 | 42 |
-| `diagnostics` | 13,210 | 23 | 44 |
+| `matching` | 14,772 | 23 | 36 |
+| `output` | 14,196 | 22 | 42 |
+| `diagnostics` | 13,502 | 24 | 44 |
 | `core` | 12,282 | 20 | 6 |
 | `panel` | 12,182 | 20 | 23 |
 | `mcmc` | 10,710 | 20 | 31 |
@@ -68,7 +68,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `metalearners` | 5,165 | 10 | 25 |
 | `frontier` | 4,986 | 8 | 12 |
 | `structural` | 4,974 | 12 | 14 |
-| `utils` | 4,831 | 11 | 35 |
+| `utils` | 4,868 | 11 | 35 |
 | `survival` | 4,531 | 6 | 15 |
 | `workflow` | 4,512 | 5 | 3 |
 | `gmm` | 4,277 | 12 | 4 |
@@ -128,7 +128,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **604,643** | **1023** | **1486** |
+| **Total** | **609,652** | **1030** | **1490** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

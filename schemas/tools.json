@@ -2311,12 +2311,17 @@
     "name": "betareg"
   },
   {
-    "description": "Beveridge-Nelson decomposition of an integrated series into a random walk with drift (the long-horizon forecast) and a stationary cycle, from an autoregression for the first difference. Reports the long-run multiplier psi(1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Seasonally unadjusted data: the seasonal lags dominate the cycle. Assumptions: The series is I(1) and its difference is a stationary AR(p). Alternatives: sp.tsfilter, sp.unitroot, sp.arima.",
+    "description": "Beveridge-Nelson decomposition of an integrated series into a random walk with drift (the long-horizon forecast) and a stationary cycle, from an autoregression (OLS) or an ARMA model (exact ML) for the first difference. Reports the long-run multiplier psi(1). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Seasonally unadjusted data: the seasonal lags dominate the cycle. Assumptions: The series is I(1) and its difference is a stationary AR(p). Alternatives: sp.tsfilter, sp.unitroot, sp.arima.",
     "input_schema": {
       "properties": {
+        "arma": {
+          "default": false,
+          "description": "Search and fit ARMA models by exact ML",
+          "type": "boolean"
+        },
         "ic": {
           "default": "bic",
-          "description": "Criterion for the order, ``N log(RSS / N) + penalty * (p + 1)`` with every order fitted on the same ``N`` observations (the differences after the first ``max_order``). The chosen order is refitted on all the differences it can use.",
+          "description": "Criterion for the order. Autoregression: ``N log(RSS / N) + penalty * (p + 1)`` with every order fitted on the same ``N`` observations (the differences after the first ``max_order``); the chosen order is refitted on all the differences it can use. ARMA: the criterion of :func:`statspai.arima`, from the exact likelihood of all the differences.",
           "enum": [
             "aic",
             "bic"
@@ -2324,12 +2329,18 @@
           "type": "string"
         },
         "max_order": {
-          "description": "Largest order considered. Default ``min(8, (T - 1) // 4)``.",
-          "type": "integer"
+          "description": "Largest order considered when ``order`` is not given. For the autoregression, default ``min(8, (T - 1) // 4)``. With ``arma=True`` the search is over every ``(p, q)`` with ``0 <= p <= P`` and ``0 <= q <= Q``; an integer sets ``P = Q``, default ``min(3, (T - 1) // 10)``.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
         },
         "order": {
-          "description": "AR order of the difference",
-          "type": "integer"
+          "description": "AR order (OLS), or (p, q) for an ARMA by exact ML",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
         },
         "y": {
           "description": "Level",
@@ -14043,6 +14054,11 @@
           ],
           "type": "string"
         },
+        "in_mean": {
+          "default": false,
+          "description": "Let the conditional variance enter the mean: ``y_t = mu + archm sigma2_t + u_t`` (ARCH in mean; Stata's ``archm``). A positive ``archm`` is a risk premium. Works with every ``model``, with ``ar=`` and with ``dist='t'``.",
+          "type": "boolean"
+        },
         "mean": {
           "default": true,
           "description": "Estimate a constant mean mu; if False, mu = 0.",
@@ -14075,6 +14091,10 @@
         "q": {
           "default": 1,
           "description": "Number of ARCH (lagged epsilon2) terms (Stata ``arch(q)``).",
+          "type": "integer"
+        },
+        "threshold": {
+          "description": "``model='gjr'``: number of threshold terms, ``1 <= threshold <= q`` (default ``q``, one per ARCH lag; Stata ``tarch(1/k)``).",
           "type": "integer"
         },
         "vce": {
@@ -16722,10 +16742,11 @@
         },
         "boot": {
           "default": "efron",
-          "description": "Bootstrap band: Efron's percentile interval (the quantiles of the replicates, as ``vars`` and Stata report) or Hall's (the quantiles reflected about the estimate, which corrects for the bias of the replicates rather than doubling it).",
+          "description": "Bootstrap band: Efron's percentile interval (the quantiles of the replicates, as ``vars`` and Stata report); Hall's (the quantiles reflected about the estimate, which corrects for the bias of the replicates rather than doubling it); or Kilian's bias-corrected bootstrap, which first estimates the small-sample bias of the lag coefficients from ``reps`` samples, then draws ``reps`` more from the bias-corrected VAR and corrects each of their estimates, with percentile bands. It costs twice the fits and is the usual choice for persistent series in short samples: in a bivariate VAR(1) with a root of 0.92 and 60 observations, 90% bands for the own response at horizons 4 to 8 covered 38% (``'efron'``), 56% (``'hall'``), 62% (``ci='asymptotic'``) and 86% (``'kilian'``) of the time over 300 samples. The other two warn when the largest estimated root exceeds 0.9.",
           "enum": [
             "efron",
-            "hall"
+            "hall",
+            "kilian"
           ],
           "type": "string"
         },
@@ -18008,7 +18029,7 @@
     "name": "jwdid"
   },
   {
-    "description": "Kalman filter and fixed-interval smoother for a linear state space model given by its matrices: X_t = F X_{t-1} + V_t, Y_t = A + G X_t + W_t. Constant or time-varying matrices, missing observations anywhere, stationary or diffuse start. Predicted, filtered and smoothed states with covariances, innovations, log-likelihood, forecasts. Agrees with R KFAS and statsmodels. Validation: certified parity evidence. Assumptions: Linear state and observation equations with known matrices; Likelihood and intervals: Gaussian disturbances. Alternatives: sp.statespace, sp.dlm, sp.arima, sp.particle_filter.",
+    "description": "Kalman filter and fixed-interval smoother for a linear state space model given by its matrices: X_t = F X_{t-1} + V_t, Y_t = A + G X_t + W_t. Constant or time-varying matrices, missing observations anywhere, stationary, approximate or exact diffuse start. Predicted, filtered and smoothed states with covariances, innovations, log-likelihood, forecasts. Agrees with R KFAS and statsmodels. Validation: certified parity evidence. Assumptions: Linear state and observation equations with known matrices; Likelihood and intervals: Gaussian disturbances. Alternatives: sp.statespace, sp.dlm, sp.arima, sp.particle_filter.",
     "input_schema": {
       "properties": {
         "A": {
@@ -18040,13 +18061,21 @@
           "description": "Leading periods left out of the likelihood",
           "type": "integer"
         },
+        "diffuse": {
+          "description": "One flag per state: exactly diffuse initial condition",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "init": {
           "default": "auto",
-          "description": "Initial state when x0 / P0 are not given",
+          "description": "Initial state when x0 / P0 are not given; 'exact' is the exact diffuse filter",
           "enum": [
             "auto",
             "stationary",
-            "diffuse"
+            "diffuse",
+            "exact"
           ],
           "type": "string"
         },
@@ -21903,6 +21932,104 @@
       "type": "object"
     },
     "name": "msm"
+  },
+  {
+    "description": "Markov-switching regression by maximum likelihood (Hamilton filter, Kim smoother): the constant, selected coefficients, the AR terms or the variance depend on an unobserved regime that follows a Markov chain. Dynamic regression (the mean adjusts at once) or autoregression in deviations from the regime mean (Hamilton's model). Regime estimates, transition probabilities and durations with standard errors, filtered and smoothed regime probabilities. Stata mswitch dr / ar. Validation: certified parity evidence. Do NOT use when: Testing whether a second regime exists with a likelihood ratio: the usual chi-squared reference does not apply. Cost: states**(ar + 1) regimes in the filter for model='ar' Assumptions: The regime follows a first-order Markov chain with constant transition probabilities; Gaussian errors within a regime. Failure modes: A transition probability is estimated at 0 or 1 -> A regime is absorbing or is never entered from another: fewer states may describe the data; Different starting values end at different maxima -> Reported in model_info['n_distinct_maxima']; raise starts= and compare. Alternatives: sp.structural_break, sp.tvp_var, sp.arima, sp.garch.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Intervals have level ``1 - alpha``.",
+          "type": "number"
+        },
+        "ar": {
+          "default": 0,
+          "description": "Autoregressive lags",
+          "type": "integer"
+        },
+        "constant": {
+          "default": true,
+          "description": "True: one constant per regime; 'common': one constant; False: none",
+          "type": "boolean"
+        },
+        "maxiter": {
+          "default": 500,
+          "description": "Limit on EM iterations and on quasi-Newton iterations per start.",
+          "type": "integer"
+        },
+        "model": {
+          "default": "dr",
+          "description": "Dynamic regression or autoregression; they coincide for ``ar=0``.",
+          "enum": [
+            "dr",
+            "ar"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "description": "Seed of the random starting values.",
+          "type": "integer"
+        },
+        "starts": {
+          "default": 5,
+          "description": "Starting values tried",
+          "type": "integer"
+        },
+        "states": {
+          "default": 2,
+          "description": "Number of regimes",
+          "type": "integer"
+        },
+        "switch": {
+          "description": "Regressors whose coefficients depend on the regime",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "switch_ar": {
+          "default": false,
+          "description": "AR terms by regime",
+          "type": "boolean"
+        },
+        "switch_variance": {
+          "default": false,
+          "description": "Variance by regime",
+          "type": "boolean"
+        },
+        "tol": {
+          "default": 1e-09,
+          "description": "Convergence when the Newton decrement ``g'(-H)^{-1}g`` is below it.",
+          "type": "number"
+        },
+        "vce": {
+          "default": "oim",
+          "description": "Inverse observed information, or the sandwich with the outer product of the scores (times ``n / (n - 1)``).",
+          "enum": [
+            "oim",
+            "robust"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Regressors with the same coefficient in every regime",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "mswitch"
   },
   {
     "description": "Multi-arm causal forest (grf::multi_arm_causal_forest): CATEs of K-1 arms against a reference, estimated jointly by one forest whose trees split on the gradient of all contrasts (multi-arm R-learner with GRF weights). Propensities from a probability forest, doubly-robust per-arm ATEs, BLPs per contrast. Operators match grf to 1e-13 (T2); forest statistics are screened against grf on known-truth designs (a stochastic screen, not a seed-replicated equivalence test). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: unconfoundedness given X; overlap for every arm. Pre-conditions: every arm observed; propensities bounded away from zero. Failure modes: DataInsufficient: need at least two treatment arms -> Pass a treatment with two or more values; UserWarning: smallest estimated arm propensity -> Poor overlap: pass propensity_bounds= or trim. Alternatives: sp.causal_forest, sp.multi_treatment, sp.metalearner. Typical minimum N: 1000.",
@@ -34736,8 +34863,15 @@
         },
         "burn": {
           "default": 0,
-          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity.",
+          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity. With ``init='exact'`` or ``diffuse=`` the diffuse log-likelihood is maximised, and a ``P0`` returned by ``build`` supplies the block of the states that are not diffuse.",
           "type": "integer"
+        },
+        "diffuse": {
+          "description": "One flag per state: exactly diffuse",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "engine": {
           "default": "auto",
@@ -34751,17 +34885,18 @@
         },
         "init": {
           "default": "auto",
-          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity.",
+          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity. With ``init='exact'`` or ``diffuse=`` the diffuse log-likelihood is maximised, and a ``P0`` returned by ``build`` supplies the block of the states that are not diffuse.",
           "enum": [
             "auto",
             "stationary",
-            "diffuse"
+            "diffuse",
+            "exact"
           ],
           "type": "string"
         },
         "kappa": {
           "default": 10000000.0,
-          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity.",
+          "description": "As in :func:`kalman_filter`, applied when ``build`` returns no ``P0``. ``init='auto'`` is settled at ``start`` and then kept: if ``F`` is stable there, the stationary initial state is used throughout and parameter values with an unstable ``F`` have likelihood minus infinity. With ``init='exact'`` or ``diffuse=`` the diffuse log-likelihood is maximised, and a ``P0`` returned by ``build`` supplies the block of the states that are not diffuse.",
           "type": "number"
         },
         "maxiter": {
@@ -37959,7 +38094,7 @@
     "name": "tscv"
   },
   {
-    "description": "Trend-cycle decomposition by a linear filter: Hodrick-Prescott, Baxter-King band-pass, Christiano-Fitzgerald band-pass, Butterworth high-pass, or Hamilton's regression filter. Returns trend, cycle and the filter's gain. Stata tsfilter hp / bk / cf / bw. Validation: certified parity evidence. Do NOT use when: Seasonally unadjusted data with the HP filter: the seasonal component ends up in the cycle; Reading the last few HP cycle values as current conditions: the filter is two-sided and revises them. Assumptions: The cycle of interest lives in the frequency band the filter passes. Alternatives: sp.stl, sp.beveridge_nelson, sp.classical_decompose.",
+    "description": "Trend-cycle decomposition by a linear filter: Hodrick-Prescott, Baxter-King band-pass, Christiano-Fitzgerald band-pass, Butterworth high-pass, or Hamilton's regression filter; one-sided HP and the fixed-length symmetric CF filter. Returns trend, cycle and the filter's gain. Stata tsfilter hp / bk / cf / bw. Validation: certified parity evidence. Do NOT use when: Seasonally unadjusted data with the HP filter: the seasonal component ends up in the cycle; Reading the last few HP cycle values as current conditions: the filter is two-sided and revises them. Assumptions: The cycle of interest lives in the frequency band the filter passes. Alternatives: sp.stl, sp.beveridge_nelson, sp.classical_decompose.",
     "input_schema": {
       "properties": {
         "K": {
@@ -37999,6 +38134,11 @@
           ],
           "type": "string"
         },
+        "one_sided": {
+          "default": false,
+          "description": "hp: real-time trend, each date using data up to it only",
+          "type": "boolean"
+        },
         "order": {
           "default": 2,
           "description": "bw: order of the filter",
@@ -38007,6 +38147,10 @@
         "p": {
           "default": 4,
           "description": "hamilton: lags",
+          "type": "integer"
+        },
+        "sma_order": {
+          "description": "cf: fixed-length symmetric filter with this many leads and lags (Stata smaorder)",
           "type": "integer"
         },
         "smooth": {
@@ -38089,6 +38233,117 @@
       "type": "object"
     },
     "name": "ttest"
+  },
+  {
+    "description": "Time-varying-parameter VAR: coefficients that follow random walks, estimated equation by equation with the Kalman filter and smoother and maximum-likelihood innovation variances, or by the forgetting-factor filter with an exponentially weighted error covariance (no parameters to estimate). Coefficient paths with bands, impulse responses of the VAR frozen at a date, companion roots over time, forecasts. Validation: certified parity evidence. Do NOT use when: Coefficients change at a few dates rather than gradually; A conclusion rests on whether a response changed over time: the two methods can disagree; report both. Assumptions: Coefficients move as random walks; kalman: constant error variance in each equation. Failure modes: An equation's error variance is estimated at zero -> The moving intercept absorbs all variation of that equation; use common=True or fix obs_var. Alternatives: sp.var, sp.bvar, sp.dlm, sp.statespace.",
+    "input_schema": {
+      "properties": {
+        "C0": {
+          "default": 10000000.0,
+          "description": "Prior variance",
+          "type": "number"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Bands have pointwise coverage ``1 - alpha``.",
+          "type": "number"
+        },
+        "common": {
+          "default": false,
+          "description": "kalman: one innovation variance per equation",
+          "type": "boolean"
+        },
+        "kappa": {
+          "default": 0.96,
+          "description": "forgetting: decay of the error covariance",
+          "type": "number"
+        },
+        "lags": {
+          "default": 1,
+          "description": "lags parameter (int).",
+          "type": "integer"
+        },
+        "lam": {
+          "default": 0.99,
+          "description": "forgetting: forgetting factor",
+          "type": "number"
+        },
+        "m0": {
+          "description": "Prior mean of the coefficients",
+          "type": "string"
+        },
+        "method": {
+          "default": "kalman",
+          "description": "``'kalman'``: each equation is ``y_it = x_t' b_it + u_it`` with ``u_it ~ N(0, V_i)`` and ``b_it`` a random walk with diagonal innovation variance; the variances maximise the equation's Kalman-filter likelihood, and filter and smoother give the paths. ``'forgetting'``: no variances are estimated. The state covariance is divided by ``lam`` each period and the error covariance is ``S_t = kappa S_{t-1} + (1 - kappa) e_t e_t'``. Filtered paths only.",
+          "enum": [
+            "kalman",
+            "forgetting"
+          ],
+          "type": "string"
+        },
+        "obs_var": {
+          "description": "Fix error variances",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "prior": {
+          "default": "diffuse",
+          "description": "Coefficients before the first date. ``'diffuse'``: mean 0, variance ``C0``. ``'minnesota'``: mean ``prior_own_lag`` on a variable's own first lag and 0 elsewhere, variance ``prior_tightness / l ** 2`` at lag ``l``, ``C0`` for the intercept. The Minnesota variances are not rescaled by the variables' scales: put the variables on comparable scales first.",
+          "enum": [
+            "diffuse",
+            "minnesota"
+          ],
+          "type": "string"
+        },
+        "prior_own_lag": {
+          "default": 0.0,
+          "description": "prior_own_lag parameter (float).",
+          "type": "number"
+        },
+        "prior_tightness": {
+          "default": 0.1,
+          "description": "prior_tightness parameter (float).",
+          "type": "number"
+        },
+        "sigma0": {
+          "description": "forgetting: initial Sigma",
+          "type": "string"
+        },
+        "sigma_update": {
+          "default": "filtered",
+          "description": "``'forgetting'``: ``e_t`` is the residual at the updated coefficients, or the one-step prediction error. Under a diffuse start prediction errors of the first dates are huge; keep ``'filtered'`` there.",
+          "enum": [
+            "filtered",
+            "predicted"
+          ],
+          "type": "string"
+        },
+        "state_var": {
+          "description": "Fix innovation variances",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "time": {
+          "description": "Column to sort and label by",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "variables": {
+          "description": "variables parameter (list).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "tvp_var"
   },
   {
     "description": "TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin-D'Haultfoeuille weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Conditional parallel trends between treated and comparison groups absent treatment; No anticipation of treatment before its onset; Treatment effects may be heterogeneous across cohorts and time (no homogeneity required). Pre-conditions: Panel or repeated cross-section with a unit (or group) identifier and a time identifier; At least one never-treated or not-yet-treated comparison group; Pre-treatment periods to assess parallel trends. Failure modes: Pre-treatment event-study coefficients are jointly non-zero (pre-trend violation) -> Use honest DiD bounds to quantify robustness to trend violations, or condition on covariates; Two-way fixed-effects estimate is contaminated by 'forbidden' comparisons / negative weights -> Use a heterogeneity-robust estimator (Callaway-Sant'Anna, Borusyak et al., Gardner two-stage). Alternatives: sp.callaway_santanna, sp.did, sp.honest_did. Typical minimum N: 100.",
@@ -40302,16 +40557,39 @@
     "name": "zip_model"
   },
   {
-    "description": "Zivot-Andrews unit-root test allowing one break in the level, the slope of the trend, or both, at a date chosen by the data (the minimum t statistic over candidate dates). Returns the statistic, the break date, the critical values and the statistic at every date. urca ur.za. Validation: certified parity evidence. Assumptions: Under the null: a unit root with drift and no break; At most one break under the alternative. Alternatives: sp.unitroot, sp.structural_break, sp.chow_test.",
+    "description": "Zivot-Andrews unit-root test allowing one break in the level, the slope of the trend, or both, at a date chosen by the data (the minimum t statistic over candidate dates). Returns the statistic, the break date, the critical values and the statistic at every date. urca ur.za; options reproduce Stata zandrews. Validation: certified parity evidence. Assumptions: Under the null: a unit root with drift and no break; At most one break under the alternative. Alternatives: sp.unitroot, sp.structural_break, sp.chow_test.",
     "input_schema": {
       "properties": {
+        "lag_alpha": {
+          "default": 0.1,
+          "description": "Level of lags='ttest'",
+          "type": "number"
+        },
+        "lag_rule": {
+          "default": "standard",
+          "description": "'zandrews' reproduces the Stata command's selection",
+          "enum": [
+            "standard",
+            "zandrews"
+          ],
+          "type": "string"
+        },
+        "lag_selection": {
+          "default": "once",
+          "description": "Choose the lag order once, or again at every break date",
+          "enum": [
+            "once",
+            "break"
+          ],
+          "type": "string"
+        },
         "lags": {
           "default": 0,
-          "description": "Lagged differences",
+          "description": "Lagged differences: a number, or 'aic', 'bic', 'ttest'",
           "type": "integer"
         },
         "max_lags": {
-          "description": "Largest order searched; default ``floor(12 (T / 100)^{1/4})``.",
+          "description": "Largest order searched; default ``floor(12 (T / 100)^{1/4})`` (``floor(T^{1/4})`` with ``lag_rule='zandrews'``).",
           "type": "integer"
         },
         "model": {
@@ -40333,6 +40611,15 @@
           "default": 0.15,
           "description": "Share excluded per end",
           "type": "number"
+        },
+        "trim_rule": {
+          "default": "floor",
+          "description": "'zandrews' reproduces the Stata command's candidates",
+          "enum": [
+            "floor",
+            "zandrews"
+          ],
+          "type": "string"
         },
         "y": {
           "description": "Column of data",

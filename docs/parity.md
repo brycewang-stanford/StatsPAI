@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 421 |
+| **Compared against R/Stata** (T2) | bit-exact | 423 |
 | | aligned | 52 |
-| | **subtotal** | **473** |
+| | **subtotal** | **475** |
 | **No external software reference** | analytical-only (T1) | 374 |
 | | external-replication (published numbers) | 56 |
 | | **subtotal** | **430** |
-| No numerical evidence yet | unverified | 583 |
+| No numerical evidence yet | unverified | 585 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 473 | 887 | 891 | 53.1% |
+| estimator callables | 475 | 889 | 893 | 53.2% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 375 | 0.0% |
-| **all registered** | 473 | 903 | 1486 | 31.8% |
+| result / exception classes | 0 | 3 | 377 | 0.0% |
+| **all registered** | 475 | 905 | 1490 | 31.9% |
 
 ### Coverage by estimator family
 
@@ -54,7 +54,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | --- | ---: | ---: | ---: |
 | causal | 151 | 337 | 339 |
 | regression | 43 | 56 | 56 |
-| timeseries | 22 | 49 | 49 |
+| timeseries | 24 | 51 | 51 |
 | inference | 28 | 49 | 49 |
 | bayes | 8 | 38 | 38 |
 | diagnostics | 23 | 37 | 37 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 421 functions
+## bit-exact — 423 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -353,6 +353,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `mr_radial` | R RadialMR::ivw_radial (alpha = 0.05, no Bonferroni) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Square-root weights, per-variant Q contributions and total Q at 1e-10; the outlier set is identical with bonferroni=False (StatsPAI's default applies Bonferroni). | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
 | `mr_steiger` | R TwoSampleMR::mr_steiger with r from get_r_from_bsen | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | R^2 on both traits and the direction at 1e-10; the p-value (1.8e-73) at 1e-12. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
 | `msm` | ipw::ipwtm + lm / glm(quasibinomial) + sandwich::vcovCL(type = 'HC1') | R 4.5.2; ipw 1.3.0; sandwich 3.1.1 | coefficients and cluster SEs 1e-9 rel (observed 1.5e-13); Stata regress / logit [pw] 1e-7 | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
+| `mswitch` | Stata 18 mswitch dr / ar, estat transition, estat duration, predict; statsmodels MarkovAutoregression | Stata 18; statsmodels 0.14.6 | log likelihood, filtered and smoothed probabilities at Stata's estimates 1e-11; covariance 5e-6; estimates within 5e-5 standard errors | — / — | [`test_mswitch_parity.py`](../tests/reference_parity/test_mswitch_parity.py) (+1) |
 | `multi_cutoff_rd` | rdmulti::rdmc 2.0.0 (Cattaneo, Titiunik, Vazquez-Bare & Keele) | R 4.5.2; rdmulti 2.0.0 | identical to sp.rdmc on the fixture (exact); per-cutoff and pooled estimates vs R 1e-9 rel | — / — | [`test_rdmulti_parity.py`](../tests/reference_parity/test_rdmulti_parity.py) (+1) |
 | `multi_outcome_synth` | augsynth::augsynth_multiout 0.2.0 (progfunc='None', scm=TRUE, combine_method 'concat' / 'avg'); synth_qp re-run at OSQP eps 1e-12 | R 4.5.2; augsynth 0.2.0; osqp 1.0.0 | weights 1e-10 abs (observed <= 9e-15); per-outcome ATT 1e-9 rel | — / — | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) (+1) |
 | `multi_treatment` | Stata teffects aipw with a multivalued treatment (mlogit propensity) | Stata 18 | 1e-10 rel on both contrasts, potential-outcome means and sandwich SEs | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
@@ -507,6 +508,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `transport_weights_fn` | R glm + quantile(type = 7) + sandwich::vcovHC(HC0) | sandwich 3.1.1 | 1e-12 rel | — / — | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
 | `truncreg` | truncreg::truncreg(method="NR") | R 4.5.2; truncreg 0.2.5 | rel_est<=1e-06, rel_se<=1e-06 | 3.5e-10 / 7.9e-08 | [`62_truncreg.py`](../tests/r_parity/62_truncreg.py) (+2) |
 | `tsfilter` | Stata 18 tsfilter hp, bk, cf, bw; statsmodels hpfilter, bkfilter, cffilter | Stata 18; statsmodels 0.14.6 | trend and cycle 1e-9 rel | — / — | [`test_tsfilter_parity.py`](../tests/reference_parity/test_tsfilter_parity.py) (+1) |
+| `tvp_var` | KFAS::KFS, logLik (method='kalman'); sp.dlm per equation | R 4.5.2; KFAS 1.6.0 | proper prior: log likelihood, filtered and smoothed coefficients and variances 1e-11; diffuse prior: 1e-5 after the first k dates | — / — | [`test_tvp_var_parity.py`](../tests/reference_parity/test_tvp_var_parity.py) (+1) |
 | `twoway_cluster` | sandwich::vcovCL(cluster=~g1+g2) | R 4.5.2; sandwich 3.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 7.8e-16 / 7.8e-16 | [`54_twoway_cluster.py`](../tests/r_parity/54_twoway_cluster.py) (+2) |
 | `unified_sensitivity` | R EValue::evalues.OLS; sensemakr::sensemakr (rv_q, rv_qa) | EValue 4.1.4; sensemakr 0.1.6 | 1e-10 rel | — / — | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
 | `var` | vars::VAR | R 4.5.2; vars 1.6.1 | rel_est<=1e-06, rel_se<=1e-06 | 3.1e-15 / 6.6e-15 | [`33_var.py`](../tests/r_parity/33_var.py) (+2) |
@@ -1028,6 +1030,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 583 functions
+## unverified — 585 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

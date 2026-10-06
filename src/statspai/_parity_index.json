@@ -1713,6 +1713,9 @@
       "tolerance": "Normalised and raw on karate, raw on the directed graph, all at 1e-10."
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "beveridge_nelson",
       "notes": [
         "No package reference was found; the committed R script evaluates the definition by brute force with lm and iterated forecasts."
@@ -5688,6 +5691,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_tvp_var_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -13692,6 +13698,28 @@
         "tests/reference_parity/_fixtures/teffects_Stata.json"
       ],
       "tolerance": "coefficients and cluster SEs 1e-9 rel (observed 1.5e-13); Stata regress / logit [pw] 1e-7"
+    },
+    {
+      "function": "mswitch",
+      "notes": [
+        "Frozen-Stata fixture: 18 models on a committed synthetic file. Three documented reference disagreements carry independent evidence in the test: Stata's predict after mswitch ar with switch(), Stata's three-state AR that does not converge, and statsmodels with switching variance at order two or more."
+      ],
+      "reference": "Stata 18 mswitch dr / ar, estat transition, estat duration, predict; statsmodels MarkovAutoregression",
+      "reference_versions": {
+        "Stata": "18",
+        "statsmodels": "0.14.6"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_mswitch_parity.py",
+        "tests/reference_parity/_fixtures/mswitch_Stata_1.json"
+      ],
+      "tolerance": "log likelihood, filtered and smoothed probabilities at Stata's estimates 1e-11; covariance 5e-6; estimates within 5e-5 standard errors"
     },
     {
       "function": "multi_arm_forest",
@@ -22536,6 +22564,28 @@
       "tolerance": "on four seeds: the tuned forest is adopted and beats the default out-of-bag error against the true effect in at least three, with min_samples_leaf above the default"
     },
     {
+      "function": "tvp_var",
+      "notes": [
+        "Frozen-R fixture for the Kalman estimator at fixed variances. method='forgetting' has no package reference; it is checked against discounted least squares and an independent implementation in the same test file."
+      ],
+      "reference": "KFAS::KFS, logLik (method='kalman'); sp.dlm per equation",
+      "reference_versions": {
+        "KFAS": "1.6.0",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_tvp_var_parity.py",
+        "tests/reference_parity/_fixtures/tvp_var_R.json"
+      ],
+      "tolerance": "proper prior: log likelihood, filtered and smoothed coefficients and variances 1e-11; diffuse prior: 1e-5 after the first k dates"
+    },
+    {
       "function": "twfe_decomposition",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -22752,7 +22802,8 @@
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_timeseries_R_parity.py",
-        "tests/reference_parity/test_timeseries_parity.py"
+        "tests/reference_parity/test_timeseries_parity.py",
+        "tests/reference_parity/test_tvp_var_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
