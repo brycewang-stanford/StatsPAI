@@ -2495,3 +2495,27 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the last items of the forecasting audit
+
+- **Commits.** `f8940920` re-recorded the entries of Track A module(s) 03 13 15 24 25 26 27 39 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and of original-data
+  module(s) 08 in
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `122b028c`: `src/statspai/__init__.py` (five new exports:
+  `ts_features`, `bootstrap_series`, `bagged_forecast`,
+  `BaggedForecastResult`, `seasonal_dummies`) and, for module 39,
+  `src/statspai/timeseries/arima.py` (new `boxcox=` and `biasadj=`
+  arguments, unused by the module).
+- **Reason.** Fourth round of the audit in
+  `docs/dev/2026-10-06-hyndman-fpp-pythonic-review.md`. No estimator on a
+  Track A or original-data path changed: `python
+  tests/r_parity/verify_reproduce_py.py 39_arima --no-report` reported 1
+  reproduce, 0 drift.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in the trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves to 1,426
+  registered functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
