@@ -239,6 +239,15 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     # [R] cnsreg: constraints(), minimum abbreviation c().
     "cnsreg": (("constraints", 1),),
     "nl": (("initial", 2),),
+    # [TS] threshold: threshvar(), regionvars(), trim(), nthresholds(),
+    # optthresh(), consinvariant, ssrs; none has a documented abbreviation.
+    "threshold": (
+        ("threshvar", 9),
+        ("regionvars", 10),
+        ("nthresholds", 11),
+        ("optthresh", 9),
+        ("consinvariant", 13),
+    ),
     # [XT] xtdpd: dgmmiv(), lgmmiv(), iv(), div(), liv(), twostep, hascons,
     # fodeviation, artests(); none is documented with an abbreviation.
     "xtdpd": (

@@ -2142,6 +2142,7 @@ __all__ = [
     "prais",
     "cnsreg",
     "nls",
+    "threshold",
     "xthtaylor",
     "model_average",
     "ModelAverageResult",
@@ -3055,6 +3056,7 @@ _register_lazy("agent._translation._r", "from_r")
 _register_lazy("agent._translation._coverage", "translation_coverage")
 _register_lazy("regression.cnsreg", "cnsreg")
 _register_lazy("regression.nls", "nls")
+_register_lazy("regression.threshold", "threshold")
 _register_lazy("panel.hausman_taylor", "xthtaylor")
 _register_lazy("regression.model_average", "model_average", "ModelAverageResult")
 _register_lazy("inference._jackknife_general", "jackknife", "JackknifeResult")

@@ -63,6 +63,7 @@ commands).
 | 16 | The two-step weight of Table 17.3 has rank 191 of 199. `numpy.linalg.inv` did not raise and the standard errors were of order 1e14 | wrong, silent | fixed: rank checked, generalized inverse with a warning |
 | 17 | With a singular weight the two-step estimate depends on the generalized inverse. Ours was Moore-Penrose (first lag 0.3178, Stata 0.3191). Mata's `invsym` on our own moment matrix returned Stata's numbers, which identified the rule: sweep on the largest remaining diagonal, zero the collinear moments, and leave them out of the one-step covariance in Windmeijer's correction | convention | adopted; Table 17.3 column 1 is reproduced to every printed digit, and a case on committed data to 1e-9 |
 | 18 | `xtdpd` with `dgmmiv()`, `lgmmiv()` and `iv()` (both columns of Table 17.3) | translator | run through `sp.xtdpdsys`; all 136 printed coefficients and standard errors are reproduced, including the column with four GMM-instrumented variables and 697 moments. Difference GMM written as `xtdpd` without `lgmmiv()`, `div()` / `liv()`, `noconstant` and `fodeviation` are declined |
+| 19 | Threshold regression (section 23.7, `figure23_3.R`) had no function. The chapter's `nl` with a kink point stops at a local minimum in Stata | missing | `sp.threshold`: grid search, likelihood-ratio interval, bootstrap linearity test, fixed effects, and the kink model with joint standard errors. The book's R program is reproduced to 1e-9 on its data; Stata's `threshold` and `nl` to 1e-11 and 1e-7 on committed data |
 | 10 | `irf table`, `estimates stats`, `jackknife:` / `bootstrap:`, `vce(jackknife)`, `L(1/3).D.x`, `lag()` for `lags()`, `perfect`, `forcenonrobust`, `r(sargan)`, `e(rank)`, `nlcom (a)/(b)`, `lincom x + z/5` | translator | run |
 
 ## What agreed without any change
@@ -152,10 +153,10 @@ point estimate only.
    `sp.nlogit`, and a multinomial probit.
 3. `xtdpd` without `lgmmiv()` (difference GMM with the constant taken
    from the level equation) and its `div()` / `liv()` options.
-4. Threshold regression with its non-standard inference (chapter 23) and
-   series regression with cross-validated order (chapter 20). The R
-   scripts `figure23_3.R` and `figure20_*.R` are written-out reference
-   implementations.
+4. Series regression with cross-validated order (chapter 20); the R
+   scripts `figure20_*.R` are written-out reference implementations. More
+   than one threshold, and the heteroskedasticity-robust interval for the
+   threshold, in `sp.threshold`.
 5. Rotation of factor loadings (`rotate`).
 6. The simulated critical-value tables shipped with the book (`df.log`,
    `eg.log`, `kpss.log`, `Johansen.log`) could be compared with the tables

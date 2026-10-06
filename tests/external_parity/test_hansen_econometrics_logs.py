@@ -222,3 +222,54 @@ def test_impulse_responses_of_structural_vars(frame):
     for shock in ("gov", "tax"):
         hit = _rows(frame, "Chapter_15.log", f"irf table sirf, impulse({shock})")
         assert len(hit) >= 17 and (hit.status == "ok").all()
+
+
+def test_threshold_model_of_figure_23_3():
+    """Card, Mas and Rothstein's tipping model as the book fits it
+    (``figure23_3.R``): MSA fixed effects, a jump and a change of slope in
+    the minority share, 100 grid points, 99% interval. The numbers are the
+    ones that program prints; its covariance has no small-sample factor."""
+    import numpy as np
+
+    import statspai as sp
+
+    data = sp.read_data(str(Path(ROOT) / "CMR2008.dta"))
+    data = data[data["samp_70"] == 1]
+    keep = [
+        "msa", "chg_white_7080", "fr_min_70", "unem_70", "pubtran_70",
+        "faminc_70", "vac_70", "rent_70", "oneunit_70",
+    ]  # fmt: skip
+    data = data[keep].dropna().copy()
+    data["fr_min_70_sq"] = data["fr_min_70"] ** 2
+    fit = sp.threshold(
+        "chg_white_7080 ~ fr_min_70 + fr_min_70_sq + unem_70 + pubtran_70 "
+        "+ faminc_70 + vac_70 + rent_70 + oneunit_70",
+        data,
+        "fr_min_70",
+        regime=["fr_min_70"],
+        grid=100,
+        absorb="msa",
+        cluster="msa",
+        alpha=0.01,
+    )
+    info = fit.model_info
+    n, groups, k = len(data), info["n_clusters"], len(fit.params)
+    assert (n, groups) == (35656, 104)
+    assert np.isclose(info["threshold"], 0.197894376637, rtol=1e-10)
+    assert np.allclose(info["threshold_ci"], (0.197894376637, 0.208681391044))
+    assert np.isclose(fit.diagnostics["Residual SS"] / n, 3766.70153667, rtol=1e-10)
+    factor = np.sqrt(groups / (groups - 1) * (n - 1) / (n - k - 1))
+    printed = {
+        "above:fr_min_70": (-74.12890644125, 42.62738178697),
+        "fr_min_70": (-54.42579737974, 28.76921252410),
+        "fr_min_70_sq": (142.26834955528, 23.85218117459),
+        "unem_70": (-81.06343605628, 38.83130422449),
+        "vac_70": (324.89988093385, 40.19216581109),
+        "oneunit_70": (-4.78595972893, 9.49959774095),
+    }
+    for name, (b, se) in printed.items():
+        assert np.isclose(fit.params[name], b, rtol=1e-9), name
+        assert np.isclose(fit.std_errors[name] / factor, se, rtol=1e-9), name
+    # the program centres the slope change at the threshold; here it is not
+    shift = fit.params["above"] + info["threshold"] * fit.params["above:fr_min_70"]
+    assert np.isclose(shift, -11.64998623084, rtol=1e-9)

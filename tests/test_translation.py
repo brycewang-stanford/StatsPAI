@@ -1171,6 +1171,17 @@ TIER3_ROUND_TRIPS = [
         },
     ),
     (
+        "threshold y z, regionvars(x) threshvar(q) trim(15) vce(robust)",
+        "threshold",
+        {
+            "formula": "y ~ z + x",
+            "threshold": "q",
+            "regime": ["x"],
+            "trim": 0.15,
+            "vce": "hc0",
+        },
+    ),
+    (
         "xtdpd y y_L1 x1_L1 x2, iv(x2) dgmmiv(y x1, lagrange(2 4)) lgmmiv(y x1) "
         "i(id) t(year) twostep vce(robust)",
         "xtdpdsys",

@@ -453,7 +453,54 @@ def _h_xtdpd(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("xtdpdsys", args, f"sp.xtdpdsys({', '.join(shown)})", notes)
 
 
+def _h_threshold(cmd: StataCommand) -> Dict[str, Any]:
+    """``threshold y [x], threshvar(q) [regionvars(z)] [trim(#)]
+    [vce(robust)]`` -> ``sp.threshold``.
+
+    Stata's default covariance is the classical one and its ``vce(robust)``
+    has no small-sample factor; both are written out. Stata prints the
+    coefficients of each region, ``sp.threshold`` the lower region and the
+    change above the threshold (``model_info['regimes']`` has both)."""
+
+    def refuse(what: str) -> Dict[str, Any]:
+        return _emit_error(f"threshold: {what}", command="threshold", suggestions=[])
+
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return refuse("an outcome variable is required")
+    q = str(cmd.options.get("threshvar") or "").strip()
+    if not q or len(q.split()) != 1:
+        return refuse("threshvar() has to name one variable")
+    number = str(cmd.options.get("nthresholds") or "1").strip()
+    if number != "1":
+        return refuse(f"nthresholds({number}): only one threshold is translated")
+    for name in ("optthresh", "consinvariant", "noconstant", "ssrs"):
+        if name in cmd.options:
+            return refuse(f"{name} is not translated")
+    regime = str(cmd.options.get("regionvars") or "").split()
+    args: Dict[str, Any] = {
+        "formula": _build_formula(y, list(xs) + [r for r in regime if r not in xs]),
+        "threshold": q,
+        "regime": regime,
+    }
+    trim = cmd.options.get("trim")
+    if trim is not None:
+        try:
+            args["trim"] = float(trim) / 100.0
+        except (TypeError, ValueError):
+            return refuse(f"trim({trim}) is not a number")
+    vce = str(cmd.options.get("vce") or "oim").strip().lower()
+    if vce not in ("oim", "robust"):
+        return refuse(f"vce({vce}) is not translated")
+    args["vce"] = "hc0" if vce == "robust" else "ols"
+    shown = [repr(args["formula"]), "data=df"] + [
+        f"{k}={v!r}" for k, v in args.items() if k != "formula"
+    ]
+    return _emit("threshold", args, f"sp.threshold({', '.join(shown)})", [])
+
+
 HANDLERS = {
+    "threshold": _h_threshold,
     "xtdpd": _h_xtdpd,
     "xthtaylor": _h_xthtaylor,
     "cnsreg": _h_cnsreg,

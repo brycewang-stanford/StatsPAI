@@ -1202,6 +1202,7 @@ from .regression.selection import etregress as etregress
 from .regression.sur import SURResult as SURResult
 from .regression.sur import sureg as sureg
 from .regression.sur import three_sls as three_sls
+from .regression.threshold import threshold as threshold
 from .regression.tobit import tobit as tobit
 from .regression.truncreg import truncreg as truncreg
 from .regression.zeroinflated import hurdle as hurdle

@@ -296,5 +296,53 @@ emit dpd.endo.se_k _se[k]
 emit dpd.endo.se_cons _se[_cons]
 emit dpd.endo.zrank e(zrank)
 
+* ============================================================ threshold
+* --- a threshold in x2: the intercept and the slope of x1 change above it
+import delimited using "textbook_ts.csv", clear asdouble
+tsset t
+generate double yt = 1 + 0.5 * x1 + (x2 > 0.3) * (1 + x1) + 0.5 * z1
+threshold yt, regionvars(x1) threshvar(x2)
+matrix T = e(thresholds)
+matrix b = e(b)
+matrix V = e(V)
+emit thr.ols.gamma T[1,2]
+emit thr.ols.ssr e(ssr)
+emit thr.ols.b1_x1 b[1,1]
+emit thr.ols.b1_cons b[1,2]
+emit thr.ols.b2_x1 b[1,3]
+emit thr.ols.b2_cons b[1,4]
+emit thr.ols.v1_x1 V[1,1]
+emit thr.ols.v2_x1 V[3,3]
+emit thr.ols.v2_cons V[4,4]
+threshold yt z2, regionvars(x1) threshvar(x2) trim(15) vce(robust)
+matrix T = e(thresholds)
+matrix b = e(b)
+matrix V = e(V)
+emit thr.rob.gamma T[1,2]
+emit thr.rob.ssr e(ssr)
+emit thr.rob.b_z2 b[1,1]
+emit thr.rob.b1_x1 b[1,2]
+emit thr.rob.b1_cons b[1,3]
+emit thr.rob.b2_x1 b[1,4]
+emit thr.rob.b2_cons b[1,5]
+emit thr.rob.v_z2 V[1,1]
+emit thr.rob.v1_x1 V[2,2]
+emit thr.rob.v2_x1 V[4,4]
+emit thr.rob.v2_cons V[5,5]
+* --- a kink in x2, by nonlinear least squares run to a tight tolerance
+generate double yk = 1 + 0.5 * x1 - min(x2 - 0.3, 0) + 2 * max(x2 - 0.3, 0) + 0.3 * z1
+nl (yk = {b1}*(x2-{c})*(x2<{c}) + {b2}*(x2-{c})*(x2>{c}) + {b3}*x1 + {b4}), initial(b1 -1 b2 2 b3 .5 b4 1 c .25) vce(robust) eps(1e-14) iterate(2000)
+emit kink.b_below _b[/b1]
+emit kink.b_above _b[/b2]
+emit kink.b_x1 _b[/b3]
+emit kink.b_cons _b[/b4]
+emit kink.gamma _b[/c]
+emit kink.se_below _se[/b1]
+emit kink.se_above _se[/b2]
+emit kink.se_x1 _se[/b3]
+emit kink.se_cons _se[/b4]
+emit kink.se_gamma _se[/c]
+emit kink.rss e(rss)
+
 file close fh
 capture erase _hansen_irf.irf

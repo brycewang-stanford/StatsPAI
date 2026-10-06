@@ -7750,8 +7750,120 @@ def _build_registry() -> None:
             not_recommended_when=[
                 "The model is linear in its coefficients after a transformation "
                 "of the regressors — use sp.regress",
-                "A parameter is a threshold or change point — the estimate is "
-                "usable but its normal-theory standard error is not reliable",
+                "A parameter is a threshold at which the function jumps — the "
+                "estimate is usable but its normal-theory standard error is "
+                "not; use sp.threshold",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="threshold",
+            category="regression",
+            description=(
+                "Threshold regression with an unknown threshold: the "
+                "intercept and the coefficients named in regime= change when "
+                "the threshold variable crosses gamma, which is estimated by "
+                "least squares over candidate values. kink=True fits the "
+                "continuous model in which only the slope of the threshold "
+                "variable changes. Threshold model: likelihood-ratio "
+                "confidence interval for gamma (Hansen 2000), coefficient "
+                "standard errors given gamma; reproduces Stata threshold. "
+                "Kink model: gamma is jointly normal with the slopes and gets "
+                "a standard error (Hansen 2017); reproduces Stata nl at the "
+                "global minimum. n_boot= adds a multiplier-bootstrap test of "
+                "the linear model. absorb= removes fixed effects."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, None, "'y ~ x1 + x2'"),
+                ParamSpec("data", "DataFrame", True, None, "The data"),
+                ParamSpec("threshold", "str", True, None, "Threshold variable q"),
+                ParamSpec(
+                    "regime",
+                    "list",
+                    False,
+                    None,
+                    "Regressors whose coefficients change above the threshold "
+                    "(default all; the intercept always changes)",
+                ),
+                ParamSpec(
+                    "kink",
+                    "bool",
+                    False,
+                    False,
+                    "Continuous model with a change of slope in q",
+                ),
+                ParamSpec(
+                    "trim",
+                    "float",
+                    False,
+                    0.10,
+                    "Share of the sample kept out of the search at each end",
+                ),
+                ParamSpec(
+                    "grid",
+                    "int | array",
+                    False,
+                    None,
+                    "None: every sample value; int: equally spaced points; "
+                    "array: the candidates",
+                ),
+                ParamSpec("absorb", "str", False, None, "Fixed effects to remove"),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "robust",
+                    "Covariance estimator ('robust' is HC1)",
+                    ["robust", "ols", "hc0", "hc2", "hc3"],
+                ),
+                ParamSpec("cluster", "str", False, None, "Column to cluster on"),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    0,
+                    "Bootstrap replications of the linearity test (0: no test)",
+                ),
+                ParamSpec("seed", "int", False, None, "Seed of the bootstrap"),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="EconometricResults",
+            example='sp.threshold("y ~ x", data=df, threshold="q", n_boot=500, seed=1)',
+            tags=["regression", "threshold", "kink", "nonlinear", "stata"],
+            reference="hansen2000sample",
+            assumptions=[
+                "There is one threshold, and the threshold variable is "
+                "continuous around it",
+                "The interval for the threshold assumes homoskedastic errors",
+                "Kink model: the regression function is continuous at the "
+                "threshold and the two slopes differ",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Warning: the criterion is smallest at the edge of "
+                    "the search range",
+                    exception="statspai.StatsPAIWarning",
+                    remedy="There may be no threshold. Run the linearity test "
+                    "(n_boot=) and plot model_info['criterion'].",
+                ),
+                FailureMode(
+                    symptom="DataInsufficient: regressors collinear at the "
+                    "estimated threshold",
+                    exception="statspai.DataInsufficient",
+                    remedy="A regime variable does not vary on one side; "
+                    "shorten regime= or raise trim.",
+                ),
+            ],
+            alternatives=["structural_break", "nls", "rkd", "regress"],
+            not_recommended_when=[
+                "The break is in time and its date is the object — use "
+                "sp.structural_break",
+                "The threshold is known — interact a dummy in sp.regress; the "
+                "usual standard errors are then exact",
+                "The linearity test does not reject — the threshold and its "
+                "interval describe noise",
             ],
         )
     )

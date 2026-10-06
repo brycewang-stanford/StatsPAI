@@ -48,15 +48,14 @@ df["lwage"] = (
 | 17 | Fixed and random effects, Hausman-Taylor, dynamic panels | `sp.panel`, `sp.xthtaylor`, `sp.xtabond`, `sp.xtdpdsys` |
 | 18 | Difference in differences | `sp.did`, `sp.panel(method='fe')` |
 | 19 to 21 | Kernel regression, series, regression discontinuity | `sp.lpoly`, `sp.rdrobust` |
-| 23 | Nonlinear least squares | `sp.nls` |
+| 23 | Nonlinear least squares, threshold and kink models | `sp.nls`, `sp.threshold` |
 | 24 | Quantile regression | `sp.qreg`, `sp.sqreg` |
 | 25, 26 | Binary and multiple choice | `sp.logit`, `sp.probit`, `sp.margins`, `sp.mlogit`, `sp.clogit`, `sp.nlogit`, `sp.mixlogit` |
 | 27 | Censoring and selection | `sp.tobit`, `sp.heckman` |
 | 28 | Model selection and averaging | `sp.model_average` |
 | 29 | Lasso, ridge and their relatives | `sp.rlasso`, `sp.lasso_select` |
 
-Not available yet: multinomial probit (chapter 26) and threshold
-regression with its own inference (chapter 23).
+Not available yet: multinomial probit (chapter 26).
 
 ## Constrained regression (chapter 8)
 
@@ -190,8 +189,47 @@ The formula is Stata's `nl` syntax with the parameters in braces. A Python
 function `f(params, data)` works too. The sum of squares of a nonlinear
 model can have several local minima, so try more than one set of starting
 values and keep the fit with the smallest `diagnostics['Residual SS']`.
-When a parameter is a threshold, the estimate is usable and its normal
-standard error is not.
+When a parameter is a threshold at which the function jumps, the estimate
+is usable and its normal standard error is not; use `sp.threshold`.
+
+## Threshold and kink models (chapter 23)
+
+```python
+df["tip"] = rng.uniform(0, 1, n)
+df["move"] = (
+    1 + 0.5 * df.x + (df.tip > 0.4) * (1.0 + 0.8 * df.x)
+    + rng.normal(scale=0.5, size=n)
+)
+thr = sp.threshold("move ~ x", df, "tip", n_boot=200, seed=1)
+print(round(thr.model_info["threshold"], 3), thr.model_info["threshold_ci"])
+print(thr.model_info["regimes"].round(3))
+print(thr.model_info["linearity_test"]["pvalue"])
+```
+
+The threshold is estimated by least squares over the sample values of
+`tip`. Its interval is the set of values a likelihood-ratio test does not
+reject, because the estimate is not normal. The standard errors of the
+other coefficients take the threshold as known. Whether there is a
+threshold at all is a separate question, and the usual F test does not
+answer it: under the null the threshold is not identified. `n_boot=` runs
+the bootstrap version.
+
+`kink=True` fits a continuous function whose slope changes at an unknown
+point. There the point is estimated at the usual rate and gets a standard
+error:
+
+```python
+df["growth"] = (
+    2 - 1.0 * np.minimum(df.tip - 0.4, 0) + 2.0 * np.maximum(df.tip - 0.4, 0)
+    + rng.normal(scale=0.3, size=n)
+)
+kink = sp.threshold("growth ~ 1", df, "tip", kink=True)
+print(kink.params.round(3).to_dict(), round(kink.std_errors["threshold"], 3))
+```
+
+This is the model the book fits with `nl` to the Reinhart-Rogoff data.
+`sp.threshold` searches a grid first, so it does not depend on starting
+values.
 
 ## Model selection and averaging (chapter 28)
 

@@ -696,3 +696,93 @@ def test_a_weight_matrix_singular_to_rounding_is_reported():
     np.testing.assert_allclose(
         sweep_ginv(full.T @ full), np.linalg.inv(full.T @ full), rtol=1e-9
     )
+
+
+# ------------------------------------------------- threshold and kink models
+@pytest.fixture(scope="module")
+def thr(ts):
+    data = ts.copy()
+    data["yt"] = 1 + 0.5 * data.x1 + (data.x2 > 0.3) * (1 + data.x1) + 0.5 * data.z1
+    data["yk"] = (
+        1
+        + 0.5 * data.x1
+        - np.minimum(data.x2 - 0.3, 0)
+        + 2 * np.maximum(data.x2 - 0.3, 0)
+        + 0.3 * data.z1
+    )
+    return data
+
+
+def _region_variance(fit, name):
+    """Variance of a coefficient above the threshold: base plus change."""
+    names = list(fit.params.index)
+    V = fit.data_info["var_cov"]
+    i = names.index(name)
+    j = names.index("above" if name == "Intercept" else f"above:{name}")
+    return V[i, i] + V[j, j] + 2 * V[i, j]
+
+
+def test_threshold_regression_matches_stata_threshold(G, thr):
+    """Stata searches the sample values that leave floor(n * trim)
+    observations on each side; its default covariance is the classical one
+    and its `vce(robust)` is HC0."""
+    fit = sp.threshold("yt ~ x1", thr, "x2", vce="ols")
+    regimes = fit.model_info["regimes"]
+    assert fit.model_info["threshold"] == G["thr.ols.gamma"]
+    close(fit.diagnostics["Residual SS"], G["thr.ols.ssr"], rtol=1e-12)
+    close(regimes.loc["x1", "below"], G["thr.ols.b1_x1"], rtol=1e-11)
+    close(regimes.loc["Intercept", "below"], G["thr.ols.b1_cons"], rtol=1e-11)
+    close(regimes.loc["x1", "above"], G["thr.ols.b2_x1"], rtol=1e-11)
+    close(regimes.loc["Intercept", "above"], G["thr.ols.b2_cons"], rtol=1e-11)
+    close(fit.std_errors["x1"] ** 2, G["thr.ols.v1_x1"], rtol=1e-10)
+    close(_region_variance(fit, "x1"), G["thr.ols.v2_x1"], rtol=1e-10)
+    close(_region_variance(fit, "Intercept"), G["thr.ols.v2_cons"], rtol=1e-10)
+
+    rob = sp.threshold("yt ~ x1 + z2", thr, "x2", regime=["x1"], trim=0.15, vce="hc0")
+    regimes = rob.model_info["regimes"]
+    assert rob.model_info["threshold"] == G["thr.rob.gamma"]
+    close(rob.diagnostics["Residual SS"], G["thr.rob.ssr"], rtol=1e-12)
+    close(rob.params["z2"], G["thr.rob.b_z2"], rtol=1e-11)
+    close(regimes.loc["x1", "below"], G["thr.rob.b1_x1"], rtol=1e-11)
+    close(regimes.loc["Intercept", "below"], G["thr.rob.b1_cons"], rtol=1e-11)
+    close(regimes.loc["x1", "above"], G["thr.rob.b2_x1"], rtol=1e-11)
+    close(regimes.loc["Intercept", "above"], G["thr.rob.b2_cons"], rtol=1e-11)
+    close(rob.std_errors["z2"] ** 2, G["thr.rob.v_z2"], rtol=1e-10)
+    close(rob.std_errors["x1"] ** 2, G["thr.rob.v1_x1"], rtol=1e-10)
+    close(_region_variance(rob, "x1"), G["thr.rob.v2_x1"], rtol=1e-10)
+    close(_region_variance(rob, "Intercept"), G["thr.rob.v2_cons"], rtol=1e-10)
+    close(regimes.loc["x1", "se_above"] ** 2, G["thr.rob.v2_x1"], rtol=1e-10)
+    close(regimes.loc["x1", "se_below"] ** 2, G["thr.rob.v1_x1"], rtol=1e-10)
+
+
+def test_threshold_through_sp_stata(G, thr):
+    fit = sp.stata(
+        """
+        tsset t
+        threshold yt z2, regionvars(x1) threshvar(x2) trim(15) vce(robust)
+        """,
+        data=thr,
+    )
+    assert fit.model_info["threshold"] == G["thr.rob.gamma"]
+    close(fit.std_errors["z2"] ** 2, G["thr.rob.v_z2"], rtol=1e-10)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="nthresholds"):
+        sp.stata("tsset t\nthreshold yt, threshvar(x2) nthresholds(2)", data=thr)
+
+
+def test_regression_kink_matches_stata_nl(G, thr):
+    """The kink point is root-n normal jointly with the slopes, so the fit is
+    nonlinear least squares and `nl` is the reference (run with eps(1e-14);
+    its estimate of the kink point is converged to about 1e-9)."""
+    fit = sp.threshold("yk ~ x1", thr, "x2", kink=True)
+    for ours, key in (
+        ("x2:below", "below"),
+        ("x2:above", "above"),
+        ("x1", "x1"),
+        ("Intercept", "cons"),
+    ):
+        close(fit.params[ours], G[f"kink.b_{key}"], rtol=1e-7)
+        close(fit.std_errors[ours], G[f"kink.se_{key}"], rtol=1e-7)
+    close(fit.params["threshold"], G["kink.gamma"], rtol=1e-7)
+    close(fit.std_errors["threshold"], G["kink.se_gamma"], rtol=1e-7)
+    close(fit.diagnostics["Residual SS"], G["kink.rss"], rtol=1e-12)
+    assert fit.diagnostics["Residual SS"] <= G["kink.rss"] * (1 + 1e-14)

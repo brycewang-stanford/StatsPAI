@@ -1286,6 +1286,22 @@ The Stata evidence on committed data is in
 
 #### Added
 
+- `sp.threshold`: threshold regression with an unknown threshold (the
+  intercept and the coefficients named in `regime=` change when a variable
+  crosses a value estimated by least squares), and with `kink=True` the
+  continuous model in which only a slope changes. The threshold model
+  reports Hansen's (2000) likelihood-ratio interval for the threshold and
+  standard errors of the other coefficients given it; `n_boot=` adds a
+  multiplier-bootstrap test of the linear model, whose F statistic has no
+  standard distribution because the threshold is not identified under the
+  null. In the kink model the threshold is jointly normal with the slopes
+  and gets a standard error. `absorb=` removes fixed effects at every
+  candidate. Evidence: Stata's `threshold` to 1e-11 (threshold, sum of
+  squares, coefficients, classical and robust variances), Stata's `nl` to
+  1e-7 for the kink model, and the book's own `figure23_3.R` on the Card,
+  Mas and Rothstein data to 1e-9 (threshold, 99% interval, coefficients,
+  clustered standard errors). `sp.stata` translates `threshold` with one
+  threshold.
 - `sp.stata` runs `xtdpd` with `dgmmiv()`, `lgmmiv()` and `iv()` through
   `sp.xtdpdsys`: the `dgmmiv()` variables are instrumented GMM-style, the
   `iv()` variables are their own instruments, `i.<time>` in both is the set
