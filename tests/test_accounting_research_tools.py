@@ -625,3 +625,42 @@ def test_clustered_event_dates_inflate_the_unadjusted_tests():
     assert abs(res.tests.loc["kp", "statistic"]) < 0.3 * abs(
         res.tests.loc["bmp", "statistic"]
     )
+
+
+# ---------------------------------------------------------------- feols IV
+
+
+def test_feols_iv_diagnostics_equal_ivreg_with_the_effects_as_dummies():
+    rng = np.random.default_rng(0)
+    n = 600
+    g = rng.integers(0, 20, n)
+    z1, z2, e = rng.normal(size=(3, n))
+    x = z1 + 0.5 * z2 + 0.5 * e + 0.1 * g + rng.normal(size=n)
+    df = pd.DataFrame({"y": 1 + x + 0.2 * g + e, "x": x, "z1": z1, "z2": z2, "g": g})
+    fe = sp.feols("y ~ 1 | g | x ~ z1 + z2", df)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        iv = sp.ivreg("y ~ C(g) + (x ~ z1 + z2)", df)
+    for key in (
+        "First-stage F (x)",
+        "Sargan statistic",
+        "Sargan p-value",
+        "Hausman F-stat",
+        "Hausman p-value",
+    ):
+        assert fe.diagnostics[key] == pytest.approx(iv.diagnostics[key], rel=1e-8), key
+    assert fe.diagnostics["Sargan df"] == 1
+    assert sp.estat(fe, "overid", print_results=False)["statistic"] == pytest.approx(
+        fe.diagnostics["Sargan statistic"]
+    )
+    assert sp.estat(fe, "firststage", print_results=False)["statistic"] > 10
+    # a just-identified model has no overidentification test, and OLS none at all
+    just = sp.feols("y ~ 1 | g | x ~ z1", df)
+    assert "Sargan statistic" not in just.diagnostics
+    assert "Hausman F-stat" in just.diagnostics
+    assert "Hausman F-stat" not in sp.feols("y ~ x | g", df).diagnostics
+
+
+def test_from_stata_reads_abbreviated_robreg_efficiency():
+    out = sp.from_stata("robreg mm y x, eff(95)")
+    assert out["arguments"]["efficiency"] == 0.95 and not out["untranslated_options"]

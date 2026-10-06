@@ -208,6 +208,8 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "qreg": (("quantile", 1),),
     # [XT] xtgee: family(), link(), corr() and scale() by their first letter.
     "xtgee": (("family", 1), ("link", 1), ("corr", 1), ("scale", 1)),
+    # robreg (Jann): efficiency() by its first three letters.
+    "robreg": (("efficiency", 3),),
     "teffects": (
         ("nneighbor", 2),
         ("ematch", 2),

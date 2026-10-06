@@ -1,7 +1,7 @@
 # Ding, *A First Course in Causal Inference* (2024): review
 
-Source: the book's replication files on Harvard Dataverse
-(doi:10.7910/DVN/ZX3VEV), 28 R programs and 14 data files covering
+Source: Ding's replication files (doi:10.7910/DVN/ZX3VEV, hosted on the
+Harvard Dataverse), 28 R programs and 14 data files covering
 randomized experiments (chapters 1 to 9), observational studies (11 to 19),
 discontinuities (20, 24), instruments (21 to 25), principal strata (26),
 mediation (27) and time-varying treatments (29).

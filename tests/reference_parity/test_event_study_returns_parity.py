@@ -17,9 +17,10 @@ What is compared, and how closely.
   mean-adjusted models the two agree (``FLOAT``). For the market model
   ``estudy`` divides the residual sum of squares by ``n - 1`` where the
   forecast-error variance has ``n - 2``, and scales the market term by
-  ``(n - 1) / n``; its number is rebuilt from ours to ``FLOAT``. For the
-  factor model its standard deviations are 1 to 6 percent below the
-  forecast-error ones and the rule was not reconstructed: not compared.
+  ``(n - 1) / n``. For the factor model it uses ``L * RSS / (n - 1)``,
+  with no term for the error in the estimated coefficients, which puts
+  its standard deviations 1 to 6 percent below the forecast-error ones.
+  Both of its numbers are rebuilt from ours to ``FLOAT``.
 * The tests of the mean CAR. Given the same standardised CARs the
   aggregation is the same arithmetic (``EXACT``, 1e-9), and where the
   standard deviations agree (two models) the whole pipeline is compared
@@ -161,6 +162,23 @@ def test_market_model_standard_deviation_is_estudys_up_to_a_located_rule(
     # the two differ by about 1 / (2n)
     gap = ours["se"].to_numpy() / theirs - 1
     assert (gap > 0).all() and gap.max() < 1.5 / (2 * ours["n_est"].min())
+
+
+@pytest.mark.parametrize("window", list(WINDOWS))
+def test_factor_model_standard_deviation_is_estudys_up_to_a_located_rule(
+    returns, events, stata, window
+):
+    """estudy: L * RSS / (n - 1). Ours adds the variance of the estimated
+    coefficients and divides the residual sum of squares by n - 4."""
+    _, ours = fit(returns, events, "MFM", window)
+    lo, hi = WINDOWS[window]
+    length = hi - lo + 1
+    n = ours["n_est"].to_numpy(float)
+    rebuilt = np.sqrt(length * ours["resid_var"].to_numpy() * (n - 4) / (n - 1))
+    theirs = reference(stata, "MFM", window, list(ours.index), "sd")
+    assert rel(rebuilt, theirs) < FLOAT
+    gap = ours["se"].to_numpy() / theirs - 1
+    assert (gap > 0.005).all() and gap.max() < 0.07
 
 
 @pytest.mark.parametrize("window", list(WINDOWS))

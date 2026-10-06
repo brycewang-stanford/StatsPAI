@@ -194,9 +194,8 @@ so the tests bound the gap and do not call it agreement.
    it for them.
 3. Closed in the second round: `sp.feols` applies the eigenvalue
    adjustment.
-4. `sp.feols` IV results carry no first-stage F, Sargan or Wu-Hausman
-   statistic (`fitstat(m, "ivf1")` in fixest). `sp.ivreg` plus `sp.estat`
-   has them.
+4. Closed in the third round: `sp.feols` IV results carry the
+   first-stage F, Sargan and Wu-Hausman statistics.
 5. Closed in the second round: `sp.abnormal_returns`.
 6. Fama-French industry classifications, portfolio sorts and
    size-adjusted returns (`farr::get_ff_ind`, `get_size_rets_monthly`).
@@ -205,7 +204,7 @@ so the tests bound the gap and do not call it agreement.
    imbalanced-learn cover them; not added.
 8. `MatchIt` nearest-neighbour matching was translated but not compared
    pair by pair (also open from the Barrett review).
-9. Abbreviated `robreg` options (`eff()`) are reported as untranslated.
+9. Closed in the third round: `robreg ..., eff()` is read.
 
 ## Second round
 
@@ -242,8 +241,9 @@ three windows, five tests. What the comparison found:
   standard deviations agree, and there the whole pipeline matches end to
   end to 5e-5.
 - For the factor model `estudy`'s standard deviations are 1 to 6 percent
-  below the forecast-error ones. The rule was not reconstructed and those
-  numbers are not compared.
+  below the forecast-error ones. Located in the third round: it uses
+  `L * RSS / (n - 1)`, with no term for the error in the estimated
+  coefficients. Rebuilt from our numbers it matches to 5e-6.
 - `estudy` measures the cross-correlation behind the Kolari-Pynnonen
   adjustments by pairing residuals in event time. With different event
   dates those pairs are returns of different days. The default here pairs
@@ -260,8 +260,8 @@ shipped: an event within the estimation-window distance of the start of
 the series produced a negative slice stop and took its estimation sample
 from the end of the series.
 
-Open from this round: `estudy`'s factor-model variance, its group row,
-and its handling of a missing estimation return; rank and sign tests
+Open from this round: `estudy`'s group row and its handling of a missing
+estimation return; rank and sign tests
 (Corrado; the generalized rank test `estudy` also offers); long-horizon
 buy-and-hold returns.
 

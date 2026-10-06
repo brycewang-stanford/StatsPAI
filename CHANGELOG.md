@@ -597,8 +597,15 @@ against R and Stata 18. Notes are in
   standardised CARs, and end to end to 5e-5 for the two models whose
   standard deviations follow the same rule. `estudy`'s market-model
   standard deviation uses `n - 1` where the forecast-error variance has
-  `n - 2`; its number is rebuilt from ours in the test. Its group CAAR is
+  `n - 2`, and its factor-model one leaves out the coefficient-error
+  term; both numbers are rebuilt from ours in the test. Its group CAAR is
   not the mean of its own security rows and is not compared.
+- `sp.feols` IV results carry the first-stage F, the Sargan statistic and
+  the Wu-Hausman test, R fixest's `fitstat(m, ~ ivf1 + sargan + wh)`, to
+  1e-13 on the book's example and equal to `sp.ivreg` with the fixed
+  effects written as dummies. `sp.estat(result, "firststage" / "overid" /
+  "endogenous")` reads them; it returned empty results for a `sp.feols`
+  fit.
 - `sp.regress(robust='hac', hac_panel=(unit, time))`: Newey-West within
   panels at exact time lags, in any row order. `plm::vcovNW` to 1e-15 and,
   with `hac_small=True`, Stata `newey ..., force` to 1e-9, gaps included.

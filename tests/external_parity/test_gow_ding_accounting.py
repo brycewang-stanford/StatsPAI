@@ -334,6 +334,12 @@ def test_ch20_iv_with_overidentification_and_first_stage_tests(R):
     assert rel(res.std_errors["X"], ref["se"][1]) < EXACT
     fe = sp.feols("y ~ 1 | X ~ z_1 + z_2 + z_3", data)
     assert rel(fe.params["X"], ref["coef"][1]) < EXACT
+    # fitstat(iv, ~ ivf1 + sargan + wh) on the feols result itself
+    assert rel(fe.diagnostics["First-stage F (X)"], ref["f1"]) < EXACT
+    assert rel(fe.diagnostics["Sargan statistic"], ref["sargan"]) < EXACT
+    assert rel(fe.diagnostics["Sargan p-value"], ref["sargan_p"]) < EXACT
+    assert rel(fe.diagnostics["Hausman F-stat"], ref["wh"]) < EXACT
+    assert rel(fe.diagnostics["Hausman p-value"], ref["wh_p"]) < EXACT
     over = sp.estat(res, "overid", print_results=False)
     assert rel(over["statistic"], ref["sargan"]) < EXACT
     assert rel(over["pvalue"], ref["sargan_p"]) < EXACT

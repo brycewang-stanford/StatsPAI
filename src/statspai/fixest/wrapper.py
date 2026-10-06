@@ -1330,7 +1330,77 @@ def feols(
     _note_cluster_sizes(out, data, vcov)
     _note_weights(out, data, vcov, weights)
     _note_multiway_adjustment(out, vcov, n_negative)
+    if weights is None:
+        _note_iv_diagnostics(fit, out)
     return out
+
+
+def _note_iv_diagnostics(fit: Any, out: Any) -> None:
+    """First-stage F, Sargan and Wu-Hausman statistics of an IV fit.
+
+    The statistics R's fixest reports as ``fitstat(m, ~ ivf1 + sargan +
+    wh)``, all under homoskedastic errors, computed on the design pyfixest
+    has already projected the fixed effects out of. They are stored under
+    the names ``sp.ivreg`` uses, which is where ``sp.estat`` looks.
+    """
+    if not getattr(fit, "_is_iv", False):
+        return
+    try:
+        from scipy import stats
+
+        Y = np.asarray(fit._Y, dtype=float).ravel()
+        X = np.asarray(fit._X, dtype=float)
+        Z = np.asarray(fit._Z, dtype=float)
+        u = np.asarray(fit._u_hat, dtype=float).ravel()
+        names = [str(c) for c in fit._coefnames]
+        exog = {str(c) for c in fit._coefnames_z}
+        endo = [j for j, c in enumerate(names) if c not in exog]
+        n = len(Y)
+        if not endo or X.shape[0] != n or Z.shape[0] != n:
+            return
+        diag = out.diagnostics
+        info = dict(out.model_info)
+        if len(endo) == 1:
+            fit.first_stage()
+            f1 = float(fit._f_stat_1st_stage)
+            diag[f"First-stage F ({names[endo[0]]})"] = f1
+            info["first_stage_f"] = f1
+            p1 = getattr(fit, "_p_value_1st_stage", None)
+            if p1 is not None:
+                diag[f"First-stage F p-value ({names[endo[0]]})"] = float(p1)
+                info["first_stage_f_pvalue"] = float(p1)
+        df_over = Z.shape[1] - X.shape[1]
+        if df_over > 0:
+            fitted = Z @ np.linalg.lstsq(Z, u, rcond=None)[0]
+            sargan = n * float(u @ fitted) / float(u @ u)
+            diag["Sargan statistic"] = sargan
+            diag["Sargan p-value"] = float(stats.chi2.sf(sargan, df_over))
+            diag["Sargan df"] = int(df_over)
+        E = X[:, endo]
+        V = E - Z @ np.linalg.lstsq(Z, E, rcond=None)[0]
+        XA = np.column_stack([X, V])
+        rss1 = float(np.sum((Y - XA @ np.linalg.lstsq(XA, Y, rcond=None)[0]) ** 2))
+        rss0 = float(np.sum((Y - X @ np.linalg.lstsq(X, Y, rcond=None)[0]) ** 2))
+        q = len(endo)
+        k_total = int(getattr(fit, "_df_k", X.shape[1]) or X.shape[1])
+        df2 = n - max(k_total, X.shape[1]) - q
+        if df2 > 0 and rss1 > 0:
+            wh = ((rss0 - rss1) / q) / (rss1 / df2)
+            diag["Hausman F-stat"] = float(wh)
+            diag["Hausman p-value"] = float(stats.f.sf(wh, q, df2))
+        out.model_info = info
+    except (
+        np.linalg.LinAlgError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        ZeroDivisionError,
+    ) as exc:  # diagnostics must not cost the user the fit
+        from ..workflow._degradation import record_degradation
+
+        record_degradation(
+            out, section="feols_iv_diagnostics", exc=exc, detail="IV diagnostics"
+        )
 
 
 def _adjust_multiway_vcov(fit: Any, vcov: Any) -> int:

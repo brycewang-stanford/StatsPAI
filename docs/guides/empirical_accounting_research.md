@@ -28,7 +28,7 @@ where the data frame is ready.
 | 16 Earnings management | `binom.test(x, n, p)` | `sp.bitest(successes=x, n=n, p=p)` |
 | 19 Natural experiments | DiD, post-only, change and ANCOVA estimators | `sp.regress` with the same formulas; `sp.ancova` |
 | 20 Instrumental variables | `feols(y ~ 1 \| X ~ z1 + z2 + z3)` | `sp.ivreg("y ~ (X ~ z1 + z2 + z3)", df)` |
-| 20 | `fitstat(iv, "ivf1")`, `iv$iv_sargan`, Wu-Hausman | `sp.estat(fit, "firststage")`, `"overid"`, `"endogenous"` |
+| 20 | `fitstat(iv, "ivf1")`, `iv$iv_sargan`, Wu-Hausman | `sp.estat(fit, "firststage")`, `"overid"`, `"endogenous"`, after `sp.ivreg` or `sp.feols` |
 | 21 Panel data | `feols(y ~ post \| gvkey + year)` and event-time dummies | `sp.feols`; see "today" below |
 | 22 Regression discontinuity | `rdrobust(y, x, c = 75, fuzzy = d, masspoints = "off")` | `sp.rdrobust(df, y=, x=, c=75, fuzzy=, masspoints="off")` |
 | 22 | `rdplot` | `sp.rdplot` |

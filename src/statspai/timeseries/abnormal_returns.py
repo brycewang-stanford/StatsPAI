@@ -281,8 +281,10 @@ def abnormal_returns(
     distribution with ``n - k`` degrees of freedom.
 
     ``estudy`` uses the residual variance on ``n - 1`` degrees of freedom
-    and a slightly different market term, so its standard deviations are
-    about ``1 / (2n)`` smaller; given the same standardised CARs the test
+    and a slightly different market term, so its market-model standard
+    deviations are about ``1 / (2n)`` smaller; for a factor model it uses
+    ``L * RSS / (n - 1)`` with no coefficient-error term, 1 to 6 percent
+    smaller on eleven-day windows; given the same standardised CARs the test
     statistics here and there are equal. For the Patell statistic it
     takes ``(M - 2) / (M - 4)`` as the variance of a standardised CAR
     under the market-adjusted and mean-adjusted models too, where the
