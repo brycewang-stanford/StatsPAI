@@ -2476,3 +2476,22 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after a typing fix
+
+- **Commits.** `dc858d18` re-recorded the entries of Track A modules
+  04 05 06 13 16 17 20 24 44 45 49 50 73 75 77 78 79 80 83 84 85 88 89 in
+  `tests/r_parity/results/_implementation_trace.json` and of two modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `fd124cce`: 45 return statements in 23 files, each
+  wrapped in `np.asarray`.
+- **Reason.** The mypy step of CI had been failing on main (848 errors
+  against a ceiling of 827), which skipped the test run behind it.
+  `np.asarray` is the identity on an array: `python
+  tests/r_parity/verify_reproduce_py.py --no-report` on the 23 modules
+  reported 23 reproduce, 0 drift.
+- **Effect on the paper.** None; in both trace files only
+  `exercised_sources` digests and `seconds` differ.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
