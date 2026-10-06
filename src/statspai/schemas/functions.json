@@ -14487,6 +14487,294 @@
     }
   },
   {
+    "description": "Gaussian process regression: nonparametric regression with closed-form posterior bands. RBF or Matern kernel, one length scale per regressor, hyperparameters by maximum marginal likelihood, constant mean estimated with its uncertainty. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than a few thousand observations: cost grows with n cubed; Jumps or kinks in the regression function: a stationary smooth kernel blurs them.",
+    "name": "gp_regress",
+    "parameters": {
+      "properties": {
+        "ard": {
+          "default": true,
+          "description": "One length scale per regressor. With ``False`` a single length scale is shared, which only makes sense for regressors on a common scale.",
+          "type": "boolean"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "``\"y ~ x1 + x2\"``. The regressors enter the kernel; the intercept of the formula is the constant mean of the process.",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "kernel": {
+          "default": "rbf",
+          "description": "``'rbf'`` (squared exponential) gives infinitely smooth functions, the Matern kernels rougher ones.",
+          "enum": [
+            "rbf",
+            "matern52",
+            "matern32"
+          ],
+          "type": "string"
+        },
+        "length_scale": {
+          "description": "Starting values, or the values used when ``optimize_hyper=False``.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Confidence level or reporting level.",
+          "type": "number"
+        },
+        "mean": {
+          "description": "Known constant mean",
+          "type": "number"
+        },
+        "noise_var": {
+          "description": "Starting values, or the values used when ``optimize_hyper=False``.",
+          "type": "number"
+        },
+        "optimize_hyper": {
+          "default": true,
+          "description": "Maximise the marginal likelihood over the hyperparameters.",
+          "type": "boolean"
+        },
+        "restarts": {
+          "default": 4,
+          "description": "Additional random starting points; the marginal likelihood can have several local maxima.",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "For the random starting points.",
+          "type": "integer"
+        },
+        "signal_var": {
+          "description": "Starting values, or the values used when ``optimize_hyper=False``.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Simulation-based Bayesian inference for models without a tractable likelihood: rejection ABC with optional local linear adjustment, and Bayesian synthetic likelihood. The user supplies a simulator of summary statistics and a prior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The likelihood is available: use it; Many summaries with rejection ABC: distances stop discriminating; reduce them or use method='synthetic'.",
+    "name": "abc",
+    "parameters": {
+      "properties": {
+        "adjust": {
+          "default": "none",
+          "description": "adjust parameter (str).",
+          "enum": [
+            "none",
+            "linear"
+          ],
+          "type": "string"
+        },
+        "burnin": {
+          "default": 1000,
+          "description": "Synthetic likelihood: length of the Metropolis-Hastings chain.",
+          "type": "integer"
+        },
+        "draws": {
+          "default": 5000,
+          "description": "Synthetic likelihood: length of the Metropolis-Hastings chain.",
+          "type": "integer"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Confidence level or reporting level.",
+          "type": "number"
+        },
+        "method": {
+          "default": "rejection",
+          "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "rejection",
+            "synthetic"
+          ],
+          "type": "string"
+        },
+        "n_sim": {
+          "default": 100000,
+          "description": "Number of sim.",
+          "type": "integer"
+        },
+        "n_synthetic": {
+          "default": 100,
+          "description": "Synthetic likelihood: simulations per parameter value.",
+          "type": "integer"
+        },
+        "names": {
+          "description": "Parameter names. Default ``theta1``, ``theta2``, ...",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "observed": {
+          "description": "Observed summaries",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "prior": {
+          "description": "One frozen distribution per parameter (independent priors), or ``prior(rng, size)`` returning a ``(size, d)`` array. ``method='synthetic'`` needs the first form.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "quantile": {
+          "default": 0.01,
+          "description": "quantile parameter (float).",
+          "type": "number"
+        },
+        "scale": {
+          "default": "mad",
+          "description": "scale parameter (str | list).",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "string"
+          ]
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "simulate": {
+          "description": "simulate(theta, rng)",
+          "type": "string"
+        },
+        "tol": {
+          "description": "Numerical convergence tolerance.",
+          "type": "number"
+        },
+        "vectorized": {
+          "default": false,
+          "description": "vectorized parameter (bool).",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "simulate",
+        "observed",
+        "prior"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bayesian additive regression trees: a sum of many small trees sampled by Bayesian backfitting. Finds nonlinearities and interactions without specification and returns posterior bands for the regression function. Continuous and binary (probit) outcomes. Own engine in numba. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal effect is the target: the fit regularises the outcome model, not the effect; use a causal estimator; Bands are needed to nominal accuracy: they are approximate.",
+    "name": "bart",
+    "parameters": {
+      "properties": {
+        "base": {
+          "default": 0.95,
+          "description": "A node at depth ``d`` splits with prior probability ``base * (1 + d) ** -power``.",
+          "type": "number"
+        },
+        "burnin": {
+          "default": 500,
+          "description": "burnin parameter (int).",
+          "type": "integer"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "default": 1000,
+          "description": "draws parameter (int).",
+          "type": "integer"
+        },
+        "family": {
+          "default": "gaussian",
+          "description": "``'binary'`` is a probit link for a 0/1 outcome.",
+          "enum": [
+            "gaussian",
+            "binary"
+          ],
+          "type": "string"
+        },
+        "formula": {
+          "description": "``\"y ~ x1 + x2 + C(group)\"``. Regressors enter the trees one column of the design matrix at a time; do not add polynomial or interaction terms.",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "k": {
+          "default": 2.0,
+          "description": "The prior puts the regression function within the range of the outcome with probability about ``2 Phi(k) - 1``. Larger values shrink more.",
+          "type": "number"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Confidence level or reporting level.",
+          "type": "number"
+        },
+        "max_depth": {
+          "default": 8,
+          "description": "Hard cap on the depth of a tree. The prior makes deeper trees vanishingly rare.",
+          "type": "integer"
+        },
+        "min_leaf": {
+          "default": 5,
+          "description": "A split is allowed only if both children keep at least this many observations. Without it trees isolate single observations and the error variance is underestimated.",
+          "type": "integer"
+        },
+        "n_trees": {
+          "default": 200,
+          "description": "Number of trees.",
+          "type": "integer"
+        },
+        "nu": {
+          "default": 3.0,
+          "description": "Prior of the error variance: scaled inverse chi-square with ``nu`` degrees of freedom, placing probability ``q`` below the residual variance of a linear fit.",
+          "type": "number"
+        },
+        "numcut": {
+          "default": 100,
+          "description": "Candidate cutpoints per regressor (midpoints of the observed values, or quantiles when there are more than ``numcut``).",
+          "type": "integer"
+        },
+        "power": {
+          "default": 2.0,
+          "description": "A node at depth ``d`` splits with prior probability ``base * (1 + d) ** -power``.",
+          "type": "number"
+        },
+        "q": {
+          "default": 0.9,
+          "description": "Prior of the error variance: scaled inverse chi-square with ``nu`` degrees of freedom, placing probability ``q`` below the residual variance of a linear fit.",
+          "type": "number"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "thin": {
+          "default": 1,
+          "description": "thin parameter (int).",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Bayesian seemingly unrelated regressions by Gibbs sampling: several linear equations with errors correlated across equations, normal prior on the coefficients, inverse-Wishart prior on the error covariance. The same regressors in every equation give the multivariate regression model. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Regressors are endogenous across equations: SUR assumes exogeneity; use sp.three_sls or sp.bayes_ivreg.",
     "name": "bayes_sur",
     "parameters": {

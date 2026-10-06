@@ -33964,6 +33964,514 @@
   {
     "alias_of": null,
     "alternatives": [
+      "lpoly",
+      "bart",
+      "npregress"
+    ],
+    "assumptions": [
+      "Normal noise with constant variance",
+      "Stationary kernel"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Gaussian process regression: nonparametric regression with closed-form posterior bands. RBF or Matern kernel, one length scale per regressor, hyperparameters by maximum marginal likelihood, constant mean estimated with its uncertainty. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than a few thousand observations: cost grows with n cubed; Jumps or kinks in the regression function: a stationary smooth kernel blurs them.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_nonparametric_exact.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.gp_regress(\"y ~ x\", df).predict(new)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "gp_regress",
+    "not_recommended_when": [
+      "More than a few thousand observations: cost grows with n cubed",
+      "Jumps or kinks in the regression function: a stationary smooth kernel blurs them"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "rasmussen2005gaussian",
+    "returns": {
+      "class": "GPResult",
+      "description": "GPResult",
+      "fields": {
+        "fitted": "pd.Series",
+        "formula": "str",
+        "kernel": "str",
+        "level": "float",
+        "loglik": "float",
+        "model_info": "Dict[str, Any]",
+        "n_obs": "int",
+        "params": "pd.Series"
+      }
+    },
+    "signature": {
+      "description": "Gaussian process regression: nonparametric regression with closed-form posterior bands. RBF or Matern kernel, one length scale per regressor, hyperparameters by maximum marginal likelihood, constant mean estimated with its uncertainty. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than a few thousand observations: cost grows with n cubed; Jumps or kinks in the regression function: a stationary smooth kernel blurs them.",
+      "name": "gp_regress",
+      "parameters": {
+        "properties": {
+          "ard": {
+            "default": true,
+            "description": "One length scale per regressor. With ``False`` a single length scale is shared, which only makes sense for regressors on a common scale.",
+            "type": "boolean"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "``\"y ~ x1 + x2\"``. The regressors enter the kernel; the intercept of the formula is the constant mean of the process.",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "kernel": {
+            "default": "rbf",
+            "description": "``'rbf'`` (squared exponential) gives infinitely smooth functions, the Matern kernels rougher ones.",
+            "enum": [
+              "rbf",
+              "matern52",
+              "matern32"
+            ],
+            "type": "string"
+          },
+          "length_scale": {
+            "description": "Starting values, or the values used when ``optimize_hyper=False``.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Confidence level or reporting level.",
+            "type": "number"
+          },
+          "mean": {
+            "description": "Known constant mean",
+            "type": "number"
+          },
+          "noise_var": {
+            "description": "Starting values, or the values used when ``optimize_hyper=False``.",
+            "type": "number"
+          },
+          "optimize_hyper": {
+            "default": true,
+            "description": "Maximise the marginal likelihood over the hyperparameters.",
+            "type": "boolean"
+          },
+          "restarts": {
+            "default": 4,
+            "description": "Additional random starting points; the marginal likelihood can have several local maxima.",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "For the random starting points.",
+            "type": "integer"
+          },
+          "signal_var": {
+            "description": "Starting values, or the values used when ``optimize_hyper=False``.",
+            "type": "number"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_nonparametric_exact.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "smm",
+      "bayes_regress"
+    ],
+    "assumptions": [
+      "The summaries carry the information about the parameters",
+      "Synthetic likelihood: summaries are approximately normal"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Simulation-based Bayesian inference for models without a tractable likelihood: rejection ABC with optional local linear adjustment, and Bayesian synthetic likelihood. The user supplies a simulator of summary statistics and a prior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The likelihood is available: use it; Many summaries with rejection ABC: distances stop discriminating; reduce them or use method='synthetic'.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_nonparametric_exact.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.abc(simulate, s_obs, [stats.norm(0, 3)], seed=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "abc",
+    "not_recommended_when": [
+      "The likelihood is available: use it",
+      "Many summaries with rejection ABC: distances stop discriminating; reduce them or use method='synthetic'"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "beaumont2002approximate",
+    "returns": {
+      "class": "BayesRegressResult",
+      "description": "BayesRegressResult",
+      "fields": {
+        "acceptance_rate": "Optional[float]",
+        "burnin": "int",
+        "chain": "np.ndarray",
+        "chains": "int",
+        "diagnostics_info": "Dict[str, Any]",
+        "draws": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model": "str",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "prior": "Dict[str, Any]",
+        "sampler": "str",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame",
+        "thin": "int"
+      }
+    },
+    "signature": {
+      "description": "Simulation-based Bayesian inference for models without a tractable likelihood: rejection ABC with optional local linear adjustment, and Bayesian synthetic likelihood. The user supplies a simulator of summary statistics and a prior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The likelihood is available: use it; Many summaries with rejection ABC: distances stop discriminating; reduce them or use method='synthetic'.",
+      "name": "abc",
+      "parameters": {
+        "properties": {
+          "adjust": {
+            "default": "none",
+            "description": "adjust parameter (str).",
+            "enum": [
+              "none",
+              "linear"
+            ],
+            "type": "string"
+          },
+          "burnin": {
+            "default": 1000,
+            "description": "Synthetic likelihood: length of the Metropolis-Hastings chain.",
+            "type": "integer"
+          },
+          "draws": {
+            "default": 5000,
+            "description": "Synthetic likelihood: length of the Metropolis-Hastings chain.",
+            "type": "integer"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Confidence level or reporting level.",
+            "type": "number"
+          },
+          "method": {
+            "default": "rejection",
+            "description": "Estimator or algorithm variant to use.",
+            "enum": [
+              "rejection",
+              "synthetic"
+            ],
+            "type": "string"
+          },
+          "n_sim": {
+            "default": 100000,
+            "description": "Number of sim.",
+            "type": "integer"
+          },
+          "n_synthetic": {
+            "default": 100,
+            "description": "Synthetic likelihood: simulations per parameter value.",
+            "type": "integer"
+          },
+          "names": {
+            "description": "Parameter names. Default ``theta1``, ``theta2``, ...",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "observed": {
+            "description": "Observed summaries",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "prior": {
+            "description": "One frozen distribution per parameter (independent priors), or ``prior(rng, size)`` returning a ``(size, d)`` array. ``method='synthetic'`` needs the first form.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "quantile": {
+            "default": 0.01,
+            "description": "quantile parameter (float).",
+            "type": "number"
+          },
+          "scale": {
+            "default": "mad",
+            "description": "scale parameter (str | list).",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "string"
+            ]
+          },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "simulate": {
+            "description": "simulate(theta, rng)",
+            "type": "string"
+          },
+          "tol": {
+            "description": "Numerical convergence tolerance.",
+            "type": "number"
+          },
+          "vectorized": {
+            "default": false,
+            "description": "vectorized parameter (bool).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "simulate",
+          "observed",
+          "prior"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_nonparametric_exact.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "gp_regress",
+      "causal_forest",
+      "regression_forest"
+    ],
+    "assumptions": [
+      "Normal errors with constant variance (gaussian family)"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Bayesian additive regression trees: a sum of many small trees sampled by Bayesian backfitting. Finds nonlinearities and interactions without specification and returns posterior bands for the regression function. Continuous and binary (probit) outcomes. Own engine in numba. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal effect is the target: the fit regularises the outcome model, not the effect; use a causal estimator; Bands are needed to nominal accuracy: they are approximate.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_nonparametric_exact.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bart(\"y ~ x1 + x2 + x3\", df, seed=1).predict(new)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bart",
+    "not_recommended_when": [
+      "A causal effect is the target: the fit regularises the outcome model, not the effect; use a causal estimator",
+      "Bands are needed to nominal accuracy: they are approximate"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "chipman2010bart",
+    "returns": {
+      "class": "BARTResult",
+      "description": "BARTResult",
+      "fields": {
+        "family": "str",
+        "fitted": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model_info": "Dict[str, Any]",
+        "n_obs": "int",
+        "n_trees": "int",
+        "params": "pd.Series",
+        "sigma": "Optional[pd.Series]",
+        "variable_importance": "pd.Series"
+      }
+    },
+    "signature": {
+      "description": "Bayesian additive regression trees: a sum of many small trees sampled by Bayesian backfitting. Finds nonlinearities and interactions without specification and returns posterior bands for the regression function. Continuous and binary (probit) outcomes. Own engine in numba. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal effect is the target: the fit regularises the outcome model, not the effect; use a causal estimator; Bands are needed to nominal accuracy: they are approximate.",
+      "name": "bart",
+      "parameters": {
+        "properties": {
+          "base": {
+            "default": 0.95,
+            "description": "A node at depth ``d`` splits with prior probability ``base * (1 + d) ** -power``.",
+            "type": "number"
+          },
+          "burnin": {
+            "default": 500,
+            "description": "burnin parameter (int).",
+            "type": "integer"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 1000,
+            "description": "draws parameter (int).",
+            "type": "integer"
+          },
+          "family": {
+            "default": "gaussian",
+            "description": "``'binary'`` is a probit link for a 0/1 outcome.",
+            "enum": [
+              "gaussian",
+              "binary"
+            ],
+            "type": "string"
+          },
+          "formula": {
+            "description": "``\"y ~ x1 + x2 + C(group)\"``. Regressors enter the trees one column of the design matrix at a time; do not add polynomial or interaction terms.",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "k": {
+            "default": 2.0,
+            "description": "The prior puts the regression function within the range of the outcome with probability about ``2 Phi(k) - 1``. Larger values shrink more.",
+            "type": "number"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "Confidence level or reporting level.",
+            "type": "number"
+          },
+          "max_depth": {
+            "default": 8,
+            "description": "Hard cap on the depth of a tree. The prior makes deeper trees vanishingly rare.",
+            "type": "integer"
+          },
+          "min_leaf": {
+            "default": 5,
+            "description": "A split is allowed only if both children keep at least this many observations. Without it trees isolate single observations and the error variance is underestimated.",
+            "type": "integer"
+          },
+          "n_trees": {
+            "default": 200,
+            "description": "Number of trees.",
+            "type": "integer"
+          },
+          "nu": {
+            "default": 3.0,
+            "description": "Prior of the error variance: scaled inverse chi-square with ``nu`` degrees of freedom, placing probability ``q`` below the residual variance of a linear fit.",
+            "type": "number"
+          },
+          "numcut": {
+            "default": 100,
+            "description": "Candidate cutpoints per regressor (midpoints of the observed values, or quantiles when there are more than ``numcut``).",
+            "type": "integer"
+          },
+          "power": {
+            "default": 2.0,
+            "description": "A node at depth ``d`` splits with prior probability ``base * (1 + d) ** -power``.",
+            "type": "number"
+          },
+          "q": {
+            "default": 0.9,
+            "description": "Prior of the error variance: scaled inverse chi-square with ``nu`` degrees of freedom, placing probability ``q`` below the residual variance of a linear fit.",
+            "type": "number"
+          },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "thin": {
+            "default": 1,
+            "description": "thin parameter (int).",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_nonparametric_exact.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "sureg",
       "bayes_regress",
       "three_sls"
