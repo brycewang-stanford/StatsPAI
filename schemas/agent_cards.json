@@ -4334,6 +4334,10 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "fold_indices": {
+            "description": "Explicit cross-fitting folds: one label per row (array or column name), or scikit-learn style splits, a list of (train, test) positional index pairs whose test sets partition the rows and whose training sets are their complements. Requires n_rep=1. With a shared partition the estimate is reproducible across implementations.",
+            "type": "string"
+          },
           "instrument": {
             "description": "Instrument (required for pliv/iivm)",
             "type": "string",
@@ -7563,6 +7567,10 @@
       "name": "metalearner",
       "parameters": {
         "properties": {
+          "cate_model": {
+            "description": "Final-stage CATE learner (x, r, dr). For learner='x' a pair (fit_on_controls, fit_on_treated) sets the two second-stage regressions separately.",
+            "type": "string"
+          },
           "cluster": {
             "description": "Cluster column: folds over whole clusters; SE from centred cluster sums of the influence function with G/(G-1).",
             "type": "string",
@@ -7598,6 +7606,10 @@
               "r",
               "dr"
             ],
+            "type": "string"
+          },
+          "outcome_model": {
+            "description": "Outcome learner. For learner='t' or 'x' a pair (control_model, treated_model) fits a different learner in each arm.",
             "type": "string"
           },
           "treat": {
@@ -7809,7 +7821,7 @@
           },
           "method": {
             "default": "nearest",
-            "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch).",
+            "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch). 'optimal' is optimal pair matching; 'full' is optimal full matching, which uses every unit (MatchIt method='full').",
             "enum": [
               "nearest",
               "psm",
@@ -7821,6 +7833,7 @@
               "stratify",
               "cem",
               "optimal",
+              "full",
               "genmatch",
               "cardinality",
               "ebalance",
@@ -18511,7 +18524,8 @@
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_difference_in_means_estimatr.py",
       "tests/reference_parity/test_dynamic_modelling_parity.py",
-      "tests/reference_parity/test_ttest_known_values.py"
+      "tests/reference_parity/test_ttest_known_values.py",
+      "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -22027,7 +22041,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_dogan_python_econometrics.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_dogan_python_econometrics.py",
+      "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -22337,7 +22352,8 @@
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_ding_first_course_parity.py",
-      "tests/reference_parity/test_lm_lin_estimatr_parity.py"
+      "tests/reference_parity/test_lm_lin_estimatr_parity.py",
+      "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -63538,6 +63554,11 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "trim": {
+            "default": 0.01,
+            "description": "Fitted propensity scores are clipped to [trim, 1 - trim] (rows are kept). trim=0 applies no clipping and gives the textbook AIPW formula. The number clipped is in model_info['n_propensity_clipped'] and a warning is issued when it is positive.",
+            "type": "number"
+          },
           "weights": {
             "description": "Sampling-weight column (Stata [pw=]): weighted logit and outcome fits, weighted mean of the AIPW scores, weighted robust SEs.",
             "type": "string",
@@ -76100,7 +76121,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "result = sp.gsynth(df, outcome='packspercapita', unit='state',\n time='year', treated_unit='California',\n treatment_time=1989, placebo=False, seed=0)",
+    "example": "fit = sp.gsynth(panel, \"y\", \"id\", \"t\", treat=\"d\", n_factors=1,\n inference=\"none\")",
     "failure_modes": [
       {
         "alternative": "sp.sdid",
@@ -76141,7 +76162,7 @@
     "reference": "",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult",
+      "description": "CausalResult: With treat (or several treated units, or covariates): estimate is the average effect over all treated unit-periods; detail lists the effect by period relative to adoption (0 = first treated period);",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -76177,7 +76198,7 @@
             "type": "string"
           },
           "covariates": {
-            "description": "Additional time-varying covariates.",
+            "description": "Time-varying covariates. Their coefficients are estimated within the interactive fixed effects model of the never-treated units (Xu 2017; Bai 2009), so they are net of unit effects, period effects and the factors. .. versionchanged:: 1.39.0 WARNING The coefficients used to come from a pooled regression of the outcome on the covariates alone, without an intercept or fixed effects. Covariates that are correlated with the unit effects or the loadings then biased the counterfactual. Calls with ``covariates`` now use the estimator described here, which reproduces R ``gsynth`` to 1e-12, and their inference is the bootstrap of ``inference``.",
             "items": {
               "type": "string"
             },
@@ -76194,13 +76215,33 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "inference": {
+            "default": "auto",
+            "description": "For the multi-unit / covariate estimator. ``'parametric'`` is the bootstrap of Xu (2017, Algorithm 2): prediction errors for treated units are simulated by treating each never-treated unit as treated in turn. It assumes homoskedastic errors across units and is the one to use with few treated units. ``'nonparametric'`` resamples units and needs many treated units. ``'auto'`` takes the first with fewer than 40 treated units.",
+            "enum": [
+              "auto",
+              "parametric",
+              "nonparametric"
+            ],
+            "type": "string"
+          },
           "max_factors": {
             "default": 5,
             "description": "Maximum factors to try during CV.",
             "type": "integer"
           },
+          "min_T0": {
+            "default": 5,
+            "description": "Treated units with fewer pre-treatment periods are dropped, with a warning.",
+            "type": "integer"
+          },
+          "n_boot": {
+            "default": 200,
+            "description": "Bootstrap replications.",
+            "type": "integer"
+          },
           "n_factors": {
-            "description": "Number of latent factors. If None, selected by cross-validation.",
+            "description": "Number of latent factors. If None, selected by cross-validation. With ``treat``, a list of treated units or ``covariates`` the criterion is the leave-one-period-out prediction error of the treated units before treatment (Xu 2017).",
             "type": "integer"
           },
           "outcome": {
@@ -76226,9 +76267,17 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "treat": {
+            "description": "0/1 treatment indicator column, one in treated unit-periods and absorbing. Replaces ``treated_unit`` / ``treatment_time`` and allows several treated units and staggered adoption. The panel must be balanced.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "treated_unit": {
-            "description": "Identifier of the treated unit.",
-            "type": "string"
+            "description": "Identifier of the treated unit, or a list of identifiers that share ``treatment_time``.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "treatment_time": {
             "description": "First treatment period (inclusive).",
@@ -76248,9 +76297,7 @@
           "data",
           "outcome",
           "unit",
-          "time",
-          "treated_unit",
-          "treatment_time"
+          "time"
         ],
         "type": "object"
       }
@@ -76260,7 +76307,8 @@
     "validation_notes": [
       "R parity module 19_gsynth",
       "Stata parity module 19_gsynth",
-      "Cross-language parity (bit-exact) vs gsynth::gsynth [R version 4.5.2 (2025-10-31), gsynth 1.4.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 19_gsynth -- tests/r_parity/19_gsynth.py"
+      "Cross-language parity (bit-exact) vs gsynth::gsynth [R version 4.5.2 (2025-10-31), gsynth 1.4.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 19_gsynth -- tests/r_parity/19_gsynth.py",
+      "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -78134,7 +78182,8 @@
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
-      "tests/reference_parity/test_closed_form_identities.py"
+      "tests/reference_parity/test_closed_form_identities.py",
+      "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -79763,6 +79812,225 @@
   {
     "alias_of": null,
     "alternatives": [
+      "metalearner",
+      "causal_forest",
+      "tmle",
+      "aipw"
+    ],
+    "assumptions": [
+      "Unconfoundedness: Y(d) perp D | X (conditional ignorability)",
+      "Overlap: 0 < P(D=1 | X) < 1 for the estimand support (strong for IRM)",
+      "Nuisance-function estimators converge at op(n^{-1/4}) -- fast enough that the orthogonal moment gives a sqrtn-consistent, asymptotically normal estimate of the target parameter",
+      "For IV variants (PLIV/IIVM): relevance + exclusion + monotonicity"
+    ],
+    "category": "causal",
+    "cost_profile": "n_folds x n_rep nuisance fits per model (two learners for PLR / IRM, three or four for PLIV / IIVM); a gradient-boosting learner on n ~ 10^5 takes minutes per repetition.",
+    "description": "Double machine learning difference-in-differences (two periods). Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "doubleml (Python) DoubleMLDID and DoubleMLDIDCS",
+      "reference_versions": {
+        "doubleml": "0.11.3",
+        "scikit-learn": "1.6.1"
+      },
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_dml_did_doubleml_parity.py",
+        "tests/reference_parity/_fixtures/dml_did_doubleml.json"
+      ],
+      "tolerance": "estimate and standard error 1e-8 on a shared fold column, linear and unpenalised-logit learners; two layouts x two scores x with and without in-sample normalisation"
+    },
+    "example": "fit = sp.dml_did(df, \"dy\", \"d\", [\"x1\", \"x2\", \"x3\"])",
+    "failure_modes": [
+      {
+        "alternative": "sp.overlap_weights",
+        "exception": "statspai.AssumptionViolation",
+        "remedy": "Trim sample to 0.05 < e(x) < 0.95 or use overlap weights (sp.overlap_weights).",
+        "symptom": "Extreme propensity scores (~ 0 or 1)"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "Nuisances not learnable -- DML bias guarantees don't apply; re-featurize or pick a different model family.",
+        "symptom": "Nuisance models cross-val R2 near zero"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.NumericalInstability",
+        "remedy": "Increase n_rep to 10+ and aggregate by median; check for leakage.",
+        "symptom": "Large Monte-Carlo variance across folds (n_rep > 1)"
+      },
+      {
+        "alternative": "sp.anderson_rubin_ci",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "Instrument too weak for LATE; fall back to Anderson-Rubin inference.",
+        "symptom": "IIVM first-stage compliance rate near zero"
+      },
+      {
+        "alternative": "sp.scalar_iv_projection",
+        "exception": "ValueError",
+        "remedy": "These models accept one scalar instrument; build a first-stage index with sp.scalar_iv_projection and pass its column name as instrument=.",
+        "symptom": "List of several instruments passed to pliv/iivm"
+      }
+    ],
+    "inherits_from": "dml",
+    "limitations": [],
+    "name": "dml_did",
+    "not_recommended_when": [
+      "the treatment is assigned repeatedly and moves later covariates -- static DML is biased; use sp.dynamic_dml",
+      "unit fixed effects carry the confounding -- use sp.dml_panel"
+    ],
+    "pre_conditions": [
+      "data is tabular (DataFrame); covariates include all confounders conditional on which unconfoundedness holds",
+      "cross-fitting folds >= 2 (default 5) -- more folds -> lower variance, higher compute",
+      "for irm / iivm: treatment (and for iivm: instrument) is binary 0/1",
+      "for pliv / iivm: a single scalar instrument column supplied (multiple instruments: project to one index first via sp.scalar_iv_projection)"
+    ],
+    "provenance": {
+      "alternatives": "family",
+      "assumptions": "family",
+      "cost_profile": "family",
+      "example": "docstring",
+      "failure_modes": "family",
+      "not_recommended_when": "family",
+      "pre_conditions": "family",
+      "reference": "docstring",
+      "returns": "docstring",
+      "typical_n_min": "family"
+    },
+    "reference": "@chang2020double; @santanna2020doubly; @chernozhukov2018double",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult: estimate is the ATT. model_info holds the score, the nuisance fit (rmse_g0, logloss_m), the propensity range, the number of clipped scores, the per-repetition estimates and _psi, the influence values of the last repetition.",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Double machine learning difference-in-differences (two periods). Validation: certified parity evidence.",
+      "name": "dml_did",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "covariates": {
+            "description": "Pre-treatment covariates. On a long panel the first-period values are used.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "fold_indices": {
+            "description": "One fold label per analysis row (per unit on a panel), or a column name. Requires ``n_rep=1``.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unit identifier. With ``time`` and ``id`` the data are a two-period panel in long form and the outcome is differenced within unit. With ``time`` alone the rows are repeated cross-sections.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "in_sample_normalization": {
+            "default": true,
+            "description": "Normalise the weights to average one in the sample (Hajek-type, the ``DoubleML`` default). ``False`` gives the score of Chang (2020): ``(D - m(X)) / (p (1 - m(X))) * (dY - g0(X))``.",
+            "type": "boolean"
+          },
+          "ml_g": {
+            "description": "Regressor for the outcome nuisance: ``E[dY | X, D=0]`` on a panel, ``E[Y | X, D=d, T=t]`` in each of the four cells for repeated cross-sections. A scikit-learn estimator or an alias of :func:`statspai.dml` (``'lasso'``, ``'rf'``, ``'linear'`` ...).",
+            "type": "string"
+          },
+          "ml_m": {
+            "description": "Classifier for the propensity score ``P(D=1 | X)``. Not used with ``score='experimental'``.",
+            "type": "string"
+          },
+          "n_folds": {
+            "default": 5,
+            "description": "Number of cross-fitting or cross-validation folds.",
+            "type": "integer"
+          },
+          "n_rep": {
+            "default": 1,
+            "description": "Repetitions of the sample split; estimates are aggregated by the median, and the variance adds the spread across splits.",
+            "type": "integer"
+          },
+          "random_state": {
+            "default": 42,
+            "description": "Random seed or RandomState for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "score": {
+            "default": "observational",
+            "description": "``'observational'`` is the doubly robust score for conditional parallel trends. ``'experimental'`` assumes treatment is independent of the covariates (a randomised design), uses no propensity score, and uses the covariates only to reduce variance.",
+            "enum": [
+              "observational",
+              "experimental"
+            ],
+            "type": "string"
+          },
+          "time": {
+            "description": "Period column with two values; the larger is the post-period. Omit it when ``y`` is already the outcome change.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat": {
+            "description": "0/1 indicator of the treated group. On a long panel it may equal 1 only in the post-period rows of treated units; a unit is treated if it is ever 1.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "trimming_threshold": {
+            "default": 0.01,
+            "description": "Propensity scores are clipped to ``[c, 1 - c]``. The number clipped is reported and a warning is issued when it is positive.",
+            "type": "number"
+          },
+          "y": {
+            "description": "Outcome. With ``time=None`` this is the **change** in the outcome between the two periods, one row per unit. Otherwise it is the outcome level.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 500,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs doubleml (Python) DoubleMLDID and DoubleMLDIDCS [doubleml 0.11.3, scikit-learn 1.6.1]; tolerance estimate and standard error 1e-8 on a shared fold column, linear and unpenalised-logit learners; two layouts x two scores x with and without in-sample normalisation -- tests/reference_parity/test_dml_did_doubleml_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "iv",
       "anderson_rubin_ci",
       "dml"
@@ -81122,6 +81390,10 @@
           "forest": {
             "description": "forest parameter ('CausalForest').",
             "type": "string"
+          },
+          "subset": {
+            "description": "Average over some of the training rows only, as ``grf::average_treatment_effect(subset=)`` does. The forest, its out-of-bag predictions and its nuisances stay those of the full fit; the target is the effect among the selected rows. Choose the rows from covariates. A subset built from the forest's own predictions on these rows (``oob > median``) describes the fit but its standard error does not account for the selection; see :func:`statspai.rate_split` for a test of that kind. GRF-engine forests without fixed effects only; for fixed-effects forests use :func:`statspai.forest_group_effects`.",
+            "type": "boolean"
           },
           "target_sample": {
             "default": "all",
@@ -130085,7 +130357,7 @@
           },
           "method": {
             "default": "nn",
-            "description": "Estimator family: - **Classical:** ``'nearest'`` (default), ``'stratify'``, ``'cem'``, ``'psm'``, ``'mahalanobis'``. - **Covariate matching:** ``'nnmatch'`` -- Abadie-Imbens nearest-neighbour matching on covariates with all ties kept, the Abadie-Imbens (2006) variance and optional bias adjustment; reproduces Stata ``teffects nnmatch`` (point estimates and standard errors to 1e-13 on the NSW-CPS sample). Keywords: ``estimand``, ``n_matches``, ``metric``, ``exact``, ``caliper``, ``bias_adjust``, ``vce``, ``vce_nn``. - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``, ``'overlap'``. - **Genetic:** ``'genmatch'``. - **Optimization:** ``'optimal'``, ``'cardinality'``.",
+            "description": "Estimator family: - **Classical:** ``'nearest'`` (default), ``'stratify'``, ``'cem'``, ``'psm'``, ``'mahalanobis'``. - **Covariate matching:** ``'nnmatch'`` -- Abadie-Imbens nearest-neighbour matching on covariates with all ties kept, the Abadie-Imbens (2006) variance and optional bias adjustment; reproduces Stata ``teffects nnmatch`` (point estimates and standard errors to 1e-13 on the NSW-CPS sample). Keywords: ``estimand``, ``n_matches``, ``metric``, ``exact``, ``caliper``, ``bias_adjust``, ``vce``, ``vce_nn``. - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``, ``'overlap'``. - **Genetic:** ``'genmatch'``. - **Optimization:** ``'optimal'`` (pairs), ``'full'`` (optimal full matching: every unit is used, in sets of one treated and several comparison units or the reverse), ``'cardinality'``.",
             "type": "string"
           },
           "weights": {

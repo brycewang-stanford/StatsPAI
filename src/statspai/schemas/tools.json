@@ -480,6 +480,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "trim": {
+          "default": 0.01,
+          "description": "Fitted propensity scores are clipped to [trim, 1 - trim] (rows are kept). trim=0 applies no clipping and gives the textbook AIPW formula. The number clipped is in model_info['n_propensity_clipped'] and a warning is issued when it is positive.",
+          "type": "number"
+        },
         "weights": {
           "description": "Sampling-weight column (Stata [pw=]): weighted logit and outcome fits, weighted mean of the AIPW scores, weighted robust SEs.",
           "type": "string",
@@ -1370,6 +1375,10 @@
         "forest": {
           "description": "forest parameter ('CausalForest').",
           "type": "string"
+        },
+        "subset": {
+          "description": "Average over some of the training rows only, as ``grf::average_treatment_effect(subset=)`` does. The forest, its out-of-bag predictions and its nuisances stay those of the full fit; the target is the effect among the selected rows. Choose the rows from covariates. A subset built from the forest's own predictions on these rows (``oob > median``) describes the fit but its standard error does not account for the selection; see :func:`statspai.rate_split` for a test of that kind. GRF-engine forests without fixed effects only; for fixed-effects forests use :func:`statspai.forest_group_effects`.",
+          "type": "boolean"
         },
         "target_sample": {
           "default": "all",
@@ -10380,6 +10389,10 @@
           ],
           "x-statspai-role": "columns"
         },
+        "fold_indices": {
+          "description": "Explicit cross-fitting folds: one label per row (array or column name), or scikit-learn style splits, a list of (train, test) positional index pairs whose test sets partition the rows and whose training sets are their complements. Requires n_rep=1. With a shared partition the estimate is reproducible across implementations.",
+          "type": "string"
+        },
         "instrument": {
           "description": "Instrument (required for pliv/iivm)",
           "type": "string",
@@ -10470,6 +10483,99 @@
       "type": "object"
     },
     "name": "dml_diagnostics"
+  },
+  {
+    "description": "Double machine learning difference-in-differences (two periods). Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X (conditional ignorability); Overlap: 0 < P(D=1 | X) < 1 for the estimand support (strong for IRM); Nuisance-function estimators converge at op(n^{-1/4}) -- fast enough that the orthogonal moment gives a sqrtn-consistent, asymptotically normal estimate of the target parameter. Pre-conditions: data is tabular (DataFrame); covariates include all confounders conditional on which unconfoundedness holds; cross-fitting folds >= 2 (default 5) -- more folds -> lower variance, higher compute; for irm / iivm: treatment (and for iivm: instrument) is binary 0/1. Failure modes: Extreme propensity scores (~ 0 or 1) -> Trim sample to 0.05 < e(x) < 0.95 or use overlap weights (sp.overlap_weights); Nuisance models cross-val R2 near zero -> Nuisances not learnable -- DML bias guarantees don't apply; re-featurize or pick a different model family; Large Monte-Carlo variance across folds (n_rep > 1) -> Increase n_rep to 10+ and aggregate by median; check for leakage. Alternatives: sp.metalearner, sp.causal_forest, sp.tmle, sp.aipw. Typical minimum N: 500.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Pre-treatment covariates. On a long panel the first-period values are used.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "fold_indices": {
+          "description": "One fold label per analysis row (per unit on a panel), or a column name. Requires ``n_rep=1``.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unit identifier. With ``time`` and ``id`` the data are a two-period panel in long form and the outcome is differenced within unit. With ``time`` alone the rows are repeated cross-sections.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "in_sample_normalization": {
+          "default": true,
+          "description": "Normalise the weights to average one in the sample (Hajek-type, the ``DoubleML`` default). ``False`` gives the score of Chang (2020): ``(D - m(X)) / (p (1 - m(X))) * (dY - g0(X))``.",
+          "type": "boolean"
+        },
+        "ml_g": {
+          "description": "Regressor for the outcome nuisance: ``E[dY | X, D=0]`` on a panel, ``E[Y | X, D=d, T=t]`` in each of the four cells for repeated cross-sections. A scikit-learn estimator or an alias of :func:`statspai.dml` (``'lasso'``, ``'rf'``, ``'linear'`` ...).",
+          "type": "string"
+        },
+        "ml_m": {
+          "description": "Classifier for the propensity score ``P(D=1 | X)``. Not used with ``score='experimental'``.",
+          "type": "string"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "Number of cross-fitting or cross-validation folds.",
+          "type": "integer"
+        },
+        "n_rep": {
+          "default": 1,
+          "description": "Repetitions of the sample split; estimates are aggregated by the median, and the variance adds the spread across splits.",
+          "type": "integer"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "score": {
+          "default": "observational",
+          "description": "``'observational'`` is the doubly robust score for conditional parallel trends. ``'experimental'`` assumes treatment is independent of the covariates (a randomised design), uses no propensity score, and uses the covariates only to reduce variance.",
+          "enum": [
+            "observational",
+            "experimental"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Period column with two values; the larger is the post-period. Omit it when ``y`` is already the outcome change.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "0/1 indicator of the treated group. On a long panel it may equal 1 only in the post-period rows of treated units; a unit is treated if it is ever 1.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trimming_threshold": {
+          "default": 0.01,
+          "description": "Propensity scores are clipped to ``[c, 1 - c]``. The number clipped is reported and a warning is issued when it is positive.",
+          "type": "number"
+        },
+        "y": {
+          "description": "Outcome. With ``time=None`` this is the **change** in the outcome between the two periods, one row per unit. Otherwise it is the outcome level.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "covariates",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "dml_did"
   },
   {
     "description": "Model-averaging DML (PLR) per Ahrens et al. (2025, JAE). Fits DML-PLR under multiple candidate nuisance learners and reports a risk-weighted (or equal/single-best) average of their theta estimates with a covariance-adjusted SE. Validation: certified parity evidence. Do NOT use when: one learner is known to be right for the data -- averaging trades a little efficiency for robustness to learner choice. Cost: len(candidates) full DML-PLR fits. Assumptions: Unconfoundedness (IRM/PLR) or instrument validity (IIVM/PLIV) given the covariates; Overlap / positivity; Neyman-orthogonal score plus cross-fitting; nuisance estimators converge fast enough (o(n^-1/4)). Pre-conditions: Covariates, treatment, and outcome with enough data for cross-fitted machine-learning nuisances; For instrumented variants (PLIV / IIVM): an instrument as well. Failure modes: Propensity scores near 0/1 -- overlap failure inflates variance and bias -> Trim extreme scores, restrict the estimand to the overlap region, or report sensitivity (dml_sensitivity). Alternatives: sp.tmle, sp.auto_cate, sp.causal_forest. Typical minimum N: 500.",
@@ -13716,6 +13822,92 @@
     "name": "front_door"
   },
   {
+    "description": "Optimal full matching. Validation: certified parity evidence.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "caliper": {
+          "description": "Largest permitted distance. A unit with no partner inside the caliper is left unmatched and the estimand then refers to the matched units.",
+          "type": "number"
+        },
+        "caliper_scale": {
+          "default": "sd",
+          "description": "``'sd'`` reads ``caliper`` in standard deviations of the score (score distances only), ``'raw'`` in the units of the distance.",
+          "enum": [
+            "sd",
+            "raw"
+          ],
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Variables to match on, and the variables of the balance table.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "distance": {
+          "default": "propensity",
+          "description": "``'propensity'``: absolute difference of the fitted propensity score (``MatchIt``'s default, ``distance = \"glm\"``). ``'logit'``: difference on the linear-predictor scale. ``'mahalanobis'`` uses the pooled within-group covariance, as ``MatchIt`` does.",
+          "enum": [
+            "propensity",
+            "logit",
+            "mahalanobis",
+            "euclidean"
+          ],
+          "type": "string"
+        },
+        "estimand": {
+          "default": "ATT",
+          "description": "Sets the matching weights; the matched sets are the same.",
+          "enum": [
+            "ATT",
+            "ATC",
+            "ATE"
+          ],
+          "type": "string"
+        },
+        "ps_model": {
+          "default": "logit",
+          "description": "ps_model parameter (str).",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
+        },
+        "pscore": {
+          "description": "Column holding a score computed elsewhere (a boosted or forest propensity score, say). Matching is on the absolute difference of this column and ``covariates`` are used for the balance table only.",
+          "type": "string"
+        },
+        "treat": {
+          "description": "0/1 treatment indicator.",
+          "type": "string",
+          "x-aliases": [
+            "treatment"
+          ],
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome. Without it only the matching (sets, weights, balance) is returned.",
+          "type": "string",
+          "x-aliases": [
+            "outcome"
+          ],
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "full_match"
+  },
+  {
     "description": "Roth & Sant'Anna (2023) test of whether parallel trends can hold for EVERY strictly monotonic transformation of the outcome. Bins the outcome, recovers the counterfactual probability mass the design implies for the treated group in each bin via Callaway-Sant'Anna, and tests the moment inequalities that mass must satisfy to be a density. Rejection means levels and logs are answering different questions, so the functional form is doing identifying work. Validation: certified evidence with scoped limitations. Known limitations: a large p-value is only a failure to reject, not evidence FOR functional-form insensitivity: the test has little power with few units or coarse bins; standard errors and the critical value are asymptotic; a bootstrap variant is not implemented. Assumptions: Callaway-Sant'Anna identification for each binned indicator; No anticipation before g - anticipation. Pre-conditions: staggered or single-cohort panel with never-treated or not-yet-treated controls; outcome with enough support to bin. Failure modes: Every bin has a degenerate influence function -> The binning is finer than the data support. Lower n_bins or supply binpoints; Test rejects -> Parallel trends c...",
     "input_schema": {
       "properties": {
@@ -15153,7 +15345,7 @@
           "type": "string"
         },
         "covariates": {
-          "description": "Additional time-varying covariates.",
+          "description": "Time-varying covariates. Their coefficients are estimated within the interactive fixed effects model of the never-treated units (Xu 2017; Bai 2009), so they are net of unit effects, period effects and the factors. .. versionchanged:: 1.39.0 WARNING The coefficients used to come from a pooled regression of the outcome on the covariates alone, without an intercept or fixed effects. Covariates that are correlated with the unit effects or the loadings then biased the counterfactual. Calls with ``covariates`` now use the estimator described here, which reproduces R ``gsynth`` to 1e-12, and their inference is the bootstrap of ``inference``.",
           "items": {
             "type": "string"
           },
@@ -15165,13 +15357,33 @@
           "description": "Cross-validation folds for factor selection.",
           "type": "integer"
         },
+        "inference": {
+          "default": "auto",
+          "description": "For the multi-unit / covariate estimator. ``'parametric'`` is the bootstrap of Xu (2017, Algorithm 2): prediction errors for treated units are simulated by treating each never-treated unit as treated in turn. It assumes homoskedastic errors across units and is the one to use with few treated units. ``'nonparametric'`` resamples units and needs many treated units. ``'auto'`` takes the first with fewer than 40 treated units.",
+          "enum": [
+            "auto",
+            "parametric",
+            "nonparametric"
+          ],
+          "type": "string"
+        },
         "max_factors": {
           "default": 5,
           "description": "Maximum factors to try during CV.",
           "type": "integer"
         },
+        "min_T0": {
+          "default": 5,
+          "description": "Treated units with fewer pre-treatment periods are dropped, with a warning.",
+          "type": "integer"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Bootstrap replications.",
+          "type": "integer"
+        },
         "n_factors": {
-          "description": "Number of latent factors. If None, selected by cross-validation.",
+          "description": "Number of latent factors. If None, selected by cross-validation. With ``treat``, a list of treated units or ``covariates`` the criterion is the leave-one-period-out prediction error of the treated units before treatment (Xu 2017).",
           "type": "integer"
         },
         "outcome": {
@@ -15197,9 +15409,17 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "treat": {
+          "description": "0/1 treatment indicator column, one in treated unit-periods and absorbing. Replaces ``treated_unit`` / ``treatment_time`` and allows several treated units and staggered adoption. The panel must be balanced.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "treated_unit": {
-          "description": "Identifier of the treated unit.",
-          "type": "string"
+          "description": "Identifier of the treated unit, or a list of identifiers that share ``treatment_time``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "treatment_time": {
           "description": "First treatment period (inclusive).",
@@ -15218,8 +15438,6 @@
       "required": [
         "outcome",
         "time",
-        "treated_unit",
-        "treatment_time",
         "unit"
       ],
       "type": "object"
@@ -20420,7 +20638,7 @@
         },
         "method": {
           "default": "nearest",
-          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch).",
+          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch). 'optimal' is optimal pair matching; 'full' is optimal full matching, which uses every unit (MatchIt method='full').",
           "enum": [
             "nearest",
             "psm",
@@ -20432,6 +20650,7 @@
             "stratify",
             "cem",
             "optimal",
+            "full",
             "genmatch",
             "cardinality",
             "ebalance",
@@ -21441,6 +21660,10 @@
     "description": "Meta-learner framework for CATE: S-, T-, X-, R-, DR-Learner. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1; For R-Learner / DR-Learner: orthogonality between treatment residual and outcome residual. Pre-conditions: binary treatment (0/1); covariates numeric; categoricals encoded; enough treated AND control to train separate outcome models (T/X/DR-Learner). Failure modes: Large divergence across learner types -> Use sp.compare_metalearners to identify which learner is biased; DR-Learner is safest under model misspecification; S-Learner estimates near zero regardless of true effect -> S-Learner regularization smooths treatment coefficient toward zero; use T/X/DR instead; X-Learner fails when treated group is very small -> X-Learner needs well-identified control-outcome model; fall back to T-Learner or weighted T-Learner. Alternatives: sp.causal_forest, sp.dml, sp.tmle, sp.bcf. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
+        "cate_model": {
+          "description": "Final-stage CATE learner (x, r, dr). For learner='x' a pair (fit_on_controls, fit_on_treated) sets the two second-stage regressions separately.",
+          "type": "string"
+        },
         "cluster": {
           "description": "Cluster column: folds over whole clusters; SE from centred cluster sums of the influence function with G/(G-1).",
           "type": "string",
@@ -21471,6 +21694,10 @@
             "r",
             "dr"
           ],
+          "type": "string"
+        },
+        "outcome_model": {
+          "description": "Outcome learner. For learner='t' or 'x' a pair (control_model, treated_model) fits a different learner in each arm.",
           "type": "string"
         },
         "treat": {

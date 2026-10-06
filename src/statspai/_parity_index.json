@@ -36,6 +36,23 @@
       "tolerance": ""
     },
     {
+      "function": "RlassoRegressor",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "W",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -294,7 +311,8 @@
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",
         "tests/reference_parity/test_teffects_probit_stata.py",
-        "tests/reference_parity/test_tmle_parity.py"
+        "tests/reference_parity/test_tmle_parity.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -2776,7 +2794,8 @@
         "tests/reference_parity/test_grf_parity.py",
         "tests/reference_parity/test_grf_seed_mc_equivalence.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
-        "tests/reference_parity/test_panel_forest_recovery.py"
+        "tests/reference_parity/test_panel_forest_recovery.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -5857,7 +5876,8 @@
         "tests/reference_parity/test_dml_pliv_anderson_rubin.py",
         "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
         "tests/reference_parity/test_ml_causal_dml_parity.py",
-        "tests/reference_parity/test_rlasso_parity.py"
+        "tests/reference_parity/test_rlasso_parity.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_in_modules": [
         "71_dml_family"
@@ -5929,6 +5949,30 @@
         "tests/reference_parity/test_ml_causal_dml_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "dml_did",
+      "notes": [
+        "Cross-package pin against doubleml-for-py, the reference implementation; R DoubleML 1.0.2 has no DiD model. The fixture holds deterministic learners only, because a random forest's fit depends on the scikit-learn version. The same file checks the identity with the score of Chang (2020) and recovery of a known effect."
+      ],
+      "reference": "doubleml (Python) DoubleMLDID and DoubleMLDIDCS",
+      "reference_versions": {
+        "doubleml": "0.11.3",
+        "scikit-learn": "1.6.1"
+      },
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_dml_did_doubleml_parity.py",
+        "tests/reference_parity/_fixtures/dml_did_doubleml.json"
+      ],
+      "tolerance": "estimate and standard error 1e-8 on a shared fold column, linear and unpenalised-logit learners; two layouts x two scores x with and without in-sample normalisation"
     },
     {
       "also_verified_by": [
@@ -7915,6 +7959,33 @@
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "full_match",
+      "notes": [
+        "Frozen-R fixture. StatsPAI solves the matching exactly as a minimum-cost edge cover; optmatch rounds distances to a tolerance. Optimality is also checked by enumerating every edge cover of 40 small problems."
+      ],
+      "reference": "MatchIt::matchit(method = 'full') 4.7.2, optmatch 0.10.8; lm + sandwich::vcovCL",
+      "reference_versions": {
+        "MatchIt": "4.7.2",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "optmatch": "0.10.8",
+        "sandwich": "3.1.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py",
+        "tests/reference_parity/_fixtures/yuksel_aydede_causal_ml_R.json"
+      ],
+      "tolerance": "Total matched distance <= optmatch's, and equal to it to 1e-7 at optmatch tol = 1e-9. Given optmatch's matched sets: ATT, ATE and matched-set-clustered standard error 1e-9. The estimate from StatsPAI's own sets is not pinned (5% screen): the optimum is nearly flat and the sets are not unique."
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_functional_form_extended_parity.py",
         "tests/reference_parity/test_functional_form_parity.py"
@@ -8756,6 +8827,12 @@
       "tolerance": "sandwich at GRAPPLE's estimates 1e-6 (l2 1e-12); fitted beta 1e-3, tau2 / SE 1e-4"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "evidence_grade": "T2",
       "function": "gsynth",
       "headline": {
@@ -10079,7 +10156,8 @@
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_validation_entry_points.py",
-        "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py"
+        "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -11338,7 +11416,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_ding_first_course_parity.py",
-        "tests/reference_parity/test_lm_lin_estimatr_parity.py"
+        "tests/reference_parity/test_lm_lin_estimatr_parity.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -12264,7 +12343,8 @@
         "tests/reference_parity/test_psmatch2_parity.py",
         "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
         "tests/reference_parity/test_teffects_probit_stata.py",
-        "tests/reference_parity/test_the_effect_stata_parity.py"
+        "tests/reference_parity/test_the_effect_stata_parity.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -12967,7 +13047,8 @@
         "tests/external_parity/test_causalml_book.py",
         "tests/reference_parity/test_closed_form_identities.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
-        "tests/reference_parity/test_oct2026_fourth_pass.py"
+        "tests/reference_parity/test_oct2026_fourth_pass.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -16691,7 +16772,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
-        "tests/reference_parity/test_closed_form_identities.py"
+        "tests/reference_parity/test_closed_form_identities.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -18673,7 +18755,8 @@
         "tests/reference_parity/test_thornton_ri_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
-        "tests/reference_parity/test_vuong_pscl_parity.py"
+        "tests/reference_parity/test_vuong_pscl_parity.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_in_modules": [
         "14_ols_cluster",
@@ -20503,6 +20586,12 @@
       "tolerance": "1e-9 rel on beta and the AKM / AKM0 / EHW / Homoscedastic SEs; observed <= 6e-14"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "shrinkage",
       "notes": [
         "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
@@ -21962,7 +22051,8 @@
         "tests/reference_parity/test_synth_parity.py",
         "tests/reference_parity/test_synth_regression_v_stata.py",
         "tests/reference_parity/test_texas_synth_parity.py",
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/reference_parity/test_textbook_methods_stata_parity.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_in_modules": [
         "07_scm"
@@ -23040,7 +23130,8 @@
       "additional_tests": [
         "tests/reference_parity/test_difference_in_means_estimatr.py",
         "tests/reference_parity/test_dynamic_modelling_parity.py",
-        "tests/reference_parity/test_ttest_known_values.py"
+        "tests/reference_parity/test_ttest_known_values.py",
+        "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"

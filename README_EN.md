@@ -107,7 +107,7 @@ to a published design (`source == "simulated"`), including the
 Callaway–Sant'Anna `mpdta` panel used below; their numbers are not the numbers
 from the original data.
 
-At a glance: 1,548 registered functions across 90 submodules; 627k LOC (core) + 395k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
+At a glance: 1,551 registered functions across 90 submodules; 627k LOC (core) + 395k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
 
 ---
 
@@ -578,7 +578,7 @@ The images are the `.xlsx` files written by `tbl.to_excel()`, rendered with
 LibreOffice: the Card (1995) table above, and a LaLonde/NSW table regressing
 1978 earnings on NSW treatment with a PSID comparison group. The LaLonde table
 is also a warning about observational comparisons: the treatment coefficient
-moves from `-635` to `+1,548` once pre-treatment earnings and demographics are
+moves from `-635` to `+1,551` once pre-treatment earnings and demographics are
 controlled for. See the
 [export guide](docs/guides/exporting-regression-tables.md) for journal
 templates, standard-error formats, and single-model exports.

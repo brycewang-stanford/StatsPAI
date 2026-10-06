@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 430 |
-| | aligned | 52 |
-| | **subtotal** | **482** |
-| **No external software reference** | analytical-only (T1) | 387 |
+| **Compared against R/Stata** (T2) | bit-exact | 431 |
+| | aligned | 53 |
+| | **subtotal** | **484** |
+| **No external software reference** | analytical-only (T1) | 388 |
 | | external-replication (published numbers) | 62 |
-| | **subtotal** | **449** |
+| | **subtotal** | **450** |
 | No numerical evidence yet | unverified | 617 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 482 | 915 | 931 | 51.8% |
+| estimator callables | 484 | 917 | 933 | 51.9% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 397 | 0.0% |
-| **all registered** | 482 | 931 | 1548 | 31.1% |
+| result / exception classes | 0 | 4 | 398 | 0.0% |
+| **all registered** | 484 | 934 | 1551 | 31.2% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 151 | 338 | 341 |
+| causal | 153 | 340 | 343 |
 | regression | 44 | 57 | 58 |
 | timeseries | 24 | 51 | 53 |
 | inference | 28 | 49 | 49 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 430 functions
+## bit-exact — 431 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -181,6 +181,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `distributional_did` | didFF::distDD 0.1.0 (Roth & Sant'Anna) | R 4.5.2; didFF 0.1.0; did 2.5.1 | per-bin effect & SE 1e-9 (observed est 2.6e-12 abs, SE 2.5e-10 rel) | — / — | [`test_did_synth_didvar_parity.py`](../tests/reference_parity/test_did_synth_didvar_parity.py) (+3) |
 | `dlm` | dlm::dlmFilter, dlmSmooth, dlmLL, dlmMLE | R 4.5.2; dlm 1.1.6.1 | filtered and smoothed means, filtered variances, one-step forecasts and the log likelihood 1e-9 rel at fixed variances; smoothed variances 1e-5 under the diffuse prior; maximum-likelihood variances 1e-5 with a likelihood at least as high | — / — | [`test_dlm_parity.py`](../tests/reference_parity/test_dlm_parity.py) (+1) |
 | `dml` | DoubleML::DoubleMLPLR | R 4.5.2; DoubleML 1.0.2 | rel_est<=1e-10, rel_se<=1e-10 | 0 / 3.7e-15 | [`08_dml.py`](../tests/r_parity/08_dml.py) (+2) |
+| `dml_did` | doubleml (Python) DoubleMLDID and DoubleMLDIDCS | doubleml 0.11.3; scikit-learn 1.6.1 | estimate and standard error 1e-8 on a shared fold column, linear and unpenalised-logit learners; two layouts x two scores x with and without in-sample normalisation | — / — | [`test_dml_did_doubleml_parity.py`](../tests/reference_parity/test_dml_did_doubleml_parity.py) (+1) |
 | `dml_panel` | fixest::demean 0.14.0 (unit and unit+time absorption, balanced and unbalanced) and ddml::ddml_plm 0.3.1 (OLS learner, unit clusters, shared folds) | R 4.5.2; fixest 0.14.0; ddml 0.3.1; sandwich 3.1.1; doubleml 0.11.3; scikit-learn 1.6.1 | within transform 1e-10 abs (observed 2.6e-14); estimate 1e-10 rel vs ddml and DoubleML (observed 4.1e-16); SE 1e-10 rel vs DoubleML (observed 1.4e-15) and vs ddml after the CR1 factor | — / — | [`test_ml_causal_dml_parity.py`](../tests/reference_parity/test_ml_causal_dml_parity.py) (+2) |
 | `dml_sensitivity` | doubleml (Python) DoubleML.sensitivity_analysis | — | bias_bound and adjusted theta bounds 1e-12 (observed 2.5e-15); RV 1e-6 (observed 9.2e-8); RVa is a documented convention gap (<5e-3, observed 1.4e-3) because StatsPAI exhausts |theta|-z*se with the unadjusted SE while doubleml lets the SE move with the confounding scenario | — / — | [`test_dml_sensitivity_parity.py`](../tests/external_parity/test_dml_sensitivity_parity.py) |
 | `dose_response` | Stata doseresponse / gpscore (Hirano-Imbens normal GPS, quadratic T and GPS with interaction) | Stata 18; doseresponse SSC | 1e-9 rel on the dose-response function at 5 doses (observed 5.1e-10) | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
@@ -534,7 +535,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=0.0001 | 1.2e-07 / 2.8e-08 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 | `zivot_andrews` | urca::ur.za | R 4.5.2; urca 1.3.4 | minimum t statistic, the path over break dates and the regression at the break 1e-7 rel; break date equal | — / — | [`test_zivot_andrews_parity.py`](../tests/reference_parity/test_zivot_andrews_parity.py) (+1) |
 
-## aligned — 52 functions
+## aligned — 53 functions
 
 Agreement within a documented, pre-registered looser tolerance.
 
@@ -557,6 +558,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `cox_frailty` | R survival::coxph(... + frailty(id, theta=, sparse=FALSE)); Stata stcox, shared() | R 4.5.2; survival 3.8.3; Stata 18 MP | fixed theta: beta and SE 1e-9, integrated log likelihood 1e-10 (observed 4e-14); theta maximiser 1e-6 vs R optimize (observed 5e-8) and 5e-5 vs Stata e(theta) (observed 7.5e-6) | — / — | [`test_survival_epi_R_parity.py`](../tests/reference_parity/test_survival_epi_R_parity.py) (+2) |
 | `demeaned_synth` | augsynth::augsynth(progfunc = 'None', fixedeff = TRUE) 0.2.0 (de-meaned SCM) | R 4.5.2; augsynth 0.2.0; osqp 1.0.0 | gap path and ATT 1e-7 rel (observed 1.2e-9); weights 1e-8 abs | — / — | [`test_did_synth_synthvar_parity.py`](../tests/reference_parity/test_did_synth_synthvar_parity.py) (+1) |
 | `dml_model_averaging` | ddml::ddml_plm 0.3.1 (shortstack = TRUE, ensemble_type = 'nnls1'), OLS candidates, shared folds | R 4.5.2; ddml 0.3.1; sandwich 3.1.1 | short-stacking weights 1e-10 (observed 4.4e-14); ddml's final lm(y_r ~ d_r) with intercept and HC1 SE rebuilt from StatsPAI's stacked residuals at 1e-10 (observed 4.8e-16) | — / — | [`test_ml_causal_dml_parity.py`](../tests/reference_parity/test_ml_causal_dml_parity.py) (+2) |
+| `full_match` | MatchIt::matchit(method = 'full') 4.7.2, optmatch 0.10.8; lm + sandwich::vcovCL | R 4.5.2; MatchIt 4.7.2; optmatch 0.10.8; sandwich 3.1.1 | Total matched distance <= optmatch's, and equal to it to 1e-7 at optmatch tol = 1e-9. Given optmatch's matched sets: ATT, ATE and matched-set-clustered standard error 1e-9. The estimate from StatsPAI's own sets is not pinned (5% screen): the optimum is nearly flat and the sets are not unique. | — / — | [`test_yuksel_aydede_causal_ml_parity.py`](../tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py) (+1) |
 | `functional_form_test` | didFF::didFF | R 4.5.2; didFF 0.1.0 | rel_est<=0.001 | 1.3e-14 / — | [`79_didff.py`](../tests/r_parity/79_didff.py) (+1) |
 | `garch` | Stata 18 arch; rugarch::ugarchfit 1.5.6 | R 4.5.2; rugarch 1.5.6; Stata 18 | log-likelihood at the reference optimum 1e-12 (observed 8.5e-16); vs Stata: b 1e-5, SE 2e-5 (observed 8.2e-6 / 1e-5); vs rugarch: params 5e-4, SE at their parameters 1e-2 | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
 | `genmatch` | Matching::Match 4.10-15 (Weight = 3, Weight.matrix) | — | Deterministic kernel only: given the same diagonal W, the 1-NN assignment agrees with Matching::Match on all 163 uniquely matched treated units on MatchIt::lalonde. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
@@ -662,7 +664,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 387 functions
+## analytical-only — 388 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -670,6 +672,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | --- | --- |
 | `BartikIV` | [`test_akm_collinear_shares_R_parity.py`](../tests/reference_parity/test_akm_collinear_shares_R_parity.py) |
 | `DoubleML` | [`test_dml_cluster_doubleml_parity.py`](../tests/reference_parity/test_dml_cluster_doubleml_parity.py) |
+| `RlassoRegressor` | [`test_yuksel_aydede_causal_ml_parity.py`](../tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py) |
 | `W` | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `a_learning` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `abc` | [`test_bayes_nonparametric_exact.py`](../tests/reference_parity/test_bayes_nonparametric_exact.py) |

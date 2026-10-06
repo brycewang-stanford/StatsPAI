@@ -1944,6 +1944,10 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "fold_indices": {
+          "description": "Explicit cross-fitting folds: one label per row (array or column name), or scikit-learn style splits, a list of (train, test) positional index pairs whose test sets partition the rows and whose training sets are their complements. Requires n_rep=1. With a shared partition the estimate is reproducible across implementations.",
+          "type": "string"
+        },
         "instrument": {
           "description": "Instrument (required for pliv/iivm)",
           "type": "string",
@@ -3546,6 +3550,10 @@
     "name": "metalearner",
     "parameters": {
       "properties": {
+        "cate_model": {
+          "description": "Final-stage CATE learner (x, r, dr). For learner='x' a pair (fit_on_controls, fit_on_treated) sets the two second-stage regressions separately.",
+          "type": "string"
+        },
         "cluster": {
           "description": "Cluster column: folds over whole clusters; SE from centred cluster sums of the influence function with G/(G-1).",
           "type": "string",
@@ -3581,6 +3589,10 @@
             "r",
             "dr"
           ],
+          "type": "string"
+        },
+        "outcome_model": {
+          "description": "Outcome learner. For learner='t' or 'x' a pair (control_model, treated_model) fits a different learner in each arm.",
           "type": "string"
         },
         "treat": {
@@ -3676,7 +3688,7 @@
         },
         "method": {
           "default": "nearest",
-          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch).",
+          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant. 'nnmatch' is Abadie-Imbens covariate matching with ties kept, bias adjustment and the Abadie-Imbens (2006) variance (Stata teffects nnmatch). 'optimal' is optimal pair matching; 'full' is optimal full matching, which uses every unit (MatchIt method='full').",
           "enum": [
             "nearest",
             "psm",
@@ -3688,6 +3700,7 @@
             "stratify",
             "cem",
             "optimal",
+            "full",
             "genmatch",
             "cardinality",
             "ebalance",
@@ -27530,6 +27543,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "trim": {
+          "default": 0.01,
+          "description": "Fitted propensity scores are clipped to [trim, 1 - trim] (rows are kept). trim=0 applies no clipping and gives the textbook AIPW formula. The number clipped is in model_info['n_propensity_clipped'] and a warning is issued when it is positive.",
+          "type": "number"
+        },
         "weights": {
           "description": "Sampling-weight column (Stata [pw=]): weighted logit and outcome fits, weighted mean of the AIPW scores, weighted robust SEs.",
           "type": "string",
@@ -34095,7 +34113,7 @@
           "type": "string"
         },
         "covariates": {
-          "description": "Additional time-varying covariates.",
+          "description": "Time-varying covariates. Their coefficients are estimated within the interactive fixed effects model of the never-treated units (Xu 2017; Bai 2009), so they are net of unit effects, period effects and the factors. .. versionchanged:: 1.39.0 WARNING The coefficients used to come from a pooled regression of the outcome on the covariates alone, without an intercept or fixed effects. Covariates that are correlated with the unit effects or the loadings then biased the counterfactual. Calls with ``covariates`` now use the estimator described here, which reproduces R ``gsynth`` to 1e-12, and their inference is the bootstrap of ``inference``.",
           "items": {
             "type": "string"
           },
@@ -34112,13 +34130,33 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "inference": {
+          "default": "auto",
+          "description": "For the multi-unit / covariate estimator. ``'parametric'`` is the bootstrap of Xu (2017, Algorithm 2): prediction errors for treated units are simulated by treating each never-treated unit as treated in turn. It assumes homoskedastic errors across units and is the one to use with few treated units. ``'nonparametric'`` resamples units and needs many treated units. ``'auto'`` takes the first with fewer than 40 treated units.",
+          "enum": [
+            "auto",
+            "parametric",
+            "nonparametric"
+          ],
+          "type": "string"
+        },
         "max_factors": {
           "default": 5,
           "description": "Maximum factors to try during CV.",
           "type": "integer"
         },
+        "min_T0": {
+          "default": 5,
+          "description": "Treated units with fewer pre-treatment periods are dropped, with a warning.",
+          "type": "integer"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Bootstrap replications.",
+          "type": "integer"
+        },
         "n_factors": {
-          "description": "Number of latent factors. If None, selected by cross-validation.",
+          "description": "Number of latent factors. If None, selected by cross-validation. With ``treat``, a list of treated units or ``covariates`` the criterion is the leave-one-period-out prediction error of the treated units before treatment (Xu 2017).",
           "type": "integer"
         },
         "outcome": {
@@ -34144,9 +34182,17 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "treat": {
+          "description": "0/1 treatment indicator column, one in treated unit-periods and absorbing. Replaces ``treated_unit`` / ``treatment_time`` and allows several treated units and staggered adoption. The panel must be balanced.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "treated_unit": {
-          "description": "Identifier of the treated unit.",
-          "type": "string"
+          "description": "Identifier of the treated unit, or a list of identifiers that share ``treatment_time``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "treatment_time": {
           "description": "First treatment period (inclusive).",
@@ -34166,9 +34212,7 @@
         "data",
         "outcome",
         "unit",
-        "time",
-        "treated_unit",
-        "treatment_time"
+        "time"
       ],
       "type": "object"
     }
@@ -35707,6 +35751,105 @@
     }
   },
   {
+    "description": "Double machine learning difference-in-differences (two periods). Validation: certified parity evidence.",
+    "name": "dml_did",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Pre-treatment covariates. On a long panel the first-period values are used.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "fold_indices": {
+          "description": "One fold label per analysis row (per unit on a panel), or a column name. Requires ``n_rep=1``.",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unit identifier. With ``time`` and ``id`` the data are a two-period panel in long form and the outcome is differenced within unit. With ``time`` alone the rows are repeated cross-sections.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "in_sample_normalization": {
+          "default": true,
+          "description": "Normalise the weights to average one in the sample (Hajek-type, the ``DoubleML`` default). ``False`` gives the score of Chang (2020): ``(D - m(X)) / (p (1 - m(X))) * (dY - g0(X))``.",
+          "type": "boolean"
+        },
+        "ml_g": {
+          "description": "Regressor for the outcome nuisance: ``E[dY | X, D=0]`` on a panel, ``E[Y | X, D=d, T=t]`` in each of the four cells for repeated cross-sections. A scikit-learn estimator or an alias of :func:`statspai.dml` (``'lasso'``, ``'rf'``, ``'linear'`` ...).",
+          "type": "string"
+        },
+        "ml_m": {
+          "description": "Classifier for the propensity score ``P(D=1 | X)``. Not used with ``score='experimental'``.",
+          "type": "string"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "Number of cross-fitting or cross-validation folds.",
+          "type": "integer"
+        },
+        "n_rep": {
+          "default": 1,
+          "description": "Repetitions of the sample split; estimates are aggregated by the median, and the variance adds the spread across splits.",
+          "type": "integer"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "score": {
+          "default": "observational",
+          "description": "``'observational'`` is the doubly robust score for conditional parallel trends. ``'experimental'`` assumes treatment is independent of the covariates (a randomised design), uses no propensity score, and uses the covariates only to reduce variance.",
+          "enum": [
+            "observational",
+            "experimental"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Period column with two values; the larger is the post-period. Omit it when ``y`` is already the outcome change.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "0/1 indicator of the treated group. On a long panel it may equal 1 only in the post-period rows of treated units; a unit is treated if it is ever 1.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trimming_threshold": {
+          "default": 0.01,
+          "description": "Propensity scores are clipped to ``[c, 1 - c]``. The number clipped is reported and a warning is issued when it is positive.",
+          "type": "number"
+        },
+        "y": {
+          "description": "Outcome. With ``time=None`` this is the **change** in the outcome between the two periods, one row per unit. Otherwise it is the outcome level.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Estimate causal effects using Deep Instrumental Variables. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "deepiv",
     "parameters": {
@@ -36178,6 +36321,10 @@
         "forest": {
           "description": "forest parameter ('CausalForest').",
           "type": "string"
+        },
+        "subset": {
+          "description": "Average over some of the training rows only, as ``grf::average_treatment_effect(subset=)`` does. The forest, its out-of-bag predictions and its nuisances stay those of the full fit; the target is the effect among the selected rows. Choose the rows from covariates. A subset built from the forest's own predictions on these rows (``oob > median``) describes the fit but its standard error does not account for the selection; see :func:`statspai.rate_split` for a test of that kind. GRF-engine forests without fixed effects only; for fixed-effects forests use :func:`statspai.forest_group_effects`.",
+          "type": "boolean"
         },
         "target_sample": {
           "default": "all",
@@ -60258,6 +60405,99 @@
     }
   },
   {
+    "description": "Optimal full matching. Validation: certified parity evidence.",
+    "name": "full_match",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "caliper": {
+          "description": "Largest permitted distance. A unit with no partner inside the caliper is left unmatched and the estimand then refers to the matched units.",
+          "type": "number"
+        },
+        "caliper_scale": {
+          "default": "sd",
+          "description": "``'sd'`` reads ``caliper`` in standard deviations of the score (score distances only), ``'raw'`` in the units of the distance.",
+          "enum": [
+            "sd",
+            "raw"
+          ],
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Variables to match on, and the variables of the balance table.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "distance": {
+          "default": "propensity",
+          "description": "``'propensity'``: absolute difference of the fitted propensity score (``MatchIt``'s default, ``distance = \"glm\"``). ``'logit'``: difference on the linear-predictor scale. ``'mahalanobis'`` uses the pooled within-group covariance, as ``MatchIt`` does.",
+          "enum": [
+            "propensity",
+            "logit",
+            "mahalanobis",
+            "euclidean"
+          ],
+          "type": "string"
+        },
+        "estimand": {
+          "default": "ATT",
+          "description": "Sets the matching weights; the matched sets are the same.",
+          "enum": [
+            "ATT",
+            "ATC",
+            "ATE"
+          ],
+          "type": "string"
+        },
+        "ps_model": {
+          "default": "logit",
+          "description": "ps_model parameter (str).",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
+        },
+        "pscore": {
+          "description": "Column holding a score computed elsewhere (a boosted or forest propensity score, say). Matching is on the absolute difference of this column and ``covariates`` are used for the balance table only.",
+          "type": "string"
+        },
+        "treat": {
+          "description": "0/1 treatment indicator.",
+          "type": "string",
+          "x-aliases": [
+            "treatment"
+          ],
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome. Without it only the matching (sets, weights, balance) is returned.",
+          "type": "string",
+          "x-aliases": [
+            "outcome"
+          ],
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Deville-Sarndal (1992) linear calibration. Validation: certified parity evidence.",
     "name": "linear_calibration",
     "parameters": {
@@ -61040,7 +61280,7 @@
         },
         "method": {
           "default": "nn",
-          "description": "Estimator family: - **Classical:** ``'nearest'`` (default), ``'stratify'``, ``'cem'``, ``'psm'``, ``'mahalanobis'``. - **Covariate matching:** ``'nnmatch'`` -- Abadie-Imbens nearest-neighbour matching on covariates with all ties kept, the Abadie-Imbens (2006) variance and optional bias adjustment; reproduces Stata ``teffects nnmatch`` (point estimates and standard errors to 1e-13 on the NSW-CPS sample). Keywords: ``estimand``, ``n_matches``, ``metric``, ``exact``, ``caliper``, ``bias_adjust``, ``vce``, ``vce_nn``. - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``, ``'overlap'``. - **Genetic:** ``'genmatch'``. - **Optimization:** ``'optimal'``, ``'cardinality'``.",
+          "description": "Estimator family: - **Classical:** ``'nearest'`` (default), ``'stratify'``, ``'cem'``, ``'psm'``, ``'mahalanobis'``. - **Covariate matching:** ``'nnmatch'`` -- Abadie-Imbens nearest-neighbour matching on covariates with all ties kept, the Abadie-Imbens (2006) variance and optional bias adjustment; reproduces Stata ``teffects nnmatch`` (point estimates and standard errors to 1e-13 on the NSW-CPS sample). Keywords: ``estimand``, ``n_matches``, ``metric``, ``exact``, ``caliper``, ``bias_adjust``, ``vce``, ``vce_nn``. - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``, ``'overlap'``. - **Genetic:** ``'genmatch'``. - **Optimization:** ``'optimal'`` (pairs), ``'full'`` (optimal full matching: every unit is used, in sets of one treated and several comparison units or the reverse), ``'cardinality'``.",
           "type": "string"
         },
         "weights": {

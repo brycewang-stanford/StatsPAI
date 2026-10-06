@@ -73,7 +73,7 @@ print(sp.datasets.list_datasets()[["name", "design", "source"]])
 
 StatsPAI 内置 14 个可离线加载的数据集。大部分是真实的已发表数据（`source == "bundled CSV"`）：Card (1995) NLSYM 教育回报数据、带 PSID 对照组的 LaLonde/NSW、R `rdrobust` 附带的美国参议院 RD 数据、California Proposition 99、castle-doctrine 面板、NHEFS 等。少数是按已发表设计校准的**确定性模拟复刻**（`source == "simulated"`），包括下面用到的 Callaway–Sant'Anna `mpdta` 面板——它们的数字不是原始数据上的数字。
 
-一眼概览：1,548 个注册函数，分布在 90 个子模块；627k 行核心代码 + 395k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
+一眼概览：1,551 个注册函数，分布在 90 个子模块；627k 行核心代码 + 395k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
 
 ---
 
@@ -451,7 +451,7 @@ tbl.to_latex()                # LaTeX 源码；另有 .to_markdown()、.to_html(
   <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/assets/export-lalonde-xlsx.png" alt="sp.regtable 导出 — LaLonde/NSW 收入回归表" width="720">
 </p>
 
-两张图是 `tbl.to_excel()` 写出的 `.xlsx` 文件经 LibreOffice 渲染的结果：上面是 Card (1995) 表；下面是 LaLonde/NSW 表，用带 PSID 对照组的数据把 1978 年收入回归到 NSW 培训处理上。LaLonde 表同时也是对观测数据比较的一个提醒：控制干预前收入和人口特征后，处理系数从 `-635` 变成 `+1,548`。期刊模板、标准误格式和单模型导出见[导出指南](docs/guides/exporting-regression-tables.md)。
+两张图是 `tbl.to_excel()` 写出的 `.xlsx` 文件经 LibreOffice 渲染的结果：上面是 Card (1995) 表；下面是 LaLonde/NSW 表，用带 PSID 对照组的数据把 1978 年收入回归到 NSW 培训处理上。LaLonde 表同时也是对观测数据比较的一个提醒：控制干预前收入和人口特征后，处理系数从 `-635` 变成 `+1,551`。期刊模板、标准误格式和单模型导出见[导出指南](docs/guides/exporting-regression-tables.md)。
 
 ---
 
