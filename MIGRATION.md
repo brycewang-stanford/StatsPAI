@@ -5,6 +5,18 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.fci` returns the graph of the full algorithm
+
+**What changed.** `sp.fci` runs the Possible-D-SEP pass and all ten
+orientation rules. Graphs can lose edges the earlier version kept, and
+circle marks can become tails or arrowheads. The result equals
+`pcalg::fci`.
+
+**Who is affected.** Anyone who reported a PAG from `sp.fci`.
+
+**What to do.** Re-run. `sp.fci(..., possible_dsep=False)` keeps the
+earlier skeleton (it is RFCI's); the orientation still uses the ten rules.
+
 ## 1.38.0 → next: ⚠️ `sp.match` keeps every tied match by default
 
 **What changed.** `sp.match` (and `sp.psm`, `sp.MatchEstimator`) with

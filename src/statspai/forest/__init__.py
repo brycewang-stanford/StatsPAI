@@ -58,8 +58,10 @@ from .regression_forests import (
     regression_forest,
 )
 from .survival_forest import SurvivalForestResult, survival_forest
+from .tuning import tune_causal_forest
 
 __all__ = [
+    "tune_causal_forest",
     "CausalForest",
     "causal_forest",
     "calibrate_cate",

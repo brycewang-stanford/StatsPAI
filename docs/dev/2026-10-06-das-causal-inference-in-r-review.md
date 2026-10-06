@@ -217,31 +217,33 @@ they are on main.** What it leaves for that line:
    `tests/reference_parity/test_path_analysis_lavaan_parity.py`. Still
    open: latent variables (`=~`), mean structures, full-information ML for
    missing data, multiple groups, and the chapter's `growth()` call.
-2. **Mediation with a binary outcome.** `sp.mediate` fits a linear outcome
-   model. `mediation::mediate` and Stata 18 `mediate` accept a logit or
-   probit outcome. On the book's data the two answers are 4.9e-5 and
-   5.8e-5, both indistinguishable from zero, so nothing was learned about
-   size; the gap is in the interface.
-3. **Generalized additive models.** `mgcv::gam` (chapter 7) had no
-   counterpart when this pass began. `sp.gam` landed on main the same night
-   (`c41e6bfc`). On the chapter's wage data it selects the smoothing
-   parameter by REML and agrees with `mgcv::gam(method = "REML")`: training
-   coefficient -3797.4 against -3797.1, the same standard errors to five
-   digits, effective degrees of freedom 1.000 against 1.003 (the smooth
-   shrinks to a line). The book's call uses mgcv's default GCV, which keeps
-   3.69 degrees of freedom on the same data, so its printed output differs
-   by the selection criterion and not by the fit. The reported REML value
-   differs from mgcv's by a constant convention (1121.0 against 1035.5).
-4. **Discrete Bayesian networks.** `bnlearn::hc` with a multinomial BIC,
-   `bn.fit`, `cpquery`, `mmhc`, `si.hiton.pc` and bootstrap edge strength
-   (`boot.strength`) had none. The Ness pass adds `sp.bayes_net` (fitting
-   and exact queries on a given graph); structure learning for discrete
-   data and a bootstrap of edge frequencies remain open.
-5. **Causal discovery items** are in the section above.
-6. **Forest tuning.** `grf::causal_forest(tune.parameters = "all")` has no
-   counterpart.
-7. **Proportion mediated** is reported without an interval by
-   `sp.mediate(inference='bootstrap')`.
+2. **Mediation with a binary outcome.** Closed 2026-10-06:
+   `sp.mediate(inference='robust', outcome_model='logit')`, with
+   `treat_values=(0, 1)` for the book's count treatment. On the book's data
+   the indirect effect is 4.8e-5 (SE 1.8e-4) against 5.8e-5 from R's
+   simulation-based `mediate`, both zero to any precision that matters.
+   The reference is Stata 18 `mediate`, matched on ten model pairs.
+3. **Generalized additive models.** `sp.gam` landed on main the same night
+   from another line (`c41e6bfc`). On the chapter's wage data it selects
+   the smoothing parameter by REML and agrees with
+   `mgcv::gam(method = "REML")`; the book's call uses mgcv's default GCV.
+4. **Discrete Bayesian networks.** Closed 2026-10-06: `sp.hill_climb`
+   (categorical and continuous data, bnlearn's BIC to 1e-12) and
+   `sp.bootstrap_edges` (`boot.strength`). On the chapter's factor data the
+   three arcs and the score (-28729.85) are bnlearn's. `mmhc` and
+   `si.hiton.pc` have no counterpart; `sp.bayes_net` fits and queries a
+   given graph.
+5. **`sp.fci`.** Closed 2026-10-06: Possible-D-SEP and rules R1 to R10,
+   equal to `pcalg::fci` on 36 data sets.
+6. **Forest tuning.** Closed 2026-10-06: `sp.tune_causal_forest`. Not a
+   parity item: grf smooths the trial losses, this takes the best trial
+   with a noise margin. Its measured effect is in the docstring.
+7. **Proportion mediated** now has a percentile interval in the bootstrap
+   path.
+
+Still open after this: latent variables and mean structures in
+`sp.path_analysis`, and the hybrid and local discovery algorithms of
+bnlearn.
 
 ## Mistakes in the book's code
 

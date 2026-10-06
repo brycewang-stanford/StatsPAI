@@ -168,7 +168,11 @@ from statspai import SLearner, TLearner, XLearner, RLearner, DRLearner
 | `bounds::bounds(...)` (manual)         | `sp.manski_bounds(...)`, `sp.lee_bounds(...)`       |
 | `EValue::evalues.OR(...)`              | `sp.evalue(...)`                                    |
 | `pcalg::pc(suffStat, ...)`             | `sp.pc_algorithm(data)`                             |
-| `pcalg::fci(...)`                      | `sp.fci(data)`                                      |
+| `pcalg::fci(...)`                      | `sp.fci(data)` (the same PAG); `possible_dsep=False` for `rfci`'s skeleton |
+| `bnlearn::hc(data)`                    | `sp.hill_climb(df)`; `data_type="discrete"` for factors |
+| `bnlearn::boot.strength(data, R = 200, algorithm = "hc")` | `sp.bootstrap_edges(df, "hill_climb", n_boot=200)` |
+| `mediation::mediate(med, out_logit, ...)` | `sp.mediate(df, y=, treat=, mediator=, inference="robust", outcome_model="logit")` |
+| `grf::causal_forest(tune.parameters = "all")` | `sp.tune_causal_forest(Y=, T=, X=)` (same criterion, different search) |
 | — (NOTEARS: Python only historically)  | `sp.notears(data)`                                  |
 | `policytree::policy_tree(...)`         | `sp.policy_tree(...)`                               |
 | —                                      | `sp.conformal_cate(...)` — conformal CATE           |

@@ -4,6 +4,57 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### The rest of the Das list: mediation, FCI, hill climbing, forest tuning
+
+#### ⚠️ Correctness
+
+- **`sp.fci` now runs the whole algorithm.** It stopped after the PC
+  skeleton and four orientation rules. With latent common causes that is
+  not enough: an edge can survive that no subset of either node's
+  neighbours separates but a subset of Possible-D-SEP does, and the
+  remaining rules orient marks the first four leave as circles. The
+  Possible-D-SEP pass and Zhang's rules R1 to R10 are in. On 36 data sets
+  (24 without latent variables, 12 with two or three hidden common
+  causes) the PAG equals `pcalg::fci` mark for mark; before, the skeleton
+  differed in 14 of the first 24, each time by edges that should have been
+  removed. `possible_dsep=False` gives the earlier skeleton, which is
+  RFCI's. `FCIResult.n_removed_by_possible_dsep` counts what the pass
+  removed. `sp.causal_discovery(method='fci')` is accepted.
+
+#### Added
+
+- **`sp.mediate(inference='robust', outcome_model='logit' | 'probit' |
+  'poisson')`**: natural direct and indirect effects on the scale of the
+  outcome's mean when the outcome model is not linear. A binary mediator
+  is integrated out by its two-point distribution, a continuous one by a
+  normal distribution around its regression line. Effects, proportion
+  mediated and standard errors equal Stata 18's `mediate` to 1e-8 on ten
+  model pairs (probit, logit and Poisson outcomes; linear, logit and
+  probit mediators; with and without the interaction). A logit outcome
+  with a linear mediator, which Stata refuses, is computed by
+  Gauss-Hermite quadrature and checked against direct integration.
+  `treat_values=(a, b)` contrasts two levels of a treatment that is not
+  0/1 (Stata's `continuous()`).
+- `sp.mediate` with `inference='bootstrap'` reports a percentile interval
+  for the proportion mediated.
+- **`sp.hill_climb`**: score-based structure learning by greedy search on
+  the BIC, for categorical and for continuous data (`bnlearn::hc`). The
+  score of a graph equals bnlearn's to 1e-12. The search breaks ties
+  between equally good moves deterministically and walks out of
+  equivalence-class plateaus, so a collider is recovered whatever the
+  column order; on five comparison data sets its final score is bnlearn's
+  on four and higher on one.
+- **`sp.bootstrap_edges`**: refit a structure-learning algorithm on
+  bootstrap resamples and report how often each edge, and each direction,
+  comes back (`bnlearn::boot.strength`). Works with `pc`, `hill_climb`,
+  `ges`, `fci`, `lingam`, `notears` or a callable.
+- **`sp.tune_causal_forest`**: random search over the forest's settings on
+  the out-of-bag R-loss, the criterion of grf's `tune.parameters`. A tuned
+  setting replaces the defaults only if it beats them by more than twice
+  the noise of the comparison. Measured on four designs: the error of the
+  effects falls by a third when the effect is constant, does not move for
+  a step or a fast-varying effect, and rises 7% for a linear one. It is
+  documented as what it is.
 ### `sp.gam`: surfaces, random intercepts, thin plate splines, a test for each term
 
 - `te(x, z, k=)` fits a surface as the tensor product of two P-spline

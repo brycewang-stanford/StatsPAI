@@ -638,9 +638,11 @@ from .causal_discovery import (
     LPCMCIResult,
     PCAlgorithm,
     PCMCIResult,
+    bootstrap_edges,
     dynotears,
     fci,
     ges,
+    hill_climb,
     icp,
     lingam,
     lpcmci,
@@ -1513,6 +1515,7 @@ __all__ = [
     "honest_variance",
     "average_treatment_effect",
     "forest_diagnostics",
+    "tune_causal_forest",
     # HDFE primitives
     "Absorber",
     "SlopeSpec",
@@ -1838,6 +1841,8 @@ __all__ = [
     "NOTEARS",
     "pc_algorithm",
     "PCAlgorithm",
+    "hill_climb",
+    "bootstrap_edges",
     # TMLE
     "tmle",
     "TMLE",
@@ -3275,6 +3280,7 @@ _register_lazy(
     "CausalForest",
     "causal_forest",
 )
+_register_lazy("forest.tuning", "tune_causal_forest")
 _register_lazy(
     "forest.forest_heterogeneity",
     "forest_group_effects",

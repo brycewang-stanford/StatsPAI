@@ -9619,6 +9619,144 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="hill_climb",
+            category="causal_discovery",
+            description=(
+                "Score-based structure learning: greedy hill climbing over "
+                "DAGs (add, delete or reverse one arc at a time) on the BIC, "
+                "for categorical data (multinomial BIC) or continuous data "
+                "(linear-Gaussian BIC). R bnlearn::hc; the score equals "
+                "bnlearn's. Returns the DAG, its equivalence class (CPDAG) "
+                "and the score. Assumes no hidden common causes. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec("variables", "list", False, None, "Columns to use"),
+                ParamSpec(
+                    "data_type",
+                    "str",
+                    False,
+                    "auto",
+                    "Treat columns as categorical or continuous; 'auto' "
+                    "refuses a mixture",
+                    ["auto", "discrete", "gaussian"],
+                ),
+                ParamSpec("max_parents", "int", False, None, "Cap on parents"),
+                ParamSpec(
+                    "forbidden", "list", False, None, "Arcs (from, to) not allowed"
+                ),
+                ParamSpec(
+                    "required", "list", False, None, "Arcs (from, to) that must be in"
+                ),
+                ParamSpec("restarts", "int", False, 0, "Random restarts"),
+                ParamSpec("perturb", "int", False, 3, "Arc changes per restart"),
+                ParamSpec("seed", "int", False, None, "Seed of the restarts"),
+                ParamSpec("max_iter", "int", False, 10000, "Iteration cap"),
+            ],
+            returns="dict (DAGDict)",
+            example='sp.hill_climb(df, data_type="discrete")',
+            tags=["causal discovery", "bayesian network", "bnlearn", "bic", "dag"],
+            assumptions=[
+                "Causal sufficiency: no unmeasured common cause of two "
+                "variables in the data",
+                "Faithfulness, and a correctly specified local model "
+                "(multinomial tables, or linear-Gaussian regressions)",
+                "The result is a local optimum of the score and one member of "
+                "its Markov equivalence class; read directions off the CPDAG",
+            ],
+            alternatives=["pc_algorithm", "ges", "fci", "bootstrap_edges", "bayes_net"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bootstrap_edges",
+            category="causal_discovery",
+            description=(
+                "Stability of a learned graph: refit a structure-learning "
+                "algorithm (pc, hill_climb, ges, fci, lingam, notears or a "
+                "callable) on bootstrap resamples and report, for each pair "
+                "of variables, the share of resamples in which they are "
+                "adjacent (strength) and the share in which the arc points "
+                "each way (direction). R bnlearn::boot.strength. "
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "pc",
+                    "Algorithm name, or a callable taking a DataFrame",
+                    ["pc", "hill_climb", "ges", "fci", "lingam", "notears"],
+                ),
+                ParamSpec("n_boot", "int", False, 200, "Bootstrap resamples"),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+                ParamSpec(
+                    "threshold", "float", False, 0.5, "Strength to call an edge stable"
+                ),
+            ],
+            returns="DataFrame",
+            example='sp.bootstrap_edges(df, "pc", n_boot=200, seed=1)',
+            tags=["causal discovery", "bootstrap", "stability", "bnlearn"],
+            assumptions=[
+                "Independent rows (the bootstrap resamples rows)",
+                "Stability under resampling is not validity: an edge the "
+                "algorithm's assumptions get wrong can be perfectly stable",
+            ],
+            alternatives=["pc_algorithm", "hill_climb", "fci"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="tune_causal_forest",
+            category="forest",
+            description=(
+                "Choose causal-forest settings (minimum leaf size, sample "
+                "fraction, mtry, honesty options) by random search on the "
+                "out-of-bag R-loss, then fit the forest. A tuned setting is "
+                "adopted only if it beats the defaults by more than twice the "
+                "noise of the comparison. The criterion of grf's "
+                "tune.parameters. Helps most when the effect varies little; "
+                "it is not a free improvement. "
+            ),
+            params=[
+                ParamSpec("formula", "str", False, None, "y ~ treat | covariates"),
+                ParamSpec("data", "DataFrame", False, None, "Data"),
+                ParamSpec("Y", "array", False, None, "Outcome"),
+                ParamSpec("T", "array", False, None, "Treatment"),
+                ParamSpec("X", "array", False, None, "Covariates"),
+                ParamSpec(
+                    "parameters",
+                    "list",
+                    False,
+                    ["min_samples_leaf", "max_samples", "mtry"],
+                    "Settings to tune",
+                ),
+                ParamSpec("n_draws", "int", False, 40, "Random settings tried"),
+                ParamSpec("tune_trees", "int", False, 200, "Trees per trial forest"),
+                ParamSpec("tune_reps", "int", False, 2, "Trial forests per setting"),
+                ParamSpec(
+                    "n_estimators", "int", False, 2000, "Trees in the final forest"
+                ),
+                ParamSpec("random_state", "int", False, None, "Seed"),
+            ],
+            returns="dict",
+            example="sp.tune_causal_forest(Y=y, T=w, X=X, n_draws=40, random_state=1)",
+            tags=["forest", "cate", "tuning", "grf", "heterogeneity"],
+            assumptions=[
+                "Those of the causal forest: unconfoundedness given X, overlap",
+                "The R-loss ranks settings by fit to the residualised outcome; "
+                "a lower loss is evidence for, not proof of, a better effect "
+                "estimate",
+            ],
+            alternatives=["causal_forest", "auto_cate_tuned", "forest_diagnostics"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="cor_test",
             category="inference",
             description=(
@@ -13095,6 +13233,24 @@ def _build_registry() -> None:
                     "linear",
                     "Mediator model (inference='robust').",
                     ["linear", "logit", "probit"],
+                ),
+                ParamSpec(
+                    "outcome_model",
+                    "str",
+                    False,
+                    "linear",
+                    "Outcome model (inference='robust'). Non-linear models "
+                    "give effects on the scale of the outcome's mean and "
+                    "integrate the mediator out; equal to Stata mediate.",
+                    ["linear", "logit", "probit", "poisson"],
+                ),
+                ParamSpec(
+                    "treat_values",
+                    "tuple",
+                    False,
+                    None,
+                    "(control, treated) levels to contrast when the treatment "
+                    "is not 0/1 (inference='robust').",
                 ),
             ],
             returns="MediationAnalysis with .NDE, .NIE, .total, .proportion_mediated",

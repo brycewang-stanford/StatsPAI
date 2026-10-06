@@ -7101,18 +7101,45 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "pcalg": "2.7.12",
         },
         "tolerance": "partial ancestral graphs compared for equality, every "
-        "edge with the mark at each end, on three designs",
+        "edge with the mark at each end, on 39 data sets",
         "sides": ["py", "R"],
         "test": [
+            "tests/reference_parity/test_fci_pcalg_parity.py",
+            "tests/reference_parity/_fixtures/fci_pcalg_R.json",
             "tests/reference_parity/test_ness_causal_ai_parity.py",
             "tests/reference_parity/_fixtures/ness_causal_ai_R.json",
         ],
         "note": (
-            "Frozen-R fixture: an eight-variable DAG, two variables with "
-            "three common causes, and a six-variable design with two "
-            "unobserved common causes whose graph has a bidirected edge. "
-            "Three designs do not exercise every orientation rule; the "
-            "discriminating-path rule in particular has no row."
+            "Frozen-R fixture: 24 small-sample data sets without latent "
+            "variables and 12 with two or three hidden common causes (72 "
+            "bidirected edges in the references; the Possible-D-SEP pass "
+            "removes 54 edges in all), plus the three designs of the Causal "
+            "AI pass. Skeleton after Possible-D-SEP and every mark after "
+            "Zhang's rules R1-R10 equal pcalg. The selection-bias rules "
+            "R5-R7 are implemented but no reference graph here has an "
+            "undirected edge, so they are exercised only by not firing."
+        ),
+    },
+    "hill_climb": {
+        "status": "bit-exact",
+        "reference": 'R bnlearn::score(type = "bic" / "bic-g") and hc()',
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "bnlearn": "5.2.1",
+        },
+        "tolerance": "BIC of eight fixed graphs 1e-12 rel; the score hc() "
+        "ends at 1e-10 rel on the two fixture data sets",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_hill_climb_bnlearn_parity.py",
+            "tests/reference_parity/_fixtures/hill_climb_bnlearn_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: the multinomial and the linear-Gaussian BIC "
+            "of four fixed graphs each equal bnlearn's. The search is "
+            "greedy and need not follow bnlearn's path; on the two fixture "
+            "data sets it ends at the same score and skeleton, and the test "
+            "also checks that the result is a local optimum."
         ),
     },
     "bayes_net": {

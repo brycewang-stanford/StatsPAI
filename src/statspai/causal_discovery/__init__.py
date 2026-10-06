@@ -25,16 +25,17 @@ from typing import Any, Callable
 
 import numpy as np
 
-from .notears import notears, NOTEARS
-from .pc import pc_algorithm, PCAlgorithm
-from .lingam import lingam, LiNGAMResult
-from .ges import ges, GESResult
-from .fci import fci, FCIResult
-from .icp import icp, nonlinear_icp, ICPResult
-from .pcmci import pcmci, PCMCIResult, partial_corr_pvalue
-from .lpcmci import lpcmci, LPCMCIResult
-from .dynotears import dynotears, DYNOTEARSResult
-from ._viz import to_networkx, to_dot, plot_dag, edge_list, shd
+from ._viz import edge_list, plot_dag, shd, to_dot, to_networkx
+from .dynotears import DYNOTEARSResult, dynotears
+from .fci import FCIResult, fci
+from .ges import GESResult, ges
+from .hill_climb import bootstrap_edges, hill_climb
+from .icp import ICPResult, icp, nonlinear_icp
+from .lingam import LiNGAMResult, lingam
+from .lpcmci import LPCMCIResult, lpcmci
+from .notears import NOTEARS, notears
+from .pc import PCAlgorithm, pc_algorithm
+from .pcmci import PCMCIResult, partial_corr_pvalue, pcmci
 
 _AdjPayload = tuple[Any, Any, bool]
 _AdjGetter = Callable[[Any], _AdjPayload]
@@ -138,6 +139,8 @@ for _cls in _ADJ_GETTERS:
 __all__ = [
     "notears",
     "NOTEARS",
+    "hill_climb",
+    "bootstrap_edges",
     "pc_algorithm",
     "PCAlgorithm",
     "lingam",

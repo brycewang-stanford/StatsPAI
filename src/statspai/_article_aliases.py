@@ -766,6 +766,8 @@ def causal_discovery(
     ``method='pc'``       → :func:`statspai.causal_discovery.pc_algorithm`
     ``method='ges'``      → :func:`statspai.causal_discovery.ges`
     ``method='lingam'``   → :func:`statspai.causal_discovery.lingam`
+    ``method='fci'``      → :func:`statspai.causal_discovery.fci` (latent
+    confounders allowed; returns a partial ancestral graph)
 
     The four backends have slightly different signatures — notably,
     ``ges`` and ``lingam`` do not accept a ``variables`` kwarg — so this
@@ -800,12 +802,12 @@ def causal_discovery(
     _cd = importlib.import_module("statspai.causal_discovery")
 
     method = _require_string_option(method, "method", "causal_discovery")
-    valid = {"notears", "pc", "ges", "lingam"}
+    valid = {"notears", "pc", "ges", "lingam", "fci"}
     if method not in valid:
         raise MethodIncompatibility(
             f"Unknown causal_discovery method {method!r}. "
             f"Expected one of: {sorted(valid)}.",
-            recovery_hint="Choose one of: notears, pc, ges, lingam.",
+            recovery_hint="Choose one of: notears, pc, fci, ges, lingam.",
             diagnostics={
                 "function": "causal_discovery",
                 "method": method,
@@ -825,6 +827,8 @@ def causal_discovery(
         return _cd.pc_algorithm(data=data, **kwargs)
     if method == "ges":
         return _cd.ges(data=data, **kwargs)
+    if method == "fci":
+        return _cd.fci(data, **kwargs)
     # method == "lingam"
     return _cd.lingam(data=data, **kwargs)
 
