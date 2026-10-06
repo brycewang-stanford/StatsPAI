@@ -2455,3 +2455,24 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after `sp.identify_counterfactual`
+
+- **Commits.** `c3f1f752` holds the re-recorded entries of the Track A
+  and original-data modules whose import path includes
+  `src/statspai/__init__.py`, in
+  `tests/r_parity/results/_implementation_trace.json` and
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `81821d0f`: two new exports in
+  `src/statspai/__init__.py`.
+- **Reason.** `sp.identify_counterfactual` (ID* and IDC*), the open item
+  of `docs/dev/2026-10-06-ness-causal-ai-review.md`. The new module is
+  `src/statspai/dag/counterfactual_id.py`, which no Track A module
+  exercises.
+- **Effect on the paper.** None. No committed result file changed. In both
+  trace files only `exercised_sources` digests and `seconds` differ; no
+  implementation classification moved. The registry gains two entries
+  (`identify_counterfactual`, `CounterfactualIdentification`).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
