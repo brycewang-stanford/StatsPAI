@@ -14618,7 +14618,8 @@
     {
       "additional_tests": [
         "tests/external_parity/test_ness_causal_ai.py",
-        "tests/reference_parity/test_causal_discovery_parity.py"
+        "tests/reference_parity/test_causal_discovery_parity.py",
+        "tests/reference_parity/test_pc_pcalg_parity.py"
       ],
       "also_verified_by": [
         "external_parity",

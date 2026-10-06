@@ -3709,11 +3709,11 @@
           "type": "number"
         },
         "ties": {
-          "default": "first",
-          "description": "How equidistant controls are handled under matching with replacement. 'first' keeps the lowest-index one; 'all' pools them and splits the weight (the Matching::Match convention, which removes the row-order dependence).",
+          "default": "all",
+          "description": "How equidistant controls are handled under matching with replacement. 'all' (default) pools them and splits the weight (Stata teffects, Matching::Match), so the estimate does not depend on row order; 'first' keeps the lowest-index one (psmatch2 without ties) and warns.",
           "enum": [
-            "first",
-            "all"
+            "all",
+            "first"
           ],
           "type": "string"
         },
@@ -37909,6 +37909,15 @@
             "fisherz",
             "chi-square",
             "g-test"
+          ],
+          "type": "string"
+        },
+        "collider_conflict": {
+          "default": "first",
+          "description": "Which collider decides when two of them claim one edge in opposite directions, which a finite sample can produce and a faithful distribution cannot. ``'first'`` keeps the orientation of the collider met first in column order. ``'last'`` lets a later collider overwrite an earlier one, which is what ``pcalg::pc`` does by default: with it the CPDAG equals pcalg's edge for edge on the 24 small-sample reference cases of ``tests/reference_parity/test_pc_pcalg_parity.py``, 14 of which have such clashes. Neither choice is more right; the clashes are listed in ``orientation_conflicts`` under both, and a graph with any is one the sample contradicts itself about. Without clashes the two give the same graph.",
+          "enum": [
+            "first",
+            "last"
           ],
           "type": "string"
         },
