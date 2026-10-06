@@ -7265,11 +7265,11 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         ],
         "note": (
             "Graded as known-truth recovery, not cross-package parity: on "
-            "1,117 random queries cfid and this implementation agree on "
-            "1,025, and the disagreements examined are errors in cfid (it "
-            "returns 0 for the probability of necessity). Soundness is "
-            "established by the enumeration check; completeness is not "
-            "established."
+            "1,118 random queries this implementation agrees with cfid "
+            "0.1.8 on 1,025 and with its development version 0.1.9 on "
+            "1,063. The 55 that remain against 0.1.9 are not arbitrated. "
+            "Soundness is established by the enumeration check; "
+            "completeness is not established."
         ),
     },
     "identify": {

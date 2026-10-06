@@ -317,19 +317,26 @@ Evidence.
   `P(y_x | x', z_d, d)` comes out as
   `sum_w P_{z,w}(y, x') P_x(w) / P(x')`, as printed there. The book's
   listing 10.8 gives the six factors y0 prints.
-- *cfid* (R, GPL, used as a black box). On 1,117 random queries the two
-  agree on 1,025. Of the 92 disagreements, 80 are queries cfid identifies
-  and StatsPAI does not, 12 the reverse. The 12 are covered by the
-  soundness check. For the 80 no general arbiter was built; the ones
-  examined by hand are cfid's errors. It answers the probability of
-  necessity `P(Y_{X=0} = 0 | X = 1, Y = 1)` on `X -> Y` with "0" (in the
-  model `Y = X` it is 1), and `P(V1 = v, V1_{V0=v0} = v)` on `V0 -> V1`
-  with `P_{v0}(v1)`, which two models with identical experiments
-  contradict. Among StatsPAI's 250 refusals, one had a joint probability
-  that was zero in every random model tried, and that one is zero only
-  because the variables are binary. Eight textbook verdicts are pinned
-  against cfid in the reference-parity file, and the necessity query is
-  pinned as a documented difference.
+- *cfid* (R, GPL, used as a black box). Compared on 1,118 random queries
+  with two versions of it.
+  - CRAN 0.1.8: agreement on 1,025. It answers the probability of
+    necessity `P(Y_{X=0} = 0 | X = 1, Y = 1)` on `X -> Y` with "0" (in the
+    model `Y = X` it is 1) and `P(V1 = v, V1_{V0=v0} = v)` on `V0 -> V1`
+    with `P_{v0}(v1)`, which two models with identical experiments
+    contradict.
+  - Development version 0.1.9 (GitHub, commit `2dab1c8`): both of those
+    are fixed there, and agreement is on 1,063 (95%). Of the 55 that
+    remain, 17 are queries StatsPAI identifies and cfid does not, which
+    the soundness check covers, and 38 the reverse (26 with a formula, 12
+    with "0"). The 38 were not arbitrated. They are either errors in cfid
+    or queries this implementation fails to identify; among StatsPAI's
+    250 refusals one had a joint probability that was zero in every
+    random model tried, and that one is zero only because the variables
+    are binary.
+
+  Eight textbook verdicts are pinned against cfid in the reference-parity
+  file. The fixture was made with 0.1.8, so the necessity query is pinned
+  there as a difference from that version.
 
 Four things the paper's figure does not spell out, each found by the
 soundness check failing:
@@ -348,7 +355,7 @@ soundness check failing:
 
 Completeness is not established. The algorithm is complete in the paper;
 this implementation is conservative where a value is a bound symbol, and
-the comparison with cfid cannot settle it.
+the 38 queries above are where to look first.
 
 ## Rerun
 

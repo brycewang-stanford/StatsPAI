@@ -211,7 +211,8 @@ All notable changes to StatsPAI will be documented in this file.
   on 1,092 random queries equals the counterfactual probability computed
   by enumeration in random structural models; the paper's worked example
   and the query of Ness's listing 10.8 come out as printed; eight
-  textbook verdicts match the R package `cfid`. This closes the first
+  textbook verdicts match the R package `cfid`, and on 1,118 random
+  queries the verdict agrees with its development version on 95%. This closes the first
   open item of `docs/dev/2026-10-06-ness-causal-ai-review.md`, which has
   the details, including where `cfid` and this implementation differ.
 ### Path analysis, and two decisions left open by the Das pass

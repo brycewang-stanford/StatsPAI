@@ -302,12 +302,14 @@ def test_counterfactual_verdicts_match_cfid(ref, name):
     assert ours.identifiable is ref["cfid"][name]
 
 
-def test_probability_of_necessity_is_where_cfid_differs(ref):
-    # cfid answers P(Y_{X=0} = 0 | X = 1, Y = 1) with the formula "0". In
-    # the model Y = X the probability is 1, so that answer cannot be right;
-    # the query is the textbook example of a counterfactual no experiment
-    # identifies (tests/test_counterfactual_identification.py shows two
-    # models that agree on every experiment and differ on it).
+def test_probability_of_necessity_is_where_cfid_0_1_8_differs(ref):
+    # cfid 0.1.8 (CRAN), which made the fixture, answers
+    # P(Y_{X=0} = 0 | X = 1, Y = 1) with the formula "0". In the model
+    # Y = X the probability is 1. Its development version 0.1.9 reports
+    # the query as not identifiable, as here; the query is the textbook
+    # example of a counterfactual no experiment identifies
+    # (tests/test_counterfactual_identification.py shows two models that
+    # agree on every experiment and differ on it).
     assert ref["cfid"]["necessity"] is True
     ours = sp.identify_counterfactual(
         sp.dag("X -> Y"), [("Y", 0, {"X": 0})], given=[("X", 1), ("Y", 1)]
