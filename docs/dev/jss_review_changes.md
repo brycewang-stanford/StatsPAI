@@ -2537,3 +2537,21 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the matchit translation fix
+
+- **Commits.** `005ffadd` re-recorded the entries of Track A modules
+  [] in
+  `tests/r_parity/results/_implementation_trace.json` and of 0 module(s)
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `d42a34b3`.
+- **Reason.** The audit in
+  `docs/dev/2026-10-06-gow-ding-accounting-review.md`. `python
+  tests/r_parity/verify_reproduce_py.py --no-report` on those modules:
+  no Track A module was stale
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in the trace files only `exercised_sources` digests and
+  `seconds` differ.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
