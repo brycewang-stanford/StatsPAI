@@ -31,6 +31,22 @@ Rules:
 
 ## Entries
 
+### 2026-10-06 — call traces re-recorded after `sp.callaway_santanna` gained `balance=`
+
+Commit `dcb99f34`. `sp.callaway_santanna` takes `balance='pair' | 'full' |
+'none'` for an unbalanced panel. The default is the rule it already
+applied, so no result changes. The edit is in `did/callaway_santanna.py`,
+which Track A modules 04 and 79 and the original-data module 02 execute,
+so their source hashes in the traces changed.
+
+Effect on the paper: none. The three modules run on balanced panels,
+where the option is inert. They were run on the source before and after
+the change and their result files are byte-identical; only the recorded
+source hashes move.
+
+- `tests/r_parity/results/_implementation_trace.json`
+- `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-06 — call traces re-recorded after the weighted repeated-cross-section fix in `sp.aggte`
 
 Commit `ada363aa`. On the repeated-cross-section route of
