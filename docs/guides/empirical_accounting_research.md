@@ -23,6 +23,7 @@ where the data frame is ready.
 | 5 | `pmg(y ~ x, index = "year")` | `sp.fama_macbeth("y ~ x", df, time="year")` |
 | 5 | `NeweyWest` on the yearly coefficients | `sp.fama_macbeth(..., lags=1)` |
 | 5 | `feols(vcov = ~ firm)`, `~ year`, `~ year + firm` | `sp.regress(..., cluster="firm")`, `cluster=["year", "firm"]` |
+| 10 to 14 Event studies | `farr::get_event_cum_rets`; market-adjusted returns around announcements | `sp.abnormal_returns(returns, events, market="mkt", event_window=(-1, 1))` |
 | 15 Accruals | `ntile(x, 10)`; `linearHypothesis(fm, "d1 = d10")` | `pd.qcut`; `sp.test(fit, "C(d)[1] = C(d)[10]")` |
 | 16 Earnings management | `binom.test(x, n, p)` | `sp.bitest(successes=x, n=n, p=p)` |
 | 19 Natural experiments | DiD, post-only, change and ANCOVA estimators | `sp.regress` with the same formulas; `sp.ancova` |
@@ -100,9 +101,10 @@ numbers differ from `sp.regress` by a few percent while `fixest` with
 year dimension is too small for the asymptotics; a wild cluster bootstrap
 (`sp.wild_cluster_bootstrap`) is the usual remedy.
 
-`sp.feols` runs pyfixest, which reports the unadjusted matrix (a negative
-variance comes out as a missing standard error). `sp.feols` warns when
-that happens; for such a model use `sp.regress(cluster=[a, b])`.
+`sp.feols` applies the same adjustment, with the same warning, so it and
+`sp.regress(cluster=[a, b])` report the same standard errors. pyfixest
+called directly does not: a negative variance there is a missing standard
+error.
 
 ## Extreme values
 
@@ -135,6 +137,39 @@ every firm with `mobflag = 1` paid no penalty, so that coefficient has no
 finite estimate. `sp.poisson` fits the rest, warns, and lists the
 regressor in `model_info["separated_terms"]`; `sp.ppmlhdfe` drops the
 separated observations instead.
+
+## Event studies
+
+Chapters 10 to 14 replicate Fama, Fisher, Jensen and Roll, Ball and Brown,
+Beaver and the post-earnings announcement drift, each an event study on
+CRSP returns. With returns in long format and a table of events:
+
+```python
+res = sp.abnormal_returns(
+    returns, events,              # id, date, ret, mkt  |  id, event_date
+    model="market", market="mkt",
+    event_window=(-1, 1), estimation_window=(-250, -11),
+)
+res.events    # one row per event: CAR, standard error, t, p
+res.aar       # average abnormal return by relative day, and its running sum
+res.tests     # cross-sectional t, Patell, BMP, and the adjusted versions
+```
+
+`model="market_adjusted"` is the book's own choice (return minus market
+return, nothing estimated); `"mean_adjusted"` and `"factor"` are the other
+two standard models. Day 0 is the first trading day on or after the event
+date.
+
+Which test to read. `patell` assumes the event leaves the variance of
+returns unchanged, which earnings announcements do not (that is Beaver's
+finding); `bmp` and the cross-sectional test allow for it. When event
+dates cluster in calendar time, as with a regulatory change that hits
+every firm on one day, abnormal returns are correlated across firms and
+all three over-reject; `adj_patell` and `kp` correct for the average
+correlation.
+
+This is not `sp.event_study`, which draws the event-time coefficients of a
+difference-in-differences design.
 
 ## The impact threshold for a confounding variable
 

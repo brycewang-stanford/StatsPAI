@@ -475,12 +475,15 @@ def test_two_way_cluster_with_few_years_is_adjusted_and_says_so(few_years):
     assert np.linalg.eigvalsh((V + V.T) / 2).min() > -1e-12 * np.abs(V).max()
     assert np.allclose(np.sqrt(np.diag(V)), res.std_errors)
     assert (res.std_errors > 0).all()
-    # sp.feols reports the matrix as computed, and says so
+    # sp.feols applies the same adjustment to pyfixest's matrix, where a
+    # negative variance would otherwise be a missing standard error
     with pytest.warns(RuntimeWarning, match="not positive semi-definite"):
         fe = sp.feols(F_YEARS, few_years, vcov={"CRV1": "firm + year"})
     assert fe.diagnostics["Multiway VCOV negative eigenvalues"] >= 1
-    # where its variance is negative pyfixest has no standard error at all
-    assert np.isnan(fe.std_errors.to_numpy()).any()
+    assert np.isfinite(fe.std_errors.to_numpy()).all()
+    assert np.isfinite(fe.pvalues.to_numpy()).all()
+    assert np.allclose(np.sqrt(np.diag(fe.vcov())), fe.std_errors)
+    assert np.allclose(fe.std_errors[res.std_errors.index], res.std_errors, rtol=1e-8)
 
 
 def test_two_way_cluster_that_is_psd_is_left_alone(panel):
@@ -490,3 +493,135 @@ def test_two_way_cluster_that_is_psd_is_left_alone(panel):
         sp.feols("y ~ x", panel, vcov={"CRV1": "firm + year"})
     assert "Two-way VCOV negative eigenvalues" not in (res.diagnostics or {})
     assert np.allclose(np.sqrt(np.diag(res.vcov())), res.std_errors)
+
+
+# ---------------------------------------------------------------- event study
+
+
+@pytest.fixture(scope="module")
+def market_data():
+    rng = np.random.default_rng(31)
+    days = pd.bdate_range("2020-01-01", periods=260)
+    mkt = rng.normal(0, 0.01, 260)
+    rows = []
+    for j in range(15):
+        r = 0.9 * mkt + rng.normal(0, 0.012, 260)
+        r[230 + j] += 0.04
+        rows.append(pd.DataFrame({"id": j, "date": days, "ret": r, "mkt": mkt}))
+    events = pd.DataFrame({"id": range(15), "event_date": days[230:245]})
+    return pd.concat(rows, ignore_index=True), events, days
+
+
+def test_abnormal_returns_recovers_a_planted_effect(market_data):
+    data, events, _ = market_data
+    res = sp.abnormal_returns(data, events, market="mkt", event_window=(0, 0))
+    assert res.n_events == 15 and not res.skipped
+    assert abs(res.caar - 0.04) < 0.01
+    assert (res.tests["pvalue"] < 1e-4).all()
+    # a window that misses the event day finds nothing
+    before = sp.abnormal_returns(
+        data, events, market="mkt", event_window=(-8, -3), estimation_window=(-200, -11)
+    )
+    assert (before.tests["pvalue"] > 0.05).all()
+    assert list(res.ar.index) == [0] and res.ar.shape == (1, 15)
+    assert res.aar.loc[0, "n"] == 15
+    assert "Mean CAR" in res.summary()
+
+
+def test_abnormal_returns_day_zero_is_the_next_trading_day(market_data):
+    data, events, days = market_data
+    saturday = events.assign(event_date=events["event_date"] + pd.Timedelta(days=5))
+    saturday.loc[0, "event_date"] = pd.Timestamp("2020-11-21")  # a Saturday
+    res = sp.abnormal_returns(data, saturday.iloc[:3], market="mkt")
+    assert res.events.loc[0, "event_day"] == pd.Timestamp("2020-11-23")
+
+
+def test_abnormal_returns_market_adjusted_needs_no_estimation(market_data):
+    data, events, _ = market_data
+    res = sp.abnormal_returns(
+        data, events, model="market_adjusted", market="mkt", event_window=(0, 1)
+    )
+    one = data[data["id"] == 0].reset_index(drop=True)
+    pos = one.index[one["date"] == events.loc[0, "event_date"]][0]
+    want = (one["ret"] - one["mkt"]).iloc[pos : pos + 2].sum()
+    assert res.events.loc[0, "car"] == pytest.approx(want, rel=1e-12)
+
+
+def test_abnormal_returns_leaves_out_events_it_cannot_use(market_data):
+    data, events, days = market_data
+    more = pd.concat(
+        [
+            events,
+            pd.DataFrame(
+                {
+                    "id": [0, 99, 1],
+                    "event_date": [
+                        days[5],
+                        days[100],
+                        days[-1] + pd.Timedelta(days=30),
+                    ],
+                }
+            ),
+        ],
+        ignore_index=True,
+    )
+    with pytest.warns(UserWarning, match="left out"):
+        res = sp.abnormal_returns(data, more, market="mkt")
+    reasons = [s["reason"] for s in res.skipped]
+    assert len(reasons) == 3 and res.n_events == 15
+    assert any("estimation-window" in r or "outside" in r for r in reasons)
+    assert any("no returns" in r for r in reasons)
+    assert any("after the last return" in r for r in reasons)
+
+
+def test_abnormal_returns_refusals(market_data):
+    data, events, _ = market_data
+    with pytest.raises(MethodIncompatibility, match="needs market="):
+        sp.abnormal_returns(data, events)
+    with pytest.raises(MethodIncompatibility, match="needs factors="):
+        sp.abnormal_returns(data, events, model="factor")
+    with pytest.raises(MethodIncompatibility, match="must end before"):
+        sp.abnormal_returns(
+            data,
+            events,
+            market="mkt",
+            event_window=(-5, 5),
+            estimation_window=(-100, -3),
+        )
+    with pytest.raises(MethodIncompatibility, match="model must be"):
+        sp.abnormal_returns(data, events, model="capm", market="mkt")
+    with pytest.raises(MethodIncompatibility, match="no column"):
+        sp.abnormal_returns(
+            data, events.rename(columns={"event_date": "d"}), market="mkt"
+        )
+    with pytest.raises(DataInsufficient, match="at least two"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sp.abnormal_returns(data, events.iloc[:1], market="mkt")
+
+
+def test_clustered_event_dates_inflate_the_unadjusted_tests():
+    """One common event date and a common shock that day: the events are one
+    draw, and the Kolari-Pynnonen adjustment says so."""
+    rng = np.random.default_rng(5)
+    days = pd.bdate_range("2020-01-01", periods=260)
+    common = rng.normal(0, 0.01, 260)  # an industry factor the model omits
+    mkt = rng.normal(0, 0.01, 260)
+    rows = [
+        pd.DataFrame(
+            {
+                "id": j,
+                "date": days,
+                "ret": mkt + common + rng.normal(0, 0.005, 260),
+                "mkt": mkt,
+            }
+        )
+        for j in range(30)
+    ]
+    data = pd.concat(rows, ignore_index=True)
+    events = pd.DataFrame({"id": range(30), "event_date": days[240]})
+    res = sp.abnormal_returns(data, events, market="mkt", event_window=(0, 0))
+    assert res.mean_correlation > 0.5
+    assert abs(res.tests.loc["kp", "statistic"]) < 0.3 * abs(
+        res.tests.loc["bmp", "statistic"]
+    )

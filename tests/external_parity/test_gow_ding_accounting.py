@@ -225,6 +225,10 @@ def test_ch24_two_way_clustered_regressions(R, key, name):
     assert res.diagnostics["Two-way VCOV negative eigenvalues"] == ref["n_negative"]
     # the matrix behind the standard errors is the one vcov() returns
     assert np.allclose(np.sqrt(np.diag(res.vcov())), res.std_errors)
+    # sp.feols, which runs pyfixest, applies the same adjustment
+    with pytest.warns(RuntimeWarning, match="not positive semi-definite"):
+        fe = sp.feols(COMP, data, vcov={"CRV1": "gvkey + fyear"})
+    assert rel(fe.std_errors[pick(fe, KEEP)], ref["se"]) < GLM
     # the book's parametrisation: same coefficients, nearby standard errors
     assert rel(res.params[names], R[key]["coef"]) < 1e-7
     assert rel(res.std_errors[names], R[key]["se"]) < 0.06

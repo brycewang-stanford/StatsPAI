@@ -432,8 +432,10 @@ against R and Stata 18. Notes are in
   coefficients) 46 eigenvalues are negative and the reported standard
   errors rise by 4 to 19 percent; they now equal `fixest`'s to 1e-12 when
   both use the same base year. Fits whose covariance was already positive
-  semi-definite are unchanged. `sp.feols` (pyfixest) reports the matrix as
-  computed; it now warns when that matrix is indefinite.
+  semi-definite are unchanged. `sp.feols` applies the same adjustment to
+  pyfixest's matrix, where a negative variance was a missing standard
+  error and the others were 4 to 19 percent too small on that regression;
+  it now equals R's `fixest` to 1e-12 there too.
 - **`sp.poisson` failed on a quasi-separated model**, with "SVD did not
   converge". A regressor that picks out only zero outcomes has no finite
   coefficient; the iteration tested convergence on the coefficients alone
@@ -467,6 +469,19 @@ against R and Stata 18. Notes are in
   RIR of Frank et al. (2013). Equal to Stata `pkonfound` to 1e-15.
 - **`sp.ndcg`**: normalised discounted cumulative gain at k, the ranking
   measure of the fraud-prediction literature, next to `sp.auc`.
+- **`sp.abnormal_returns`**: the event study of finance and accounting.
+  Abnormal returns around each event from a market, market-adjusted,
+  mean-adjusted or factor model fitted on a pre-event window, cumulative
+  abnormal returns with forecast-error standard errors, and five tests of
+  their mean (cross-sectional t, Patell, BMP, and the two Kolari-Pynnonen
+  adjustments for clustered event dates). Against Stata `estudy` on a
+  committed file: abnormal returns and CARs of all four models to 5e-6
+  (`estudy` works in single precision), the tests to 1e-9 given the same
+  standardised CARs, and end to end to 5e-5 for the two models whose
+  standard deviations follow the same rule. `estudy`'s market-model
+  standard deviation uses `n - 1` where the forecast-error variance has
+  `n - 2`; its number is rebuilt from ours in the test. Its group CAAR is
+  not the mean of its own security rows and is not compared.
 - `sp.regress(robust='hac', hac_panel=(unit, time))`: Newey-West within
   panels at exact time lags, in any row order. `plm::vcovNW` to 1e-15 and,
   with `hac_small=True`, Stata `newey ..., force` to 1e-9, gaps included.

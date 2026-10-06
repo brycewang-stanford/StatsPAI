@@ -131,6 +131,28 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     # robustbase, MASS) in accounting_research_R.json and Stata 18 (xtfmb,
     # robreg, pkonfound) in accounting_research_Stata.csv. Tolerances are
     # the EXACT (1e-9) and ITER (1e-6) constants of the asserting test.
+    "abnormal_returns": {
+        "status": "bit-exact",
+        "reference": "Stata 18 estudy (Pacicco, Vena and Venegoni): "
+        "abnormal returns and CARs of four models; Patell, BMP and "
+        "Kolari-Pynnonen statistics",
+        "reference_versions": {"Stata": "18"},
+        "tolerance": "abnormal returns and CARs 5e-6 rel (estudy works in "
+        "single precision); test statistics 1e-9 rel given the same "
+        "standardised CARs, 5e-5 end to end for two models",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_event_study_returns_parity.py",
+            "tests/reference_parity/_fixtures/event_study_returns_Stata.csv",
+        ],
+        "note": (
+            "Frozen-Stata fixture on committed synthetic returns. estudy's "
+            "market-model standard deviation follows a different "
+            "finite-sample rule, located and rebuilt in the test; its "
+            "factor-model standard deviations and its group CAAR are not "
+            "reproduced and not compared."
+        ),
+    },
     "fama_macbeth": {
         "status": "bit-exact",
         "reference": "plm::pmg; sandwich::NeweyWest on the coefficient "

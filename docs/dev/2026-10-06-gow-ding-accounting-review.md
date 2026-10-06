@@ -165,11 +165,11 @@ factor levels; winsorizing at the type-2 quantile; the rank AUC.
   observations that sit exactly on the cut-offs, because it compares a
   float with a double held in a macro. On a double variable it keeps them,
   as R and we do.
-- **`sp.feols` and a non-positive-semi-definite two-way covariance.**
-  `sp.feols` runs pyfixest, which does not apply the eigenvalue adjustment
-  that R's `fixest` applies by default. On such a fit `sp.feols` reports
-  the unadjusted standard errors (`fixest`'s with `vcov_fix = FALSE`) and
-  `sp.regress(cluster=[a, b])` the adjusted ones. See open items.
+- **pyfixest and a non-positive-semi-definite two-way covariance.**
+  pyfixest does not apply the eigenvalue adjustment that R's `fixest`
+  applies by default; a negative variance comes out as a missing standard
+  error. `sp.feols` applies it to pyfixest's matrix (second round below),
+  so `sp.feols` and R's `fixest` agree and bare pyfixest does not.
 
 ## One comparison that is not a parity claim
 
@@ -192,17 +192,12 @@ so the tests bound the gap and do not call it agreement.
    for 8 of 8, and that minimum is also `lmrob`'s. A user can compare
    `model_info['s_scale']` across seeds (smaller is better); nothing does
    it for them.
-3. `sp.feols` does not apply the eigenvalue adjustment. It now warns
-   when the multiway covariance is indefinite and counts the negative
-   eigenvalues in `diagnostics`; applying the adjustment there means
-   recomputing pyfixest's inference and was left.
+3. Closed in the second round: `sp.feols` applies the eigenvalue
+   adjustment.
 4. `sp.feols` IV results carry no first-stage F, Sargan or Wu-Hausman
    statistic (`fitstat(m, "ivf1")` in fixest). `sp.ivreg` plus `sp.estat`
    has them.
-5. A finance-style event study (market model, cumulative abnormal
-   returns, the tests of Brown and Warner and their successors). Six
-   chapters of the book are built on one. It needs security returns
-   data to validate and was left for a pass of its own.
+5. Closed in the second round: `sp.abnormal_returns`.
 6. Fama-French industry classifications, portfolio sorts and
    size-adjusted returns (`farr::get_ff_ind`, `get_size_rets_monthly`).
    Data utilities rather than estimators; not added.
@@ -211,6 +206,64 @@ so the tests bound the gap and do not call it agreement.
 8. `MatchIt` nearest-neighbour matching was translated but not compared
    pair by pair (also open from the Barrett review).
 9. Abbreviated `robreg` options (`eff()`) are reported as untranslated.
+
+## Second round
+
+Bryce's answer to the two questions left open was "decide for me". Both
+were done.
+
+**`sp.feols` applies the eigenvalue adjustment.** pyfixest reports the
+two-way covariance as computed, with a missing standard error where a
+variance is negative. The wrapper now applies the same adjustment as
+`sp.regress` to pyfixest's matrix and lets pyfixest recompute its
+inference from it. On the accruals regression `sp.feols`, `sp.regress` and
+R's `fixest` (same base year) agree to 1e-12.
+
+**`sp.abnormal_returns`, the finance event study.** Chapters 10 to 14 are
+event studies on CRSP returns, which we do not have, so the function was
+built from the papers (Brown and Warner 1985; Patell 1976; Boehmer,
+Musumeci and Poulsen 1991; Kolari and Pynnonen 2010) and checked against
+Stata's `estudy` on synthetic returns: twelve securities, four models,
+three windows, five tests. What the comparison found:
+
+- Abnormal returns and CARs agree to 5e-6 in all four models. `estudy`
+  works in single precision.
+- The tests of the mean CAR are the same arithmetic. Fed `estudy`'s own
+  standardised CARs, Patell and BMP reproduce to 1e-15 and the two
+  Kolari-Pynnonen adjustments to 1e-9.
+- The standard deviation of a CAR differs by a located rule. For the
+  market model `estudy` divides the residual sum of squares by `n - 1`
+  (the forecast-error variance has `n - 2`) and scales the market term by
+  `(n - 1) / n`. Rebuilt from our numbers, its standard deviation matches
+  to 5e-6 for the eleven securities with a complete estimation window. For
+  the twelfth, which has one missing return, the rebuilt number is 6e-5
+  off on the eleven-day window; how `estudy` counts the missing day was
+  not worked out. For the market-adjusted and mean-adjusted models the
+  standard deviations agree, and there the whole pipeline matches end to
+  end to 5e-5.
+- For the factor model `estudy`'s standard deviations are 1 to 6 percent
+  below the forecast-error ones. The rule was not reconstructed and those
+  numbers are not compared.
+- `estudy` measures the cross-correlation behind the Kolari-Pynnonen
+  adjustments by pairing residuals in event time. With different event
+  dates those pairs are returns of different days. The default here pairs
+  by calendar date, which is the correlation that clustering induces;
+  `correlation='event'` gives `estudy`'s.
+- `estudy`'s group CAAR is not the mean of its own security rows (3 to 7
+  percent away on this file). It is not a portfolio of event-time average
+  returns either. The rule was not identified, so the group row's level
+  and its `Norm` test are not compared. Here the mean CAR is the mean of
+  the CARs.
+
+A unit test written for the function found one bug in it before it
+shipped: an event within the estimation-window distance of the start of
+the series produced a negative slice stop and took its estimation sample
+from the end of the series.
+
+Open from this round: `estudy`'s factor-model variance, its group row,
+and its handling of a missing estimation return; rank and sign tests
+(Corrado; the generalized rank test `estudy` also offers); long-horizon
+buy-and-hold returns.
 
 ## What a paper written now would do differently
 
@@ -236,6 +289,8 @@ so the tests bound the gap and do not call it agreement.
   on two committed synthetic files, R 4.5.2 (plm 2.6.7, sandwich 3.1.1,
   fixest 0.14.0, robustbase 0.99.7, MASS 7.3.65) and Stata 18 (xtfmb,
   newey, robreg, pkonfound, winsor2).
+- `tests/reference_parity/test_event_study_returns_parity.py`: 45 tests
+  against Stata 18 `estudy` on a committed synthetic returns file.
 - `tests/external_parity/test_gow_ding_accounting.py`: 21 tests on the
   book's data, skipped without it.
 - `tests/test_accounting_research_tools.py`: edge cases, refusals and the

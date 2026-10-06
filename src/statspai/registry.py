@@ -10748,6 +10748,155 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="abnormal_returns",
+            category="timeseries",
+            description=(
+                "Event study on security returns: abnormal returns around "
+                "each event from a market, market-adjusted, mean-adjusted or "
+                "factor model fitted on a pre-event estimation window, "
+                "cumulative abnormal returns with forecast-error standard "
+                "errors, and tests of their mean (cross-sectional t, "
+                "Patell, BMP, and the Kolari-Pynnonen adjustments for "
+                "cross-correlation). Stata estudy. Not the event-study plot "
+                "of a DiD design, which is sp.event_study."
+            ),
+            params=[
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    True,
+                    description="Returns, long: security, date, return, "
+                    "market / factors",
+                ),
+                ParamSpec(
+                    "events",
+                    "DataFrame",
+                    True,
+                    description="One row per event: security and event date",
+                ),
+                ParamSpec("id", "str", False, "id", "Security column (in both frames)"),
+                ParamSpec("date", "str", False, "date", "Trading date column of data"),
+                ParamSpec("ret", "str", False, "ret", "Return column of data"),
+                ParamSpec(
+                    "event_date",
+                    "str",
+                    False,
+                    "event_date",
+                    "Event date column of events",
+                ),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "market",
+                    "Model of normal returns",
+                    ["market", "market_adjusted", "mean_adjusted", "factor"],
+                ),
+                ParamSpec("market", "str", False, None, "Market return column"),
+                ParamSpec(
+                    "factors",
+                    "list",
+                    False,
+                    None,
+                    "Factor return columns (model='factor')",
+                ),
+                ParamSpec(
+                    "event_window",
+                    "tuple",
+                    False,
+                    (-1, 1),
+                    "First and last relative trading day",
+                ),
+                ParamSpec(
+                    "estimation_window",
+                    "tuple",
+                    False,
+                    (-250, -11),
+                    "Relative trading days the model is fitted on",
+                ),
+                ParamSpec(
+                    "min_obs",
+                    "int",
+                    False,
+                    30,
+                    "Minimum estimation-window returns per event",
+                ),
+                ParamSpec(
+                    "correlation",
+                    "str",
+                    False,
+                    "calendar",
+                    "Pairing of residuals for the cross-correlation "
+                    "adjustment; 'event' is estudy's",
+                    ["calendar", "event"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="AbnormalReturnsResult",
+            example='sp.abnormal_returns(returns, events, market="mkt", '
+            "event_window=(-1, 1))",
+            tags=["finance", "accounting", "event study", "returns", "timeseries"],
+            reference="brown1985using",
+            assumptions=[
+                "The event date is known and the event was not anticipated "
+                "before the event window",
+                "The model of normal returns fitted before the event still "
+                "holds in the event window",
+                "No other event moves the same securities in the window",
+                "Unadjusted tests: abnormal returns independent across "
+                "events (no clustering of event dates)",
+            ],
+            pre_conditions=[
+                "Daily (or periodic) returns per security in long format",
+                "An estimation window that ends before the event window",
+                "At least two usable events",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Estimation and event windows overlap",
+                    exception="MethodIncompatibility",
+                    remedy="End the estimation window before the event window.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="Events with too few estimation returns or a "
+                    "window outside the series",
+                    exception="UserWarning",
+                    remedy="They are left out and listed in result.skipped.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="Event dates cluster in calendar time",
+                    exception="",
+                    remedy="Read adj_patell / kp, which correct for the "
+                    "average cross-correlation, not patell / bmp.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="The event changes the variance of returns",
+                    exception="",
+                    remedy="Patell over-rejects; read bmp or the "
+                    "cross-sectional test.",
+                    alternative="",
+                ),
+            ],
+            not_recommended_when=[
+                "Long horizons (months to years): cumulative abnormal "
+                "returns from a daily model are badly behaved; use "
+                "buy-and-hold or calendar-time portfolio methods",
+                "A single common event date with many securities: the "
+                "cross-section is one draw of the market; a calendar-time "
+                "portfolio regression is cleaner",
+                "A policy evaluation with treated and control units over "
+                "time: that is sp.did / sp.event_study",
+            ],
+            alternatives=["event_study", "fama_macbeth", "regress"],
+            typical_n_min=20,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="robreg",
             category="regression",
             description=(

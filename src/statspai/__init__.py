@@ -1173,6 +1173,7 @@ from .timeseries import (
     varsoc,
     vec,
 )
+from .timeseries.abnormal_returns import AbnormalReturnsResult, abnormal_returns
 
 # Eager: ``tmle`` collides (function + subpackage of same name).
 from .tmle import (
@@ -1930,6 +1931,8 @@ __all__ = [
     "gee",
     "ridge",
     "robreg",
+    "abnormal_returns",
+    "AbnormalReturnsResult",
     "fama_macbeth",
     "itcv",
     "RidgeResult",

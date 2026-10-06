@@ -192,7 +192,8 @@ they changed with the unit of the data.
 
 **What changed.**
 
-- `sp.regress(cluster=[a, b])` and `sp.panel(..., cluster=[a, b])` set the
+- `sp.regress(cluster=[a, b])`, `sp.panel(..., cluster=[a, b])` and
+  `sp.feols(..., vcov={'CRV1': 'a + b'})` set the
   negative eigenvalues of the two-way covariance to zero when it is not
   positive semi-definite, and warn. Until now a negative variance came out
   as a standard error of 0 and the other standard errors were read off an

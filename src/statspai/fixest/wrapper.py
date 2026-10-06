@@ -1325,45 +1325,57 @@ def feols(
     if hasattr(fit, "all_fitted_models"):
         return _multi_fit_to_results(fit, vcov=None)
 
+    n_negative = _adjust_multiway_vcov(fit, vcov)
     out = _pyfixest_to_econometric_results(fit)
     _note_cluster_sizes(out, data, vcov)
     _note_weights(out, data, vcov, weights)
-    _warn_if_multiway_vcov_indefinite(fit, out, vcov)
+    _note_multiway_adjustment(out, vcov, n_negative)
     return out
 
 
-def _warn_if_multiway_vcov_indefinite(fit: Any, out: Any, vcov: Any) -> None:
-    """Say so when a multiway clustered covariance is not a covariance.
+def _adjust_multiway_vcov(fit: Any, vcov: Any) -> int:
+    """Make a multiway clustered covariance positive semi-definite.
 
     The inclusion-exclusion estimator can have negative eigenvalues when
     one clustering dimension is small. R's fixest then sets them to zero
-    (``vcov_fix = TRUE``, its default); pyfixest reports the matrix as
-    computed, so the standard errors here are fixest's unadjusted ones and
-    can be several percent too small, or missing.
+    (``vcov_fix = TRUE``, its default, after Cameron, Gelbach and Miller
+    2011); pyfixest reports the matrix as computed, with a missing standard
+    error where a variance is negative. The adjustment is applied to the
+    fit, pyfixest recomputes its inference from the adjusted matrix, and
+    the number of eigenvalues that were negative is returned.
     """
     if not isinstance(vcov, dict):
-        return
+        return 0
     spec = str(next(iter(vcov.values()), ""))
     V = getattr(fit, "_vcov", None)
-    if "+" not in spec or V is None:
-        return
+    if "+" not in spec or V is None or not hasattr(fit, "get_inference"):
+        return 0
     V = np.asarray(V, dtype=float)
     if V.ndim != 2 or not np.all(np.isfinite(V)):
-        return
-    vals = np.linalg.eigvalsh((V + V.T) / 2.0)
-    tol = 1e-12 * max(float(np.max(np.abs(vals))), 1e-300)
-    n_negative = int(np.sum(vals < -tol))
+        return 0
+    from ..inference.jackknife import psd_adjust
+
+    fixed, n_negative = psd_adjust(V)
+    if n_negative:
+        fit._vcov = fixed
+        fit.get_inference()
+    return n_negative
+
+
+def _note_multiway_adjustment(out: Any, vcov: Any, n_negative: int) -> None:
     if not n_negative:
         return
+    spec = str(next(iter(vcov.values()), ""))
     if isinstance(getattr(out, "diagnostics", None), dict):
         out.diagnostics["Multiway VCOV negative eigenvalues"] = n_negative
     warnings.warn(
-        f"feols: the covariance clustered on {spec!r} is not positive "
+        f"feols: the covariance clustered on {spec!r} was not positive "
         f"semi-definite ({n_negative} negative eigenvalue"
-        f"{'s' if n_negative > 1 else ''}). The standard errors are read "
-        "off that matrix as it is, and are missing where a variance is "
-        "negative. R's fixest and sp.regress(cluster=[a, b]) set the "
-        "negative eigenvalues to zero and report larger ones.",
+        f"{'s' if n_negative > 1 else ''}); they were set to zero, the "
+        "adjustment of Cameron, Gelbach and Miller (2011) that R's fixest "
+        "applies. This happens when one clustering dimension has few "
+        "clusters relative to the number of coefficients; treat joint "
+        "tests with care.",
         RuntimeWarning,
         stacklevel=3,
     )
