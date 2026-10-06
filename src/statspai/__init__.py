@@ -831,6 +831,7 @@ from .mcmc import (
     BayesRegressResult,
     BMAResult,
     MCMCDiagnostic,
+    bayes_arima,
     bayes_bootstrap,
     bayes_factor,
     bayes_ivreg,
@@ -847,6 +848,7 @@ from .mcmc import (
     mcmc_summary,
     raftery_diag,
     savage_dickey,
+    stochvol,
 )
 from .metalearners import (
     AutoCATEResult,
@@ -1966,6 +1968,8 @@ __all__ = [
     "bayes_ivreg",
     "bayes_shrink",
     "bayes_sur",
+    "bayes_arima",
+    "stochvol",
     "bma",
     "BMAResult",
     "bayes_factor",

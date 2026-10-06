@@ -16448,6 +16448,122 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="stochvol",
+            category="bayes",
+            description=(
+                "Stochastic volatility model for returns by MCMC: the log "
+                "variance follows a stationary AR(1) with its own shock. "
+                "Returns the posterior of the level, persistence and "
+                "volatility of volatility, and the whole volatility path "
+                "with credible bands. Same priors as R stochvol. NumPy only."
+            ),
+            params=[
+                ParamSpec("y", "array | Series | str", True, description="Returns"),
+                ParamSpec("data", "DataFrame", False, None),
+                ParamSpec("demean", "bool", False, True),
+                ParamSpec(
+                    "mu_prior",
+                    "tuple",
+                    False,
+                    (0.0, 100.0),
+                    "(mean, variance) of the level",
+                ),
+                ParamSpec(
+                    "phi_prior",
+                    "tuple",
+                    False,
+                    (5.0, 1.5),
+                    "(phi + 1) / 2 ~ Beta(a, b)",
+                ),
+                ParamSpec(
+                    "sigma_prior",
+                    "float",
+                    False,
+                    1.0,
+                    "sigma^2 ~ Gamma(1/2, 1 / (2 B))",
+                ),
+                ParamSpec("draws", "int", False, 10000),
+                ParamSpec("burnin", "int", False, 2000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("chains", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+            ],
+            returns="BayesRegressResult",
+            example="sp.stochvol(returns, seed=1).model_info['volatility']",
+            tags=["bayes", "mcmc", "volatility", "timeseries", "finance"],
+            reference="ramirezhassan2026introduction",
+            assumptions=[
+                "Returns are conditionally normal with mean zero",
+                "Log variance is a stationary AR(1)",
+            ],
+            alternatives=["garch", "dlm"],
+            not_recommended_when=[
+                "Prices rather than returns: difference the logs first",
+                "Fewer than a few hundred observations: the volatility of "
+                "volatility is then driven by its prior",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_arima",
+            category="bayes",
+            description=(
+                "Bayesian ARIMA(p, d, q) with the exact Gaussian likelihood "
+                "(Kalman filter) and a proper uniform prior over the "
+                "stationary and invertible region. Posterior of the "
+                "coefficients, posterior predictive forecasts, and marginal "
+                "likelihoods for comparing orders. NumPy only."
+            ),
+            params=[
+                ParamSpec("y", "array | Series | str", True),
+                ParamSpec("data", "DataFrame", False, None),
+                ParamSpec("order", "tuple", False, (1, 0, 0), "(p, d, q)"),
+                ParamSpec(
+                    "constant",
+                    "bool",
+                    False,
+                    None,
+                    "Default True when d = 0, else False",
+                ),
+                ParamSpec("mean_prior", "tuple", False, (0.0, 1e6), "(mean, variance)"),
+                ParamSpec(
+                    "sigma2_prior",
+                    "tuple",
+                    False,
+                    (0.001, 0.001),
+                    "IG(alpha0/2, delta0/2)",
+                ),
+                ParamSpec("horizon", "int", False, 0, "Periods to forecast"),
+                ParamSpec("draws", "int", False, 10000),
+                ParamSpec("burnin", "int", False, 2000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("chains", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+                ParamSpec("tune", "float", False, None),
+            ],
+            returns="BayesRegressResult",
+            example="sp.bayes_arima(y, order=(1, 0, 1), horizon=8, seed=1)",
+            tags=["bayes", "mcmc", "arima", "timeseries", "forecast"],
+            reference="ramirezhassan2026introduction",
+            assumptions=[
+                "Gaussian innovations",
+                "The differenced series is stationary and invertible",
+            ],
+            alternatives=["arima", "dlm", "bvar"],
+            not_recommended_when=[
+                "Seasonal models or exogenous regressors: use sp.arima",
+                "Comparing models with different d by marginal likelihood: "
+                "the likelihoods are of different data",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="bayes_sur",
             category="bayes",
             description=(

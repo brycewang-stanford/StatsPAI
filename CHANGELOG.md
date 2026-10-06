@@ -420,6 +420,16 @@ user guide is `docs/guides/bayesian_econometrics.md`.
   stochastic search variable selection (George and McCulloch 1993) with
   posterior inclusion probabilities; regressors standardised for the
   prior, coefficients on the original scale.
+- **`sp.stochvol`**: stochastic volatility for returns. The log variance
+  is a stationary AR(1) with its own shock; the whole volatility path is
+  drawn in one block and returned with credible bands. Priors as in R
+  `stochvol`, whose long runs it reproduces on a committed series. The
+  sampler passes the joint-distribution test (its sweep leaves the prior
+  invariant when the data are redrawn each iteration).
+- **`sp.bayes_arima`**: ARIMA(p, d, q) with the exact Gaussian likelihood
+  and a proper uniform prior over the stationary and invertible region,
+  posterior predictive forecasts, and marginal likelihoods for comparing
+  orders. AR(1) and MA(1) posteriors are checked against grid integration.
 - `sp.bayes_regress(model='mlogit')`: multinomial logit.
   `sp.bayes_regress(inference='vb')`: mean-field variational Bayes for the
   normal model, with the evidence lower bound.

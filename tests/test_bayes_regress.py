@@ -632,3 +632,59 @@ def test_sur_shrink_and_mlogit_surface(df):
     assert ml.model_info["base_level"] == "low" and "top:x1" in ml.params.index
     with pytest.raises(sp.MethodIncompatibility, match="probabilities"):
         ml.predict()
+
+
+def test_stochvol_and_bayes_arima_surface():
+    rng = np.random.default_rng(8)
+    n = 250
+    h = np.zeros(n)
+    for t in range(1, n):
+        h[t] = -1 + 0.9 * (h[t - 1] + 1) + 0.3 * rng.normal()
+    r = pd.Series(np.exp(h / 2) * rng.normal(size=n), name="ret")
+    frame = pd.DataFrame({"ret": r})
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", sp.ConvergenceWarning)
+        sv = sp.stochvol("ret", frame, draws=400, burnin=200, seed=1)
+        again = sp.stochvol(r.to_numpy(), draws=400, burnin=200, seed=1)
+        zeros = sp.stochvol(r.where(r.abs() > 0.05, 0.0), demean=False, **FAST)
+    assert list(sv.params.index) == ["mu", "phi", "sigma"]
+    assert sv.params.equals(again.params)
+    vol = sv.model_info["volatility"]
+    assert vol.shape == (n, 3) and (vol["lower"] <= vol["upper"]).all()
+    assert sv.cite().startswith("kastner2014ancillarity")
+    assert any("zero returns" in w for w in zeros.diagnostics_info["warnings"])
+    with pytest.raises(sp.DataInsufficient):
+        sp.stochvol(r.to_numpy()[:20])
+    with pytest.raises(sp.MethodIncompatibility, match="missing"):
+        sp.stochvol(np.r_[r.to_numpy(), np.nan])
+    with pytest.raises(sp.MethodIncompatibility, match="column"):
+        sp.stochvol("nope", frame)
+
+    y = np.cumsum(0.2 + rng.normal(size=200))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", sp.ConvergenceWarning)
+        rw = sp.bayes_arima(y, order=(0, 1, 1), constant=True, horizon=3, **FAST)
+        ar = sp.bayes_arima(np.diff(y), order=(2, 0, 0), chains=2, **FAST)
+        no_const = sp.bayes_arima(y, order=(1, 1, 0), **FAST)
+    assert list(rw.params.index) == ["const", "ma.L1", "sigma2"]
+    fc = rw.model_info["forecast"]
+    # the forecast is on the scale of the series, not of its differences
+    assert fc.shape == (3, 4) and abs(fc["mean"].iloc[0] - y[-1]) < 3
+    assert list(ar.params.index) == ["const", "ar.L1", "ar.L2", "sigma2"]
+    assert set(ar.chain) == {0, 1}
+    assert list(no_const.params.index) == ["ar.L1", "sigma2"]
+    assert np.isfinite(ar.log_marginal_likelihood())
+    # every draw is stationary
+    roots = [
+        np.abs(np.roots(np.r_[1.0, -row])).max()
+        for row in ar.draws[["ar.L1", "ar.L2"]].to_numpy()[::50]
+    ]
+    assert max(roots) < 1
+    with pytest.raises(sp.MethodIncompatibility, match="order"):
+        sp.bayes_arima(y, order=(1, 0))
+    with pytest.raises(sp.MethodIncompatibility, match="non-negative"):
+        sp.bayes_arima(y, order=(-1, 0, 0))
+    with pytest.raises(sp.MethodIncompatibility, match="horizon"):
+        sp.bayes_arima(y, horizon=-1)
+    with pytest.raises(sp.DataInsufficient):
+        sp.bayes_arima(y[:8], order=(2, 0, 2))

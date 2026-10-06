@@ -34,6 +34,8 @@ import statspai as sp
 | 6 | Bayesian bootstrap | `sp.bayes_bootstrap` |
 | 8 | `dlm::dlmModReg`, `dlmMLE`, `dlmFilter`, `dlmSmooth`, `dlmGibbsDIG` | `sp.dlm("y ~ x", df)`, `method='mle'` or `'gibbs'` |
 | 8 | Minnesota-prior VAR | `sp.bvar` |
+| 8 | ARMA processes | `sp.bayes_arima(y, order=(p, d, q), horizon=)` |
+| 8 | stochastic volatility (`stochvol::svsample`) | `sp.stochvol(returns)` |
 | 7 | `MCMCregress` on several outcomes, `bayesm::rsurGibbs` | `sp.bayes_sur(["y1 ~ x", "y2 ~ z"], df)` |
 | 7, 13 | `bayesm::rivGibbs` | `sp.bayes_ivreg("y ~ x + (d ~ z)", df)` |
 | 9 | `MCMChregress`, hierarchical logit and Poisson | `sp.bayes_mixed(family='normal' / 'logit' / 'poisson')` |

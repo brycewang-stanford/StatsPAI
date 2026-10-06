@@ -8,6 +8,7 @@ estimators for causal designs live in :mod:`statspai.bayes`.
 
 from __future__ import annotations
 
+from .arima import bayes_arima
 from .bma import BMAResult, bma
 from .bootstrap import bayes_bootstrap
 from .compare import BayesFactorResult, bayes_factor, savage_dickey
@@ -26,6 +27,7 @@ from .mixed import BayesMixedResult, bayes_mixed
 from .regress import BayesRegressResult, bayes_regress
 from .shrinkage import bayes_shrink
 from .sur import bayes_sur
+from .sv import stochvol
 
 __all__ = [
     "MCMCDiagnostic",
@@ -40,6 +42,8 @@ __all__ = [
     "bayes_regress",
     "bayes_shrink",
     "bayes_sur",
+    "bayes_arima",
+    "stochvol",
     "bma",
     "savage_dickey",
     "gelman_rubin",

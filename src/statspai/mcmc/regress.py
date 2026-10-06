@@ -72,6 +72,8 @@ _CITATIONS = {
     "lasso": ("park2008bayesian",),
     "ssvs": ("george1993variable",),
     "iv": ("rossi2005bayesian",),
+    "stochvol": ("kastner2014ancillarity",),
+    "arima": ("metropolis1953equation", "hastings1970monte"),
 }
 
 
