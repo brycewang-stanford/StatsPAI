@@ -229,12 +229,10 @@ def test_stata_asymmetric_arch_commands_are_translated():
     assert fewer["arguments"]["threshold"] == 1 and fewer["arguments"]["q"] == 2
     in_mean = sp.from_stata("arch r, arch(1) garch(1) archm")
     assert in_mean["arguments"]["in_mean"] is True
-    # a threshold lag without its ARCH term, mixed families, other forms
-    # of the in-mean term: no translation
+    # a threshold lag without its ARCH term, mixed families: no translation
     for command in (
         "arch r, arch(1) tarch(1/2) garch(1)",
         "arch r, earch(1) garch(1)",
-        "arch r, arch(1) garch(1) archm archmlags(1)",
     ):
         assert not sp.from_stata(command).get("python_code")
 
@@ -270,3 +268,31 @@ def test_threshold_and_in_mean_argument_errors():
         sp.garch(y, model="gjr", q=1, threshold=2)
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="in_mean"):
         sp.garch(y, in_mean=True, presample="rugarch")
+
+
+def test_in_mean_forms_and_lags():
+    y = _simulate_general(rho=0.0)
+    sd = sp.garch(y, in_mean="sd")
+    assert sd.in_mean == "sd" and sd.in_mean_lags == (0,)
+    lagged = sp.garch(y, in_mean=True, in_mean_lags=[0, 1])
+    assert list(lagged.params.index[:3]) == ["mu", "archm", "archm[L1]"]
+    assert np.shape(lagged.archm) == (2,)
+    # one more free term cannot lower the likelihood
+    assert lagged.log_likelihood >= sp.garch(y, in_mean=True).log_likelihood - 1e-6
+    # the mean forecast uses g(variance) at each lag
+    psi = lagged.archm
+    one = lagged.mu + psi[0] * lagged.forecast(1)[0] + psi[1] * lagged.sigma2[-1]
+    assert lagged.forecast_mean(1)[0] == pytest.approx(one, rel=1e-10)
+    f_sd = sd.mu + sd.archm * np.sqrt(sd.forecast(1)[0])
+    assert sd.forecast_mean(1)[0] == pytest.approx(f_sd, rel=1e-10)
+    for bad in ({"in_mean": "square"}, {"in_mean": True, "in_mean_lags": [1, 0]},
+                {"in_mean": True, "in_mean_lags": [-1]}):  # fmt: skip
+        with pytest.raises(sp.exceptions.MethodIncompatibility):
+            sp.garch(y, **bad)
+    translated = sp.from_stata("arch r, arch(1) garch(1) archm archmexp(sqrt(X))")
+    assert translated["arguments"]["in_mean"] == "sd"
+    lags = sp.from_stata("arch r, arch(1) garch(1) archm archmlags(1/2)")
+    assert lags["arguments"]["in_mean_lags"] == [0, 1, 2]
+    assert not sp.from_stata("arch r, arch(1) garch(1) archm archmexp(X^2)").get(
+        "python_code"
+    )

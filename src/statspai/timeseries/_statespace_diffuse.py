@@ -55,6 +55,27 @@ def initial_exact(
     mean = np.zeros(m) if x0 is None else np.array(x0, dtype=float).reshape(-1)
     if mean.shape != (m,):
         raise MethodIncompatibility(f"x0 must have {m} entries.")
+    if diffuse is not None and np.ndim(diffuse) == 2:
+        # a general P0_inf: the diffuse directions need not be coordinates
+        inf = np.array(diffuse, dtype=float)
+        if inf.shape != (m, m) or not np.allclose(inf, inf.T, atol=1e-12):
+            raise MethodIncompatibility(
+                f"A matrix diffuse= must be symmetric {m} x {m}: the part of "
+                "the initial covariance that is multiplied by infinity.",
+                recovery_hint="Or pass one boolean per state.",
+            )
+        inf = 0.5 * (inf + inf.T)
+        if np.min(np.linalg.eigvalsh(inf)) < -1e-10 * max(1.0, np.abs(inf).max()):
+            raise MethodIncompatibility(
+                "A matrix diffuse= must be positive semi-definite."
+            )
+        star = np.zeros((m, m))
+        if P0 is not None:
+            cov = np.array(P0, dtype=float)
+            if cov.shape != (m, m) or not np.allclose(cov, cov.T, atol=1e-12):
+                raise MethodIncompatibility(f"P0 must be a symmetric {m} x {m} matrix.")
+            star = 0.5 * (cov + cov.T)
+        return mean, star, inf
     if diffuse is None:
         flag = np.ones(m, dtype=bool)
     else:

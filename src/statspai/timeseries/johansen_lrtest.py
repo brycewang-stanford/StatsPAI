@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 from .cointegration import _JOHANSEN_TREND_ALIASES, _johansen_residuals
 
@@ -23,7 +24,7 @@ __all__ = ["johansen_lrtest", "JohansenLRTest"]
 
 
 @dataclass
-class JohansenLRTest:
+class JohansenLRTest(ResultProtocolMixin):
     """Result of :func:`johansen_lrtest`.
 
     Attributes

@@ -112,7 +112,8 @@ sp.garch("ret", data=df, model="egarch")    # exponential GARCH
 ```
 
 `in_mean=True` puts the conditional variance in the mean (a risk premium)
-and works with every model.
+and works with every model; `in_mean="sd"` uses the standard deviation
+and `in_mean_lags=[0, 1]` adds a lag.
 
 Both asymmetric models let bad news move the variance by more than good news. In the
 threshold model `gamma > 0` is that leverage effect; in EGARCH it is
@@ -226,9 +227,18 @@ sp.mswitch("growth", data=df, states=2, switch_variance=True)   # dr model
 to a new regime mean. `model="dr"` lets the mean jump at once and treats
 lags of the series as ordinary regressors. The likelihood has several
 maxima, so several starting values are tried and the result says how many
-distinct maxima they reached. A likelihood-ratio test of one regime
-against two does not have a chi-squared distribution, because the
-transition probabilities are not identified under the null.
+distinct maxima they reached.
+
+```python
+test = sp.mswitch_lrtest("growth", data=df, model="ar", ar=1, reps=199, seed=1)
+test.pvalue, test.critical_values, test.diagnostics
+```
+
+A likelihood-ratio test of one regime against two does not have a
+chi-squared distribution, because the transition probabilities are not
+identified under the null. `sp.mswitch_lrtest` simulates the null
+distribution from the fitted one-regime model instead. It takes minutes,
+not seconds; `n_jobs=` spreads the replicates over processes.
 
 ### Coefficients that move (chapter 18)
 
@@ -239,6 +249,19 @@ tv.stability()                # largest root of the VAR frozen at each date
 tv.irf(at=["1975Q1", "2005Q1"], periods=12)
 sp.tvp_var(df, lags=2, method="forgetting", lam=0.99, kappa=0.96)
 ```
+
+```python
+sv = sp.tvp_var_sv(df, variables=["dp", "dy", "r"], lags=2, seed=1)
+sv.volatility()                       # standard deviation of each shock over time
+sv.irf(at=["1975Q1", "2005Q1"], periods=12, shock_size="unit")
+sv.diagnostics()
+```
+
+`sp.tvp_var_sv` also lets the shock variances drift, by Gibbs sampling.
+Use it when the question is whether responses changed or only the size
+of the shocks did: a model with constant variances has to explain a
+quieter period with different coefficients. Its default prior on
+coefficient drift is tight; check the sensitivity to `k_Q`.
 
 Every coefficient follows a random walk. `method="kalman"` estimates how
 fast each one moves; a variance estimated at zero means that coefficient
@@ -265,7 +288,9 @@ over time. Report both before claiming that it did.
 | `sp.johansen`, `sp.vec`, `sp.johansen_lrtest` | Stata `vecrank`, `vec`; R `urca` |
 | `sp.kalman_filter`, `sp.statespace` | R `KFAS`, statsmodels |
 | `sp.mswitch` | Stata `mswitch`, statsmodels |
+| `sp.mswitch_lrtest` | rejection rates in simulations (no reference implementation) |
 | `sp.tvp_var` | `sp.dlm` and R `KFAS` (Kalman); discounted least squares (forgetting) |
+| `sp.tvp_var_sv` | exact checks of each Gibbs block and a joint-distribution test; R `bvarsv` as a screen |
 
 The bootstrap bands are random and have no cross-language reference; they
 are checked by coverage in simulations.

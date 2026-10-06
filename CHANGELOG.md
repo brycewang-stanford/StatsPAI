@@ -171,7 +171,10 @@ Guide: `docs/guides/time_series_econometrics.md`.
   pre-sample variance fixed while it climbs the likelihood; `sp.garch`
   does the same, and a test shows that this, not noise, is what separates
   the two candidate estimates. **`threshold=`** sets fewer threshold terms
-  than ARCH terms (`arch(1/2) tarch(1)`).
+  than ARCH terms (`arch(1/2) tarch(1)`). `in_mean="sd"` and `"log"` put
+  the standard deviation or the log variance in the mean
+  (`archmexp()`), and `in_mean_lags=` adds lagged terms (`archmlags()`);
+  six more specifications against Stata to 1e-8 in the likelihood.
 - **`boot="kilian"`** in `sp.irf`, `VARResult.fevd`, `SVARResult.irf` and
   `SVARResult.fevd`: Kilian's bias-corrected bootstrap. In a bivariate
   VAR(1) with a root of 0.92 and 60 observations, 90% bands for the own
@@ -191,6 +194,30 @@ Guide: `docs/guides/time_series_econometrics.md`.
   starting values are tried and the number of distinct maxima is
   reported. Three places where a reference disagrees with itself or with
   another are documented with independent evidence in the test file.
+- **`sp.mswitch_lrtest`**: a parametric-bootstrap likelihood-ratio test of
+  the number of regimes. The chi-squared reference does not apply to this
+  test. Under a true single regime the bootstrap test rejects 4.5% of the
+  time at the 5% level (400 samples of white noise, T = 100) and 3.5% for
+  an AR(1); a chi-squared with one degree of freedom would reject 37%.
+  Power against two well-separated regimes is 95%. On Hamilton's GNP
+  series the bootstrap p-value of one regime against two is 0.40. Every
+  replicate uses the same search as the data, and replicates with
+  several maxima or failed fits are counted in the result.
+  `sp.mswitch(start_params=)` takes extra starting vectors.
+- **`sp.tvp_var_sv`**: the TVP-VAR with stochastic volatility of Primiceri.
+  Coefficients, contemporaneous relations and log volatilities follow
+  random walks; Gibbs sampler with the indicator ordering of the Del
+  Negro and Primiceri corrigendum. A random estimator, so no parity is
+  claimed. Each block is tested against an exact computation (the
+  Carter-Kohn draw against the Kalman smoother, the inverse-Wishart
+  updates and the indicator probabilities against closed forms), and a
+  joint-distribution test passes with the corrected ordering and fails
+  with the original one. On simulated data 95% bands cover a drifting
+  coefficient 97% and a stepped volatility 88% of the time. Against the
+  R package `bvarsv` volatility medians differ by 1 to 4% on average, a
+  gap of 1 to 3 Monte Carlo standard errors that is not explained. The
+  default prior on coefficient drift (`k_Q = 0.01`, the paper's) is tight
+  enough to flatten a coefficient that moves from 0.2 to 0.8.
 - **`sp.tvp_var`**: a VAR whose coefficients follow random walks. Equation
   by equation with the Kalman filter and smoother and maximum-likelihood
   innovation variances (each equation equal to `sp.dlm`, and to R `KFAS`
@@ -203,7 +230,9 @@ Guide: `docs/guides/time_series_econometrics.md`.
   `sp.statespace` (`init="exact"`, or `diffuse=[...]` to mark some
   states). Filter, smoother and diffuse likelihood equal R `KFAS` to 1e-12
   on six models, including missing observations during the diffuse period
-  and time-varying matrices. The default is unchanged.
+  and time-varying matrices. The default is unchanged. `diffuse=` also
+  takes a matrix `P0_inf` for diffuse directions that are combinations
+  of the states.
 - **`sp.beveridge_nelson(order=(p, q))`**: the decomposition from an ARMA
   model fitted by exact maximum likelihood. The cycle equals the
   long-horizon forecast of the fitted model to 5e-13. Integer orders keep
@@ -258,6 +287,11 @@ Guide: `docs/guides/time_series_econometrics.md`.
 
 #### Fixed
 
+- **`ZivotAndrewsResult` and `JohansenLRTest` lacked the agent contract**
+  (`to_dict`, `violations`, `next_steps`, `result_card`, `cite`) that every
+  result class carries. Four tests of the full suite failed for it on
+  main between the first round of this pass and this fix; the subset of
+  tests run before each push did not include them.
 - **`sp.johansen` summary** printed the length of the series where the
   statistics use the observations left after differencing and lagging, and
   `5% CV` at `alpha=0.01`. The result now carries `n_used`, `alpha`,
@@ -283,7 +317,7 @@ Guide: `docs/guides/time_series_econometrics.md`.
   unaffected; variances are too large by up to 0.134, so the band in the
   book's figure is too wide.
 
-Twenty-five references added to `paper.bib`, each verified against the
+Thirty-two references added to `paper.bib`, each verified against the
 Crossref and OpenAlex records of its DOI.
 ### A causal-inference textbook's Stata code, run against Stata
 

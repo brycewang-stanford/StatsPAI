@@ -18180,10 +18180,11 @@ def _build_registry() -> None:
                 ParamSpec("kappa", "float", False, 1e7, "Diffuse prior variance"),
                 ParamSpec(
                     "diffuse",
-                    "list",
+                    "list | matrix",
                     False,
                     None,
-                    "One flag per state: exactly diffuse initial condition",
+                    "One flag per state: exactly diffuse initial condition; "
+                    "or the matrix P0_inf",
                 ),
                 ParamSpec("smooth", "bool", False, True),
                 ParamSpec(
@@ -18441,6 +18442,14 @@ def _build_registry() -> None:
                 ParamSpec("maxiter", "int", False, 500),
                 ParamSpec("tol", "float", False, 1e-9),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "start_params",
+                    "list",
+                    False,
+                    None,
+                    "Extra starting vectors, in the order and scale of "
+                    "result.theta, tried after the built-in ones",
+                ),
             ],
             returns="MarkovSwitchingResult",
             example='sp.mswitch("growth", data=df, states=2, model="ar", ar=1)',
@@ -18471,6 +18480,160 @@ def _build_registry() -> None:
                 "ratio: the usual chi-squared reference does not apply",
             ],
             cost_profile="states**(ar + 1) regimes in the filter for model='ar'",
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="tvp_var_sv",
+            category="timeseries",
+            description=(
+                "Time-varying-parameter VAR with stochastic volatility "
+                "(Primiceri): coefficients, the contemporaneous relations "
+                "and the log volatilities of the shocks all follow random "
+                "walks. Gibbs sampler with the corrected ordering of the "
+                "mixture indicators. Posterior medians and bands of the "
+                "coefficient, volatility and covariance paths, impulse "
+                "responses at chosen dates, share of explosive draws, "
+                "convergence diagnostics."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("variables", "list", False, None, "In recursive order"),
+                ParamSpec("lags", "int", False, 1),
+                ParamSpec("time", "str", False, None, "Column to sort and label by"),
+                ParamSpec(
+                    "training",
+                    "int",
+                    False,
+                    40,
+                    "Initial observations that calibrate the prior and are "
+                    "then dropped; None for a simple prior",
+                ),
+                ParamSpec("prior", "dict", False, None, "Override prior elements"),
+                ParamSpec("k_Q", "float", False, 0.01, "Prior drift of coefficients"),
+                ParamSpec("k_S", "float", False, 0.1, "Prior drift of covariances"),
+                ParamSpec("k_W", "float", False, 0.01, "Prior drift of volatilities"),
+                ParamSpec("k_B", "float", False, 4.0),
+                ParamSpec("k_A", "float", False, 4.0),
+                ParamSpec("k_sig", "float", False, 1.0),
+                ParamSpec("draws", "int", False, 5000, "Draws kept"),
+                ParamSpec("burnin", "int", False, 2000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec(
+                    "stationary",
+                    "bool",
+                    False,
+                    False,
+                    "Reject explosive " "coefficient paths",
+                ),
+                ParamSpec("max_tries", "int", False, 100),
+                ParamSpec("offset", "float", False, 0.001, "Added before the log"),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="TVPVARSVResult",
+            example='sp.tvp_var_sv(df, variables=["dp", "u", "r"], lags=2, seed=1)',
+            tags=[
+                "timeseries",
+                "var",
+                "time-varying",
+                "stochastic-volatility",
+                "bayes",
+            ],
+            reference="primiceri2005time",
+            assumptions=[
+                "Random-walk coefficients, covariances and log volatilities",
+                "Recursive ordering of the variables for the structural shocks",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Coefficient paths that barely move when the data "
+                    "suggest drift",
+                    exception="",
+                    remedy="The default k_Q = 0.01 is a tight prior on drift; "
+                    "raise it and report the sensitivity.",
+                ),
+                FailureMode(
+                    symptom="A prior shock variance near the offset",
+                    exception="statspai.StatsPAIWarning",
+                    remedy="Rescale the series (for example to percent) or "
+                    "lower offset=.",
+                ),
+            ],
+            alternatives=["tvp_var", "bvar", "stochvol", "var"],
+            not_recommended_when=[
+                "Short samples: the training sample is removed and the prior "
+                "then matters a great deal",
+            ],
+            cost_profile="About 5 ms per sweep at K=3, p=2, T=160; numba "
+            "kernels compile on first use",
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="mswitch_lrtest",
+            category="timeseries",
+            description=(
+                "Parametric-bootstrap likelihood-ratio test of the number of "
+                "regimes in a Markov-switching regression: k0 regimes "
+                "against k. The chi-squared reference does not apply (the "
+                "transition probabilities are not identified under the "
+                "null), so the null distribution is simulated from the "
+                "fitted null model, with the same search for the maximum on "
+                "every simulated series."
+            ),
+            params=[
+                ParamSpec("y", "str | array", True, description="Dependent variable"),
+                ParamSpec("x", "str | list | array", False, None),
+                ParamSpec("data", "DataFrame", False, None),
+                ParamSpec("states", "int", False, 2, "Regimes under the alternative"),
+                ParamSpec(
+                    "null_states",
+                    "int",
+                    False,
+                    None,
+                    "Regimes under the null " "(default states - 1)",
+                ),
+                ParamSpec("model", "str", False, "dr", "", ["dr", "ar"]),
+                ParamSpec("ar", "int", False, 0),
+                ParamSpec("switch", "str | list | array", False, None),
+                ParamSpec("switch_ar", "bool", False, False),
+                ParamSpec("switch_variance", "bool", False, False),
+                ParamSpec("constant", "bool | str", False, True),
+                ParamSpec("method", "str", False, "bootstrap", "", ["bootstrap"]),
+                ParamSpec("reps", "int", False, 199, "Bootstrap replications"),
+                ParamSpec("starts", "int", False, 10, "Starting values per fit"),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("maxiter", "int", False, 500),
+                ParamSpec("tol", "float", False, 1e-9),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec("n_jobs", "int", False, 1, "Worker processes"),
+            ],
+            returns="MarkovSwitchingLRTest",
+            example='sp.mswitch_lrtest("growth", data=df, model="ar", ar=1, seed=1)',
+            tags=["timeseries", "markov-switching", "regime", "bootstrap", "lr-test"],
+            reference="hansen1992likelihood",
+            assumptions=[
+                "Gaussian errors under the null (the simulated series use them)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Many replicates with several distinct maxima",
+                    exception="",
+                    remedy="Counted in result.diagnostics; the size of the "
+                    "test does not depend on finding the global maximum "
+                    "because the same search is used throughout, the power "
+                    "does. Raise starts=.",
+                ),
+            ],
+            alternatives=["mswitch", "structural_break", "bds"],
+            not_recommended_when=[
+                "switch_variance=True: the likelihood is unbounded and the "
+                "statistic depends on the variance floor",
+            ],
+            cost_profile="About 0.5 to 1.5 s per replicate; n_jobs spreads them",
         )
     )
 

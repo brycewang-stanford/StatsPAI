@@ -887,3 +887,52 @@ def test_statespace_with_the_exact_diffuse_likelihood():
     # diffuse= alone selects the exact filter
     again = statespace(y, build_level, fit.params.to_numpy(), diffuse=[True])
     assert again.loglik == pytest.approx(fit.loglik, abs=1e-9)
+
+
+def test_general_diffuse_matrix_is_invariant_to_rotating_the_states():
+    """A random walk and a stationary AR(1) observed through two series,
+    then the same model with the states rotated. The diffuse direction is
+    no longer a coordinate, so ``diffuse`` is the matrix ``R diag(1, 0)
+    R'``; an orthogonal ``R`` leaves the likelihood and everything in
+    observation space unchanged."""
+    from statspai.timeseries.statespace import kalman_filter
+
+    rng = np.random.default_rng(8)
+    T = 60
+    walk = np.cumsum(rng.normal(size=T))
+    ar = np.zeros(T)
+    for t in range(1, T):
+        ar[t] = 0.6 * ar[t - 1] + rng.normal(scale=0.5)
+    G = np.array([[1.0, 1.0], [0.5, -1.0]])
+    y = np.column_stack([walk, ar]) @ G.T + 0.3 * rng.normal(size=(T, 2))
+    y[3, 0] = np.nan
+    F = np.diag([1.0, 0.6])
+    Q = np.diag([1.0, 0.25])
+    Rm = 0.09 * np.eye(2)
+    base = kalman_filter(y, F=F, G=G, Q=Q, R=Rm, diffuse=[True, False])
+
+    c, s = np.cos(0.7), np.sin(0.7)
+    rot = np.array([[c, -s], [s, c]])
+    star = np.diag([0.0, 0.25 / (1 - 0.36)])  # stationary part, unrotated
+    turned = kalman_filter(
+        y,
+        F=rot @ F @ rot.T,
+        G=G @ rot.T,
+        Q=rot @ Q @ rot.T,
+        R=Rm,
+        P0=rot @ star @ rot.T,
+        diffuse=rot @ np.diag([1.0, 0.0]) @ rot.T,
+    )
+    assert turned.loglik == pytest.approx(base.loglik, rel=1e-10)
+    assert turned.n_diffuse == base.n_diffuse == 1
+    # smoothed states map back by the rotation
+    np.testing.assert_allclose(
+        np.asarray(turned.smoothed_state) @ rot, np.asarray(base.smoothed_state),
+        atol=1e-8,
+    )  # fmt: skip
+    back = np.einsum("ji,tjk,kl->til", rot, np.asarray(turned.smoothed_cov), rot)
+    np.testing.assert_allclose(back, np.asarray(base.smoothed_cov), atol=1e-8)
+    with pytest.raises(Exception, match="positive semi-definite|symmetric"):
+        kalman_filter(
+            y, F=F, G=G, Q=Q, R=Rm, diffuse=np.array([[1.0, 2.0], [2.0, 1.0]])
+        )

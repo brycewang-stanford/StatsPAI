@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional, Union
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["zivot_andrews", "ZivotAndrewsResult"]
@@ -29,7 +30,7 @@ _CRITICAL = {
 
 
 @dataclass
-class ZivotAndrewsResult:
+class ZivotAndrewsResult(ResultProtocolMixin):
     """Result of :func:`zivot_andrews`.
 
     Attributes

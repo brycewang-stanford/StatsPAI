@@ -230,3 +230,88 @@ def test_threshold_at_fewer_lags_than_arch(data, stata):
     assert fit.alpha[0] == pytest.approx(0.0, abs=1e-8)
     assert ref["ll"] - 0.5 < fit.log_likelihood < ref["ll"]
     assert fit.gamma.shape == (1,)
+
+
+# ---------------------------------------------------------------------------
+# Transformed and lagged variance in the mean (archmexp, archmlags)
+# ---------------------------------------------------------------------------
+
+# model -> (sp arguments, our names in Stata's coefficient order)
+IN_MEAN_FORMS = {
+    # Stata: mu, sigma2ex, arch, garch, omega
+    "msd": (dict(in_mean="sd"), ["mu", "archm", "alpha[1]", "beta[1]", "omega"]),
+    "mlog": (dict(in_mean="log"), ["mu", "archm", "alpha[1]", "beta[1]", "omega"]),
+    # Stata: mu, sigma2, L.sigma2, arch, garch, omega
+    "ml01": (
+        dict(in_mean=True, in_mean_lags=[0, 1]),
+        ["mu", "archm", "archm[L1]", "alpha[1]", "beta[1]", "omega"],
+    ),
+    # archmlags(1) without archm: the lag alone
+    "ml1": (
+        dict(in_mean=True, in_mean_lags=[1]),
+        ["mu", "archm[L1]", "alpha[1]", "beta[1]", "omega"],
+    ),
+    "ml012": (
+        dict(in_mean=True, in_mean_lags=[0, 1, 2]),
+        ["mu", "archm", "archm[L1]", "archm[L2]", "alpha[1]", "beta[1]", "omega"],
+    ),
+}
+
+
+@pytest.mark.parametrize("name", list(IN_MEAN_FORMS))
+def test_transformed_and_lagged_variance_in_mean(data, stata, name):
+    kwargs, order = IN_MEAN_FORMS[name]
+    ref = stata[name]
+    b, se = _vec(ref, "b", len(order)), _vec(ref, "se", len(order))
+    fit = sp.garch("r", data=data, vce="opg", **kwargs)
+    assert fit.log_likelihood == pytest.approx(ref["ll"], rel=1e-8)
+    # several in-mean terms are close to collinear with each other and
+    # with the constant: 3e-4 is under 0.005 of the smallest standard error
+    np.testing.assert_allclose(fit.params[order].to_numpy(), b, atol=3e-4)
+    np.testing.assert_allclose(fit.std_errors[order].to_numpy(), se, rtol=3e-3)
+
+
+def test_standard_deviation_in_mean_with_threshold(data, stata):
+    # Stata: mu, sigma2ex, arch, tarch, garch, omega
+    ref = stata["mgsd"]
+    b = _vec(ref, "b", 6)
+    fit = sp.garch("r", data=data, model="gjr", in_mean="sd", vce="opg")
+    assert fit.log_likelihood == pytest.approx(ref["ll"], rel=1e-8)
+    assert fit.archm == pytest.approx(b[1], abs=3e-4)
+    assert fit.gamma[0] == pytest.approx(-b[3], abs=3e-4)
+
+
+def test_stata_does_not_transform_the_presample_variance_of_a_lagged_term(data, stata):
+    """With ``archmexp(sqrt(X))`` and ``archmlags()`` Stata puts the
+    pre-sample *variance* where the pre-sample standard deviation belongs.
+    Ours uses the standard deviation. The two likelihoods differ in the
+    second decimal; rebuilding Stata's rule reproduces its number."""
+    y = data["r"].to_numpy()
+    ref = stata["msd012"]
+    b = _vec(ref, "b", 7)  # mu, psi0, psi1, psi2, arch, garch, omega
+    mu, psi, a, be, w = b[0], b[1:4], b[4], b[5], b[6]
+
+    def loglik(presample):
+        m = float(np.mean((y - mu) ** 2))
+        for _ in range(60):  # the pre-sample value is a fixed point
+            s2 = np.empty(y.size)
+            e = np.empty(y.size)
+            for t in range(y.size):
+                s2[t] = (
+                    w + a * (e[t - 1] ** 2 if t else m) + be * (s2[t - 1] if t else m)
+                )
+                prem = sum(
+                    psi[k] * (np.sqrt(s2[t - k]) if t >= k else presample(m))
+                    for k in range(3)
+                )
+                e[t] = y[t] - mu - prem
+            m = float(np.mean(e * e))
+        return float((-0.5 * (np.log(2 * np.pi) + np.log(s2) + e * e / s2)).sum())
+
+    assert loglik(lambda m: m) == pytest.approx(ref["ll"], rel=1e-9)  # Stata's rule
+    ours = _general_filter(
+        np.array([mu, *psi, w, a, be]), y, 1, 1, True, 0, "normal", "stata",
+        "garch", 0, (1, (0, 1, 2)),
+    )[3].sum()  # fmt: skip
+    assert ours == pytest.approx(loglik(np.sqrt), rel=1e-10)  # ours: g(m)
+    assert abs(ours - ref["ll"]) > 5e-3

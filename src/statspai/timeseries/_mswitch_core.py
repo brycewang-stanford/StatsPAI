@@ -19,9 +19,10 @@ rounding) and the Hessian a central difference of exact scores.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
+import pandas as pd
 
 __all__: List[str] = []
 
@@ -595,3 +596,54 @@ def covariance(
             "they are held fixed and have no standard error"
         )
     return vcov, notes
+
+
+def fit_starts(
+    spec: Spec,
+    data: Data,
+    starts: int,
+    rng: np.random.Generator,
+    maxiter: int,
+    tol: float,
+    extra: Sequence[np.ndarray] = (),
+) -> Tuple[pd.DataFrame, List[np.ndarray], int]:
+    """Maximise from every starting value; the table, the end points, the best.
+
+    ``starts`` values come from :func:`start_values` and pass through EM
+    first; each vector of ``extra`` (on the scale of ``spec``) goes straight
+    to :func:`maximise`. The best end point is the converged one with the
+    highest likelihood, or the highest of all when none converged.
+    """
+    dr = Spec(
+        spec.k, "dr", spec.p, spec.nx, spec.nz, spec.const, spec.sw_ar, spec.sw_var
+    )
+    var_floor = 1e-8 * float(np.var(data.y))
+    lnsig_floor = 0.5 * float(np.log(var_floor))
+    runs: List[Dict[str, Any]] = []
+    fits: List[np.ndarray] = []
+    for i in range(int(starts) + len(extra)):
+        if i < int(starts):
+            th0 = start_values(spec, data, None if i == 0 else rng)
+            th_em, ll_em = em_dr(dr, data, th0, min(maxiter, 200), 1e-7, var_floor)
+            th0 = dr_to_model(spec, th_em)
+        else:
+            th0, ll_em = np.asarray(extra[i - int(starts)], dtype=float), np.nan
+        th, ll, ok, nit = maximise(spec, data, th0, maxiter, tol, lnsig_floor)
+        fits.append(th)
+        visited = ergodic(unpack(spec, th[None, :])["P"])[0]
+        empty = bool(visited.min() < 1e-8)
+        runs.append(
+            {
+                "start": i,
+                "loglik_em": ll_em,
+                "loglik": ll,
+                "converged": bool(ok and not empty),
+                "degenerate": empty,
+                "iterations": nit,
+            }
+        )
+    table = pd.DataFrame(runs)
+    rank = table.assign(_c=table["converged"].astype(int)).sort_values(
+        ["_c", "loglik"], ascending=False
+    )
+    return table, fits, int(rank.index[0])

@@ -29,6 +29,11 @@ objects.
 Chapters without a data set were covered as a syllabus: spectral analysis
 and filters (6), integrated processes (7), long-run variance (4.4).
 
+A second edition appeared in 2025 (Springer, DOI
+`10.1007/978-3-031-88838-0`, Crossref record checked). This pass used the
+companion data of the first edition; whether the second changes the
+examples was not checked.
+
 The book is from 2016 and its code is older (MATLAB System Identification
 objects dated 2003 and 2004). It was used as a list of what a time-series
 reader expects, not as a numerical reference. Every number was computed
@@ -87,7 +92,8 @@ right and are unchanged (`urca` to 1e-8 in three deterministic cases).
 | Beveridge-Nelson decomposition (7.1) | none | `sp.beveridge_nelson`, from an AR or an ARMA model |
 | State space models (17) | `sp.dlm` (random-walk regression only) | `sp.kalman_filter`, `sp.statespace`, exact diffuse start |
 | Time-varying coefficients (18) | none | `sp.tvp_var` |
-| Regime switching (18) | none | `sp.mswitch` |
+| Regime switching (18) | none | `sp.mswitch`, `sp.mswitch_lrtest` |
+| Drifting volatilities (18) | none | `sp.tvp_var_sv` |
 | Reading the book's EViews workbooks | pandas error | `sp.read_data` repairs them in memory |
 
 Evidence for each, all on committed simulated data with a generator script
@@ -99,6 +105,7 @@ next to the reference file:
 | `sp.garch(model='gjr' / 'egarch')` | Stata 18 `arch, tarch()` and `arch, earch() egarch()` | log-likelihood 1e-8, coefficients 2e-4, standard errors 2e-3, with normal and t errors and an AR term |
 | `sp.irf(ci='asymptotic')`, `fevd(ci='asymptotic')` | Stata 18 `irf create` | simple, orthogonalised and cumulative responses, variance shares and their standard errors to 1e-6, the precision of Stata's single-precision `.irf` file |
 | `sp.garch(in_mean=True)` | Stata 18 `arch, archm` | log-likelihood 1e-8, coefficients 1e-4, standard errors 2e-3 |
+| `sp.garch(in_mean='sd' / 'log', in_mean_lags=)` | Stata 18 `archmexp()`, `archmlags()` | log-likelihood 1e-8, coefficients 3e-4, standard errors 3e-3 (six specifications) |
 | `sp.irf(ci='bootstrap')` | known truth | 90% bands cover between 80% and 97% over 150 samples; spread within a fifth of the delta method at T = 600 |
 | `boot='kilian'` | known truth | root 0.92, T = 60, nominal 90%: percentile 38%, Hall 56%, delta method 62%, bias-corrected 86% (300 samples) |
 | `sp.johansen_lrtest` | `urca` `blrtest`, `bh5lrtest`, `alrtest` | statistic 1e-8, degrees of freedom equal, three deterministic cases |
@@ -115,6 +122,8 @@ next to the reference file:
 | `sp.tsfilter(sma_order=, one_sided=)` | Stata `tsfilter cf, smaorder()`; expanding-window HP | 1e-9; 1e-10 |
 | `sp.zivot_andrews` with `zandrews` options | Stata `zandrews` 1.0.5 (SSC) | statistic 5e-13, break date and lag equal, 48 cases |
 | `sp.mswitch` | Stata 18 `mswitch dr` / `ar`; statsmodels | likelihood and regime probabilities at Stata's estimates 1e-11, covariance 5e-6, 18 models |
+| `sp.mswitch_lrtest` | known truth | rejects 4.5% at the 5% level under one regime (se 1.1), 95% under two well-separated regimes; a full double bootstrap agrees with the one-draw shortcut within Monte Carlo error |
+| `sp.tvp_var_sv` | exact conditionals; joint-distribution test; `bvarsv` as a screen | each Gibbs block within Monte Carlo error of its exact counterpart; volatility medians 1 to 4% from `bvarsv` |
 | `sp.tvp_var(method='kalman')` | `sp.dlm` per equation; R `KFAS` | 2e-11; 1e-12 under a proper prior, 2e-6 under the diffuse one |
 | `sp.tvp_var(method='forgetting')` | discounted least squares; independent implementation | 1e-8; 1e-10 |
 
@@ -211,6 +220,15 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
   with a likelihood 8e-5 higher. Both are defensible; the default is the
   reference's, and `test_presample_value_is_held_fixed_as_in_stata` shows
   the mechanism.
+- With `archmexp()` and `archmlags()` together, Stata starts the lagged
+  term from the untransformed pre-sample variance (the variance where the
+  standard deviation belongs). `sp.garch` transforms it. The likelihoods
+  then differ in the second decimal; the test rebuilds Stata's value from
+  its rule to 1e-9. Without lags, or without a transform, the two agree.
+- Under a diffuse prior `sp.tvp_var` and KFAS looked 2e-6 apart. A
+  Kalman filter in 60-digit arithmetic shows both within 2e-8 of the
+  exact answer relative to `max(|value|, 1)`; the larger figure was pure
+  relative error on coefficients near zero. Neither side is wrong.
 - Stata does not restrict the sign of `arch + tarch`. With `arch(1/2)
   tarch(1)` on the test series its estimate has the variance falling
   after a positive shock at lag one. `sp.garch` keeps `alpha >= 0`, stops
@@ -237,6 +255,13 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
   variance and two or more AR lags disagrees with both Stata and us.
   Stata's default `predict, yhat` applies the transition matrix once more
   than the one-step prediction; ours equals `yhat smethod(filter)`.
+- On the US data the three time-varying VARs now give a consistent
+  reading once volatility is modelled. The interest-rate shock
+  volatility peaks in 1980Q4 (standard deviation 2.2 against 0.2 in
+  1996). The response of output to a unit interest-rate shock did not
+  change detectably (posterior probability of a weaker response 0.57 to
+  0.60). The forgetting-factor filter's "weaker over time" was smaller
+  shocks, not weaker transmission.
 - `sp.tsfilter(method='cf')` removes a drift by default, as the authors
   and statsmodels do; Stata does not. `drift=False` reproduces Stata.
 
@@ -246,15 +271,27 @@ Rounds two and three closed most of the first list. What is left:
 
 | Item | Why it is open |
 | --- | --- |
-| `archmlags()` and `archmexp()` | `sp.garch(in_mean=True)` puts the current variance in the mean; Stata's lagged and transformed variants are refused by `sp.from_stata`. |
+| Section 15.4.5 again | A web search for the book's restrictions found nothing usable; the paper itself (Blanchard, AER 1989) was not read. Left as it was. |
 | The default bootstrap band | Still the percentile band of Stata and `vars`, with a warning above a root of 0.9. The coverage numbers argue for `boot='kilian'`; that is a decision for Bryce. |
 | Section 15.4.5, Blanchard (1989) | The book's AB restrictions could not be recovered without the text. |
 | `lag_selection='break'` in `sp.zivot_andrews` | No reference implementation chooses the lag order at every break date (Stata's `zandrews` chooses it once, without the break). Checked against an independent recomputation only. |
 | The forgetting-factor TVP-VAR | No package reference. The one CRAN implementation found (`ConnectednessApproach::TVPVAR`) computes a different recursion from its second step on. Checked against discounted least squares and an independent implementation in the test file. |
-| Likelihood-ratio test for the number of regimes | `sp.mswitch` estimates a given number of states. The test of one regime against two has a non-standard distribution and is not offered. |
-| TVP-VAR with stochastic volatility | `sp.tvp_var` has a constant error variance per equation (`method='kalman'`) or an exponentially weighted one (`'forgetting'`). The full Bayesian model of Primiceri is not implemented. |
-| A general `P0_inf` matrix in the exact diffuse filter | States are marked diffuse one by one. |
-| Two notes to third parties | `docs/dev/2026-10-06-neusser-kalman-smoother-note-draft.md` (the book's smoother) and `docs/dev/2026-10-06-stata-tsfilter-cf-stationary-note-draft.md` (Stata's `tsfilter cf, stationary`). Drafts; not sent. |
+| `sp.mswitch_lrtest` beyond one regime against two | Size evidence exists for one against two regimes with a switching constant. Two against three, and switching variances (where the likelihood is unbounded), have mechanical tests only. Garcia's asymptotic critical values were not implemented: the paper was not read. |
+| `sp.tvp_var_sv` against `bvarsv` | Volatility medians differ by 1 to 4% on average (up to 11% at the first date), 1 to 3 Monte Carlo standard errors, with a smooth tilt over time. Matching the estimation window and rescaling the volatility prior did not close it. Reported as a screen, not an equivalence. |
+| Mixture reweighting in `sp.tvp_var_sv` | The seven-normal approximation is used without the reweighting step; the joint-distribution test shows a bias of about 0.5% in the volatility innovation variance. |
+| Three notes to third parties | `docs/dev/2026-10-06-neusser-kalman-smoother-note-draft.md` (the book's smoother), `docs/dev/2026-10-06-stata-tsfilter-cf-stationary-note-draft.md` (Stata's `tsfilter cf, stationary`) and `docs/dev/2026-10-06-stata-mswitch-predict-note-draft.md` (Stata's `predict` after `mswitch ar, switch()`). Drafts; not sent. |
+
+## What the full test suite showed
+
+The pushes of rounds one to three ran the tests of the files they
+touched and every pre-push gate, not the whole suite. A full run on main
+after round three (31,369 passed, 7 failed, 89 minutes) found four
+failures from round one: `ZivotAndrewsResult` did not inherit the result
+protocol, which two audits check. Fixed in round four. Two more came
+from another pass (`alternatives` naming functions that do not exist),
+and one is a timeout test that passes on an idle machine. The lesson is
+in CLAUDE.md: the result-protocol and agent-contract audits belong to
+the set run before a push that adds a result class.
 
 ## How to rerun
 

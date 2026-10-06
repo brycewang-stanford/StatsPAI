@@ -350,146 +350,22 @@ def _tables(
     )
 
 
-def mswitch(
+def _setup(
     y: Union[str, np.ndarray, pd.Series],
-    x: ArrayLike = None,
-    *,
-    data: Optional[pd.DataFrame] = None,
-    states: int = 2,
-    model: str = "dr",
-    ar: int = 0,
-    switch: ArrayLike = None,
-    switch_ar: bool = False,
-    switch_variance: bool = False,
-    constant: Union[bool, str] = True,
-    vce: str = "oim",
-    starts: int = 5,
-    seed: Optional[int] = None,
-    maxiter: int = 500,
-    tol: float = 1e-9,
-    alpha: float = 0.05,
-) -> MarkovSwitchingResult:
-    """Markov-switching regression by maximum likelihood.
-
-    The state ``s_t`` follows a first-order Markov chain with ``states``
-    values. With ``model='dr'`` (dynamic regression) ::
-
-        y_t = mu_{s_t} + x_t'a + z_t'b_{s_t} + sum_k phi_k y_{t-k} + e_t
-
-    so the level adjusts at once when the state changes and lags of ``y``
-    are ordinary regressors. With ``model='ar'`` (Hamilton's
-    autoregression) the deviations from the state-dependent mean are
-    autoregressive ::
-
-        y_t - m_t(s_t) = sum_k phi_k [y_{t-k} - m_{t-k}(s_{t-k})] + e_t,
-        m_t(s) = mu_s + x_t'a + z_t'b_s
-
-    and the likelihood runs over the ``states**(ar + 1)`` histories
-    ``(s_t, ..., s_{t-ar})``. ``e_t`` is normal with standard deviation
-    ``sigma`` or ``sigma_{s_t}``.
-
-    Parameters
-    ----------
-    y : str or array-like
-        Outcome in time order, or its column name in ``data``.
-    x : str, list of str or array-like, optional
-        Regressors with coefficients common to the states.
-    data : pandas.DataFrame, optional
-        Needed when variables are given by name.
-    states : int, default 2
-        Number of states (2 or 3 for ``model='ar'``).
-    model : {'dr', 'ar'}, default 'dr'
-        Dynamic regression or autoregression; they coincide for ``ar=0``.
-    ar : int, default 0
-        Number of lags of ``y`` (lags ``1..ar``; at most 4 for
-        ``model='ar'``). The first ``ar`` observations are conditioned on.
-    switch : str, list of str or array-like, optional
-        Regressors with state-dependent coefficients.
-    switch_ar : bool, default False
-        State-dependent autoregressive coefficients.
-    switch_variance : bool, default False
-        State-dependent error variance.
-    constant : {True, False, 'common'}, default True
-        ``True``: a constant in each state. ``'common'``: one constant.
-        ``False``: none.
-    vce : {'oim', 'robust'}, default 'oim'
-        Inverse observed information, or the sandwich with the outer
-        product of the scores (times ``n / (n - 1)``).
-    starts : int, default 5
-        Number of starting values: one from the quantiles of the pooled
-        residuals and ``starts - 1`` random ones. Each runs EM and then
-        Newton iterations; the highest likelihood is kept.
-    seed : int, optional
-        Seed of the random starting values.
-    maxiter : int, default 500
-        Limit on EM iterations and on quasi-Newton iterations per start.
-    tol : float, default 1e-9
-        Convergence when the Newton decrement ``g'(-H)^{-1}g`` is below it.
-    alpha : float, default 0.05
-        Intervals have level ``1 - alpha``.
-
-    Returns
-    -------
-    MarkovSwitchingResult
-
-    Raises
-    ------
-    MethodIncompatibility
-        Unknown options, nothing that switches, missing values, or a
-        ``model='ar'`` specification outside ``states <= 3``, ``ar <= 4``.
-    DataInsufficient
-        Fewer usable observations than ``max(20, 3 * n_params)``.
-
-    Notes
-    -----
-    The initial state distribution is the ergodic distribution of the
-    chain (Stata's ``p0(transition)``).
-
-    The likelihood is invariant to relabelling the states, so they are
-    ordered after estimation: by increasing constant when it switches,
-    otherwise by the first switching coefficient, the first AR coefficient
-    or the standard deviation, in that order (``model_info['order_rule']``).
-
-    The likelihood of a switching model has several local maxima, and with
-    ``switch_variance=True`` it is unbounded where one state fits a single
-    observation. ``result.starts`` shows where each start ended and
-    ``model_info['n_distinct_maxima']`` counts the different end points;
-    raise ``starts`` when they disagree. Variances are bounded below at
-    ``1e-8`` times the sample variance.
-
-    Information criteria are on the ``-2 log L`` scale; Stata's ``mswitch``
-    reports them divided by the number of observations.
-
-    Intervals of transition probabilities are built on the logit scale and
-    those of expected durations are the transformed intervals of ``p_ii``,
-    for any number of states. Stata does the same with two states and
-    switches to ``estimate +/- z * se`` for durations with three or more.
-
-    ``fitted`` weights the state means by ``P(s_t | y_{t-1}, ...)``, which
-    is what Stata's ``predict, yhat smethod(filter)`` returns; Stata's
-    default ``predict, yhat`` applies the transition matrix once more.
-
-    References
-    ----------
-    [@hamilton1989new],
-    [@kim1994dynamic]
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import statspai as sp
-    >>> rng = np.random.default_rng(1)
-    >>> s = np.zeros(300, dtype=int)
-    >>> for t in range(1, 300):
-    ...     stay = 0.95 if s[t - 1] == 0 else 0.9
-    ...     s[t] = s[t - 1] if rng.uniform() < stay else 1 - s[t - 1]
-    >>> y = np.where(s == 0, -1.0, 2.0) + rng.normal(size=300)
-    >>> fit = sp.mswitch(y, states=2, seed=0)
-    >>> fit.transition.shape
-    (2, 2)
-    >>> bool((fit.smoothed["state2"] > 0.5).eq(s == 1).mean() > 0.9)
-    True
-    """
+    x: ArrayLike,
+    data: Optional[pd.DataFrame],
+    states: int,
+    model: str,
+    ar: int,
+    switch: ArrayLike,
+    switch_ar: bool,
+    switch_variance: bool,
+    constant: Union[bool, str],
+    vce: str,
+    starts: int,
+    alpha: float,
+) -> Tuple[core.Spec, core.Data, pd.Series, List[str], List[str]]:
+    """Check the arguments of :func:`mswitch`; the model shape and the data."""
     if model not in ("dr", "ar"):
         raise MethodIncompatibility(
             f"mswitch: model must be 'dr' or 'ar', got {model!r}."
@@ -560,44 +436,185 @@ def mswitch(
             diagnostics={"n_obs": int(n), "n_params": int(spec.n_par)},
         )
     dat = core.Data(yv, xv, zv, spec.p)
-    dr = core.Spec(
-        spec.k, "dr", spec.p, spec.nx, spec.nz, const, spec.sw_ar, spec.sw_var
-    )
-    var_floor = 1e-8 * float(np.var(yv))
-    lnsig_floor = 0.5 * float(np.log(var_floor))
-    rng = np.random.default_rng(seed)
+    return spec, dat, ys, xn, zn
 
-    runs: List[Dict[str, Any]] = []
-    fits: List[np.ndarray] = []
-    for i in range(int(starts)):
-        th0 = core.start_values(spec, dat, None if i == 0 else rng)
-        th_em, ll_em = core.em_dr(dr, dat, th0, min(maxiter, 200), 1e-7, var_floor)
-        th, ll, ok, nit = core.maximise(
-            spec, dat, core.dr_to_model(spec, th_em), maxiter, tol, lnsig_floor
+
+def mswitch(
+    y: Union[str, np.ndarray, pd.Series],
+    x: ArrayLike = None,
+    *,
+    data: Optional[pd.DataFrame] = None,
+    states: int = 2,
+    model: str = "dr",
+    ar: int = 0,
+    switch: ArrayLike = None,
+    switch_ar: bool = False,
+    switch_variance: bool = False,
+    constant: Union[bool, str] = True,
+    vce: str = "oim",
+    starts: int = 5,
+    seed: Optional[int] = None,
+    maxiter: int = 500,
+    tol: float = 1e-9,
+    alpha: float = 0.05,
+    start_params: Optional[Sequence[np.ndarray]] = None,
+) -> MarkovSwitchingResult:
+    """Markov-switching regression by maximum likelihood.
+
+    The state ``s_t`` follows a first-order Markov chain with ``states``
+    values. With ``model='dr'`` (dynamic regression) ::
+
+        y_t = mu_{s_t} + x_t'a + z_t'b_{s_t} + sum_k phi_k y_{t-k} + e_t
+
+    so the level adjusts at once when the state changes and lags of ``y``
+    are ordinary regressors. With ``model='ar'`` (Hamilton's
+    autoregression) the deviations from the state-dependent mean are
+    autoregressive ::
+
+        y_t - m_t(s_t) = sum_k phi_k [y_{t-k} - m_{t-k}(s_{t-k})] + e_t,
+        m_t(s) = mu_s + x_t'a + z_t'b_s
+
+    and the likelihood runs over the ``states**(ar + 1)`` histories
+    ``(s_t, ..., s_{t-ar})``. ``e_t`` is normal with standard deviation
+    ``sigma`` or ``sigma_{s_t}``.
+
+    Parameters
+    ----------
+    y : str or array-like
+        Outcome in time order, or its column name in ``data``.
+    x : str, list of str or array-like, optional
+        Regressors with coefficients common to the states.
+    data : pandas.DataFrame, optional
+        Needed when variables are given by name.
+    states : int, default 2
+        Number of states (2 or 3 for ``model='ar'``).
+    model : {'dr', 'ar'}, default 'dr'
+        Dynamic regression or autoregression; they coincide for ``ar=0``.
+    ar : int, default 0
+        Number of lags of ``y`` (lags ``1..ar``; at most 4 for
+        ``model='ar'``). The first ``ar`` observations are conditioned on.
+    switch : str, list of str or array-like, optional
+        Regressors with state-dependent coefficients.
+    switch_ar : bool, default False
+        State-dependent autoregressive coefficients.
+    switch_variance : bool, default False
+        State-dependent error variance.
+    constant : {True, False, 'common'}, default True
+        ``True``: a constant in each state. ``'common'``: one constant.
+        ``False``: none.
+    vce : {'oim', 'robust'}, default 'oim'
+        Inverse observed information, or the sandwich with the outer
+        product of the scores (times ``n / (n - 1)``).
+    starts : int, default 5
+        Number of starting values: one from the quantiles of the pooled
+        residuals and ``starts - 1`` random ones. Each runs EM and then
+        Newton iterations; the highest likelihood is kept.
+    seed : int, optional
+        Seed of the random starting values.
+    maxiter : int, default 500
+        Limit on EM iterations and on quasi-Newton iterations per start.
+    tol : float, default 1e-9
+        Convergence when the Newton decrement ``g'(-H)^{-1}g`` is below it.
+    alpha : float, default 0.05
+        Intervals have level ``1 - alpha``.
+    start_params : sequence of arrays, optional
+        Further starting values, each a full parameter vector on the
+        estimation scale and in the order of ``result.theta``. They are
+        tried after the ``starts`` built-in ones and skip the EM phase.
+
+    Returns
+    -------
+    MarkovSwitchingResult
+
+    Raises
+    ------
+    MethodIncompatibility
+        Unknown options, nothing that switches, missing values, or a
+        ``model='ar'`` specification outside ``states <= 3``, ``ar <= 4``.
+    DataInsufficient
+        Fewer usable observations than ``max(20, 3 * n_params)``.
+
+    Notes
+    -----
+    The initial state distribution is the ergodic distribution of the
+    chain (Stata's ``p0(transition)``).
+
+    The likelihood is invariant to relabelling the states, so they are
+    ordered after estimation: by increasing constant when it switches,
+    otherwise by the first switching coefficient, the first AR coefficient
+    or the standard deviation, in that order (``model_info['order_rule']``).
+
+    The likelihood of a switching model has several local maxima, and with
+    ``switch_variance=True`` it is unbounded where one state fits a single
+    observation. ``result.starts`` shows where each start ended and
+    ``model_info['n_distinct_maxima']`` counts the different end points;
+    raise ``starts`` when they disagree. Variances are bounded below at
+    ``1e-8`` times the sample variance.
+
+    Information criteria are on the ``-2 log L`` scale; Stata's ``mswitch``
+    reports them divided by the number of observations.
+
+    Intervals of transition probabilities are built on the logit scale and
+    those of expected durations are the transformed intervals of ``p_ii``,
+    for any number of states. Stata does the same with two states and
+    switches to ``estimate +/- z * se`` for durations with three or more.
+
+    ``fitted`` weights the state means by ``P(s_t | y_{t-1}, ...)``, which
+    is what Stata's ``predict, yhat smethod(filter)`` returns; Stata's
+    default ``predict, yhat`` applies the transition matrix once more.
+
+    References
+    ----------
+    [@hamilton1989new],
+    [@kim1994dynamic]
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1)
+    >>> s = np.zeros(300, dtype=int)
+    >>> for t in range(1, 300):
+    ...     stay = 0.95 if s[t - 1] == 0 else 0.9
+    ...     s[t] = s[t - 1] if rng.uniform() < stay else 1 - s[t - 1]
+    >>> y = np.where(s == 0, -1.0, 2.0) + rng.normal(size=300)
+    >>> fit = sp.mswitch(y, states=2, seed=0)
+    >>> fit.transition.shape
+    (2, 2)
+    >>> bool((fit.smoothed["state2"] > 0.5).eq(s == 1).mean() > 0.9)
+    True
+    """
+    spec, dat, ys, xn, zn = _setup(
+        y,
+        x,
+        data,
+        states,
+        model,
+        ar,
+        switch,
+        switch_ar,
+        switch_variance,
+        constant,
+        vce,
+        starts,
+        alpha,
+    )
+    yv, n = dat.y, dat.n
+    extra = [np.asarray(v, dtype=float).ravel() for v in (start_params or [])]
+    if any(len(v) != spec.n_par or not np.isfinite(v).all() for v in extra):
+        raise MethodIncompatibility(
+            f"mswitch: each start_params vector needs {spec.n_par} finite "
+            "entries, in the order of result.theta.",
         )
-        fits.append(th)
-        visited = core.ergodic(core.unpack(spec, th[None, :])["P"])[0]
-        empty = bool(visited.min() < 1e-8)
-        runs.append(
-            {
-                "start": i,
-                "loglik_em": ll_em,
-                "loglik": ll,
-                "converged": bool(ok and not empty),
-                "degenerate": empty,
-                "iterations": nit,
-            }
-        )
-    table = pd.DataFrame(runs)
+    lnsig_floor = 0.5 * float(np.log(1e-8 * float(np.var(yv))))
+    table, fits, best = core.fit_starts(
+        spec, dat, int(starts), np.random.default_rng(seed), maxiter, tol, extra
+    )
     if not np.isfinite(table["loglik"]).any():
         raise MethodIncompatibility(
             "mswitch: the likelihood could not be evaluated from any start.",
             recovery_hint="Check the scale of the data; try more starts.",
         )
-    rank = table.assign(_c=table["converged"].astype(int)).sort_values(
-        ["_c", "loglik"], ascending=False
-    )
-    best = int(rank.index[0])
     theta, order_rule = core.reorder(spec, fits[best])
     loglik = float(table.loc[best, "loglik"])
     converged = bool(table.loc[best, "converged"])
@@ -687,5 +704,6 @@ def mswitch(
             "P": fs["P"],
             "filt_exp": fs["filt_exp"],
             "y": yv,
+            "data": dat,
         },
     )

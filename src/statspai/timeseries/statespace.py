@@ -169,7 +169,7 @@ def kalman_filter(
     P0: Optional[Any] = None,
     init: str = "auto",
     kappa: float = 1e7,
-    diffuse: Optional[Sequence[bool]] = None,
+    diffuse: Optional[Any] = None,
     smooth: bool = True,
     burn: int = 0,
     data: Optional[pd.DataFrame] = None,
@@ -215,13 +215,16 @@ def kalman_filter(
         and ``loglik`` is the diffuse log-likelihood; see Notes.
     kappa : float, default 1e7
         Variance of the initial state under ``init='diffuse'``.
-    diffuse : sequence of bool, optional
+    diffuse : sequence of bool, or symmetric matrix, optional
         One flag per state: ``True`` gives that element of ``X_0`` an
         infinite variance. Passing it selects the exact diffuse filter
         (``init`` must be ``'auto'`` or ``'exact'``). The other states
         start from the matching block of ``P0`` when it is given and from
         their stationary distribution otherwise, which needs constant
         ``F`` and ``Q`` and those states not to depend on diffuse ones.
+        A positive semi-definite matrix is ``P0_inf`` itself, for diffuse
+        directions that are combinations of the states; the finite part
+        is then all of ``P0`` (zero when ``P0`` is not given).
     smooth : bool, default True
         Also run the fixed-interval smoother.
     burn : int, default 0
@@ -359,7 +362,7 @@ def statespace(
     data: Optional[pd.DataFrame] = None,
     init: str = "auto",
     kappa: float = 1e7,
-    diffuse: Optional[Sequence[bool]] = None,
+    diffuse: Optional[Any] = None,
     burn: int = 0,
     method: str = "bfgs",
     vce: str = "hessian",

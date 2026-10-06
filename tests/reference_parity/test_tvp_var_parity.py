@@ -338,3 +338,72 @@ def test_error_covariance_is_the_ewma_recursion(df: pd.DataFrame, update: str) -
         S = kappa * S + (1 - kappa) * np.outer(e, e)
         np.testing.assert_allclose(fit.sigma_t[t], S, rtol=1e-10, atol=1e-13)
         prev = coef[t]
+
+
+# --------------------------------------------------------------------- #
+#  kalman under the diffuse prior: which side loses the digits?
+# --------------------------------------------------------------------- #
+
+
+def test_diffuse_prior_against_sixty_digit_arithmetic(
+    df: pd.DataFrame, ref: dict
+) -> None:
+    """Under ``C0 = 1e7`` ours and KFAS agree with each other less well
+    than under a proper prior. A Kalman filter and smoother in 60-digit
+    arithmetic says why: a prior variance of 1e7 collapsing to order one
+    costs double precision about eight digits on *both* sides. Relative to
+    ``max(|value|, 1)`` each is within 2e-8 of the exact answer, so neither
+    is wrong and no tighter agreement between them is available."""
+    mp = pytest.importorskip("mpmath")
+    old = mp.mp.dps
+    mp.mp.dps = 60
+    try:
+        lags = ref["lags"]
+        Y, X = _design(df, lags)
+        fit = tvp_var(
+            df,
+            lags=lags,
+            obs_var=ref["obs_var"],
+            state_var=np.array(ref["state_var"]),
+            C0=1e7,
+        )
+        rows = np.array(ref["rows"]) - 1
+        k, T, i = X.shape[1], len(Y), 0
+        W_all = np.array(ref["state_var"])
+        W = W_all[i] if W_all.ndim == 2 else np.broadcast_to(W_all, (k,))
+        V = mp.mpf(float(np.atleast_1d(ref["obs_var"])[i]))
+        Wm = mp.diag([mp.mpf(float(w)) for w in W])
+        m, P = mp.zeros(k, 1), mp.eye(k) * mp.mpf(10) ** 7
+        means, covs, preds = [], [], []
+        for t in range(T):
+            R = P + Wm
+            x = mp.matrix([mp.mpf(float(v)) for v in X[t]])
+            f = (x.T * R * x)[0] + V
+            gain = R * x / f
+            m = m + gain * (mp.mpf(float(Y[t, i])) - (x.T * m)[0])
+            P = R - gain * (x.T * R)
+            means.append(m.copy())
+            covs.append(P.copy())
+            preds.append(R.copy())
+        smooth = [None] * T
+        smooth[-1] = means[-1]
+        for t in range(T - 2, -1, -1):
+            J = covs[t] * mp.inverse(preds[t + 1])
+            smooth[t] = means[t] + J * (smooth[t + 1] - means[t])
+    finally:
+        mp.mp.dps = old
+
+    def as_array(seq: list) -> np.ndarray:
+        return np.array([[float(v) for v in a] for a in seq])
+
+    exact_f, exact_s = as_array(means), as_array(smooth)
+    late = rows > k
+    r = rows[late]
+    kfas = ref["diffuse"][i]
+    # each implementation against exact arithmetic, relative to
+    # max(|value|, 1): pure relative error on coefficients near zero is
+    # what made the two look 2e-6 apart
+    assert _rel(fit.coef_filtered[r, i], exact_f[r], 1.0) <= 5e-8
+    assert _rel(np.array(kfas["filtered"])[late], exact_f[r], 1.0) <= 5e-8
+    assert _rel(fit.coef_smoothed[r, i], exact_s[r], 1.0) <= 5e-8
+    assert _rel(np.array(kfas["smoothed"])[late], exact_s[r], 1.0) <= 5e-8

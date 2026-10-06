@@ -1,0 +1,173 @@
+{
+ "generator": "_generate_mswitch_lrtest_mc.py",
+ "statspai_version": "1.38.0",
+ "base_seed": 20261006,
+ "scale": 1.0,
+ "designs": {
+  "size_wn": {
+   "n": 100,
+   "ar": 0,
+   "phi": 0.0,
+   "mu": [
+    0.0,
+    0.0
+   ],
+   "mc": 400,
+   "reps": 1,
+   "starts": 10,
+   "n_fits": 800,
+   "floored": 0,
+   "multiple_maxima": 537,
+   "seconds_per_fit_pair": 7.356051262100809,
+   "lr_raw_min": 0.018361212563036133,
+   "lr_mean": 3.4675130450235776,
+   "lr_quantiles_90_95_99": [
+    6.862887101445693,
+    8.054053917123884,
+    10.188116532739144
+   ],
+   "warp_critical_10": 6.672907649477285,
+   "reject_10": 0.11,
+   "reject_10_mc_se": 0.015000000000000001,
+   "chi2_df1_reject_10": 0.54,
+   "chi2_df3_reject_10": 0.1325,
+   "warp_critical_5": 8.1922977729767,
+   "reject_5": 0.045,
+   "reject_5_mc_se": 0.010897247358851683,
+   "chi2_df1_reject_5": 0.3725,
+   "chi2_df3_reject_5": 0.055
+  },
+  "size_ar1": {
+   "n": 150,
+   "ar": 1,
+   "phi": 0.5,
+   "mu": [
+    0.0,
+    0.0
+   ],
+   "mc": 200,
+   "reps": 1,
+   "starts": 10,
+   "n_fits": 400,
+   "floored": 2,
+   "multiple_maxima": 321,
+   "seconds_per_fit_pair": 7.129519758116803,
+   "lr_raw_min": -5.684341886080802e-14,
+   "lr_mean": 3.374283653766861,
+   "lr_quantiles_90_95_99": [
+    6.934166750731668,
+    8.370940799393127,
+    11.381574014684764
+   ],
+   "warp_critical_10": 7.478531583392634,
+   "reject_10": 0.075,
+   "reject_10_mc_se": 0.021213203435596427,
+   "chi2_df1_reject_10": 0.515,
+   "chi2_df3_reject_10": 0.135,
+   "warp_critical_5": 9.006063262895566,
+   "reject_5": 0.035,
+   "reject_5_mc_se": 0.015411035007422441,
+   "chi2_df1_reject_5": 0.365,
+   "chi2_df3_reject_5": 0.065
+  },
+  "power_clear": {
+   "n": 100,
+   "ar": 0,
+   "phi": 0.0,
+   "mu": [
+    -1.5,
+    1.5
+   ],
+   "mc": 100,
+   "reps": 1,
+   "starts": 10,
+   "n_fits": 200,
+   "floored": 0,
+   "multiple_maxima": 67,
+   "seconds_per_fit_pair": 2.358741181863006,
+   "lr_raw_min": 0.268082401833567,
+   "lr_mean": 68.55899573979667,
+   "lr_quantiles_90_95_99": [
+    96.19202329300388,
+    108.39437437201605,
+    113.28173199732286
+   ],
+   "warp_critical_10": 6.895654169092502,
+   "reject_10": 0.97,
+   "reject_10_mc_se": 0.030000000000000002,
+   "chi2_df1_reject_10": 0.99,
+   "chi2_df3_reject_10": 0.98,
+   "warp_critical_5": 8.007685686974435,
+   "reject_5": 0.95,
+   "reject_5_mc_se": 0.021794494717703367,
+   "chi2_df1_reject_5": 0.98,
+   "chi2_df3_reject_5": 0.95
+  },
+  "power_moderate": {
+   "n": 100,
+   "ar": 0,
+   "phi": 0.0,
+   "mu": [
+    -0.75,
+    0.75
+   ],
+   "mc": 100,
+   "reps": 1,
+   "starts": 10,
+   "n_fits": 200,
+   "floored": 0,
+   "multiple_maxima": 77,
+   "seconds_per_fit_pair": 2.176352135001216,
+   "lr_raw_min": 0.08330853551029804,
+   "lr_mean": 19.28895868730428,
+   "lr_quantiles_90_95_99": [
+    32.24727344772702,
+    35.84492805828406,
+    43.8844606036249
+   ],
+   "warp_critical_10": 7.195760373639924,
+   "reject_10": 0.87,
+   "reject_10_mc_se": 0.030000000000000002,
+   "chi2_df1_reject_10": 0.95,
+   "chi2_df3_reject_10": 0.87,
+   "warp_critical_5": 9.685786639192477,
+   "reject_5": 0.81,
+   "reject_5_mc_se": 0.021794494717703367,
+   "chi2_df1_reject_5": 0.95,
+   "chi2_df3_reject_5": 0.84
+  },
+  "double_wn": {
+   "n": 100,
+   "ar": 0,
+   "phi": 0.0,
+   "mu": [
+    0.0,
+    0.0
+   ],
+   "mc": 200,
+   "reps": 19,
+   "starts": 6,
+   "n_fits": 4000,
+   "floored": 1,
+   "multiple_maxima": 2187,
+   "seconds_per_fit_pair": 1.3751826264505507,
+   "lr_raw_min": -5.684341886080802e-14,
+   "lr_mean": 3.2931539041745945,
+   "lr_quantiles_90_95_99": [
+    6.593007301934131,
+    7.462763402333491,
+    9.847112281314853
+   ],
+   "warp_reject_10": 0.06,
+   "reject_10": 0.075,
+   "reject_10_mc_se": 0.021213203435596427,
+   "chi2_df1_reject_10": 0.51,
+   "chi2_df3_reject_10": 0.12,
+   "warp_reject_5": 0.03,
+   "reject_5": 0.04,
+   "reject_5_mc_se": 0.015411035007422441,
+   "chi2_df1_reject_5": 0.345,
+   "chi2_df3_reject_5": 0.045
+  }
+ }
+}

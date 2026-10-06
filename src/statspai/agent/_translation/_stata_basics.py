@@ -517,14 +517,48 @@ def _h_arch(cmd: StataCommand) -> Dict[str, Any]:
         args["model"] = model
     if threshold_ is not None:
         args["threshold"] = threshold_
-    if "archm" in opts:
-        if "archmlags" in opts or "archmexp" in opts:
-            return _bad(
-                cmd,
-                "archmlags() / archmexp() are not translated; sp.garch puts "
-                "the current conditional variance in the mean",
+    in_mean_note: Optional[str] = None
+    if "archm" in opts or "archmlags" in opts:
+        kind: Any = True
+        if "archmexp" in opts:
+            raw = str(opts.get("archmexp") or "").replace(" ", "").lower()
+            known = {"sqrt(x)": "sd", "ln(x)": "log", "log(x)": "log", "x": True}
+            if raw not in known:
+                return _bad(
+                    cmd,
+                    f"archmexp({opts.get('archmexp')}) is not translated; "
+                    "sp.garch(in_mean=) takes the variance, its square root "
+                    "('sd') or its logarithm ('log')",
+                )
+            kind = known[raw]
+        elif "archmexp" in opts:
+            return _bad(cmd, "archmexp() needs archm or archmlags()")
+        lags_: List[int] = [0] if "archm" in opts else []
+        if "archmlags" in opts:
+            tokens = str(opts.get("archmlags") or "").replace(",", " ").split()
+            try:
+                for token in tokens:
+                    lo, sep, hi = token.partition("/")
+                    lags_.extend(range(int(lo), int(hi if sep else lo) + 1))
+            except ValueError:
+                return _bad(
+                    cmd, f"archmlags({opts.get('archmlags')}) is not a lag list"
+                )
+            lags_ = sorted(set(lags_))
+            if not lags_ or lags_[0] < 0:
+                return _bad(
+                    cmd, f"archmlags({opts.get('archmlags')}) is not a lag list"
+                )
+        args["in_mean"] = kind
+        if lags_ != [0]:
+            args["in_mean_lags"] = lags_
+        if kind is not True and max(lags_) > 0:
+            in_mean_note = (
+                "With a transformed variance at lags, Stata starts the "
+                "lagged terms from the untransformed pre-sample variance; "
+                "sp.garch transforms it. The first observations enter "
+                "differently and the likelihoods differ slightly."
             )
-        args["in_mean"] = True
     if "noconstant" in opts:
         args["mean"] = False
     if "ar" in opts:
@@ -571,6 +605,8 @@ def _h_arch(cmd: StataCommand) -> Dict[str, Any]:
             "positive shock) and warns when the estimate stops there; Stata "
             "does not impose it."
         )
+    if in_mean_note:
+        semantics.append(in_mean_note)
     if model == "egarch":
         semantics.append(
             "theta is Stata's earch (signed shock) and gamma its earch_a "

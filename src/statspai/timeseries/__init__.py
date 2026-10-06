@@ -27,6 +27,7 @@ from .johansen_lrtest import JohansenLRTest, johansen_lrtest
 from .local_projections import LocalProjectionsResult, local_projections
 from .lrvar import LongRunVariance, lrvar
 from .mswitch import MarkovSwitchingResult, mswitch
+from .mswitch_lrtest import MarkovSwitchingLRTest, mswitch_lrtest
 from .reconcile import Hierarchy, ReconcileResult, hierarchy, reconcile
 from .simple_forecast import SimpleForecastResult, simple_forecast
 from .spectral import (
@@ -140,6 +141,10 @@ __all__ = [
     "TVPVARResult",
     "mswitch",
     "MarkovSwitchingResult",
+    "tvp_var_sv",
+    "TVPVARSVResult",
+    "mswitch_lrtest",
+    "MarkovSwitchingLRTest",
 ]
 
 
@@ -150,4 +155,9 @@ def __getattr__(name: str) -> Any:
         from . import _ets
 
         return getattr(_ets, name)
+    # the stochastic-volatility TVP-VAR pulls in the MCMC kernels
+    if name in ("tvp_var_sv", "TVPVARSVResult"):
+        from . import tvp_var_sv as _sv
+
+        return getattr(_sv, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

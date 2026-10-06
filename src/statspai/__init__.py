@@ -1178,6 +1178,7 @@ from .timeseries import (
     KalmanResult,
     LocalProjectionsResult,
     LongRunVariance,
+    MarkovSwitchingLRTest,
     MarkovSwitchingResult,
     ReconcileResult,
     SimpleForecastResult,
@@ -1219,6 +1220,7 @@ from .timeseries import (
     local_projections,
     lrvar,
     mswitch,
+    mswitch_lrtest,
     ndiffs,
     nsdiffs,
     periodogram,
@@ -2533,6 +2535,10 @@ __all__ = [
     "TVPVARResult",
     "mswitch",
     "MarkovSwitchingResult",
+    "tvp_var_sv",
+    "TVPVARSVResult",
+    "mswitch_lrtest",
+    "MarkovSwitchingLRTest",
     "BVARResult",
     "garch",
     "GARCHResult",
@@ -3194,6 +3200,7 @@ _LAZY_ATTRS: dict = {}
 # ``sp.ets`` compiles its recursions with numba; bound to the leaf module so
 # that ``import statspai`` does not import numba.
 _register_lazy("timeseries._ets", "ets", "ETSResult")
+_register_lazy("timeseries.tvp_var_sv", "tvp_var_sv", "TVPVARSVResult")
 _register_lazy("agent._translation._stata", "from_stata")
 _register_lazy("agent._translation._stata_run", "stata")
 _register_lazy("agent._translation._r", "from_r")

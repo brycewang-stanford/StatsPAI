@@ -22,7 +22,15 @@ local s_mar    "ar(1) arch(1) garch(1) archm"
 local s_mt     "arch(1) garch(1) archm distribution(t)"
 local s_meg    "earch(1) egarch(1) archm"
 local s_thr    "arch(1/2) tarch(1) garch(1)"
-foreach m in gjr gjrt gjrar eg egt eg2 mg mgjr mar mt meg thr {
+* transformed and lagged variance in the mean
+local s_msd    "arch(1) garch(1) archm archmexp(sqrt(X))"
+local s_mlog   "arch(1) garch(1) archm archmexp(ln(X))"
+local s_ml01   "arch(1) garch(1) archm archmlags(1)"
+local s_ml1    "arch(1) garch(1) archmlags(1)"
+local s_ml012  "arch(1) garch(1) archm archmlags(1/2)"
+local s_mgsd   "arch(1) tarch(1) garch(1) archm archmexp(sqrt(X))"
+local s_msd012 "arch(1) garch(1) archm archmlags(1/2) archmexp(sqrt(X))"
+foreach m in gjr gjrt gjrar eg egt eg2 mg mgjr mar mt meg thr msd mlog ml01 ml1 ml012 mgsd msd012 {
     local tight "`opts'"
     if substr("`m'", 1, 1) == "m" local tight "nolog tolerance(1e-10) ltolerance(1e-12) nrtolerance(1e-8)"
     arch r, `s_`m'' `tight'

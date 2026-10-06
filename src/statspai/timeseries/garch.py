@@ -82,7 +82,11 @@ class GARCHResult(ResultProtocolMixin):
     model: str = "garch"  # 'garch', 'gjr' or 'egarch'
     gamma: Optional[np.ndarray] = None  # asymmetry terms (gjr, egarch)
     theta: Optional[np.ndarray] = None  # egarch: effect of the signed shock
-    archm: Optional[float] = None  # coefficient of the variance in the mean
+    # coefficient of the variance in the mean (an array, in the order of
+    # ``in_mean_lags``, when there is more than one term)
+    archm: Any = None
+    in_mean: Optional[str] = None  # 'variance', 'sd' or 'log'
+    in_mean_lags: tuple = ()
 
     # ------------------------------------------------------------------
     # Agent-native accessors (params / std_errors / t / p), so GARCH
@@ -186,13 +190,25 @@ class GARCHResult(ResultProtocolMixin):
         rho = np.zeros(0) if self.ar is None else np.asarray(self.ar, float)
         source = self.residuals if self.disturbances is None else self.disturbances
         u = list(np.asarray(source, float))
-        psi = 0.0 if self.archm is None else float(self.archm)
-        variance = self.forecast(horizon) if psi else np.zeros(horizon)
         out = np.empty(horizon)
+        premium = np.zeros(horizon)
+        if self.archm is not None:
+            # g(sigma2) at the dates the mean needs: observed variances,
+            # then their forecasts (exact one step ahead; further out g of
+            # the forecast variance stands in for the forecast of g)
+            psi = np.atleast_1d(np.asarray(self.archm, float))
+            path = np.concatenate(
+                [np.asarray(self.sigma2, float), self.forecast(horizon)]
+            )
+            g = {"sd": np.sqrt, "log": np.log}.get(self.in_mean or "", lambda v: v)
+            n = len(self.sigma2)
+            for h in range(horizon):
+                for coef, lag in zip(psi, self.in_mean_lags or (0,)):
+                    premium[h] += coef * float(g(path[n + h - lag]))
         for h in range(horizon):
             nxt = float(sum(rho[k] * u[-1 - k] for k in range(rho.size)))
             u.append(nxt)
-            out[h] = self.mu + psi * variance[h] + nxt
+            out[h] = self.mu + premium[h] + nxt
         return out
 
     def value_at_risk(self, alpha: float = 0.01) -> float:
@@ -427,7 +443,9 @@ def _egarch_loop(
 def _inmean_loop(
     w: np.ndarray,
     rho: np.ndarray,
-    psi: float,
+    psi: np.ndarray,
+    psi_lags: np.ndarray,
+    transform: int,
     omega: float,
     alpha: np.ndarray,
     gamma: np.ndarray,
@@ -438,9 +456,11 @@ def _inmean_loop(
 ) -> tuple:
     """Variances and innovations when the variance enters the mean.
 
-    ``w = y - mu``; the disturbance is ``u_t = w_t - psi sigma2_t`` and
-    the innovation ``eps_t = u_t - sum rho_k u_{t-k}``, so the variance at
-    ``t`` must be known before the innovation at ``t``: a sequential
+    ``w = y - mu``; the disturbance is ``u_t = w_t - sum_k psi_k
+    g(sigma2_{t - lag_k})`` (``transform`` 0: ``g`` the identity, 1: the
+    square root, 2: the logarithm; a variance before the sample is ``m``)
+    and the innovation ``eps_t = u_t - sum rho_k u_{t-k}``, so the variance
+    at ``t`` must be known before the innovation at ``t``: a sequential
     recursion. ``code`` 0: GARCH, 1: threshold terms ``gamma`` on squared
     negative shocks, 2: EGARCH (``alpha`` on the signed standardised
     shock, ``gamma`` on its magnitude). Pre-sample squared shocks and
@@ -484,7 +504,16 @@ def _inmean_loop(
                 k = t - 1 - j
                 v += beta[j] * (s2[k] if k >= 0 else m)
         s2[t] = v
-        u[t] = w[t] - psi * v
+        prem = 0.0
+        for k in range(psi.shape[0]):
+            idx = t - psi_lags[k]
+            val = s2[idx] if idx >= 0 else m
+            if transform == 1:
+                val = np.sqrt(val)
+            elif transform == 2:
+                val = np.log(val)
+            prem += psi[k] * val
+        u[t] = w[t] - prem
         e = u[t]
         for k in range(k_ar):
             if t - 1 - k >= 0:
@@ -533,25 +562,31 @@ def _general_filter(
     presample: str,
     model: str = "garch",
     n_g: Optional[int] = None,
-    in_mean: bool = False,
+    in_mean: Any = False,
     m_fixed: Optional[float] = None,
 ) -> Any:
     """Variances, innovations, disturbances and log-likelihood terms of the
     model with AR(``n_ar``) disturbances and normal or Student t errors.
 
-    theta = (mu?, psi?, rho_1..rho_k, omega, alpha_1..alpha_q,
+    theta = (mu?, psi_1..psi_m?, rho_1..rho_k, omega, alpha_1..alpha_q,
     [gamma_1..gamma_g], beta_1..beta_p, nu?); for ``'egarch'`` the
     ``alpha`` block holds the coefficients of the signed shock. The
-    disturbance ``u_t = y_t - mu - psi sigma2_t`` follows ``u_t = sum rho_k
-    u_{t-k} + eps_t`` with pre-sample ``u`` equal to 0.
+    disturbance ``u_t = y_t - mu - sum_k psi_k g(sigma2_{t - lag_k})``
+    follows ``u_t = sum rho_k u_{t-k} + eps_t`` with pre-sample ``u`` equal
+    to 0.
     """
     from scipy.signal import lfilter
     from scipy.special import gammaln
 
     j = int(mean)
     mu = float(theta[0]) if mean else 0.0
-    psi = float(theta[j]) if in_mean else 0.0
-    j += int(in_mean)
+    # in_mean: False, or (transform code, lags of the variance in the mean)
+    if in_mean is True:  # the current variance, untransformed
+        in_mean = (0, (0,))
+    transform, mean_lags = in_mean if in_mean else (0, ())
+    n_psi = len(mean_lags)
+    psi = np.ascontiguousarray(theta[j : j + n_psi], dtype=float)
+    j += n_psi
     rho = theta[j : j + n_ar]
     j += n_ar
     omega = float(theta[j])
@@ -569,6 +604,8 @@ def _general_filter(
         args = (
             np.ascontiguousarray(rho, dtype=float),
             psi,
+            np.asarray(mean_lags, dtype=np.int64),
+            int(transform),
             omega,
             np.ascontiguousarray(alpha, dtype=float),
             np.ascontiguousarray(gamma, dtype=float),
@@ -712,7 +749,8 @@ def garch(
     dist: str = "normal",
     model: str = "garch",
     threshold: Optional[int] = None,
-    in_mean: bool = False,
+    in_mean: Any = False,
+    in_mean_lags: Any = 0,
     data: Optional[pd.DataFrame] = None,
 ) -> GARCHResult:
     """Fit GARCH(p,q) by conditional maximum likelihood.
@@ -775,11 +813,19 @@ def garch(
     threshold : int, optional
         ``model='gjr'``: number of threshold terms, ``1 <= threshold <=
         q`` (default ``q``, one per ARCH lag; Stata ``tarch(1/k)``).
-    in_mean : bool, default False
+    in_mean : bool or {'variance', 'sd', 'log'}, default False
         Let the conditional variance enter the mean: ``y_t = mu + archm
-        sigma2_t + u_t`` (ARCH in mean; Stata's ``archm``). A positive
-        ``archm`` is a risk premium. Works with every ``model``, with
-        ``ar=`` and with ``dist='t'``.
+        g(sigma2_t) + u_t`` (ARCH in mean; Stata's ``archm``). ``True`` or
+        ``'variance'``: ``g`` is the identity; ``'sd'``: the conditional
+        standard deviation (Stata ``archmexp(sqrt(X))``); ``'log'``: the
+        log variance (``archmexp(ln(X))``). A positive ``archm`` is a risk
+        premium. Works with every ``model``, with ``ar=`` and with
+        ``dist='t'``.
+    in_mean_lags : int or sequence of int, default 0
+        Which variances enter the mean: ``0`` the current one, ``[0, 1]``
+        the current one and its first lag (Stata ``archm archmlags(1)``),
+        ``[1]`` the first lag alone (``archmlags(1)`` without ``archm``).
+        The coefficients are named ``archm`` and ``archm[L1]``, ...
 
     Notes
     -----
@@ -810,6 +856,13 @@ def garch(
     parameters during the climb gives another point, within a hundredth
     of a standard error in the cases examined; the mean and ``archm`` are
     nearly collinear, so the likelihood is flat between the two.)
+
+    A variance dated before the sample is that pre-sample value, and a
+    transformed term uses its transform, ``g(m)``. Stata uses the
+    untransformed ``m`` there, so with ``in_mean='sd'`` or ``'log'``
+    *and* lags the first ``max(in_mean_lags)`` observations enter
+    differently and the two likelihoods differ in the second decimal;
+    without lags, or without a transform, they agree.
 
     ``'gjr'`` requires ``alpha >= 0``, ``alpha + gamma >= 0`` and
     ``sum(alpha) + sum(gamma) / 2 + sum(beta) < 1``; ``'egarch'`` only
@@ -918,10 +971,39 @@ def garch(
             f"garch: presample={presample!r} is defined for model='garch' " "only.",
             recovery_hint="Leave presample at its default for 'gjr' and 'egarch'.",
         )
-    in_mean = bool(in_mean)
+    kinds = {True: "variance", "variance": "variance", "sd": "sd", "log": "log"}
+    if in_mean is not False and in_mean is not None and in_mean not in kinds:
+        raise MethodIncompatibility(
+            f"garch: in_mean={in_mean!r} is not True, 'variance', 'sd' or 'log'.",
+            recovery_hint="'sd' puts the conditional standard deviation in "
+            "the mean, 'log' the log variance.",
+        )
+    mean_kind = kinds[in_mean] if in_mean else None
+    lag_list = (
+        [int(in_mean_lags)]
+        if isinstance(in_mean_lags, (int, np.integer))
+        else [int(v) for v in in_mean_lags]
+    )
+    if mean_kind is None:
+        lag_list = []
+    elif (
+        not lag_list
+        or min(lag_list) < 0
+        or len(set(lag_list)) != len(lag_list)
+        or sorted(lag_list) != lag_list
+    ):
+        raise MethodIncompatibility(
+            f"garch: in_mean_lags={in_mean_lags!r} must be distinct "
+            "non-negative lags in increasing order.",
+            recovery_hint="0 is the current variance; [0, 1] adds its first lag.",
+        )
+    code = {"variance": 0, "sd": 1, "log": 2}.get(mean_kind or "", 0)
+    # what the filter needs: False, or (transform code, lags)
+    in_mean = (code, tuple(lag_list)) if mean_kind else False
+    n_psi = len(lag_list)
     if in_mean and presample != "stata":
         raise MethodIncompatibility(
-            "garch: in_mean=True is defined for presample='stata' only."
+            "garch: in_mean= is defined for presample='stata' only."
         )
     n_g = q if model != "garch" else 0  # asymmetry terms
     if threshold is not None:
@@ -939,7 +1021,7 @@ def garch(
             )
         n_g = int(threshold)
     y_mean = float(y.mean()) if mean else 0.0
-    j0 = int(mean) + int(in_mean)  # position of the first AR coefficient
+    j0 = int(mean) + n_psi  # position of the first AR coefficient
     jv = j0 + n_ar  # position of omega
     n_var = 1 + q + n_g + p
     K = jv + n_var + int(dist == "t")
@@ -1014,7 +1096,7 @@ def garch(
         a = _spread(a_tot, q, shape)
         b = _spread(b_tot, p, shape)
         omega = var0 * max(1.0 - sum(a) - sum(b), 0.05)
-        head = ([y_mean] if mean else []) + ([0.0] if in_mean else []) + list(rho0)
+        head = ([y_mean] if mean else []) + [0.0] * n_psi + list(rho0)
         tail = [8.0] if dist == "t" else []
         if model == "egarch":
             # no sign effect, a magnitude effect of twice the ARCH share,
@@ -1058,7 +1140,7 @@ def garch(
             if np.isfinite(res.fun) and res.fun < best_fun - 1e-9:
                 best_fun, best_theta = float(res.fun), np.asarray(res.x, float)
 
-    general = bool(n_ar or dist == "t" or model != "garch" or in_mean)
+    general = bool(n_ar or dist == "t" or model != "garch" or n_psi)
     scores: np.ndarray
     if not general:
 
@@ -1148,7 +1230,7 @@ def garch(
             return th
 
         theta = _polish(theta)
-        if in_mean:
+        if n_psi:
             # Stata's estimator: the pre-sample value is the mean squared
             # innovation at the estimates, but it is a constant while the
             # likelihood is climbed. Alternate until the two agree.
@@ -1165,7 +1247,13 @@ def garch(
         H = _numeric_hessian(_fast_neg_ll, theta)
 
     mu = float(theta[0]) if mean else 0.0
-    psi_hat = float(theta[int(mean)]) if in_mean else None
+    psi_all = np.asarray(theta[int(mean) : int(mean) + n_psi], float)
+    psi_hat: Any = None
+    if n_psi == 1:
+        psi_hat = float(psi_all[0])
+    elif n_psi > 1:
+        psi_hat = psi_all
+    psi_names = ["archm" if lag == 0 else f"archm[L{lag}]" for lag in lag_list]
     rho = np.asarray(theta[j0:jv], float)
     omega = float(theta[jv])
     first = np.asarray(theta[jv + 1 : jv + 1 + q], float)
@@ -1178,7 +1266,7 @@ def garch(
 
     param_names = (
         (["mu"] if mean else [])
-        + (["archm"] if in_mean else [])
+        + psi_names
         + [f"ar[{k + 1}]" for k in range(n_ar)]
         + ["omega"]
         + [f"{first_name}[{i + 1}]" for i in range(q)]
@@ -1253,6 +1341,8 @@ def garch(
         gamma=gamma_hat if n_g else None,
         theta=first if model == "egarch" else None,
         archm=psi_hat,
+        in_mean=mean_kind,
+        in_mean_lags=tuple(lag_list),
     )
     _result.vce = vce
     _result.presample = presample
@@ -1274,7 +1364,8 @@ def garch(
                 "dist": dist,
                 "model": model,
                 "threshold": threshold,
-                "in_mean": in_mean,
+                "in_mean": mean_kind,
+                "in_mean_lags": lag_list,
             },
             data=None,
             overwrite=False,

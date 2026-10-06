@@ -87,6 +87,26 @@ def test_information_criteria_never_worse_than_r(growth):
     assert sp.arima(growth, order=(5, 0, 2)).aic == pytest.approx(232.0551, abs=1e-3)
 
 
+def test_two_regimes_in_swiss_gdp_growth(growth):
+    # Stata: mswitch ar g, ar(1)   (log likelihood -111.478570019363).
+    # Stata numbers the expansion regime first; ours are ordered by the
+    # constant, so its State1 is our state2.
+    fit = sp.mswitch(growth, states=2, model="ar", ar=1, seed=0)
+    assert fit.loglik == pytest.approx(-111.478570019363, abs=1e-8)
+    table = fit.params.set_index(["state", "term"])
+    assert table.loc[("all", "ar.L1"), "estimate"] == pytest.approx(0.886538, abs=1e-6)
+    assert table.loc[("all", "ar.L1"), "se"] == pytest.approx(0.0512728, abs=1e-6)
+    assert table.loc[("state1", "const"), "estimate"] == pytest.approx(
+        -1.014657, abs=2e-6
+    )
+    assert table.loc[("state2", "const"), "estimate"] == pytest.approx(
+        1.395013, abs=2e-6
+    )
+    # staying probabilities: recession 0.7357, expansion 0.9750
+    assert fit.transition.loc["state1", "state1"] == pytest.approx(0.7357357, abs=1e-6)
+    assert fit.transition.loc["state2", "state2"] == pytest.approx(0.9749551, abs=1e-6)
+
+
 # ---------------------------------------------------------------- section 7
 def test_zivot_andrews_on_us_gdp():
     # urca: ur.za(y, model = "both", lag = 2)
