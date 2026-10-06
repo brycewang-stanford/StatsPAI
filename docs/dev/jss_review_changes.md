@@ -2401,3 +2401,23 @@ only the recorded source hashes move.
   - `tests/orig_parity/results/parity_table_orig.md`
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after `sp.threshold` (Hansen, chapter 23)
+
+- **Commits.** `9eff7366` re-recorded the entries of Track A modules
+  03 13 15 24 25 26 27 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and rewrote
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `b6a1cdb9`: `src/statspai/__init__.py` (one new export,
+  `threshold`).
+- **Reason.** Audit in `docs/dev/2026-10-05-hansen-econometrics-review.md`
+  (finding 19). `sp.threshold` is a new function in a new file,
+  `src/statspai/regression/threshold.py`, which no parity module calls.
+  Nothing on the path of an existing estimator changed.
+- **Effect on the paper.** None. No committed result file changed. In both
+  trace files only the `src/statspai/__init__.py` digest under
+  `exercised_sources` and `seconds` differ; no implementation
+  classification moved. The registry gains one entry.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
