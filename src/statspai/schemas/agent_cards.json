@@ -11822,7 +11822,9 @@
       "fields": {
         "aic": "float",
         "aicc": "float",
+        "biasadj": "bool",
         "bic": "float",
+        "boxcox": "Optional[float]",
         "candidates": "Optional[pd.DataFrame]",
         "converged": "bool",
         "damped": "bool",
@@ -11834,6 +11836,7 @@
         "model": "str",
         "mse": "float",
         "n": "int",
+        "n_missing": "int",
         "n_params": "int",
         "params": "pd.Series",
         "period": "int",
@@ -11867,6 +11870,11 @@
             "description": "Fix the trend smoothing parameter",
             "type": "number"
           },
+          "biasadj": {
+            "default": false,
+            "description": "Back-transform to the forecast mean instead of the median",
+            "type": "boolean"
+          },
           "bounds": {
             "default": "both",
             "description": "Parameter region",
@@ -11876,6 +11884,10 @@
               "admissible"
             ],
             "type": "string"
+          },
+          "boxcox": {
+            "description": "Box-Cox parameter of the modelled series (0 = log, 'auto' = Guerrero); forecasts are back-transformed",
+            "type": "number"
           },
           "damped": {
             "description": "Damp the trend; None tries both",
@@ -11992,6 +12004,8 @@
       "class": "SimpleForecastResult",
       "description": "SimpleForecastResult",
       "fields": {
+        "biasadj": "bool",
+        "boxcox": "Optional[float]",
         "drift": "Optional[float]",
         "fitted_values": "np.ndarray",
         "mean": "Optional[float]",
@@ -12007,6 +12021,15 @@
       "name": "simple_forecast",
       "parameters": {
         "properties": {
+          "biasadj": {
+            "default": false,
+            "description": "Back-transform to the forecast mean instead of the median",
+            "type": "boolean"
+          },
+          "boxcox": {
+            "description": "Box-Cox parameter of the modelled series (0 = log, 'auto' = Guerrero); forecasts are back-transformed",
+            "type": "number"
+          },
           "data": {
             "description": "Frame holding y",
             "type": "object",
@@ -13142,6 +13165,7 @@
             "enum": [
               "bottom_up",
               "top_down",
+              "middle_out",
               "ols",
               "wls_struct",
               "wls_var",
@@ -13150,12 +13174,20 @@
             ],
             "type": "string"
           },
+          "middle": {
+            "description": "middle_out: the level the forecasts start from (a key of Hierarchy.tags or its series)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "proportions": {
             "default": "average",
-            "description": "Top-down proportions",
+            "description": "Top-down proportions: historical, or of the forecasts",
             "enum": [
               "average",
-              "of_averages"
+              "of_averages",
+              "forecast"
             ],
             "type": "string"
           },
@@ -13182,6 +13214,370 @@
       "tests/reference_parity/test_forecasting_r_parity.py"
     ],
     "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "stl",
+      "corrgram"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Summary features of a time series, or of every column of a table of series: autocorrelation and partial autocorrelation sums (levels, first and second differences, seasonal lag), strength of trend and seasonality, spike, linearity and curvature from an STL decomposition, lumpiness, stability, crossing points, flat spots, largest level and variance shifts, ARCH effect. One row per series for plotting, clustering or outlier screening. Values of R tsfeatures. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_forecasting_r_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.ts_features(wide_df, period=4)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "ts_features",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "wang2006characteristic",
+    "returns": {
+      "class": "Series",
+      "description": "Series|DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Summary features of a time series, or of every column of a table of series: autocorrelation and partial autocorrelation sums (levels, first and second differences, seasonal lag), strength of trend and seasonality, spike, linearity and curvature from an STL decomposition, lumpiness, stability, crossing points, flat spots, largest level and variance shifts, ARCH effect. One row per series for plotting, clustering or outlier screening. Values of R tsfeatures. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "ts_features",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "period": {
+            "default": 1,
+            "description": "Seasonal period",
+            "type": "integer"
+          },
+          "scale": {
+            "default": true,
+            "description": "Standardise each series first",
+            "type": "boolean"
+          },
+          "y": {
+            "description": "One series or a wide table of series",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_forecasting_r_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "bagged_forecast"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.bootstrap_series(df[\"cement\"], 100, period=4)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bootstrap_series",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "bergmeir2016bagging",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap.",
+      "name": "bootstrap_series",
+      "parameters": {
+        "properties": {
+          "block_size": {
+            "description": "Block length; default 2 x period or min(8, n/2)",
+            "type": "integer"
+          },
+          "boxcox": {
+            "default": "auto",
+            "description": "Box-Cox parameter, 'auto' (Guerrero on [0, 1]) or None",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "n_boot": {
+            "default": 100,
+            "description": "Number of series, the original included",
+            "type": "integer"
+          },
+          "period": {
+            "default": 1,
+            "description": "Seasonal period",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Random seed",
+            "type": "integer"
+          },
+          "y": {
+            "description": "The series, in time order",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "ets",
+      "tscv"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.bagged_forecast(df[\"cement\"], \"ets\", horizon=12, period=4).forecast",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bagged_forecast",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "bergmeir2016bagging",
+    "returns": {
+      "class": "BaggedForecastResult",
+      "description": "BaggedForecastResult",
+      "fields": {
+        "forecast": "pd.DataFrame",
+        "forecaster": "str",
+        "members": "pd.DataFrame",
+        "n_boot": "int"
+      }
+    },
+    "signature": {
+      "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval.",
+      "name": "bagged_forecast",
+      "parameters": {
+        "properties": {
+          "block_size": {
+            "description": "Block length of the bootstrap",
+            "type": "integer"
+          },
+          "boxcox": {
+            "default": "auto",
+            "description": "Box-Cox parameter of the bootstrap",
+            "type": [
+              "number",
+              "string"
+            ]
+          },
+          "data": {
+            "description": "Frame holding y",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "forecaster": {
+            "default": "ets",
+            "description": "Method name or f(series, horizon)",
+            "type": "string"
+          },
+          "horizon": {
+            "default": 10,
+            "description": "Periods ahead",
+            "type": "integer"
+          },
+          "n_boot": {
+            "default": 100,
+            "description": "Number of series forecast",
+            "type": "integer"
+          },
+          "period": {
+            "default": 1,
+            "description": "Seasonal period",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Random seed",
+            "type": "integer"
+          },
+          "y": {
+            "description": "The series, in time order",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "fourier_terms"
+    ],
+    "assumptions": [],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "X = sp.seasonal_dummies(len(y), 4)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "seasonal_dummies",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hyndman2026fpppy",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms.",
+      "name": "seasonal_dummies",
+      "parameters": {
+        "properties": {
+          "drop_first": {
+            "default": true,
+            "description": "Leave out season 1 as the reference",
+            "type": "boolean"
+          },
+          "n": {
+            "description": "Number of rows, or an indexed object",
+            "type": "integer"
+          },
+          "period": {
+            "description": "Seasonal period",
+            "type": "integer"
+          },
+          "start": {
+            "default": 1,
+            "description": "Time of the first row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "n",
+          "period"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
   },
   {
     "alias_of": null,
@@ -117716,7 +118112,9 @@
       "fields": {
         "aic": "float",
         "aicc": "float",
+        "biasadj": "bool",
         "bic": "float",
+        "boxcox": "Optional[float]",
         "candidates": "Optional[pd.DataFrame]",
         "exog_names": "Tuple[str, ...]",
         "fitted_values": "np.ndarray",
@@ -117738,6 +118136,15 @@
             "default": false,
             "description": "If True, select the model and ignore ``order``, by the algorithm of Hyndman and Khandakar (2008): 1. With ``period=``, the number of seasonal differences ``D`` (at most ``max_D``) is one when the strength of seasonality of an STL decomposition exceeds 0.64 (:func:`statspai.nsdiffs`). 2. ``d`` is the number of differences after which a KPSS test no longer rejects level stationarity at 5%, at most ``max_d`` (:func:`statspai.ndiffs`), applied to the seasonally differenced series. 3. ``(p, q)``, with ``period=`` also ``(P, Q)``, and whether to include a constant (a mean when ``d + D = 0``, a drift when ``d + D = 1``) minimise AICc. With regressors, the differencing rules are applied to the residuals of the regression of ``y`` on them.",
             "type": "boolean"
+          },
+          "biasadj": {
+            "default": false,
+            "description": "The back-transformed point forecast is the median of the forecast distribution; ``True`` returns its mean instead.",
+            "type": "boolean"
+          },
+          "boxcox": {
+            "description": "Model a Box-Cox transform of the series (0 is the logarithm; ``\"auto\"`` uses :func:`statspai.boxcox_lambda`). Coefficients, residuals and the likelihood are on the transformed scale; ``fitted_values`` and forecasts are back-transformed.",
+            "type": "number"
           },
           "data": {
             "description": "Frame holding ``y`` (and ``exog``), in time order. Rows before the first and after the last non-missing ``y`` are dropped, so a differenced column can be passed as it is.",

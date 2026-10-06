@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 409 |
 | | aligned | 52 |
 | | **subtotal** | **461** |
-| **No external software reference** | analytical-only (T1) | 343 |
+| **No external software reference** | analytical-only (T1) | 344 |
 | | external-replication (published numbers) | 54 |
-| | **subtotal** | **397** |
-| No numerical evidence yet | unverified | 563 |
+| | **subtotal** | **398** |
+| No numerical evidence yet | unverified | 567 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 461 | 843 | 847 | 54.4% |
+| estimator callables | 461 | 844 | 851 | 54.2% |
 | infrastructure (parity N/A) | 0 | 12 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 354 | 0.0% |
-| **all registered** | 461 | 858 | 1421 | 32.4% |
+| result / exception classes | 0 | 3 | 355 | 0.0% |
+| **all registered** | 461 | 859 | 1426 | 32.3% |
 
 ### Coverage by estimator family
 
@@ -55,8 +55,8 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | causal | 151 | 333 | 335 |
 | regression | 43 | 55 | 55 |
 | inference | 28 | 47 | 47 |
+| timeseries | 12 | 35 | 38 |
 | panel | 28 | 34 | 34 |
-| timeseries | 12 | 34 | 34 |
 | spatial | 28 | 33 | 33 |
 | diagnostics | 23 | 31 | 31 |
 | bayes | 8 | 28 | 28 |
@@ -632,7 +632,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 343 functions
+## analytical-only — 344 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -963,6 +963,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `te_summary` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `translog_design` | [`test_translog_design_parity.py`](../tests/reference_parity/test_translog_design_parity.py) |
 | `transport_generalize` | [`test_transport_parity.py`](../tests/reference_parity/test_transport_parity.py) |
+| `ts_features` | [`test_forecasting_r_parity.py`](../tests/reference_parity/test_forecasting_r_parity.py) |
 | `twfe_decomposition` | [`test_dcdh_textbook_stata_parity.py`](../tests/reference_parity/test_dcdh_textbook_stata_parity.py) (+2) |
 | `uniform_bands` | [`test_event_study_vcov_R_parity.py`](../tests/reference_parity/test_event_study_vcov_R_parity.py) (+1) |
 | `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+3) |
@@ -982,6 +983,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 563 functions
+## unverified — 567 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

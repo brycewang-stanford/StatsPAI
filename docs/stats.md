@@ -45,7 +45,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `regression` | 30,393 | 40 | 59 |
 | `rd` | 23,110 | 34 | 56 |
 | `smart` | 16,690 | 21 | 31 |
-| `timeseries` | 16,626 | 31 | 53 |
+| `timeseries` | 17,662 | 33 | 58 |
 | `forest` | 15,974 | 17 | 31 |
 | `inference` | 15,083 | 30 | 55 |
 | `output` | 14,193 | 22 | 42 |

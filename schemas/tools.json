@@ -748,6 +748,15 @@
           "description": "If True, select the model and ignore ``order``, by the algorithm of Hyndman and Khandakar (2008): 1. With ``period=``, the number of seasonal differences ``D`` (at most ``max_D``) is one when the strength of seasonality of an STL decomposition exceeds 0.64 (:func:`statspai.nsdiffs`). 2. ``d`` is the number of differences after which a KPSS test no longer rejects level stationarity at 5%, at most ``max_d`` (:func:`statspai.ndiffs`), applied to the seasonally differenced series. 3. ``(p, q)``, with ``period=`` also ``(P, Q)``, and whether to include a constant (a mean when ``d + D = 0``, a drift when ``d + D = 1``) minimise AICc. With regressors, the differencing rules are applied to the residuals of the regression of ``y`` on them.",
           "type": "boolean"
         },
+        "biasadj": {
+          "default": false,
+          "description": "The back-transformed point forecast is the median of the forecast distribution; ``True`` returns its mean instead.",
+          "type": "boolean"
+        },
+        "boxcox": {
+          "description": "Model a Box-Cox transform of the series (0 is the logarithm; ``\"auto\"`` uses :func:`statspai.boxcox_lambda`). Coefficients, residuals and the likelihood are on the transformed scale; ``fitted_values`` and forecasts are back-transformed.",
+          "type": "number"
+        },
         "exog": {
           "description": "exog parameter (Optional[Any]).",
           "type": "string"
@@ -1427,6 +1436,60 @@
       "type": "object"
     },
     "name": "bacon_plot"
+  },
+  {
+    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval. Alternatives: sp.ets, sp.tscv.",
+    "input_schema": {
+      "properties": {
+        "block_size": {
+          "description": "Block length of the bootstrap",
+          "type": "integer"
+        },
+        "boxcox": {
+          "default": "auto",
+          "description": "Box-Cox parameter of the bootstrap",
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "forecaster": {
+          "default": "ets",
+          "description": "Method name or f(series, horizon)",
+          "type": "string"
+        },
+        "horizon": {
+          "default": 10,
+          "description": "Periods ahead",
+          "type": "integer"
+        },
+        "n_boot": {
+          "default": 100,
+          "description": "Number of series forecast",
+          "type": "integer"
+        },
+        "period": {
+          "default": 1,
+          "description": "Seasonal period",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed",
+          "type": "integer"
+        },
+        "y": {
+          "description": "The series, in time order",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "bagged_forecast"
   },
   {
     "description": "Unified balance diagnostics for matching and weighting estimators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
@@ -2777,6 +2840,50 @@
       "type": "object"
     },
     "name": "bootstrap"
+  },
+  {
+    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap. Alternatives: sp.bagged_forecast.",
+    "input_schema": {
+      "properties": {
+        "block_size": {
+          "description": "Block length; default 2 x period or min(8, n/2)",
+          "type": "integer"
+        },
+        "boxcox": {
+          "default": "auto",
+          "description": "Box-Cox parameter, 'auto' (Guerrero on [0, 1]) or None",
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "n_boot": {
+          "default": 100,
+          "description": "Number of series, the original included",
+          "type": "integer"
+        },
+        "period": {
+          "default": 1,
+          "description": "Seasonal period",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed",
+          "type": "integer"
+        },
+        "y": {
+          "description": "The series, in time order",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "bootstrap_series"
   },
   {
     "description": "Box-Cox power transformation of a positive outcome: the maximum likelihood lambda for (y^lambda - 1)/lambda = x'b + e, its profile-likelihood interval, and LR tests of the reciprocal (-1), log (0) and identity (1). R MASS::boxcox / Stata boxcox, model(lhsonly). Validation: certified parity evidence. Do NOT use when: The estimand is an effect on the original scale: coefficients of a transformed outcome do not average back; use sp.glm / sp.poisson with a log link. Assumptions: Strictly positive outcome; Some power of the outcome is linear in x with normal, homoskedastic errors. Failure modes: Outcome has zeros or negative values -> Model the mean directly with a log link instead of transforming the outcome. Alternatives: sp.regress, sp.glm, sp.poisson.",
@@ -11145,6 +11252,11 @@
           "description": "Fix the trend smoothing parameter",
           "type": "number"
         },
+        "biasadj": {
+          "default": false,
+          "description": "Back-transform to the forecast mean instead of the median",
+          "type": "boolean"
+        },
         "bounds": {
           "default": "both",
           "description": "Parameter region",
@@ -11154,6 +11266,10 @@
             "admissible"
           ],
           "type": "string"
+        },
+        "boxcox": {
+          "description": "Box-Cox parameter of the modelled series (0 = log, 'auto' = Guerrero); forecasts are back-transformed",
+          "type": "number"
         },
         "damped": {
           "description": "Damp the trend; None tries both",
@@ -29807,6 +29923,7 @@
           "enum": [
             "bottom_up",
             "top_down",
+            "middle_out",
             "ols",
             "wls_struct",
             "wls_var",
@@ -29815,12 +29932,20 @@
           ],
           "type": "string"
         },
+        "middle": {
+          "description": "middle_out: the level the forecasts start from (a key of Hierarchy.tags or its series)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "proportions": {
           "default": "average",
-          "description": "Top-down proportions",
+          "description": "Top-down proportions: historical, or of the forecasts",
           "enum": [
             "average",
-            "of_averages"
+            "of_averages",
+            "forecast"
           ],
           "type": "string"
         },
@@ -31917,6 +32042,37 @@
     "name": "search_functions"
   },
   {
+    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms. Alternatives: sp.fourier_terms.",
+    "input_schema": {
+      "properties": {
+        "drop_first": {
+          "default": true,
+          "description": "Leave out season 1 as the reference",
+          "type": "boolean"
+        },
+        "n": {
+          "description": "Number of rows, or an indexed object",
+          "type": "integer"
+        },
+        "period": {
+          "description": "Seasonal period",
+          "type": "integer"
+        },
+        "start": {
+          "default": 1,
+          "description": "Time of the first row",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "n",
+        "period"
+      ],
+      "type": "object"
+    },
+    "name": "seasonal_dummies"
+  },
+  {
     "description": "Score and rank candidate proxies for PCI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The proxies are valid negative controls (relevant to the confounder, excluded from the causal channel); A bridge function exists (completeness conditions hold). Pre-conditions: Treatment-inducing and outcome-inducing proxy variables (negative controls) for the unobserved confounder. Failure modes: Proxies are weak or invalid -- the bridge function is poorly identified -> Test proxy relevance, select stronger proxies, or fall back to sensitivity analysis. Alternatives: sp.dml. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
@@ -32527,6 +32683,15 @@
     "description": "Benchmark forecasting methods: mean, naive (random walk), seasonal naive and drift, with normal or bootstrapped prediction intervals. The yardstick any forecasting model has to beat out of sample. R forecast::meanf / naive / snaive / rwf(drift=TRUE); statsforecast HistoricAverage / Naive / SeasonalNaive / RandomWalkWithDrift. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Intervals assume uncorrelated, homoscedastic, normal one-step errors (bootstrap=True drops normality). Alternatives: sp.ets, sp.arima. Typical minimum N: 3.",
     "input_schema": {
       "properties": {
+        "biasadj": {
+          "default": false,
+          "description": "Back-transform to the forecast mean instead of the median",
+          "type": "boolean"
+        },
+        "boxcox": {
+          "description": "Box-Cox parameter of the modelled series (0 = log, 'auto' = Guerrero); forecasts are back-transformed",
+          "type": "number"
+        },
         "method": {
           "default": "naive",
           "description": "Which benchmark",
@@ -36547,6 +36712,33 @@
     "name": "truncreg"
   },
   {
+    "description": "Summary features of a time series, or of every column of a table of series: autocorrelation and partial autocorrelation sums (levels, first and second differences, seasonal lag), strength of trend and seasonality, spike, linearity and curvature from an STL decomposition, lumpiness, stability, crossing points, flat spots, largest level and variance shifts, ARCH effect. One row per series for plotting, clustering or outlier screening. Values of R tsfeatures. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.stl, sp.corrgram.",
+    "input_schema": {
+      "properties": {
+        "period": {
+          "default": 1,
+          "description": "Seasonal period",
+          "type": "integer"
+        },
+        "scale": {
+          "default": true,
+          "description": "Standardise each series first",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "One series or a wide table of series",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "ts_features"
+  },
+  {
     "description": "Time series cross-validation on a rolling forecast origin: refit at each origin on the observations up to it (expanding or rolling window), forecast up to `horizon` steps and collect the errors; .accuracy() gives RMSE / MAE / MAPE by horizon. Built-in forecasters (naive, snaive, drift, mean, ets, arima) or any function f(train, horizon). The error matrix has the layout of R forecast::tsCV; statsforecast cross_validation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The forecaster uses only the training window it is handed; Errors at long horizons overlap across origins and are serially correlated. Alternatives: sp.forecast_accuracy. Typical minimum N: 20.",
     "input_schema": {
       "properties": {
@@ -38502,114 +38694,5 @@
       "type": "object"
     },
     "name": "zinb"
-  },
-  {
-    "description": "Zero-Inflated Poisson (ZIP) regression via MLE. Validation: certified parity evidence. Do NOT use when: the outcome is a rate with a known exposure -- model the count with an exposure offset rather than the ratio. Assumptions: The conditional mean is exp(x'b); Poisson pseudo-ML is consistent for the mean under this alone, but its default SEs assume equidispersion -- use robust / clustered SEs; Zero-inflated and hurdle models assume a separate process generates the excess zeros; they are not a fix for over-dispersion by itself; Observations are independent conditional on covariates or the dependence is declared (cluster= / random effects). Pre-conditions: Outcome is a non-negative integer count (or non-negative real for PPML gravity-type models); For ppmlhdfe: fixed effects that perfectly predict zeros are dropped along with their observations -- check the reported count. Failure modes: Over-dispersion: Poisson deviance / Pearson chi-square far above degrees of freedom -> Switch to negative binomial (sp.nbreg / sp.zinb) or keep Poisson with robust SEs; the mean is still consistently estimated; Separation: a fixed effect or covariate perfectly predicts zero outcomes -> ppmlhdfe drop...",
-    "input_schema": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level for confidence intervals.",
-          "type": "number"
-        },
-        "cluster": {
-          "description": "Cluster variable name for clustered standard errors.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "formula": {
-          "description": "Patsy-style formula for the count equation, e.g. \"y ~ x1 + x2\".",
-          "type": "string",
-          "x-statspai-role": "formula"
-        },
-        "inflate": {
-          "description": "Inflation-equation regressors. Default: same as count regressors.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "maxiter": {
-          "default": 200,
-          "description": "Maximum iterations for optimizer.",
-          "type": "integer"
-        },
-        "robust": {
-          "default": "nonrobust",
-          "description": "\"nonrobust\", \"HC0\", \"HC1\", etc.",
-          "type": "string",
-          "x-aliases": [
-            "vce"
-          ],
-          "x-canonical": "vce"
-        },
-        "tol": {
-          "default": 1e-08,
-          "description": "Convergence tolerance.",
-          "type": "number"
-        },
-        "x": {
-          "description": "Count-equation regressors (alternative to formula).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "y": {
-          "description": "Dependent variable name (alternative to formula).",
-          "type": "string",
-          "x-statspai-role": "column"
-        }
-      },
-      "required": [],
-      "type": "object"
-    },
-    "name": "zip_model"
-  },
-  {
-    "description": "z test on a mean or on a difference of two means when the population standard deviation is known (Stata ztest / ztesti). Takes data or summary statistics (n=, mean=). Returns the estimate, its standard error, z, the two-sided and both one-sided p-values and the confidence interval. Use sp.ttest when the standard deviation is estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: sd is the sample standard deviation -- use sp.ttest, which accounts for estimating it. Assumptions: The population standard deviation is known, not estimated from the sample being tested; Independent observations; a normal population, or a sample large enough for the mean to be approximately normal. Alternatives: sp.ttest.",
-    "input_schema": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "1 - confidence level",
-          "type": "number"
-        },
-        "by": {
-          "description": "Grouping column with exactly two values; the estimate is mean(lower group) - mean(higher group)",
-          "type": "string"
-        },
-        "mean": {
-          "description": "Sample mean (summary form)",
-          "type": "number"
-        },
-        "mu": {
-          "default": 0.0,
-          "description": "Null value",
-          "type": "number"
-        },
-        "n": {
-          "description": "Observations (summary form)",
-          "type": "integer"
-        },
-        "other": {
-          "description": "Second, independent variable",
-          "type": "string"
-        },
-        "sd": {
-          "default": 1.0,
-          "description": "Known population standard deviation, or one per sample",
-          "type": "number"
-        },
-        "y": {
-          "description": "Variable whose mean is tested",
-          "type": "string",
-          "x-statspai-role": "column"
-        }
-      },
-      "required": [],
-      "type": "object"
-    },
-    "name": "ztest"
   }
 ]
