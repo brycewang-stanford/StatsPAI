@@ -166,6 +166,19 @@ already covered and checked out. Review in
   units the estimate is unbiased and its interval covers 93%, where pure
   weighting is biased by a full standard error.
 
+- **`sp.rd_optimized`** (also `sp.rd(method='optimized')`): sharp
+  regression discontinuity with minimax-optimal linear weights under a
+  bound on the second derivative (Imbens and Wager 2019). The weights
+  come from a least-squares problem with box constraints instead of a
+  kernel, the worst-case bias is computed exactly for the weights used,
+  and the interval is bias-aware as in `sp.rd_honest`. It works with a
+  discrete running variable. Against the authors' R package `optrdd` the
+  estimate is within 0.008 standard errors and the worst-case bias within
+  0.3% (two discretisations of the same programme). On the Lee election
+  data the interval half-length is 2.996 against 3.002 for local linear
+  regression, the small gain theory predicts for a continuous running
+  variable.
+
 #### Changed
 
 - **`sp.metalearner(learner='r' | 'dr')`: the default final-stage model

@@ -319,6 +319,7 @@ PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
 ## 11. 分领域须知
 
 - **`rd/`**：kernel / 局部多项式 / sandwich 走 `rd/_core.py`，不要重新实现。
+- **`rd/optimized.py`（`sp.rd_optimized`，Imbens-Wager 2019）**：权重必须**精确**满足四个矩条件（两侧各自和为 ±1、与 running variable 正交，`_project`），否则最坏偏差无界；报告的 `max_bias` 是对*实际使用的权重*按 `M·∫|G|` 精确积分得到的（`worst_case_bias`），不是优化问题里离散化后的那个数——对任何权重都成立，对局部线性权重退化成 RDHonest 的闭式。求解用「单位跳跃、曲率 ≤ kappa 的最不利函数」的有界最小二乘（scipy `lsq_linear(method='bvls')`），再对 kappa 做一维搜索；**不要**换成乘子形式上的 L-BFGS-B 或自写的投影牛顿：Hessian 是二次积分算子，条件数太差，两者都试过、都不收敛。与 `optrdd` 是同一规划的两种离散化，只能对到约 0.01 个标准误（估计）和 0.3%（偏差），按 S 记，不要写成 parity；optrdd 的权重对 running variable 的正交只到 5e-5。连续 running variable 下相对 `sp.rd_honest` 的增益只有千分之几（三角核本来就接近最优），不要在文档里夸大。
 - **`synth/`**：20+ 估计器全部经 `sp.synth(method=...)` 分发。新增方法要同时加到 dispatcher 和 `synth_compare()`。`method='classic'` 的 `ci` 是与安慰剂秩检验 p 值对偶的常数效应反演区间（`_core.placebo_inversion_ci`，Firpo-Possebom 2018；供体少于 `1/alpha - 1` 个时为 `(-inf, inf)`），旧的 `estimate ± z·sd(placebo ATT)` 只留在 `model_info['ci_normal']`——**不要**再让 p 值和区间出自两套程序（2026-10 Gaillac-L'Hour 教材第 10 章查出）。
 - **`decomposition/`**：影响函数 / statistic-value / WLS 在 `_common.py`。RIF / FFL / inequality / Oaxaca 都委托到该文件。
 - **`multilevel/` / `frontier/` / GLMM**：v0.9.3–v0.9.4 有含正确性修复的大重构——用户引用旧数值时主动提示。

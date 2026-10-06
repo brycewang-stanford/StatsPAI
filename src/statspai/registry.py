@@ -32192,6 +32192,92 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="rd_optimized",
+            category="causal",
+            description=(
+                "Sharp regression discontinuity with minimax-optimal linear "
+                "weights under a bound M on the second derivative of E[Y|X] "
+                "(Imbens-Wager). Weights are chosen by convex optimisation "
+                "instead of a kernel, the worst-case bias is computed exactly, "
+                "and the interval is bias-aware. Works with a discrete running "
+                "variable."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome variable"),
+                ParamSpec("x", "str", True, description="Running variable"),
+                ParamSpec("c", "float", False, 0.0, "Cutoff value"),
+                ParamSpec(
+                    "M",
+                    "float",
+                    False,
+                    None,
+                    "Upper bound on |E[Y|X]''| on each side of c; if None, the "
+                    "Armstrong-Kolesar rule of thumb",
+                ),
+                ParamSpec(
+                    "criterion",
+                    "str",
+                    False,
+                    "mse",
+                    "Worst-case mean squared error, or interval length",
+                    ["mse", "flci"],
+                ),
+                ParamSpec(
+                    "h",
+                    "float",
+                    False,
+                    None,
+                    "Use only |x - c| <= h; default 2.5 times the optimal local "
+                    "linear bandwidth",
+                ),
+                ParamSpec(
+                    "sigma2",
+                    "float",
+                    False,
+                    None,
+                    "Outcome variance used to choose the weights; default "
+                    "nearest-neighbour estimates averaged by side",
+                ),
+                ParamSpec(
+                    "num_bins",
+                    "int",
+                    False,
+                    120,
+                    "Distinct values of x per side beyond which x is binned",
+                ),
+                ParamSpec(
+                    "n_cells",
+                    "int",
+                    False,
+                    120,
+                    "Pieces per side of the least favourable function's second "
+                    "derivative",
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="CausalResult with a bias-aware interval",
+            example='sp.rd_optimized(df, y="score", x="income", c=10000, M=0.05)',
+            tags=["rd", "honest", "minimax", "optimized", "discrete", "causal"],
+            reference="imbens2019optimized; armstrong2018optimal",
+            pre_conditions=[
+                "At least three distinct values of x on each side of c inside "
+                "the window",
+                "User-supplied M (or willingness to use the rule of thumb)",
+            ],
+            assumptions=[
+                "E[Y|X] has bounded second derivative |E[Y|X]''| <= M on each "
+                "side of c",
+                "Continuity of potential outcomes at c",
+                "No manipulation of x at c (run sp.rddensity alongside)",
+            ],
+            alternatives=["rd_honest", "rdrobust", "rd_discrete"],
+            typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="rd_flex",
             category="causal",
             description=(
@@ -32801,6 +32887,7 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "rd_discrete": ["tests/test_rd_polish.py"],
     "rd_flex": ["tests/test_rd_polish.py"],
     "rd_honest": ["tests/test_rd_validation.py"],
+    "rd_optimized": ["tests/test_wager_textbook_pass.py"],
     "sar": ["tests/spatial/test_models_ml.py"],
     "sdm": ["tests/spatial/test_models_ml.py"],
     "sem": ["tests/spatial/test_models_ml.py"],
@@ -32892,6 +32979,7 @@ _INHERITANCE_SEEDS: Dict[str, str] = {
     "continuous_iv_late": "iv",
     # ----- Regression Discontinuity family ----- #
     "rd_honest": "rdrobust",
+    "rd_optimized": "rdrobust",
     "rd_discrete": "rdrobust",
     "rd_bias_aware_fuzzy": "rdrobust",
     "rd_extrapolate": "rdrobust",

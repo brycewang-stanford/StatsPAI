@@ -39,7 +39,7 @@ Four kinds of result came out.
 | 6 | UCB, Thompson sampling, adaptively weighted inference | none | Added: `sp.bandit_allocate`, `sp.bandit_experiment`, `sp.adaptive_inference`. |
 | 7.1 | Covariate-balancing propensity scores | `sp.cbps`, `sp.ebalance` | Equal to R `CBPS` to 6e-4 on 60 data sets, both variants. The over-identified variant is biased on this design in both packages (below). |
 | 7.2 | Approximate balance with an augmented estimator | none | Added: `sp.residual_balance`. Weights equal to `balanceHD` to 1e-6. |
-| 8 | Local linear RD, bias-aware intervals | `sp.rdrobust`, `sp.rd_honest` | `sp.rd_honest` equals R `RDHonest` 1.0.1 on the Lee data to all printed digits, for fixed and optimal bandwidths, two kernels and the rule-of-thumb curvature. The optimized weights of section 8.2 are not implemented. |
+| 8 | Local linear RD, bias-aware intervals, optimized weights | `sp.rdrobust`, `sp.rd_honest` | `sp.rd_honest` equals R `RDHonest` 1.0.1 on the Lee data to all printed digits, for fixed and optimal bandwidths, two kernels and the rule-of-thumb curvature. Added in a second round: `sp.rd_optimized` for the optimized weights of section 8.2. |
 | 9 | Back-door, front-door, do-calculus, IV | `sp.dag`, `sp.identify`, `sp.ivreg`, `sp.dml(model='pliv')` | Covered by the Ness and Hansen passes; not rerun. |
 | 10 | LATE, marginal treatment effects | `sp.ivreg`, `sp.iv.mte` | **Fixed.** ATT and ATU used the wrong weights, standard errors ignored coefficient covariances, and the bootstrap misaligned rows. |
 | 11 | Permutation tests under interference | none | Added: `sp.interference_test`. |
@@ -139,7 +139,8 @@ gave 0.029. The docstring says which is which.
 
 ## New functions
 
-Six, in three groups. The guide `docs/guides/wager_causal_inference.md`
+Seven, in four groups (the fourth, `sp.rd_optimized`, is described under
+"Second round"). The guide `docs/guides/wager_causal_inference.md`
 shows them in use.
 
 **Interference.** `sp.interference_test` tests the sharp null and the
@@ -215,6 +216,60 @@ It remains one argument away (`cate_model=`). The S-, T- and X-learners
 were left alone, as were average effects, which come from the doubly
 robust scores and not from the final stage.
 
+## Second round: optimized regression discontinuity
+
+`sp.rd_optimized` implements section 8.2 for a sharp design with one
+running variable.
+
+**How it is computed.** The weights must sum to one on the treated side
+and minus one on the control side and be orthogonal to the running
+variable on each side. Given that, a Taylor expansion with integral
+remainder writes the bias as an integral of the second derivative against
+a piecewise linear function `G`, so the largest bias over `|mu''| <= M`
+is `M` times the integral of `|G|` on each side. That integral is
+computed exactly, for any weights. The optimal weights are proportional
+to a least favourable function: the pair with a unit jump and curvature
+at most `kappa` that has the smallest weighted sum of squares at the
+data. With the function written through its level, slope and a piecewise
+constant second derivative this is least squares with box constraints,
+solved by scipy's active-set method. The ratio `kappa` is chosen by a
+one-dimensional search on the exact criterion. A first attempt with a
+quasi-Newton method on the multiplier form did not converge: the Hessian
+integrates twice and is too badly conditioned.
+
+**Evidence.**
+
+- The bias formula reduces to RDHonest's closed form `M/2 |sum w x^2|` for
+  local linear weights, to 1e-10 at six bandwidth and kernel combinations.
+- The bound is attained: the function with second derivative
+  `M sign(G)`, built by numerical integration and evaluated at the data,
+  gives a realised bias equal to the reported one (0.13398059789 by three
+  routes).
+- On the same data, curvature and variance estimates the criterion is
+  never above that of local linear regression at its optimal bandwidth.
+- Against `optrdd` 1.0.2 (GitHub `swager/optrdd`, used as a black box,
+  GPL-3, source not read) with a common variance, on a continuous design
+  at two curvature bounds and a discrete one: estimates within 0.008
+  standard errors, worst-case bias within 0.3%, weights correlated above
+  0.9998. The two packages discretise the same programme differently, so
+  this is agreement of estimators and not a bit-for-bit comparison. One
+  difference is one-sided: `optrdd`'s weights are orthogonal to the
+  running variable only to 5e-5, so their exact worst-case bias is
+  unbounded and the figure it reports is that of its discretised problem.
+- At the curvature bound (`mu'' = M` on one side, `-M` on the other, the
+  hard case) the interval covered 96.0% over 300 samples of 600, against
+  95.3% for `sp.rd_honest`, with the same mean half-length to four digits.
+  With sixteen support points it covered 92.5% over 120 samples (Monte
+  Carlo error 2.4 points).
+
+**What it buys.** For a continuous running variable, very little over
+`sp.rd_honest`, as the theory predicts (the triangular kernel is close to
+optimal): on the Lee data the half-length is 2.996 against 3.002. The
+function is there for discrete running variables and because its weights
+and bias are exact, inspectable objects. A fit takes two to three seconds
+with a continuous running variable and a tenth of a second with a
+discrete one.
+
 ## Findings that are not bugs
 
 **Over-identified CBPS is biased on a heterogeneous design, in R too.** On
@@ -235,14 +290,10 @@ says as much at the end of chapter 6. The function warns below `1/T`.
 
 ## Open
 
-1. **Optimized regression discontinuity weights** (section 8.2,
-   Imbens and Wager 2019). The estimator is a quadratic programme over
-   one weight per distinct value of the running variable. It would reuse
-   the dual-plus-active-set approach of `sp.residual_balance` and the
-   critical values of `sp.rd_honest`, and `optrdd` is on CRAN for
-   comparison. Its gain over `sp.rd_honest` is a few percent in interval
-   length for a continuous running variable and more for a discrete or
-   multivariate one.
+1. **Optimized regression discontinuity beyond the univariate sharp
+   case.** `optrdd` also handles a two-dimensional running variable
+   (geographic designs); fuzzy designs follow Noack and Rothe. Neither is
+   in `sp.rd_optimized`.
 2. **Doubly robust long-run value in a Markov decision process**
    (section 15.1) and **marginal policy effects** (15.2).
 3. **`design='complete'` in `sp.network_exposure`.** The exposure
@@ -263,7 +314,12 @@ export PYTHONPATH="$(pwd)/src"
 pytest tests/test_wager_textbook_pass.py -q                       # 2 minutes
 pytest tests/test_wager_textbook_pass.py -q -m slow               # coverage under Thompson sampling
 pytest tests/reference_parity/test_residual_balance_balancehd.py -q
+pytest tests/reference_parity/test_rd_optimized_optrdd.py -q
 ```
+
+The `optrdd` fixture is regenerated the same way by
+`_generate_rd_optimized_data.py` and `_generate_rd_optimized_R.R` (needs
+`remotes::install_github("swager/optrdd")`; it is not on CRAN for R 4.5).
 
 The `balanceHD` fixture is regenerated by
 `tests/reference_parity/_fixtures/_generate_residual_balance_data.py`

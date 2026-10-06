@@ -19,7 +19,7 @@ while the book was read against the package.
 | 5 | policy value by IPW and AIPW; empirical welfare maximization | `sp.ips`, `sp.doubly_robust`; `sp.policy_tree`, `sp.policy_value` |
 | 6 | UCB, Thompson sampling; inference after adaptive collection | `sp.bandit_experiment`, `sp.bandit_allocate`; `sp.adaptive_inference` |
 | 7 | covariate-balancing propensity scores; approximate balance with an augmented estimator | `sp.cbps(variant='exact')`, `sp.ebalance`, `sp.sbw`; `sp.residual_balance` |
-| 8 | local linear regression discontinuity; bias-aware intervals | `sp.rdrobust`; `sp.rd_honest` |
+| 8 | local linear regression discontinuity; optimized weights and bias-aware intervals | `sp.rdrobust`; `sp.rd_honest`, `sp.rd_optimized` |
 | 9 | back-door and front-door formulas, do-calculus; instrumental variables with a learned instrument | `sp.dag`, `sp.identify`, `sp.frontdoor`; `sp.ivreg`, `sp.dml(model='pliv')` |
 | 10 | the local average treatment effect; marginal treatment effects | `sp.ivreg`; `sp.dml(model='iivm')`; `sp.iv.mte` |
 | 11 | exposure mappings; permutation tests for spillovers | `sp.interference_test` |
@@ -135,6 +135,37 @@ correctly specified logistic propensity, in both packages. The exactly
 identified variant (`variant='exact'`), entropy balancing and AIPW were
 unbiased on the same data.
 
+## Chapter 8: optimized regression discontinuity
+
+A sharp regression discontinuity estimate is a weighted sum of outcomes.
+Local linear regression picks the weights with a kernel and a bandwidth.
+`sp.rd_optimized` picks them directly: among all weights, the ones with
+the smallest worst-case mean squared error over conditional mean
+functions whose second derivative is at most `M`.
+
+```python
+r = sp.rd_optimized(df, "y", "x", c=0, M=0.1)
+r.estimate, r.se, r.ci
+r.model_info["max_bias"]              # exact worst case for these weights
+r.model_info["effective_bandwidth"]   # farthest unit with weight
+r.model_info["local_linear"]          # the same numbers for local linear
+```
+
+The interval is the bias-aware one of `sp.rd_honest`: the estimate plus
+or minus a critical value that grows with the ratio of worst-case bias to
+standard error. It is valid whether the running variable is continuous
+or takes a handful of values, because nothing in it relies on a density
+at the cutoff. On a design whose mean function sits at the curvature
+bound, the interval covered 96% in 300 samples.
+
+For a continuous running variable the gain over local linear regression
+with a triangular kernel is small, as theory says it should be: on the
+Lee (2008) election data the half-length is 2.996 against 3.002. The
+case for the method is the discrete running variable and the fact that
+the weights and the worst-case bias are exact objects that can be
+inspected. `M` is the assumption that carries the result. Report it, and
+show the interval at twice its value.
+
 ## Chapters 11 and 12: spillovers on a network
 
 Start by asking whether there are spillovers at all. Under the hypothesis
@@ -219,10 +250,9 @@ interval covered 95%.
 
 ## Not in StatsPAI
 
-- Optimized regression discontinuity weights by numerical convex
-  optimization (chapter 8.2). `sp.rd_honest` gives bias-aware intervals
-  for local linear regression under the same curvature bound, and agrees
-  with R `RDHonest` to the last digit.
+- Optimized regression discontinuity with a multivariate running
+  variable or a fuzzy design (chapter 8.2 treats the univariate sharp
+  case, which is `sp.rd_optimized`).
 - Doubly robust estimation of the long-run value of a policy in a Markov
   decision process (chapter 15.1), and marginal policy effects (15.2).
 - Contextual bandits (chapter 6 covers the case without covariates).

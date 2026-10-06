@@ -697,3 +697,118 @@ def test_r_and_dr_learner_default_final_stage_does_not_chase_outliers():
         assert np.corrcoef(cate, tau)[0, 1] > 0.8
         # The average effect does not come from the final stage.
         assert abs(fit.estimate - tau.mean()) < 4 * fit.se
+
+
+# ----------------------------------------------------------------------
+# sp.rd_optimized
+# ----------------------------------------------------------------------
+
+
+def _rd_sample(rng, n=500, M=4.0, discrete=False):
+    x = rng.uniform(-1, 1, n)
+    if discrete:
+        x = (np.floor(x * 8) + 0.5) / 8  # sixteen support points
+    mu = np.where(x >= 0, 0.5 * M * x**2, -0.5 * M * x**2)
+    y = 1.0 * (x >= 0) + mu + rng.normal(scale=0.5, size=n)
+    return pd.DataFrame({"y": y, "x": x})
+
+
+def test_worst_case_bias_matches_the_closed_form_for_local_linear_weights():
+    """For local linear weights the kernel G(t) does not change sign and
+    the worst-case bias has the closed form M/2 * |sum w x^2| used by
+    RDHonest (and sp.rd_honest, which equals RDHonest to all digits). The
+    general formula must reduce to it."""
+    from statspai.rd._rdhonest import honest_bias, honest_weights
+    from statspai.rd.optimized import worst_case_bias
+
+    rng = np.random.default_rng(20)
+    x = np.sort(rng.normal(scale=10, size=1500))
+    for h in (4.0, 9.0, 25.0):
+        for kernel in ("triangular", "uniform"):
+            w = honest_weights(x, 0.0, h, kernel)
+            assert worst_case_bias(x, w, 0.1) == pytest.approx(
+                honest_bias(w, x, 0.0, 0.1, "H"), rel=1e-10
+            )
+    # Weights that violate a moment constraint have unbounded bias.
+    assert worst_case_bias(x, w * 1.01, 0.1) == np.inf
+
+
+def test_worst_case_bias_is_attained_by_an_explicit_function():
+    """Build the function whose second derivative is M * sign(G) on each
+    side, evaluate it at the data and apply the weights. The realised bias
+    must equal the reported bound. The function is integrated twice on a
+    grid of 200,001 points, which limits the agreement to about 1e-7."""
+    rng = np.random.default_rng(21)
+    df = _rd_sample(rng, n=300, M=2.0)
+    r = sp.rd_optimized(df, "y", "x", M=2.0)
+    mi = r.model_info
+    g = mi["weights"]
+    xo = df.loc[mi["index"], "x"].to_numpy()
+    grid = np.linspace(0.0, 1.0, 200001)
+    step = grid[1] - grid[0]
+    realised = 0.0
+    for sign in (1.0, -1.0):
+        side = xo >= 0 if sign > 0 else xo < 0
+        u, gs = np.abs(xo[side]), sign * g[side]
+        G = np.array([np.sum(gs * np.clip(u - t, 0, None)) for t in grid[::50]])
+        G = np.interp(grid, grid[::50], G)  # G is piecewise linear in t
+        second = 2.0 * np.sign(G)
+        mu = np.cumsum(np.cumsum(second) * step) * step
+        realised += np.sum(gs * np.interp(u, grid, mu))
+    assert realised == pytest.approx(mi["max_bias"], rel=2e-3)
+    # The four moment conditions hold, so a level and a slope on either
+    # side leave the estimate unchanged.
+    right = xo >= 0
+    assert g[right].sum() == pytest.approx(1.0, abs=1e-10)
+    assert g[~right].sum() == pytest.approx(-1.0, abs=1e-10)
+    assert g[right] @ xo[right] == pytest.approx(0.0, abs=1e-10)
+    assert g[~right] @ xo[~right] == pytest.approx(0.0, abs=1e-10)
+    assert r.estimate == pytest.approx(g @ df.loc[mi["index"], "y"].to_numpy())
+
+
+@pytest.mark.parametrize("discrete", [False, True])
+@pytest.mark.parametrize("criterion", ["mse", "flci"])
+def test_rd_optimized_is_no_worse_than_local_linear(criterion, discrete):
+    """The weights minimise the criterion over all linear estimators, so
+    on the same data, with the same M and the same variance estimates,
+    they cannot do worse than local linear regression at its own optimal
+    bandwidth. The 0.5% slack covers the grid of the search."""
+    rng = np.random.default_rng(22)
+    df = _rd_sample(rng, n=600, discrete=discrete)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = sp.rd_optimized(df, "y", "x", M=4.0, criterion=criterion)
+    mi = r.model_info
+    ll = mi["local_linear"]
+    if criterion == "flci":
+        assert mi["half_length"] <= ll["half_length"] * 1.005
+    else:
+        assert (
+            mi["max_bias"] ** 2 + r.se**2
+            <= (ll["max_bias"] ** 2 + ll["se"] ** 2) * 1.005
+        )
+    assert r.ci[0] < r.estimate < r.ci[1]
+    assert mi["critical_value"] >= 1.96
+    # The dispatcher reaches the same function.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        via = sp.rd(
+            df, y="y", x="x", c=0, method="optimized", M=4.0, criterion=criterion
+        )
+    assert via.estimate == r.estimate
+
+
+def test_rd_optimized_errors():
+    rng = np.random.default_rng(23)
+    df = _rd_sample(rng, n=200)
+    with pytest.raises(MethodIncompatibility):
+        sp.rd_optimized(df, "y", "x", M=4.0, criterion="oci")
+    with pytest.raises(MethodIncompatibility):
+        sp.rd_optimized(df, "y", "x", M=-1.0)
+    with pytest.raises(MethodIncompatibility):
+        sp.rd_optimized(df, "y", "x", M=4.0, sigma2=0.0)
+    with pytest.raises(DataInsufficient):
+        sp.rd_optimized(df[df["x"] > 0], "y", "x", M=4.0)
+    two = df.assign(x=np.where(df["x"] >= 0, 0.5, -0.5))
+    with pytest.raises(DataInsufficient):
+        sp.rd_optimized(two, "y", "x", M=4.0)

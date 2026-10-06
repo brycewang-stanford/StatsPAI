@@ -90,6 +90,7 @@ from .hte import rdbwhte, rdhte, rdhte_lincom
 from .interference import RDInterferenceResult, rd_interference
 from .locrand import rdrandinf, rdrbounds, rdsensitivity, rdwinselect
 from .multi_score import MultiScoreRDResult, rd_multi_score
+from .optimized import rd_optimized
 from .rd2d import rd2d, rd2d_bw, rd2d_plot
 from .rd_discrete import rd_discrete
 
@@ -152,6 +153,11 @@ _RD_METHOD_ALIASES: _Dict[str, str] = {
     # Honest CIs (Armstrong-Kolesar 2018, 2020)
     "honest": "honest",
     "armstrong_kolesar": "honest",
+    "optimized": "optimized",
+    "rd_optimized": "optimized",
+    "optrdd": "optimized",
+    "imbens_wager": "optimized",
+    "minimax": "optimized",
     "ak": "honest",
     # Local randomization (Cattaneo-Titiunik-VB 2016)
     "randinf": "randinf",
@@ -231,6 +237,7 @@ _RD_ALTERNATIVES = [
     "sp.rd",
     "sp.rdrobust",
     "sp.rd.rd_honest",
+    "sp.rd.rd_optimized",
     "sp.rd.rd_flex",
     "sp.rd.rd_discrete",
 ]
@@ -328,6 +335,7 @@ def _rd_dispatch(
     _passthrough_xc: _Dict[str, _Callable[..., _Any]] = {
         "rdrobust": rdrobust,
         "honest": rd_honest,
+        "optimized": rd_optimized,
         "randinf": rdrandinf,
         "hte": rdhte,
         "forest": rd_forest,
@@ -489,6 +497,7 @@ __all__ = [
     "rdsummary",
     "rkd",
     "rd_honest",
+    "rd_optimized",
     "rdit",
     "rdmc",
     "rdmcplot",
