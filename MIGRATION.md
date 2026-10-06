@@ -5,6 +5,22 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.garch` with two or more lagged variances
+
+**What changed.** `sp.garch(y, p=2, ...)` and higher orders search from
+several starting values. Earlier releases could return a lagged-variance
+coefficient of exactly zero, a standard error of zero for it, and a
+log-likelihood below that of GARCH(1, q). On the Swiss Market Index
+returns, GARCH(2,1) went from -5600.552 to -5598.548, the value of Stata's
+`arch`. An estimate that still ends at zero now raises a `RuntimeWarning`.
+
+**Who is affected.** Anyone who reported a GARCH model with `p >= 2` or
+`q >= 2`, or compared such models by AIC or BIC. GARCH(1,1) and ARCH(1)
+results do not change.
+
+**What to do.** Re-run. If the warning appears, report the lower-order
+model.
+
 ## 1.38.0 → next: ⚠️ `sp.fci` returns the graph of the full algorithm
 
 **What changed.** `sp.fci` runs the Possible-D-SEP pass and all ten

@@ -157,6 +157,11 @@ class SVARResult(ResultProtocolMixin):
         self._lag_matrices = lag_matrices
         self._impact = impact
         self._draws = draws
+        # set by svar(): the fitted VAR and a map (sigma, lag matrices) ->
+        # impact matrix, so the identification can be repeated on bootstrap
+        # samples
+        self._var_result: Optional[VARResult] = None
+        self._identify: Optional[Any] = None
         self.n_accepted = None if draws is None else int(draws.shape[0])
         self.n_tried = n_tried
 
@@ -183,7 +188,17 @@ class SVARResult(ResultProtocolMixin):
                     rows.append(row)
         return pd.DataFrame(rows)
 
-    def irf(self, periods: int = 20, cumulative: bool = False) -> pd.DataFrame:
+    def irf(
+        self,
+        periods: int = 20,
+        cumulative: bool = False,
+        *,
+        ci: Optional[str] = None,
+        reps: int = 500,
+        seed: Optional[int] = None,
+        boot: str = "efron",
+        alpha: Optional[float] = None,
+    ) -> pd.DataFrame:
         """Structural impulse responses, one row per shock, response and
         period.
 
@@ -192,6 +207,26 @@ class SVARResult(ResultProtocolMixin):
         admissible set and ``lower`` / ``upper`` are its ``alpha / 2`` and
         ``1 - alpha / 2`` quantiles: the spread of the identified set at the
         estimated reduced form, not a confidence interval.
+
+        Parameters
+        ----------
+        periods : int, default 20
+        cumulative : bool, default False
+            Accumulated responses (the response of the level when the
+            variable enters the VAR in differences).
+        ci : {None, 'bootstrap'}, optional
+            Short- and long-run identification: add ``se``, ``lower`` and
+            ``upper`` from a residual bootstrap of the VAR, the
+            identification repeated on every bootstrap sample. Each
+            replicate's shocks are signed to agree with the estimate.
+        reps : int, default 500
+        seed : int, optional
+        boot : {'efron', 'hall'}, default 'efron'
+            Percentile band, or the band reflected about the estimate (see
+            :func:`statspai.irf`).
+        alpha : float, optional
+            ``1 - alpha`` is the pointwise coverage; default the ``alpha``
+            given to :func:`svar`.
         """
         if periods < 0:
             raise MethodIncompatibility("svar: periods must be non-negative.")
@@ -200,6 +235,10 @@ class SVARResult(ResultProtocolMixin):
             theta = self._theta(periods, impact)
             return np.cumsum(theta, axis=0) if cumulative else theta
 
+        if ci is not None:
+            return self._bootstrap_irf(
+                periods, cumulative, str(ci).lower(), reps, seed, boot, alpha
+            )
         if self._draws is None:
             return self._long({"irf": path(self._impact)}, periods)
         stack = np.stack([path(p) for p in self._draws])
@@ -209,6 +248,100 @@ class SVARResult(ResultProtocolMixin):
                 "irf": np.median(stack, axis=0),
                 "lower": np.percentile(stack, lo, axis=0),
                 "upper": np.percentile(stack, hi, axis=0),
+            },
+            periods,
+        )
+
+    def _bootstrap_irf(
+        self,
+        periods: int,
+        cumulative: bool,
+        ci: str,
+        reps: int,
+        seed: Optional[int],
+        boot: str,
+        alpha: Optional[float],
+    ) -> pd.DataFrame:
+        from .irf_bands import bootstrap_fits
+
+        if ci != "bootstrap":
+            raise MethodIncompatibility(
+                f"svar: ci={ci!r} is not None or 'bootstrap'.",
+                recovery_hint="Structural responses get their bands from the "
+                "residual bootstrap.",
+            )
+        if self._draws is not None:
+            raise MethodIncompatibility(
+                "svar: sign restrictions give an identified set, whose "
+                "quantiles irf() already reports; a bootstrap band around its "
+                "median is not defined here.",
+                recovery_hint="Call irf() without ci=.",
+            )
+        if self._var_result is None or self._identify is None:
+            raise MethodIncompatibility(
+                "svar: this result does not carry its VAR; re-run sp.svar."
+            )
+        if boot not in ("efron", "hall"):
+            raise MethodIncompatibility("svar: boot must be 'efron' or 'hall'.")
+        if reps < 20:
+            raise MethodIncompatibility(
+                f"svar: reps={reps} is too few for percentile bands.",
+                recovery_hint="Use at least a few hundred replications.",
+            )
+        level = self.alpha if alpha is None else float(alpha)
+        if not 0.0 < level < 1.0:
+            raise MethodIncompatibility("svar: alpha must be in (0, 1).")
+        k = len(self.var_names)
+        p = len(self._lag_matrices)
+
+        def path(lag_matrices: List[np.ndarray], impact: np.ndarray) -> np.ndarray:
+            phi = ma_coefficients(lag_matrices, periods)
+            theta = np.asarray(np.einsum("sij,jk->sik", phi, impact))
+            return np.cumsum(theta, axis=0) if cumulative else theta
+
+        estimate = path(self._lag_matrices, self._impact)
+        draws = []
+        failed = 0
+        for Bb, sigma_b in bootstrap_fits(self._var_result, False, reps, seed):
+            lag_b = [Bb[j * k : (j + 1) * k, :].T for j in range(p)]
+            try:
+                impact_b = self._identify(sigma_b, lag_b)
+            except (IdentificationFailure, np.linalg.LinAlgError):
+                failed += 1
+                continue
+            # the likelihood does not sign the shocks: align with the estimate
+            signs = np.sign(np.sum(impact_b * self._impact, axis=0))
+            signs[signs == 0] = 1.0
+            draws.append(path(lag_b, impact_b * signs))
+        if failed:
+            import warnings
+
+            from ..exceptions import AssumptionWarning
+
+            warnings.warn(
+                f"svar: the identification failed on {failed} of {reps} "
+                "bootstrap samples; the bands rest on the remaining ones.",
+                AssumptionWarning,
+                stacklevel=3,
+            )
+        if len(draws) < 20:
+            raise IdentificationFailure(
+                "svar: the identification failed on almost every bootstrap "
+                "sample, so no band can be formed.",
+                recovery_hint="The model is close to unidentified at the "
+                "estimated reduced form.",
+            )
+        stack = np.stack(draws)
+        lo = np.quantile(stack, level / 2.0, axis=0)
+        hi = np.quantile(stack, 1.0 - level / 2.0, axis=0)
+        if boot == "hall":
+            lo, hi = 2.0 * estimate - hi, 2.0 * estimate - lo
+        return self._long(
+            {
+                "irf": estimate,
+                "se": stack.std(axis=0, ddof=1),
+                "lower": lo,
+                "upper": hi,
             },
             periods,
         )
@@ -796,12 +929,21 @@ def svar(
         # the likelihood in C is the AB likelihood with "A" fixed at a_bar
         fit = _fit_ab(sigma, T, a_bar, C0, "long-run")
         C = fit["B"]
-        return SVARResult(
+        long_result = SVARResult(
             identification="long-run", var_names=names, shock_names=shocks,
             impact=total @ C, lag_matrices=lags, n_obs=T, C=C,
             table=_table(fit, ("A", "C")), log_likelihood=fit["loglik"],
             overid=overid(fit), alpha=float(alpha),
         )  # fmt: skip
+
+        def identify_long(sig: np.ndarray, lag_b: List[np.ndarray]) -> np.ndarray:
+            total_b = np.eye(k) - sum(lag_b)
+            fit_b = _fit_ab(sig, T, np.linalg.inv(total_b), C0, "long-run")
+            return np.asarray(total_b @ fit_b["B"])
+
+        long_result._var_result = var_result
+        long_result._identify = identify_long
+        return long_result
 
     A0 = _pattern(A, k, "A")
     B0 = _pattern(B, k, "B")
@@ -810,9 +952,17 @@ def svar(
     if B0 is None:
         B0 = np.where(np.eye(k, dtype=bool), np.nan, 0.0)
     fit = _fit_ab(sigma, T, A0, B0, "short-run")
-    return SVARResult(
+    short_result = SVARResult(
         identification="short-run", var_names=names, shock_names=shocks,
         impact=np.linalg.solve(fit["A"], fit["B"]), lag_matrices=lags, n_obs=T,
         A=fit["A"], B=fit["B"], table=_table(fit, ("A", "B")),
         log_likelihood=fit["loglik"], overid=overid(fit), alpha=float(alpha),
     )  # fmt: skip
+
+    def identify_short(sig: np.ndarray, lag_b: List[np.ndarray]) -> np.ndarray:
+        fit_b = _fit_ab(sig, T, A0, B0, "short-run")
+        return np.asarray(np.linalg.solve(fit_b["A"], fit_b["B"]))
+
+    short_result._var_result = var_result
+    short_result._identify = identify_short
+    return short_result

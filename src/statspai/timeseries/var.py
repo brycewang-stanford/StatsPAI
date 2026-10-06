@@ -604,6 +604,12 @@ def irf(
     orthogonal: bool = True,
     cumulative: bool = False,
     sigma_df: Optional[str] = None,
+    *,
+    ci: Optional[str] = None,
+    alpha: float = 0.05,
+    reps: int = 1000,
+    seed: Optional[int] = None,
+    boot: str = "efron",
 ) -> Dict[str, Any]:
     """
     Compute impulse response functions from VAR.
@@ -634,11 +640,42 @@ def irf(
         Stata after ``var, dfk``). Default follows the fitted model's
         ``se_df`` (``'stata'``/``'ml'`` -> ``'ml'``, ``'r'``/``'unbiased'`` ->
         ``'unbiased'``). Irrelevant when ``orthogonal=False``.
+    ci : {None, 'asymptotic', 'bootstrap'}, optional
+        Add standard errors and a band. ``'asymptotic'``: delta method on
+        the joint normal limit of the coefficients and the residual
+        covariance (Stata's ``irf create`` standard errors). ``'bootstrap'``:
+        residual bootstrap, the series regenerated recursively from its
+        first ``lags`` observations and the VAR re-estimated (``irf create,
+        bs``; ``vars::irf(boot = TRUE)``).
+    alpha : float, default 0.05
+        The band has nominal pointwise coverage ``1 - alpha``.
+    reps : int, default 1000
+        Bootstrap replications.
+    seed : int, optional
+        Seed of the bootstrap draws.
+    boot : {'efron', 'hall'}, default 'efron'
+        Bootstrap band: Efron's percentile interval (the quantiles of the
+        replicates, as ``vars`` and Stata report) or Hall's (the quantiles
+        reflected about the estimate, which corrects for the bias of the
+        replicates rather than doubling it).
 
     Returns
     -------
     dict
-        Keys: 'irf' (dict of arrays), 'periods'.
+        Keys: 'irf' (dict of arrays), 'periods'; with ``ci`` also 'se',
+        'lower', 'upper' (dicts with the same keys as 'irf') and 'ci' (the
+        settings used). The bootstrap 'se' is the standard deviation of
+        the replicates.
+
+    Notes
+    -----
+    Both bands are pointwise and condition on the lag order. The
+    asymptotic standard error of an orthogonalised response at horizon 0
+    comes from the residual covariance alone and is zero for the
+    responses the Cholesky ordering sets to zero. Near a unit root the
+    normal approximation is poor and the bootstrap replicates are biased
+    towards zero persistence; Hall's interval is the less affected of the
+    two bootstrap bands, and neither repairs the problem.
 
     Examples
     --------
@@ -664,7 +701,9 @@ def irf(
 
     References
     ----------
-    lutkepohl2005new
+    [@lutkepohl2005new],
+    [@runkle1987vector],
+    [@kilian2017structural]
     """
     k = var_result._k
     p = var_result._lags
@@ -730,4 +769,32 @@ def irf(
             path = irf_values[:, resp_idx]
             irfs[key] = np.cumsum(path) if cumulative else path
 
-    return {"irf": irfs, "periods": list(range(periods + 1))}
+    out: Dict[str, Any] = {"irf": irfs, "periods": list(range(periods + 1))}
+    if ci is None:
+        return out
+
+    from .irf_bands import bands, response_array
+
+    theta = response_array(B, sigma_u, k, p, periods, orthogonal, cumulative)
+    se, lo, hi, info = bands(
+        var_result,
+        theta,
+        sigma_u,
+        periods,
+        orthogonal,
+        cumulative,
+        sigma_df == "unbiased",
+        str(ci).lower(),
+        alpha,
+        reps,
+        seed,
+        boot,
+    )
+    for name, arr in (("se", se), ("lower", lo), ("upper", hi)):
+        out[name] = {
+            f"{imp} -> {resp}": arr[:, var_names.index(resp), var_names.index(imp)]
+            for imp in imp_vars
+            for resp in resp_vars
+        }
+    out["ci"] = info
+    return out

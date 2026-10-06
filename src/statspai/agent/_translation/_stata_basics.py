@@ -481,6 +481,24 @@ def _h_arch(cmd: StataCommand) -> Dict[str, Any]:
     args: Dict[str, Any] = {"y": cmd.varlist[0], "p": p_, "q": q_}
     if "noconstant" in opts:
         args["mean"] = False
+    if "ar" in opts:
+        ar_ = _order(opts.get("ar"), cmd, "ar")
+        if isinstance(ar_, dict):
+            return ar_
+        if ar_:
+            args["ar"] = ar_
+    if "distribution" in opts:
+        dist = str(opts.get("distribution") or "").strip().lower()
+        if dist in ("t", "gaussian", "normal"):
+            if dist == "t":
+                args["dist"] = "t"
+        else:
+            return _bad(
+                cmd,
+                f"distribution({dist}) is not translated; sp.garch estimates "
+                "the degrees of freedom of a t distribution or assumes "
+                "normality",
+            )
     vce = str(opts.get("vce") or "").strip().lower()
     if "robust" in opts or vce == "robust":
         args["vce"] = "robust"

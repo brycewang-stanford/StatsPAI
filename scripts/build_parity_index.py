@@ -125,6 +125,163 @@ _FACTOR_NOTES: Dict[str, Tuple[str, ...]] = {
 # tests/reference_parity/REFERENCES.md (the "Frozen R-value fixtures" table)
 # and the asserting test — no model-memory facts (CLAUDE.md §10).
 _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
+    # ---- Neusser, Time Series Econometrics (2026-10-06) ----
+    #
+    # Synthetic committed series, frozen references from R 4.5.2 (stats,
+    # sandwich, urca, KFAS) and Stata 18. Tolerances are those of the
+    # asserting tests.
+    "xcorr": {
+        "status": "bit-exact",
+        "reference": "stats::ccf, stats::ar; Stata 18 xcorr",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "Stata": "18"},
+        "tolerance": "cross-correlations 1e-10; AR coefficients 1e-9; Haugh statistic 1e-9",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_xcorr_parity.py",
+            "tests/reference_parity/_fixtures/xcorr_R.json",
+            "tests/reference_parity/_fixtures/xcorr_Stata.csv",
+        ],
+        "note": (
+            "Frozen fixtures on a committed synthetic pair. Stata's lag is the mirror image of R's and ours. Order selection by OLS on a common sample follows statsmodels, not ar.ols; fixed-order residuals agree with ar.ols."
+        ),
+    },
+    "lrvar": {
+        "status": "bit-exact",
+        "reference": "sandwich::kernHAC, bwAndrews, bwNeweyWest, NeweyWest, lrvar",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "sandwich": "3.1.1",
+        },
+        "tolerance": "long-run variance and bandwidth 1e-9 rel over 104 kernel x bandwidth x prewhitening cases",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_lrvar_parity.py",
+            "tests/reference_parity/_fixtures/lrvar_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture, one and two series. The multivariate small-sample factor differs by documented convention (T/(T-1) here, T/(T-K) in sandwich for an lm with K responses) and is converted in the test."
+        ),
+    },
+    "periodogram": {
+        "status": "bit-exact",
+        "reference": "stats::spec.pgram, stats::spec.ar; Stata 18 pergram",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "Stata": "18"},
+        "tolerance": "frequencies, spectrum, degrees of freedom, bandwidth and band 1e-9 rel",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_spectral_parity.py",
+            "tests/reference_parity/_fixtures/spectral_R.json",
+            "tests/reference_parity/_fixtures/spectral_Stata.csv",
+        ],
+        "note": (
+            "Frozen fixtures on committed synthetic series. fast=True reproduces R's padding to a 2-3-5 length; the default keeps the Fourier frequencies of the sample."
+        ),
+    },
+    "cumulative_periodogram_test": {
+        "status": "bit-exact",
+        "reference": "Stata 18 wntestb",
+        "reference_versions": {"Stata": "18"},
+        "tolerance": "statistic 1e-12 rel; p-value 2e-8 abs",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_spectral_parity.py",
+            "tests/reference_parity/_fixtures/spectral_Stata_scalars.csv",
+        ],
+        "note": (
+            "Stata truncates the Kolmogorov series at about 1e-8; the test shows that the first four terms of ours equal Stata's p-value to 1e-13."
+        ),
+    },
+    "tsfilter": {
+        "status": "bit-exact",
+        "reference": "Stata 18 tsfilter hp, bk, cf, bw; statsmodels hpfilter, bkfilter, cffilter",
+        "reference_versions": {"Stata": "18", "statsmodels": "0.14.6"},
+        "tolerance": "trend and cycle 1e-9 rel",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_tsfilter_parity.py",
+            "tests/reference_parity/_fixtures/tsfilter_Stata.csv",
+        ],
+        "note": (
+            "Frozen-Stata fixture. Stata's tsfilter cf, stationary and smaorder() are not implemented; the Hamilton filter is checked against the regression that defines it."
+        ),
+    },
+    "zivot_andrews": {
+        "status": "bit-exact",
+        "reference": "urca::ur.za",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "urca": "1.3.4"},
+        "tolerance": "minimum t statistic, the path over break dates and the regression at the break 1e-7 rel; break date equal",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_zivot_andrews_parity.py",
+            "tests/reference_parity/_fixtures/zivot_andrews_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: two synthetic series, three break models, two lag orders, with trim=0 (urca searches every date)."
+        ),
+    },
+    "johansen_lrtest": {
+        "status": "bit-exact",
+        "reference": "urca::blrtest, bh5lrtest, alrtest",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "urca": "1.3.4"},
+        "tolerance": "LR statistic 1e-8 rel, degrees of freedom equal, restricted vectors 1e-6",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_johansen_lrtest_parity.py",
+            "tests/reference_parity/_fixtures/johansen_lrtest_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on a synthetic four-variable system, in the three deterministic cases ca.jo supports."
+        ),
+    },
+    "kalman_filter": {
+        "status": "bit-exact",
+        "reference": "KFAS::KFS, logLik; statsmodels KalmanSmoother",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "KFAS": "1.6.0",
+            "statsmodels": "0.14.6",
+        },
+        "tolerance": "log likelihood, predicted, filtered and smoothed states and covariances 1e-9 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_statespace_parity.py",
+            "tests/reference_parity/_fixtures/statespace_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: six synthetic models including missing observations, time-varying matrices and singular covariances. The diffuse start is the large-variance approximation, not the exact one."
+        ),
+    },
+    "statespace": {
+        "status": "bit-exact",
+        "reference": "statsmodels MLEModel; KFAS likelihood",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "KFAS": "1.6.0",
+            "statsmodels": "0.14.6",
+        },
+        "tolerance": "likelihood 1e-9 rel at common parameters; estimates 1e-6; standard errors 1e-5",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_statespace_parity.py",
+            "tests/reference_parity/_fixtures/statespace_R.json",
+        ],
+        "note": (
+            "The likelihood is the Kalman filter's, checked against KFAS on the frozen fixture; the optimum and its standard errors are compared live with statsmodels in the same test file."
+        ),
+    },
+    "beveridge_nelson": {
+        "status": "analytical-only",
+        "reference": "closed form against the long-horizon forecast that defines the trend",
+        "reference_versions": {},
+        "tolerance": "trend 1e-8 rel against a 400-step forecast",
+        "sides": ["py"],
+        "test": [
+            "tests/reference_parity/test_beveridge_nelson_parity.py",
+        ],
+        "note": (
+            "No package reference was found; the committed R script evaluates the definition by brute force with lm and iterated forecasts."
+        ),
+    },
     # sp.dlm against R dlm on the committed dlm.csv (2026-10-07).
     "dlm": {
         "status": "bit-exact",

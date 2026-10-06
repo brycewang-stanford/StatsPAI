@@ -16826,6 +16826,476 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="xcorr",
+            category="timeseries",
+            description=(
+                "Cross-correlogram of two series at leads and lags, raw or "
+                "after prewhitening each series with its own autoregression, "
+                "with the band under no cross-correlation and the Haugh "
+                "portmanteau test. Raw cross-correlations of autocorrelated "
+                "series are not readable; the prewhitened ones are. R ccf, "
+                "Stata xcorr (mirror image of the lag)."
+            ),
+            params=[
+                ParamSpec("x", "str | array", True, description="First series"),
+                ParamSpec("y", "str | array", True, description="Second series"),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding x and y"),
+                ParamSpec("lags", "int", False, None, "Leads and lags shown"),
+                ParamSpec(
+                    "prewhiten",
+                    "str",
+                    False,
+                    None,
+                    "'ar': AR residuals of each series; 'x': filter both with "
+                    "the AR of x",
+                    ["ar", "x"],
+                ),
+                ParamSpec("ar_order", "int | tuple", False, None, "Fixed AR order(s)"),
+                ParamSpec("max_order", "int", False, None),
+                ParamSpec("ar_method", "str", False, "ols", "", ["ols", "yule-walker"]),
+                ParamSpec("ic", "str", False, "aic", "", ["aic", "bic"]),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the band"),
+            ],
+            returns="CrossCorrelogram",
+            example='sp.xcorr("gdp", "sentiment", data=df, prewhiten="ar")',
+            tags=["timeseries", "cross-correlation", "leading-indicator", "haugh"],
+            reference="haugh1976checking",
+            assumptions=[
+                "Both series stationary",
+                "Band and Haugh test: the two prewhitened series are white "
+                "noise under the null of no relation",
+            ],
+            alternatives=["granger_causality", "var", "corrgram"],
+            not_recommended_when=[
+                "Reading leads and lags off raw cross-correlations of "
+                "autocorrelated series: use prewhiten='ar'",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="lrvar",
+            category="timeseries",
+            description=(
+                "Long-run variance (sum of all autocovariances, the HAC "
+                "variance of a mean times T) of one or several series. "
+                "Bartlett, Parzen, quadratic spectral, Tukey-Hanning or "
+                "truncated kernel; Andrews or Newey-West automatic "
+                "bandwidth; VAR prewhitening. Reproduces R sandwich kernHAC "
+                "/ NeweyWest / lrvar."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame | array", True),
+                ParamSpec("y", "str | list", False, None, "Column(s) of data"),
+                ParamSpec(
+                    "kernel",
+                    "str",
+                    False,
+                    "bartlett",
+                    "",
+                    ["bartlett", "parzen", "qs", "tukey-hanning", "truncated"],
+                ),
+                ParamSpec(
+                    "bandwidth",
+                    "float | str",
+                    False,
+                    "andrews",
+                    "A number, or 'andrews', 'newey-west', 'rule', 'sw'",
+                ),
+                ParamSpec("prewhite", "int", False, 0, "VAR order of the prewhitening"),
+                ParamSpec("demean", "bool", False, True),
+                ParamSpec("adjust", "bool", False, False, "Small-sample factor"),
+                ParamSpec(
+                    "integer_lag",
+                    "bool",
+                    False,
+                    False,
+                    "Truncate the bandwidth to whole lags (sandwich NeweyWest)",
+                ),
+                ParamSpec("tol", "float", False, 1e-7, "Weights below it are dropped"),
+            ],
+            returns="LongRunVariance",
+            example='sp.lrvar(df, "growth", kernel="qs", prewhite=1)',
+            tags=["timeseries", "hac", "long-run-variance", "newey-west", "andrews"],
+            reference="andrews1991heteroskedasticity",
+            assumptions=["Stationary series with summable autocovariances"],
+            alternatives=["regress", "corrgram", "periodogram"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="periodogram",
+            category="timeseries",
+            description=(
+                "Spectral density of a series: raw periodogram, periodogram "
+                "smoothed with modified Daniell kernels, or the spectrum of "
+                "an autoregression fitted by Yule-Walker. Frequencies, cycle "
+                "lengths, the estimate and its chi-squared band. R spec.pgram "
+                "/ spec.ar, Stata pergram."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame | Series | array", True),
+                ParamSpec("y", "str", False, None, "Column of data"),
+                ParamSpec("method", "str", False, "raw", "", ["raw", "smoothed", "ar"]),
+                ParamSpec("spans", "int | list", False, None, "Daniell spans"),
+                ParamSpec("taper", "float", False, 0.1, "Cosine-bell share per end"),
+                ParamSpec(
+                    "detrend", "str", False, "linear", "", ["linear", "mean", "none"]
+                ),
+                ParamSpec("pad", "float", False, 0.0, "Zero padding, share of n"),
+                ParamSpec(
+                    "fast", "bool", False, False, "Pad to a 2-3-5 length as R does"
+                ),
+                ParamSpec("order", "int", False, None, "method='ar': fixed order"),
+                ParamSpec("max_order", "int", False, None),
+                ParamSpec("n_freq", "int", False, 500, "method='ar': grid size"),
+                ParamSpec(
+                    "scale",
+                    "str",
+                    False,
+                    "cycles",
+                    "Density per cycle (R) or per radian (textbook)",
+                    ["cycles", "radians"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="SpectrumResult",
+            example='sp.periodogram(df, "growth", method="smoothed", spans=[5, 5])',
+            tags=["timeseries", "spectral", "periodogram", "frequency-domain"],
+            reference="brockwell1991time",
+            assumptions=["Stationary series"],
+            alternatives=["corrgram", "tsfilter", "cumulative_periodogram_test"],
+            not_recommended_when=[
+                "Reading single ordinates of the raw periodogram: it is not "
+                "consistent; smooth it or fit the AR spectrum",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="cumulative_periodogram_test",
+            category="timeseries",
+            description=(
+                "Bartlett's test for white noise from the cumulative "
+                "periodogram: a Kolmogorov-Smirnov statistic for the "
+                "distance between the normalised cumulative periodogram and "
+                "the straight line of white noise. Stata wntestb."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame | Series | array", True),
+                ParamSpec("y", "str", False, None, "Column of data"),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="CumulativePeriodogramResult",
+            example='sp.cumulative_periodogram_test(df, "resid")',
+            tags=["timeseries", "white-noise", "spectral", "diagnostics"],
+            reference="brockwell1991time",
+            alternatives=["ljungbox", "bds", "periodogram"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="tsfilter",
+            category="timeseries",
+            description=(
+                "Trend-cycle decomposition by a linear filter: "
+                "Hodrick-Prescott, Baxter-King band-pass, "
+                "Christiano-Fitzgerald band-pass, Butterworth high-pass, or "
+                "Hamilton's regression filter. Returns trend, cycle and the "
+                "filter's gain. Stata tsfilter hp / bk / cf / bw."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame | Series | array", True),
+                ParamSpec("y", "str", False, None, "Column of data"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "hp",
+                    "",
+                    ["hp", "bk", "cf", "bw", "hamilton"],
+                ),
+                ParamSpec("smooth", "float", False, 1600.0, "hp: smoothing parameter"),
+                ParamSpec("low", "float", False, 6.0, "Shortest cycle kept"),
+                ParamSpec("high", "float", False, 32.0, "Longest cycle kept"),
+                ParamSpec("K", "int", False, 12, "bk: leads and lags of the filter"),
+                ParamSpec("drift", "bool", False, True, "cf: remove a linear drift"),
+                ParamSpec(
+                    "stationary",
+                    "bool",
+                    False,
+                    False,
+                    "bk: weights not forced " "to sum to zero",
+                ),
+                ParamSpec("order", "int", False, 2, "bw: order of the filter"),
+                ParamSpec("h", "int", False, 8, "hamilton: horizon"),
+                ParamSpec("p", "int", False, 4, "hamilton: lags"),
+            ],
+            returns="FilterResult",
+            example='sp.tsfilter(df, "lgdp", method="bk", low=6, high=32, K=12)',
+            tags=["timeseries", "filter", "hodrick-prescott", "business-cycle"],
+            reference="baxter1999measuring",
+            assumptions=[
+                "The cycle of interest lives in the frequency band the filter "
+                "passes",
+            ],
+            alternatives=["stl", "beveridge_nelson", "classical_decompose"],
+            not_recommended_when=[
+                "Seasonally unadjusted data with the HP filter: the seasonal "
+                "component ends up in the cycle",
+                "Reading the last few HP cycle values as current conditions: "
+                "the filter is two-sided and revises them",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="beveridge_nelson",
+            category="timeseries",
+            description=(
+                "Beveridge-Nelson decomposition of an integrated series "
+                "into a random walk with drift (the long-horizon forecast) "
+                "and a stationary cycle, from an autoregression for the "
+                "first difference. Reports the long-run multiplier psi(1)."
+            ),
+            params=[
+                ParamSpec("y", "str | Series | array", True, description="Level"),
+                ParamSpec("data", "DataFrame", False, None),
+                ParamSpec("order", "int", False, None, "AR order of the difference"),
+                ParamSpec("max_order", "int", False, None),
+                ParamSpec("ic", "str", False, "bic", "", ["aic", "bic"]),
+            ],
+            returns="BeveridgeNelsonResult",
+            example='sp.beveridge_nelson("lgdp", data=df)',
+            tags=["timeseries", "trend-cycle", "unit-root", "decomposition"],
+            reference="beveridge1981new",
+            assumptions=[
+                "The series is I(1) and its difference is a stationary AR(p)",
+            ],
+            alternatives=["tsfilter", "unitroot", "arima"],
+            not_recommended_when=[
+                "Seasonally unadjusted data: the seasonal lags dominate the " "cycle",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="zivot_andrews",
+            category="timeseries",
+            description=(
+                "Zivot-Andrews unit-root test allowing one break in the "
+                "level, the slope of the trend, or both, at a date chosen by "
+                "the data (the minimum t statistic over candidate dates). "
+                "Returns the statistic, the break date, the critical values "
+                "and the statistic at every date. urca ur.za."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame | Series | array", True),
+                ParamSpec("y", "str", False, None, "Column of data"),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "intercept",
+                    "Which break is allowed",
+                    ["intercept", "trend", "both"],
+                ),
+                ParamSpec("lags", "int | str", False, 0, "Lagged differences"),
+                ParamSpec("max_lags", "int", False, None),
+                ParamSpec("trim", "float", False, 0.15, "Share excluded per end"),
+                ParamSpec("time", "str", False, None, "Column dating the rows"),
+            ],
+            returns="ZivotAndrewsResult",
+            example='sp.zivot_andrews(df, "lgdp", model="both", lags=2)',
+            tags=["timeseries", "unit-root", "structural-break", "zivot-andrews"],
+            reference="zivot1992further",
+            assumptions=[
+                "Under the null: a unit root with drift and no break",
+                "At most one break under the alternative",
+            ],
+            alternatives=["unitroot", "structural_break", "chow_test"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="johansen_lrtest",
+            category="timeseries",
+            description=(
+                "Likelihood-ratio tests in a cointegrated VAR with the rank "
+                "held fixed: the same linear restrictions on every "
+                "cointegrating vector, given vectors lying in the "
+                "cointegration space, or restrictions on the loadings (weak "
+                "exogeneity). Chi-squared reference. urca blrtest / "
+                "bh5lrtest / alrtest."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("variables", "list", False, None),
+                ParamSpec("rank", "int", True, description="Cointegration rank"),
+                ParamSpec("lags", "int", False, 1, "Lagged differences"),
+                ParamSpec("trend", "str", False, "c", "", ["c", "rc", "n", "rt", "ct"]),
+                ParamSpec("beta", "matrix", False, None, "H in beta = H phi"),
+                ParamSpec(
+                    "beta_known", "matrix", False, None, "Known cointegrating vectors"
+                ),
+                ParamSpec("loading", "matrix", False, None, "A in alpha = A psi"),
+            ],
+            returns="JohansenLRTest",
+            example="sp.johansen_lrtest(df, rank=1, beta_known=[1, -1, 0])",
+            tags=["timeseries", "cointegration", "vecm", "johansen", "lr-test"],
+            reference="johansen1992testing",
+            assumptions=[
+                "The cointegration rank is correct",
+                "Gaussian VAR with the stated lag order",
+            ],
+            pre_conditions=["Choose the rank with sp.johansen first"],
+            alternatives=["johansen", "vec", "engle_granger"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="kalman_filter",
+            category="timeseries",
+            description=(
+                "Kalman filter and fixed-interval smoother for a linear "
+                "state space model given by its matrices: X_t = F X_{t-1} + "
+                "V_t, Y_t = A + G X_t + W_t. Constant or time-varying "
+                "matrices, missing observations anywhere, stationary or "
+                "diffuse start. Predicted, filtered and smoothed states with "
+                "covariances, innovations, log-likelihood, forecasts. "
+                "Agrees with R KFAS and statsmodels."
+            ),
+            params=[
+                ParamSpec("y", "array | DataFrame | list", True, description="T x n"),
+                ParamSpec("F", "matrix", True, description="State transition"),
+                ParamSpec("G", "matrix", True, description="Observation loadings"),
+                ParamSpec("Q", "matrix", True, description="State noise covariance"),
+                ParamSpec("R", "matrix", True, description="Observation noise cov."),
+                ParamSpec("A", "vector", False, None, "Observation intercept"),
+                ParamSpec("x0", "vector", False, None, "Mean of the initial state"),
+                ParamSpec("P0", "matrix", False, None, "Its covariance"),
+                ParamSpec(
+                    "init",
+                    "str",
+                    False,
+                    "auto",
+                    "Initial state when x0 / P0 are not given",
+                    ["auto", "stationary", "diffuse"],
+                ),
+                ParamSpec("kappa", "float", False, 1e7, "Diffuse prior variance"),
+                ParamSpec("smooth", "bool", False, True),
+                ParamSpec(
+                    "burn",
+                    "int",
+                    False,
+                    0,
+                    "Leading periods left out of the " "likelihood",
+                ),
+                ParamSpec("data", "DataFrame", False, None),
+                ParamSpec("state_names", "list", False, None),
+            ],
+            returns="KalmanResult",
+            example="sp.kalman_filter(y, F=[[1.0]], G=[[1.0]], Q=[[0.1]], R=[[1.0]])",
+            tags=["timeseries", "state-space", "kalman", "smoother", "missing-data"],
+            reference="kalman1960new",
+            assumptions=[
+                "Linear state and observation equations with known matrices",
+                "Likelihood and intervals: Gaussian disturbances",
+            ],
+            alternatives=["statespace", "dlm", "arima", "particle_filter"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="statespace",
+            category="timeseries",
+            description=(
+                "Maximum-likelihood estimation of a user-written linear "
+                "state space model: build(theta) returns the system "
+                "matrices, the Kalman-filter likelihood is maximised, and "
+                "the estimates come with standard errors, information "
+                "criteria and the filtered and smoothed states. Handles "
+                "mixed frequencies and missing observations."
+            ),
+            params=[
+                ParamSpec("y", "array | DataFrame | list", True, description="T x n"),
+                ParamSpec(
+                    "build",
+                    "callable",
+                    True,
+                    description="theta -> dict with F, G, Q, R and optionally "
+                    "A, x0, P0",
+                ),
+                ParamSpec("start", "vector", True, description="Starting values"),
+                ParamSpec("param_names", "list", False, None),
+                ParamSpec(
+                    "transform",
+                    "callable",
+                    False,
+                    None,
+                    "theta -> quantities of interest (delta-method errors)",
+                ),
+                ParamSpec("data", "DataFrame", False, None),
+                ParamSpec(
+                    "init", "str", False, "auto", "", ["auto", "stationary", "diffuse"]
+                ),
+                ParamSpec("kappa", "float", False, 1e7),
+                ParamSpec("burn", "int", False, 0),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "bfgs",
+                    "Optimiser",
+                    ["bfgs", "l-bfgs-b", "nelder-mead"],
+                ),
+                ParamSpec(
+                    "vce", "str", False, "hessian", "", ["hessian", "opg", "robust"]
+                ),
+                ParamSpec("maxiter", "int", False, 1000),
+                ParamSpec("tol", "float", False, 1e-5, "Gradient tolerance"),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec("state_names", "list", False, None),
+                ParamSpec(
+                    "engine", "str", False, "auto", "", ["auto", "numpy", "numba"]
+                ),
+            ],
+            returns="StateSpaceResult",
+            example="sp.statespace(y, build, start=[0.0, 0.0])",
+            tags=["timeseries", "state-space", "kalman", "mle", "mixed-frequency"],
+            reference="neusser2016time",
+            assumptions=[
+                "Linear Gaussian state space model",
+                "Parameters identified from the observed series",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Hessian not positive definite at the optimum",
+                    exception="statspai.ConvergenceWarning",
+                    remedy="The likelihood is flat in some direction or the "
+                    "search stopped early: try other starting values or a "
+                    "more restricted model.",
+                ),
+            ],
+            alternatives=["kalman_filter", "dlm", "arima", "ardl"],
+            not_recommended_when=[
+                "The likelihood may have several local maxima and only one "
+                "start is tried",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="bayes_ivreg",
             category="bayes",
             description=(

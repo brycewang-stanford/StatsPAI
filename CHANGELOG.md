@@ -20,6 +20,83 @@ All notable changes to StatsPAI will be documented in this file.
   full fit already said, and this is something it never said. On such a
   design (five never-treated clusters, for example) R `didjack` on
   `did` 2.5.x cannot run; StatsPAI computes every replicate.
+### Time series econometrics: a pass over Neusser (2016)
+
+Ten data sets of Neusser, *Time Series Econometrics*, run in R, Stata and
+`sp`. Notes: `docs/dev/2026-10-06-neusser-time-series-econometrics-review.md`.
+Guide: `docs/guides/time_series_econometrics.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.garch` with two or more lagged variances could stop at a worse fit
+  than the model it nests.** On 3,797 daily returns of the Swiss Market
+  Index, `sp.garch(y, p=2, q=1)` returned a log-likelihood of -5600.552 with
+  `beta[2] = 0` and a standard error of zero. GARCH(1,1) reaches -5599.372
+  and Stata's `arch` reaches -5598.548 for the same GARCH(2,1), with 0.371
+  and 0.374 on the two lags. A single simplex search walked into the
+  boundary and stayed. The search now starts a bounded quasi-Newton from
+  several splits of the persistence and keeps the best. GARCH(1,1) results
+  are unchanged. An estimate that ends on the boundary now raises a
+  `RuntimeWarning`. Against Stata 18 on a committed series: coefficients to
+  5e-5, standard errors to 5e-4, log-likelihood to 1e-8
+  (`tests/reference_parity/test_garch_extensions_stata_parity.py`).
+
+#### Added
+
+- **`sp.garch(ar=, dist="t")`**: autoregressive terms in the mean and
+  Student t innovations with estimated degrees of freedom, as Stata's
+  `arch, ar() distribution(t)`. `GARCHResult.forecast_mean()` and
+  `.value_at_risk()`. `sp.from_stata` translates both options.
+- **`sp.irf(ci="asymptotic" | "bootstrap")`**: standard errors and bands for
+  impulse responses. The delta-method standard errors equal Stata's
+  `irf create` for simple, orthogonalised and cumulative responses, with
+  and without `dfk`. The bootstrap resamples residuals and regenerates the
+  series; `boot="hall"` reflects the percentile band about the estimate.
+  **`SVARResult.irf(ci="bootstrap")`** repeats a short-run or long-run
+  identification on every bootstrap sample.
+- **`sp.johansen_lrtest`**: likelihood-ratio tests with the cointegration
+  rank fixed. The same restrictions on every vector (`beta=`), known
+  vectors (`beta_known=`), restrictions on the loadings (`loading=`).
+  Equal to `urca` `blrtest`, `bh5lrtest` and `alrtest` to 1e-8.
+- **`sp.zivot_andrews`**: unit-root test with one break at an unknown date.
+  Equal to `urca::ur.za` to 1e-7, break date included.
+- **`sp.xcorr`**: cross-correlogram with optional AR prewhitening and the
+  Haugh test. Equal to R `ccf` and Stata `xcorr` to 1e-10.
+- **`sp.lrvar`**: long-run variance with five kernels, Andrews and
+  Newey-West bandwidths and prewhitening. Equal to R `sandwich` to 1e-9
+  over 104 cases.
+- **`sp.periodogram`** and **`sp.cumulative_periodogram_test`**: raw,
+  smoothed and autoregressive spectral estimates (R `spec.pgram`,
+  `spec.ar`, Stata `pergram`), and Bartlett's white-noise test (Stata
+  `wntestb`).
+- **`sp.tsfilter`**: Hodrick-Prescott, Baxter-King, Christiano-Fitzgerald,
+  Butterworth and Hamilton filters, with the gain function. Equal to Stata
+  `tsfilter` to 1e-9.
+- **`sp.beveridge_nelson`**: trend and cycle of an integrated series from
+  an autoregression of its difference.
+- **`sp.kalman_filter`** and **`sp.statespace`**: a linear state space
+  model written by the user, with time-varying matrices and missing
+  observations; filter, smoother, forecasts, and maximum likelihood for a
+  parameter vector. Equal to R `KFAS` to 1e-9. The mixed-frequency model of
+  the book's section 17.4 takes a dozen lines.
+
+#### Fixed
+
+- **`sp.johansen` summary** printed the length of the series where the
+  statistics use the observations left after differencing and lagging, and
+  `5% CV` at `alpha=0.01`. The result now carries `n_used`, `alpha`,
+  `trend` and `var_names`. Statistics are unchanged.
+
+#### Found in the book
+
+- The MATLAB smoother shipped with section 17.4 computes smoothed
+  variances with a transpose missing (`Pt*F*inv(Ptp1)` for
+  `Pt*F'*inv(Ptp1)`, and no `F` on the right). Smoothed means are
+  unaffected; variances are too large by up to 0.134, so the band in the
+  book's figure is too wide.
+
+Eighteen references added to `paper.bib`, each verified against the
+Crossref and OpenAlex records of its DOI.
 
 ### R reference for Callaway-Sant'Anna moved to `did` 2.5.1 and `DRDID` 1.3.0
 

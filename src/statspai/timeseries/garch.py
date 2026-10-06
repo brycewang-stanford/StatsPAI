@@ -10,8 +10,11 @@ The most common specification is GARCH(1,1) where
 
 and α + β < 1 for stationarity.
 
+The mean may carry autoregressive disturbances (``ar=``) and the
+standardised innovations may be Student t (``dist='t'``).
+
 This module provides:
-- :func:`garch` — fit GARCH(p,q) by MLE (conditional Gaussian)
+- :func:`garch` — fit GARCH(p,q) by MLE (Gaussian or Student t)
 - Result with volatility path, standardised residuals, forecast
 """
 
@@ -70,6 +73,10 @@ class GARCHResult(ResultProtocolMixin):
     coef: Optional[np.ndarray] = None  # parameter vector (param_names order)
     se_vec: Optional[np.ndarray] = None  # asymptotic SEs (same order)
     param_names: Optional[List[str]] = None
+    ar: Optional[np.ndarray] = None  # AR coefficients of the disturbance
+    disturbances: Optional[np.ndarray] = None  # u_t = y_t - mu
+    nu: Optional[float] = None  # degrees of freedom when dist == 't'
+    dist: str = "normal"
 
     # ------------------------------------------------------------------
     # Agent-native accessors (params / std_errors / t / p), so GARCH
@@ -129,9 +136,49 @@ class GARCHResult(ResultProtocolMixin):
             s2.append(v)
         return out
 
+    def forecast_mean(self, horizon: int = 1) -> np.ndarray:
+        """Multi-step forecast of the series: the constant mean plus the
+        autoregressive forecast of the disturbance (``ar=``)."""
+        rho = np.zeros(0) if self.ar is None else np.asarray(self.ar, float)
+        source = self.residuals if self.disturbances is None else self.disturbances
+        u = list(np.asarray(source, float))
+        out = np.empty(horizon)
+        for h in range(horizon):
+            nxt = float(sum(rho[k] * u[-1 - k] for k in range(rho.size)))
+            u.append(nxt)
+            out[h] = self.mu + nxt
+        return out
+
+    def value_at_risk(self, alpha: float = 0.01) -> float:
+        """One-step-ahead value at risk: the ``alpha`` quantile of the
+        forecast distribution of the next observation.
+
+        ``mu_{T+1} + sigma_{T+1} * q_alpha`` with ``q_alpha`` the quantile
+        of the standardised innovation (standard normal, or Student t
+        scaled to unit variance). A return below it has probability
+        ``alpha`` under the fitted model.
+        """
+        from scipy import stats
+
+        if not 0.0 < alpha < 1.0:
+            raise MethodIncompatibility("value_at_risk: alpha must be in (0, 1).")
+        if self.dist == "t" and self.nu is not None:
+            nu = float(self.nu)
+            quantile = float(stats.t.ppf(alpha, nu) * np.sqrt((nu - 2.0) / nu))
+        else:
+            quantile = float(stats.norm.ppf(alpha))
+        sd = float(np.sqrt(self.forecast(1)[0]))
+        return float(self.forecast_mean(1)[0] + sd * quantile)
+
     def summary(self) -> str:
+        head = f"GARCH({self.p},{self.q})"
+        n_ar = 0 if self.ar is None else int(np.size(self.ar))
+        if n_ar:
+            head = f"AR({n_ar})-" + head
+        if self.dist == "t":
+            head += ", Student t innovations"
         lines = [
-            f"GARCH({self.p},{self.q})",
+            head,
             "-" * 40,
             f"n              : {self.n}",
             f"Log-Lik        : {self.log_likelihood:.4f}",
@@ -253,6 +300,116 @@ def _garch_filter(
     return s2, eps, ll_t, scores
 
 
+def _variance_path(
+    omega: float,
+    alpha: np.ndarray,
+    beta: np.ndarray,
+    e2: np.ndarray,
+    presample: str,
+) -> np.ndarray:
+    """Conditional variances by linear filtering; the same recursion and
+    pre-sample rules as :func:`_garch_filter`, without the Python loop."""
+    from scipy.signal import lfilter, lfiltic
+
+    T = e2.shape[0]
+    q, p = alpha.shape[0], beta.shape[0]
+    m = float(e2.mean())
+    c = np.full(T, omega)
+    if q:
+        ext = np.concatenate([np.full(q, m), e2])
+        kernel = np.concatenate([[0.0], alpha])
+        c = c + np.convolve(ext, kernel)[q : q + T]
+    r0 = max(p, q) if presample == "rugarch" else 0
+    if p == 0:
+        s2 = c.copy()
+        s2[:r0] = m
+        return s2
+    a = np.concatenate([[1.0], -beta])
+    zi = lfiltic([1.0], a, y=np.full(p, m))
+    s2 = np.empty(T)
+    s2[:r0] = m
+    s2[r0:] = lfilter([1.0], a, c[r0:], zi=zi)[0]
+    return s2
+
+
+def _general_filter(
+    theta: np.ndarray,
+    y: np.ndarray,
+    p: int,
+    q: int,
+    mean: bool,
+    n_ar: int,
+    dist: str,
+    presample: str,
+) -> Any:
+    """Variances, innovations, disturbances and log-likelihood terms of the
+    model with AR(``n_ar``) disturbances and normal or Student t errors.
+
+    theta = (mu?, rho_1..rho_k, omega, alpha_1..alpha_q, beta_1..beta_p,
+    nu?). The disturbance ``u_t = y_t - mu`` follows
+    ``u_t = sum rho_k u_{t-k} + eps_t`` with pre-sample ``u`` equal to 0.
+    """
+    from scipy.signal import lfilter
+    from scipy.special import gammaln
+
+    j = int(mean)
+    mu = float(theta[0]) if mean else 0.0
+    rho = theta[j : j + n_ar]
+    j += n_ar
+    omega = float(theta[j])
+    alpha = theta[j + 1 : j + 1 + q]
+    beta = theta[j + 1 + q : j + 1 + q + p]
+    u = y - mu
+    eps = lfilter(np.concatenate([[1.0], -rho]), [1.0], u) if n_ar else u
+    e2 = eps * eps
+    s2 = _variance_path(omega, alpha, beta, e2, presample)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        if dist == "t":
+            nu = float(theta[-1])
+            ll_t = (
+                gammaln((nu + 1.0) / 2.0)
+                - gammaln(nu / 2.0)
+                - 0.5 * np.log(np.pi * (nu - 2.0))
+                - 0.5 * np.log(s2)
+                - 0.5 * (nu + 1.0) * np.log1p(e2 / ((nu - 2.0) * s2))
+            )
+        else:
+            ll_t = -0.5 * (np.log(2 * np.pi) + np.log(s2) + e2 / s2)
+    return s2, eps, u, ll_t
+
+
+def _numeric_scores(fun: Any, theta: np.ndarray) -> np.ndarray:
+    """T x K per-observation scores by central differences of ``fun``
+    (theta -> T log-likelihood terms)."""
+    cols = []
+    for i in range(theta.size):
+        h = 1e-6 * max(abs(theta[i]), 1e-2)
+        e = np.zeros(theta.size)
+        e[i] = h
+        cols.append((fun(theta + e) - fun(theta - e)) / (2.0 * h))
+    return np.column_stack(cols)
+
+
+def _numeric_hessian(fun: Any, theta: np.ndarray) -> np.ndarray:
+    """Hessian of the scalar ``fun`` by central second differences."""
+    K = theta.size
+    h = np.array([1e-4 * max(abs(t), 1e-2) for t in theta])
+    H = np.empty((K, K))
+    for i in range(K):
+        for k in range(i, K):
+            ei = np.zeros(K)
+            ek = np.zeros(K)
+            ei[i] = h[i]
+            ek[k] = h[k]
+            H[i, k] = H[k, i] = (
+                fun(theta + ei + ek)
+                - fun(theta + ei - ek)
+                - fun(theta - ei + ek)
+                + fun(theta - ei - ek)
+            ) / (4.0 * h[i] * h[k])
+    return H
+
+
 def _series_argument(y: object, data: Optional[pd.DataFrame], who: str) -> np.ndarray:
     """``y`` as a float vector; a column of ``data`` when one is given, with
     the missing values at either end trimmed."""
@@ -287,9 +444,11 @@ def garch(
     presample: str = "stata",
     vce: str = "oim",
     *,
+    ar: int = 0,
+    dist: str = "normal",
     data: Optional[pd.DataFrame] = None,
 ) -> GARCHResult:
-    """Fit GARCH(p,q) by conditional Gaussian MLE.
+    """Fit GARCH(p,q) by conditional maximum likelihood.
 
     Parameters
     ----------
@@ -317,13 +476,39 @@ def garch(
         of the log-likelihood, by central differences of the analytic
         score), outer product of the scores (Stata's ``arch`` default), or
         the Bollerslev-Wooldridge sandwich ``H^{-1} (S'S) H^{-1}``.
+    ar : int, default 0
+        Autoregressive terms of the mean equation, written as AR
+        disturbances: ``y_t = mu + u_t``, ``u_t = sum_k rho_k u_{t-k} +
+        eps_t`` (Stata ``arch y, ar(1/k)``; ``rugarch`` ``armaOrder =
+        c(k, 0)``). Pre-sample disturbances are zero, so every observation
+        enters the likelihood.
+    dist : {'normal', 't'}, default 'normal'
+        Distribution of the standardised innovation ``z_t``. ``'t'`` is
+        Student t scaled to unit variance, with the degrees of freedom
+        ``nu > 2`` estimated (Stata ``distribution(t)``, ``rugarch``
+        ``'std'``). Stata reports ``ln(nu - 2)``; ``nu`` itself is the
+        parameter here.
 
     Notes
     -----
-    Maximised by BFGS on the analytic score, polished by Newton steps on
-    the (numerical-Hessian, analytic-gradient) system. ω > 0, α, β >= 0
-    and Σα + Σβ < 1 are enforced by an infinite objective outside the
-    region.
+    The likelihood surface of a model with more than one lag has ridges
+    and boundary solutions, so the search runs a bounded quasi-Newton from
+    several starting values (different splits of the persistence between
+    the ARCH and GARCH terms and across the lags) besides the simplex of
+    earlier releases, and keeps the best. The Gaussian constant-mean model
+    is then polished by Newton steps on the analytic score. ω > 0,
+    α, β >= 0 and Σα + Σβ < 1 are enforced by an infinite objective
+    outside the region. An estimate that ends on the boundary (a
+    coefficient at zero) raises a ``RuntimeWarning``: its standard error is
+    not meaningful and the lower-order model fits as well.
+
+    With ``ar > 0`` or ``dist='t'`` the scores and the Hessian are
+    numerical (central differences), so standard errors agree with Stata
+    to about five significant digits rather than to rounding.
+
+    Releases through 1.38.0 used a single simplex search. For GARCH(p,q)
+    with ``p >= 2`` it could stop with a lagged-variance coefficient at
+    zero and a log-likelihood below that of the nested GARCH(1,q).
 
     Examples
     --------
@@ -348,7 +533,22 @@ def garch(
     (3,)
     >>> bool(np.isfinite(res.aic))
     True
+
+    An AR(1) mean with Student t innovations, and the 1% value at risk of
+    the next observation:
+
+    >>> t_fit = sp.garch(eps, ar=1, dist="t")
+    >>> list(t_fit.params.index)
+    ['mu', 'ar[1]', 'omega', 'alpha[1]', 'beta[1]', 'nu']
+    >>> bool(t_fit.value_at_risk(0.01) < 0)
+    True
     >>> print(res.summary())  # doctest: +SKIP
+
+    References
+    ----------
+    [@engle1982autoregressive],
+    [@bollerslev1986generalized],
+    [@bollerslev1987conditionally]
     """
     y = _series_argument(y, data, "garch")
     T = len(y)
@@ -376,88 +576,219 @@ def garch(
             "garch: y contains NaN or inf",
             recovery_hint="Drop or impute non-finite values of y.",
         )
+    if dist not in ("normal", "t"):
+        raise MethodIncompatibility(
+            f"garch: dist={dist!r} is not 'normal' or 't'.",
+            recovery_hint="dist='t' fits Student t innovations.",
+        )
+    n_ar = int(ar)
+    if n_ar < 0 or n_ar != ar:
+        raise MethodIncompatibility("garch: ar is a non-negative lag count.")
     y_mean = float(y.mean()) if mean else 0.0
     j0 = int(mean)
+    jv = j0 + n_ar  # position of omega
+    n_var = 1 + q + p
+    K = jv + n_var + int(dist == "t")
+
+    def _terms(theta: np.ndarray) -> np.ndarray:
+        return np.asarray(
+            _general_filter(theta, y, p, q, mean, n_ar, dist, presample)[3]
+        )
 
     def _feasible(theta: np.ndarray) -> bool:
-        omega = theta[j0]
-        ab = theta[j0 + 1 :]
+        omega = theta[jv]
+        ab = theta[jv + 1 : jv + n_var]
+        if dist == "t" and not theta[-1] > 2.0:
+            return False
         return bool(omega > 0 and np.all(ab >= 0) and ab.sum() < 1.0)
 
-    def neg_ll(theta: np.ndarray) -> float:
+    def _fast_neg_ll(theta: np.ndarray) -> float:
         theta = np.asarray(theta, dtype=float)
         if not _feasible(theta):
             return 1e15
-        s2, _, ll_t, _ = _garch_filter(theta, y, p, q, mean, presample)
-        if np.any(s2 <= 0) or not np.all(np.isfinite(ll_t)):
+        ll_t = _terms(theta)
+        if not np.all(np.isfinite(ll_t)):
             return 1e15
         return float(-ll_t.sum())
 
-    def neg_grad(theta: np.ndarray) -> np.ndarray:
-        theta = np.asarray(theta, dtype=float)
-        if not _feasible(theta):
-            return np.zeros_like(theta)
-        _, _, _, sc = _garch_filter(theta, y, p, q, mean, presample, True)
-        return -sc.sum(axis=0)
-
-    # Initial guesses
+    # -- search: quasi-Newton inside the bounds from several starts. A
+    # single simplex from the equal-split start stops on the boundary of
+    # higher-order models (a lagged-variance coefficient at zero) with a
+    # likelihood below that of the nested lower-order model.
     eps0 = y - y_mean
     var0 = float(np.mean(eps0**2))
-    alpha0 = [0.1 / max(q, 1)] * q
-    beta0 = [0.8 / max(p, 1)] * p
-    omega0 = var0 * max(1.0 - sum(alpha0) - sum(beta0), 0.05)
-    x0 = np.asarray(([y_mean] if mean else []) + [omega0] + alpha0 + beta0, float)
+    rho0 = np.zeros(n_ar)
+    if n_ar:
+        lagged = np.column_stack(
+            [np.concatenate([np.zeros(k), eps0[:-k]]) for k in range(1, n_ar + 1)]
+        )
+        rho0 = np.linalg.lstsq(lagged, eps0, rcond=None)[0]
 
-    opt = minimize(
-        neg_ll,
-        x0,
-        method="Nelder-Mead",
-        options={"maxiter": 20000, "xatol": 1e-10, "fatol": 1e-12},
+    def _spread(total: float, n: int, shape: str) -> List[float]:
+        if n == 0:
+            return []
+        w: np.ndarray
+        if shape == "equal":
+            w = np.ones(n)
+        elif shape == "first":
+            w = np.array([1.0] + [0.05] * (n - 1))
+        else:  # geometric decay
+            w = 0.5 ** np.arange(n)
+        return list(total * w / w.sum())
+
+    def _start(a_tot: float, b_tot: float, shape: str) -> np.ndarray:
+        a = _spread(a_tot, q, shape)
+        b = _spread(b_tot, p, shape)
+        omega = var0 * max(1.0 - sum(a) - sum(b), 0.05)
+        head = ([y_mean] if mean else []) + list(rho0)
+        tail = [8.0] if dist == "t" else []
+        return np.asarray(head + [omega] + a + b + tail, float)
+
+    bounds = (
+        [(None, None)] * jv
+        + [(1e-12 * max(var0, 1e-300), None)]
+        + [(0.0, 0.9999)] * (q + p)
+        + ([(2.01, 1e4)] if dist == "t" else [])
     )
-    theta = np.asarray(opt.x, dtype=float)
-    opt2 = minimize(neg_ll, theta, jac=neg_grad, method="BFGS", options={"gtol": 1e-9})
-    if np.isfinite(opt2.fun) and opt2.fun <= opt.fun:
-        theta = np.asarray(opt2.x, dtype=float)
+    grid = [(0.1, 0.8), (0.05, 0.9), (0.2, 0.6), (0.3, 0.3)]
+    shapes = ["equal"] if max(p, q) <= 1 else ["equal", "first", "decay"]
+    best_theta = _start(0.1, 0.8, "equal")
+    best_fun = _fast_neg_ll(best_theta)
+    for a_tot, b_tot in grid:
+        for shape in shapes:
+            x0 = _start(a_tot, b_tot, shape)
+            res = minimize(
+                _fast_neg_ll,
+                x0,
+                method="L-BFGS-B",
+                bounds=bounds,
+                options={"maxiter": 2000, "ftol": 1e-14, "gtol": 1e-8},
+            )
+            if np.isfinite(res.fun) and res.fun < best_fun - 1e-9:
+                best_fun, best_theta = float(res.fun), np.asarray(res.x, float)
 
-    def _hess(th: np.ndarray) -> np.ndarray:
-        # Hessian of the NEGATIVE log-likelihood by central differences of
-        # the analytic score.
-        K = th.size
-        H = np.empty((K, K))
-        for i in range(K):
-            h = 1e-5 * max(abs(th[i]), 1e-2)
-            e = np.zeros(K)
-            e[i] = h
-            H[:, i] = (neg_grad(th + e) - neg_grad(th - e)) / (2 * h)
-        return (H + H.T) / 2.0
+    general = bool(n_ar or dist == "t")
+    scores: np.ndarray
+    if not general:
 
-    # Newton polish: drives the analytic gradient to ~machine precision
-    for _ in range(20):
-        g = neg_grad(theta)
-        if np.max(np.abs(g)) < 1e-10:
-            break
-        try:
-            step = np.linalg.solve(_hess(theta), g)
-        except np.linalg.LinAlgError:
-            break
-        cand = theta - step
-        if not _feasible(cand) or neg_ll(cand) > neg_ll(theta) + 1e-12:
-            break
-        theta = cand
+        def neg_ll(theta: np.ndarray) -> float:
+            theta = np.asarray(theta, dtype=float)
+            if not _feasible(theta):
+                return 1e15
+            s2, _, ll_t, _ = _garch_filter(theta, y, p, q, mean, presample)
+            if np.any(s2 <= 0) or not np.all(np.isfinite(ll_t)):
+                return 1e15
+            return float(-ll_t.sum())
 
-    s2, eps, ll_t, scores = _garch_filter(theta, y, p, q, mean, presample, True)
+        def neg_grad(theta: np.ndarray) -> np.ndarray:
+            theta = np.asarray(theta, dtype=float)
+            if not _feasible(theta):
+                return np.zeros_like(theta)
+            _, _, _, sc = _garch_filter(theta, y, p, q, mean, presample, True)
+            return np.asarray(-sc.sum(axis=0))
+
+        x0 = _start(0.1, 0.8, "equal")
+        opt = minimize(
+            _fast_neg_ll,
+            x0,
+            method="Nelder-Mead",
+            options={"maxiter": 20000, "xatol": 1e-10, "fatol": 1e-12},
+        )
+        theta = np.asarray(opt.x, dtype=float)
+        opt2 = minimize(
+            neg_ll, theta, jac=neg_grad, method="BFGS", options={"gtol": 1e-9}
+        )
+        if np.isfinite(opt2.fun) and opt2.fun <= opt.fun:
+            theta = np.asarray(opt2.x, dtype=float)
+        # the multi-start optimum replaces it only when it is better
+        if best_fun < neg_ll(theta) - 1e-7:
+            theta = best_theta
+
+        def _hess(th: np.ndarray) -> np.ndarray:
+            # Hessian of the NEGATIVE log-likelihood by central differences
+            # of the analytic score.
+            k = th.size
+            H = np.empty((k, k))
+            for i in range(k):
+                h = 1e-5 * max(abs(th[i]), 1e-2)
+                e = np.zeros(k)
+                e[i] = h
+                H[:, i] = (neg_grad(th + e) - neg_grad(th - e)) / (2 * h)
+            return (H + H.T) / 2.0
+
+        # Newton polish: drives the analytic gradient to ~machine precision
+        for _ in range(20):
+            g = neg_grad(theta)
+            if np.max(np.abs(g)) < 1e-10:
+                break
+            try:
+                step = np.linalg.solve(_hess(theta), g)
+            except np.linalg.LinAlgError:
+                break
+            cand = theta - step
+            if not _feasible(cand) or neg_ll(cand) > neg_ll(theta) + 1e-12:
+                break
+            theta = cand
+        s2, eps, ll_t, scores = _garch_filter(theta, y, p, q, mean, presample, True)
+        u = eps
+        H = _hess(theta)
+    else:
+        theta = best_theta
+
+        def _grad_norm(th: np.ndarray) -> float:
+            return float(np.max(np.abs(_numeric_scores(_terms, th).sum(axis=0))))
+
+        for _ in range(3):
+            # unconstrained polish, kept only when it improves the fit
+            pol = minimize(_fast_neg_ll, theta, method="BFGS", options={"gtol": 1e-7})
+            if np.isfinite(pol.fun) and pol.fun <= _fast_neg_ll(theta):
+                theta = np.asarray(pol.x, float)
+            if _grad_norm(theta) < 1e-4:
+                break
+            simplex = minimize(
+                _fast_neg_ll,
+                theta,
+                method="Nelder-Mead",
+                options={"maxiter": 1000 * K, "xatol": 1e-9, "fatol": 1e-11},
+            )
+            if float(simplex.fun) < _fast_neg_ll(theta):
+                theta = np.asarray(simplex.x, float)
+        s2, eps, u, ll_t = _general_filter(theta, y, p, q, mean, n_ar, dist, presample)
+        scores = _numeric_scores(_terms, theta)
+        H = _numeric_hessian(_fast_neg_ll, theta)
+
     mu = float(theta[0]) if mean else 0.0
-    omega = float(theta[j0])
-    alpha = theta[j0 + 1 : j0 + 1 + q]
-    beta = theta[j0 + 1 + q : j0 + 1 + q + p]
+    rho = np.asarray(theta[j0:jv], float)
+    omega = float(theta[jv])
+    alpha = theta[jv + 1 : jv + 1 + q]
+    beta = theta[jv + 1 + q : jv + 1 + q + p]
+    nu = float(theta[-1]) if dist == "t" else None
 
     param_names = (
         (["mu"] if mean else [])
+        + [f"ar[{k + 1}]" for k in range(n_ar)]
         + ["omega"]
         + [f"alpha[{i + 1}]" for i in range(q)]
         + [f"beta[{j + 1}]" for j in range(p)]
+        + (["nu"] if dist == "t" else [])
     )
-    H = _hess(theta)
+    on_boundary = [
+        nm
+        for nm, val in zip(param_names[jv + 1 : jv + n_var], theta[jv + 1 :])
+        if val <= 1e-8
+    ]
+    if on_boundary:
+        import warnings
+
+        warnings.warn(
+            "garch: the estimate of "
+            + ", ".join(on_boundary)
+            + " is on the boundary of the parameter space (zero); the "
+            "standard errors and tests are not valid there. A lower-order "
+            "model fits the data as well.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     try:
         H_inv = np.linalg.inv(H)
         if vce == "oim":
@@ -479,7 +810,7 @@ def garch(
         se_vec = np.full(len(theta), np.nan)
 
     ll = float(ll_t.sum())
-    k_params = int(mean) + 1 + q + p
+    k_params = len(theta)
     aic = -2 * ll + 2 * k_params
     bic = -2 * ll + k_params * np.log(T)
     std_resid = eps / np.sqrt(s2)
@@ -501,9 +832,13 @@ def garch(
         coef=np.asarray(theta, float),
         se_vec=se_vec,
         param_names=param_names,
+        ar=rho,
+        nu=nu,
+        dist=dist,
     )
     _result.vce = vce
     _result.presample = presample
+    _result.disturbances = np.asarray(u, float)
     _result.gradient_norm = float(np.max(np.abs(scores.sum(axis=0))))
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -511,7 +846,15 @@ def garch(
         _attach_prov(
             _result,
             function="sp.timeseries.garch",
-            params={"p": p, "q": q, "mean": mean, "presample": presample, "vce": vce},
+            params={
+                "p": p,
+                "q": q,
+                "mean": mean,
+                "presample": presample,
+                "vce": vce,
+                "ar": n_ar,
+                "dist": dist,
+            },
             data=None,
             overwrite=False,
         )

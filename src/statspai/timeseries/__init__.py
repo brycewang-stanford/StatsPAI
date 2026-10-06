@@ -14,6 +14,7 @@ from .ardl import ARDLResult, ardl
 from .arima import ARIMAResult, arima
 from .bagging import BaggedForecastResult, bagged_forecast, bootstrap_series
 from .bds import bds
+from .beveridge_nelson import BeveridgeNelsonResult, beveridge_nelson
 from .bvar import BVARResult, bvar
 from .chow import chow_test
 from .cointegration import CointegrationResult, engle_granger, johansen
@@ -22,9 +23,18 @@ from .dlm import DLMResult, dlm
 from .forecast_accuracy import TSCVResult, forecast_accuracy, tscv
 from .garch import GARCHResult, garch
 from .its import ITSResult, its
+from .johansen_lrtest import JohansenLRTest, johansen_lrtest
 from .local_projections import LocalProjectionsResult, local_projections
+from .lrvar import LongRunVariance, lrvar
 from .reconcile import Hierarchy, ReconcileResult, hierarchy, reconcile
 from .simple_forecast import SimpleForecastResult, simple_forecast
+from .spectral import (
+    CumulativePeriodogramResult,
+    SpectrumResult,
+    cumulative_periodogram_test,
+    periodogram,
+)
+from .statespace import KalmanResult, StateSpaceResult, kalman_filter, statespace
 from .stl import DecompositionResult, classical_decompose, stl
 from .structural_break import StructuralBreakResult, cusum_test, structural_break
 from .svar import SVARResult, svar
@@ -37,10 +47,13 @@ from .ts_tools import (
     nsdiffs,
     seasonal_dummies,
 )
+from .tsfilter import FilterResult, tsfilter
 from .unit_root import UnitRootResult, unitroot
 from .var import VARResult, granger_causality, irf, var
 from .var_diagnostics import varsoc
 from .vecm import VECResult, vec
+from .xcorr import CrossCorrelogram, xcorr
+from .zivot_andrews import ZivotAndrewsResult, zivot_andrews
 
 __all__ = [
     "var",
@@ -101,6 +114,26 @@ __all__ = [
     "bagged_forecast",
     "BaggedForecastResult",
     "seasonal_dummies",
+    "beveridge_nelson",
+    "BeveridgeNelsonResult",
+    "johansen_lrtest",
+    "JohansenLRTest",
+    "lrvar",
+    "LongRunVariance",
+    "periodogram",
+    "SpectrumResult",
+    "cumulative_periodogram_test",
+    "CumulativePeriodogramResult",
+    "tsfilter",
+    "FilterResult",
+    "xcorr",
+    "CrossCorrelogram",
+    "zivot_andrews",
+    "ZivotAndrewsResult",
+    "kalman_filter",
+    "KalmanResult",
+    "statespace",
+    "StateSpaceResult",
 ]
 
 

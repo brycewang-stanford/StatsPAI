@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
 class CointegrationResult(ResultProtocolMixin):
@@ -81,6 +81,12 @@ class CointegrationResult(ResultProtocolMixin):
         self.n_obs = n_obs
         self.n_vars = n_vars
         self.lags = lags
+        # set by johansen(): observations entering the statistics, the level
+        # of the critical values, the deterministic case, the variable names
+        self.n_used: Optional[int] = None
+        self.alpha: float = 0.05
+        self.trend: Optional[str] = None
+        self.var_names: list[str] = []
 
     def __repr__(self) -> str:
         if self.test_type == "Engle-Granger":
@@ -102,6 +108,11 @@ class CointegrationResult(ResultProtocolMixin):
             f"Variables: {self.n_vars}   Lags: {self.lags}   N: {self.n_obs}",
             "",
         ]
+        n_used = self.n_used
+        if n_used is not None:
+            # the statistics are scaled by the observations left after
+            # differencing and lagging, not by the length of the series
+            lines[2] += f"   Used: {n_used}"
 
         if self.test_type == "Engle-Granger":
             lines.append(f"ADF test statistic: {self.test_stats:.4f}")
@@ -122,8 +133,10 @@ class CointegrationResult(ResultProtocolMixin):
             maxeig = "maxeig" in self.test_type
             label = "Max-eig stat" if maxeig else "Trace stat"
             rel = "r = " if maxeig else "r <= "
+            level = self.alpha
+            cv_label = f"{100 * level:g}% CV"
             lines.append(
-                f"{'H0: rank':>12s} {label:>12s}" f" {'5% CV':>10s} {'Reject':>8s}"
+                f"{'H0: rank':>12s} {label:>12s}" f" {cv_label:>10s} {'Reject':>8s}"
             )
             lines.append("-" * 50)
             for i in range(self.n_vars):
@@ -335,6 +348,60 @@ _JOHANSEN_TREND_ALIASES = {
 }
 
 
+def _johansen_residuals(
+    Y: np.ndarray, lags: int, case: str
+) -> tuple[np.ndarray, np.ndarray, int]:
+    """Differences and lagged levels with the short-run dynamics and the
+    unrestricted deterministic terms partialled out (``R0``, ``R1``), and
+    the number of observations they hold.
+
+    Restricted deterministic terms (``'rc'``, ``'rt'``) are the last
+    column of ``R1``.
+    """
+    T, k = Y.shape
+    dY = np.diff(Y, axis=0)  # (T-1) x k
+    Y_lag = Y[:-1]  # (T-1) x k
+
+    T_eff = T - 1 - lags
+    if T_eff < k + 1:
+        raise DataInsufficient(
+            "johansen: too few observations for the number of lags.",
+            recovery_hint="Use fewer lags or a longer sample.",
+        )
+
+    dY_trim = dY[lags:]  # T_eff x k
+    Y_lag_trim = Y_lag[lags:]  # T_eff x k
+    # time index of the effective sample; any origin gives the same
+    # statistics (a shift is absorbed by the constant)
+    tt = np.arange(lags + 2, T + 1, dtype=float)
+
+    lag_blocks: list[np.ndarray] = [
+        dY[lags - j : T - 1 - j] for j in range(1, lags + 1)
+    ]
+    Z = np.hstack(lag_blocks) if lag_blocks else np.empty((T_eff, 0))
+
+    # Deterministic terms: unrestricted ones enter Z (concentrated out),
+    # restricted ones are appended to the lagged levels.
+    if case in ("c", "rt", "ct"):
+        Z = np.column_stack([Z, np.ones(T_eff)])
+    if case == "ct":
+        Z = np.column_stack([Z, tt])
+    if case == "rc":
+        Y_lag_trim = np.column_stack([Y_lag_trim, np.ones(T_eff)])
+    elif case == "rt":
+        Y_lag_trim = np.column_stack([Y_lag_trim, tt])
+
+    if Z.shape[1] > 0:
+        coefs0 = np.linalg.lstsq(Z, dY_trim, rcond=None)[0]
+        coefs1 = np.linalg.lstsq(Z, Y_lag_trim, rcond=None)[0]
+        R0 = dY_trim - Z @ coefs0
+        R1 = Y_lag_trim - Z @ coefs1
+    else:
+        R0 = dY_trim
+        R1 = Y_lag_trim
+    return R0, R1, T_eff
+
+
 def johansen(
     data: pd.DataFrame,
     variables: Optional[List[str]] = None,
@@ -426,43 +493,7 @@ def johansen(
     Y = data[variables].dropna().values.astype(float)
     T, k = Y.shape
 
-    dY = np.diff(Y, axis=0)  # (T-1) x k
-    Y_lag = Y[:-1]  # (T-1) x k
-
-    T_eff = T - 1 - lags
-    if T_eff < k + 1:
-        raise ValueError("Too few observations for the number of lags")
-
-    dY_trim = dY[lags:]  # T_eff x k
-    Y_lag_trim = Y_lag[lags:]  # T_eff x k
-    # time index of the effective sample; any origin gives the same
-    # statistics (a shift is absorbed by the constant)
-    tt = np.arange(lags + 2, T + 1, dtype=float)
-
-    lag_blocks: list[np.ndarray] = [
-        dY[lags - j : T - 1 - j] for j in range(1, lags + 1)
-    ]
-    Z = np.hstack(lag_blocks) if lag_blocks else np.empty((T_eff, 0))
-
-    # Deterministic terms: unrestricted ones enter Z (concentrated out),
-    # restricted ones are appended to the lagged levels.
-    if case in ("c", "rt", "ct"):
-        Z = np.column_stack([Z, np.ones(T_eff)])
-    if case == "ct":
-        Z = np.column_stack([Z, tt])
-    if case == "rc":
-        Y_lag_trim = np.column_stack([Y_lag_trim, np.ones(T_eff)])
-    elif case == "rt":
-        Y_lag_trim = np.column_stack([Y_lag_trim, tt])
-
-    if Z.shape[1] > 0:
-        coefs0 = np.linalg.lstsq(Z, dY_trim, rcond=None)[0]
-        coefs1 = np.linalg.lstsq(Z, Y_lag_trim, rcond=None)[0]
-        R0 = dY_trim - Z @ coefs0
-        R1 = Y_lag_trim - Z @ coefs1
-    else:
-        R0 = dY_trim
-        R1 = Y_lag_trim
+    R0, R1, T_eff = _johansen_residuals(Y, lags, case)
 
     S00 = R0.T @ R0 / T_eff
     S11 = R1.T @ R1 / T_eff
@@ -523,6 +554,10 @@ def johansen(
         n_vars=k,
         lags=lags,
     )
+    _result.n_used = int(T_eff)
+    _result.alpha = float(alpha_key)
+    _result.trend = case
+    _result.var_names = [str(v) for v in variables]
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
