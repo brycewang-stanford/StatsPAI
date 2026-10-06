@@ -70,11 +70,11 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `survival` | 4,531 | 6 | 15 |
 | `workflow` | 4,512 | 5 | 3 |
 | `causal_discovery` | 4,448 | 11 | 20 |
+| `structural` | 4,433 | 10 | 14 |
 | `gmm` | 4,277 | 12 | 4 |
 | `qte` | 4,152 | 9 | 13 |
 | `robustness` | 3,968 | 8 | 14 |
 | `tmle` | 3,697 | 6 | 11 |
-| `structural` | 3,576 | 9 | 12 |
 | `network` | 3,514 | 9 | 33 |
 | `neural_causal` | 3,442 | 6 | 18 |
 | `postestimation` | 3,279 | 7 | 13 |
@@ -128,7 +128,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **576,205** | **976** | **1416** |
+| **Total** | **577,130** | **977** | **1418** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

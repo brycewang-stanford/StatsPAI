@@ -14181,6 +14181,119 @@
   {
     "alias_of": null,
     "alternatives": [
+      "mediate",
+      "mediation_decompose",
+      "sem_gmm",
+      "dag",
+      "sur"
+    ],
+    "assumptions": [
+      "The path diagram is the causal structure: no omitted common cause of two linked variables, arrows in the stated direction",
+      "Linear relations with additive disturbances",
+      "Disturbances of different equations uncorrelated unless a covariance (~~) is declared",
+      "Multivariate normality for se='standard' and for the chi-square test; se='robust' relaxes it",
+      "Exogenous variables are conditioned on (lavaan fixed.x)"
+    ],
+    "category": "structural",
+    "cost_profile": "",
+    "description": "Path analysis: a structural equation model among observed variables, written in lavaan syntax (y ~ a*x + m; m1 ~~ m2; indirect := a*b) and fitted by normal-theory maximum likelihood. Returns path coefficients, residual (co)variances, defined effects such as indirect and total effects through several mediators with delta-method standard errors, the standardised solution, the chi-square test of the over-identifying restrictions and CFI / TLI / RMSEA / SRMR. Equal labels constrain paths to be equal. Reproduces lavaan::sem (and estimator='MLM' with se='robust'). Latent variables are not implemented. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "R lavaan::sem (ML, expected information, fixed.x) and estimator = \"MLM\"",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "lavaan": "0.6.21"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_path_analysis_lavaan_parity.py",
+        "tests/reference_parity/_fixtures/path_analysis_lavaan_R.json"
+      ],
+      "tolerance": "estimates / SEs / standardised solution 2e-5 rel (lavaan's optimiser; 1e-12 on the closed-form models); fit measures and the scaled test 1e-6"
+    },
+    "example": "sp.path_analysis('m ~ a*x\\ny ~ b*m + c*x\\nind := a*b', df)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "path_analysis",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "PathAnalysisResult",
+      "description": "PathAnalysisResult",
+      "fields": {
+        "fit": "Dict[str, Any]",
+        "implied_cov": "pd.DataFrame",
+        "model": "str",
+        "n_dropped": "int",
+        "n_obs": "int",
+        "params": "pd.DataFrame",
+        "r2": "pd.Series",
+        "sample_cov": "pd.DataFrame",
+        "se": "str",
+        "vcov": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Path analysis: a structural equation model among observed variables, written in lavaan syntax (y ~ a*x + m; m1 ~~ m2; indirect := a*b) and fitted by normal-theory maximum likelihood. Returns path coefficients, residual (co)variances, defined effects such as indirect and total effects through several mediators with delta-method standard errors, the standardised solution, the chi-square test of the over-identifying restrictions and CFI / TLI / RMSEA / SRMR. Equal labels constrain paths to be equal. Reproduces lavaan::sem (and estimator='MLM' with se='robust'). Latent variables are not implemented. Validation: certified parity evidence.",
+      "name": "path_analysis",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "data": {
+            "description": "Data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "model": {
+            "description": "Model in lavaan syntax, one statement per line: 'y ~ b*m + c*x' (regression, optional labels), 'm1 ~~ m2' (residual covariance), 'ind := a*b' (defined parameter)",
+            "type": "string"
+          },
+          "se": {
+            "default": "standard",
+            "description": "Expected-information standard errors, or the Satorra-Bentler sandwich with a scaled test",
+            "enum": [
+              "standard",
+              "robust"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs R lavaan::sem (ML, expected information, fixed.x) and estimator = \"MLM\" [R version 4.5.2 (2025-10-31), lavaan 0.6.21]; tolerance estimates / SEs / standardised solution 2e-5 rel (lavaan's optimiser; 1e-12 on the closed-form models); fit measures and the scaled test 1e-6 -- tests/reference_parity/test_path_analysis_lavaan_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "spearman",
       "ktau",
       "pwcorr",

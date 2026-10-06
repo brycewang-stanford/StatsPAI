@@ -6680,6 +6680,42 @@
     }
   },
   {
+    "description": "Path analysis: a structural equation model among observed variables, written in lavaan syntax (y ~ a*x + m; m1 ~~ m2; indirect := a*b) and fitted by normal-theory maximum likelihood. Returns path coefficients, residual (co)variances, defined effects such as indirect and total effects through several mediators with delta-method standard errors, the standardised solution, the chi-square test of the over-identifying restrictions and CFI / TLI / RMSEA / SRMR. Equal labels constrain paths to be equal. Reproduces lavaan::sem (and estimator='MLM' with se='robust'). Latent variables are not implemented. Validation: certified parity evidence.",
+    "name": "path_analysis",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "data": {
+          "description": "Data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "model": {
+          "description": "Model in lavaan syntax, one statement per line: 'y ~ b*m + c*x' (regression, optional labels), 'm1 ~~ m2' (residual covariance), 'ind := a*b' (defined parameter)",
+          "type": "string"
+        },
+        "se": {
+          "default": "standard",
+          "description": "Expected-information standard errors, or the Satorra-Bentler sandwich with a scaled test",
+          "enum": [
+            "standard",
+            "robust"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Pearson's correlation, or the partial correlation given covariates, with its t test and Fisher-z confidence interval (R cor.test and ggm::pcor.test; the significance level of Stata pwcorr, sig). A zero partial correlation is what a causal graph implies for two d-separated nodes under linearity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cor_test",
     "parameters": {

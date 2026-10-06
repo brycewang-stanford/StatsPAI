@@ -1317,6 +1317,8 @@ from .spatial.weights.distance import kernel_weights as kernel_weights
 from .spatial.weights.distance import knn_weights as knn_weights
 from .structural.blp import BLPResult as BLPResult
 from .structural.blp import blp as blp
+from .structural.path_analysis import PathAnalysisResult as PathAnalysisResult
+from .structural.path_analysis import path_analysis as path_analysis
 from .structural.production._dispatcher import prod_fn as prod_fn
 from .structural.production._result import ProductionResult as ProductionResult
 from .structural.production.markup import markup as markup
