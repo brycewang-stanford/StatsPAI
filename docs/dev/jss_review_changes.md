@@ -2421,3 +2421,19 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after `sp.path_analysis`
+
+- **Commits.** `087480e9` re-recorded the entries of Track A modules
+  03 13 15 24 25 26 27 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and of module 08 in
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `10eff6e9`: `src/statspai/__init__.py` (two new exports).
+- **Reason.** A new function, `sp.path_analysis`, in a module no parity
+  script calls.
+- **Effect on the paper.** None. No committed result file changed; in both
+  trace files only the digest of `src/statspai/__init__.py` and `seconds`
+  differ. The registry gains two entries.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
