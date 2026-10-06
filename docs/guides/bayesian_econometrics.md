@@ -32,6 +32,7 @@ import statspai as sp
 | 6 | heteroskedastic errors by a scale mixture (exercise) | `model='t', dof=` |
 | 6 | Bayesian bootstrap | `sp.bayes_bootstrap` |
 | 8 | Minnesota-prior VAR | `sp.bvar` |
+| 7, 13 | `bayesm::rivGibbs` | `sp.bayes_ivreg("y ~ x + (d ~ z)", df)` |
 | 9 | `MCMChregress`, hierarchical logit and Poisson | `sp.bayes_mixed(family='normal' / 'logit' / 'poisson')` |
 | 10 | `BMA::bicreg`, `BMA::bic.glm` | `sp.bma(method='bic')` |
 | 10 | g-prior model averaging, MC3 | `sp.bma(method='gprior')` |
@@ -39,7 +40,7 @@ import statspai as sp
 | 13 | Bayesian IV, DiD, RD | `sp.bayes_iv`, `sp.bayes_did`, `sp.bayes_rd`, `sp.bayes_fuzzy_rd` (PyMC) |
 
 Not covered yet: multinomial probit and logit, multivariate probit, SUR by
-Gibbs, state-space models and stochastic volatility, Dirichlet process
+Gibbs, more than one endogenous regressor, state-space models and stochastic volatility, Dirichlet process
 mixtures, BART and Gaussian processes, approximate Bayesian computation
 and variational Bayes. The frequentist counterparts of several of these
 are in StatsPAI (`sp.mlogit`, `sp.sureg`, `sp.arima`, `sp.garch`).
@@ -121,7 +122,7 @@ spread.** On the public-capital panel `MCMChregress` reports a posterior
 sd of 0.008 for the intercept. With 48 states and a state-effect variance
 of 0.106 the intercept cannot be known better than
 `sqrt(0.106 / 48) = 0.047`. `sp.bayes_mixed` reports 0.17 under the same
-prior, and agrees with `lme4` once the prior is on the right scale.
+prior, and agrees with `lme4` under its own default prior.
 
 **`sp.bma` finds every model inside Occam's window.** `bicreg` keeps the
 best 150 models of each size and then applies the window. `sp.bma` runs an
@@ -195,21 +196,52 @@ in doubt and the target is a within-unit effect, use `sp.panel(...,
 method='fe')`.
 
 The covariance of the random effects has the prior
-`InvWishart(df, df * scale)`, default `df = q + 2` and an identity scale.
-An identity scale says the random effects have a variance near one. For a
-log outcome that is usually far too large. In the book's public-capital
-panel (48 states, log gross state product) the prior `InvWishart(5, 5)`
-supplies 91 percent of the sum of squares behind the variance of the
-state effects, and the posterior mean of that variance is 0.106 against a
+`InvWishart(df, df * scale)`. The textbook and `MCMCpack` use an identity
+scale, which says the random effects have a variance near one. For a log
+outcome that is usually far too large. In the book's public-capital panel
+(48 states, log gross state product) the prior `InvWishart(5, 5)` supplies
+91 percent of the sum of squares behind the variance of the state
+effects, and the posterior mean of that variance is 0.106 against a
 restricted maximum likelihood estimate of 0.0076.
 
-`sp.bayes_mixed` measures this. `fit.model_info['re_prior_share']` is the
-share of each variance component that comes from the prior, and a warning
-is raised above 25 percent with the mean square of the groups' own
-effects, which is the scale to give `re_prior`. With `re_prior=(3, 0.01)`
-the same panel gives the `lme4` estimates and standard errors to two
-digits. With few groups even a well-scaled prior matters, so report how
-the variance components move when it changes.
+The default of `sp.bayes_mixed` is therefore different: `df = q + 1` and
+`scale = 0.02 / df`. In the full conditional of the covariance matrix the
+prior then adds 0.02 to the sum of squares of each random effect, which
+is negligible on any ordinary scale. On the same panel the default gives
+the `lme4` estimates and standard errors to two digits.
+`re_prior=(q + 2, 1.0)` is the textbook prior.
+
+Whatever the prior, `fit.model_info['re_prior_share']` is the share of
+each variance component that comes from it, and a warning is raised above
+25 percent. That happens with the default too when the effects are tiny
+or the groups very few. Report how the variance components move when
+`re_prior` changes.
+
+## Instrumental variables
+
+```python
+fit = sp.bayes_ivreg("y ~ x + (d ~ z1 + z2)", df, seed=1)
+fit.conf_int().loc["d"]          # the effect
+fit.prob("rho > 0")              # is the regressor endogenous, and which way
+fit.model_info["first_stage_F"]
+```
+
+`sp.bayes_ivreg` samples the joint normal model of the first stage and
+the structural equation by Gibbs, with the formula syntax of `sp.ivreg`.
+`rho` is the correlation of the two errors. Zero means the regressor is
+exogenous, so its posterior is the Bayesian counterpart of a Hausman
+test.
+
+With a strong instrument the posterior of the effect is close to normal
+around 2SLS with the 2SLS standard error. With a weak instrument it is
+wide and skewed and depends on the priors, and the fit warns when the
+first-stage F is below 10.
+
+`sp.bayes_iv` fits the same model in PyMC, with half-normal priors on the
+error scales. The two agree. `bayesm::rivGibbs` uses an identity scale for
+the inverse-Wishart prior of the error covariance; the default here adds
+0.02 to the sums of squared residuals, and `sigma_prior=(3, 1.0)` is the
+`bayesm` prior.
 
 ## Diagnostics for any chain
 
@@ -244,7 +276,8 @@ within four Monte Carlo standard errors of the exact ones, the standard
 deviations within five percent, and the marginal likelihood estimators
 must reproduce the exact normalising constant. The hierarchical models are
 checked the same way, with the random effects integrated out analytically
-or by Gauss-Hermite quadrature.
+or by Gauss-Hermite quadrature, and the IV sampler with the error
+covariance integrated out in closed form.
 
 The book's examples are rerun on its own data against long runs of
 `MCMCpack` and `bayesm`. This is a screen, not a parity claim.

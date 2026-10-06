@@ -39,6 +39,8 @@ from .diagnostics import gelman_rubin, mcmc_summary
 from .regress import BayesRegressResult
 
 _FAMILIES = ("normal", "logit", "poisson")
+#: sum of squares the default prior adds to each variance component
+_DEFAULT_PRIOR_SS = 0.02
 _ALIASES = {
     "gaussian": "normal",
     "linear": "normal",
@@ -464,10 +466,14 @@ def bayes_mixed(
         ``sigma2 ~ InvGamma(alpha0 / 2, delta0 / 2)``, normal family.
     re_prior : (df, scale), optional
         ``D ~ InvWishart(df, df * scale)``, whose mean is
-        ``df * scale / (df - q - 1)``. Default ``df = q + 2`` and the
-        identity scale (``q`` the number of random effects), a weak prior
-        centred on unit variances. ``scale`` may be a number, a vector of
-        variances or a ``q x q`` matrix.
+        ``df * scale / (df - q - 1)``. ``scale`` may be a number, a vector
+        of variances or a ``q x q`` matrix. Default ``df = q + 1`` and
+        ``scale = 0.02 / df`` (``q`` the number of random effects): in the
+        full conditional of ``D`` the prior then adds 0.02 to the sum of
+        squares of each random effect, which is negligible unless the
+        effects are tiny or the groups very few. R ``MCMCpack`` and the
+        textbook use an identity scale, ``re_prior=(q + 2, 1.0)``, which
+        asserts variances near one whatever the units of the outcome.
     draws, burnin, thin, chains, seed, level
         As in :func:`statspai.bayes_regress`. Proposals of the Metropolis
         steps are tuned during the burn-in only.
@@ -481,10 +487,9 @@ def bayes_mixed(
 
     Notes
     -----
-    The default prior of ``D`` is centred on unit variances. That is
-    informative when the random effects live on a much smaller or larger
-    scale (a log outcome, say), and with few groups even a well-scaled
-    prior matters. The fit measures the prior's share of each variance
+    A prior on ``D`` with a scale far from the variance of the random
+    effects is informative, and with few groups even a well-scaled prior
+    matters. The fit measures the prior's share of each variance
     component (``model_info['re_prior_share']``) and warns above 25
     percent; set ``re_prior`` and report how the results move.
 
@@ -596,7 +601,10 @@ def bayes_mixed(
     if a0 <= 0 or d0 <= 0:
         raise MethodIncompatibility("sigma2_prior must be two positive numbers.")
     if re_prior is None:
-        r0, R0 = float(q + 2), np.eye(q)
+        # weak on every scale: the prior adds 0.02 to the sum of squares of
+        # each random effect, whatever the units of the outcome
+        r0 = float(q + 1)
+        R0 = np.eye(q) * (_DEFAULT_PRIOR_SS / r0)
     else:
         r0 = float(re_prior[0])
         sc = np.asarray(re_prior[1], dtype=float)
@@ -796,11 +804,10 @@ def bayes_mixed(
             "The prior on the covariance of the random effects is driving "
             "the variance components ("
             + parts
-            + "). Its scale ("
-            + ", ".join(f"{v:g}" for v in np.diag(R0))
-            + ") is not on the scale of these effects. Pass re_prior=(df, "
-            "scale) with a scale near the plausible variance, and report the "
-            "sensitivity."
+            + "). Pass re_prior=(df, scale) with a scale near the plausible "
+            "variance of these effects (the scale is now "
+            + ", ".join(f"{v:.3g}" for v in np.diag(R0))
+            + f" with df {r0:g}), and report the sensitivity."
         )
         diag_info["warnings"].append(text)
         warnings.warn(text, StatsPAIWarning, stacklevel=2)

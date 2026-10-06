@@ -107,7 +107,15 @@ user guide is `docs/guides/bayesian_econometrics.md`.
 - **`sp.bayes_mixed`**: hierarchical models for panel data with random
   intercepts and slopes; normal outcomes by the blocked Gibbs sampler of
   Chib and Carlin (1999), logit and Poisson outcomes by Metropolis within
-  Gibbs.
+  Gibbs. The default prior of the random-effects covariance adds 0.02 to
+  each sum of squares and is weak on any ordinary scale; the textbook's
+  identity scale is `re_prior=(q + 2, 1.0)`.
+- **`sp.bayes_ivreg`**: Bayesian instrumental variables by Gibbs sampling,
+  `"y ~ x + (d ~ z1 + z2)"` as in `sp.ivreg`. The joint normal model of
+  both equations, so the posterior of the effect has the 2SLS spread
+  under a strong instrument; `rho`, the error correlation, is the
+  posterior counterpart of a Hausman test. Warns when the first-stage F
+  is below 10. No PyMC needed.
 - **`sp.bma`**: Bayesian model averaging. `method='bic'` with Occam's
   window for Gaussian, binomial, Poisson and gamma outcomes, and
   `method='gprior'` with the benchmark g-priors for Gaussian outcomes, by
@@ -141,9 +149,24 @@ user guide is `docs/guides/bayesian_econometrics.md`.
 - The book's examples on its own data against long runs of `MCMCpack` and
   `bayesm` are a stochastic screen, not a parity claim
   (`tests/external_parity/test_ramirez_hassan_bayes.py`).
+- `sp.bayes_ivreg` is checked against its exact posterior with the error
+  covariance integrated out in closed form, and `sp.bayes_iv` (PyMC)
+  against `sp.bayes_ivreg`.
+- Known-truth screens of the other PyMC estimators, 40 samples each:
+  `sp.bayes_rd` and `sp.bayes_its` have posterior standard deviations
+  within 2 percent of the least squares standard errors and coverage of
+  37 and 39 out of 40. `sp.bayes_did` has a posterior standard deviation
+  of 0.107 against the analytic 0.105 and covers in 36 of 40.
 
 #### Changed
 
+- The docstring of `sp.bayes_mte` no longer says that
+  `mte_method='polynomial'` (the default) equals the MTE under a
+  Heckman-Vytlacil normal model. It does only when the untreated outcome
+  is not selected on. In a normal design with selection on both outcomes
+  and a true ATE of 1.0 it averaged 0.89, where
+  `mte_method='bivariate_normal'` averaged 0.99. The estimator itself is
+  unchanged; changing its default is left open.
 - `sp.bvar(...).summary()` labels the coefficient rows (`L1.gdp`, ...,
   `_cons`); `coef_names` and `coef_table()` expose them.
 
@@ -163,12 +186,12 @@ user guide is `docs/guides/bayesian_econometrics.md`.
   intercept of the book's public-capital panel, below the floor
   `sqrt(0.106 / 48) = 0.047` that the model's own state-effect variance
   implies. `sp.bayes_mixed` gives 0.17 under the same prior, and the
-  `lme4` standard errors within 3 percent once the prior is on the right
-  scale.
+  `lme4` standard errors within 3 percent under its default prior.
 - The book's prior for that variance component, `InvWishart(5, 5)`,
   supplies 91 percent of its sum of squares; the posterior mean is 14
-  times the REML estimate. `sp.bayes_mixed` reports the prior's share of
-  every variance component and warns above 25 percent.
+  times the REML estimate. `sp.bayes_mixed` does not use that prior by
+  default, reports the prior's share of every variance component, and
+  warns above 25 percent.
 
 ### What a graph-first causal inference book found
 

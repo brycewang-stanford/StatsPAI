@@ -419,3 +419,74 @@ def test_bayesian_bootstrap_of_a_mean_has_rubins_variance():
         seed=1,
     )
     assert same.params["statistic"] == pytest.approx(fit.params["Intercept"], rel=1e-12)
+
+
+# --------------------------------------------------------------------------
+# instrumental variables: Sigma integrates out in closed form
+# --------------------------------------------------------------------------
+
+
+def test_iv_gibbs_recovers_the_exact_posterior():
+    """``sp.bayes_ivreg`` with one instrument and two intercepts.
+
+    Given the four coefficients, the inverse-Wishart prior integrates the
+    error covariance out of the joint normal likelihood:
+    ``p(delta, gamma, beta | data)`` is proportional to
+    ``prior * |V0 + E'E|^{-(nu0 + n) / 2}``, with ``E`` the two residual
+    vectors. That is a four-dimensional grid. The posterior means of the
+    two error variances follow from ``E[Sigma | coefficients] =
+    (V0 + E'E) / (nu0 + n - 3)``.
+    """
+    rng = np.random.default_rng(4)
+    n = 60
+    z = rng.normal(size=n)
+    v = rng.normal(size=n)
+    d = 0.3 + 0.8 * z + v
+    y = 1.0 + 0.5 * d + 0.7 * v + 0.6 * rng.normal(size=n)
+    df = pd.DataFrame({"y": y, "d": d, "z": z})
+    pv, fv, nu0, v0 = 10.0, 10.0, 4.0, 0.5
+    fit = sp.bayes_ivreg(
+        "y ~ (d ~ z)",
+        df,
+        prior_var=pv,
+        first_stage_prior_var=fv,
+        sigma_prior=(nu0, v0),
+        draws=60000,
+        burnin=3000,
+        seed=3,
+    )
+    names = ["fs:Intercept", "fs:z", "Intercept", "d"]
+    co = fit.draws[names].to_numpy()
+    c, s = co.mean(axis=0), co.std(axis=0)
+    axes = [np.linspace(ci - 7 * si, ci + 7 * si, 41) for ci, si in zip(c, s)]
+    g = np.array(list(itertools.product(*axes)))
+    d0, d1, g0, b = g.T
+    one = np.ones(n)
+
+    def cross(a1, a2):
+        # sum over observations of two residuals that are linear in the grid
+        return sum(ci * cj * float(xi @ xj) for ci, xi in a1 for cj, xj in a2)
+
+    res_v = [(1.0, d), (-d0, one), (-d1, z)]
+    res_e = [(1.0, y), (-g0, one), (-b, d)]
+    svv, sve, see = cross(res_v, res_v), cross(res_v, res_e), cross(res_e, res_e)
+    log_post = (
+        -0.5 * (nu0 + n) * np.log((v0 + svv) * (v0 + see) - sve**2)
+        + stats.norm.logpdf(g[:, :2], 0.0, np.sqrt(fv)).sum(axis=1)
+        + stats.norm.logpdf(g[:, 2:], 0.0, np.sqrt(pv)).sum(axis=1)
+    )
+    w = np.exp(log_post - log_post.max())
+    w /= w.sum()
+    mean = w @ g
+    sd = np.sqrt(w @ (g - mean) ** 2)
+    t = fit.table.loc[names]
+    z_scores = (t["mean"].to_numpy() - mean) / t["mcse"].to_numpy()
+    assert np.abs(z_scores).max() < 4.0, z_scores
+    assert np.abs(t["sd"].to_numpy() / sd - 1.0).max() < 0.03
+    # error variances; the grid's own accuracy is about 0.2 percent here
+    for name, value in (
+        ("sigma2_y", w @ ((v0 + see) / (nu0 + n - 3))),
+        ("sigma2_d", w @ ((v0 + svv) / (nu0 + n - 3))),
+    ):
+        allow = 4 * fit.table.loc[name, "mcse"] + 0.004 * value
+        assert abs(fit.params[name] - value) < allow, name

@@ -15439,7 +15439,8 @@ def _build_registry() -> None:
                     False,
                     None,
                     "(df, scale): D ~ InvWishart(df, df * scale); default "
-                    "df = q + 2, identity scale",
+                    "df = q + 1, scale 0.02 / df (weak on every scale; "
+                    "MCMCpack's identity scale is (q + 2, 1.0))",
                 ),
                 ParamSpec("draws", "int", False, 10000, "Draws kept per chain"),
                 ParamSpec("burnin", "int", False, 2000),
@@ -15484,6 +15485,110 @@ def _build_registry() -> None:
                 "O(iterations x (n + groups x q^3)); seconds for thousands "
                 "of observations"
             ),
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_ivreg",
+            category="bayes",
+            description=(
+                "Bayesian linear instrumental variables by Gibbs sampling, "
+                "NumPy only: the joint normal model of the first stage and "
+                "the structural equation with one endogenous regressor, "
+                "normal priors on the coefficients and an inverse-Wishart "
+                "prior on the error covariance. The posterior of the effect "
+                "carries first-stage uncertainty; rho, the error "
+                "correlation, measures endogeneity. Same formula syntax as "
+                "sp.ivreg."
+            ),
+            params=[
+                ParamSpec(
+                    "formula",
+                    "str",
+                    True,
+                    description="'y ~ x1 + (d ~ z1 + z2)'",
+                ),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "prior_mean",
+                    "float | list",
+                    False,
+                    0.0,
+                    "Prior mean of the structural coefficients (exogenous "
+                    "terms, then the endogenous regressor)",
+                ),
+                ParamSpec(
+                    "prior_var",
+                    "float | list | matrix",
+                    False,
+                    1000.0,
+                    "Prior variance of the structural coefficients",
+                ),
+                ParamSpec(
+                    "first_stage_prior_var",
+                    "float | list | matrix",
+                    False,
+                    1000.0,
+                    "Prior variance of the first-stage coefficients",
+                ),
+                ParamSpec(
+                    "sigma_prior",
+                    "tuple",
+                    False,
+                    None,
+                    "(df, scale): Sigma ~ InvWishart(df, scale); default "
+                    "(3, 0.02); bayesm::rivGibbs uses (3, 1.0)",
+                ),
+                ParamSpec("draws", "int", False, 10000, "Draws kept per chain"),
+                ParamSpec("burnin", "int", False, 2000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("chains", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95, "Credible interval mass"),
+            ],
+            returns="BayesRegressResult",
+            example='sp.bayes_ivreg("y ~ x + (d ~ z)", df, seed=1)',
+            tags=[
+                "bayes",
+                "mcmc",
+                "iv",
+                "instrumental-variables",
+                "gibbs",
+                "endogeneity",
+            ],
+            reference="rossi2005bayesian",
+            assumptions=[
+                "Instrument exogeneity and exclusion",
+                "Instrument relevance",
+                "Jointly normal errors, constant effect",
+            ],
+            pre_conditions=[
+                "One endogenous regressor and at least one excluded instrument",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="First-stage F below 10",
+                    exception="statspai.AssumptionWarning",
+                    remedy="The posterior is far from normal and "
+                    "prior-sensitive: report the median and interval and "
+                    "vary prior_var; consider sp.anderson_rubin_ci.",
+                    alternative="sp.anderson_rubin_ci",
+                ),
+                FailureMode(
+                    symptom="More than one endogenous regressor",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Use sp.ivreg; the Gibbs sampler here handles one.",
+                    alternative="sp.ivreg",
+                ),
+            ],
+            alternatives=["ivreg", "bayes_iv", "bayes_regress", "liml"],
+            not_recommended_when=[
+                "Heteroskedastic or clustered errors matter for inference: "
+                "the likelihood is homoskedastic normal; use sp.ivreg with "
+                "robust or clustered standard errors",
+            ],
+            cost_profile="O(iterations x n); a few seconds for thousands of rows",
         )
     )
 

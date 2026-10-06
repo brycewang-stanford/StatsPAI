@@ -453,13 +453,19 @@ def test_bayes_mixed_surface_and_prior_share():
     d["y"] = 1 + 0.5 * d["x"] + small + 0.1 * rng.normal(size=240)
     d["c"] = rng.poisson(np.exp(0.2 + 0.3 * d["x"] + 10 * small))
     kw = dict(group="id", draws=1500, burnin=500, seed=1)
-    # the default prior is centred on a variance of one: wrong scale here
+    # the textbook / MCMCpack prior is centred on a variance of one: the
+    # wrong scale here, and the fit says so
     with pytest.warns(sp.exceptions.StatsPAIWarning, match="driving the variance"):
-        loose = sp.bayes_mixed("y ~ x", d, **kw)
+        loose = sp.bayes_mixed("y ~ x", d, re_prior=(3.0, 1.0), **kw)
     assert loose.model_info["re_prior_share"]["Intercept"] > 0.5
+    # the default prior adds 0.02 to a sum of squares of about 0.1
     with warnings.catch_warnings():
         warnings.simplefilter("error", sp.exceptions.StatsPAIWarning)
-        fit = sp.bayes_mixed("y ~ x", d, re_prior=(3.0, 0.003), **kw)
+        fit = sp.bayes_mixed("y ~ x", d, **kw)
+    assert fit.model_info["re_prior_share"]["Intercept"] < 0.25
+    scaled = sp.bayes_mixed("y ~ x", d, re_prior=(3.0, 0.003), **kw)
+    # two weak priors, one answer (the truth is 0.0025)
+    assert scaled.params["var(Intercept)"] == pytest.approx(0.0025, abs=0.0015)
     assert fit.params["var(Intercept)"] < 0.2 * loose.params["var(Intercept)"]
     assert fit.params["var(Intercept)"] == pytest.approx(0.0025, abs=0.002)
     assert list(fit.params.index) == ["Intercept", "x", "sigma2", "var(Intercept)"]
@@ -490,11 +496,86 @@ def test_bayes_mixed_surface_and_prior_share():
         sp.bayes_mixed("y ~ x", d, group="id", random_intercept=False)
 
 
+def _iv_data(n, pi, corr, seed):
+    rng = np.random.default_rng(seed)
+    z = rng.normal(size=n)
+    x = rng.normal(size=n)
+    v = rng.normal(size=n)
+    eps = corr * v + np.sqrt(1 - corr**2) * rng.normal(size=n)
+    d = pi * z + 0.3 * x + v
+    return pd.DataFrame({"y": 1 + 0.5 * d + 0.2 * x + eps, "d": d, "z": z, "x": x})
+
+
+def test_bayes_ivreg_agrees_with_2sls_when_the_instrument_is_strong():
+    df = _iv_data(800, pi=1.0, corr=0.9, seed=7)
+    fit = sp.bayes_ivreg("y ~ x + (d ~ z)", df, draws=6000, burnin=1000, seed=1)
+    tsls = sp.ivreg("y ~ x + (d ~ z)", df)
+    assert list(fit.params.index) == [
+        "Intercept",
+        "x",
+        "d",
+        "rho",
+        "sigma2_y",
+        "sigma2_d",
+        "fs:Intercept",
+        "fs:x",
+        "fs:z",
+    ]
+    for k in ("Intercept", "x", "d"):
+        se = float(tsls.std_errors[k])
+        assert abs(fit.params[k] - float(tsls.params[k])) < 0.25 * se, k
+        # the joint posterior has the 2SLS spread, not the smaller spread
+        # of a control function with first-stage residuals taken as data
+        assert fit.std_errors[k] == pytest.approx(se, rel=0.12), k
+    ci = fit.conf_int()
+    assert ci.loc["d", "lower"] < 0.5 < ci.loc["d", "upper"]
+    assert ci.loc["rho", "lower"] < 0.9 < ci.loc["rho", "upper"]
+    assert fit.prob("rho > 0") == 1.0  # OLS would be biased upward
+    ols = sp.regress("y ~ x + d", df)
+    assert float(ols.params["d"]) > ci.loc["d", "upper"]
+    assert fit.model_info["first_stage_F"] > 100
+    assert fit.model_info["tsls"]["d"] == pytest.approx(
+        float(tsls.params["d"]), rel=1e-8
+    )
+    assert fit.cite() == "rossi2005bayesian"
+    assert fit.predict(df.head(3)).shape == (3,)
+    assert set(fit.diagnostics()) == {"geweke", "heidel", "raftery"}
+    with pytest.raises(sp.MethodIncompatibility, match="marginal likelihood"):
+        fit.log_marginal_likelihood()
+
+
+def test_bayes_ivreg_exogenous_regressor_and_weak_instrument():
+    exo = _iv_data(600, pi=1.0, corr=0.0, seed=3)
+    fit = sp.bayes_ivreg("y ~ x + (d ~ z)", exo, draws=3000, burnin=500, seed=1)
+    ci = fit.conf_int()
+    assert ci.loc["rho", "lower"] < 0 < ci.loc["rho", "upper"]
+    weak = _iv_data(300, pi=0.05, corr=0.8, seed=5)
+    with pytest.warns(sp.exceptions.AssumptionWarning, match="Weak instruments"):
+        w = sp.bayes_ivreg("y ~ x + (d ~ z)", weak, draws=3000, burnin=500, seed=1)
+    assert w.model_info["first_stage_F"] < 10
+    assert w.std_errors["d"] > 5 * fit.std_errors["d"]
+
+
+def test_bayes_ivreg_refusals():
+    df = _iv_data(200, pi=1.0, corr=0.5, seed=1)
+    with pytest.raises(sp.MethodIncompatibility, match="exactly one"):
+        sp.bayes_ivreg("y ~ x + d", df)
+    with pytest.raises(sp.MethodIncompatibility, match="one endogenous"):
+        sp.bayes_ivreg("y ~ (d + x ~ z)", df)
+    with pytest.raises(sp.MethodIncompatibility, match="No excluded instrument"):
+        sp.bayes_ivreg("y ~ x + (d ~ x)", df)
+    with pytest.raises(sp.MethodIncompatibility, match="collinear"):
+        sp.bayes_ivreg("y ~ x + (d ~ z + z2)", df.assign(z2=2 * df["z"]))
+    with pytest.raises(sp.MethodIncompatibility, match="sigma_prior"):
+        sp.bayes_ivreg("y ~ (d ~ z)", df, sigma_prior=(0.5, 1.0))
+
+
 def test_everything_is_registered():
     names = set(sp.list_functions())
     for fn in (
         "bayes_regress",
         "bayes_mixed",
+        "bayes_ivreg",
         "bma",
         "bayes_factor",
         "savage_dickey",

@@ -259,3 +259,33 @@ def test_bayes_iv_first_stage_prior_is_used():
     tight = bayes_iv(df, prior_first_stage_sigma=0.01, **kw)
     # a first stage shrunk to zero leaves the effect unidentified
     assert tight.posterior_sd > 3 * loose.posterior_sd
+
+
+def test_bayes_iv_agrees_with_the_numpy_gibbs_sampler():
+    """Two samplers, two parameterisations of the error covariance, one
+    model: ``sp.bayes_iv`` (PyMC) and ``sp.bayes_ivreg`` (Gibbs, verified
+    against an exact posterior in ``tests/reference_parity``)."""
+    rng = np.random.default_rng(21)
+    n = 500
+    z = rng.normal(size=n)
+    v = rng.normal(size=n)
+    d = 0.8 * z + v
+    df = pd.DataFrame(
+        {"y": 1 + 0.5 * d + 0.7 * v + 0.7 * rng.normal(size=n), "d": d, "z": z}
+    )
+    pm_fit = bayes_iv(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        draws=1500,
+        tune=1000,
+        chains=2,
+        random_state=2,
+    )
+    gibbs = sp.bayes_ivreg("y ~ (d ~ z)", df, draws=8000, burnin=1000, seed=2)
+    sd = float(gibbs.std_errors["d"])
+    assert pm_fit.posterior_mean == pytest.approx(
+        float(gibbs.params["d"]), abs=0.2 * sd
+    )
+    assert pm_fit.posterior_sd == pytest.approx(sd, rel=0.12)

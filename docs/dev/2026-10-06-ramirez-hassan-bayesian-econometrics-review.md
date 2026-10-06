@@ -96,6 +96,7 @@ and documents the plug-in alternative; it was not changed.
 | --- | --- | --- |
 | `sp.bayes_regress` | ten likelihoods, normal prior, Gibbs / data augmentation / random-walk Metropolis | exact posterior on a grid, all ten |
 | `sp.bayes_mixed` | random intercepts and slopes; normal, logit, Poisson | exact posterior (analytic and Gauss-Hermite) |
+| `sp.bayes_ivreg` | one endogenous regressor, Gibbs for the joint normal model | exact posterior with the covariance integrated out; agrees with the PyMC `sp.bayes_iv` |
 | `sp.bma` | BIC with Occam's window; g-prior by enumeration or MC3 | `BMA`, `BMS` at 1e-9; brute force over 512 models |
 | `sp.bayes_factor`, `sp.savage_dickey` | model comparison | exact identities under the conjugate prior |
 | `sp.bayes_bootstrap` | Rubin's bootstrap | Rubin's variance of a mean |
@@ -115,10 +116,16 @@ Design choices worth recording.
   the coefficients for which the default prior matters.
 - Every fit computes the effective sample size and the split
   Gelman-Rubin factor and warns when they are poor.
-- The identity default for the scale of the random-effects prior is the
-  book's and MCMCpack's. It is kept, with the prior-share warning, because
-  a data-dependent default would make the prior a function of the
-  outcome. The warning names the scale the data suggest.
+- The scale of the random-effects prior. The book and MCMCpack use an
+  identity scale, which is informative whenever the effects are not near
+  one in variance. A data-dependent default would make the prior a
+  function of the outcome. The default chosen is neither:
+  `InvWishart(q + 1, 0.02 I)`, which adds 0.02 to each sum of squares in
+  the full conditional and is therefore weak on every scale except tiny
+  effects with few groups, where the prior-share warning fires. On the
+  book's panel it reproduces `lme4`. `sp.bayes_ivreg` uses the same idea
+  for the 2 x 2 error covariance, where `bayesm::rivGibbs` has an identity
+  scale.
 - The hierarchical logit and Poisson samplers add one Gibbs step that
   shifts a fixed effect and the matching random effects in opposite
   directions. The likelihood does not change under that shift and its
@@ -228,9 +235,8 @@ here gives the same number.
 
 ## Open items
 
-- Multinomial probit and logit, multivariate probit, SUR and IV by Gibbs
-  (chapter 7). An IV sampler in NumPy would give `sp.bayes_iv` a path
-  that does not need PyMC.
+- Multinomial probit and logit, multivariate probit, SUR by Gibbs
+  (chapter 7). `sp.bayes_ivreg` handles one endogenous regressor.
 - State-space models, stochastic volatility (chapter 8). `sp.arima` and
   `sp.garch` are the frequentist counterparts; there is no Kalman
   filter / FFBS entry point.
@@ -241,11 +247,26 @@ here gives the same number.
 - Chapter 13's Bayesian exponentially tilted empirical likelihood, general
   Bayes posteriors and doubly robust Bayesian inference have no
   counterpart.
-- `sp.bayes_mte(first_stage='plug-in')` has the same structure as the old
-  `bayes_iv`. It is documented as a choice, with `'joint'` available. Its
-  default deserves a coverage study of its own.
-- The other PyMC estimators (`bayes_did`, `bayes_rd`, `bayes_its`,
-  `bayes_synth`, `bayes_dml`) were not put through a coverage simulation.
+- **`sp.bayes_mte`'s default parameterisation.** A screen in a
+  Heckman-Vytlacil normal design (1,000 observations, 12 samples, true
+  ATE 1.0, `Cov(U_0, V) = 0.5`, `Cov(U_1, V) = -0.3`): the plug-in and the
+  joint first stage give the same posterior to two digits, so the first
+  stage is not the issue here. The default `mte_method='polynomial'` is:
+  it models `Y = alpha + D g(p)`, which has no selection term for the
+  untreated outcome. Its ATE averaged 0.89 (linear) and 0.90 (quadratic),
+  with coverage of 7 and 9 out of 12. `mte_method='bivariate_normal'`
+  averaged 0.99 with a posterior sd of 0.108 against a sampling sd of
+  0.106 and covered in 11. The docstring claimed the polynomial equals
+  the MTE in this design; it now states the condition (`Cov(U_0, V) = 0`)
+  and the numbers. Whether the default should become
+  `'bivariate_normal'`, or the polynomial model should be rebuilt as a
+  local IV regression of `Y` on a polynomial in `p`, is a design decision
+  that deserves its own pass.
+- Known-truth screens of the other PyMC estimators, 40 samples each, found
+  nothing: `sp.bayes_rd` (posterior sd 0.993 of the least squares standard
+  error, coverage 37/40), `sp.bayes_its` (1.014, 39/40), `sp.bayes_did`
+  (posterior sd 0.107 against the analytic 0.105, 36/40). `sp.bayes_synth`
+  and `sp.bayes_dml` were not screened.
 - No marginal likelihood for hierarchical models; `sp.bayes_regress` has
   no `weights=` or offset; `sp.stata` does not translate the `bayes:`
   prefix (Stata's default priors differ, so a translation would have to

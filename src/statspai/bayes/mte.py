@@ -154,18 +154,28 @@ def bayes_mte(
           the PyMC graph with Normal priors and ``D ~ Bernoulli(p)``;
           the propensity ``p_i`` is a Deterministic and the MTE
           polynomial sees it directly, so first-stage uncertainty
-          propagates into the MTE curve. 2-4× slower than plugin but
-          honest about uncertainty.
+          propagates into the MTE curve. 2-4× slower than plugin. With
+          a strong instrument the two give nearly the same posterior
+          (identical to two digits on 1,000 observations in a
+          simulation).
     mte_method : {'polynomial', 'hv_latent', 'bivariate_normal'}, default
         ``'polynomial'``
         MTE parameterisation.
 
         - ``'polynomial'`` : fit a polynomial in the propensity
-          ``p_i`` (v0.9.9 behaviour). Under Heckman-Vytlacil 2005
-          linear-separable + bivariate-normal errors this equals
-          ``MTE(p)``; under arbitrary heterogeneity it is
-          ``LATE-at-propensity g(p)``, NOT the textbook
-          ``MTE(u) = E[Y_1 - Y_0 | U_D = u]``.
+          ``p_i`` (v0.9.9 behaviour), ``Y = alpha + D * g(p) + ...``.
+          The untreated mean does not depend on ``p`` in this model, so
+          ``g`` is the MTE only when the untreated outcome is not
+          selected on (``Cov(U_0, V) = 0``). When it is, ``g`` and the
+          integrated ATE are biased: in a Heckman-Vytlacil normal design
+          with ``Cov(U_0, V) = 0.5``, ``Cov(U_1, V) = -0.3`` and a true
+          ATE of 1.0 the posterior mean averaged 0.89 over 12 samples of
+          1,000 and the 95% interval covered 1.0 in 7 to 9 of them, while
+          ``'bivariate_normal'`` averaged 0.99 and covered in 11. Under
+          arbitrary heterogeneity it is ``LATE-at-propensity g(p)``, NOT
+          the textbook ``MTE(u) = E[Y_1 - Y_0 | U_D = u]``. Prefer
+          ``'bivariate_normal'`` when a normal selection model is
+          acceptable.
         - ``'hv_latent'`` : sample a latent ``U_D_i`` per unit from
           the HV-correct truncated uniform (via ``raw_U_i ~ U(0,1)``
           and a deterministic reparameterisation), then evaluate

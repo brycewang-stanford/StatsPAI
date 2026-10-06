@@ -67,6 +67,7 @@ _CITATIONS = {
     "poisson": ("metropolis1953equation", "hastings1970monte"),
     "negbin": ("metropolis1953equation", "hastings1970monte"),
     "bayes_bootstrap": ("rubin1981bayesian",),
+    "iv": ("rossi2005bayesian",),
 }
 
 
@@ -517,6 +518,11 @@ class BayesRegressResult(ResultProtocolMixin):
             raise MethodIncompatibility(
                 "The Bayesian bootstrap has no parametric likelihood and "
                 "therefore no marginal likelihood."
+            )
+        if not hasattr(mdl, "log_kernel") and self.model != "conjugate":
+            raise MethodIncompatibility(
+                f"A marginal likelihood is not implemented for model="
+                f"'{self.model}'."
             )
         if method is None:
             if self.model == "conjugate":

@@ -21,6 +21,7 @@ from .diagnostics import (
     mcmc_summary,
     raftery_diag,
 )
+from .iv import bayes_ivreg
 from .mixed import BayesMixedResult, bayes_mixed
 from .regress import BayesRegressResult, bayes_regress
 
@@ -32,6 +33,7 @@ __all__ = [
     "BMAResult",
     "bayes_bootstrap",
     "bayes_factor",
+    "bayes_ivreg",
     "bayes_mixed",
     "bayes_regress",
     "bma",

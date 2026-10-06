@@ -198,8 +198,8 @@ def test_hierarchical_model_public_capital(R):
     48 states and a state-effect variance of 0.106 no estimator can know
     the intercept better than ``sqrt(0.106 / 48) = 0.047``. Its draws of
     the fixed effects have the spread of the conditional distribution
-    given the state effects. Ours has the marginal spread, and with a prior
-    on the right scale it agrees with ``lme4::lmer``.
+    given the state effects. Ours has the marginal spread, and with its
+    default prior it agrees with ``lme4::lmer``.
     """
     d = pd.read_csv(Path(ROOT) / "8PublicCap.csv")
     for c in ("gsp", "pcap", "pc", "emp"):
@@ -231,13 +231,12 @@ def test_hierarchical_model_public_capital(R):
     assert r_sd["beta.(Intercept)"] < 0.25 * floor
     assert book.std_errors["Intercept"] > floor
 
-    # 2. a prior on the scale of the state effects, against lme4
+    # 2. the default prior of sp.bayes_mixed, against lme4
     lmer = R["hier_lmer"]
     with warnings.catch_warnings():
         warnings.simplefilter("error", sp.exceptions.StatsPAIWarning)
         fit = sp.bayes_mixed(
-            formula, d, group="id", prior_var=1e6, re_prior=(3.0, 0.01),
-            draws=20000, burnin=3000, seed=7,
+            formula, d, group="id", prior_var=1e6, draws=20000, burnin=3000, seed=7
         )
     assert fit.model_info["re_prior_share"]["Intercept"] < 0.15
     est = np.array(lmer["est"])
