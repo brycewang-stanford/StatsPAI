@@ -2689,3 +2689,21 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-07 — call traces re-recorded after `sp.dlm`
+
+- **Commits.** `5399c1da` re-recorded the entries of Track A modules 03 13 15 24 25 26 27 53 65 66
+  in `tests/r_parity/results/_implementation_trace.json` and all 12 modules
+  of `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `ea557463`: `src/statspai/__init__.py` (two new
+  exports, `dlm` and `DLMResult`).
+- **Reason.** Third round of the audit in
+  `docs/dev/2026-10-06-ramirez-hassan-bayesian-econometrics-review.md`.
+  No estimator on a Track A or original-data path changed.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves to 1,435
+  registered functions across 89 submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
