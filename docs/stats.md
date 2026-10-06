@@ -41,7 +41,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | ------------------- | -----: | ----: | ----------------------------: |
 | `did` | 53,238 | 70 | 97 |
 | `agent` | 40,703 | 68 | 4 |
-| `regression` | 31,061 | 41 | 59 |
+| `regression` | 31,126 | 41 | 59 |
 | `synth` | 30,394 | 40 | 56 |
 | `rd` | 23,110 | 34 | 56 |
 | `timeseries` | 17,664 | 33 | 58 |
@@ -50,7 +50,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `inference` | 15,083 | 30 | 55 |
 | `output` | 14,193 | 22 | 42 |
 | `matching` | 12,612 | 18 | 29 |
-| `core` | 12,205 | 20 | 6 |
+| `core` | 12,282 | 20 | 6 |
 | `panel` | 12,141 | 20 | 23 |
 | `diagnostics` | 11,065 | 20 | 33 |
 | `decomposition` | 9,912 | 19 | 32 |
@@ -128,7 +128,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **582,554** | **986** | **1429** |
+| **Total** | **582,696** | **986** | **1429** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.
