@@ -194,7 +194,12 @@ def _parse_smooth(term: str, default_k: int) -> Dict[str, Any]:
     assert inside is not None
     head = inside.group(1)
     parts = [p.strip() for p in inside.group(2).split(",")]
-    names = [p for p in parts if "=" not in p]
+    from ..core.utils import unquote_name
+
+    raw_names = [p for p in parts if "=" not in p]
+    # a quoted name, Q("x 1") or `x 1`, names that column
+    names = [unquote_name(p) for p in raw_names]
+    quoted = {n for n, r in zip(names, raw_names) if n != r}
     spec: Dict[str, Any] = {
         "kind": "ps",
         "k": None,
@@ -232,7 +237,7 @@ def _parse_smooth(term: str, default_k: int) -> Dict[str, Any]:
                 "takes its variable(s) and, optionally, k=, by= and bs=.",
             )
     for nm in names:
-        if not re.fullmatch(r"[A-Za-z_]\w*", nm):
+        if nm not in quoted and not re.fullmatch(r"[A-Za-z_]\w*", nm):
             raise MethodIncompatibility(
                 f"gam: {term} must name columns; smooths of expressions are "
                 "not implemented.",

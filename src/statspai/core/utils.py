@@ -31,7 +31,7 @@ _R_FACTOR_CALL = re.compile(r"(?<![\w.])(?:as\.)?factor\(")
 def r_formula_idioms(formula: str) -> str:
     """Read a formula written the way R writes it.
 
-    Two spellings are translated before the formula reaches the parser:
+    Three spellings are translated before the formula reaches the parser:
 
     * ``factor(x)`` and ``as.factor(x)`` become ``C(x)``. They are how R
       marks a categorical term; the coefficient labels are the house ones
@@ -39,10 +39,84 @@ def r_formula_idioms(formula: str) -> str:
       builders read them without knowing where the formula came from.
     * ``^`` inside ``I(...)`` becomes ``**``, see
       :func:`_caret_as_power_in_identity`.
+    * a name in backticks becomes ``Q("name")``, see
+      :func:`backticks_to_q`.
     """
+    if "`" in formula:
+        formula = backticks_to_q(formula)
     if "factor(" in formula:
         formula = _R_FACTOR_CALL.sub("C(", formula)
     return _caret_as_power_in_identity(formula)
+
+
+_Q_NAME = re.compile(r"""^Q\(\s*(["'])(.*)\1\s*\)$""")
+
+
+def unquote_name(term: str) -> str:
+    """The column a quoted term names: ``Q("my col")`` or `` `my col` ``.
+
+    Anything else is returned unchanged. For the parsers that read column
+    names only (fixed effects, the variable of a smooth).
+    """
+    term = term.strip()
+    if len(term) >= 2 and term[0] == term[-1] == "`":
+        return term[1:-1]
+    match = _Q_NAME.match(term)
+    if match and match.group(1) not in match.group(2).replace(
+        "\\" + match.group(1), ""
+    ):
+        return (
+            match.group(2)
+            .replace("\\" + match.group(1), match.group(1))
+            .replace("\\\\", "\\")
+        )
+    return term
+
+
+def backticks_to_q(formula: str) -> str:
+    """Rewrite R's backtick-quoted names as ``Q("name")``.
+
+    R writes a column whose name is not an identifier between backticks,
+    as in a formula with the terms In-game Purchases and Side-quest
+    Engagement. The parser reads the same thing as
+    ``Q("In-game Purchases")``, so the backticks are translated and
+    everything downstream (term names, ``sp.test``, tables) sees the one
+    spelling. Backticks inside a quoted string are left alone.
+    """
+    out: List[str] = []
+    i, n = 0, len(formula)
+    quote = ""
+    while i < n:
+        ch = formula[i]
+        if quote:
+            out.append(ch)
+            if ch == quote:
+                quote = ""
+            i += 1
+        elif ch in "\"'":
+            quote = ch
+            out.append(ch)
+            i += 1
+        elif ch == "`":
+            end = formula.find("`", i + 1)
+            if end == -1:
+                from ..exceptions import MethodIncompatibility
+
+                raise MethodIncompatibility(
+                    f"Formula {formula!r} has an unmatched backtick.",
+                    recovery_hint=(
+                        "Quote a column name on both sides: `my column`, "
+                        'or write Q("my column").'
+                    ),
+                    diagnostics={"formula": formula},
+                )
+            name = formula[i + 1 : end].replace("\\", "\\\\").replace('"', '\\"')
+            out.append(f'Q("{name}")')
+            i = end + 1
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
 
 
 def _caret_as_power_in_identity(formula: str) -> str:
@@ -297,10 +371,13 @@ def parse_formula(formula: str) -> Dict[str, Any]:
         "has_constant": True,
     }
 
+    if "`" in formula:
+        formula = backticks_to_q(formula)
+
     # Split by | for fixed effects
     if "|" in formula:
         main_formula, fe_part = formula.split("|", 1)
-        result["fixed_effects"] = [var.strip() for var in fe_part.split("+")]
+        result["fixed_effects"] = [unquote_name(var) for var in fe_part.split("+")]
     else:
         main_formula = formula
 

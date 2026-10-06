@@ -4,6 +4,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Column names that are not identifiers
+
+- **Backticks in formulas.** `` sp.regress("`In-game Purchases` ~ `Side-quest
+  Engagement`", data=df) `` is how R writes a column whose name has a
+  space or a hyphen. It failed in every formula entry point except
+  `sp.feols`, with "Variable(s) not found: ['quest']". Backticks are now
+  read as `Q("...")` in the one place every formula passes through, so
+  `sp.regress`, `sp.iv`, `sp.ivreg`, `sp.logit`, `sp.probit`, `sp.glm`,
+  `sp.poisson`, `sp.nbreg`, `sp.ppmlhdfe`, `sp.qreg`, `sp.tobit` and
+  `sp.gam` take them, and terms are reported as `Q("name")` either way.
+- ⚠️ **`sp.iv` / `sp.ivreg` misread a hyphen inside a quoted name.** The
+  rewrite of `- 1` (drop the intercept) was applied to the whole string,
+  so `Q("x-1")` became `Q("x+ -1")` and the call failed. It now applies
+  outside quotes only.
+- `sp.ppmlhdfe` accepts a quoted fixed effect (`| Q("firm id")`), `sp.gam`
+  a quoted smooth variable (`s(Q("x 1"))`), and the count models a quoted
+  outcome.
+- A missing quoted column is reported by its whole name.
 ### The rest of the Das list: mediation, FCI, hill climbing, forest tuning
 
 #### ⚠️ Correctness

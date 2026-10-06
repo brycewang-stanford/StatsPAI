@@ -271,10 +271,14 @@ in the test.
 2. **Verma constraints.** The second chapter 4 notebook tests a functional
    constraint in a graph with a latent variable. Nothing in StatsPAI
    derives such constraints.
-3. **Formula terms in backticks.** `` `In-game Purchases` `` is the R
-   spelling of a non-syntactic name. `Q("...")` works; backticks give
-   "Variable(s) not found: ['quest']". Formula parsing lives in eight
-   modules, so this needs one shared tokenizer first.
+3. **Formula terms in backticks: done in a third round.** Backticks are
+   translated to `Q("...")` in `core.utils.r_formula_idioms`, which every
+   patsy-based entry point already calls, and the four parsers that read
+   names on their own (IV, count models, `ppmlhdfe` fixed effects, `gam`
+   smooths) accept the quoted form. The same probe found that `sp.iv`
+   turned `Q("x-1")` into `Q("x+ -1")`. Thirteen entry points are pinned
+   in `tests/test_formula_backticks.py`, each against the same fit on
+   renamed columns.
 4. **`sp.sensemakr` returns a dict**, not a result object with
    `.summary()`.
 5. **FCI on harder graphs.** Three designs agree with pcalg mark for mark.

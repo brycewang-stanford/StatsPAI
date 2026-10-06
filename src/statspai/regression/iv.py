@@ -30,6 +30,7 @@ References
 
 import re
 import warnings
+import zlib
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -2543,6 +2544,15 @@ def _safe_term_name(name: str) -> str:
     """A design-matrix column name that the formula parser can read back:
     ``C(g)[T.2]`` -> ``g[2]``, ``C(g)[T.2]:x`` -> ``g[2]:x``,
     ``I(x ** 2)`` -> ``I[x ** 2]``."""
+    # A quoted column name can hold any character, an operator included; it
+    # is replaced whole by a word the parser reads as one name.
+    name = re.sub(
+        r"""Q\(\s*(["'])(.*?)\1\s*\)""",
+        lambda m: "Q_"
+        + re.sub(r"\W", "_", m.group(2))
+        + f"_{zlib.crc32(m.group(2).encode('utf-8')) % 10**6}",
+        name,
+    )
     name = re.sub(r"C\(([^(),]+)(?:,[^\[\]]*)?\)\[T\.([^\]]+)\]", r"\1[\2]", name)
     name = re.sub(r"C\(([^(),]+)(?:,[^\[\]]*)?\)\[([^\]]+)\]", r"\1[\2]", name)
     return (
@@ -2551,6 +2561,29 @@ def _safe_term_name(name: str) -> str:
 
 
 _IV_BRACKET_BLOCK = re.compile(r"\[([^\[\]]*~[^\[\]]*)\]")
+
+
+def _minus_one_as_term(text: str) -> str:
+    """Read ``- 1`` / ``- 0`` as terms of their own, outside quoted names.
+
+    Applied to the whole string, the rewrite also hit a hyphen inside a
+    quoted column name: ``Q("x-1")`` became ``Q("x+ -1")``.
+    """
+    pieces = re.split(r"(\"[^\"]*\"|'[^']*')", text)
+    out = []
+    offset = 0
+    for k, piece in enumerate(pieces):
+        if k % 2:
+            out.append(piece)
+        else:
+            pattern = (
+                r"\s*-\s*(?=[01](?:\b|$))"
+                if offset
+                else r"(?<!^)\s*-\s*(?=[01](?:\b|$))"
+            )
+            out.append(re.sub(pattern, "+ -", piece))
+        offset += len(piece)
+    return "".join(out)
 
 
 def _two_part_to_block_formula(formula: Any) -> Any:
@@ -2574,7 +2607,7 @@ def _two_part_to_block_formula(formula: Any) -> Any:
         return formula
 
     def _terms(text: str) -> List[str]:
-        text = re.sub(r"(?<!^)\s*-\s*(?=[01](?:\b|$))", "+ -", text.strip())
+        text = _minus_one_as_term(text.strip())
         return [re.sub(r"\s+", " ", t) for t in _top_level_terms(text)]
 
     regs, insts = _terms(rhs), _terms(right)
@@ -2634,13 +2667,17 @@ def _materialise_formula_terms(
     """
     # ``y ~ 1 + [endog ~ z] + exog`` is the linearmodels spelling of the
     # same model; read the bracketed block as the parenthesised one.
+    if "`" in formula:
+        from ..core.utils import backticks_to_q
+
+        formula = backticks_to_q(formula)
     formula = _IV_BRACKET_BLOCK.sub(r"(\1)", formula)
     formula = _two_part_to_block_formula(formula)
     if "|" in formula or "~" not in formula:
         return formula, data
     dep, rhs = formula.split("~", 1)
     # "- 1" / "- 0" drop the intercept; read them as terms of their own
-    rhs = re.sub(r"(?<!^)\s*-\s*(?=[01](?:\b|$))", "+ -", rhs)
+    rhs = _minus_one_as_term(rhs)
     # the parenthesised (endog ~ instruments) block
     depth, lo, hi = 0, -1, -1
     for i, ch in enumerate(rhs):

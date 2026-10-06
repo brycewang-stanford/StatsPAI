@@ -1899,7 +1899,17 @@ def regress(
     if "~" in formula:
         import re
 
-        lhs, rhs = formula.split("~", 1)
+        from ..core.utils import backticks_to_q
+
+        # `a b` is Q("a b"); the names inside are checked on their own, so
+        # that a missing one is reported whole and not as one of its words.
+        checked = backticks_to_q(formula) if "`" in formula else formula
+        quoted_names = [
+            m.group(2) for m in re.finditer(r"""Q\(\s*(["'])(.*?)\1\s*\)""", checked)
+        ]
+        missing_quoted = [v for v in quoted_names if v not in data.columns]
+        lhs, rhs = checked.split("~", 1)
+        lhs = re.sub(r"""Q\(\s*(["'])(.*?)\1\s*\)""", "", lhs)
         # Strip function calls: C(...), I(...), np.log(...), bs(...), etc.
         rhs_stripped = re.sub(r"[A-Za-z_][\w.]*\s*\([^)]*\)", "", rhs)
         # Split on operators
@@ -1914,9 +1924,9 @@ def regress(
         all_vars = (
             [dep_check] if re.match(r"^[A-Za-z_]\w*$", dep_check) else []
         ) + bare_vars
-        missing = [v for v in all_vars if v not in data.columns]
+        missing = missing_quoted + [v for v in all_vars if v not in data.columns]
         if missing:
-            available = ", ".join(sorted(data.columns)[:10])
+            available = ", ".join(sorted(map(str, data.columns))[:10])
             raise ValueError(
                 f"Variable(s) not found in data: {missing}. "
                 f"Available columns: {available}"

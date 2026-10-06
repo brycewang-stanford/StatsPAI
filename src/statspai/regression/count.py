@@ -214,12 +214,18 @@ def _parse_formula_or_xy(
     """Parse formula/data or y/x into arrays + variable names."""
     if formula is not None and data is not None:
         data = _require_count_dataframe(data, "count regression")
+        if "`" in formula:
+            from ..core.utils import backticks_to_q
+
+            formula = backticks_to_q(formula)
         parsed = parse_formula(formula)
         dep_var = parsed["dependent"]
         indep_vars = parsed["exogenous"]
         fe_vars = parsed.get("fixed_effects", [])
         has_constant = parsed["has_constant"]
-        if _needs_patsy(formula) and dep_var in data.columns:
+        from ..core.utils import unquote_name
+
+        if _needs_patsy(formula) and unquote_name(dep_var) in data.columns:
             return _patsy_count_design(formula, data, add_constant, fe_vars)
         _require_columns(data, [dep_var, *indep_vars], "formula")
         data = _complete_cases(data, [dep_var, *indep_vars])
@@ -2434,7 +2440,14 @@ def _ppml_front_end(
         formula = head.strip()
         if absorb is None and fe_part.strip():
             absorb = fe_part.strip()
-    fe_terms = [t.strip() for t in absorb.split("+") if t.strip()] if absorb else []
+    from ..core.utils import backticks_to_q, unquote_name
+
+    if formula is not None and "`" in formula:
+        formula = backticks_to_q(formula)
+    # A fixed effect is a column name; a quoted one names the column.
+    fe_terms = (
+        [unquote_name(t) for t in absorb.split("+") if t.strip()] if absorb else []
+    )
     data, fe_names = resolve_group_terms(data, fe_terms)
     absorb = " + ".join(fe_names) if fe_names else None
     if isinstance(cluster, str):

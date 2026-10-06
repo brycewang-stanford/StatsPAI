@@ -164,6 +164,9 @@ rec = g.recommend_estimator("Side-quest Engagement", "In-game Purchases")
 print(rec.summary())
 ```
 
+Column names with spaces or hyphens go in backticks or `Q("...")`:
+``sp.regress("`In-game Purchases` ~ `Side-quest Engagement`", data=df)``.
+
 The recommendation is the backdoor adjustment, and the alternatives list
 the front door through `Won Items` and the instrument, each with a call
 that runs. The strategies rest on different assumptions, so agreement among
