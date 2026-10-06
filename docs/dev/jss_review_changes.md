@@ -2344,3 +2344,27 @@ only the recorded source hashes move.
   `seconds` differ. The registry census stays at 1,413 registered functions.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after `sp.abnormal_returns` and the `sp.feols` covariance adjustment
+
+- **Commits.** `ed111e56` re-recorded the entries of Track A modules
+  03 13 15 24 25 26 27 53 65 66 67 in
+  `tests/r_parity/results/_implementation_trace.json` and of 1 module(s) of
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `8abcf7f1`: `src/statspai/fixest/wrapper.py`
+  (`sp.feols` sets the negative eigenvalues of a multiway clustered
+  covariance to zero, as R's fixest does) and `src/statspai/__init__.py`
+  (two new exports: `abnormal_returns`, `AbnormalReturnsResult`).
+- **Reason.** Second round of the audit in
+  `docs/dev/2026-10-06-gow-ding-accounting-review.md`. The adjustment
+  acts only on a multiway covariance that is not positive semi-definite,
+  which no Track A module has: `python
+  tests/r_parity/verify_reproduce_py.py --no-report` on the 11 modules
+  reported 11 reproduce, 0 drift.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves to 1,415
+  registered functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
