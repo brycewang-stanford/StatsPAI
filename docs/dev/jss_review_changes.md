@@ -2865,3 +2865,18 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call trace of module 39 re-recorded after a third start in sp.arima
+
+- **Commits.** `3f9e2723` changed `src/statspai/timeseries/arima.py` (a
+  final fit also searches from zero ARMA coefficients) and re-recorded the
+  entry of Track A module 39 in
+  `tests/r_parity/results/_implementation_trace.json`.
+- **Reason.** An ARMA(5,2) on the data of Neusser's section 5.6 stopped
+  3.1 log-likelihood points below R's `arima`
+  (`docs/dev/2026-10-06-neusser-time-series-econometrics-review.md`).
+- **Effect on the paper.** None. Module 39 was already at its maximum and
+  reproduces its committed result byte for byte; in the trace file only
+  the `exercised_sources` digest of `arima.py` and `seconds` differ.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
