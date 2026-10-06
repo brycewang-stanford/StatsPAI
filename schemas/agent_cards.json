@@ -17186,6 +17186,224 @@
   {
     "alias_of": null,
     "alternatives": [
+      "event_study",
+      "fama_macbeth",
+      "regress"
+    ],
+    "assumptions": [
+      "The event date is known and the event was not anticipated before the event window",
+      "The model of normal returns fitted before the event still holds in the event window",
+      "No other event moves the same securities in the window",
+      "Unadjusted tests: abnormal returns independent across events (no clustering of event dates)"
+    ],
+    "category": "timeseries",
+    "cost_profile": "",
+    "description": "Event study on security returns: abnormal returns around each event from a market, market-adjusted, mean-adjusted or factor model fitted on a pre-event estimation window, cumulative abnormal returns with forecast-error standard errors, and tests of their mean (cross-sectional t, Patell, BMP, and the Kolari-Pynnonen adjustments for cross-correlation). Stata estudy. Not the event-study plot of a DiD design, which is sp.event_study. Validation: certified parity evidence. Do NOT use when: Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods; A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner; A policy evaluation with treated and control units over time: that is sp.did / sp.event_study.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Stata 18 estudy (Pacicco, Vena and Venegoni): abnormal returns and CARs of four models; Patell, BMP and Kolari-Pynnonen statistics",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_event_study_returns_parity.py",
+        "tests/reference_parity/_fixtures/event_study_returns_Stata.csv"
+      ],
+      "tolerance": "abnormal returns and CARs 5e-6 rel (estudy works in single precision); test statistics 1e-9 rel given the same standardised CARs, 5e-5 end to end for two models"
+    },
+    "example": "sp.abnormal_returns(returns, events, market=\"mkt\", event_window=(-1, 1))",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "End the estimation window before the event window.",
+        "symptom": "Estimation and event windows overlap"
+      },
+      {
+        "alternative": "",
+        "exception": "UserWarning",
+        "remedy": "They are left out and listed in result.skipped.",
+        "symptom": "Events with too few estimation returns or a window outside the series"
+      },
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "Read adj_patell / kp, which correct for the average cross-correlation, not patell / bmp.",
+        "symptom": "Event dates cluster in calendar time"
+      },
+      {
+        "alternative": "",
+        "exception": "",
+        "remedy": "Patell over-rejects; read bmp or the cross-sectional test.",
+        "symptom": "The event changes the variance of returns"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "abnormal_returns",
+    "not_recommended_when": [
+      "Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods",
+      "A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner",
+      "A policy evaluation with treated and control units over time: that is sp.did / sp.event_study"
+    ],
+    "pre_conditions": [
+      "Daily (or periodic) returns per security in long format",
+      "An estimation window that ends before the event window",
+      "At least two usable events"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "brown1985using",
+    "returns": {
+      "class": "AbnormalReturnsResult",
+      "description": "AbnormalReturnsResult",
+      "fields": {
+        "aar": "pd.DataFrame",
+        "alpha": "float",
+        "ar": "pd.DataFrame",
+        "correlation": "str",
+        "estimation_window": "Tuple[int, int]",
+        "event_window": "Tuple[int, int]",
+        "events": "pd.DataFrame",
+        "mean_correlation": "float",
+        "model": "str",
+        "skipped": "List[Dict[str, Any]]",
+        "tests": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Event study on security returns: abnormal returns around each event from a market, market-adjusted, mean-adjusted or factor model fitted on a pre-event estimation window, cumulative abnormal returns with forecast-error standard errors, and tests of their mean (cross-sectional t, Patell, BMP, and the Kolari-Pynnonen adjustments for cross-correlation). Stata estudy. Not the event-study plot of a DiD design, which is sp.event_study. Validation: certified parity evidence. Do NOT use when: Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods; A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner; A policy evaluation with treated and control units over time: that is sp.did / sp.event_study.",
+      "name": "abnormal_returns",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "correlation": {
+            "default": "calendar",
+            "description": "Pairing of residuals for the cross-correlation adjustment; 'event' is estudy's",
+            "enum": [
+              "calendar",
+              "event"
+            ],
+            "type": "string"
+          },
+          "data": {
+            "description": "Returns, long: security, date, return, market / factors",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "date": {
+            "default": "date",
+            "description": "Trading date column of data",
+            "type": "string"
+          },
+          "estimation_window": {
+            "default": [
+              -250,
+              -11
+            ],
+            "description": "Relative trading days the model is fitted on",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "event_date": {
+            "default": "event_date",
+            "description": "Event date column of events",
+            "type": "string"
+          },
+          "event_window": {
+            "default": [
+              -1,
+              1
+            ],
+            "description": "First and last relative trading day",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "events": {
+            "description": "One row per event: security and event date",
+            "type": "string"
+          },
+          "factors": {
+            "description": "Factor return columns (model='factor')",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "default": "id",
+            "description": "Security column (in both frames)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "market": {
+            "description": "Market return column",
+            "type": "string"
+          },
+          "min_obs": {
+            "default": 30,
+            "description": "Minimum estimation-window returns per event",
+            "type": "integer"
+          },
+          "model": {
+            "default": "market",
+            "description": "Model of normal returns",
+            "enum": [
+              "market",
+              "market_adjusted",
+              "mean_adjusted",
+              "factor"
+            ],
+            "type": "string"
+          },
+          "ret": {
+            "default": "ret",
+            "description": "Return column of data",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "events"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 20,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 estudy (Pacicco, Vena and Venegoni): abnormal returns and CARs of four models; Patell, BMP and Kolari-Pynnonen statistics [Stata 18]; tolerance abnormal returns and CARs 5e-6 rel (estudy works in single precision); test statistics 1e-9 rel given the same standardised CARs, 5e-5 end to end for two models -- tests/reference_parity/test_event_study_returns_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "regress",
       "qreg",
       "winsor"

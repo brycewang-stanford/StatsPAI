@@ -73,6 +73,30 @@
       "also_verified_by": [
         "reference_parity"
       ],
+      "function": "abnormal_returns",
+      "notes": [
+        "Frozen-Stata fixture on committed synthetic returns. estudy's market-model standard deviation follows a different finite-sample rule, located and rebuilt in the test; its factor-model standard deviations and its group CAAR are not reproduced and not compared."
+      ],
+      "reference": "Stata 18 estudy (Pacicco, Vena and Venegoni): abnormal returns and CARs of four models; Patell, BMP and Kolari-Pynnonen statistics",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_event_study_returns_parity.py",
+        "tests/reference_parity/_fixtures/event_study_returns_Stata.csv"
+      ],
+      "tolerance": "abnormal returns and CARs 5e-6 rel (estudy works in single precision); test statistics 1e-9 rel given the same standardised CARs, 5e-5 end to end for two models"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "absorb_ols",
       "notes": [
         "Called directly on the committed Track A bytes (the modules go through sp.fast.feols / sp.hdfe_ols). Two-way clustering: cluster_df='min' reproduces reghdfe's G_min/(G_min-1) on every inclusion-exclusion term; the default per-term factor (sandwich::vcovCL) differs by 1.8e-4 / 1.2e-2 in variance here."

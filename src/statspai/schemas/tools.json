@@ -54,6 +54,106 @@
     "name": "a_learning"
   },
   {
+    "description": "Event study on security returns: abnormal returns around each event from a market, market-adjusted, mean-adjusted or factor model fitted on a pre-event estimation window, cumulative abnormal returns with forecast-error standard errors, and tests of their mean (cross-sectional t, Patell, BMP, and the Kolari-Pynnonen adjustments for cross-correlation). Stata estudy. Not the event-study plot of a DiD design, which is sp.event_study. Validation: certified parity evidence. Do NOT use when: Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods; A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner; A policy evaluation with treated and control units over time: that is sp.did / sp.event_study. Assumptions: The event date is known and the event was not anticipated before the event window; The model of normal returns fitted before the event still holds in the event window; No other event moves the same securities in the window. Pre-conditions: Daily (or periodic) returns per security in long format; An estima...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "correlation": {
+          "default": "calendar",
+          "description": "Pairing of residuals for the cross-correlation adjustment; 'event' is estudy's",
+          "enum": [
+            "calendar",
+            "event"
+          ],
+          "type": "string"
+        },
+        "date": {
+          "default": "date",
+          "description": "Trading date column of data",
+          "type": "string"
+        },
+        "estimation_window": {
+          "default": [
+            -250,
+            -11
+          ],
+          "description": "Relative trading days the model is fitted on",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "event_date": {
+          "default": "event_date",
+          "description": "Event date column of events",
+          "type": "string"
+        },
+        "event_window": {
+          "default": [
+            -1,
+            1
+          ],
+          "description": "First and last relative trading day",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "events": {
+          "description": "One row per event: security and event date",
+          "type": "string"
+        },
+        "factors": {
+          "description": "Factor return columns (model='factor')",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "default": "id",
+          "description": "Security column (in both frames)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "market": {
+          "description": "Market return column",
+          "type": "string"
+        },
+        "min_obs": {
+          "default": 30,
+          "description": "Minimum estimation-window returns per event",
+          "type": "integer"
+        },
+        "model": {
+          "default": "market",
+          "description": "Model of normal returns",
+          "enum": [
+            "market",
+            "market_adjusted",
+            "mean_adjusted",
+            "factor"
+          ],
+          "type": "string"
+        },
+        "ret": {
+          "default": "ret",
+          "description": "Return column of data",
+          "type": "string"
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "type": "object"
+    },
+    "name": "abnormal_returns"
+  },
+  {
     "description": "OLS with absorbed high-dimensional fixed effects (reghdfe-style). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference. Assumptions: Conditional mean independence: E[u|X] = 0; No perfect collinearity; For valid inference: homoskedastic errors (relax with robust='hc1'/'hc3'). Pre-conditions: A model formula (or equation list for systems) and a data frame; high-dimensional fixed effects go through absorb= / sp.feols; data is a pandas DataFrame with every variable in formula as a column; outcome is numeric; non-numeric regressors should be categorical (handled via patsy). Failure modes: Singular design / LinAlgError -> Drop collinear regressors or check dummy-variable coding; Heteroskedasticity test rejects (sp.het_test) -> Re-estimate with robust='hc1' (or 'hc3' for n < 250); Few clusters (< 30) with cluster-robust SEs -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 adjustment. Alternatives: sp.sp.regress, sp.sp.feols, sp.sp.iv, sp.heckman. Typical minimum N: 30.",
     "input_schema": {
       "properties": {

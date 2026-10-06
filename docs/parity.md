@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 407 |
+| **Compared against R/Stata** (T2) | bit-exact | 408 |
 | | aligned | 52 |
-| | **subtotal** | **459** |
+| | **subtotal** | **460** |
 | **No external software reference** | analytical-only (T1) | 341 |
 | | external-replication (published numbers) | 52 |
 | | **subtotal** | **393** |
-| No numerical evidence yet | unverified | 561 |
+| No numerical evidence yet | unverified | 562 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 459 | 838 | 842 | 54.5% |
+| estimator callables | 460 | 839 | 843 | 54.6% |
 | infrastructure (parity N/A) | 0 | 11 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 351 | 0.0% |
-| **all registered** | 459 | 852 | 1413 | 32.5% |
+| result / exception classes | 0 | 3 | 352 | 0.0% |
+| **all registered** | 460 | 853 | 1415 | 32.5% |
 
 ### Coverage by estimator family
 
@@ -56,7 +56,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | regression | 43 | 54 | 54 |
 | inference | 28 | 47 | 47 |
 | panel | 28 | 34 | 34 |
-| timeseries | 11 | 33 | 33 |
+| timeseries | 12 | 34 | 34 |
 | spatial | 28 | 33 | 33 |
 | diagnostics | 23 | 31 | 31 |
 | bayes | 8 | 27 | 27 |
@@ -96,12 +96,13 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 407 functions
+## bit-exact — 408 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
 | function | reference | versions | tolerance | rel err (R / Stata) | test |
 | --- | --- | --- | --- | --- | --- |
+| `abnormal_returns` | Stata 18 estudy (Pacicco, Vena and Venegoni): abnormal returns and CARs of four models; Patell, BMP and Kolari-Pynnonen statistics | Stata 18 | abnormal returns and CARs 5e-6 rel (estudy works in single precision); test statistics 1e-9 rel given the same standardised CARs, 5e-5 end to end for two models | — / — | [`test_event_study_returns_parity.py`](../tests/reference_parity/test_event_study_returns_parity.py) (+1) |
 | `absorb_ols` | fixest::feols 0.14.0 and Stata reghdfe (Track A 03_hdfe / 15_hdfe_cluster goldens); Stata reghdfe with aweights, singleton dropping, two-way clustering | R 4.5.2; fixest 0.14.0; Stata 18 MP | coefficients rtol 1e-12 (observed 2e-15), iid SEs 1e-12 (observed 8e-15), clustered SEs 1e-10 (observed 5.6e-11) | — / — | [`test_panel_absorb_ols_parity.py`](../tests/reference_parity/test_panel_absorb_ols_parity.py) |
 | `adjust_pvalues` | base R stats::p.adjust (bonferroni/holm/BH) | R 4.5.2 | exact (atol 1e-15; observed 0) | — / — | [`test_mht_parity.py`](../tests/reference_parity/test_mht_parity.py) (+1) |
 | `aipw` | Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 stratified_fit(k_split = 1) | R 4.5.2; AIPW 0.6.9.3; SuperLearner 2.0.40; Stata 18 | 1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14) | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
@@ -976,6 +977,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 561 functions
+## unverified — 562 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).
