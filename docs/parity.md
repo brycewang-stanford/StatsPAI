@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 409 |
 | | aligned | 52 |
 | | **subtotal** | **461** |
-| **No external software reference** | analytical-only (T1) | 344 |
+| **No external software reference** | analytical-only (T1) | 345 |
 | | external-replication (published numbers) | 54 |
-| | **subtotal** | **398** |
-| No numerical evidence yet | unverified | 567 |
+| | **subtotal** | **399** |
+| No numerical evidence yet | unverified | 566 |
 
 ### Honest denominators
 
@@ -42,9 +42,9 @@ The all-registered denominator understates coverage: it counts result and except
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
 | estimator callables | 461 | 844 | 851 | 54.2% |
-| infrastructure (parity N/A) | 0 | 12 | 220 | 0.0% |
+| infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 355 | 0.0% |
-| **all registered** | 461 | 859 | 1426 | 32.3% |
+| **all registered** | 461 | 860 | 1426 | 32.3% |
 
 ### Coverage by estimator family
 
@@ -632,7 +632,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 344 functions
+## analytical-only — 345 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -767,6 +767,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `forest_support` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `fourier_terms` | [`test_forecasting_r_parity.py`](../tests/reference_parity/test_forecasting_r_parity.py) |
+| `from_r` | [`test_accounting_research_parity.py`](../tests/reference_parity/test_accounting_research_parity.py) |
 | `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+12) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
@@ -983,6 +984,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 567 functions
+## unverified — 566 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

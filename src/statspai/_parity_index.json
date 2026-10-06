@@ -7285,6 +7285,23 @@
       "tolerance": "coefficients 1e-10 abs (observed ~8e-15)"
     },
     {
+      "function": "from_r",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_accounting_research_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "from_stata",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -11478,6 +11495,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_ding_first_course.py",
+        "tests/reference_parity/test_accounting_research_parity.py",
         "tests/reference_parity/test_ding_first_course_parity.py",
         "tests/reference_parity/test_match_fw_stata_parity.py",
         "tests/reference_parity/test_matching_parity.py",

@@ -13167,7 +13167,7 @@
     "name": "fracreg"
   },
   {
-    "description": "Translate a single R / fixest / felm / did expression to a verified StatsPAI tool-call payload. Returns the same shape as from_stata. Supported callables: feols / felm / lm / att_gt / did. Pass ONE expression -- no assignment, no piping.",
+    "description": "Translate a single R / fixest / felm / did expression to a verified StatsPAI tool-call payload. Returns the same shape as from_stata. Supported callables: feols / felm / lm / att_gt / did. Pass ONE expression -- no assignment, no piping. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "expression": {

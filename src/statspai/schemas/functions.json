@@ -33124,7 +33124,7 @@
     }
   },
   {
-    "description": "Translate one R / fixest / felm call to a StatsPAI tool-call payload.",
+    "description": "Translate one R / fixest / felm call to a StatsPAI tool-call payload. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "from_r",
     "parameters": {
       "properties": {

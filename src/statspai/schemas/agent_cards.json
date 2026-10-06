@@ -7879,9 +7879,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs MatchIt::matchit 4.7.2 (nearest, glm/logit distance); tolerance 1:1 and 2:1 PS matching without replacement: rel <= 1e-9. Mahalanobis metric pinned against MatchIt:::mahalanobis_dist (rel <= 1e-10); greedy m_order='data'/'closest' rel <= 1e-9. -- tests/reference_parity/test_matching_r_parity.py",
       "tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_accounting_research_parity.py",
       "tests/reference_parity/test_ding_first_course_parity.py",
-      "tests/reference_parity/test_match_fw_stata_parity.py",
-      "tests/reference_parity/test_matching_parity.py"
+      "tests/reference_parity/test_match_fw_stata_parity.py"
     ],
     "validation_status": "certified"
   },
