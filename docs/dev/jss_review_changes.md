@@ -3058,3 +3058,28 @@ only the recorded source hashes move.
   `exercised_sources` digests and `seconds` differ.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-07 — call traces re-recorded after the `sp.tmle` estimands and `sp.aipw(propensity=)`
+
+- **Commits.** `4495b612` re-recorded the entries of Track A modules 03,
+  13, 15, 24, 25, 26, 27, 53, 65, 66 and 72 in
+  `tests/r_parity/results/_implementation_trace.json` and of original-data
+  modules 07 and 08 in
+  `tests/orig_parity/results/_implementation_trace.json`. The sources that
+  staled them are in the same commit: `src/statspai/tmle/tmle.py` (module
+  72), `src/statspai/inference/aipw.py` (original-data module 07) and
+  `src/statspai/__init__.py` (one new import, every other module listed).
+- **Reason.** Textbook audit recorded in
+  `docs/dev/2026-10-07-schuler-vanderlaan-review.md`: `sp.tmle` validates
+  `estimand` and gains ATC, EY1, EY0, RR and OR; `sp.aipw` accepts a known
+  propensity; `sp.causal_gap` is new.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes. Module 72 (the ATE under `fluctuation='per_arm'`) and
+  original-data module 07 were rerun and reproduce their committed results
+  (last-digit jitter of 1e-13 in module 07, restored); in both trace files
+  only `exercised_sources` digests and `seconds` differ. The registry
+  census the paper quotes moves to 1,495 registered functions across 89
+  submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
