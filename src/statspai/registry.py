@@ -17522,7 +17522,7 @@ def _build_registry() -> None:
             tags=["bayes", "nonparametric", "gaussian-process", "kernel", "regression"],
             reference="rasmussen2005gaussian",
             assumptions=["Normal noise with constant variance", "Stationary kernel"],
-            alternatives=["lpoly", "bart", "npregress"],
+            alternatives=["lpoly", "bart", "gam"],
             not_recommended_when=[
                 "More than a few thousand observations: cost grows with n cubed",
                 "Jumps or kinks in the regression function: a stationary "
@@ -17577,7 +17577,7 @@ def _build_registry() -> None:
                 "The summaries carry the information about the parameters",
                 "Synthetic likelihood: summaries are approximately normal",
             ],
-            alternatives=["smm", "bayes_regress"],
+            alternatives=["gmm", "bayes_regress"],
             not_recommended_when=[
                 "The likelihood is available: use it",
                 "Many summaries with rejection ABC: distances stop "
