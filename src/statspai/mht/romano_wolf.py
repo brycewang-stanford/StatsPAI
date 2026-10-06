@@ -876,8 +876,8 @@ def adjust_pvalues(
 
     References
     ----------
-    [@holm1979simple] [@hochberg1988sharper] [@hommel1988stagewise]
-    [@wright1992adjusted] [@benjamini1995controlling]
+    [@holm1979simple], [@hochberg1988sharper], [@hommel1988stagewise],
+    [@wright1992adjusted], [@benjamini1995controlling],
     [@benjamini2001control]
     """
     _dispatch = {

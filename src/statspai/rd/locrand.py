@@ -661,7 +661,7 @@ def rdrandinf(
     ----------
     Cattaneo, M.D., Titiunik, R. and Vazquez-Bare, G. (2016).
     "Inference in Regression Discontinuity Designs under Local
-    Randomization." *The Stata Journal*, 16(2), 331-367. [@cattaneo2016inference]
+    Randomization." *The Stata Journal*, 16(2), 331-367. [@cattaneo2016inference],
 
     [@cattaneo2015randomization], [@cattaneo2024extensions],
     [@rosenbaum2007interference]

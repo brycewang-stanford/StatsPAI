@@ -14,8 +14,8 @@ outcome model:
 
 References
 ----------
-[@li2018balancing] [@li2013weighting] [@robins2000marginal]
-[@szekely2013energy] [@huling2024energy] [@chattopadhyay2023implied]
+[@li2018balancing], [@li2013weighting], [@robins2000marginal],
+[@szekely2013energy], [@huling2024energy], [@chattopadhyay2023implied]
 """
 
 from __future__ import annotations
@@ -131,7 +131,7 @@ def ps_weights(
 
     References
     ----------
-    [@li2018balancing] [@li2013weighting] [@robins2000marginal]
+    [@li2018balancing], [@li2013weighting], [@robins2000marginal]
     """
     index = None
     for obj in (ps, treat):
@@ -369,7 +369,7 @@ def energy_distance(
 
     References
     ----------
-    [@szekely2013energy] [@huling2024energy]
+    [@szekely2013energy], [@huling2024energy]
     """
     from scipy.spatial.distance import cdist
 

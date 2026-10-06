@@ -752,9 +752,9 @@ def gam(
 
     References
     ----------
-    [@eilers1996flexible]
+    [@eilers1996flexible],
     [@wood2017generalized]
-    [@wood2003thin]
+    [@wood2003thin],
     [@wood2013pvalues]
     """
     fam_key = str(family).lower()

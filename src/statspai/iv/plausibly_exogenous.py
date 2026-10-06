@@ -24,7 +24,7 @@ Conley, T.G., Hansen, C.B. and Rossi, P.E. (2012).
 
 van Kippersluis, H. and Rietveld, C.A. (2018).
     "Beyond plausibly exogenous." *Econometrics Journal*, 21(3),
-    316-331.  [pragmatic guidance] [@vankippersluis2018beyond]
+    316-331.  [pragmatic guidance], [@vankippersluis2018beyond]
 """
 
 from __future__ import annotations
@@ -35,6 +35,7 @@ from typing import Any, Iterable, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 

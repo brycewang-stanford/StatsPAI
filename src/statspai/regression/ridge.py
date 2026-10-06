@@ -194,7 +194,7 @@ def ridge(
 
     References
     ----------
-    [@hoerl1970ridge]
+    [@hoerl1970ridge],
     [@golub1979generalized]
     """
     if data is None:

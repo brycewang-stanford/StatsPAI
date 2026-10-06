@@ -194,7 +194,7 @@ def conformal_regression(
 
     References
     ----------
-    [@lei2018distribution]
+    [@lei2018distribution],
     [@barber2021predictive]
     """
     key = _METHODS.get(str(method).lower())

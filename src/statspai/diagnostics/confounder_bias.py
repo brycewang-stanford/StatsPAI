@@ -18,7 +18,7 @@ uses. They complement the tools that need no such specification:
 
 References
 ----------
-[@lin1998assessing] [@schlesselman1978assessing] [@mcgowan2022tipr]
+[@lin1998assessing], [@schlesselman1978assessing], [@mcgowan2022tipr],
 [@vanderweele2017sensitivity]
 """
 
@@ -177,7 +177,7 @@ def confounder_adjust(
 
     References
     ----------
-    [@lin1998assessing] [@schlesselman1978assessing] [@mcgowan2022tipr]
+    [@lin1998assessing], [@schlesselman1978assessing], [@mcgowan2022tipr]
     """
     measure = str(measure).lower()
     b = _vec(effect, "effect")
@@ -290,7 +290,7 @@ def confounder_tip(
 
     References
     ----------
-    [@lin1998assessing] [@mcgowan2022tipr] [@vanderweele2017sensitivity]
+    [@lin1998assessing], [@mcgowan2022tipr], [@vanderweele2017sensitivity]
     """
     measure = str(measure).lower()
     b = _vec(effect, "effect")
