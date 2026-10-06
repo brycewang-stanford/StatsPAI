@@ -269,9 +269,10 @@ def _df_out(df: float) -> Any:
 #: ``1b.union`` (a level), ``c.grade`` (continuous), ``i.race`` (every level).
 _FV_LEVEL = re.compile(r"(-?\d+(?:\.\d+)?)(?:bn|b|o|n)?\.([^\W\d]\w*)")
 _FV_OTHER = re.compile(r"(?:([ci])\.)?([^\W\d]\w*)")
-#: The same level as the formula engine names it: ``C(race)[T.2]``.
+#: The same level as the formula engine names it: ``C(race)[T.2]``, or
+#: ``C(race)[2]`` when the factor is nested in another and keeps every level.
 _PATSY_LEVEL = re.compile(
-    r"C\(\s*([^\W\d]\w*)\s*(?:,[^()]*(?:\([^()]*\))?[^()]*)?\)\[T\.(.+)\]"
+    r"C\(\s*([^\W\d]\w*)\s*(?:,[^()]*(?:\([^()]*\))?[^()]*)?\)\[(?:T\.)?(.+)\]"
 )
 
 

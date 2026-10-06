@@ -47,6 +47,8 @@ def xthtaylor(
     *,
     id: str,
     endog: Sequence[str],
+    method: str = "ht",
+    time: Optional[str] = None,
     vce: str = "conventional",
     cluster: Optional[str] = None,
     alpha: float = 0.05,
@@ -67,6 +69,15 @@ def xthtaylor(
         Regressors that may be correlated with the unit effect. A name
         covers the columns built from it (``"industry"`` covers every
         level of ``C(industry)``).
+    method : {'ht', 'amacurdy'}, default 'ht'
+        ``'amacurdy'`` is the Amemiya-MaCurdy estimator: every period's
+        value of an exogenous time-varying regressor is an instrument, in
+        place of its unit mean. It needs a balanced panel and ``time=``,
+        and it is more efficient when those regressors are uncorrelated
+        with the unit effect period by period, a stronger assumption than
+        Hausman and Taylor's.
+    time : str, optional
+        Period identifier, needed by ``method='amacurdy'``.
     vce : {'conventional', 'robust'}, default 'conventional'
         ``'robust'`` clusters on the unit.
     cluster : str, optional
@@ -155,6 +166,17 @@ def xthtaylor(
                 f"sp.xthtaylor: {name}={value!r} is not a column.",
                 recovery_hint="Pass the name of the variable.",
             )
+    method = str(method).lower()
+    if method not in ("ht", "amacurdy"):
+        raise MethodIncompatibility(
+            f"sp.xthtaylor: method={method!r} is not available.",
+            recovery_hint="Use 'ht' or 'amacurdy'.",
+        )
+    if method == "amacurdy" and (time is None or time not in data.columns):
+        raise MethodIncompatibility(
+            "sp.xthtaylor: method='amacurdy' needs time=, the period " "identifier.",
+            recovery_hint="Pass time='year' (the panel has to be balanced).",
+        )
     endog = [str(e) for e in endog]
     if not endog:
         raise MethodIncompatibility(
@@ -286,7 +308,24 @@ def xthtaylor(
             1 - th,
         ]
     )
-    instruments = [X1 - X1_mean, X2 - unit_mean(X2), X1_mean, Z1, 1 - th]
+    between = X1_mean
+    if method == "amacurdy":
+        periods, when = np.unique(frame[time].to_numpy(), return_inverse=True)
+        cell = np.zeros((n_units, periods.size), dtype=int)
+        np.add.at(cell, (codes, when), 1)
+        if not np.all(cell == 1):
+            raise MethodIncompatibility(
+                "sp.xthtaylor: method='amacurdy' needs a balanced panel, "
+                "every unit observed once in each period.",
+                recovery_hint="Use method='ht', or keep the units observed "
+                "in every period.",
+            )
+        # each exogenous time-varying regressor in every period, as a
+        # characteristic of the unit
+        wide = np.zeros((n_units, periods.size, X1.shape[1]))
+        wide[codes, when, :] = X1
+        between = wide.reshape(n_units, -1)[codes]
+    instruments = [X1 - X1_mean, X2 - unit_mean(X2), between, Z1, 1 - th]
     if np.ptp(theta) > 0 and any("[T." in labels[j] for j in groups["tv_exogenous"]):
         # An exogenous time-varying factor (period dummies) enters without
         # its base level. The unit mean of the base level's indicator is an
@@ -328,8 +367,10 @@ def xthtaylor(
     slopes = list(range(k - 1))
     b_s = beta[slopes]
     wald = float(b_s @ np.linalg.solve(cov[np.ix_(slopes, slopes)], b_s))
+    title = "Amemiya-MaCurdy" if method == "amacurdy" else "Hausman-Taylor"
     model_info: Dict[str, Any] = {
-        "model_type": "Hausman-Taylor",
+        "model_type": title,
+        "estimator": method,
         "method": "xthtaylor",
         "sigma_u": float(np.sqrt(sigma2_u)),
         "sigma_e": float(np.sqrt(sigma2_e)),

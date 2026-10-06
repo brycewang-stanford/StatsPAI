@@ -43,19 +43,19 @@ REPRODUCED = {
     "Chapter_03.log": 39,
     "Chapter_04.log": 126,
     "Chapter_08.log": 36,
-    "Chapter_10.log": 38,
+    "Chapter_10.log": 46,
     "Chapter_11.log": 116,
-    "Chapter_12.log": 660,
+    "Chapter_12.log": 767,
     "Chapter_14.log": 468,
     "Chapter_15.log": 981,
     "Chapter_16.log": 659,
     "Chapter_17.log": 342,
-    "Chapter_18.log": 415,
+    "Chapter_18.log": 507,
     "Chapter_20.log": 32,
     "Chapter_23.log": 16,
-    "Chapter_24.log": 30,
+    "Chapter_24.log": 40,
     "Chapter_25.log": 68,
-    "Chapter_26.log": 35,
+    "Chapter_26.log": 190,
 }
 
 #: Printed numbers StatsPAI does not reproduce, each with the reason. The
@@ -91,22 +91,12 @@ DECLINED = {
     "mata{": "mata is not translated (the block is the minimum distance estimator)",
     "mat list b_emd": "defined inside the mata block",
     "mat list std_emd": "defined inside the mata block",
-    "estat bootstrap": "percentile / BCa intervals of the last bootstrap",
-    "disp c, pc": "two expressions in one display",
-    "reg edu black smsa married i.yob i.region": (
-        "i.qob#i.yob without the main effect of qob: Stata fits one "
-        "indicator per cell, which the formula does not reproduce "
-        "coefficient by coefficient"
+    "reg edu black smsa married i.yob i.region i.state": (
+        "i.qob#i.yob and i.qob#i.state share qob, whose main effect is "
+        "absent: Stata and the formula drop different cells, so the "
+        "coefficients are not Stata's one by one"
     ),
-    "testparm i.qob#i.yob": "follows the regression above",
-    "matrix list e(Sigma)": "display of a stored matrix",
-    "cmmprobit": "no multinomial probit",
-    "cmmixlogit": "choice-model commands are not translated",
-    "nlogitgen": "choice-model commands are not translated",
-    "nlogit": "choice-model commands are not translated",
-    "margins, dydx(": "after cmmprobit / cmmixlogit, which were not fitted",
-    "estat covariance": "after cmmprobit",
-    "estat correlation": "after cmmprobit",
+    "testparm i.qob#i.yob i.qob#i.state": "follows the regression above",
 }
 
 
@@ -153,8 +143,7 @@ def test_only_documented_commands_are_declined(frame):
         if not any(r.command.startswith(d) for d in DECLINED)
     ]
     assert not stray, stray
-    # outside chapter 26 (choice models) a handful of lines are left
-    assert (notrun.log != "Chapter_26.log").sum() <= 22
+    assert len(notrun) <= 5
 
 
 def _rows(frame, log, start, what=None):
@@ -273,3 +262,45 @@ def test_threshold_model_of_figure_23_3():
     # the program centres the slope change at the threshold; here it is not
     shift = fit.params["above"] + info["threshold"] * fit.params["above:fr_min_70"]
     assert np.isclose(shift, -11.64998623084, rtol=1e-9)
+
+
+def test_choice_models_of_chapter_26(frame):
+    """Conditional and nested logit are compared digit for digit (nested
+    logit to Stata's `ml` tolerance). Stata simulates the multinomial
+    probit and the mixed logit: a coefficient counts as reproduced within
+    2% of Stata's standard error, a standard error within 2%."""
+    rows = frame[frame.log == "Chapter_26.log"]
+    assert (rows.status == "ok").all()
+    for start, least in (
+        ("cmclogit", 20),
+        ("nlogit choice", 26),
+        ("cmmprobit", 50),
+        ("cmmixlogit", 24),
+        ("estat cov", 6),
+        ("estat cor", 6),
+        ("margins, dydx(", 36),
+    ):
+        assert rows.command.str.startswith(start).sum() >= least, start
+
+
+def test_series_cross_validation_of_figure_20_6():
+    """The cross-validation sums printed by the book's `figure20_6.R`:
+    polynomial orders 1 to 8 for college-educated white and Black women."""
+    import numpy as np
+
+    import statspai as sp
+
+    data = sp.read_data(str(Path(ROOT) / "cps09mar.dta"))
+    data = data[(data["female"] == 1) & (data["education"] == 16)].copy()
+    data["lwage"] = np.log(data["earnings"] / (data["hours"] * data["week"]))
+    data["exper"] = data["age"] - data["education"] - 6
+    printed = {
+        1: [1261.7069898193, 1226.8063686149, 1224.7454086314, 1225.8652145768,
+            1226.120941825, 1227.2771566001, 1228.1442711188, 1232.9528450091],
+        2: [125.16576004144, 124.34593921719, 124.6221802564, 124.64677655466,
+            125.10932430571, 125.11906222811, 125.76412784607, 129.88436227138],
+    }  # fmt: skip
+    for race, order in ((1, 3), (2, 2)):
+        fit = sp.series("lwage ~ 1", data[data["race"] == race], "exper")
+        assert fit.model_info["order"] == order
+        assert np.allclose(fit.model_info["cv"]["cv"], printed[race], rtol=1e-11)

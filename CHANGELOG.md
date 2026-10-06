@@ -1582,6 +1582,38 @@ The Stata evidence on committed data is in
 
 #### Added
 
+- `sp.mprobit`: multinomial probit for choice data in long form, with
+  alternative-specific and case-specific regressors and an independent or
+  unstructured error covariance, parameterised as Stata's `cmmprobit`. The
+  choice probabilities are integrated by Gauss-Legendre quadrature (up to
+  four alternatives), so the likelihood has no simulation noise. Against
+  Stata's `mprobit`, which also integrates, coefficients agree to 1e-9 and
+  standard errors to 1e-7. Against `cmmprobit` with 3,000 simulation
+  points on the book's travel data the unstructured model agrees to three
+  or four digits (log likelihood -2017.437 against -2017.433).
+- `sp.series`: series regression with a polynomial or spline basis and
+  the order chosen by leave-one-out cross-validation. Returns the fitted
+  function and its derivative with pointwise standard errors. The
+  cross-validation criteria of the book's `figure20_6.R` are reproduced to
+  3e-14 on both of its samples.
+- `sp.factor(...).rotate('varimax' | 'promax')`: rotated loadings, the
+  rotation matrix, the factor correlation and the variance each factor
+  accounts for, with Stata's conventions. Stata's `rotate` to seven
+  digits, with and without Kaiser normalisation.
+- `sp.xthtaylor(method='amacurdy', time=)`: the Amemiya-MaCurdy estimator
+  for balanced panels. Stata's `xthtaylor, amacurdy` to 1e-10.
+- `sp.nlogit(fixed_lambda=, base=)`: dissimilarity parameters held at a
+  value, and a choice of base alternative. The book's constrained nested
+  logit is reproduced (log likelihood -2044.4153).
+- `sp.mixlogit` keeps its covariance matrix in `data_info['var_cov']`, so
+  `sp.test` and `sp.lincom` work after it.
+- `sp.stata` runs `nlogitgen` / `nlogit` with a constraint, `cmmprobit`
+  with `estat covariance` / `estat correlation`, `cmmixlogit`, `margins,
+  dydx() outcome() alternative()` after either, `rotate`, `xthtaylor,
+  amacurdy`, `estat bootstrap` (normal, percentile, BC and BCa intervals),
+  `matrix list e(Sigma)` after `var`, `display a, b`, and a product of two
+  factors when one of their main effects is in the model (`i.b i.a#i.b`),
+  with `testparm i.a#i.b`. All 190 numbers of chapter 26 are reproduced.
 - `sp.threshold`: threshold regression with an unknown threshold (the
   intercept and the coefficients named in `regime=` change when a variable
   crosses a value estimated by least squares), and with `kink=True` the

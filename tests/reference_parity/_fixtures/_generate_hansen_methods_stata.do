@@ -344,5 +344,74 @@ emit kink.se_cons _se[/b4]
 emit kink.se_gamma _se[/c]
 emit kink.rss e(rss)
 
+* --- Amemiya-MaCurdy on the units observed in every year
+import delimited using "textbook_panel.csv", clear asdouble
+generate double ti = mod(id, 3)
+bysort id: egen double wbar = mean(w)
+generate double zi = wbar + 0.3 * ti
+bysort id: generate int periods = _N
+quietly summarize periods
+keep if periods == r(max)
+xtset id year
+foreach v in "" "vce(robust)" {
+    local tag = cond("`v'" == "", "conv", "rob")
+    xthtaylor y x1 x2 w ti zi, endog(x2 zi) amacurdy `v'
+    emit am.`tag'.b_x1 _b[x1]
+    emit am.`tag'.b_w _b[w]
+    emit am.`tag'.b_x2 _b[x2]
+    emit am.`tag'.b_ti _b[ti]
+    emit am.`tag'.b_zi _b[zi]
+    emit am.`tag'.b_cons _b[_cons]
+    emit am.`tag'.se_x1 _se[x1]
+    emit am.`tag'.se_x2 _se[x2]
+    emit am.`tag'.se_zi _se[zi]
+    emit am.`tag'.se_cons _se[_cons]
+    emit am.`tag'.sigma_u e(sigma_u)
+    emit am.`tag'.sigma_e e(sigma_e)
+}
+emit am.n e(N)
+xthtaylor y x1 x2 w ti zi, endog(x2 zi)
+emit am.ht_b_zi _b[zi]
+
+* ============================================================ multinomial probit
+* --- independent errors of variance one: Stata's mprobit integrates the
+*     choice probabilities by quadrature, so it is a reference without
+*     simulation error
+import delimited using "textbook_cs.csv", clear asdouble
+generate byte mode = 1 + (x1 + z1 > 0) + (x1 - x2 + z2 > 0.5)
+mprobit mode x1 x2, baseoutcome(1) intpoints(120) tolerance(1e-12) ltolerance(1e-14) nrtolerance(1e-12)
+emit mp.ll e(ll)
+emit mp.b2_x1 [2]_b[x1]
+emit mp.b2_x2 [2]_b[x2]
+emit mp.b2_cons [2]_b[_cons]
+emit mp.b3_x1 [3]_b[x1]
+emit mp.b3_x2 [3]_b[x2]
+emit mp.b3_cons [3]_b[_cons]
+emit mp.se2_x1 [2]_se[x1]
+emit mp.se2_cons [2]_se[_cons]
+emit mp.se3_x2 [3]_se[x2]
+emit mp.se3_cons [3]_se[_cons]
+* --- varimax and promax rotations of two principal-component factors
+quietly factor y endog x1 x2 z1 z2, pcf factors(2)
+foreach r in "varimax" "varimax normalize" "promax" "promax(4) normalize" {
+    local tag = subinstr(subinstr(subinstr("`r'", " ", "_", .), "(", "", .), ")", "", .)
+    quietly rotate, `r'
+    matrix L = e(r_L)
+    matrix T = e(r_T)
+    matrix E = e(r_Ev)
+    matrix P = e(r_Phi)
+    forvalues j = 1/6 {
+        emit rot.`tag'.l`j'1 L[`j',1]
+        emit rot.`tag'.l`j'2 L[`j',2]
+    }
+    emit rot.`tag'.t11 T[1,1]
+    emit rot.`tag'.t21 T[2,1]
+    emit rot.`tag'.t12 T[1,2]
+    emit rot.`tag'.t22 T[2,2]
+    emit rot.`tag'.ev1 E[1,1]
+    emit rot.`tag'.ev2 E[1,2]
+    emit rot.`tag'.phi P[2,1]
+}
+
 file close fh
 capture erase _hansen_irf.irf

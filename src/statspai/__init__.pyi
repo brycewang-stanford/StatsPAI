@@ -923,6 +923,7 @@ from .nonparametric.lprobust import lpbwselect_imse_rot as lpbwselect_imse_rot
 from .nonparametric.lprobust import lpbwselect_mse_dpi as lpbwselect_mse_dpi
 from .nonparametric.lprobust import lpbwselect_mse_rot as lpbwselect_mse_rot
 from .nonparametric.lprobust import lprobust_at_point as lprobust_at_point
+from .nonparametric.series import series as series
 from .ope.estimators import OPEResult as OPEResult
 from .ope.sharp_confounding import CausalPolicyForestResult as CausalPolicyForestResult
 from .ope.sharp_confounding import SharpOPEResult as SharpOPEResult
@@ -1193,6 +1194,7 @@ from .regression.logit_probit import probit as probit
 from .regression.mixed_logit import mixlogit as mixlogit
 from .regression.model_average import ModelAverageResult as ModelAverageResult
 from .regression.model_average import model_average as model_average
+from .regression.mprobit import mprobit as mprobit
 from .regression.multinomial import clogit as clogit
 from .regression.multinomial import mlogit as mlogit
 from .regression.multinomial import ologit as ologit

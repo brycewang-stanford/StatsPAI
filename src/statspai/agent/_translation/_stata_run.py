@@ -949,9 +949,9 @@ class StataSession:
 
         from ._stata import from_stata
         from ._stata_choice import choice_line
-        from ._stata_models import constraint_line, constraints_written_out
+        from ._stata_models import constraint_line, constraints_written_out, rotate_line
         from ._stata_programs import run_simulate
-        from ._stata_resample import resample_line
+        from ._stata_resample import estat_bootstrap_line, resample_line
         from ._stata_script import (
             ScriptError,
             control_flow,
@@ -1072,6 +1072,16 @@ class StataSession:
         if resampled is not None:
             return resampled
         try:
+            tabled = estat_bootstrap_line(self, line)
+        except StataExprError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                recovery_hint="Run the bootstrap in the same session first.",
+                diagnostics={"command": line},
+            ) from exc
+        if tabled is not None:
+            return tabled
+        try:
             chosen = choice_line(self, line)
         except StataExprError as exc:
             raise MethodIncompatibility(
@@ -1093,6 +1103,17 @@ class StataSession:
             ) from exc
         if irf_done is not None:
             return irf_done
+        try:
+            rotated = rotate_line(self, line)
+        except StataExprError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}.",
+                recovery_hint="Call .rotate('varimax' | 'promax') on the "
+                "result of sp.factor.",
+                diagnostics={"command": line},
+            ) from exc
+        if rotated is not None:
+            return rotated
         if _SKIPPED.match(line):
             # session settings and output-only commands: nothing to run
             return False

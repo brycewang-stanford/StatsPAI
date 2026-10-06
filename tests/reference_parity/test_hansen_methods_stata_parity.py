@@ -786,3 +786,161 @@ def test_regression_kink_matches_stata_nl(G, thr):
     close(fit.std_errors["threshold"], G["kink.se_gamma"], rtol=1e-7)
     close(fit.diagnostics["Residual SS"], G["kink.rss"], rtol=1e-12)
     assert fit.diagnostics["Residual SS"] <= G["kink.rss"] * (1 + 1e-14)
+
+
+# ------------------------------------------------------------ Amemiya-MaCurdy
+@pytest.mark.parametrize("tag, kwargs", [("conv", {}), ("rob", {"vce": "robust"})])
+def test_amemiya_macurdy_matches_stata(G, ht_panel, tag, kwargs):
+    """Each period's value of an exogenous time-varying regressor is an
+    instrument in place of its unit mean; the panel has to be balanced."""
+    full = ht_panel.groupby("id")["year"].transform("size")
+    balanced = ht_panel[full == full.max()]
+    assert len(balanced) == G["am.n"]
+    fit = sp.xthtaylor(
+        "y ~ x1 + x2 + w + ti + zi",
+        balanced,
+        id="id",
+        endog=["x2", "zi"],
+        method="amacurdy",
+        time="year",
+        **kwargs,
+    )
+    for name, key in (
+        ("x1", "x1"),
+        ("w", "w"),
+        ("x2", "x2"),
+        ("ti", "ti"),
+        ("zi", "zi"),
+        ("_cons", "cons"),
+    ):
+        close(fit.params[name], G[f"am.{tag}.b_{key}"], rtol=1e-10)
+    for name, key in (("x1", "x1"), ("x2", "x2"), ("zi", "zi"), ("_cons", "cons")):
+        close(fit.std_errors[name], G[f"am.{tag}.se_{key}"], rtol=1e-9)
+    close(fit.model_info["sigma_u"], G[f"am.{tag}.sigma_u"], rtol=1e-10)
+    close(fit.model_info["sigma_e"], G[f"am.{tag}.sigma_e"], rtol=1e-10)
+    assert fit.model_info["model_type"] == "Amemiya-MaCurdy"
+    # the Hausman-Taylor estimate on the same rows is another number
+    ht = sp.xthtaylor(
+        "y ~ x1 + x2 + w + ti + zi", balanced, id="id", endog=["x2", "zi"]
+    )
+    close(ht.params["zi"], G["am.ht_b_zi"], rtol=1e-10)
+    assert abs(ht.params["zi"] - fit.params["zi"]) > 1e-4
+
+
+def test_amemiya_macurdy_refusals_and_translation(G, ht_panel):
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="balanced"):
+        sp.xthtaylor(
+            "y ~ x1 + x2 + w + ti + zi", ht_panel, id="id", endog=["x2", "zi"],
+            method="amacurdy", time="year",
+        )  # fmt: skip
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="time="):
+        sp.xthtaylor(
+            "y ~ x1 + x2 + w + ti + zi", ht_panel, id="id", endog=["x2", "zi"],
+            method="amacurdy",
+        )  # fmt: skip
+    full = ht_panel.groupby("id")["year"].transform("size")
+    fit = sp.stata(
+        "xtset id year\nxthtaylor y x1 x2 w ti zi, endog(x2 zi) amacurdy",
+        data=ht_panel[full == full.max()],
+    )
+    close(fit.params["zi"], G["am.conv.b_zi"], rtol=1e-10)
+
+
+# --------------------------------------------------------- multinomial probit
+@pytest.fixture(scope="module")
+def modes(cs):
+    data = cs.copy()
+    data["mode"] = (
+        1
+        + (data.x1 + data.z1 > 0).astype(int)
+        + (data.x1 - data.x2 + data.z2 > 0.5).astype(int)
+    )
+    data["case"] = np.arange(len(data))
+    long = data.loc[data.index.repeat(3), ["case", "x1", "x2", "mode"]]
+    long = long.reset_index(drop=True)
+    long["alt"] = np.tile([1, 2, 3], len(data))
+    long["choice"] = (long["mode"] == long["alt"]).astype(int)
+    return long
+
+
+def test_multinomial_probit_matches_stata_mprobit(G, modes):
+    """Stata's `mprobit` (independent errors of variance one) integrates by
+    quadrature, so the comparison has no simulation error on either side.
+    Standard errors come from a finite-difference Hessian here."""
+    fit = sp.mprobit(
+        modes, y="choice", case_vars=["x1", "x2"], chid="case", alt="alt",
+        base=1, correlation="independent", stddev="homoskedastic",
+    )  # fmt: skip
+    close(fit.model_info["ll"], G["mp.ll"], rtol=1e-9)
+    for ours, key in (
+        ("2:x1", "b2_x1"),
+        ("2:x2", "b2_x2"),
+        ("2:_cons", "b2_cons"),
+        ("3:x1", "b3_x1"),
+        ("3:x2", "b3_x2"),
+        ("3:_cons", "b3_cons"),
+    ):
+        close(fit.params[ours], G[f"mp.{key}"], rtol=1e-7)
+    for ours, key in (
+        ("2:x1", "se2_x1"),
+        ("2:_cons", "se2_cons"),
+        ("3:x2", "se3_x2"),
+        ("3:_cons", "se3_cons"),
+    ):
+        close(fit.std_errors[ours], G[f"mp.{key}"], rtol=1e-5)
+    # differenced with the base, independent errors of variance one
+    np.testing.assert_allclose(fit.model_info["covariance"], [[2, 1], [1, 2]])
+
+
+# ------------------------------------------------------------ factor rotation
+@pytest.mark.parametrize(
+    "tag, kwargs",
+    [
+        ("varimax", {"method": "varimax"}),
+        ("varimax_normalize", {"method": "varimax", "normalize": True}),
+        ("promax", {"method": "promax"}),
+        ("promax4_normalize", {"method": "promax", "power": 4, "normalize": True}),
+    ],
+)
+def test_factor_rotation_matches_stata_rotate(G, cs, tag, kwargs):
+    """Stata stops its rotation at a looser tolerance; seven digits."""
+    names = ["y", "endog", "x1", "x2", "z1", "z2"]
+    fit = sp.factor(cs, names, method="pcf", n_factors=2).rotate(**kwargs)
+    L = fit.loadings.to_numpy()
+    for j in range(6):
+        close(L[j, 0], G[f"rot.{tag}.l{j + 1}1"], rtol=0, atol=2e-7)
+        close(L[j, 1], G[f"rot.{tag}.l{j + 1}2"], rtol=0, atol=2e-7)
+    T = fit.rotation_matrix.to_numpy()
+    for (i, j), key in {
+        (0, 0): "t11",
+        (1, 0): "t21",
+        (0, 1): "t12",
+        (1, 1): "t22",
+    }.items():
+        close(T[i, j], G[f"rot.{tag}.{key}"], rtol=0, atol=5e-7)
+    close(fit.variance["variance"].iloc[0], G[f"rot.{tag}.ev1"], rtol=0, atol=5e-7)
+    close(fit.variance["variance"].iloc[1], G[f"rot.{tag}.ev2"], rtol=0, atol=5e-7)
+    phi = fit.factor_correlation.to_numpy()[1, 0]
+    close(phi, G[f"rot.{tag}.phi"], rtol=0, atol=5e-7)
+    # a rotation leaves the fit alone
+    unrotated = sp.factor(cs, names, method="pcf", n_factors=2)
+    np.testing.assert_allclose(fit.uniqueness, unrotated.uniqueness)
+    rotated = sp.stata(
+        "factor y endog x1 x2 z1 z2, pcf factors(2)\nrotate, "
+        + {"varimax_normalize": "varimax normalize", "promax4_normalize":
+           "promax(4) normalize"}.get(tag, tag),
+        data=cs,
+    )  # fmt: skip
+    np.testing.assert_allclose(rotated.loadings.to_numpy(), L)
+
+
+def test_e_sigma_after_var_is_statas(ts):
+    """`matrix list e(Sigma)` after `var z1 z2, lags(1/2)` in Stata 18:
+    the residual covariance divided by the number of observations."""
+    sigma = sp.stata("tsset t\nvar z1 z2, lags(1/2)\nmatrix list e(Sigma)", data=ts)
+    np.testing.assert_allclose(
+        sigma.to_numpy(),
+        [[0.8807791455, -0.0096416768], [-0.0096416768, 0.8476622267]],
+        rtol=0,
+        atol=1e-9,
+    )

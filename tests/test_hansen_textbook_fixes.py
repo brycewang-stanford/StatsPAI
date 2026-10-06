@@ -150,9 +150,11 @@ def test_stored_rank_and_overid_results(df):
 def test_interacted_factors_may_be_instruments(df):
     out = sp.from_stata("ivregress 2sls y x1 i.a (d = i.c#i.a)")
     assert out["ok"] and "(d ~ C(c):C(a))" in out["python_code"]
-    # as regressors the same term is still refused: the coefficients would
-    # not be the cell indicators Stata reports
-    assert not sp.from_stata("reg y x1 i.a i.c#i.a")["ok"]
+    # as regressors, a product with neither main effect is still refused:
+    # the coefficients would not be the cell indicators Stata reports. With
+    # one main effect in the model the columns are Stata's.
+    assert not sp.from_stata("reg y x1 i.c#i.a")["ok"]
+    assert sp.from_stata("reg y x1 i.a i.c#i.a")["ok"]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         fit = sp.stata("ivregress 2sls y x1 i.a (d = i.c#i.a)", data=df)
@@ -344,7 +346,7 @@ def test_margins_after_cmclogit_is_the_average_derivative(trips):
     assert own["dydx"] < 0 < cross["dydx"] and own["se"] > 0
     # another choice model in between: margins no longer answers from the old fit
     with pytest.raises(sp.exceptions.MethodIncompatibility):
-        session.run("cmmprobit chosen cost, casevars(income)")
+        session.run("cmroprobit chosen cost, casevars(income)")
     with pytest.raises(sp.exceptions.MethodIncompatibility):
         session.run("margins, dydx(cost) outcome(1) alternative(1)")
 

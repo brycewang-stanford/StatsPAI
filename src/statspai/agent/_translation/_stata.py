@@ -4898,7 +4898,25 @@ def _normalise_command(
         factors = [i for i, piece in enumerate(pieces) if piece.startswith("C(")]
         if len(factors) < 2:
             continue
-        if not all(frozenset(pieces[:i] + pieces[i + 1 :]) in present for i in factors):
+        absent = [
+            i for i in factors if frozenset(pieces[:i] + pieces[i + 1 :]) not in present
+        ]
+        # With one of two main effects in the model (`i.b i.a#i.b`) the
+        # formula codes the product as the levels of `a` within each level
+        # of `b`: the indicators Stata keeps, one for one. That stops being
+        # true when `a` is crossed with a second factor as well (`i.a#i.b
+        # i.a#i.c`): the two products overlap and each program drops other
+        # cells.
+        if len(absent) == 1 and len(pieces) == 2 and len(factors) == 2:
+            lone = pieces[1 - absent[0]]
+            shared = [
+                t
+                for t in flat
+                if t not in instruments and t != term and lone in t.split(":")
+            ]
+            if not any(":" in t for t in shared):
+                continue
+        if absent:
             return (
                 f"the factor-variable term {term!r} crosses factors whose "
                 "main effects are not in the model; Stata then fits one "

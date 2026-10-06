@@ -31,13 +31,15 @@ changed to imitate an old convention.
 | | Reproduced | Different | Not run |
 | --- | --- | --- | --- |
 | First replay | 1,925 | 112 | 146 |
-| Now | 4,061 | 100 | 43 |
+| Now | 4,433 | 100 | 5 |
 
 Ninety of the hundred differences are the Hausman-Taylor column of Table
 17.2, explained below; the other ten are two cases where the reference is
-at fault or the surface is not smooth. Thirty more numbers are bootstrap
-standard errors, which the replay marks `random`. Of the 43 commands not run, 25 are the choice-model commands of
-chapter 26. The opt-in test
+at fault or the surface is not smooth. Another 130 numbers are bootstrap
+quantities, which the replay marks `random`. The five commands not run
+are a `mata` block with two listings of what it defines, and one
+regression with its `testparm`; both are in the table of declined
+commands. The opt-in test
 `tests/external_parity/test_hansen_econometrics_logs.py` holds the
 per-chapter numbers and the two ledgers (documented differences, declined
 commands).
@@ -64,6 +66,13 @@ commands).
 | 17 | With a singular weight the two-step estimate depends on the generalized inverse. Ours was Moore-Penrose (first lag 0.3178, Stata 0.3191). Mata's `invsym` on our own moment matrix returned Stata's numbers, which identified the rule: sweep on the largest remaining diagonal, zero the collinear moments, and leave them out of the one-step covariance in Windmeijer's correction | convention | adopted; Table 17.3 column 1 is reproduced to every printed digit, and a case on committed data to 1e-9 |
 | 18 | `xtdpd` with `dgmmiv()`, `lgmmiv()` and `iv()` (both columns of Table 17.3) | translator | run through `sp.xtdpdsys`; all 136 printed coefficients and standard errors are reproduced, including the column with four GMM-instrumented variables and 697 moments. Difference GMM written as `xtdpd` without `lgmmiv()`, `div()` / `liv()`, `noconstant` and `fodeviation` are declined |
 | 19 | Threshold regression (section 23.7, `figure23_3.R`) had no function. The chapter's `nl` with a kink point stops at a local minimum in Stata | missing | `sp.threshold`: grid search, likelihood-ratio interval, bootstrap linearity test, fixed effects, and the kink model with joint standard errors. The book's R program is reproduced to 1e-9 on its data; Stata's `threshold` and `nl` to 1e-11 and 1e-7 on committed data |
+| 20 | Multinomial probit (`cmmprobit`, chapter 26) had no function | missing | `sp.mprobit`. Probabilities by Gauss-Legendre quadrature after a change of variable that removes the endpoint singularities of the normal quantile (24 points per dimension give 5e-8 where the plain rule gives 2e-4). Stata's `mprobit` to 1e-9; `cmmprobit` with 3,000 points to three or four digits on both of the book's models, with `estat covariance`, `estat correlation` and the twelve marginal effects |
+| 21 | `nlogit` with a constrained dissimilarity parameter | missing | `sp.nlogit(fixed_lambda=, base=)`; `nlogitgen` / `constraint` / `nlogit` in `sp.stata`. 26 numbers reproduced to Stata's `ml` tolerance |
+| 22 | `cmmixlogit` and `margins` after it | translator | `sp.mixlogit` already fitted the model (three to four digits against Stata's 721 Hammersley points). It did not keep its covariance matrix, so no delta-method quantity could follow; it does now |
+| 23 | Series regression with cross-validated order (chapter 20) | missing | `sp.series`; the criteria of `figure20_6.R` to 3e-14 |
+| 24 | `rotate` after `factor` | missing | `.rotate('varimax' | 'promax')`. Stata's promax with Kaiser normalisation builds the target from the normalised varimax loadings and fits the transformation to the loadings in their own scale; its rotation matrix for an oblique rotation is the inverse transpose of the one that maps the loadings; its factor variances are column sums of squares of the structure matrix |
+| 25 | `xthtaylor, amacurdy` | missing | `method='amacurdy'`; Stata to 1e-10 |
+| 26 | `estat bootstrap`, `matrix list e(Sigma)`, `display a, b`, `i.b i.a#i.b` with `testparm` | translator | run. A product of two factors is accepted when one main effect is in the model and the other factor is in no second product: the columns are then Stata's, one for one. With two products sharing the factor (`i.qob#i.yob i.qob#i.state`) each program drops other cells, 294 coefficients differ, and the command stays refused |
 | 10 | `irf table`, `estimates stats`, `jackknife:` / `bootstrap:`, `vce(jackknife)`, `L(1/3).D.x`, `lag()` for `lags()`, `perfect`, `forcenonrobust`, `r(sargan)`, `e(rank)`, `nlcom (a)/(b)`, `lincom x + z/5` | translator | run |
 
 ## What agreed without any change
@@ -139,26 +148,20 @@ point estimate only.
 
 | Command | Reason |
 | --- | --- |
-| `mata { ... }` (chapter 8) | Not translated. The block computes the efficient minimum distance estimator, which is `sp.cnsreg(method='emd')`; its numbers are reproduced by a direct call |
-| `nlogit`, `cmmprobit`, `cmmixlogit` and their `margins` (chapter 26) | Not translated. `sp.nlogit` called directly reproduces the book's nested logit: its constraint that one dissimilarity parameter is 1 is the same as leaving the two alternatives of that nest un-nested (`nests={"CarAir": [4, 2], "Train": [1], "Bus": [3]}`), which gives the log likelihood -2044.4153 of the log and the coefficients to four or five digits. Without the constraint the likelihood has several maxima (Stata reaches -2037.02 with a dissimilarity parameter of 29.8, `sp.nlogit` -2043.46 from its default start), which is presumably why the book imposes it. `cmmixlogit` uses simulated likelihood with Stata's own draws. There is no multinomial probit |
-| `estat bootstrap, all` | Percentile and BCa intervals of the last bootstrap; the draws are not Stata's |
-| `matrix list e(Sigma)` | Display only |
-| `reg ... i.qob#i.yob` with `testparm` | A product of factors whose main effects are absent is coded by Stata as one indicator per cell; the formula language codes it differently. Refused on purpose, as before |
-| `disp c, pc` | Two expressions in one `display` |
+| `mata { ... }` (chapter 8) and `mat list` of what it defines | Mata is a programming language and is not translated. The block computes the efficient minimum distance estimator, which is `sp.cnsreg(method='emd')`; its numbers are reproduced by a direct call |
+| `reg ... i.state i.qob#i.yob i.qob#i.state` with its `testparm` (chapter 12) | Two products share `qob`, whose main effect is absent. The fit is the same but Stata and the formula language drop different cells, so the coefficients are not Stata's one by one |
 
 ## Open items
 
-1. The Amemiya-MaCurdy variant of Hausman-Taylor (`xthtaylor, amacurdy`).
-2. Translation of `nlogit` and `cmmixlogit`, a constraint option on
-   `sp.nlogit`, and a multinomial probit.
-3. `xtdpd` without `lgmmiv()` (difference GMM with the constant taken
-   from the level equation) and its `div()` / `liv()` options.
-4. Series regression with cross-validated order (chapter 20); the R
-   scripts `figure20_*.R` are written-out reference implementations. More
-   than one threshold, and the heteroskedasticity-robust interval for the
-   threshold, in `sp.threshold`.
-5. Rotation of factor loadings (`rotate`).
-6. The simulated critical-value tables shipped with the book (`df.log`,
+1. `xtdpd` without `lgmmiv()`, and the constant of `xtabond`: Stata
+   recovers a constant from one extra level moment. The slopes do not
+   depend on it; the standard errors differ by the degrees-of-freedom
+   count (8e-4 in relative terms on `abdata`).
+2. More than one threshold, and the heteroskedasticity-robust interval for
+   the threshold, in `sp.threshold`.
+3. `sp.mprobit` with more than four alternatives uses Halton points and
+   has not been compared with a reference.
+4. The simulated critical-value tables shipped with the book (`df.log`,
    `eg.log`, `kpss.log`, `Johansen.log`) could be compared with the tables
    behind `sp.unitroot`, `sp.engle_granger` and `sp.johansen`. The KPSS
    and Dickey-Fuller 5% values were read against them and agree to two

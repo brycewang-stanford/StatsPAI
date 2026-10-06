@@ -779,6 +779,8 @@ def _expression_end(body: str, start: int) -> int:
             depth += 1
         elif ch in ")]":
             depth -= 1
+        elif ch == "," and depth == 0:
+            break  # a comma between items: one space (`display a, b`)
         elif depth == 0 and pos > start and body[pos - 1].isspace():
             if ch == '"' or body.startswith('`"', pos) or ch == "%":
                 break
@@ -817,6 +819,14 @@ def display_items(session: "StataSession", body: str) -> List[Any]:
     while pos < len(body):
         if body[pos].isspace():
             pos += 1
+            continue
+        if body[pos] == ",":
+            # `a, b` puts one space between the items, `a,, b` none
+            if body.startswith(",,", pos):
+                pos += 2
+            else:
+                items.append(" ")
+                pos += 1
             continue
         m = _STRING_ITEM.match(body, pos)
         if m is not None:

@@ -13,6 +13,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from ._stata import _build_formula, _emit, _emit_error, _split_varlist_y_x
+from ._stata_expr import StataExprError
 from ._stata_lexer import StataCommand
 
 __all__ = ["HANDLERS", "EXPRESSION", "constraint_line", "constraints_written_out"]
@@ -288,9 +289,11 @@ def _h_xthtaylor(cmd: StataCommand) -> Dict[str, Any]:
         return _emit_error(
             "xthtaylor requires endog()", command="xthtaylor", suggestions=[]
         )
-    if "amacurdy" in cmd.options:
+    amacurdy = "amacurdy" in cmd.options
+    period = cmd.options.get("t")
+    if amacurdy and not period and cmd.options.get("i"):
         return _emit_error(
-            "xthtaylor, amacurdy (the Amemiya-MaCurdy estimator) is not translated",
+            "xthtaylor, amacurdy needs the time variable of `xtset id time`",
             command="xthtaylor",
             suggestions=[],
         )
@@ -301,12 +304,14 @@ def _h_xthtaylor(cmd: StataCommand) -> Dict[str, Any]:
     endog = [w[2:] if w.startswith("i.") else w for w in str(raw).split()]
     endog = [re.sub(r"^C\((\w+)\)$", r"\1", w) for w in endog]
     unit = cmd.options.get("i") or "<panel_id>"
-    cmd.options.pop("t", None)
     args: Dict[str, Any] = {
         "formula": _build_formula(y, xs),
         "id": None if unit == "<panel_id>" else unit,
         "endog": endog,
     }
+    if amacurdy:
+        args["method"] = "amacurdy"
+        args["time"] = period or "<panel_time>"
     vce = str(cmd.options.get("vce") or "").strip()
     words = vce.split()
     if vce.lower() == "robust" or "robust" in cmd.options:
@@ -497,6 +502,38 @@ def _h_threshold(cmd: StataCommand) -> Dict[str, Any]:
         f"{k}={v!r}" for k, v in args.items() if k != "formula"
     ]
     return _emit("threshold", args, f"sp.threshold({', '.join(shown)})", [])
+
+
+_ROTATE = re.compile(r"\s*rotate\b\s*(?:,\s*(.*))?$", re.I)
+
+
+def rotate_line(session: Any, line: str) -> Optional[bool]:
+    """``rotate [, varimax | promax[(#)]] [normalize]`` after ``factor``:
+    the last result is replaced by its rotated copy. ``None`` for any other
+    line; ``StataExprError`` when the rotation cannot be done."""
+    m = _ROTATE.match(line)
+    if m is None:
+        return None
+    last = getattr(session, "last", None)
+    if not hasattr(last, "rotate") or not hasattr(last, "uniqueness"):
+        raise StataExprError("rotate has to follow factor")
+    method, power, normalize = "varimax", 3.0, False
+    for word in re.findall(r"[a-z]+(?:\([^)]*\))?", (m.group(1) or "").lower()):
+        name, _, argument = word.partition("(")
+        if name in ("varimax", "orthogonal"):
+            method = "varimax"
+        elif name == "promax":
+            method = "promax"
+            if argument.rstrip(")").strip():
+                power = float(argument.rstrip(")"))
+        elif name in ("normalize", "kaiser"):
+            normalize = True
+        elif name not in ("blanks", "noblanks", "format"):
+            raise StataExprError(f"rotate, {name} is not implemented")
+    rotated = last.rotate(method, normalize=normalize, power=power)
+    session.output = rotated
+    session.last = rotated
+    return True
 
 
 HANDLERS = {

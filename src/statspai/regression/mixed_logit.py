@@ -761,6 +761,10 @@ class _MixedLogitFitter:
             "n_choice_situations": n_sit,
             "n_fixed": kf,
             "n_random": kr,
+            # the covariance behind the standard errors, for joint tests
+            # and delta-method functions of the coefficients
+            "var_cov": _as_float_array(V),
+            "var_names": list(names),
         }
         diagnostics = {
             "log_likelihood": float(ll_hat),

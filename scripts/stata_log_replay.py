@@ -430,6 +430,8 @@ def stata_term(name: str) -> str:
     ``2.g#3.t`` both become ``2.g#3.t``, so a factor level generated as a
     float is found under the integer Stata prints."""
     name = _POWER.sub(lambda m: ":".join([m.group(1)] * int(m.group(2))), name)
+    # a factor nested in another keeps every level and is written C(t)[3]
+    name = re.sub(r"\)\[(?!T\.)", ")[T.", name)
     return coefficient_key(name)
 
 
@@ -629,6 +631,7 @@ class Replay:
             frame.columns = [str(c).lower() for c in frame.columns]
         self.session = self._session(frame)
         self.labels = {}
+        self._simulated_reference = False
 
     def _input(self, cmd: str, buf: List[str]) -> None:
         """``input y w`` with the rows the log echoes as ``  1. 34 1``."""
@@ -758,14 +761,27 @@ class Replay:
         out = self.session.output
         if word in SUMMARIZE:
             self._summarize(cmd, buf, out)
+        elif (
+            word == "estat"
+            and isinstance(out, pd.DataFrame)
+            and re.match(r"\s*estat\s+(cov|cor)", cmd)
+        ):
+            _cmp_choice_covariance(self, cmd, buf, out)
+        elif word == "estat" and re.match(r"\s*estat\s+boot", cmd):
+            _cmp_estat_bootstrap(self, cmd, buf, out)
         elif word == "estat":
             self._estat(cmd, buf, out)
         elif word == "margins" and isinstance(out, dict) and "alternative" in out:
-            # after cmclogit: one effect, printed on a `_cons` row
+            # after cmclogit / cmmprobit: one effect, printed on a `_cons`
+            # row. Stata simulates the probit probabilities, which leaves
+            # about three digits.
             row = coefficient_table(buf).get("_cons")
+            loose = 5e-3 if self._simulated_reference else 0.0
             if row:
-                self.report.number(self.name, cmd, "dydx", row[0], out["dydx"])
-                self.report.number(self.name, cmd, "se", row[1], out["se"])
+                self.report.number(
+                    self.name, cmd, "dydx", row[0], out["dydx"], rtol=loose
+                )
+                self.report.number(self.name, cmd, "se", row[1], out["se"], rtol=loose)
         elif word == "margins":
             if isinstance(out, pd.DataFrame) and out.attrs.get("session_margins"):
                 self._bag(cmd, [ln for ln in buf if "_at:" not in ln], out)
@@ -782,7 +798,13 @@ class Replay:
         elif word.startswith("est") and isinstance(out, pd.DataFrame) and "AIC" in out:
             _cmp_estimates_stats(self, cmd, buf, out)
         elif word == "cmclogit" and not quiet:
+            self._simulated_reference = False
             _cmp_cmclogit(self, cmd, buf, out)
+        elif word in ("cmmprobit", "cmmixlogit") and not quiet:
+            self._simulated_reference = True
+            _cmp_cmmprobit(self, cmd, buf, out)
+        elif word == "nlogit" and not quiet:
+            _cmp_nlogit(self, cmd, buf, out)
         elif _RESAMPLED.search(cmd):
             _cmp_resample(self, cmd, buf, out)
         elif word == "irf" and isinstance(out, pd.DataFrame):
@@ -2128,6 +2150,149 @@ def _cmp_irf(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
             self.report.number(
                 self.name, cmd, f"{name}[{m.group(1)}]", Printed(m.group(2)),
                 out[name].loc[int(m.group(1))],
+            )  # fmt: skip
+
+
+def _cmp_nlogit(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """`nlogit` prints the regressors under the name of the alternatives
+    variable, a constant per alternative, and the dissimilarity parameters
+    as `<nest>_tau`. Stata's `ml` stops at its default tolerance, which
+    leaves four to five digits."""
+    params, ses = dict(out.params), dict(out.std_errors)
+    labels = out.model_info.get("alternative_labels", {})
+    code_of = {str(text): code for code, text in labels.items()}
+    block = None
+    for ln in buf:
+        head = re.match(r"^\s*(\S+)\s*\|\s*$", ln)
+        if head:
+            block = head.group(1)
+            continue
+        m = re.match(rf"^\s*(\S+)\s*\|\s*({NUM})\s+({NUM})\s", ln)
+        if not m:
+            continue
+        name = m.group(1)
+        if name == "_cons" and block in code_of:
+            name = f"_cons:{code_of[block]}"
+        elif name.endswith("_tau"):
+            name = f"lambda:{name[:-4]}"
+        self.report.number(
+            self.name, cmd, f"b[{name}]", Printed(m.group(2)), params.get(name),
+            rtol=2e-3,
+        )  # fmt: skip
+        self.report.number(
+            self.name, cmd, f"se[{name}]", Printed(m.group(3)), ses.get(name),
+            rtol=2e-3,
+        )  # fmt: skip
+    text = "\n".join(buf)
+    found = re.findall(rf"^Log likelihood = ({NUM})", text, re.M)
+    if found:
+        self.report.number(
+            self.name, cmd, "ll", Printed(found[-1]), out.model_info.get("ll")
+        )
+    m = re.search(rf"LR test for IIA \(tau=1\): chi2\(\d+\) = ({NUM})", text)
+    if m:
+        self.report.number(
+            self.name, cmd, "LR IIA", Printed(m.group(1)),
+            out.model_info.get("lr_iia_chi2"),
+        )  # fmt: skip
+
+
+def _cmp_estat_bootstrap(
+    self: "Replay", cmd: str, buf: List[str], out: pd.DataFrame
+) -> None:
+    """`estat bootstrap`: the observed statistic is compared; the bias, the
+    standard error and the intervals depend on the draws. The table prints
+    one digit more than an estimation table, past where a quantile
+    regression is pinned down, hence six digits."""
+    observed = out.drop_duplicates("statistic").set_index("statistic")["observed"]
+    alias = {"Intercept": "_cons", "const": "_cons"}
+    ours = {alias.get(str(k), str(k)): v for k, v in observed.items()}
+    pattern = rf"^\s*(\S+)\s*\|\s*({NUM})\s+({NUM})\s+({NUM})\s+({NUM})\s+({NUM})"
+    for ln in buf:
+        m = re.match(pattern, ln)
+        if m:
+            name = m.group(1)
+            self.report.number(
+                self.name, cmd, f"observed[{name}]", Printed(m.group(2)),
+                ours.get(name), rtol=1e-6,
+            )  # fmt: skip
+            for label, text in zip(("bias", "se", "lower", "upper"), m.groups()[2:]):
+                self.report.add(
+                    self.name, cmd, f"{label}[{name}]", "random",
+                    stata=Printed(text).value,
+                )  # fmt: skip
+            continue
+        m = re.match(rf"^\s*\|\s+({NUM})\s+({NUM})\s+\((\w+)\)", ln)
+        if m:
+            for label, text in zip(("lower", "upper"), m.groups()[:2]):
+                self.report.add(
+                    self.name, cmd, f"{label} ({m.group(3)})", "random",
+                    stata=Printed(text).value,
+                )  # fmt: skip
+
+
+def _cmp_cmmprobit(self: "Replay", cmd: str, buf: List[str], out: Any) -> None:
+    """`cmmprobit` simulates the choice probabilities (Hammersley points),
+    so its estimates carry simulation error. A coefficient is reproduced
+    when it is within 2% of Stata's standard error of the printed value, a
+    standard error when it is within 2%."""
+    params, ses = dict(out.params), dict(out.std_errors)
+    block, first = None, True
+    for ln in buf:
+        head = re.match(r"^\s*(\S+)\s*\|\s*(?:\(base alternative\))?\s*$", ln)
+        if head:
+            block = None if first else head.group(1)
+            first = False
+            continue
+        m = re.match(rf"^\s*(\S+)\s*\|\s*({NUM})\s+({NUM})\s+({NUM})\s+({NUM})", ln)
+        if not m or (first and not m.group(1).startswith("sd(")):
+            continue
+        name = m.group(1)
+        spread = re.fullmatch(r"sd\((\w+)\)", name)
+        if spread:
+            name = f"sd_{spread.group(1)}"  # under the /Normal heading
+        elif name.startswith("/"):
+            name = name[1:]
+        elif block is not None:
+            name = f"{block}:{name}"
+        if name not in params and f"mean_{name}" in params:
+            name = f"mean_{name}"  # the mean of a random coefficient
+        b, se = Printed(m.group(2)), Printed(m.group(3))
+        ours_b, ours_se = params.get(name), ses.get(name)
+        if spread and ours_b is not None:
+            ours_b = abs(float(ours_b))  # a standard deviation has no sign
+        if ours_b is None or ours_se is None:
+            self.report.add(self.name, cmd, f"b[{name}]", "no output", stata=b.value)
+            continue
+        close = abs(float(ours_b) - b.value) <= max(0.02 * se.value, b.unit)
+        self.report.add(
+            self.name, cmd, f"b[{name}]", "ok" if close else "DIFF",
+            stata=b.value, ours=float(ours_b),
+            units_off=abs(float(ours_b) - b.value) / b.unit,
+        )  # fmt: skip
+        self.report.number(self.name, cmd, f"se[{name}]", se, ours_se, rtol=2e-2)
+    found = re.findall(rf"Log simulated-likelihood = ({NUM})", "\n".join(buf))
+    if found:
+        self.report.number(
+            self.name, cmd, "log likelihood", Printed(found[-1]),
+            out.model_info.get("ll", out.model_info.get("log_likelihood")),
+            rtol=1e-4,
+        )  # fmt: skip
+
+
+def _cmp_choice_covariance(
+    self: "Replay", cmd: str, buf: List[str], out: pd.DataFrame
+) -> None:
+    """`estat covariance` / `estat correlation` after `cmmprobit`: the lower
+    triangle, row by row."""
+    for ln in buf:
+        m = re.match(r"^\s*\|\s*(\S+)\s*\|((?:\s+" + NUM + r")+)\s*\|\s*$", ln)
+        if not m or m.group(1) not in out.index:
+            continue
+        for col, text in zip(out.columns, m.group(2).split()):
+            self.report.number(
+                self.name, cmd, f"{m.group(1)},{col}", Printed(text),
+                out.loc[m.group(1), col], rtol=1e-2,
             )  # fmt: skip
 
 

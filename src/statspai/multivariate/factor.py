@@ -92,14 +92,143 @@ class FactorResult(ResultProtocolMixin):
         self.lr_independence: Dict[str, float] = fields.pop("lr_independence")
         self.lr_factors: Optional[Dict[str, float]] = fields.pop("lr_factors", None)
         self.heywood: bool = fields.pop("heywood", False)
+        #: set by :meth:`rotate`
+        self.rotation: Optional[str] = None
+        self.rotation_matrix: Optional[pd.DataFrame] = None
+        self.factor_correlation: Optional[pd.DataFrame] = None
+        self.variance: Optional[pd.DataFrame] = None
+
+    def rotate(
+        self,
+        method: str = "varimax",
+        *,
+        normalize: bool = False,
+        power: float = 3.0,
+        tol: float = 1e-12,
+        maxiter: int = 5000,
+    ) -> "FactorResult":
+        """Rotate the retained factors.
+
+        Parameters
+        ----------
+        method : {'varimax', 'promax'}, default 'varimax'
+            ``'varimax'`` is the orthogonal rotation that maximises the
+            variance of the squared loadings within each factor.
+            ``'promax'`` starts from varimax and lets the factors
+            correlate: the target is the varimax loadings raised to
+            ``power`` with their signs kept.
+        normalize : bool, default False
+            Kaiser normalisation: each variable's loadings are scaled to
+            unit length before the rotation and scaled back after it.
+        power : float, default 3.0
+            Promax power.
+
+        Returns
+        -------
+        FactorResult
+            A copy with rotated ``loadings``, ``rotation_matrix``
+            (``loadings = unrotated @ rotation_matrix`` for varimax; for
+            promax the matrix that rotates the factors, whose inverse
+            transpose rotates the loadings), ``factor_correlation`` (the
+            identity for varimax) and ``variance`` (the sum of squared
+            correlations of the variables with each rotated factor).
+            Uniquenesses and the tests do not change with a rotation.
+            Factors are ordered by the variance they account for and
+            signed so that their loadings sum to a positive number, which
+            is what Stata's ``rotate`` prints.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> f, g = rng.normal(size=(2, 500))
+        >>> df = pd.DataFrame({f"a{j}": f + rng.normal(size=500) for j in range(3)})
+        >>> for j in range(3):
+        ...     df[f"b{j}"] = g + rng.normal(size=500)
+        >>> rot = sp.factor(df, method="pcf", n_factors=2).rotate("varimax")
+        >>> bool((rot.loadings.abs().max(axis=1) > 0.6).all())
+        True
+        """
+        import copy
+
+        kind = str(method).lower()
+        if kind not in ("varimax", "promax"):
+            raise MethodIncompatibility(
+                f"FactorResult.rotate: method={method!r} is not available.",
+                recovery_hint="Use 'varimax' or 'promax'.",
+            )
+        L = self.loadings.to_numpy(dtype=float)
+        p, k = L.shape
+        if k < 2:
+            raise MethodIncompatibility(
+                "FactorResult.rotate: one factor cannot be rotated.",
+                recovery_hint="Retain at least two factors (n_factors=2).",
+            )
+        scale = np.sqrt((L**2).sum(axis=1)) if normalize else np.ones(p)
+        scale = np.where(scale > 0, scale, 1.0)
+        A = L / scale[:, None]
+        T = np.eye(k)
+        last = 0.0
+        for _ in range(maxiter):
+            B = A @ T
+            u, sv, vt = np.linalg.svd(A.T @ (B**3 - B * (B**2).sum(axis=0) / p))
+            T = u @ vt
+            if sv.sum() - last <= tol * max(sv.sum(), 1.0):
+                break
+            last = sv.sum()
+        phi = np.eye(k)
+        rotated = (A @ T) * scale[:, None]
+        reported = T
+        if kind == "promax":
+            # Stata's order of operations: the target is built from the
+            # (normalised) varimax loadings, and the oblique transformation
+            # is fitted to the loadings in their own scale
+            B = A @ T
+            target = np.sign(B) * np.abs(B) ** power
+            U = np.linalg.lstsq(rotated, target, rcond=None)[0]
+            U = U * np.sqrt(np.diag(np.linalg.inv(U.T @ U)))
+            T = T @ U
+            phi = np.linalg.inv(U.T @ U)
+            rotated = rotated @ U
+            # for correlated factors the matrix printed is the one that
+            # rotates the factors, the inverse transpose of the one that
+            # rotates the loadings
+            reported = np.linalg.inv(T.T)
+        # the variance of a factor: squared correlations of the variables
+        # with it (the structure matrix), which for uncorrelated factors
+        # are the squared loadings
+        structure = rotated @ phi
+        variance = (structure**2).sum(axis=0)
+        order = np.argsort(-variance, kind="stable")
+        sign = np.where(rotated[:, order].sum(axis=0) < 0, -1.0, 1.0)
+        rotated = rotated[:, order] * sign
+        T = reported[:, order] * sign
+        phi = phi[np.ix_(order, order)] * np.outer(sign, sign)
+        variance = variance[order]
+        names = list(self.loadings.columns)
+        out = copy.copy(self)
+        out.loadings = pd.DataFrame(rotated, index=self.loadings.index, columns=names)
+        out.rotation = kind + (" (Kaiser normalisation)" if normalize else "")
+        out.rotation_matrix = pd.DataFrame(T, index=names, columns=names)
+        out.factor_correlation = pd.DataFrame(phi, index=names, columns=names)
+        out.variance = pd.DataFrame(
+            {"variance": variance, "proportion": variance / p}, index=names
+        )
+        return out
 
     def scores(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Regression-method factor scores, ``z R^{-1} L``, with ``z`` the
+        """Regression-method factor scores, ``z R^{-1} S``, with ``z`` the
         variables standardised by the estimation sample's mean and standard
-        deviation."""
+        deviation and ``S`` the correlations of the variables with the
+        factors (the loadings, times the factor correlation after an
+        oblique rotation)."""
         names = list(self.loadings.index)
         z = (data[names].astype(float) - self._means) / self._scales
-        weights = np.linalg.solve(self._correlation, self.loadings.to_numpy())
+        structure = self.loadings.to_numpy()
+        if self.factor_correlation is not None:
+            structure = structure @ self.factor_correlation.to_numpy()
+        weights = np.linalg.solve(self._correlation, structure)
         return pd.DataFrame(
             z.to_numpy() @ weights, index=data.index, columns=self.loadings.columns
         )

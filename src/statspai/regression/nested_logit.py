@@ -52,6 +52,8 @@ def nlogit(
     nests: Optional[Mapping[str, Sequence[Any]]] = None,
     constants: bool = True,
     common_lambda: bool = False,
+    fixed_lambda: Optional[Mapping[str, float]] = None,
+    base: Optional[Any] = None,
     vce: Optional[str] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
@@ -82,10 +84,17 @@ def nlogit(
         exactly one nest. A nest with a single alternative has no
         dissimilarity parameter (it is fixed at 1).
     constants : bool, default True
-        Alternative-specific constants, the first alternative (sorted)
-        as base.
+        Alternative-specific constants, with ``base`` as the reference.
     common_lambda : bool, default False
         One dissimilarity parameter for all nests.
+    fixed_lambda : mapping, optional
+        ``{nest: value}``: dissimilarity parameters held at a value and
+        not estimated. ``{"TrainBus": 1}`` is Stata's
+        ``constraint 1 [/type]TrainBus_tau = 1``; a nest fixed at 1 is
+        the same model as one nest per alternative in it.
+    base : optional
+        The alternative whose constant is zero. Default: the first one
+        in sorted order.
     vce : {None, 'robust', 'cluster'}, optional
         Observed information (default), sandwich, or cluster sandwich.
         Scores are summed within a choice situation first.
@@ -191,7 +200,31 @@ def nlogit(
     kc = J - 1 if constants else 0
     nest_names = [str(k) for k in nests]
     nest_of = np.array([nest_names.index(member[a]) for a in alts])
-    free = [k for k, name in enumerate(nest_names) if np.sum(nest_of == k) > 1]
+    fixed = {str(k): float(v) for k, v in (fixed_lambda or {}).items()}
+    stray = [k for k in fixed if k not in nest_names]
+    if stray or (fixed and common_lambda):
+        raise MethodIncompatibility(
+            (
+                "nlogit: fixed_lambda= names nests that are not in nests= "
+                f"({stray})."
+                if stray
+                else "nlogit: fixed_lambda= cannot be combined with common_lambda=True."
+            ),
+            recovery_hint=f"Nests: {nest_names}.",
+        )
+    if base is None:
+        base = alts[0]
+    if base not in alts:
+        raise MethodIncompatibility(
+            f"nlogit: base={base!r} is not an alternative.",
+            recovery_hint=f"Alternatives: {alts}.",
+        )
+    with_constant = [j for j in range(J) if alts[j] != base]
+    free = [
+        k
+        for k, name in enumerate(nest_names)
+        if np.sum(nest_of == k) > 1 and name not in fixed
+    ]
     if not free:
         raise MethodIncompatibility(
             "nlogit: every nest has a single alternative, which is the "
@@ -210,13 +243,15 @@ def nlogit(
     def utilities(theta: np.ndarray) -> np.ndarray:
         V = X @ theta[:kx] if kx else np.zeros((n, J), dtype=theta.dtype)
         if kc:
-            V = V + np.concatenate(
-                [np.zeros(1, dtype=theta.dtype), theta[kx : kx + kc]]
-            )
+            shift = np.zeros(J, dtype=theta.dtype)
+            shift[with_constant] = theta[kx : kx + kc]
+            V = V + shift
         return V
 
     def lambdas(theta: np.ndarray) -> np.ndarray:
         lam = np.ones(len(nest_names), dtype=theta.dtype)
+        for name, value in fixed.items():
+            lam[nest_names.index(name)] = value
         tail = theta[kx + kc :]
         for i, k in enumerate(free):
             lam[k] = tail[0] if common_lambda else tail[i]
@@ -272,7 +307,7 @@ def nlogit(
     lam_names = (
         ["lambda"] if common_lambda else [f"lambda:{nest_names[k]}" for k in free]
     )
-    names = xs + [f"_cons:{a}" for a in alts[1:]] * bool(kc) + lam_names
+    names = xs + [f"_cons:{alts[j]}" for j in with_constant] * bool(kc) + lam_names
     lam_hat = theta[kx + kc :]
     if np.any(lam_hat > 1.0) or np.any(lam_hat <= 0.0):
         import warnings
@@ -299,6 +334,8 @@ def nlogit(
         "nests": {str(k): list(v) for k, v in nests.items()},
         "alternatives": alts,
         "common_lambda": bool(common_lambda),
+        "fixed_lambda": dict(fixed),
+        "base": base,
         "ll": ll,
         "log_likelihood": ll,
         "ll_clogit": ll_cl,

@@ -16,6 +16,7 @@ import re
 import warnings
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
+import numpy as np
 import pandas as pd
 
 from ._stata_expr import StataExprError
@@ -172,10 +173,104 @@ def resample_line(session: "StataSession", line: str) -> Optional[bool]:
             UserWarning,
             stacklevel=4,
         )
+    if kind == "bootstrap":
+        session.stored["bootstrap"] = {
+            "result": result, "statistic": statistic, "sample": sample,
+            "cluster": cluster, "name": "_bs_1" if expr is not None else None,
+        }  # fmt: skip
     session.output = result
     if expr is None:
         # the command's coefficients with resampling standard errors: what
         # `test` and `lincom` after it should use
         session.last = result
         session._store_estimates(result)
+    if kind == "bootstrap":
+        session.stored["bootstrap"]["last"] = session.last
+    return True
+
+
+_ESTAT_BOOT = re.compile(r"\s*estat\s+boot(?:strap)?\s*(?:,\s*(.*))?$", re.I)
+
+
+def estat_bootstrap_line(session: "StataSession", line: str) -> Optional[bool]:
+    """``estat bootstrap [, normal percentile bc bca all]`` after a
+    bootstrap: bias, standard error and the requested intervals for each
+    statistic. ``None`` for any other line.
+
+    ``bc`` (Stata's default) shifts the percentiles by ``z0``, the normal
+    quantile of the share of replicates at or below the estimate. ``bca``
+    also uses the acceleration ``a`` from the jackknife:
+    ``sum(d^3) / (6 sum(d^2)^1.5)`` with ``d`` the deviations of the
+    leave-one-out estimates from their mean.
+    """
+    from scipy import stats
+
+    import statspai as sp
+
+    m = _ESTAT_BOOT.match(line)
+    if m is None:
+        return None
+    kept = session.stored.get("bootstrap")
+    if not kept or session.last is not kept.get("last"):
+        raise StataExprError("estat bootstrap has to follow a bootstrap")
+    wanted = [w for w in re.split(r"[\s,]+", (m.group(1) or "").lower()) if w]
+    known = {"normal": "N", "percentile": "P", "bc": "BC", "bca": "BCa"}
+    unknown = [w for w in wanted if w not in known and w not in ("all", "noheader")]
+    if unknown:
+        raise StataExprError(
+            f"estat bootstrap: option(s) {unknown} are not implemented"
+        )
+    kinds = (
+        list(known.values())
+        if "all" in wanted
+        else [known[w] for w in wanted if w in known] or ["BC"]
+    )
+    result = kept["result"]
+    info = getattr(result, "model_info", None) or {}
+    if "boot_distribution" in info:
+        draws = np.asarray(info["boot_distribution"], dtype=float)
+        names = [str(c) for c in info["boot_distribution"].columns]
+        observed = np.asarray(result.params, dtype=float)
+    else:
+        draws = np.asarray(result.boot_distribution, dtype=float).reshape(-1, 1)
+        names = [kept["name"] or "_bs_1"]
+        observed = np.array([float(result.estimate)])
+    draws = draws[np.all(np.isfinite(draws), axis=1)]
+    level = float(session.stored.get("level", 95.0)) / 100.0
+    lo_p, hi_p = (1.0 - level) / 2.0, (1.0 + level) / 2.0
+    z = stats.norm.ppf(hi_p)
+    accel = np.zeros(len(names))
+    if "BCa" in kinds:
+        jack = sp.jackknife(kept["sample"], kept["statistic"], cluster=kept["cluster"])
+        held = (getattr(jack, "model_info", None) or {}).get("replicates")
+        if held is None:
+            held = jack.replicates
+        values = np.asarray(held, dtype=float).reshape(-1, len(names))
+        dev = values.mean(axis=0) - values
+        accel = (dev**3).sum(axis=0) / (6.0 * (dev**2).sum(axis=0) ** 1.5)
+    rows = []
+    for j, name in enumerate(names):
+        column = draws[:, j]
+        se = float(column.std(ddof=1))
+        z0 = float(stats.norm.ppf(np.mean(column <= observed[j])))
+        for kind in kinds:
+            if kind == "N":
+                lo, hi = observed[j] - z * se, observed[j] + z * se
+            elif kind == "P":
+                lo, hi = np.quantile(column, [lo_p, hi_p])
+            else:
+                a = accel[j] if kind == "BCa" else 0.0
+                shifted = [
+                    stats.norm.cdf(z0 + (z0 + q) / (1.0 - a * (z0 + q)))
+                    for q in (-z, z)
+                ]
+                lo, hi = np.quantile(column, shifted)
+            rows.append(
+                {
+                    "statistic": name, "observed": float(observed[j]),
+                    "bias": float(column.mean() - observed[j]), "se": se,
+                    "ci_lower": float(lo), "ci_upper": float(hi), "type": kind,
+                }
+            )  # fmt: skip
+    session.output = pd.DataFrame(rows)
     return True

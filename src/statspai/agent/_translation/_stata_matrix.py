@@ -97,6 +97,23 @@ def _estimates(session: "StataSession", which: str) -> Dict[str, Any]:
     return {"values": values, "rows": shown, "cols": shown}
 
 
+def _residual_covariance(session: "StataSession") -> Dict[str, Any]:
+    """``e(Sigma)`` after ``var``: the covariance of the residuals as Stata
+    stores it, divided by the number of observations (no ``dfk``)."""
+    result = session.last
+    sigma = getattr(result, "sigma_u", None)
+    resid = getattr(result, "resid", None)
+    if sigma is None:
+        raise StataExprError("e(Sigma) needs a var before it")
+    names = [str(c) for c in getattr(sigma, "columns", range(len(sigma)))]
+    if resid is not None:
+        e = np.asarray(resid, dtype=float)
+        values = e.T @ e / e.shape[0]
+    else:
+        values = np.asarray(sigma, dtype=float)
+    return {"values": values, "rows": names, "cols": names}
+
+
 def _mat(values: Any, rows: Any = None, cols: Any = None) -> Dict[str, Any]:
     return {"values": np.atleast_2d(np.asarray(values, dtype=float)), "rows": rows,
             "cols": cols}  # fmt: skip
@@ -238,6 +255,8 @@ class _Algebra:
                 return _mat(np.eye(int(value(args[0]))))
             if low in ("e", "get") and len(args) == 1:
                 which = {"b": "b", "_b": "b", "V": "V", "VCE": "V"}.get(args[0].strip())
+                if args[0].strip() == "Sigma":
+                    return _residual_covariance(self.session)
                 if which is None:
                     raise StataExprError(f"{name}({inner}) is not implemented")
                 return _estimates(self.session, which)
@@ -288,9 +307,12 @@ def matrix_line(session: "StataSession", line: str) -> Optional[bool]:
         name = rest.split(",")[0].strip()
         if low == "dir" or not name:
             return False
-        if name not in held:
+        if re.fullmatch(r"e\((b|V|Sigma)\)", name):
+            mat = _evaluate(session, name)  # `matrix list e(V)`
+        elif name not in held:
             raise StataExprError(f"matrix {name} not found")
-        mat = held[name]
+        else:
+            mat = held[name]
         session.output = pd.DataFrame(
             mat["values"], index=mat["rows"], columns=mat["cols"]
         )

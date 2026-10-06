@@ -39,7 +39,7 @@ df["lwage"] = (
 | 8 | Constrained least squares, efficient minimum distance | `sp.cnsreg` |
 | 9 | Wald tests, functions of coefficients | `sp.test`, `sp.lincom`, `sp.nlcom` |
 | 10 | Jackknife and bootstrap | `sp.jackknife`, `sp.bootstrap` |
-| 11 | Principal components, factor models | `sp.pca`, `sp.factor` |
+| 11 | Principal components, factor models, rotation | `sp.pca`, `sp.factor`, `.rotate()` |
 | 12 | 2SLS, LIML, overidentification, control function | `sp.iv`, `sp.estat(fit, 'overid')`, `'endogenous'`, `'firststage'` |
 | 13 | GMM | `sp.iv(method='gmm')`, `sp.gmm` |
 | 14 | Autoregressions, Newey-West | `sp.ardl`, `sp.regress(vce='hac', hac_lags=)` |
@@ -47,15 +47,13 @@ df["lwage"] = (
 | 16 | Unit roots, KPSS, cointegration | `sp.unitroot`, `sp.vec`, `sp.johansen` |
 | 17 | Fixed and random effects, Hausman-Taylor, dynamic panels | `sp.panel`, `sp.xthtaylor`, `sp.xtabond`, `sp.xtdpdsys` |
 | 18 | Difference in differences | `sp.did`, `sp.panel(method='fe')` |
-| 19 to 21 | Kernel regression, series, regression discontinuity | `sp.lpoly`, `sp.rdrobust` |
+| 19 to 21 | Kernel regression, series, regression discontinuity | `sp.lpoly`, `sp.series`, `sp.rdrobust` |
 | 23 | Nonlinear least squares, threshold and kink models | `sp.nls`, `sp.threshold` |
 | 24 | Quantile regression | `sp.qreg`, `sp.sqreg` |
-| 25, 26 | Binary and multiple choice | `sp.logit`, `sp.probit`, `sp.margins`, `sp.mlogit`, `sp.clogit`, `sp.nlogit`, `sp.mixlogit` |
+| 25, 26 | Binary and multiple choice | `sp.logit`, `sp.probit`, `sp.margins`, `sp.mlogit`, `sp.clogit`, `sp.nlogit`, `sp.mprobit`, `sp.mixlogit` |
 | 27 | Censoring and selection | `sp.tobit`, `sp.heckman` |
 | 28 | Model selection and averaging | `sp.model_average` |
 | 29 | Lasso, ridge and their relatives | `sp.rlasso`, `sp.lasso_select` |
-
-Not available yet: multinomial probit (chapter 26).
 
 ## Constrained regression (chapter 8)
 
@@ -124,6 +122,26 @@ Eigenvectors are defined up to sign. StatsPAI signs each one so that its
 elements sum to a positive number, which is what Stata prints; R may show
 the opposite sign. Loadings are unrotated.
 
+With two or more factors the loadings can be rotated towards a pattern
+in which each variable loads on one factor:
+
+```python
+two = pd.DataFrame(
+    rng.normal(size=(n, 1)) * [0.8, 0.7, 0.6, 0, 0, 0]
+    + rng.normal(size=(n, 1)) * [0, 0, 0, 0.8, 0.7, 0.6]
+    + rng.normal(size=(n, 6)) * 0.5,
+    columns=["a1", "a2", "a3", "b1", "b2", "b3"],
+)
+rotated = sp.factor(two, method="pcf", n_factors=2).rotate("varimax")
+print(rotated.loadings.round(2))
+oblique = sp.factor(two, method="pcf", n_factors=2).rotate("promax")
+print(oblique.factor_correlation.round(3))
+```
+
+`'varimax'` keeps the factors uncorrelated. `'promax'` lets them
+correlate. A rotation changes the loadings and nothing else: the
+uniquenesses and the fit are the same.
+
 ## Overidentification after 2SLS (chapter 12)
 
 ```python
@@ -173,6 +191,28 @@ regressors named in `endog=` be correlated with it and instruments them
 with the within variation of the time-varying regressors and the firm means
 of the exogenous ones. It needs at least as many exogenous time-varying
 regressors as endogenous time-invariant ones.
+
+## Series regression (chapter 20)
+
+```python
+df["tenure"] = rng.uniform(0, 40, n)
+df["pay"] = (
+    2 + 0.08 * df.tenure - 0.0015 * df.tenure**2 + 0.05 * df.educ
+    + rng.normal(scale=0.4, size=n)
+)
+profile = sp.series("pay ~ educ", df, "tenure")
+print(profile.model_info["order"])
+print(profile.model_info["cv"].round(2))
+print(profile.model_info["function"].iloc[::25].round(3))
+spline = sp.series("pay ~ educ", df, "tenure", basis="spline", degree=2)
+```
+
+The effect of `tenure` is a polynomial whose degree is chosen by
+leave-one-out cross-validation. `model_info['cv']` shows the criterion for
+each candidate, and `model_info['function']` the fitted profile and its
+slope with pointwise standard errors. The intervals take the degree as
+given, so they understate the uncertainty where the function bends.
+`basis='spline'` behaves better near the ends of the data.
 
 ## Nonlinear least squares (chapter 23)
 
@@ -230,6 +270,48 @@ print(kink.params.round(3).to_dict(), round(kink.std_errors["threshold"], 3))
 This is the model the book fits with `nl` to the Reinhart-Rogoff data.
 `sp.threshold` searches a grid first, so it does not depend on starting
 values.
+
+## Multiple choice (chapter 26)
+
+```python
+cases = 400
+trips = pd.DataFrame({
+    "trip": np.repeat(np.arange(cases), 3),
+    "mode": np.tile(["bus", "car", "train"], cases),
+    "fare": rng.normal(size=3 * cases),
+    "wealth": np.repeat(rng.normal(size=cases), 3),
+})
+utility = (
+    -1.0 * trips.fare + 0.6 * trips.wealth * (trips["mode"] == "car")
+    + rng.normal(size=3 * cases)
+)
+trips["chosen"] = (utility == utility.groupby(trips.trip).transform("max")).astype(int)
+probit = sp.mprobit(
+    trips, y="chosen", x="fare", case_vars="wealth", chid="trip", alt="mode",
+    correlation="independent", stddev="homoskedastic",
+)
+print(probit.params.round(3).to_dict())
+print(probit.model_info["covariance"])
+```
+
+`x=` holds the regressors that differ across alternatives (one
+coefficient each), `case_vars=` those that describe the traveller (one
+coefficient per alternative). The default covariance is unstructured,
+which removes the independence of irrelevant alternatives and is weakly
+identified in most data; start from the independent model. The choice
+probabilities are integrated by quadrature, so two runs give the same
+numbers. Stata's `cmmprobit` simulates them and agrees to three or four
+digits.
+
+A nested logit with one nest held at independence, as in the book:
+
+```python
+nested = sp.nlogit(
+    trips, y="chosen", x="fare", chid="trip", alt="mode",
+    nests={"road": ["bus", "car"], "rail": ["train"]},
+)
+print(round(nested.params["lambda:road"], 3))
+```
 
 ## Model selection and averaging (chapter 28)
 

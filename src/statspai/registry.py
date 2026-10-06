@@ -1927,6 +1927,20 @@ def _build_registry() -> None:
                     "One dissimilarity parameter for all nests",
                 ),
                 ParamSpec(
+                    "fixed_lambda",
+                    "dict",
+                    False,
+                    None,
+                    "{nest: value}: dissimilarity parameters held fixed",
+                ),
+                ParamSpec(
+                    "base",
+                    "any",
+                    False,
+                    None,
+                    "Alternative whose constant is zero (default: first)",
+                ),
+                ParamSpec(
                     "vce",
                     "str",
                     False,
@@ -7759,6 +7773,178 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="series",
+            category="nonparametric",
+            description=(
+                "Series (sieve) regression of y on a flexible function of one "
+                "variable, a polynomial or a spline, with other regressors "
+                "entering linearly. The polynomial degree or the number of "
+                "knots is chosen by leave-one-out cross-validation, computed "
+                "from the leverages without refitting. Returns the fitted "
+                "function and its derivative on a grid with pointwise "
+                "standard errors, and the cross-validation table."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, None, "'y ~ 1' or 'y ~ z1 + z2'"),
+                ParamSpec("data", "DataFrame", True, None, "The data"),
+                ParamSpec("x", "str", True, None, "Variable with a flexible effect"),
+                ParamSpec(
+                    "basis",
+                    "str",
+                    False,
+                    "polynomial",
+                    "Basis of the approximation",
+                    ["polynomial", "spline"],
+                ),
+                ParamSpec(
+                    "order",
+                    "int",
+                    False,
+                    None,
+                    "Polynomial degree or number of knots (default: by CV)",
+                ),
+                ParamSpec(
+                    "orders", "list", False, None, "Candidates for cross-validation"
+                ),
+                ParamSpec("degree", "int", False, 3, "Degree of the spline pieces"),
+                ParamSpec(
+                    "knots",
+                    "str",
+                    False,
+                    "quantile",
+                    "Knot placement",
+                    ["quantile", "uniform"],
+                ),
+                ParamSpec(
+                    "grid", "int | array", False, None, "Where the function is shown"
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "robust",
+                    "Covariance estimator ('robust' is HC1)",
+                    ["robust", "ols", "hc0", "hc2", "hc3"],
+                ),
+                ParamSpec("cluster", "str", False, None, "Column to cluster on"),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="EconometricResults",
+            example='sp.series("lwage ~ educ", data=df, x="exper")',
+            tags=["nonparametric", "series", "sieve", "spline", "cross-validation"],
+            reference="hansen2022econometrics",
+            assumptions=[
+                "The regression function is smooth in x",
+                "The pointwise intervals take the number of terms as given and "
+                "ignore approximation error",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="DataInsufficient: no candidate order gives a design "
+                    "of full rank",
+                    exception="statspai.DataInsufficient",
+                    remedy="x takes too few distinct values for the orders "
+                    "requested; lower orders=.",
+                ),
+            ],
+            alternatives=["lpoly", "gam", "regress", "binscatter"],
+            not_recommended_when=[
+                "Behaviour at the edge of the support matters and the basis is "
+                "a high-order polynomial — use a spline or sp.lpoly",
+                "Several regressors need a flexible form — use sp.gam",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="mprobit",
+            category="regression",
+            description=(
+                "Multinomial probit choice model for long data (one row per "
+                "case and alternative): regressors that vary over "
+                "alternatives, case-specific regressors with one coefficient "
+                "per alternative, and jointly normal errors with an "
+                "independent or unstructured covariance. The choice "
+                "probabilities are integrated by Gauss-Legendre quadrature "
+                "when there are at most four alternatives, so the likelihood "
+                "has no simulation noise and no seed. Parameterised and "
+                "normalised as Stata cmmprobit, whose simulated estimates it "
+                "reproduces to three or four digits."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Long-form choice data"),
+                ParamSpec("y", "str", True, None, "1 on the chosen alternative"),
+                ParamSpec(
+                    "x", "str | list", False, None, "Alternative-specific regressors"
+                ),
+                ParamSpec(
+                    "case_vars", "str | list", False, None, "Case-specific regressors"
+                ),
+                ParamSpec("chid", "str", True, None, "Case identifier"),
+                ParamSpec("alt", "str", True, None, "Alternatives variable"),
+                ParamSpec("base", "any", False, None, "Alternative fixing location"),
+                ParamSpec("scale", "any", False, None, "Alternative fixing scale"),
+                ParamSpec(
+                    "correlation",
+                    "str",
+                    False,
+                    "unstructured",
+                    "Correlation of the errors",
+                    ["unstructured", "independent"],
+                ),
+                ParamSpec(
+                    "stddev",
+                    "str",
+                    False,
+                    "heteroskedastic",
+                    "Standard deviations of the errors",
+                    ["heteroskedastic", "homoskedastic"],
+                ),
+                ParamSpec(
+                    "constants", "bool", False, True, "Alternative-specific constants"
+                ),
+                ParamSpec(
+                    "n_points", "int", False, None, "Quadrature points per dimension"
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="EconometricResults",
+            example=(
+                'sp.mprobit(df, y="choice", x=["cost"], case_vars=["income"], '
+                'chid="case", alt="mode", correlation="independent", '
+                'stddev="homoskedastic")'
+            ),
+            tags=["regression", "discrete choice", "probit", "multinomial", "stata"],
+            reference="hansen2022econometrics",
+            assumptions=[
+                "Every case faces the same set of alternatives",
+                "Errors are jointly normal across alternatives and independent "
+                "across cases",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="ConvergenceWarning, or NumericalInstability: the "
+                    "information matrix is singular",
+                    exception="statspai.NumericalInstability",
+                    remedy="The covariance parameters of an unstructured model "
+                    "are weakly identified; use correlation='independent', "
+                    "or add regressors that vary across alternatives.",
+                ),
+            ],
+            alternatives=["clogit", "nlogit", "mixlogit", "mlogit"],
+            not_recommended_when=[
+                "Independence of irrelevant alternatives is acceptable — "
+                "sp.clogit is far cheaper and its coefficients are odds ratios",
+                "More than four alternatives with an unstructured covariance — "
+                "the probabilities are then simulated and the covariance is "
+                "rarely identified in practice",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="threshold",
             category="regression",
             description=(
@@ -7894,6 +8080,17 @@ def _build_registry() -> None:
                     True,
                     None,
                     "Regressors that may be correlated with the unit effect",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "ht",
+                    "Hausman-Taylor, or Amemiya-MaCurdy (balanced panels)",
+                    ["ht", "amacurdy"],
+                ),
+                ParamSpec(
+                    "time", "str", False, None, "Period identifier (for amacurdy)"
                 ),
                 ParamSpec(
                     "vce",
