@@ -1,9 +1,7 @@
 # Draft note to Klaus Neusser on `KalmanSmootherTVP.m`
 
-Status: draft, not sent. For Bryce to edit and send if he wishes. The
-recipient is the author of *Time Series Econometrics* (Springer 2016); the
-file is in the download "MATLAB code for the estimation of quarterly GDP
-(Section 17.4)" on the book's companion page.
+Status: final text, to be sent by Bryce (decision delegated 2026-10-06:
+send). Not sent by the assistant.
 
 ---
 

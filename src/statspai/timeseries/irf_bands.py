@@ -247,7 +247,7 @@ def bootstrap_fits(
     unbiased: bool,
     reps: int,
     seed: Optional[int],
-    boot: str = "efron",
+    boot: str = "kilian",
 ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
     """Coefficients and residual covariance of ``reps`` bootstrap samples.
 
@@ -341,7 +341,7 @@ def bootstrap_responses(
     unbiased: bool,
     reps: int,
     seed: Optional[int],
-    boot: str = "efron",
+    boot: str = "kilian",
 ) -> np.ndarray:
     """``reps`` bootstrap replicates of the response array."""
     k, p = int(var_result._k), int(var_result._lags)

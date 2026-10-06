@@ -1,10 +1,7 @@
 # Draft note to StataCorp on `tsfilter cf, stationary`
 
-Status: draft, not sent. For Bryce to edit and send to Stata technical
-support if he wishes. Found while building `sp.tsfilter` (2026-10-06);
-the evidence is in
-`tests/reference_parity/test_tsfilter_parity.py::test_stata_cf_stationary_is_not_its_documented_formula`
-and `..._smaorder_is_not_its_documented_formula`.
+Status: final text, to be sent by Bryce to Stata technical support
+(decision delegated 2026-10-06: send). Not sent by the assistant.
 
 ---
 

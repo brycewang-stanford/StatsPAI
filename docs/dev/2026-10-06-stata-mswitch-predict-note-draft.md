@@ -1,12 +1,11 @@
 # Draft note to StataCorp on `predict` after `mswitch ar ..., switch()`
 
-Status: draft, not sent. For Bryce to edit and send to Stata technical
-support if he wishes. Found while building `sp.mswitch` (2026-10-06). The
-evidence is the test
-`tests/reference_parity/test_mswitch_parity.py::test_ar_switching_regressor_probabilities_follow_statsmodels`,
-on the committed file `tests/reference_parity/_fixtures/mswitch.csv`
-(columns `t`, `y_z`, `z`) and the Stata output in
-`tests/reference_parity/_fixtures/mswitch_Stata_3.json` (case `ar1z`).
+Status: on hold (decision delegated 2026-10-06: do not send yet). The
+evidence is a comparison with two other implementations. A check that
+needs Stata alone was tried and found nothing: Stata's one-step predicted
+probabilities equal its filtered probabilities times its transition
+matrix to 1e-16, so its output is internally consistent on that identity.
+Send only if a self-contained demonstration is found.
 
 This one is less clear-cut than the `tsfilter cf, stationary` note: it
 rests on a comparison with a second implementation, not on Stata's own

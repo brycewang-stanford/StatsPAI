@@ -153,11 +153,12 @@ fit.fevd(20, ci="asymptotic")        # variance shares with standard errors
 
 Orthogonalised responses depend on the order of the variables. The
 bootstrap regenerates the series from resampled residuals and re-estimates
-the VAR; `boot="hall"` reflects the percentile band about the estimate.
-For persistent series in short samples use `boot="kilian"`: the
-bootstrap replicates of a VAR with a root near one are biased towards
-less persistence, and the uncorrected bands can cover far less often than
-they claim. The call warns when the largest estimated root exceeds 0.9.
+the VAR. The default band is bias-corrected (`boot="kilian"`): the
+bootstrap replicates of a VAR are biased towards less persistence, and
+with a root near one in a short sample the plain percentile band covers
+far less often than it claims. `boot="efron"` is that plain band, the
+one Stata and R's `vars` report; it warns when the largest estimated
+root exceeds 0.9.
 
 ```python
 nan = np.nan

@@ -51,7 +51,7 @@ def test_bootstrap_spread_agrees_with_the_delta_method_in_a_large_sample(fit):
 
 
 def test_hall_reflects_efron_about_the_estimate(fit):
-    efron = sp.irf(fit, periods=4, ci="bootstrap", reps=200, seed=2)
+    efron = sp.irf(fit, periods=4, ci="bootstrap", reps=200, seed=2, boot="efron")
     hall = sp.irf(fit, periods=4, ci="bootstrap", reps=200, seed=2, boot="hall")
     for key, est in efron["irf"].items():
         np.testing.assert_allclose(
@@ -338,7 +338,20 @@ def test_uncorrected_bootstrap_warns_on_a_persistent_var():
 
     fit = sp.var(_persistent(2001, T=200), lags=1)
     with pytest.warns(AssumptionWarning, match="kilian"):
-        sp.irf(fit, periods=2, ci="bootstrap", reps=30, seed=0)
+        sp.irf(fit, periods=2, ci="bootstrap", reps=30, seed=0, boot="efron")
     with warnings.catch_warnings():
         warnings.simplefilter("error", AssumptionWarning)
-        sp.irf(fit, periods=2, ci="bootstrap", reps=30, seed=0, boot="kilian")
+        sp.irf(fit, periods=2, ci="bootstrap", reps=30, seed=0)  # the default
+
+
+def test_bias_corrected_bootstrap_is_the_default(fit):
+    default = sp.irf(fit, periods=3, ci="bootstrap", reps=40, seed=3)
+    named = sp.irf(fit, periods=3, ci="bootstrap", reps=40, seed=3, boot="kilian")
+    assert default["ci"]["boot"] == "kilian"
+    np.testing.assert_array_equal(default["upper"]["a -> b"], named["upper"]["a -> b"])
+    plain = sp.irf(fit, periods=3, ci="bootstrap", reps=40, seed=3, boot="efron")
+    assert not np.array_equal(plain["upper"]["a -> b"], named["upper"]["a -> b"])
+    # the variance decomposition and structural responses follow it
+    shares = fit.fevd(3, ci="bootstrap", reps=40, seed=3)
+    same = fit.fevd(3, ci="bootstrap", reps=40, seed=3, boot="kilian")
+    np.testing.assert_array_equal(shares["upper"], same["upper"])

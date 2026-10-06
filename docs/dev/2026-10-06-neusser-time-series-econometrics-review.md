@@ -233,9 +233,15 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
   tarch(1)` on the test series its estimate has the variance falling
   after a positive shock at lag one. `sp.garch` keeps `alpha >= 0`, stops
   on the boundary, warns, and fits 0.15 log-likelihood points lower.
-- The default bootstrap band stays the percentile one, as in Stata and
-  `vars`, with a warning above a root of 0.9. The coverage numbers argue
-  for `boot='kilian'` as the default; that is a decision for Bryce.
+- The default bootstrap band is the bias-corrected one (`boot='kilian'`),
+  not the percentile band of Stata and `vars`. Bryce delegated the
+  decision (2026-10-06). Nominal 90% coverage over 300 samples, percentile
+  against bias-corrected: 38% and 86% (root 0.92, T = 60), 77% and 89%
+  (root 0.6, T = 60), 85% and 87% (root 0.6, T = 200), 93% and 93% (root
+  0.2, T = 80). The corrected band was never worse. `boot='efron'`
+  reproduces the reference programs' choice and warns above a root of
+  0.9. `ci=` did not exist before this pass, so no released default
+  changes.
 - Stata's `tsfilter cf, stationary` does not compute the formula of its
   manual: at interior dates the weight on the first and on the last
   observation is the ideal weight of the neighbouring lag. `sp.tsfilter`
@@ -272,14 +278,13 @@ Rounds two and three closed most of the first list. What is left:
 | Item | Why it is open |
 | --- | --- |
 | Section 15.4.5 again | A web search for the book's restrictions found nothing usable; the paper itself (Blanchard, AER 1989) was not read. Left as it was. |
-| The default bootstrap band | Still the percentile band of Stata and `vars`, with a warning above a root of 0.9. The coverage numbers argue for `boot='kilian'`; that is a decision for Bryce. |
 | Section 15.4.5, Blanchard (1989) | The book's AB restrictions could not be recovered without the text. |
 | `lag_selection='break'` in `sp.zivot_andrews` | No reference implementation chooses the lag order at every break date (Stata's `zandrews` chooses it once, without the break). Checked against an independent recomputation only. |
 | The forgetting-factor TVP-VAR | No package reference. The one CRAN implementation found (`ConnectednessApproach::TVPVAR`) computes a different recursion from its second step on. Checked against discounted least squares and an independent implementation in the test file. |
 | `sp.mswitch_lrtest` beyond one regime against two | Size evidence exists for one against two regimes with a switching constant. Two against three, and switching variances (where the likelihood is unbounded), have mechanical tests only. Garcia's asymptotic critical values were not implemented: the paper was not read. |
 | `sp.tvp_var_sv` against `bvarsv` | Volatility medians differ by 1 to 4% on average (up to 11% at the first date), 1 to 3 Monte Carlo standard errors, with a smooth tilt over time. Matching the estimation window and rescaling the volatility prior did not close it. Reported as a screen, not an equivalence. |
 | Mixture reweighting in `sp.tvp_var_sv` | The seven-normal approximation is used without the reweighting step; the joint-distribution test shows a bias of about 0.5% in the volatility innovation variance. |
-| Three notes to third parties | `docs/dev/2026-10-06-neusser-kalman-smoother-note-draft.md` (the book's smoother), `docs/dev/2026-10-06-stata-tsfilter-cf-stationary-note-draft.md` (Stata's `tsfilter cf, stationary`) and `docs/dev/2026-10-06-stata-mswitch-predict-note-draft.md` (Stata's `predict` after `mswitch ar, switch()`). Drafts; not sent. |
+| Three notes to third parties | Decision delegated by Bryce (2026-10-06). **Send:** `docs/dev/2026-10-06-neusser-kalman-smoother-note-draft.md` (the book's smoother) and `docs/dev/2026-10-06-stata-tsfilter-cf-stationary-note-draft.md` (Stata's `tsfilter cf, stationary`); both are final text and are for Bryce to send. **Hold:** `docs/dev/2026-10-06-stata-mswitch-predict-note-draft.md`. Its evidence is a comparison with other implementations; Stata's own predicted and filtered probabilities satisfy the identity that links them (1e-16), so there is no demonstration that needs Stata alone. |
 
 ## What the full test suite showed
 

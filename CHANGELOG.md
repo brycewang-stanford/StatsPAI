@@ -180,8 +180,13 @@ Guide: `docs/guides/time_series_econometrics.md`.
   VAR(1) with a root of 0.92 and 60 observations, 90% bands for the own
   response at horizons 4 to 8 covered 38% of the time with the percentile
   bootstrap, 56% with Hall's, 62% with the delta method and 86% with the
-  bias correction (300 samples). The uncorrected bootstraps now warn when
-  the largest estimated root exceeds 0.9.
+  bias correction (300 samples). **It is the default bootstrap band.**
+  Stata's `irf create, bs` and R's `vars` report the percentile band,
+  which stays available as `boot="efron"`; the default departs from them
+  because their band undercovers and the corrected one does not pay for
+  it elsewhere (root 0.6, T = 60: 77% against 89%; root 0.2, T = 80: 93%
+  against 93%). The uncorrected bootstraps warn when the largest
+  estimated root exceeds 0.9.
 - **`sp.mswitch`**: Markov-switching regression (Hamilton filter, Kim
   smoother). The constant, chosen coefficients, the AR terms or the
   variance depend on an unobserved regime; dynamic regression or

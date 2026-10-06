@@ -196,7 +196,7 @@ class SVARResult(ResultProtocolMixin):
         ci: Optional[str] = None,
         reps: int = 500,
         seed: Optional[int] = None,
-        boot: str = "efron",
+        boot: str = "kilian",
         alpha: Optional[float] = None,
     ) -> pd.DataFrame:
         """Structural impulse responses, one row per shock, response and
@@ -221,9 +221,10 @@ class SVARResult(ResultProtocolMixin):
             replicate's shocks are signed to agree with the estimate.
         reps : int, default 500
         seed : int, optional
-        boot : {'efron', 'hall', 'kilian'}, default 'efron'
-            Percentile band, the band reflected about the estimate, or the
-            bias-corrected bootstrap (see :func:`statspai.irf`).
+        boot : {'kilian', 'efron', 'hall'}, default 'kilian'
+            The bias-corrected bootstrap, the plain percentile band, or
+            the band reflected about the estimate (see
+            :func:`statspai.irf`).
         alpha : float, optional
             ``1 - alpha`` is the pointwise coverage; default the ``alpha``
             given to :func:`svar`.
@@ -359,7 +360,7 @@ class SVARResult(ResultProtocolMixin):
         ci: Optional[str] = None,
         reps: int = 500,
         seed: Optional[int] = None,
-        boot: str = "efron",
+        boot: str = "kilian",
         alpha: Optional[float] = None,
     ) -> pd.DataFrame:
         """Forecast-error variance decomposition: the share of the
