@@ -1,7 +1,7 @@
 # StatsPAI
 
 **Validation-tiered Python workflows for causal inference and applied
-econometrics.** One `import statspai as sp` exposes **1,415 registered
+econometrics.** One `import statspai as sp` exposes **1,416 registered
 functions** across 89 submodules (live count: `python
 scripts/registry_stats.py`) spanning classical regression, staggered
 DiD, regression discontinuity,

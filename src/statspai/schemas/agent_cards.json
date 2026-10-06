@@ -10778,7 +10778,7 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold or change point -- the estimate is usable but its normal-theory standard error is not reliable.",
+    "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold.",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -10815,7 +10815,7 @@
     "name": "nls",
     "not_recommended_when": [
       "The model is linear in its coefficients after a transformation of the regressors -- use sp.regress",
-      "A parameter is a threshold or change point -- the estimate is usable but its normal-theory standard error is not reliable"
+      "A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold"
     ],
     "pre_conditions": [],
     "provenance": {
@@ -10842,7 +10842,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold or change point -- the estimate is usable but its normal-theory standard error is not reliable.",
+      "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold.",
       "name": "nls",
       "parameters": {
         "properties": {
@@ -10911,6 +10911,178 @@
     "typical_n_min": null,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_hansen_methods_stata_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "structural_break",
+      "nls",
+      "rkd",
+      "regress"
+    ],
+    "assumptions": [
+      "There is one threshold, and the threshold variable is continuous around it",
+      "The interval for the threshold assumes homoskedastic errors",
+      "Kink model: the regression function is continuous at the threshold and the two slopes differ"
+    ],
+    "category": "regression",
+    "cost_profile": "",
+    "description": "Threshold regression with an unknown threshold: the intercept and the coefficients named in regime= change when the threshold variable crosses gamma, which is estimated by least squares over candidate values. kink=True fits the continuous model in which only the slope of the threshold variable changes. Threshold model: likelihood-ratio confidence interval for gamma (Hansen 2000), coefficient standard errors given gamma; reproduces Stata threshold. Kink model: gamma is jointly normal with the slopes and gets a standard error (Hansen 2017); reproduces Stata nl at the global minimum. n_boot= adds a multiplier-bootstrap test of the linear model. absorb= removes fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The break is in time and its date is the object -- use sp.structural_break; The threshold is known -- interact a dummy in sp.regress; the usual standard errors are then exact; The linearity test does not reject -- the threshold and its interval describe noise.",
+    "evidence": {
+      "grade": "external",
+      "grade_basis": "derived from status",
+      "module_id": null,
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_hansen_econometrics_logs.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.threshold(\"y ~ x\", data=df, threshold=\"q\", n_boot=500, seed=1)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.StatsPAIWarning",
+        "remedy": "There may be no threshold. Run the linearity test (n_boot=) and plot model_info['criterion'].",
+        "symptom": "Warning: the criterion is smallest at the edge of the search range"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "A regime variable does not vary on one side; shorten regime= or raise trim.",
+        "symptom": "DataInsufficient: regressors collinear at the estimated threshold"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "threshold",
+    "not_recommended_when": [
+      "The break is in time and its date is the object -- use sp.structural_break",
+      "The threshold is known -- interact a dummy in sp.regress; the usual standard errors are then exact",
+      "The linearity test does not reject -- the threshold and its interval describe noise"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hansen2000sample",
+    "returns": {
+      "class": "EconometricResults",
+      "description": "EconometricResults",
+      "fields": {
+        "alpha": "float",
+        "data_info": "Optional[Dict[str, Any]]",
+        "diagnostics": "Optional[Dict[str, Any]]",
+        "model_info": "Dict[str, Any]",
+        "params": "Series",
+        "std_errors": "Series"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Threshold regression with an unknown threshold: the intercept and the coefficients named in regime= change when the threshold variable crosses gamma, which is estimated by least squares over candidate values. kink=True fits the continuous model in which only the slope of the threshold variable changes. Threshold model: likelihood-ratio confidence interval for gamma (Hansen 2000), coefficient standard errors given gamma; reproduces Stata threshold. Kink model: gamma is jointly normal with the slopes and gets a standard error (Hansen 2017); reproduces Stata nl at the global minimum. n_boot= adds a multiplier-bootstrap test of the linear model. absorb= removes fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The break is in time and its date is the object -- use sp.structural_break; The threshold is known -- interact a dummy in sp.regress; the usual standard errors are then exact; The linearity test does not reject -- the threshold and its interval describe noise.",
+      "name": "threshold",
+      "parameters": {
+        "properties": {
+          "absorb": {
+            "description": "Fixed effects to remove",
+            "type": "string",
+            "x-statspai-role": "columns"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Column to cluster on",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "The data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "'y ~ x1 + x2'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "grid": {
+            "description": "None: every sample value; int: equally spaced points; array: the candidates",
+            "type": "integer"
+          },
+          "kink": {
+            "default": false,
+            "description": "Continuous model with a change of slope in q",
+            "type": "boolean"
+          },
+          "n_boot": {
+            "default": 0,
+            "description": "Bootstrap replications of the linearity test (0: no test)",
+            "type": "integer"
+          },
+          "regime": {
+            "description": "Regressors whose coefficients change above the threshold (default all; the intercept always changes)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "seed": {
+            "description": "Seed of the bootstrap",
+            "type": "integer"
+          },
+          "threshold": {
+            "description": "Threshold variable q",
+            "type": "string"
+          },
+          "trim": {
+            "default": 0.1,
+            "description": "Share of the sample kept out of the search at each end",
+            "type": "number"
+          },
+          "vce": {
+            "default": "robust",
+            "description": "Covariance estimator ('robust' is HC1)",
+            "enum": [
+              "robust",
+              "ols",
+              "hc0",
+              "hc2",
+              "hc3"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "formula",
+          "data",
+          "threshold"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hansen_econometrics_logs.py",
+      "tests/reference_parity/test_hansen_methods_stata_parity.py"
     ],
     "validation_status": "validated"
   },

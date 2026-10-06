@@ -21810,7 +21810,7 @@
     "name": "nlogit"
   },
   {
-    "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold or change point -- the estimate is usable but its normal-theory standard error is not reliable. Assumptions: The regression function is correctly specified and smooth in the parameters near the truth; The parameters are identified: the Jacobian has full column rank. Failure modes: NumericalInstability: the Jacobian is rank deficient -> A parameter is not identified at the estimate (for example an exponent whose coefficient is zero); fix it at a value or simplify...",
+    "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold. Assumptions: The regression function is correctly specified and smooth in the parameters near the truth; The parameters are identified: the Jacobian has full column rank. Failure modes: NumericalInstability: the Jacobian is rank deficient -> A parameter is not identified at the estimate (for example an exponent whose coefficient is zero); fix it a...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -36119,6 +36119,85 @@
       "type": "object"
     },
     "name": "three_sls"
+  },
+  {
+    "description": "Threshold regression with an unknown threshold: the intercept and the coefficients named in regime= change when the threshold variable crosses gamma, which is estimated by least squares over candidate values. kink=True fits the continuous model in which only the slope of the threshold variable changes. Threshold model: likelihood-ratio confidence interval for gamma (Hansen 2000), coefficient standard errors given gamma; reproduces Stata threshold. Kink model: gamma is jointly normal with the slopes and gets a standard error (Hansen 2017); reproduces Stata nl at the global minimum. n_boot= adds a multiplier-bootstrap test of the linear model. absorb= removes fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The break is in time and its date is the object -- use sp.structural_break; The threshold is known -- interact a dummy in sp.regress; the usual standard errors are then exact; The linearity test does not reject -- the threshold and its interval describe noise. Assumptions: There is one threshold, and the threshold variable is continuous around it; The interval for the threshold assumes homosked...",
+    "input_schema": {
+      "properties": {
+        "absorb": {
+          "description": "Fixed effects to remove",
+          "type": "string",
+          "x-statspai-role": "columns"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Column to cluster on",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "formula": {
+          "description": "'y ~ x1 + x2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "grid": {
+          "description": "None: every sample value; int: equally spaced points; array: the candidates",
+          "type": "integer"
+        },
+        "kink": {
+          "default": false,
+          "description": "Continuous model with a change of slope in q",
+          "type": "boolean"
+        },
+        "n_boot": {
+          "default": 0,
+          "description": "Bootstrap replications of the linearity test (0: no test)",
+          "type": "integer"
+        },
+        "regime": {
+          "description": "Regressors whose coefficients change above the threshold (default all; the intercept always changes)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "Seed of the bootstrap",
+          "type": "integer"
+        },
+        "threshold": {
+          "description": "Threshold variable q",
+          "type": "string"
+        },
+        "trim": {
+          "default": 0.1,
+          "description": "Share of the sample kept out of the search at each end",
+          "type": "number"
+        },
+        "vce": {
+          "default": "robust",
+          "description": "Covariance estimator ('robust' is HC1)",
+          "enum": [
+            "robust",
+            "ols",
+            "hc0",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "formula",
+        "threshold"
+      ],
+      "type": "object"
+    },
+    "name": "threshold"
   },
   {
     "description": "Targeted Maximum Likelihood Estimation for ATE/ATT with double-robustness. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1 on the estimand support; Consistent estimation of at least one of Q(a, x) = E[Y|A, X] or g(x) = P(A=1|X) (double robustness). Pre-conditions: binary treatment 0/1; covariates comprise the confounding set; n >= 500 for asymptotic efficiency. Failure modes: Extreme propensity scores (ATE IF denominator ~ 0) -> Bound propensity scores away from 0/1 (e.g. 0.025 / 0.975) or trim; Super-learner cross-validated risk not improving over baseline -> Nuisances not learnable; widen the candidate library or use stronger base learners. Alternatives: sp.dml, sp.aipw, sp.metalearner, sp.ltmle. Typical minimum N: 500.",

@@ -17433,6 +17433,23 @@
       "tolerance": "window grid 1e-12 rel (observed 0); per-window counts Nl / Nr asserted as exact integer equality"
     },
     {
+      "function": "read_data",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hansen_econometrics_logs.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "also_verified_by": [
         "reference_parity"
       ],
@@ -21310,6 +21327,29 @@
         "tests/reference_parity/_fixtures/threesls_R.json"
       ],
       "tolerance": "coef 1e-9 abs (observed <= 1e-15); SE ~5e-3 rel"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "threshold",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hansen_econometrics_logs.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [

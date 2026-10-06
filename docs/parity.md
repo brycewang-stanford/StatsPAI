@@ -31,9 +31,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | | aligned | 52 |
 | | **subtotal** | **460** |
 | **No external software reference** | analytical-only (T1) | 341 |
-| | external-replication (published numbers) | 52 |
-| | **subtotal** | **393** |
-| No numerical evidence yet | unverified | 562 |
+| | external-replication (published numbers) | 54 |
+| | **subtotal** | **395** |
+| No numerical evidence yet | unverified | 561 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 460 | 839 | 843 | 54.6% |
-| infrastructure (parity N/A) | 0 | 11 | 220 | 0.0% |
+| estimator callables | 460 | 840 | 844 | 54.5% |
+| infrastructure (parity N/A) | 0 | 12 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 352 | 0.0% |
-| **all registered** | 460 | 853 | 1415 | 32.5% |
+| **all registered** | 460 | 855 | 1416 | 32.5% |
 
 ### Coverage by estimator family
 
@@ -53,7 +53,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
 | causal | 151 | 333 | 335 |
-| regression | 43 | 54 | 54 |
+| regression | 43 | 55 | 55 |
 | inference | 28 | 47 | 47 |
 | panel | 28 | 34 | 34 |
 | timeseries | 12 | 34 | 34 |
@@ -570,7 +570,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 52 functions
+## external-replication — 54 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -611,6 +611,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `power` | [`test_facure_causal_inference_in_python.py`](../tests/external_parity/test_facure_causal_inference_in_python.py) |
 | `propensity_score` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `ps_weights` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
+| `read_data` | [`test_hansen_econometrics_logs.py`](../tests/external_parity/test_hansen_econometrics_logs.py) |
 | `reconcile` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `refute` | [`test_ness_causal_ai.py`](../tests/external_parity/test_ness_causal_ai.py) |
 | `rolling` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
@@ -620,6 +621,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `stl` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `swilk` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
 | `switchback` | [`test_facure_causal_inference_in_python.py`](../tests/external_parity/test_facure_causal_inference_in_python.py) |
+| `threshold` | [`test_hansen_econometrics_logs.py`](../tests/external_parity/test_hansen_econometrics_logs.py) |
 | `trimming` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `tscv` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `ttest` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) (+2) |
@@ -977,6 +979,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 562 functions
+## unverified — 561 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).
