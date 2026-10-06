@@ -283,9 +283,10 @@ here gives the same number.
 - Chapter 13's Bayesian exponentially tilted empirical likelihood, general
   Bayes posteriors and doubly robust Bayesian inference have no
   counterpart.
-- `sp.bayes_mte(mte_method='hv_latent')` after the fix has a posterior sd
-  of 0.09 where the estimates vary by 0.12 across 12 samples. Twelve
-  samples cannot tell whether that is noise; it deserves a longer run.
+- `sp.bayes_mte(mte_method='hv_latent')` after the fix: a 12-sample run
+  suggested a narrow posterior (0.09 against a spread of 0.12). Forty
+  samples settle it: mean 1.02, posterior sd 0.092, spread of estimates
+  0.093, 37 intervals covering. Nothing to fix.
 - Known-truth screens of the other PyMC estimators, 40 samples each, found
   nothing: `sp.bayes_rd` (posterior sd 0.993 of the least squares standard
   error, coverage 37/40), `sp.bayes_its` (1.014, 39/40), `sp.bayes_did`
