@@ -247,7 +247,7 @@ def default_dose_grid(
             diagnostics={},
         )
     probs = np.arange(round(lower_q * 100), round(upper_q * 100) + 1) / 100.0
-    return np.quantile(positive, probs)
+    return np.asarray(np.quantile(positive, probs))
 
 
 def knots_by_quantile(dose: np.ndarray, num_knots: int) -> List[float]:

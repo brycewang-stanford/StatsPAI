@@ -87,7 +87,7 @@ def fe_score(
         - special.digamma(lam)
         + (special.digamma(Lam) - special.digamma(Lam + Y))[gidx]
     )
-    return X.T @ (g * lam)
+    return np.asarray(X.T @ (g * lam))
 
 
 def re_loglik(theta: Any, X: Any, y: Any, off: Any, gidx: Any, n_groups: Any) -> float:

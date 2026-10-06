@@ -232,7 +232,7 @@ def _hc_scale(
         return np.full(n, np.sqrt(n / (n - d)))
     hii = np.einsum("ij,ij->i", R @ invG, R * W[:, None])
     denom = np.maximum(1.0 - hii, 1e-08)
-    return np.sqrt(1.0 / denom) if vce == "hc2" else 1.0 / denom
+    return np.asarray(np.sqrt(1.0 / denom) if vce == "hc2" else 1.0 / denom)
 
 
 def _vce_meat(
@@ -254,7 +254,7 @@ def _vce_meat(
     """
     if cluster is None:
         S = res[:, None] * RX
-        return S.T @ S
+        return np.asarray(S.T @ S)
     n, k = RX.shape
     if k_df is None:
         k_df = k

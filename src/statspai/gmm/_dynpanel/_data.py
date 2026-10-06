@@ -85,7 +85,7 @@ class PanelArrays:
 
     def observed(self, var: str) -> np.ndarray:
         """Boolean ``(N, T)`` availability mask for ``var``."""
-        return np.isfinite(self.get(var))
+        return np.asarray(np.isfinite(self.get(var)))
 
     def unit_period_mask(self) -> np.ndarray:
         """``(N, T)`` mask of periods where the unit appears at all."""
@@ -223,4 +223,4 @@ def unit_cluster_codes(panel: PanelArrays, cluster: str) -> np.ndarray:
             f"unit(s), e.g. {panel.units[missing[0]]!r}."
         )
     _, inverse = np.unique(codes, return_inverse=True)
-    return inverse.astype(int)
+    return np.asarray(inverse.astype(int))

@@ -92,7 +92,7 @@ def se_from_vcov(
     diag[diagnostics["noise_mask"]] = 0.0
 
     if not negative.any():
-        return np.sqrt(diag)
+        return np.asarray(np.sqrt(diag))
 
     if names is not None and len(names) == diag.size:
         offenders = [str(names[i]) for i in np.flatnonzero(negative)]

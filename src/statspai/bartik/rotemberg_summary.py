@@ -57,7 +57,7 @@ def _stata_tstats(
         S = np.zeros((G, Y.shape[1]))
         np.add.at(S, groups, score)
         var = (G / (G - 1)) * ((n - 1) / (n - k)) * np.sum(S**2, axis=0)
-    return B[0] / np.sqrt(var)
+    return np.asarray(B[0] / np.sqrt(var))
 
 
 @accepts_aliases(controls="covariates", period="time")
@@ -161,7 +161,7 @@ def rotemberg_summary(
 
     def resid(v: np.ndarray) -> np.ndarray:
         coef = np.linalg.lstsq(Wc * sw[:, None], v * sw, rcond=None)[0]
-        return v - Wc @ coef
+        return np.asarray(v - Wc @ coef)
 
     xt = resid(df[x].to_numpy(float))
     yt = resid(df[y].to_numpy(float))

@@ -174,7 +174,7 @@ def _akm_fit(
     sw = np.sqrt(wv)
 
     def _wcoef(M: np.ndarray, v: np.ndarray) -> np.ndarray:
-        return np.linalg.lstsq(M * sw[:, None], v * sw, rcond=None)[0]
+        return np.asarray(np.linalg.lstsq(M * sw[:, None], v * sw, rcond=None)[0])
 
     def _wres(v: np.ndarray, M: np.ndarray) -> np.ndarray:
         return v - M @ _wcoef(M, v)

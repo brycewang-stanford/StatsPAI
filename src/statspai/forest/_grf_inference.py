@@ -361,7 +361,7 @@ def continuous_debiasing_weights(forest: Any) -> np.ndarray:
         forest._continuous_debias_weights = weights
     except AttributeError:  # pragma: no cover - frozen namespaces in tests
         pass
-    return weights
+    return np.asarray(weights)
 
 
 def dr_scores(

@@ -31,18 +31,18 @@ def _link_funcs(
     if link == "probit":
 
         def dpdf(z: np.ndarray) -> np.ndarray:
-            return -z * stats.norm.pdf(z)
+            return np.asarray(-z * stats.norm.pdf(z))
 
         return special.ndtr, lambda z: special.ndtr(-z), stats.norm.pdf, dpdf
     if link == "logit":
 
         def pdf(z: np.ndarray) -> np.ndarray:
             e = special.expit(z)
-            return e * (1.0 - e)
+            return np.asarray(e * (1.0 - e))
 
         def dpdf(z: np.ndarray) -> np.ndarray:
             e = special.expit(z)
-            return e * (1.0 - e) * (1.0 - 2.0 * e)
+            return np.asarray(e * (1.0 - e) * (1.0 - 2.0 * e))
 
         return special.expit, lambda z: special.expit(-z), pdf, dpdf
     raise ValueError("link must be 'logit' or 'probit'.")
@@ -84,7 +84,7 @@ class OrderedLikelihood:
     def loglik_obs(self, theta: np.ndarray) -> np.ndarray:
         P = self._parts(theta)["P"]
         with np.errstate(divide="ignore"):
-            return np.log(P)
+            return np.asarray(np.log(P))
 
     def loglik(self, theta: np.ndarray) -> float:
         kappa = theta[self.k :]

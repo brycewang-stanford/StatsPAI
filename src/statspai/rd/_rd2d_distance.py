@@ -242,8 +242,8 @@ def rd2d_distance_fit(
 def dist_cov(fa: Any, fb: Any, clustered_joint: bool) -> np.ndarray:
     """R ``rd2d_distance_cov_from_projects`` (both sides)."""
     if clustered_joint:
-        return (fa["P1"] - fa["P0"]).T @ (fb["P1"] - fb["P0"])
-    return fa["P0"].T @ fb["P0"] + fa["P1"].T @ fb["P1"]
+        return np.asarray((fa["P1"] - fa["P0"]).T @ (fb["P1"] - fb["P0"]))
+    return np.asarray(fa["P0"].T @ fb["P0"] + fa["P1"].T @ fb["P1"])
 
 
 def _poly_lm(y: np.ndarray, x: np.ndarray, degree: int) -> Any:
@@ -423,7 +423,7 @@ def _kink_distance(eval_pts: np.ndarray, kink: np.ndarray) -> np.ndarray:
     k = eval_pts[kink]
     dx = eval_pts[:, 0][:, None] - k[:, 0][None, :]
     dy = eval_pts[:, 1][:, None] - k[:, 1][None, :]
-    return np.sqrt(dx**2 + dy**2).min(axis=1)
+    return np.asarray(np.sqrt(dx**2 + dy**2).min(axis=1))
 
 
 def rd2d_distance_bw(

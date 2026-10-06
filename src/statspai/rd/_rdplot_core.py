@@ -45,7 +45,7 @@ def _r_seq(start: float, stop: float, by: float) -> np.ndarray:
     out = np.minimum(start + np.arange(n + 1) * by, stop)
     if out.size and abs(out[-1] - stop) <= 1e-9 * max(1.0, abs(stop)):
         out[-1] = stop
-    return out
+    return np.asarray(out)
 
 
 def _kweight(x: np.ndarray, c: float, h: float, kernel: str) -> np.ndarray:
@@ -88,7 +88,7 @@ def _r_quantile7(x: np.ndarray, probs: np.ndarray) -> np.ndarray:
     i = (index > lo) & (xhi != qs)
     h = (index - lo)[i]
     qs[i] = (1 - h) * qs[i] + h * xhi[i]
-    return qs
+    return np.asarray(qs)
 
 
 def _find_interval(x: np.ndarray, edges: np.ndarray) -> np.ndarray:
@@ -281,7 +281,7 @@ def rdplot_numbers(
     s2_r[s2_r < 0] = var_y_r
 
     def J_fun(B: np.ndarray, V: np.ndarray) -> np.ndarray:
-        return np.ceil(((2 * B / V) * n) ** (1 / 3))
+        return np.asarray(np.ceil(((2 * B / V) * n) ** (1 / 3)))
 
     B_es = np.array(
         [

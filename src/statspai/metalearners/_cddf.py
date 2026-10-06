@@ -46,7 +46,7 @@ def resolve_vector(value: Any, data: pd.DataFrame, n: int, name: str) -> np.ndar
             f"{name} contains non-finite values.",
             recovery_hint=f"Drop or impute non-finite {name} rows.",
         )
-    return arr
+    return np.asarray(arr)
 
 
 def check_propensity(p: np.ndarray) -> None:

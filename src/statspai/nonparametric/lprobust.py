@@ -130,7 +130,7 @@ def _kernel_weights(u: np.ndarray, kernel: str) -> np.ndarray:
     if kernel == "uniform":
         return np.where(a <= 1.0, 0.5, 0.0)
     if kernel == "gaussian":
-        return np.exp(-0.5 * u**2) / np.sqrt(2.0 * np.pi)
+        return np.asarray(np.exp(-0.5 * u**2) / np.sqrt(2.0 * np.pi))
     raise MethodIncompatibility(f"kernel must be one of {_KERNELS}, got {kernel!r}")
 
 
@@ -188,7 +188,7 @@ def _nn_residuals(x: np.ndarray, y: np.ndarray, n_neighbors: int) -> np.ndarray:
 def _meat(weights: np.ndarray, resid: np.ndarray) -> np.ndarray:
     """Sandwich meat ``sum_i (w_i r_i)(w_i r_i)'``."""
     m = weights * resid[:, None]
-    return m.T @ m
+    return np.asarray(m.T @ m)
 
 
 def lprobust_at_point(

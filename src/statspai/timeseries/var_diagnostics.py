@@ -51,7 +51,7 @@ def _ml_sigma(Y: np.ndarray, X: np.ndarray) -> np.ndarray:
         resid = Y - X @ np.linalg.lstsq(X, Y, rcond=None)[0]
     else:
         resid = Y
-    return resid.T @ resid / Y.shape[0]
+    return np.asarray(resid.T @ resid / Y.shape[0])
 
 
 def _require_fit(result: Any) -> None:

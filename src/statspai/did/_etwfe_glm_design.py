@@ -130,7 +130,7 @@ def _demean_groups(
         keys = pd.Index(np.where(treated, tt - g0, -gap))
     else:
         keys = pd.Index(post3)
-    return pd.factorize(keys)[0]
+    return np.asarray(pd.factorize(keys)[0])
 
 
 def build_glm_design(

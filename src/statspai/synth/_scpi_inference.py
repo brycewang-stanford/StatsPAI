@@ -158,7 +158,7 @@ def _sqrtm_psd(S: np.ndarray) -> np.ndarray:
     """R ``sqrtm``: U diag(sqrt(d)) U' from the SVD."""
     U, d, _ = np.linalg.svd(S)
     d = np.clip(d, 0.0, None)
-    return (U * np.sqrt(d)) @ U.T
+    return np.asarray((U * np.sqrt(d)) @ U.T)
 
 
 def _proj_fitted(X: np.ndarray, y: np.ndarray) -> np.ndarray:

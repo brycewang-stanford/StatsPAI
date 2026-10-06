@@ -64,7 +64,7 @@ def _two_way_residual(
     X[np.where(keep_t)[0], n_g + ti[keep_t] - 1] = 1.0
     sw = np.sqrt(w)
     coef, *_ = np.linalg.lstsq(X * sw[:, None], v * sw, rcond=None)
-    return v - X @ coef
+    return np.asarray(v - X @ coef)
 
 
 def dcdh_fe_weights(

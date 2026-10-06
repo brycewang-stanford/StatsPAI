@@ -248,7 +248,7 @@ def influence_se_did(
         sums = np.zeros((codes.max() + 1, psi.shape[1]))
         np.add.at(sums, codes, psi)
         out = np.sqrt(np.sum(sums**2, axis=0)) / n
-    return out[0] if squeeze else out
+    return np.asarray(out[0] if squeeze else out)
 
 
 # ----------------------------------------------------------------------

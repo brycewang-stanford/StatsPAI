@@ -257,7 +257,7 @@ def moment_covariance(
     arithmetic as an outer-product loop, handed to BLAS instead.
     """
     G = group_moments(Z, resid, unit_rows, index=index)
-    return G.T @ G
+    return np.asarray(G.T @ G)
 
 
 def gmm_solve(

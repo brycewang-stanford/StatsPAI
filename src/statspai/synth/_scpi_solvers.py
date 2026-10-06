@@ -113,7 +113,7 @@ def qp_bounded_sum(
             w = cand
     except np.linalg.LinAlgError:  # singular H on the free set: keep iterate
         pass
-    return w
+    return np.asarray(w)
 
 
 def lasso_ball(Z: np.ndarray, A: np.ndarray, Q: float) -> np.ndarray:
@@ -129,7 +129,7 @@ def lasso_ball(Z: np.ndarray, A: np.ndarray, Q: float) -> np.ndarray:
     f = Z.T @ A
     w_ols = np.linalg.lstsq(Z, A, rcond=None)[0]
     if np.linalg.matrix_rank(Z) == Z.shape[1] and np.abs(w_ols).sum() <= Q:
-        return w_ols
+        return np.asarray(w_ols)
     _, _, coefs = lars_path(Z, A, method="lasso", alpha_min=0.0, max_iter=10000)
     norms = np.abs(coefs).sum(axis=0)
     if Q >= norms[-1]:  # path ends (interpolation / OLS) inside the ball
@@ -150,7 +150,7 @@ def lasso_ball(Z: np.ndarray, A: np.ndarray, Q: float) -> np.ndarray:
     try:
         sol = np.linalg.solve(K, np.concatenate([f[S], [Q]]))
     except np.linalg.LinAlgError:  # pragma: no cover
-        return w
+        return np.asarray(w)
     cand = np.zeros_like(w)
     cand[S] = sol[:nS]
     nu = sol[nS]
@@ -160,7 +160,7 @@ def lasso_ball(Z: np.ndarray, A: np.ndarray, Q: float) -> np.ndarray:
         and np.all(np.sign(cand[S]) == s)
         and np.all(np.abs(grad[~S]) <= nu * (1 + 1e-8) + 1e-10)
     )
-    return cand if ok else w
+    return np.asarray(cand if ok else w)
 
 
 def ridge_ball(Z: np.ndarray, A: np.ndarray, Q: float) -> np.ndarray:
@@ -180,7 +180,7 @@ def ridge_ball(Z: np.ndarray, A: np.ndarray, Q: float) -> np.ndarray:
     d = np.where(pos, d, 0.0)
     w_mn = V[:, pos] @ (c[pos] / d[pos])
     if np.linalg.norm(w_mn) <= Q:
-        return w_mn
+        return np.asarray(w_mn)
 
     def phi(lam: float) -> float:
         return float(np.linalg.norm(c[pos] / (d[pos] + lam)) - Q)
@@ -190,7 +190,7 @@ def ridge_ball(Z: np.ndarray, A: np.ndarray, Q: float) -> np.ndarray:
     while phi(lo) < 0:
         lo /= 16.0
     lam = optimize.brentq(phi, lo, hi, xtol=1e-300, rtol=4 * _EPS, maxiter=500)
-    return V @ (c / (d + lam))
+    return np.asarray(V @ (c / (d + lam)))
 
 
 def simplex_l2(Z: np.ndarray, A: np.ndarray, Q2: float) -> np.ndarray:
@@ -558,7 +558,7 @@ def insample_active_set(
         if release_sum:
             sum_on = False
             continue
-        return y
+        return np.asarray(y)
     return None
 
 
@@ -650,7 +650,7 @@ def insample_slsqp(
     )
     if not res.success:
         return None
-    return to_y(res.x)
+    return np.asarray(to_y(res.x))
 
 
 # ---------------------------------------------------------------------- #
@@ -687,7 +687,7 @@ def rq_fit(X: np.ndarray, y: np.ndarray, tau: float) -> np.ndarray:
 
         if obj(cand) <= obj(beta) + 1e-12 * max(1.0, abs(obj(beta))):
             beta = cand
-    return beta
+    return np.asarray(beta)
 
 
 def rrq(X: np.ndarray, y: np.ndarray, taus: Any) -> np.ndarray:

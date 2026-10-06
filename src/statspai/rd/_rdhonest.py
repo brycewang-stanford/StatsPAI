@@ -74,10 +74,10 @@ def _kern(u: np.ndarray, kernel: str) -> np.ndarray:
     a = np.abs(u)
     inside = a <= 1
     if kernel == "uniform":
-        return inside.astype(float)
+        return np.asarray(inside.astype(float))
     if kernel == "epanechnikov":
-        return 0.75 * (1 - u**2) * inside
-    return (1 - a) * inside
+        return np.asarray(0.75 * (1 - u**2) * inside)
+    return np.asarray((1 - a) * inside)
 
 
 def cv_bias(t: float, alpha: float = 0.05) -> float:
@@ -348,7 +348,7 @@ def _npreg_resid(
     z = np.column_stack([right, right * xc, np.ones_like(xc), xc])
     sw = np.sqrt(w)
     beta, *_ = np.linalg.lstsq(z * sw[:, None], y * sw, rcond=None)
-    return y - z @ beta
+    return np.asarray(y - z @ beta)
 
 
 def _moulton(u: np.ndarray, cl: np.ndarray) -> float:

@@ -43,7 +43,7 @@ def _series(
             recovery_hint="Fill or drop the gap, or analyse the longest "
             "complete stretch.",
         )
-    return x
+    return np.asarray(x)
 
 
 def corrgram(

@@ -157,7 +157,7 @@ def _outcome_regression(
         )
     sw = np.sqrt(wc)
     beta, *_ = np.linalg.lstsq(Xc * sw[:, None], yc * sw, rcond=None)
-    return X @ beta
+    return np.asarray(X @ beta)
 
 
 def _one_comparison(
