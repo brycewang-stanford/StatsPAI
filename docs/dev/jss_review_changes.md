@@ -31,6 +31,31 @@ Rules:
 
 ## Entries
 
+### 2026-10-07 — call traces re-recorded after the Gelman-Vehtari pass (collinear regressors, formula idioms)
+
+Commit `f6a8a215` re-recorded the entries of Track A modules 01 02 03 13 14
+15 24 25 26 27 37 40 41 42 44 45 46 47 48 49 51 53 54 55 56 57 58 63 64 65
+66 67 in `tests/r_parity/results/_implementation_trace.json` and the 12
+modules of `tests/orig_parity/results/_implementation_trace.json`. The
+source that staled them is in `c7e63214`: `core/utils.py` (the `y ~ .`
+expansion and logical outcomes in `create_design_matrices`),
+`core/_collinear.py` (new; the likelihood-based estimators omit a
+dependent regressor before fitting), `regression/logit_probit.py`,
+`glm.py`, `count.py`, `multinomial.py`, `tobit.py`, `quantile.py`, and
+`src/statspai/__init__.py` (new exports). Recorded in
+`docs/dev/2026-10-07-gelman-vehtari-active-statistics-review.md`.
+
+Effect on the paper: none. Every Track A design is of full rank, where the
+new step returns the design untouched. The 32 modules were re-run on the
+new source first and all reproduce their committed results, worst relative
+difference 2e-15; the five original-data modules that execute the changed
+files reproduce to 2e-11 (last-digit jitter, files restored). In both
+trace files only `exercised_sources` digests and `seconds` differ. The
+registry census the paper quotes moves to 1,548 registered functions.
+
+- `tests/r_parity/results/_implementation_trace.json`
+- `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-06 — call traces re-recorded after `sp.callaway_santanna` gained `balance=`
 
 Commit `dcb99f34`. `sp.callaway_santanna` takes `balance='pair' | 'full' |
