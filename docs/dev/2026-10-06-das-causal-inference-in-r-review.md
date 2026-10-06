@@ -214,9 +214,19 @@ they are on main.** What it leaves for that line:
    11 as written (after dropping `missing = "ML"`, which the complete data
    do not need) and returns lavaan's estimates and standard errors for the
    paths and for the three defined effects. Parity fixture:
-   `tests/reference_parity/test_path_analysis_lavaan_parity.py`. Still
-   open: latent variables (`=~`), mean structures, full-information ML for
-   missing data, multiple groups, and the chapter's `growth()` call.
+   `tests/reference_parity/test_path_analysis_lavaan_parity.py`. Closed
+   the same day for latent variables (`=~`), mean structures (`y ~ 1`,
+   `meanstructure=True`), `std_lv=True` and the chapter's `growth()` call
+   (`growth=True`): one engine now fits all of them, and nine further
+   models equal lavaan under ML and MLM, factor scores included
+   (`test_sem_latent_lavaan_parity.py`). Writing the fixture showed that
+   the first version's claim to reproduce `sem()` was too broad:
+   `sem()` lets the disturbances of terminal outcomes covary without being
+   asked, and `sp.path_analysis` does not. That default stays (it is
+   Stata's, and it fits the model the user wrote); `auto_cov_y=True`
+   gives lavaan's, and the docstring now says so. Still open:
+   full-information ML for missing data, multiple groups, categorical
+   indicators.
 2. **Mediation with a binary outcome.** Closed 2026-10-06:
    `sp.mediate(inference='robust', outcome_model='logit')`, with
    `treat_values=(0, 1)` for the book's count treatment. On the book's data
@@ -241,9 +251,9 @@ they are on main.** What it leaves for that line:
 7. **Proportion mediated** now has a percentile interval in the bootstrap
    path.
 
-Still open after this: latent variables and mean structures in
-`sp.path_analysis`, and the hybrid and local discovery algorithms of
-bnlearn.
+Still open after this: full-information likelihood, multiple groups and
+categorical indicators in `sp.path_analysis`, and the hybrid and local
+discovery algorithms of bnlearn.
 
 ## Mistakes in the book's code
 

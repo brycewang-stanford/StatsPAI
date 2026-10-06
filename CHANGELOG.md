@@ -4,6 +4,38 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Latent variables in `sp.path_analysis`
+
+#### Added
+
+- **`sp.path_analysis` fits structural equation models with latent
+  variables.** `f =~ a + b + c` defines a latent variable by its
+  indicators, and it can then be regressed on, or be a regressor, like any
+  column. That covers confirmatory factor analysis, regressions that
+  correct for measurement error in a predictor, second-order factors and
+  latent growth curves (`growth=True`). `y ~ 1` or `meanstructure=True`
+  adds a mean structure, `std_lv=True` scales a latent variable by a unit
+  variance instead of a unit first loading, `NA*a` frees a loading. The
+  result carries `factor_scores`, `latent_cov` and `implied_mean`. On nine
+  models (two-factor CFA under both scalings, latent and observed
+  predictors together, a cross-loading with a residual covariance,
+  equality and fixed constraints, a mean structure, a growth curve) the
+  parameter table, the standardised solution, the fit measures, the
+  Satorra-Bentler standard errors and scaled test, and the factor scores
+  equal `lavaan` 0.6-21 to 5e-6, which is where lavaan's optimiser stops.
+  A model whose information matrix is singular is refused; a negative
+  estimated variance is reported with a warning.
+
+#### Changed
+
+- **`sp.path_analysis(auto_cov_y=False)`** names a default that was
+  already there. `lavaan::sem` lets the disturbances of terminal outcomes
+  covary without being asked; `sp.path_analysis` fits the model as
+  written, as Stata's `sem` does. The earlier docstring said the function
+  reproduces `sem()` without that qualification, which was wrong for a
+  model with two or more terminal outcomes. No estimate changes;
+  `auto_cov_y=True` gives lavaan's.
+
 ### Column names that are not identifiers
 
 - **Backticks in formulas.** `` sp.regress("`In-game Purchases` ~ `Side-quest
@@ -22,6 +54,7 @@ All notable changes to StatsPAI will be documented in this file.
   a quoted smooth variable (`s(Q("x 1"))`), and the count models a quoted
   outcome.
 - A missing quoted column is reported by its whole name.
+
 ### The rest of the Das list: mediation, FCI, hill climbing, forest tuning
 
 #### ⚠️ Correctness

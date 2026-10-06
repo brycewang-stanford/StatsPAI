@@ -192,7 +192,9 @@ from statspai import SLearner, TLearner, XLearner, RLearner, DRLearner
 | `pwr::pwr.t.test(d = 0.5, power = 0.8)`        | `sp.power_ttest(delta=0.5, power=0.8)`. `n` is the total over both groups; `params["n_exact"] / 2` is pwr's per-group figure |
 | `survival::cox.zph(fit)`                       | `sp.cox(...).ph_test()`; `transform=` as in `cox.zph` |
 | `AER::dispersiontest(fit, trafo = 2)`          | `sp.poisson(...).diagnostics["Overdispersion test (C-T)"]` |
-| `lavaan::sem(model, data)` (observed variables) | `sp.path_analysis(model, df)` with the same model string; `se="robust"` for `estimator = "MLM"`. `fit.effect("indirect")` reads a `:=` row |
+| `lavaan::sem(model, data)`, `cfa()` | `sp.path_analysis(model, df)` with the same model string, latent variables (`=~`) included; `se="robust"` for `estimator = "MLM"`, `std_lv=True` for `std.lv`, `meanstructure=True` likewise. `fit.effect("indirect")` reads a `:=` row, `fit.factor_scores` is `lavPredict`. With two or more terminal outcomes pass `auto_cov_y=True`: `sem()` lets their disturbances covary without being asked, StatsPAI fits the model as written |
+| `lavaan::growth(model, data)` | `sp.path_analysis(model, df, growth=True)` |
+| `sem(..., missing = "ML")`, `group =` | Not available. Rows with a missing value are dropped and counted in `n_dropped` |
 | `rbounds::psens(x, y, Gamma = 2)`              | `sp.rosenbaum_bounds(x, y, gamma_grid=[1, 1.5, 2])`   |
 | `MatchIt::matchit(method = "subclass")`        | `sp.match(df, y=, treat=, covariates=, method="stratify", n_strata=6)` |
 

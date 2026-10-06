@@ -160,10 +160,9 @@ def test_indirect_effect_recovers_the_truth_and_its_interval_covers():
 
 
 def test_what_the_model_cannot_be(data):
-    with pytest.raises(MethodIncompatibility, match="latent"):
+    with pytest.raises(DataInsufficient, match="did not converge"):
+        # two nearly unrelated indicators: lavaan does not converge either
         sp.path_analysis("f =~ m1 + m2\ny ~ f", data)
-    with pytest.raises(MethodIncompatibility, match="intercepts"):
-        sp.path_analysis("y ~ 1 + x", data)
     with pytest.raises(MethodIncompatibility, match="not a column"):
         sp.path_analysis("y ~ nope", data)
     with pytest.raises(MethodIncompatibility, match="not a label"):

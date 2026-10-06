@@ -2493,19 +2493,23 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     },
     "path_analysis": {
         "status": "bit-exact",
-        "reference": "R lavaan::sem (ML, expected information, fixed.x) and "
-        'estimator = "MLM"',
+        "reference": "R lavaan::sem / growth (ML, expected information, "
+        'fixed.x) and estimator = "MLM"',
         "reference_versions": {
             "R": "R version 4.5.2 (2025-10-31)",
             "lavaan": "0.6.21",
         },
-        "tolerance": "estimates / SEs / standardised solution 2e-5 rel "
-        "(lavaan's optimiser; 1e-12 on the closed-form models); fit measures "
-        "and the scaled test 1e-6",
+        "tolerance": "observed-variable models: estimates / SEs / "
+        "standardised solution 2e-5 rel (lavaan's optimiser; 1e-12 on the "
+        "closed-form models), fit measures and the scaled test 1e-6; "
+        "latent-variable models: 5e-6 on everything, bounded by lavaan's "
+        "stopping rule",
         "sides": ["py", "R"],
         "test": [
             "tests/reference_parity/test_path_analysis_lavaan_parity.py",
             "tests/reference_parity/_fixtures/path_analysis_lavaan_R.json",
+            "tests/reference_parity/test_sem_latent_lavaan_parity.py",
+            "tests/reference_parity/_fixtures/sem_latent_lavaan_R.json",
         ],
         "note": (
             "Frozen-R fixture: four observed-variable path models (parallel "
@@ -2514,8 +2518,16 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "fixed coefficient, a saturated system). Parameter table, "
             "standardised solution, chi-square, CFI / TLI / RMSEA / SRMR, "
             "log-likelihood and the Satorra-Bentler robust SEs and scaled "
-            "test equal lavaan. Regenerate via "
-            "_generate_path_analysis_lavaan.R."
+            "test equal lavaan. A second fixture adds nine models with "
+            "latent variables: two-factor CFA under both scalings, a "
+            "structural model with latent and observed predictors, a "
+            "cross-loading with a residual covariance, equality and fixed "
+            "constraints, a mean structure, a linear growth curve, and two "
+            "models where sem()'s automatic outcome covariances matter; "
+            "parameter tables under ML and MLM, fit measures and "
+            "lavPredict factor scores. Regenerate via "
+            "_generate_path_analysis_lavaan.R and "
+            "_generate_sem_latent_lavaan.R."
         ),
     },
     "power_ttest": {

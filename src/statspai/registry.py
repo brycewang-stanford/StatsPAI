@@ -9558,17 +9558,24 @@ def _build_registry() -> None:
             name="path_analysis",
             category="structural",
             description=(
-                "Path analysis: a structural equation model among observed "
-                "variables, written in lavaan syntax (y ~ a*x + m; m1 ~~ m2; "
-                "indirect := a*b) and fitted by normal-theory maximum "
-                "likelihood. Returns path coefficients, residual "
+                "Path analysis and structural equation models with latent "
+                "variables, written in lavaan syntax (y ~ a*x + m; "
+                "f =~ a + b + c; m1 ~~ m2; y ~ 1; indirect := a*b) and "
+                "fitted by normal-theory maximum likelihood: path models, "
+                "confirmatory factor analysis, latent-variable regressions "
+                "that correct for measurement error, mean structures and "
+                "latent growth curves. Returns loadings, path coefficients, "
+                "intercepts, factor scores, residual "
                 "(co)variances, defined effects such as indirect and total "
                 "effects through several mediators with delta-method "
                 "standard errors, the standardised solution, the chi-square "
                 "test of the over-identifying restrictions and CFI / TLI / "
                 "RMSEA / SRMR. Equal labels constrain paths to be equal. "
-                "Reproduces lavaan::sem (and estimator='MLM' with "
-                "se='robust'). Latent variables are not implemented. "
+                "Reproduces lavaan::sem / growth (and estimator='MLM' with "
+                "se='robust'); auto_cov_y=True for sem()'s automatic "
+                "covariances among terminal outcomes. Complete cases only: "
+                "no full-information likelihood for missing data, no "
+                "multiple groups, no categorical indicators. "
             ),
             params=[
                 ParamSpec(
@@ -9578,7 +9585,8 @@ def _build_registry() -> None:
                     None,
                     "Model in lavaan syntax, one statement per line: "
                     "'y ~ b*m + c*x' (regression, optional labels), "
-                    "'m1 ~~ m2' (residual covariance), "
+                    "'f =~ a + b + c' (latent variable and indicators), "
+                    "'m1 ~~ m2' (residual covariance), 'y ~ 1' (intercept), "
                     "'ind := a*b' (defined parameter)",
                 ),
                 ParamSpec("data", "DataFrame", True, None, "Data"),
@@ -9592,6 +9600,38 @@ def _build_registry() -> None:
                     ["standard", "robust"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+                ParamSpec(
+                    "meanstructure",
+                    "bool",
+                    False,
+                    False,
+                    "Model the means too (intercepts of the observed "
+                    "endogenous variables free, latent means zero)",
+                ),
+                ParamSpec(
+                    "std_lv",
+                    "bool",
+                    False,
+                    False,
+                    "Scale each latent variable by a unit variance instead "
+                    "of a unit first loading",
+                ),
+                ParamSpec(
+                    "growth",
+                    "bool",
+                    False,
+                    False,
+                    "Latent growth curve: observed intercepts zero, latent "
+                    "means free (lavaan growth())",
+                ),
+                ParamSpec(
+                    "auto_cov_y",
+                    "bool",
+                    False,
+                    False,
+                    "Let the disturbances of terminal outcomes covary "
+                    "without being asked, as lavaan::sem does",
+                ),
             ],
             returns="PathAnalysisResult",
             example=("sp.path_analysis('m ~ a*x\\ny ~ b*m + c*x\\nind := a*b', df)"),
@@ -9602,6 +9642,11 @@ def _build_registry() -> None:
                 "lavaan",
                 "indirect effect",
                 "structural equation",
+                "latent variable",
+                "cfa",
+                "factor analysis",
+                "growth curve",
+                "measurement error",
             ],
             assumptions=[
                 "The path diagram is the causal structure: no omitted common "
@@ -9612,6 +9657,8 @@ def _build_registry() -> None:
                 "Multivariate normality for se='standard' and for the "
                 "chi-square test; se='robust' relaxes it",
                 "Exogenous variables are conditioned on (lavaan fixed.x)",
+                "Indicators of a latent variable are related only through "
+                "it, unless a residual covariance is declared",
             ],
             alternatives=["mediate", "mediation_decompose", "sem_gmm", "dag", "sur"],
         )
