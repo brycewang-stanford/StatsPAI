@@ -150,7 +150,7 @@
    "result_sha256": "eac61fccb75c2e607609475a3a54924eedfce3bc05d4c5f5b9655d68f1a0908c"
   },
   "04_csdid": {
-   "seconds": 5.24,
+   "seconds": 3.31,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -174,7 +174,7 @@
     "src/statspai/datasets/_canonical.py": "412b64e2ddb650f43c44ee8ae10c594e1afb65e4d3f7ea03de24dd9c05794051",
     "src/statspai/did/_core.py": "4a035fdc7d7ecb28c7f3d3deb8dd2ad4442ef580793af869e69f7a02d344222e",
     "src/statspai/did/aggte.py": "49cdc97734176881827702e5510aaca5b390b15f2d2ac016375e20cb134e4887",
-    "src/statspai/did/callaway_santanna.py": "a75c093876883c90590fff0974c27d9212c1bc0766b790648649c8cd613a390f",
+    "src/statspai/did/callaway_santanna.py": "87633e2f852677921fa61814d23f12abb1dd57c685c36780c8e18641fdc55694",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
@@ -2925,7 +2925,7 @@
    "result_sha256": "abdd294ba707f66109a122c63e511faedab437e199bbd7e629cdabba72e06aff"
   },
   "79_didff": {
-   "seconds": 9.82,
+   "seconds": 5.51,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2948,7 +2948,7 @@
     "src/statspai/core/results.py": "5268c0274ace6b4aeb7ab94c6975f9933132efee67598af7f0be8ba07eacdffc",
     "src/statspai/did/_core.py": "4a035fdc7d7ecb28c7f3d3deb8dd2ad4442ef580793af869e69f7a02d344222e",
     "src/statspai/did/aggte.py": "49cdc97734176881827702e5510aaca5b390b15f2d2ac016375e20cb134e4887",
-    "src/statspai/did/callaway_santanna.py": "a75c093876883c90590fff0974c27d9212c1bc0766b790648649c8cd613a390f",
+    "src/statspai/did/callaway_santanna.py": "87633e2f852677921fa61814d23f12abb1dd57c685c36780c8e18641fdc55694",
     "src/statspai/did/functional_form.py": "8a2db5202f02fa74081908fc15844a3582d0424502e4bdca8bc541e86b7c6e86",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"

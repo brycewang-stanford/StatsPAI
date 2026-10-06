@@ -2684,6 +2684,21 @@ def _build_registry() -> None:
                     "tuning knob.",
                 ),
                 ParamSpec(
+                    "balance",
+                    "str",
+                    False,
+                    None,
+                    "Rule for an unbalanced panel when panel=True, named "
+                    "after Stata csdid 2.0.0's bal(). 'pair' (the default "
+                    "when omitted) keeps a unit in each ATT(g,t) cell where "
+                    "both of its periods are observed. 'full' drops every "
+                    "unit not observed in all periods first, which is the "
+                    "default of R did and csdid 2.0.0 and reproduces their "
+                    "numbers. 'none' is allow_unbalanced_panel=True. Inert "
+                    "on a balanced panel.",
+                    ["pair", "full", "none"],
+                ),
+                ParamSpec(
                     "clustervars",
                     "list",
                     False,

@@ -257,8 +257,11 @@ def test_callaway_santanna_default_dr_is_covered_by_the_grid_not_module_04():
     scope = sp.validation_scope(fit)
     assert scope["configuration"]["estimator"] == "dr"
     assert scope["status"] == "covered"
+    # The second artifact runs the same panel estimator on the complete
+    # units of an unbalanced panel (balance='full'), also against did.
     assert {e["artifact"] for e in scope["outputs"]["se"]["evidence"]} == {
-        "tests/reference_parity/test_cs_weighted_parity.py"
+        "tests/reference_parity/test_cs_weighted_parity.py",
+        "tests/reference_parity/test_cs_balance_full_did_parity.py",
     }
 
 

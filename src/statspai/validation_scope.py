@@ -1328,6 +1328,45 @@ _add(
             ),
             _Row(
                 "T2",
+                _RP + "test_cs_rc_weighted_aggte_did_parity.py",
+                {
+                    "estimator": _vals("dr"),
+                    "control_group": _vals("nevertreated"),
+                    "weights": _vals("weighted"),
+                    "covariates": _vals("none"),
+                    "inference": _vals("analytic"),
+                    "base_period": _vals("universal"),
+                    "anticipation": _vals("0"),
+                    "clustering": _vals("none", "set"),
+                },
+                _EST_SE,
+                "weighted repeated cross-sections (panel=False): simple, "
+                "dynamic, group and calendar aggregates and their analytic "
+                "SEs vs did::aggte, with and without a row-level cluster",
+                "sp.callaway_santanna(panel=False, weights=...) + sp.aggte",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_cs_balance_full_did_parity.py",
+                {
+                    "estimator": _vals("dr"),
+                    "control_group": _vals("nevertreated", "notyettreated"),
+                    "weights": _vals("none"),
+                    "covariates": _vals("none"),
+                    "inference": _vals("analytic"),
+                    "base_period": _vals("universal"),
+                    "anticipation": _vals("0"),
+                    "clustering": _vals("none"),
+                },
+                _EST_SE,
+                "unbalanced panel under balance='full' (drop units not "
+                "observed in every period): every ATT(g,t) and the four "
+                "aggregates vs did::att_gt at its default "
+                "allow_unbalanced_panel = FALSE",
+                "sp.callaway_santanna(balance='full')",
+            ),
+            _Row(
+                "T2",
                 _RP + "test_cs_cluster_analytic_parity.py",
                 {
                     "estimator": _vals("dr"),

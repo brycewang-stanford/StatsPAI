@@ -4,6 +4,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.callaway_santanna(balance=)`: the three rules for an unbalanced panel
+
+#### Added
+
+- **`balance='pair' | 'full' | 'none'`**, named after the `bal()` settings
+  of Stata `csdid` 2.0.0. `'full'` drops every unit not observed in all
+  periods before estimating and warns with the count. That is the default
+  of R `did` and of `csdid` 2.0.0, and it reproduces R `did` 2.5.1 to
+  2e-9 on the unbalanced panels tried (`tests/reference_parity/
+  test_cs_balance_full_did_parity.py`). `'none'` is
+  `allow_unbalanced_panel=True`. `'pair'` is what the function has always
+  done on such a panel and stays the default, so no existing number
+  changes: it keeps a unit in every cell where both of its periods are
+  observed, and in `tests/reliability/unbalanced_panel.py` it covers at
+  the nominal rate where `'full'` would discard most units.
+  `model_info['balance']` records the rule, and the unbalanced-panel
+  warning now names all three.
+
 ### Weighted Callaway-Sant'Anna on repeated cross-sections
 
 #### ⚠️ Correctness

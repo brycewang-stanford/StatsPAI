@@ -387,9 +387,9 @@ rather than letting the default decide:
 
 | Option | What it estimates |
 | --- | --- |
-| default (`allow_unbalanced_panel=False`) | within-unit differences anyway; a unit missing the base *or* comparison period drops out of **that cell**, so the sample varies cell to cell |
-| `allow_unbalanced_panel=True` | switches to the repeated-cross-section estimators, keeping every observed row, with influence functions folded back to units so the SEs keep within-unit correlation (R `did::att_gt(allow_unbalanced_panel = TRUE)`) |
-| `sp.balance_panel(...)` first | one fixed sample throughout, at the cost of dropping incomplete units entirely |
+| default (`balance='pair'`) | within-unit differences anyway; a unit missing the base *or* comparison period drops out of **that cell**, so the sample varies cell to cell |
+| `balance='none'` (the same as `allow_unbalanced_panel=True`) | switches to the repeated-cross-section estimators, keeping every observed row, with influence functions folded back to units so the SEs keep within-unit correlation (R `did::att_gt(allow_unbalanced_panel = TRUE)`) |
+| `balance='full'` | one fixed sample throughout, at the cost of dropping incomplete units entirely, with a warning that counts them. This is the default of R `did` and of Stata `csdid` 2.0.0, so it is the setting that reproduces their numbers |
 
 The three give different numbers on the same data. Report which you
 used. The flag is inert when the panel turns out to be balanced.

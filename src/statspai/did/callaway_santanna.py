@@ -260,6 +260,7 @@ def callaway_santanna(
     pretest: str = "joint",
     pretest_periods: Optional[int] = None,
     se_method: Optional[str] = None,
+    balance: Optional[str] = None,
 ) -> CausalResult:
     """
     Callaway & Sant'Anna (2021) estimator for staggered DID.
@@ -526,6 +527,29 @@ def callaway_santanna(
     >>> bool(result.estimate > 0)
     True
 
+    balance : {'pair', 'full', 'none'}, optional
+        How an unbalanced panel is used when ``panel=True``. The three
+        rules are the ``bal()`` settings of Stata ``csdid`` 2.0.0 and give
+        different numbers on the same data. On a balanced panel all three
+        are the same estimator.
+
+        - ``'pair'`` -- each ATT(g, t) uses the units observed in both its
+          base and its comparison period, so the sample varies across
+          cells. This is the default (``balance=None`` with
+          ``allow_unbalanced_panel=False``) and the rule of Stata
+          ``csdid`` 1.8x.
+        - ``'full'`` -- drop every unit that is not observed in all
+          periods, once, before estimation, and warn with the count. This
+          is the default of R ``did`` (``allow_unbalanced_panel = FALSE``)
+          and of Stata ``csdid`` 2.0.0; pass it to reproduce their numbers.
+        - ``'none'`` -- keep every row and use the repeated-cross-section
+          estimators, the same as ``allow_unbalanced_panel=True``.
+
+        ``'pair'`` and ``'full'`` compare a unit with itself; ``'full'``
+        does so on one fixed sample at the price of discarding the
+        incomplete units (with 30% of cells missing at random over eight
+        periods, about 6% of units are complete).
+
     References
     ----------
     Callaway, B. and Sant'Anna, P. H. C. (2021). Difference-in-differences
@@ -586,6 +610,32 @@ def callaway_santanna(
     allow_unbalanced_panel = _require_bool(
         allow_unbalanced_panel, argument="allow_unbalanced_panel"
     )
+    if balance is not None:
+        balance = _require_string_option(
+            balance, argument="balance", valid=("pair", "full", "none")
+        )
+        if allow_unbalanced_panel and balance != "none":
+            raise MethodIncompatibility(
+                f"callaway_santanna: balance={balance!r} and "
+                "allow_unbalanced_panel=True ask for different estimators.",
+                recovery_hint=(
+                    "Pass one of them. allow_unbalanced_panel=True is "
+                    "balance='none'."
+                ),
+                diagnostics={
+                    "balance": balance,
+                    "allow_unbalanced_panel": allow_unbalanced_panel,
+                },
+            )
+        if not panel:
+            raise MethodIncompatibility(
+                "callaway_santanna: balance= applies to panel=True; with "
+                "panel=False the rows are repeated cross-sections and there "
+                "is nothing to balance.",
+                recovery_hint="Drop balance=, or pass panel=True.",
+                diagnostics={"balance": balance, "panel": panel},
+            )
+        allow_unbalanced_panel = balance == "none"
     if allow_unbalanced_panel and not panel:
         warnings.warn(
             "callaway_santanna: allow_unbalanced_panel=True has no effect "
@@ -638,6 +688,9 @@ def callaway_santanna(
         columns=[y, t, i, *(x or [])],
         function="callaway_santanna",
     )
+    balance_info: Optional[Dict[str, Any]] = None
+    if balance == "full":
+        data, balance_info = _balance_full(data, i, t)
 
     if cband and not bstrap:
         raise MethodIncompatibility(
@@ -1108,6 +1161,12 @@ def callaway_santanna(
         "_unit_weights": unit_weights,
     }
 
+    # Which unbalanced-panel rule produced the sample (csdid 2.0.0's bal()).
+    model_info["balance"] = "full" if balance_info is not None else "pair"
+    if balance_info is not None:
+        model_info["balance_n_units_dropped"] = balance_info["n_units_dropped"]
+        model_info["balance_n_obs_dropped"] = balance_info["n_obs_dropped"]
+
     _result = CausalResult(
         method="Callaway and Sant'Anna (2021)",
         estimand="ATT",
@@ -1158,6 +1217,49 @@ def callaway_santanna(
 # ======================================================================
 # Data preparation
 # ======================================================================
+
+
+def _balance_full(
+    data: pd.DataFrame, i: str, t: str
+) -> "tuple[pd.DataFrame, Dict[str, Any]]":
+    """Keep the units observed in every period (R ``did``'s default).
+
+    R ``did::att_gt(allow_unbalanced_panel = FALSE)`` and Stata ``csdid``
+    2.0.0 ``bal(full)`` balance an unbalanced panel this way before they
+    estimate anything, and say how much they removed. So does this.
+    """
+    n_periods = int(data[t].nunique())
+    seen = data.groupby(i)[t].nunique()
+    complete = seen.index[seen == n_periods]
+    n_units = int(len(seen))
+    info: Dict[str, Any] = {
+        "rule": "full",
+        "n_units_dropped": n_units - int(len(complete)),
+        "n_obs_dropped": 0,
+    }
+    if len(complete) == n_units:
+        return data, info
+    if len(complete) == 0:
+        raise MethodIncompatibility(
+            "callaway_santanna: balance='full' leaves no unit, because none "
+            f"is observed in all {n_periods} periods.",
+            recovery_hint=(
+                "Use balance='pair' (the default) or balance='none', or "
+                "restrict the data to periods most units are observed in."
+            ),
+            diagnostics={"n_units": n_units, "n_periods": n_periods},
+        )
+    kept = data[data[i].isin(complete)]
+    info["n_obs_dropped"] = int(len(data) - len(kept))
+    warnings.warn(
+        f"callaway_santanna: balance='full' dropped {info['n_units_dropped']} "
+        f"of {n_units} units ({info['n_obs_dropped']} observations) that are "
+        f"not observed in all {n_periods} periods, as R `did` and Stata "
+        "`csdid` 2.0.0 do by default.",
+        UserWarning,
+        stacklevel=3,
+    )
+    return kept, info
 
 
 def _prepare_panel(
@@ -1212,16 +1314,18 @@ def _prepare_panel(
             f"({_n_missing}/{_n_cells} unit-period cells absent). ATT(g, t) "
             "is formed from within-unit differences, so units missing "
             "either the base or the comparison period drop out of that "
-            "cell; the effective sample varies across cells. Pass "
-            "allow_unbalanced_panel=True to switch to the "
+            "cell; the effective sample varies across cells "
+            "(balance='pair', the rule of Stata `csdid` 1.8x). Pass "
+            "allow_unbalanced_panel=True (balance='none') to switch to the "
             "repeated-cross-section estimators instead, which keep every "
             "observed row (R `did`'s allow_unbalanced_panel=TRUE) but "
             "compare group means and so need each group's composition to "
             "be stable over time (biased when units leave according to "
             "their level; see tests/reliability/unbalanced_panel.py), or "
-            "balance the panel first (sp.balance_panel) if you need a "
-            "single fixed sample. The three give different numbers on the "
-            "same data — that is an estimator choice, not a bug.",
+            "balance='full' to drop the incomplete units first, which is "
+            "what R `did` and Stata `csdid` 2.0.0 do by default. The three "
+            "give different numbers on the same data — that is an "
+            "estimator choice, not a bug.",
             UserWarning,
             stacklevel=3,
         )

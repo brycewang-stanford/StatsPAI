@@ -55,19 +55,19 @@
       },
       "cells": 512,
       "overall": {
-        "covered": 34,
-        "estimate_only": 34,
-        "not_covered": 444
+        "covered": 35,
+        "estimate_only": 35,
+        "not_covered": 442
       },
       "by_output": {
         "estimate": {
-          "reference": 68,
-          "not_covered": 444
+          "reference": 70,
+          "not_covered": 442
         },
         "se": {
-          "reference": 34,
+          "reference": 35,
           "stochastic_screen": 2,
-          "not_covered": 476
+          "not_covered": 475
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -226,6 +226,80 @@
             ]
           },
           "compares": "clustered analytic SEs vs Stata csdid (v1) cluster() to 1e-9: every ATT(g,t), group and simple aggregates, on a panel with a time-invariant cluster (mpdta) and on repeated cross-sections clustered on a row-level city x year"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_rc_weighted_aggte_did_parity.py",
+          "entry_point": "sp.callaway_santanna(panel=False, weights=...) + sp.aggte",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated"
+            ],
+            "weights": [
+              "weighted"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "weighted repeated cross-sections (panel=False): simple, dynamic, group and calendar aggregates and their analytic SEs vs did::aggte, with and without a row-level cluster"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_balance_full_did_parity.py",
+          "entry_point": "sp.callaway_santanna(balance='full')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none"
+            ]
+          },
+          "compares": "unbalanced panel under balance='full' (drop units not observed in every period): every ATT(g,t) and the four aggregates vs did::att_gt at its default allow_unbalanced_panel = FALSE"
         },
         {
           "kind": "T2",
@@ -6677,16 +6751,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 850,
+      "reference": 852,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45534
+      "not_covered": 45532
     },
     "se": {
-      "reference": 375,
+      "reference": 376,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45989
+      "not_covered": 45988
     },
     "coverage": {
       "coverage_simulation": 11,
