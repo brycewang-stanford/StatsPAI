@@ -1106,6 +1106,25 @@ def arima(
                 if alt is not None and np.isfinite(alt.llf):
                     if alt.llf > best.llf + 1e-7:
                         best = alt
+            # a third start for a final fit: every ARMA coefficient at zero
+            # (where R's arima(method="ML") begins). Over-parameterised
+            # mixed models have maxima the other two starts do not reach.
+            if effort >= 2 and n_par > 1:
+                flat = np.array(est.start_params, dtype=float)
+                arma = [
+                    i
+                    for i, nm in enumerate(est.param_names)
+                    if nm.startswith(("ar.", "ma."))
+                ]
+                if arma and np.any(flat[arma] != 0.0):
+                    flat[arma] = 0.0
+                    try:
+                        alt = run("lbfgs", 500, flat)
+                    except (ValueError, FloatingPointError, np.linalg.LinAlgError):
+                        alt = None
+                    if alt is not None and np.isfinite(alt.llf):
+                        if alt.llf > best.llf + 1e-7:
+                            best = alt
         # The quasi-Newton search alone stops at an inferior local maximum
         # on a sizeable share of mixed and seasonal models (near-cancelling
         # roots, a moving-average root on the unit circle). A simplex

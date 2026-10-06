@@ -5,6 +5,19 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.arima` on over-parameterised mixed models
+
+**What changed.** A final fit also searches from zero ARMA coefficients and
+keeps the best of three starts. An ARMA(5,2) for Swiss GDP growth went from
+a log-likelihood of -110.13 to -107.03, the value of R's `arima`.
+
+**Who is affected.** Fits of mixed models with several AR and MA terms
+whose likelihood has more than one maximum. A fit that was at its maximum
+is unchanged; of 36 orders on that series one moved.
+
+**What to do.** Re-run. A higher log-likelihood for the same order is the
+better fit.
+
 ## 1.38.0 → next: ⚠️ `sp.garch` with two or more lagged variances
 
 **What changed.** `sp.garch(y, p=2, ...)` and higher orders search from

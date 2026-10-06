@@ -87,6 +87,13 @@ Guide: `docs/guides/time_series_econometrics.md`.
   `5% CV` at `alpha=0.01`. The result now carries `n_used`, `alpha`,
   `trend` and `var_names`. Statistics are unchanged.
 
+- **`sp.arima` tries a third starting point for a final fit**, every ARMA
+  coefficient at zero, where R's `arima(method="ML")` begins. On Swiss GDP
+  growth ARMA(5,2) stopped at a log-likelihood of -110.13 where R reaches
+  -107.03; it now reaches R's value. Over the 36 orders up to (5,5) the
+  likelihood is at least R's in every cell and higher in ten. Models that
+  already reached their maximum are unchanged.
+
 #### Found in the book
 
 - The MATLAB smoother shipped with section 17.4 computes smoothed

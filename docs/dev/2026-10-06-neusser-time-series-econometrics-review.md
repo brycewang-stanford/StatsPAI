@@ -111,9 +111,10 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
 
 - **5.6, ARMA for Swiss GDP growth.** ARMA(1,3) and AR(2) agree with R
   `arima` (log-likelihood -107.0496 and -112.9774). Over the 6 x 6 grid of
-  orders `sp.arima` has the higher likelihood in ten cells and the lower
-  in one, ARMA(5,2), where R reaches -107.03 and we stop at -110.13. See
-  the open items.
+  orders `sp.arima` had the higher likelihood in ten cells and the lower
+  in one, ARMA(5,2), where R reaches -107.03 and we stopped at -110.13. A
+  third start, from zero ARMA coefficients (where R begins), is now tried
+  for a final fit; ARMA(5,2) reaches R's value and no other cell moves.
 - **8.4, Swiss Market Index.** The GARCH fix above. AR(1)-GARCH(1,1) with
   t errors gives 7.29 degrees of freedom (Stata 7.2867) and a likelihood
   177 points above the normal model. `rugarch` with its hybrid solver
@@ -179,7 +180,6 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
 
 | Item | Why it is open |
 | --- | --- |
-| `sp.arima` at ARMA(5,2) on Swiss GDP growth | R finds a likelihood 3.1 higher. The model is over-parameterised with nearly cancelling roots, the case the book warns about, and ours is the better optimum in ten other cells. A Hannan-Rissanen start is the obvious thing to try. |
 | EGARCH, threshold GARCH, ARCH in mean | Chapter 8 names them; `sp.garch` has none. `sp.from_stata` reports `tarch()` and `archm` as untranslated and refuses `earch()`. |
 | Standard errors of the variance decomposition | Stata's `irf table fevd` has them; `fevd()` returns shares only. |
 | Bias-corrected bootstrap for impulse responses | Kilian's correction is the usual choice for persistent VARs. `boot='hall'` is the only alternative to the percentile band. |

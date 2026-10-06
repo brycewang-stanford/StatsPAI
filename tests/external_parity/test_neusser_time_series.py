@@ -63,24 +63,28 @@ def test_arma_for_swiss_gdp_growth(growth):
     )
 
 
-def test_information_criteria_never_worse_than_r_except_one_cell(growth):
-    # R's AIC for ARMA(p, q), p, q = 0..3 (arima, method = "ML"). A lower
+def test_information_criteria_never_worse_than_r(growth):
+    # R's AIC for ARMA(p, q), p, q = 0..5 (arima, method = "ML"). A lower
     # AIC is a higher likelihood for the same model, so ours may be lower
-    # but not higher.
+    # but not higher. ARMA(5,2) is the cell that a start from zero
+    # coefficients was added for: 238.26 before, R's 232.06 after.
     r_aic = np.array(
         [
-            [361.9401, 287.4160, 260.7859, 233.8592],
-            [240.7786, 236.5568, 235.8700, 226.0992],
-            [233.9549, 233.6315, 240.3833, 228.0363],
-            [233.2266, 235.1092, 237.2962, 229.9241],
+            [361.9401, 287.4160, 260.7859, 233.8592, 228.1336, 227.9454],
+            [240.7786, 236.5568, 235.8700, 226.0992, 228.0183, 229.9937],
+            [233.9549, 233.6315, 240.3833, 228.0363, 230.0171, 231.9610],
+            [233.2266, 235.1092, 237.2962, 229.9241, 231.8439, 234.0796],
+            [234.8852, 234.9569, 236.6754, 231.4766, 233.4729, 230.3356],
+            [234.2387, 236.4795, 232.0551, 233.4712, 232.0893, 232.2151],
         ]
     )
-    for p in range(4):
-        for q in range(4):
+    for p in range(6):
+        for q in range(6):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 aic = sp.arima(growth, order=(p, 0, q)).aic
             assert aic <= r_aic[p, q] + 1e-3, (p, q)
+    assert sp.arima(growth, order=(5, 0, 2)).aic == pytest.approx(232.0551, abs=1e-3)
 
 
 # ---------------------------------------------------------------- section 7
