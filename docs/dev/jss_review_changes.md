@@ -2707,3 +2707,46 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — R reference moved to did 2.5.1 and DRDID 1.3.0
+
+- **Commits.** `4ca82f1c` regenerated the four Track A R goldens whose
+  provenance records `did` or `DRDID`, under `did` 2.5.1 and `DRDID` 1.3.0
+  (were 2.3.0 and 1.2.3), and refreshed the lock, the reproducibility
+  report and the environment file.
+- **Reason.** CRAN has carried `did` 2.5.x since June 2026. A reader who
+  installs the reference today gets 2.5.1, and 2.5.0 fixed standard-error
+  bugs that 2.3.0 had. All 89 R modules reproduce their goldens at 1e-9
+  under the new versions.
+- **Effect on the paper.** Four things, to fold in at the next re-anchor.
+  1. The version strings. Section 8 and the architecture section name
+     `did` 2.3.0 (`08-computational-details.tex`,
+     `08-computational-details-compact.tex`, `02-architecture-compact.tex`,
+     `main.md`, `main-zh.md`); they become 2.5.1.
+  2. No Track A table cell moves. Modules 04, 38 and 80 are bit-identical.
+     In module 79 the simulated p-value of the non-rejecting design goes
+     from 0.99998 to 0.99997 on the R side (one draw in 100,000), so the
+     Python-R gap on that row is 2e-5 instead of 1e-5. The appendix cell
+     for module 79 is computed from the sixteen densities and stays at
+     1.2e-15.
+  3. **The Track C Callaway-Sant'Anna row must be re-timed.**
+     `tests/perf/results/02_csdid_R.json` was measured with `did` 2.3.0 and
+     is not touched by this change. `did` 2.5.0 made `att_gt` several times
+     faster. An informal back-to-back run on a loaded machine gave 0.012,
+     0.025 and 0.088 seconds under 2.5.1 against 0.047, 0.118 and 0.463
+     under 2.3.0 (the archive has 0.045, 0.114 and 0.457). Against the
+     archived Python timings that is roughly 1.6x, 2.3x and 3.1x, where
+     Section 6 prints 5.9x at 5,000 observations and 16.1x at 125,000.
+     The sentence that the gap widens with size needs rewriting as well.
+     Re-time both legs with `tests/perf/run_when_idle.sh` on a quiet
+     machine before quoting any number.
+  4. The Section 6 remark that `did` cannot write `Inf` into an integer
+     cohort column and silently drops the never-treated units is true of
+     2.3.0 only. Under 2.5.1 an integer column gives the same twelve cells
+     and the same estimate as a numeric one. The remark needs the version
+     or the past tense.
+- **Paths.**
+  - `tests/r_parity/results/04_csdid_R.json`
+  - `tests/r_parity/results/38_drdid_R.json`
+  - `tests/r_parity/results/79_didff_R.json`
+  - `tests/r_parity/results/80_contdid_R.json`
