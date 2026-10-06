@@ -80,6 +80,30 @@ def _default_cate_model() -> Any:
     )
 
 
+def _default_pseudo_outcome_model() -> Any:
+    """Final-stage model of the R- and DR-learners.
+
+    Their regression target is a pseudo-outcome with heavy tails
+    (a residual divided by a treatment residual or by a propensity
+    score). Trees with no minimum leaf size isolate the extreme values
+    one at a time and return them as fitted effects: on a 2,000-unit
+    design with effects between -1.5 and 3.8 the fitted values reached
+    -24 and +27 and were less accurate than a constant. A minimum leaf
+    size averages each extreme value with its neighbours, which is what
+    the squared-error theory of both learners assumes.
+    """
+    from sklearn.ensemble import GradientBoostingRegressor
+
+    return GradientBoostingRegressor(
+        n_estimators=200,
+        max_depth=3,
+        learning_rate=0.05,
+        subsample=0.8,
+        min_samples_leaf=20,
+        random_state=42,
+    )
+
+
 def _get_propensity(
     model: Any,
     X: np.ndarray,
@@ -636,7 +660,9 @@ class RLearner:
         gradient-boosted classifier), a regressor for a continuous one
         (default: the outcome model's default regressor).
     cate_model : sklearn estimator, optional
-        Model for tau(X). Fit on pseudo-outcome.
+        Model for tau(X), fitted to the pseudo-outcome with weights
+        ``(D - e(X))**2``. Default: gradient boosting with at least 20
+        observations per leaf.
     n_folds : int, default 5
         Cross-fitting folds for nuisance estimation.
     fold_indices : array-like of int, optional
@@ -678,7 +704,7 @@ class RLearner:
         # Resolved in fit(): the default depends on the treatment's type.
         self.propensity_model = propensity_model
         self.cate_model = (
-            cate_model if cate_model is not None else _default_cate_model()
+            cate_model if cate_model is not None else _default_pseudo_outcome_model()
         )
         self.n_folds = n_folds
         self.fold_indices = fold_indices
@@ -780,7 +806,8 @@ class DRLearner:
     propensity_model : sklearn estimator, optional
         Model for e(X) = P(D=1|X).
     cate_model : sklearn estimator, optional
-        Final-stage model for tau(X).
+        Final-stage model for tau(X). Default: gradient boosting with at
+        least 20 observations per leaf.
     n_folds : int, default 5
         Cross-fitting folds for nuisance estimation.
     fold_indices : array-like of int, optional
@@ -825,7 +852,7 @@ class DRLearner:
             else _default_propensity_model()
         )
         self.cate_model = (
-            cate_model if cate_model is not None else _default_cate_model()
+            cate_model if cate_model is not None else _default_pseudo_outcome_model()
         )
         self.n_folds = n_folds
         self.fold_indices = fold_indices
@@ -951,7 +978,9 @@ def metalearner(
     propensity_model : sklearn estimator, optional
         Custom propensity score model (used by X/R/DR learners).
     cate_model : sklearn estimator, optional
-        Custom model for final CATE stage (R/DR learners).
+        Custom model for final CATE stage (R/DR learners). Their default
+        is gradient boosting with at least 20 observations per leaf,
+        because the pseudo-outcomes they regress on have heavy tails.
     n_folds : int, default 5
         Cross-fitting folds for nuisance estimation (used by R/DR
         learners and the unified AIPW SE path; see Notes).

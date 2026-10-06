@@ -437,9 +437,6 @@
       "intercept",
       "max_iter"
     ],
-    "network_exposure": [
-      "seed"
-    ],
     "network_graph": [
       "weighted"
     ],

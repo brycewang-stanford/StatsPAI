@@ -73,6 +73,7 @@ from .ps_diagnostics import (
 from .ps_weights import energy_distance, ess, implied_weights, ps_weights
 from .pscore import PScoreResult, pscore
 from .psmatch2 import PSMatch2Result, PSTestResult, psmatch2
+from .residual_balance import residual_balance
 from .sbw import SBWResult, sbw
 from .two_criteria import TwoCriteriaMatchResult, tighten_blocks, two_criteria_match
 
@@ -396,6 +397,7 @@ __all__ = [
     "GenMatchResult",
     "sbw",
     "SBWResult",
+    "residual_balance",
     "psmatch2",
     "PSMatch2Result",
     "pscore",

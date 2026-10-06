@@ -5,6 +5,13 @@ Provides randomization, balance checking, attrition analysis,
 and pre-analysis plan generation for RCTs.
 """
 
+from .adaptive import (
+    AdaptiveInferenceResult,
+    BanditExperimentResult,
+    adaptive_inference,
+    bandit_allocate,
+    bandit_experiment,
+)
 from .attrition import AttritionResult, attrition_bounds, attrition_test
 from .design import BalanceResult, RandomizationResult, balance_check, randomize
 from .optimal import OptimalDesignResult, optimal_design
@@ -22,4 +29,9 @@ __all__ = [
     "OptimalDesignResult",
     "switchback",
     "switchback_design",
+    "bandit_allocate",
+    "bandit_experiment",
+    "adaptive_inference",
+    "BanditExperimentResult",
+    "AdaptiveInferenceResult",
 ]

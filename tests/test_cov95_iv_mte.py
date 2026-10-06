@@ -38,8 +38,15 @@ def test_mte_helpers():
     assert out.shape == (1, 2)
     P = _mte._poly_u(np.array([0.0, 1.0]), 2)
     assert P.shape == (2, 3)
-    ip = _mte._int_poly_u(0.0, 1.0, 2)
-    np.testing.assert_allclose(ip, [1.0, 0.5, 1.0 / 3.0])
+    # One unit with x = 1 and p = 0.5: the ATE map integrates u^k over
+    # (0, 1), the ATT map over (0, p) divided by p, the ATU map over
+    # (p, 1) divided by 1 - p.
+    L_ate, L_att, L_atu = _mte._aggregate_functionals(
+        np.ones((1, 1)), np.array([0.5]), 2
+    )
+    np.testing.assert_allclose(L_ate, [1.0, 0.5, 1.0 / 3.0])
+    np.testing.assert_allclose(L_att, [1.0, 0.25, 1.0 / 12.0])
+    np.testing.assert_allclose(L_atu, [1.0, 0.75, 7.0 / 12.0])
 
 
 def test_mte_logit_summary():
@@ -153,16 +160,6 @@ def test_fit_propensity_models():
     for m in ("logit", "probit", "linear"):
         p = _mte._fit_propensity(D, Z, model=m)
         assert np.all((p > 0) & (p < 1))
-
-
-def test_empirical_cdf_weight_empty_sample():
-    u = np.linspace(0.01, 0.99, 11)
-    w = _mte._empirical_cdf_weight(u, np.array([]), side="lower")
-    assert w.shape == u.shape
-    np.testing.assert_allclose(w.sum(), 1.0)
-    # non-empty 'upper'
-    w2 = _mte._empirical_cdf_weight(u, np.linspace(0.1, 0.9, 50), side="upper")
-    assert np.all(w2 >= 0)
 
 
 def test_wald_tsls_helper():

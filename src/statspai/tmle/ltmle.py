@@ -143,6 +143,14 @@ class LTMLEResult(ResultProtocolMixin):
     regime_control: Sequence[int]
     detail: Dict[str, Any] = field(default_factory=dict)
 
+    @staticmethod
+    def _regime_label(regime: Any) -> str:
+        """Compact label of a regime: its treatment values, or 'dynamic'."""
+        try:
+            return ",".join(str(int(a)) for a in regime)
+        except (TypeError, ValueError):
+            return "dynamic regime"
+
     def summary(self) -> str:  # pragma: no cover
         lo, hi = self.ci
         return (
@@ -150,9 +158,11 @@ class LTMLEResult(ResultProtocolMixin):
             "-----------------\n"
             f"  K (time points) : {self.K}\n"
             f"  N               : {self.n_obs}\n"
-            f"  E[Y(1,...,1)]   : {self.psi_treated:.4f}\n"
-            f"  E[Y(0,...,0)]   : {self.psi_control:.4f}\n"
-            f"  ATE             : {self.ate:.4f}  (SE={self.se:.4f})\n"
+            f"  E[Y({self._regime_label(self.regime_treated)})] : "
+            f"{self.psi_treated:.4f}\n"
+            f"  E[Y({self._regime_label(self.regime_control)})] : "
+            f"{self.psi_control:.4f}\n"
+            f"  Difference      : {self.ate:.4f}  (SE={self.se:.4f})\n"
             f"  95% CI          : [{lo:.4f}, {hi:.4f}]\n"
             f"  p-value         : {self.pvalue:.4f}"
         )

@@ -5,6 +5,67 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ `sp.network_exposure` rebuilt
+
+**What changed.** Exposure probabilities are exact under Bernoulli
+assignment instead of simulated and floored. The default estimator is the
+self-normalised (Hajek) mean; pass `estimator='ht'` for Horvitz-Thompson.
+Standard errors come from a variance estimate over the dependency graph
+of the design (`variance='hac_psd'` by default, `'hac'` without the
+conservative adjustment), and contrasts account for the covariance
+between the two exposure means. Units for which some exposure level is
+impossible, such as units without neighbours under `mapping='as4'`, are
+excluded with a warning. New arguments: `estimator`, `variance`,
+`contrasts`, `thresholds`, `min_prob`, `alpha`. The result gains the
+columns `min_prob` and `ess` and the attributes `estimator`, `variance`,
+`n_eligible`.
+
+**Who is affected.** Every caller. Point estimates change because the
+probabilities are exact and the default is the Hajek mean. Standard
+errors change by a large factor on networks with uneven degree, where
+the old ones could be a hundred times the sampling spread.
+
+**What to do.** Re-run. `n_sim` and `seed` are still accepted and are
+used only when `mapping` is a callable. To reproduce the Horvitz-Thompson
+point estimate, pass `estimator='ht'`; the old standard errors cannot be
+reproduced and should not be.
+
+## 1.38.0 → next: conditional effects of the R- and DR-learners
+
+**What changed.** When `cate_model=` is not given,
+`sp.metalearner(learner='r')`, `sp.metalearner(learner='dr')`,
+`sp.RLearner` and `sp.DRLearner` fit the final stage with gradient
+boosting that requires 20 observations per leaf. It had no minimum.
+
+**Who is affected.** Anyone using the fitted conditional effects of these
+two learners with the default final stage: `model_info['cate']`,
+`sp.predict_cate`, and summaries built on them. The reported average
+effect and its standard error come from the doubly robust scores and do
+not change.
+
+**What to do.** Re-run. To reproduce earlier conditional effects pass
+`cate_model=GradientBoostingRegressor(n_estimators=200, max_depth=3,
+learning_rate=0.05, subsample=0.8, random_state=42)`.
+
+## 1.38.0 → next: ⚠️ `sp.iv.mte` ATT, ATU and standard errors
+
+**What changed.** The ATT and ATU are computed from weights over the
+whole sample (each unit in proportion to its propensity, or one minus
+it) instead of over the treated or untreated units alone. Standard errors
+of the MTE curve and the ATE use the full, heteroskedasticity-robust
+covariance of the coefficients; the ATT and ATU get standard errors in
+`extra['att_se']` and `extra['atu_se']`. The bootstrap resamples aligned
+rows.
+
+**Who is affected.** Anyone who reported an ATT or ATU from `sp.iv.mte`,
+any analytic standard error from it, or any bootstrap standard error on
+data where trimming removed rows. The ATE point estimate and the MTE
+curve itself are unchanged.
+
+**What to do.** Re-run. On a design with a linear marginal effect the
+ATT moved from 1.22 to 1.31 (truth 1.30) and the ATE standard error from
+0.075 to 0.022 (sampling spread 0.023).
+
 ## 1.38.0 → next: ⚠️ `sp.tmle` validates `estimand`
 
 **What changed.** `sp.tmle(estimand=...)` used to treat every value other

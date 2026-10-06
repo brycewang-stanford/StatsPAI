@@ -16,33 +16,34 @@ Estimating Average Causal Effects Under General Interference.
 Annals of Applied Statistics, 11(4), 1912-1947. [@aronow2017estimating]
 """
 
-from .spillover import spillover, SpilloverEstimator
-from .network_exposure import network_exposure, NetworkExposureResult
-from .peer_effects import peer_effects, PeerEffectsResult
-from .orthogonal import (
-    network_hte,
-    inward_outward_spillover,
-    NetworkHTEResult,
-    InwardOutwardResult,
-)
+from .cluster_cross import CrossClusterRCTResult, cluster_cross_interference
 
 # v0.10 Cluster RCT × interference suite
-from .cluster_matched_pair import cluster_matched_pair, MatchedPairResult
-from .cluster_cross import cluster_cross_interference, CrossClusterRCTResult
-from .cluster_staggered import cluster_staggered_rollout, StaggeredClusterRCTResult
-from .dnc_gnn_did import dnc_gnn_did, DNCGNNDiDResult
+from .cluster_matched_pair import MatchedPairResult, cluster_matched_pair
+from .cluster_staggered import StaggeredClusterRCTResult, cluster_staggered_rollout
 
 # v1.5 unified dispatcher
-from .dispatcher import (
-    interference,
-    available_designs as interference_available_designs,
+from .dispatcher import available_designs as interference_available_designs
+from .dispatcher import interference
+from .dnc_gnn_did import DNCGNNDiDResult, dnc_gnn_did
+from .network_exposure import NetworkExposureResult, network_exposure
+from .orthogonal import (
+    InwardOutwardResult,
+    NetworkHTEResult,
+    inward_outward_spillover,
+    network_hte,
 )
+from .peer_effects import PeerEffectsResult, peer_effects
+from .randomization_test import InterferenceTestResult, interference_test
+from .spillover import SpilloverEstimator, spillover
 
 __all__ = [
     "spillover",
     "SpilloverEstimator",
     "network_exposure",
     "NetworkExposureResult",
+    "interference_test",
+    "InterferenceTestResult",
     "peer_effects",
     "PeerEffectsResult",
     "network_hte",

@@ -24380,10 +24380,11 @@ def _build_registry() -> None:
             name="network_exposure",
             category="causal",
             description=(
-                "Aronow-Samii Horvitz-Thompson estimator for arbitrary "
-                "interference via a user-supplied exposure mapping. Handles "
-                "Bernoulli randomisation designs with simulated conservative "
-                "variance."
+                "Direct and spillover effects on a known network through an "
+                "exposure mapping: inverse-probability weighted means of the "
+                "outcome at each exposure level (exact exposure probabilities "
+                "under Bernoulli assignment) with standard errors that account "
+                "for dependence between units sharing a neighbour."
             ),
             params=[
                 ParamSpec("Y", "array", True, description="Outcome vector"),
@@ -24392,21 +24393,30 @@ def _build_registry() -> None:
                     "adjacency",
                     "array",
                     True,
-                    description="Adjacency matrix (n x n) or sparse",
+                    description=(
+                        "n x n matrix (dense, sparse or DataFrame) or edge list; "
+                        "row i marks the units whose treatment may affect unit i"
+                    ),
                 ),
                 ParamSpec(
                     "mapping",
                     "str",
                     False,
                     "as4",
-                    "Exposure mapping",
-                    ["as4", "as3", "as2", "custom"],
+                    "Exposure mapping: own treatment by any treated neighbour "
+                    "('as4'), own treatment by binned share of treated "
+                    "neighbours ('fraction'), or a callable f(Z, A) returning "
+                    "one label per unit",
+                    ["as4", "fraction"],
                 ),
                 ParamSpec(
                     "p_treat",
                     "float",
                     False,
-                    description="Marginal treatment probability",
+                    description=(
+                        "Treatment probability of the design; defaults to the "
+                        "realised treated share"
+                    ),
                 ),
                 ParamSpec(
                     "design",
@@ -24414,49 +24424,105 @@ def _build_registry() -> None:
                     False,
                     "bernoulli",
                     "Randomisation design",
-                    ["bernoulli", "complete"],
+                    ["bernoulli"],
                 ),
-                ParamSpec("n_sim", "int", False, 2000),
+                ParamSpec(
+                    "n_sim",
+                    "int",
+                    False,
+                    2000,
+                    "Draws used to simulate exposure probabilities of a callable "
+                    "mapping; ignored for the built-in mappings",
+                ),
+                ParamSpec("seed", "int", False, 0, "Seed for those draws"),
+                ParamSpec(
+                    "estimator",
+                    "str",
+                    False,
+                    "hajek",
+                    "Self-normalised (Hajek) or Horvitz-Thompson means",
+                    ["hajek", "ht"],
+                ),
+                ParamSpec(
+                    "variance",
+                    "str",
+                    False,
+                    "hac_psd",
+                    "Network HAC variance; 'hac_psd' uses the positive "
+                    "semidefinite part of the dependency graph and is always "
+                    "conservative for the randomisation variance",
+                    ["hac_psd", "hac"],
+                ),
+                ParamSpec(
+                    "contrasts",
+                    "list",
+                    False,
+                    description=(
+                        "Pairs (h1, h0) of exposure levels to contrast; defaults "
+                        "to the four named contrasts of 'as4'"
+                    ),
+                ),
+                ParamSpec(
+                    "thresholds",
+                    "tuple",
+                    False,
+                    (0.0, 0.5),
+                    "Bin edges of the 'fraction' mapping",
+                ),
+                ParamSpec(
+                    "min_prob",
+                    "float",
+                    False,
+                    0.0,
+                    "Exclude units with an exposure probability at or below this "
+                    "value for some level",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
             ],
-            returns="NetworkExposureResult with per-exposure HT estimates",
-            example='sp.network_exposure(Y=y, Z=z, adjacency=A, mapping="as4")',
+            returns="NetworkExposureResult with per-exposure means and contrasts",
+            example="sp.network_exposure(Y=y, Z=z, adjacency=A, p_treat=0.5)",
             tags=["interference", "network", "aronow_samii", "horvitz_thompson"],
-            reference="Aronow & Samii (2017) AoAS",
+            reference="aronow2017estimating; leung2022causal; gao2025causal",
             pre_conditions=[
-                "adjacency is a binary n × n matrix encoding network ties",
+                "adjacency encodes who can affect whom and was fixed before "
+                "assignment",
                 "Y, Z have same length n",
-                "randomisation design is known (bernoulli with p_treat, or complete)",
-                "n_sim ≥ 2000 for stable Monte Carlo variance",
+                "treatments were assigned independently with a known probability",
             ],
             assumptions=[
-                "Exposure mapping is correctly specified (as4 / as3 / as2 — "
-                "Aronow-Samii hierarchy)",
-                "Positivity: every exposure level has positive probability under the "
-                "design",
+                "The exposure mapping is correctly specified: a unit's outcome "
+                "depends on the assignment only through its exposure level",
+                "Positivity: averages are over units for which every exposure "
+                "level has positive probability under the design",
                 "Network adjacency is fixed / known (measurement error in ties "
                 "introduces bias)",
             ],
             failure_modes=[
                 FailureMode(
-                    symptom="Some exposure level has < 5 observed units",
+                    symptom="Fewer than two units can receive every exposure level",
                     exception="statspai.DataInsufficient",
-                    remedy=(
-                        "Switch to a coarser mapping (as4 → as3) or increase sample "
-                        "size."
-                    ),
+                    remedy="Use a coarser exposure mapping.",
                     alternative="",
                 ),
                 FailureMode(
-                    symptom="Variance estimate extremely conservative (wide CI)",
+                    symptom=(
+                        "Some units have exposure probabilities below 0.01 (high "
+                        "degree under 'as4'), so a few units carry huge weights"
+                    ),
                     exception="statspai.AssumptionWarning",
                     remedy=(
-                        "HT-style variance is conservative by design — use "
-                        "sp.spillover for cluster case."
+                        "Set min_prob= to restrict to units with adequate "
+                        "overlap, or use mapping='fraction'."
                     ),
                     alternative="sp.spillover",
                 ),
             ],
-            alternatives=["spillover", "peer_effects", "cluster_matched_pair"],
+            alternatives=[
+                "interference_test",
+                "spillover",
+                "peer_effects",
+                "cluster_matched_pair",
+            ],
             typical_n_min=200,
             limitations=[
                 "design='complete' is reserved but not implemented; passing it "
@@ -24464,6 +24530,366 @@ def _build_registry() -> None:
                 "p_treat=K/N as an approximation only if that matches the "
                 "assignment mechanism you are willing to assume",
             ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="interference_test",
+            category="causal",
+            description=(
+                "Randomization test on a network: of no treatment effect at "
+                "all, or of no spillovers (outcomes depend only on a unit's own "
+                "treatment), using focal units whose treatments are held fixed "
+                "while the others are permuted. Exact in finite samples."
+            ),
+            params=[
+                ParamSpec("Y", "array", True, description="Outcome vector"),
+                ParamSpec("Z", "array", True, description="Treatment vector (0/1)"),
+                ParamSpec(
+                    "adjacency",
+                    "array",
+                    False,
+                    description=(
+                        "n x n matrix or edge list; required for " "null='no_spillover'"
+                    ),
+                ),
+                ParamSpec(
+                    "null",
+                    "str",
+                    False,
+                    "no_spillover",
+                    "Hypothesis tested",
+                    ["no_spillover", "no_effect"],
+                ),
+                ParamSpec(
+                    "statistic",
+                    "str",
+                    False,
+                    None,
+                    "Test statistic (or a callable T(Y, Z, A, focal)); defaults "
+                    "to 'neighbor_share' for no_spillover and "
+                    "'difference_in_means' for no_effect",
+                    ["neighbor_share", "any_neighbor", "difference_in_means"],
+                ),
+                ParamSpec(
+                    "focal",
+                    "float",
+                    False,
+                    0.5,
+                    "Share of units drawn at random as focal units, or an array "
+                    "of focal indices chosen without looking at Z",
+                ),
+                ParamSpec(
+                    "alternative",
+                    "str",
+                    False,
+                    "two-sided",
+                    "Alternative",
+                    ["two-sided", "greater", "less"],
+                ),
+                ParamSpec(
+                    "n_perm",
+                    "int",
+                    False,
+                    2000,
+                    "Number of permutations; all assignments are enumerated when "
+                    "there are no more than this many",
+                ),
+                ParamSpec("seed", "int", False, 0, "Seed"),
+            ],
+            returns="InterferenceTestResult",
+            example="sp.interference_test(Y=y, Z=z, adjacency=A)",
+            tags=["interference", "network", "randomization", "permutation", "test"],
+            reference="aronow2012general; athey2018exact; basse2019randomization",
+            assumptions=[
+                "Every unit had the same probability of treatment (Bernoulli or "
+                "completely randomized assignment)",
+                "The focal set was chosen without reference to the realised "
+                "assignment",
+                "No clustering in the assignment mechanism",
+            ],
+            pre_conditions=[
+                "Both treated and untreated units among those re-randomized",
+            ],
+            alternatives=["network_exposure", "fisher_exact", "spillover"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bandit_allocate",
+            category="experimental",
+            description=(
+                "Assignment probabilities for the next subject of an adaptive "
+                "experiment from the data so far: Thompson sampling, upper "
+                "confidence bounds or epsilon-greedy."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Outcomes observed so far"),
+                ParamSpec("y", "str", True, None, "Reward column (larger is better)"),
+                ParamSpec("arm", "str", True, None, "Assigned-arm column"),
+                ParamSpec(
+                    "arms", "list", False, None, "All arm labels, including untried"
+                ),
+                ParamSpec(
+                    "algorithm",
+                    "str",
+                    False,
+                    "thompson",
+                    "Allocation rule",
+                    ["thompson", "ucb", "epsilon_greedy", "uniform"],
+                ),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "gaussian",
+                    "Reward model behind the posterior",
+                    ["gaussian", "bernoulli"],
+                ),
+                ParamSpec(
+                    "sigma",
+                    "float",
+                    False,
+                    None,
+                    "Known reward sd (Gaussian); default pooled within-arm sd",
+                ),
+                ParamSpec("horizon", "int", False, None, "Planned sample size (ucb)"),
+                ParamSpec("ucb_scale", "float", False, 2.0, "Width of the bound"),
+                ParamSpec("epsilon", "float", False, 0.1, "Exploration share"),
+                ParamSpec(
+                    "prob_floor",
+                    "float",
+                    False,
+                    0.0,
+                    "Lower bound on every assignment probability",
+                ),
+                ParamSpec(
+                    "min_pulls", "int", False, 2, "Draws per arm before adapting"
+                ),
+            ],
+            returns="Series of probabilities indexed by arm",
+            example='sp.bandit_allocate(df, "y", "arm", prob_floor=0.05)',
+            tags=["experiment", "adaptive", "bandit", "thompson", "ucb"],
+            reference="thompson1933likelihood; lai1985asymptotically",
+            assumptions=[
+                "Rewards of an arm are independent and identically distributed "
+                "over time",
+            ],
+            alternatives=["bandit_experiment", "adaptive_inference", "randomize"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bandit_experiment",
+            category="experimental",
+            description=(
+                "Run a sequential multi-armed bandit experiment (Thompson "
+                "sampling, UCB, epsilon-greedy) on a reward sampler or a table "
+                "of potential outcomes, recording the assignment probabilities "
+                "needed for inference afterwards."
+            ),
+            params=[
+                ParamSpec(
+                    "reward",
+                    "callable",
+                    True,
+                    None,
+                    "reward(k, rng) -> float, or a T x K table of potential "
+                    "outcomes",
+                ),
+                ParamSpec("n_periods", "int", False, None, "Number of subjects"),
+                ParamSpec("n_arms", "int", False, None, "Number of arms"),
+                ParamSpec(
+                    "algorithm",
+                    "str",
+                    False,
+                    "thompson",
+                    "Allocation rule",
+                    ["thompson", "ucb", "epsilon_greedy", "uniform"],
+                ),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "gaussian",
+                    "Reward model",
+                    ["gaussian", "bernoulli"],
+                ),
+                ParamSpec("sigma", "float", False, None, "Known reward sd"),
+                ParamSpec("ucb_scale", "float", False, 2.0, "Width of the bound"),
+                ParamSpec("epsilon", "float", False, 0.1, "Exploration share"),
+                ParamSpec(
+                    "prob_floor",
+                    "float",
+                    False,
+                    0.0,
+                    "Lower bound on every assignment probability",
+                ),
+                ParamSpec(
+                    "min_pulls", "int", False, 2, "Draws per arm before adapting"
+                ),
+                ParamSpec("batch_size", "int", False, 1, "Periods between updates"),
+                ParamSpec(
+                    "true_means", "list", False, None, "Arm means, to report regret"
+                ),
+                ParamSpec("seed", "int", False, None, "Seed"),
+            ],
+            returns="BanditExperimentResult (.data, .arms, .regret)",
+            example=(
+                "sp.bandit_experiment(lambda k, rng: mu[k] + rng.normal(), 500, "
+                "n_arms=3, prob_floor=0.02)"
+            ),
+            tags=["experiment", "adaptive", "bandit", "thompson", "ucb", "simulation"],
+            reference="thompson1933likelihood; lai1985asymptotically",
+            assumptions=[
+                "Rewards of an arm are independent and identically distributed "
+                "over time",
+            ],
+            alternatives=["bandit_allocate", "adaptive_inference"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="adaptive_inference",
+            category="experimental",
+            description=(
+                "Confidence intervals for arm means and contrasts after an "
+                "adaptive (bandit) experiment, using weights that restore "
+                "asymptotic normality when assignment probabilities depended on "
+                "earlier outcomes."
+            ),
+            params=[
+                ParamSpec(
+                    "data", "DataFrame", True, None, "One row per subject, in order"
+                ),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec("arm", "str", True, None, "Assigned-arm column"),
+                ParamSpec(
+                    "prob",
+                    "str",
+                    False,
+                    None,
+                    "Column with the probability with which the assigned arm was "
+                    "chosen",
+                ),
+                ParamSpec(
+                    "probs",
+                    "list",
+                    False,
+                    None,
+                    "Columns with every arm's assignment probability (dict "
+                    "{arm: column} or list in sorted arm order); needed for "
+                    "method='aipw'",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "aw",
+                    "'aw' and 'aipw' are valid under adaptive assignment; 'ipw' "
+                    "and 'mean' are reported for comparison only",
+                    ["aw", "aipw", "ipw", "mean"],
+                ),
+                ParamSpec(
+                    "contrasts", "list", False, None, "Pairs (a, b) of arms to contrast"
+                ),
+                ParamSpec("time", "str", False, None, "Column giving the order"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="AdaptiveInferenceResult (.estimates, .contrasts)",
+            example='sp.adaptive_inference(df, "reward", "arm", "prob")',
+            tags=["experiment", "adaptive", "bandit", "inference"],
+            reference="hadad2021confidence",
+            assumptions=[
+                "Potential outcomes are independent and identically distributed "
+                "over time",
+                "The supplied probabilities are the ones actually used to assign",
+                "Assignment probabilities do not decay to zero too fast",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Assignment was deterministic (e.g. UCB)",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Collect data with a randomized rule and a probability floor.",
+                    alternative="",
+                ),
+            ],
+            alternatives=["bandit_experiment", "ttest"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="residual_balance",
+            category="causal",
+            description=(
+                "Approximate residual balancing: average treatment effects with "
+                "many covariates, combining a regularised linear outcome model "
+                "with weights that minimise the worst covariate imbalance. "
+                "Needs no propensity model."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Input data"),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec("treat", "str", True, None, "0/1 treatment column"),
+                ParamSpec(
+                    "covariates", "list", True, None, "Covariates (may exceed n)"
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "Target population",
+                    ["ATE", "ATT", "ATC"],
+                ),
+                ParamSpec(
+                    "zeta",
+                    "float",
+                    False,
+                    0.5,
+                    "Weight on imbalance relative to the sum of squared weights, "
+                    "in (0, 1)",
+                ),
+                ParamSpec(
+                    "outcome_model",
+                    "str",
+                    False,
+                    "elnet",
+                    "Outcome model fitted in each arm (or a scikit-learn linear "
+                    "estimator)",
+                    ["elnet", "lasso", "none"],
+                ),
+                ParamSpec("l1_ratio", "float", False, 0.9, "Elastic-net mixing"),
+                ParamSpec(
+                    "standardize", "bool", False, True, "Scale covariates by their sd"
+                ),
+                ParamSpec(
+                    "allow_negative_weights",
+                    "bool",
+                    False,
+                    False,
+                    "Drop the non-negativity constraint",
+                ),
+                ParamSpec("cv", "int", False, 10, "Cross-validation folds"),
+                ParamSpec("random_state", "int", False, 0, "Seed for the folds"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="CausalResult",
+            example='sp.residual_balance(df, "y", "w", covariates)',
+            tags=["balancing", "weighting", "high_dimensional", "lasso", "ate"],
+            reference="athey2018approximate",
+            assumptions=[
+                "Unconfoundedness given the covariates and overlap",
+                "The outcome is linear and sparse in the covariates",
+                "The standard error conditions on the covariates, so the "
+                "interval is for the average effect in the sample at hand",
+            ],
+            alternatives=["sbw", "ebalance", "cbps", "dml", "aipw"],
         )
     )
 
@@ -31584,7 +32010,14 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "cluster_cross_interference": ["tests/test_cluster_rct.py"],
     "interference": ["tests/test_dispatchers_v150.py"],
     "inward_outward_spillover": ["tests/test_interference_extensions.py"],
-    "network_exposure": ["tests/test_dispatchers_v150.py"],
+    "network_exposure": [
+        "tests/test_wager_textbook_pass.py",
+        "tests/test_dispatchers_v150.py",
+    ],
+    "interference_test": ["tests/test_wager_textbook_pass.py"],
+    "bandit_allocate": ["tests/test_wager_textbook_pass.py"],
+    "bandit_experiment": ["tests/test_wager_textbook_pass.py"],
+    "adaptive_inference": ["tests/test_wager_textbook_pass.py"],
     "network_hte": ["tests/test_interference_extensions.py"],
     "spillover": ["tests/test_phase9to14.py", "tests/test_dispatchers_v150.py"],
     "identify_transport": ["tests/test_transport.py"],

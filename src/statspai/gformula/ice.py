@@ -113,9 +113,12 @@ def ice(
     outcome_col : str
         Terminal outcome measured at the end of follow-up.
     treatment_strategy : list | callable
-        Either a static sequence of treatment values (e.g. ``[1, 1, 1]``
-        = always-treat) or a callable taking history and returning
-        the intervention value.
+        A static strategy: a sequence of treatment values (e.g.
+        ``[1, 1, 1]`` = always-treat), a scalar applied at every time
+        point, or a callable ``f(t)`` returning the value at time ``t``.
+        Strategies that depend on the evolving covariate history are
+        not supported here; use :func:`statspai.ltmle` with a callable
+        regime for those.
     bootstrap : int, default 0
         Number of nonparametric bootstrap replicates for SE. 0 reports
         the analytic M-estimation sandwich: the K sequential OLS normal

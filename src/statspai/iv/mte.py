@@ -25,7 +25,8 @@ Python had nothing).
 References
 ----------
 Brinch, C.N., Mogstad, M. and Wiswall, M. (2017). "Beyond LATE with a
-    Discrete Instrument." *Journal of Political Economy*, 125(4), 985-1039. [@brinch2017beyond]
+    Discrete Instrument." *Journal of Political Economy*, 125(4), 985-1039.
+    [@brinch2017beyond]
 
 Heckman, J.J. and Vytlacil, E.J. (2005). "Structural Equations,
     Treatment Effects, and Econometric Policy Evaluation."
@@ -69,6 +70,10 @@ class MTEResult(ResultProtocolMixin):
     treated_share: float
     extra: Dict
 
+    def _se_suffix(self, key: str) -> str:
+        se = self.extra.get(key) if isinstance(self.extra, dict) else None
+        return f"   SE={se:.4f}" if se is not None and np.isfinite(se) else ""
+
     def summary(self) -> str:
         u_min, u_max = self.propensity_range
         lines = [
@@ -79,10 +84,10 @@ class MTEResult(ResultProtocolMixin):
             f"{self.treated_share:.3f})",
             f"  Propensity support   : [{u_min:.3f}, {u_max:.3f}]",
             "",
-            "  Aggregate parameters (at mean X)",
+            "  Aggregate parameters",
             f"    ATE   = {self.ate:>8.4f}   SE={self.ate_se:.4f}",
-            f"    ATT   = {self.att:>8.4f}",
-            f"    ATU   = {self.atu:>8.4f}",
+            f"    ATT   = {self.att:>8.4f}" + self._se_suffix("att_se"),
+            f"    ATU   = {self.atu:>8.4f}" + self._se_suffix("atu_se"),
             f"    LATE* = {self.late_2sls:>8.4f}   (2SLS for reference)",
             "",
             "  * LATE is the 2SLS slope using the same instrument",
@@ -108,11 +113,6 @@ def _poly_u(u: np.ndarray, K: int) -> np.ndarray:
     """Return Vandermonde matrix [1, u, u^2, ..., u^K]."""
     u = np.asarray(u, dtype=float).reshape(-1)
     return np.vander(u, N=K + 1, increasing=True)
-
-
-def _int_poly_u(a: float, b: float, K: int) -> np.ndarray:
-    """∫_a^b [1, u, u^2, ..., u^K] du = [b-a, (b^2-a^2)/2, ...]."""
-    return np.array([(b ** (k + 1) - a ** (k + 1)) / (k + 1) for k in range(K + 1)])
 
 
 def mte(
@@ -151,9 +151,12 @@ def mte(
         Trim observations with p(Z,X) outside ``[trim, 1-trim]``.
     bootstrap : int, optional
         If set, run a nonparametric pairs bootstrap with this many draws
-        to obtain honest standard errors for MTE(u), ATE, ATT, ATU. When
-        ``None`` (default), analytic plug-in SEs are used for the MTE
-        curve and ATE, and no SE is reported for ATT / ATU.
+        to obtain standard errors for MTE(u), ATE, ATT, ATU that include
+        the estimation of the propensity score. When ``None`` (default),
+        analytic heteroskedasticity-robust standard errors are reported
+        (``ate_se``, the ``se`` column of ``mte_curve`` and
+        ``extra["att_se"]`` / ``extra["atu_se"]``); these treat the
+        fitted propensity score as known.
     random_state : int, optional
         Seed for the bootstrap draws.
 
@@ -191,6 +194,9 @@ def mte(
 
     # Trim to common support
     keep = (p_hat > trim) & (p_hat < 1 - trim) & ~np.isnan(p_hat)
+    # The bootstrap resamples the data as supplied and repeats the
+    # trimming, so the untrimmed arrays are kept alongside.
+    Y_all, D_all, n_all = Y, D, n
     Y, D, X, p_hat = Y[keep], D[keep], X[keep], p_hat[keep]
     n = len(Y)
 
@@ -243,11 +249,7 @@ def mte(
     M1 = build_design(p1, "treated")
     theta1_flat, *_ = np.linalg.lstsq(M1, Y[mask1], rcond=None)
     resid1 = Y[mask1] - M1 @ theta1_flat
-    sigma1 = float(resid1 @ resid1) / max(len(resid1) - M1.shape[1], 1)
-    try:
-        var1 = sigma1 * np.linalg.inv(M1.T @ M1)
-    except np.linalg.LinAlgError:  # pragma: no cover
-        var1 = sigma1 * np.linalg.pinv(M1.T @ M1)
+    var1 = _hc1_cov(M1, resid1)
     se1_flat = np.sqrt(np.maximum(np.diag(var1), 0))
 
     X_here = X[mask0]
@@ -255,11 +257,7 @@ def mte(
     M0 = build_design(p0, "untreated")
     theta0_flat, *_ = np.linalg.lstsq(M0, Y[mask0], rcond=None)
     resid0 = Y[mask0] - M0 @ theta0_flat
-    sigma0 = float(resid0 @ resid0) / max(len(resid0) - M0.shape[1], 1)
-    try:
-        var0 = sigma0 * np.linalg.inv(M0.T @ M0)
-    except np.linalg.LinAlgError:  # pragma: no cover
-        var0 = sigma0 * np.linalg.pinv(M0.T @ M0)
+    var0 = _hc1_cov(M0, resid0)
     se0_flat = np.sqrt(np.maximum(np.diag(var0), 0))
 
     # Reshape theta: rows = poly degree k, cols = X dimension
@@ -276,31 +274,33 @@ def mte(
         u_grid = np.linspace(max(u_min, 0.01), min(u_max, 0.99), 101)
 
     V = _poly_u(u_grid, K)  # n_grid x (K+1)
-    mte_x = V @ (theta1 - theta0) @ x_bar  # n_grid
-    # Delta-method SE: Var( x̄'(theta_{1,k} - theta_{0,k}) ) per u
-    var_diff_per_k = (se1**2 + se0**2) @ (x_bar**2)  # K+1
-    mte_se = np.sqrt(np.maximum(V**2 @ var_diff_per_k, 0))
-
-    # ATE = ∫ MTE(u) du at x̄
-    weight_ate = _int_poly_u(0.0, 1.0, K)  # (K+1,)
-    ate = float(weight_ate @ (theta1 - theta0) @ x_bar)
-    ate_var = float(weight_ate @ np.diag(var_diff_per_k.reshape(-1)) @ weight_ate)
-    ate_se = float(np.sqrt(max(ate_var, 0)))
-
-    # ATT = ∫_0^1 MTE(u) * Pr(P(Z)>u | D=1) du ≈ ∫_0^1 MTE(u) * F_p|D=1(u) weight
-    # Use empirical plug-in with the observed p distribution among treated
-    att = _weighted_integral(
-        u_grid, mte_x, _empirical_cdf_weight(u_grid, p_hat[D == 1])
+    diff_flat = theta1_flat - theta0_flat
+    # The two arms are fitted on disjoint samples, so the covariance of
+    # the difference is the sum; coefficients of different polynomial
+    # terms are strongly correlated and the full matrix is needed.
+    cov_diff = var1 + var0
+    L_curve = np.kron(V, x_bar[None, :])  # n_grid x (K+1)*dx
+    mte_x = L_curve @ diff_flat
+    mte_se = np.sqrt(
+        np.maximum(np.einsum("ij,jk,ik->i", L_curve, cov_diff, L_curve), 0)
     )
-    atu = _weighted_integral(
-        u_grid, mte_x, _empirical_cdf_weight(u_grid, p_hat[D == 0], side="upper")
-    )
+
+    L_ate, L_att, L_atu = _aggregate_functionals(X, p_hat, K)
+    ate = float(L_ate @ diff_flat)
+    ate_se = float(np.sqrt(max(L_ate @ cov_diff @ L_ate, 0.0)))
+    att = float(L_att @ diff_flat)
+    atu = float(L_atu @ diff_flat)
+    analytic_extra = {
+        "att_se": float(np.sqrt(max(L_att @ cov_diff @ L_att, 0.0))),
+        "atu_se": float(np.sqrt(max(L_atu @ cov_diff @ L_atu, 0.0))),
+        "se_method": "analytic (HC1, propensity score treated as known)",
+    }
 
     # LATE reference = 2SLS of Y on D using Z
     late_ref = _wald_tsls(Y, D, X, p_hat)
 
     # ─── optional bootstrap SE ──────────────────────────────────────────
-    boot_extra = {}
+    boot_extra: Dict[str, Any] = {}
     if bootstrap is not None and int(bootstrap) > 0:
         B = int(bootstrap)
         rng_boot = np.random.default_rng(random_state)
@@ -309,11 +309,11 @@ def mte(
         boot_att = np.full(B, np.nan)
         boot_atu = np.full(B, np.nan)
         for b in range(B):
-            idx = rng_boot.integers(0, n, size=n)
+            idx = rng_boot.integers(0, n_all, size=n_all)
             try:
                 pt = _mte_point_only(
-                    Y[idx],
-                    D[idx],
+                    Y_all[idx],
+                    D_all[idx],
                     Z[idx],
                     X_raw[idx],
                     K,
@@ -335,6 +335,7 @@ def mte(
             boot_extra["atu_se"] = float(np.nanstd(boot_atu[ok], ddof=1))
             boot_extra["n_successful_draws"] = int(ok.sum())
             boot_extra["n_requested_draws"] = B
+            boot_extra["se_method"] = "bootstrap"
 
     curve = pd.DataFrame({"u": u_grid, "mte": mte_x, "se": mte_se})
     curve["ci_lower"] = curve["mte"] - 1.96 * curve["se"]
@@ -356,7 +357,7 @@ def mte(
         x_bar=x_bar,
         n_obs=n,
         treated_share=float(D.mean()),
-        extra={"p_hat": p_hat, "keep_mask": keep, **boot_extra},
+        extra={"p_hat": p_hat, "keep_mask": keep, **analytic_extra, **boot_extra},
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -435,24 +436,42 @@ def _wald_tsls(Y: np.ndarray, D: np.ndarray, X: np.ndarray, p: np.ndarray) -> fl
     return float(Zp @ Yp) / denom if abs(denom) > 1e-12 else np.nan
 
 
-def _empirical_cdf_weight(
-    u_grid: np.ndarray, p_sample: np.ndarray, side: str = "lower"
-) -> np.ndarray:
-    """Weights used by ATT/ATU integrals — see BMW 2017 Table 2."""
-    if len(p_sample) == 0:
-        return np.ones_like(u_grid) / max(len(u_grid), 1)  # pragma: no cover
-    if side == "lower":
-        w = np.array([(p_sample >= u).mean() for u in u_grid])
-    else:
-        w = np.array([(p_sample <= u).mean() for u in u_grid])
-    total = np.trapezoid(w, u_grid)
-    return w / total if total > 0 else np.ones_like(u_grid) / max(len(u_grid), 1)
+def _hc1_cov(M: np.ndarray, resid: np.ndarray) -> np.ndarray:
+    """Heteroskedasticity-robust covariance of the least-squares fit."""
+    n, k = M.shape
+    bread = np.linalg.pinv(M.T @ M)
+    meat = M.T @ (M * (resid**2)[:, None])
+    return np.asarray(bread @ meat @ bread * n / max(n - k, 1))
 
 
-def _weighted_integral(
-    u_grid: np.ndarray, f_values: np.ndarray, weights: np.ndarray
-) -> float:
-    return float(np.trapezoid(f_values * weights, u_grid))
+def _aggregate_functionals(
+    X: np.ndarray, p: np.ndarray, K: int
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Linear maps from the stacked MTE coefficients to ATE, ATT and ATU.
+
+    With ``MTE(u | x) = sum_k x' delta_k u^k`` a unit with propensity
+    ``p`` is treated when its resistance ``U`` is below ``p``, so
+
+    * ATE averages ``int_0^1 MTE(u | x_i) du``,
+    * ATT averages ``int_0^{p_i} MTE(u | x_i) du`` and divides by the
+      mean of ``p_i`` (the treated are the units with ``U < p``),
+    * ATU averages ``int_{p_i}^1 MTE(u | x_i) du`` and divides by the
+      mean of ``1 - p_i``.
+
+    The averages run over the whole sample, not over an arm: every
+    unit contributes to the treated population in proportion to its
+    propensity. Coefficients are ordered polynomial term first, then
+    covariate, as in the design matrix.
+    """
+    orders = np.arange(1, K + 2)  # k + 1
+    upper = p[:, None] ** orders / orders  # int_0^p u^k du
+    full = 1.0 / orders
+    L_ate = np.kron(full, X.mean(axis=0))
+    L_att = (upper[:, :, None] * X[:, None, :]).mean(axis=0).ravel() / p.mean()
+    L_atu = ((full - upper)[:, :, None] * X[:, None, :]).mean(axis=0).ravel() / (
+        1.0 - p
+    ).mean()
+    return L_ate, L_att, L_atu
 
 
 def _mte_point_only(
@@ -503,13 +522,14 @@ def _mte_point_only(
     x_bar = X.mean(axis=0)
     V = _poly_u(u_grid, K)
     mte_u = V @ (theta1 - theta0) @ x_bar
-    weight_ate = _int_poly_u(0.0, 1.0, K)
-    ate = float(weight_ate @ (theta1 - theta0) @ x_bar)
-    att = _weighted_integral(u_grid, mte_u, _empirical_cdf_weight(u_grid, p[D == 1]))
-    atu = _weighted_integral(
-        u_grid, mte_u, _empirical_cdf_weight(u_grid, p[D == 0], side="upper")
-    )
-    return {"mte_curve": mte_u, "ate": ate, "att": float(att), "atu": float(atu)}
+    diff_flat = t1_flat - t0_flat
+    L_ate, L_att, L_atu = _aggregate_functionals(X, p, K)
+    return {
+        "mte_curve": mte_u,
+        "ate": float(L_ate @ diff_flat),
+        "att": float(L_att @ diff_flat),
+        "atu": float(L_atu @ diff_flat),
+    }
 
 
 __all__ = ["mte", "MTEResult"]

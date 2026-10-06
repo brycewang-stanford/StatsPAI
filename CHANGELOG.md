@@ -4,6 +4,109 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Interference, adaptive experiments and balancing in high dimensions
+
+A pass over Wager, *Causal Inference: A Statistical Learning Approach*
+(draft of September 2026). The book has no code, so each chapter was read
+as a syllabus: every estimator it defines was looked up in StatsPAI and
+run against a design with a known answer, and against the R package of
+the method's authors where one exists. Chapters 1 to 5, 8, 13 and 14 were
+already covered and checked out. Review in
+`docs/dev/2026-10-07-wager-causal-inference-review.md`, guide in
+`docs/guides/wager_causal_inference.md`.
+
+#### ⚠️ Correctness
+
+- **`sp.network_exposure` returned unusable estimates on networks with
+  uneven degree.** Exposure probabilities were simulated (2,000 draws)
+  and floored at 0.001 even though they have a closed form under
+  Bernoulli assignment, and the variance summed `Y_i^2 (1 - pi_i) /
+  pi_i^2` over *all* units, including those not observed at the exposure
+  level, with no covariance between units that share a neighbour. On a
+  400-node network with degrees up to 10 the mean outcome with no
+  treated neighbour was 8.60 against a true 7.03 and its reported
+  standard error was 98 against a sampling spread of 6. The function now
+  uses exact probabilities, reports the self-normalised (Hajek) mean by
+  default (`estimator='ht'` keeps Horvitz-Thompson) and estimates the
+  variance over the dependency graph of the design, with the positive
+  semidefinite adjustment that makes it conservative
+  (`variance='hac_psd'`, default; `'hac'` is the unadjusted form).
+  Contrasts carry the covariance between the two exposure means. On the
+  same network the Hajek contrast now has a spread of 0.5 instead of 6
+  and its interval covers at 93 to 97%. Units that cannot receive some
+  exposure level (no neighbours) are excluded with a warning, and
+  `min_prob=` restricts to units with adequate overlap. The registry no
+  longer advertises mappings and designs that were never implemented.
+- **`sp.iv.mte` weighted the effect on the treated and on the untreated
+  by the wrong distribution.** The weights were built from the
+  propensity scores of the treated (or untreated) units only. The
+  treated are the units whose resistance is below their propensity, so
+  every unit contributes in proportion to its propensity. With a linear
+  marginal effect `2 - 2u` the function returned an ATT of 1.22 and an
+  ATU of 0.73 against true values of 1.30 and 0.63. Both are now exact
+  linear functions of the fitted coefficients. The ATE was right.
+- **`sp.iv.mte` standard errors ignored the covariance between
+  polynomial coefficients**, which is large and negative. The ATE
+  standard error was 0.075 where the sampling spread was 0.024. Standard
+  errors are now heteroskedasticity-robust with the full covariance, and
+  are reported for the ATT and ATU as well (`extra['att_se']`,
+  `extra['atu_se']`). They treat the fitted propensity score and the
+  covariates as given; `bootstrap=` includes both.
+- **`sp.iv.mte(bootstrap=)` paired outcomes with other units'
+  instruments** whenever trimming removed a row, because the outcome was
+  trimmed and the instrument was not. The bootstrap standard errors
+  were then meaningless (hundreds of thousands on a unit-scale outcome).
+  The bootstrap now resamples the data as supplied and repeats the
+  trimming.
+
+#### Added
+
+- **`sp.interference_test`**: randomization tests on a network. Tests
+  that treatment affects no one, or that there are no spillovers, by
+  holding the treatments of a set of focal units fixed and permuting the
+  rest. Exact in finite samples for any statistic; all assignments are
+  enumerated when there are few enough.
+- **`sp.bandit_allocate`, `sp.bandit_experiment`**: Thompson sampling,
+  upper confidence bounds and epsilon-greedy allocation for multi-armed
+  experiments, with a probability floor, batching and Gaussian or
+  Bernoulli rewards. Thompson probabilities are computed by quadrature,
+  not by simulation, so the recorded assignment probabilities are exact.
+- **`sp.adaptive_inference`**: confidence intervals for arm means and
+  contrasts after an adaptive experiment. The sample mean is biased
+  downwards and not normal under Thompson sampling (its 95% interval
+  covered 87 to 91% in our runs). Weighting by the inverse square root
+  of the assignment probability restores normality; with a 2%
+  probability floor the interval covers 95.5%. An augmented variant with
+  running-mean plug-ins is available as `method='aipw'`.
+- **`sp.residual_balance`**: approximate residual balancing for average
+  treatment effects with more covariates than a propensity model can
+  carry. Weights minimise the worst covariate imbalance and are applied
+  to the residuals of an elastic-net outcome model. The weights agree
+  with the authors' R package `balanceHD` to 1e-6, which is the accuracy
+  of its quadratic-programming path (our objective value is the lower
+  of the two at every configuration tried). With 150 covariates and 300
+  units the estimate is unbiased and its interval covers 93%, where pure
+  weighting is biased by a full standard error.
+
+#### Changed
+
+- **`sp.metalearner(learner='r' | 'dr')`: the default final-stage model
+  requires 20 observations per leaf.** Both learners regress a
+  heavy-tailed pseudo-outcome on the covariates. The default gradient
+  boosting had no minimum leaf size, so it isolated extreme
+  pseudo-outcomes and returned them as conditional effects. On a
+  2,000-unit design with true effects between -1.5 and 3.8 the fitted
+  effects reached -24 and +27, and their root-mean-square error was 0.76
+  (R) and 1.01 (DR) where a constant scores 1.03. With the minimum leaf
+  size it is 0.46 and 0.59. Average effects, their standard errors and
+  every result with an explicit `cate_model=` are unchanged. The S-, T-
+  and X-learners are unchanged.
+- `sp.ltmle(...).summary()` labels the two regimes by their treatment
+  values, or as dynamic, in place of a fixed `E[Y(1,...,1)]`.
+- `sp.gformula_ice_fn`: the documentation said a callable strategy
+  receives the covariate history. It receives the time index. The text
+  now says so and points to `sp.ltmle` for history-dependent regimes.
+
 ### Targeted learning after Schuler and van der Laan's *Modern Causal Inference*
 
 The book has no data and no code. It was audited as a description of what
