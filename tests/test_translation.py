@@ -1146,6 +1146,19 @@ TIER3_ROUND_TRIPS = [
         },
     ),
     (
+        "attr y d, pscore(ps) radius(0.05) comsup",
+        "psmatch2",
+        {
+            "treat": "d",
+            "outcome": "y",
+            "pscore": "ps",
+            "method": "radius",
+            "caliper": 0.05,
+            "radius_weights": "pairs",
+            "common_support": "treated",
+        },
+    ),
+    (
         "atts y d, pscore(ps) blockid(b)",
         "match",
         {"y": "y", "treat": "d", "pscore": "ps", "method": "stratify", "strata": "b"},
@@ -1564,9 +1577,6 @@ class TestStataHandlerCoverage:
         #     runs in an sp.stata session only →
         #     test_stata_qiu_jiaping_syntax.py::test_pstest_reads_what_psmatch2_left
         covered.add("pstest")
-        #   attr — declined with the reason (its control weights are not the
-        #     radius estimator's) → test_stata_qiu_jiaping_syntax.py
-        covered.add("attr")
         # Each handler should have at least one alias covered.
         handler_to_aliases = {}
         for alias, h in STATA_COMMAND_MAP.items():

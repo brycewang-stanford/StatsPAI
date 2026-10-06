@@ -253,11 +253,59 @@ most 10%. The label "Stock-Yogo rule of thumb" that the output used for the
 threshold of 10 was dropped: the threshold is a rule of thumb and the
 critical values are something else.
 
+## Third round: the three items still open
+
+| # | Item | Outcome |
+| --- | --- | --- |
+| 27 | `attr` | available as `sp.psmatch2(method='radius', radius_weights='pairs')`, equal to Stata; the default radius estimator is unchanged |
+| 28 | Cragg-Donald statistic with two or three endogenous regressors | computed for any number, equal to Stata's `r(mineig)` to 12 digits, with the critical values that apply |
+| 29 | A running `sum()` of the variable being replaced, beyond 20,000 rows | runs, in row order |
+| 30 | ⚠️ `generate s = sum(x) if d` summed every row above | the sum advances on the selected rows only, as in Stata |
+
+Item 27. The second round declined `attr` because its weights are not
+those of a radius estimator. That reason stands, and so does the default.
+What changed is that the command can now be reproduced on request. A paper
+that reports an `attr` estimate should be checkable, and a translation
+that refuses the line cannot check it. `radius_weights='pairs'` counts
+every treated-control pair within the radius once. On the Lalonde data it
+gives 770.7657 with standard error 762.5232, which is `r(attr)` and
+`r(seattr)` to the nine digits the command holds. The translation of
+`attr` carries a note that says what the option does and that `psmatch2,
+radius` gives another number (1157.14 on the same score and radius). One
+thing is not copied. `attr` stops looking for matches at the first offset
+in the sorted data at which no treated unit has a control within the
+radius, which can end the search early when many treated units sit next to
+each other. The estimator here uses every pair within the radius.
+
+Item 28. `sp.estat(result, 'firststage')` now computes the minimum
+eigenvalue statistic from the design the IV fit carries, for any number of
+endogenous regressors. With the exogenous regressors partialled out it is
+the smallest eigenvalue of `S^{-1/2}' Y' P_Z Y S^{-1/2} / K`. On the Card
+data with two and three endogenous regressors it equals Stata's `r(mineig)`
+to 12 digits (2.020231786200 and 1.400746790286), and the Stock and Yogo
+row for that combination is attached.
+
+Items 29 and 30 came together. Checking the running-sum recursion against
+Stata showed that the plain running sum was wrong under a qualifier.
+
+```stata
+gen s = sum(x) if mod(_n, 2) == 0     // Stata: . 2 . 6 . 12 . 20
+```
+
+Stata's `sum()` advances on the observations the command is run on.
+`sp.stata` summed every row above and returned 3, 10, 21, 36. The data
+step now settles the rows that `if` and `in` select before the expression
+is evaluated and hands them to the evaluator. The recursion uses the same
+rule. A `replace` that keeps a running sum of the variable's own earlier
+rows is run in row order, the condition is checked first on each row, and a
+row that is not selected leaves the sum where it is. Four cases agree with
+what Stata lists, by group and with a condition that reads updated rows.
+A chain of 30,000 rows takes twelve seconds.
+
 ## Still open
 
-1. **`attr`**, for the reason above.
-2. **Cragg-Donald statistic with two or three endogenous regressors.** The
-   critical values are in the table. `sp.estat(result, 'firststage')`
-   attaches them for one endogenous regressor only, where the statistic is
-   the first-stage F.
-3. **A running `sum()` of the variable being replaced** beyond 20,000 rows.
+1. **A running `sum()` nested in another one, of the variable being
+   replaced**, beyond 20,000 rows. Nothing was found that writes it.
+2. **`attr`'s early stop** (item 27) is not reproduced. No case was found
+   on the textbook's data or on the Lalonde data where it changes the
+   result.

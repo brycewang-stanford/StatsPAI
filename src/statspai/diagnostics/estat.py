@@ -68,7 +68,7 @@ from __future__ import annotations
 
 import re
 import textwrap
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from scipy import stats as sp_stats
@@ -926,6 +926,57 @@ def _estat_overid(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 # ------------------------------------------------------------------
 
 
+def _minimum_eigenvalue(design: Dict[str, Any]) -> Optional[Tuple[float, int, int]]:
+    """Cragg and Donald's minimum eigenvalue statistic, with the numbers of
+    endogenous regressors and of excluded instruments.
+
+    With the exogenous regressors partialled out of the endogenous ones
+    (``Y``) and of the excluded instruments (``Z``), it is the smallest
+    eigenvalue of ``S^{-1/2}' Y' P_Z Y S^{-1/2} / K``, where ``S`` is the
+    residual covariance of the first stages with ``N - K1 - K`` degrees of
+    freedom and ``K`` the number of excluded instruments. ``None`` when the
+    fit does not carry its design or was weighted.
+    """
+    X, W = design.get("X"), design.get("W")
+    names, endog = design.get("var_names"), design.get("endog_names")
+    n_exog = design.get("n_exog")
+    if X is None or W is None or not names or not endog or n_exog is None:
+        return None
+    if design.get("weighted"):
+        return None
+    X = np.asarray(X, dtype=float)
+    W = np.asarray(W, dtype=float)
+    columns = [list(names).index(e) for e in endog if e in names]
+    n_excluded = W.shape[1] - int(n_exog)
+    if len(columns) != len(endog) or n_excluded < len(endog):
+        return None
+    exog = np.delete(X, columns, axis=1)
+
+    def residual(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        if b.shape[1] == 0:
+            return a
+        return a - b @ np.linalg.lstsq(b, a, rcond=None)[0]
+
+    Y = residual(X[:, columns], exog)
+    # the excluded instruments: what W adds to the exogenous regressors
+    Z = residual(W, exog)
+    u, sing, _ = np.linalg.svd(Z, full_matrices=False)
+    basis = u[:, sing > 1e-10 * sing.max()]
+    if basis.shape[1] != n_excluded:
+        return None
+    fitted = basis @ (basis.T @ Y)
+    dof = X.shape[0] - exog.shape[1] - n_excluded
+    if dof <= 0:
+        return None
+    S = (Y - fitted).T @ (Y - fitted) / dof
+    try:
+        half = np.linalg.inv(np.linalg.cholesky(S))
+    except np.linalg.LinAlgError:
+        return None
+    G = half @ (fitted.T @ fitted) @ half.T / n_excluded
+    return float(np.linalg.eigvalsh(G).min()), len(columns), int(n_excluded)
+
+
 def _estat_firststage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """First-stage F-statistic for weak instrument detection."""
     mi = result.model_info
@@ -967,7 +1018,7 @@ def _estat_firststage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     }
     if f_pval is not None:
         out["pvalue"] = float(f_pval)
-    # one endogenous regressor: the rest of Stata's first-stage summary
+    # the rest of Stata's first-stage summary
     stages = mi.get("first_stage")
     if isinstance(stages, list) and len(stages) == 1 and isinstance(stages[0], dict):
         stage = stages[0]
@@ -981,31 +1032,35 @@ def _estat_firststage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
             out["statistic_label"] = f"F({out['df1']}, {out['df2']})"
         if stage.get("partial_r_squared") is not None:
             out["partial_r2"] = float(stage["partial_r_squared"])
-        # The minimum eigenvalue statistic (with one endogenous regressor,
-        # the first-stage F under homoskedasticity) and the critical values
-        # of Stock and Yogo that it is compared with.
-        design = (getattr(result, "data_info", None) or {}).get("iv") or {}
-        instruments = design.get("W")
-        n_exog = design.get("n_exog")
-        plain = stage.get("f_statistic_nonrobust")
-        if plain is not None and instruments is not None and n_exog is not None:
-            from ._stock_yogo import stock_yogo_critical_values
+    # The minimum eigenvalue statistic of Cragg and Donald (with one
+    # endogenous regressor, the first-stage F under homoskedasticity) and
+    # the critical values of Stock and Yogo that it is compared with.
+    design = (getattr(result, "data_info", None) or {}).get("iv") or {}
+    found = _minimum_eigenvalue(design)
+    if found is not None:
+        from ._stock_yogo import stock_yogo_critical_values
 
-            n_excluded = int(np.shape(instruments)[1]) - int(n_exog)
-            values = stock_yogo_critical_values(1, n_excluded)
-            out["minimum_eigenvalue"] = float(plain)
-            out["n_excluded_instruments"] = n_excluded
-            if values is not None:
-                out["stock_yogo"] = values
-                size = values.get("size_2sls", {}).get(0.10)
-                if size is not None:
-                    verdict = "above" if float(plain) > size else "not above"
+        mineig, n_endog, n_excluded = found
+        values = stock_yogo_critical_values(n_endog, n_excluded)
+        out["minimum_eigenvalue"] = mineig
+        out["n_endogenous"] = n_endog
+        out["n_excluded_instruments"] = n_excluded
+        if values is not None:
+            out["stock_yogo"] = values
+            for key, what in (
+                ("size_2sls", "2SLS Wald test of nominal size 5% with true "
+                 "size at most 10%"),
+                ("bias_2sls", "2SLS bias at most 10% of the OLS bias"),
+            ):  # fmt: skip
+                bar = values.get(key, {}).get(0.10)
+                if bar is not None:
+                    verdict = "above" if mineig > bar else "not above"
                     out["interpretation"] += (
-                        f" Minimum eigenvalue statistic {float(plain):.2f} is "
-                        f"{verdict} the Stock-Yogo critical value {size:.2f} "
-                        "(2SLS Wald test of nominal size 5% with true size at "
-                        "most 10%); these values assume homoskedastic errors."
+                        f" Minimum eigenvalue statistic {mineig:.2f} is "
+                        f"{verdict} the Stock-Yogo critical value {bar:.2f} "
+                        f"({what}); these values assume homoskedastic errors."
                     )
+                    break
 
     return out
 

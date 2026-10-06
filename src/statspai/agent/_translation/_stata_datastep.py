@@ -54,6 +54,9 @@ _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _ASSIGN = re.compile(r"\s*(?:(\w+)\s+)?([A-Za-z_]\w*)\s*=(?!=)\s*(.+)\Z", re.S)
 
 
+#: a call of the running sum, ``sum(``
+_RUNNING_SUM = re.compile(r"(?<![\w.])sum\s*\(")
+
 #: ``label <subcommand> ...``, the command abbreviated down to ``la``
 _LABEL = re.compile(r"\s*la(?:b(?:e(?:l)?)?)?\s+(\w+)\s*(.*)\Z", re.S | re.I)
 #: one `# "text"` pair of `label define`; the text may be bare or in
@@ -463,9 +466,17 @@ class DataSteps:
         groups: Optional[List[np.ndarray]],
     ) -> tuple:
         """The expression on every row, and the rows the qualifiers select."""
+        # a running sum() adds up the rows the qualifiers select, so they
+        # are settled first and handed to the evaluator
+        counts = _RUNNING_SUM.search(expr) is not None
         if groups is None:
-            value = evaluate(expr, self.data, self.stored)
             mask = row_mask(self.data, if_cond, in_range, self.stored)
+            if counts:
+                self.stored["_sum_rows"] = mask
+            try:
+                value = evaluate(expr, self.data, self.stored)
+            finally:
+                self.stored.pop("_sum_rows", None)
             return value, mask
         # `by g:` -- the expression sees one group at a time, so `_n`,
         # `_N` and subscripts count within the group
@@ -475,11 +486,17 @@ class DataSteps:
         mask = np.zeros(len(self.data), dtype=bool)
         for rows in groups:
             part = self.data.iloc[rows].reset_index(drop=True)
-            got = evaluate(expr, part, self.stored)
+            chosen = row_mask(part, if_cond, None, self.stored)
+            if counts:
+                self.stored["_sum_rows"] = chosen
+            try:
+                got = evaluate(expr, part, self.stored)
+            finally:
+                self.stored.pop("_sum_rows", None)
             if got.dtype == object:
                 raise StataExprError("a string variable by group is not generated here")
             value[rows] = got
-            mask[rows] = row_mask(part, if_cond, None, self.stored)
+            mask[rows] = chosen
         return value, mask
 
     def _replace_in_order(
@@ -595,9 +612,14 @@ class DataSteps:
         for k, rows in enumerate(groups or []):
             group_of[rows] = k
         try:
-            local = self._row_local(expr_run, cond_run, groups, sources, extra)
+            local = self._row_local(
+                expr_run, cond_run, groups, sources, extra, in_range
+            )
             if local is not None:
-                current, mask = self._replace_row_by_row(
+                settle = (
+                    self._replace_in_row_order if local[4] else self._replace_row_by_row
+                )
+                current, mask = settle(
                     local, sources, original, in_range, groups, single, name
                 )
             for step in range(n + 1 if local is None else 0):
@@ -678,10 +700,17 @@ class DataSteps:
         groups: Optional[List[np.ndarray]],
         sources: Dict[str, np.ndarray],
         made: List[str],
+        in_range: Optional[str] = None,
     ) -> Optional[tuple]:
         """Rewrite ``expr`` (and ``cond`` when it reads the variable's
         earlier rows) so that the value on a row depends on that row's
         columns alone.
+
+        A running ``sum()`` whose argument reads the variable's earlier
+        rows cannot be a column written once. It becomes a column filled
+        in as the rows are visited in order; such columns are returned
+        last, as ``[(column, argument), ...]``, and ask for
+        :meth:`_replace_in_row_order`.
 
         What counts rows is written into columns once: ``_n`` and ``_N``
         (within the group under ``by``), a subscript of another variable
@@ -698,8 +727,14 @@ class DataSteps:
             "|".join(rf"(?<![\w.]){re.escape(c)}(?!\w)" for c in sources)
         )
 
-        def column_of(piece: str) -> str:
-            if groups is None:
+        sums: List[tuple] = []
+        cond_reads_own = bool(cond) and reads_own.search(cond or "") is not None
+
+        def column_of(piece: str, selected: bool = False) -> str:
+            if selected:
+                # a running sum adds up the rows the command selects
+                values, _ = self._evaluate_assignment(piece, cond, in_range, groups)
+            elif groups is None:
                 values = evaluate(piece, self.data, self.stored)
             else:
                 values, _ = self._evaluate_assignment(piece, None, None, groups)
@@ -736,7 +771,30 @@ class DataSteps:
                 spot = re.compile(rf"(?<![\w.]){token}(?!\w)")
                 if spot.search(text):
                     text = spot.sub(column_of(token), text)
-            if "[" in text or re.search(r"(?<![\w.])sum\s*\(", text):
+            while True:
+                m = _RUNNING_SUM.search(text)
+                if m is None:
+                    break
+                depth, end = 0, None
+                for at in range(m.end() - 1, len(text)):
+                    depth += (text[at] == "(") - (text[at] == ")")
+                    if depth == 0:
+                        end = at
+                        break
+                if end is None:
+                    return None
+                inner = text[m.end() : end]
+                if _RUNNING_SUM.search(inner):
+                    return None  # a running sum of a running sum
+                if not reads_own.search(inner) and not cond_reads_own:
+                    column = column_of(text[m.start() : end + 1], selected=True)
+                else:
+                    column = f"__sp_m{len(made)}"
+                    self.data[column] = 0.0
+                    made.append(column)
+                    sums.append((column, inner))
+                text = text[: m.start()] + column + text[end + 1 :]
+            if "[" in text:
                 return None
             return text
 
@@ -745,10 +803,12 @@ class DataSteps:
             return None
         cond_local = None
         if cond and reads_own.search(cond):
+            before = len(sums)
             cond_local = rewrite(cond)
-            if cond_local is None:
-                return None
-        names = set(re.findall(r"[A-Za-z_]\w*", expr_local + " " + (cond_local or "")))
+            if cond_local is None or len(sums) != before:
+                return None  # a condition that keeps a running sum of its own
+        read = " ".join([expr_local, cond_local or ""] + [inner for _, inner in sums])
+        names = set(re.findall(r"[A-Za-z_]\w*", read))
         # the reference columns are written into the data by the caller
         known = list(self.data.columns)
         known += [c for c in sources if c not in self.data.columns]
@@ -757,7 +817,69 @@ class DataSteps:
             cond_local,
             cond,
             [c for c in known if c in names],
+            sums,
         )
+
+    def _replace_in_row_order(
+        self,
+        local: tuple,
+        sources: Dict[str, np.ndarray],
+        original: np.ndarray,
+        in_range: Optional[str],
+        groups: Optional[List[np.ndarray]],
+        single: bool,
+        name: str,
+    ) -> tuple:
+        """Settle a ``replace`` that keeps a running ``sum()`` of the
+        variable's own earlier rows: visit the rows in order, as Stata
+        does. On each row the condition is checked first; a row that is
+        not selected leaves the running sums where they are."""
+        expr, cond_local, cond, needed, sums = local
+        n = len(original)
+        current = original.copy()
+        for col in sources:
+            self.data[col] = np.nan
+        _, mask = self._evaluate_assignment(
+            "0", cond if cond_local is None else None, in_range, groups
+        )
+        mask = mask.copy()
+        base = self.data[needed]
+        parts = [np.arange(n)] if groups is None else groups
+        for rows in parts:
+            running = {col: 0.0 for col, _ in sums}
+            for i in rows:
+                if not mask[i]:
+                    continue
+                row = base.iloc[[i]].reset_index(drop=True)
+                for col, src in sources.items():
+                    if col in row.columns:
+                        j = int(src[i])
+                        seen = (
+                            np.nan if j < 0 else (current[j] if j < i else original[j])
+                        )
+                        row[col] = seen
+                if cond_local is not None:
+                    if not bool(sample_mask(cond_local, row, self.stored)[0]):
+                        mask[i] = False
+                        continue
+                for col, inner in sums:
+                    piece = float(evaluate(inner, row, self.stored)[0])
+                    if not np.isnan(piece):
+                        running[col] += piece
+                    row[col] = running[col]
+                value = evaluate(expr, row, self.stored)
+                if value.dtype == object:
+                    raise StataExprError(
+                        f"type mismatch: {name!r} is numeric and the expression "
+                        "is a string"
+                    )
+                held = float(value[0])
+                if single:
+                    with np.errstate(over="ignore"):
+                        held = float(np.float32(held))
+                    held = held if np.isfinite(held) else np.nan
+                current[i] = held
+        return current, mask
 
     def _replace_row_by_row(
         self,
@@ -771,7 +893,7 @@ class DataSteps:
     ) -> tuple:
         """Settle a row-local ``replace``: evaluate every row once, then
         only the rows that read a row whose value has just changed."""
-        expr, cond_local, cond, needed = local
+        expr, cond_local, cond, needed, _ = local
         n = len(original)
         position = np.arange(n)
 

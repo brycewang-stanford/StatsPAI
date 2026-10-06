@@ -386,10 +386,30 @@ guide in `docs/guides/qiu_jiaping.md`.
   `minimum_eigenvalue`). The table is the one Stata returns in
   `r(mineigcv)`, read off by running the command. The threshold of 10 is
   now called a rule of thumb, which is what it is.
-- **`sp.stata` / `sp.from_stata`**: `attk` and `atts` are translated. `attr`
-  is declined with the reason (its control weights are not those of a
-  radius estimator). `esttab` over models from different estimators has one
-  `_cons` row, and shows N for `etregress`.
+- **`sp.stata` / `sp.from_stata`**: `attk` and `atts` are translated.
+  `esttab` over models from different estimators has one `_cons` row, and
+  shows N for `etregress`.
+
+#### Third round
+
+- ⚠️ **`sp.stata`: `generate s = sum(x) if d` summed every row above.**
+  Stata's running sum advances on the observations the command selects
+  (`. 2 . 6 . 12 . 20` for the even rows of 1 to 8). `sp.stata` returned
+  the sum over all rows (`3 10 21 36`). `if`, `in` and `by` are now applied
+  before the sum is taken. A `sum()` without a qualifier is unchanged.
+- **`sp.stata`: a `replace` that keeps a running sum of the variable's own
+  earlier rows** (`replace r = sum(r[_n-1]) + 1`) is run in row order,
+  whatever its length.
+- **`sp.estat(result, 'firststage')` computes the Cragg-Donald minimum
+  eigenvalue statistic for any number of endogenous regressors**, equal to
+  Stata's `r(mineig)` to 12 digits, and attaches the Stock and Yogo values
+  for that combination.
+- **`sp.psmatch2(method='radius', radius_weights='pairs')`**: Becker and
+  Ichino's `attr`, which counts every treated-control pair within the
+  radius once. It is there so that a result obtained with `attr` can be
+  reproduced (equal to Stata to nine digits); the default, `'treated'`, is
+  `psmatch2`'s radius matching and gives a different number. `attr` is
+  translated with a note that says so.
 
 #### Changed
 

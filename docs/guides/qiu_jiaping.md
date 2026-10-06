@@ -149,9 +149,11 @@ STAR 实验的回归加学校固定效应并按学校聚类，书里的做法今
 
 Becker 和 Ichino 的另外几个命令也可以直接贴。`atts` 是按 `pscore` 的分块做分层
 估计，对应 `sp.match(method="stratify", strata="block")`。`attk` 是核匹配，对应
-`sp.psmatch2(method="kernel", kernel="normal", bwidth=0.06)`。`attr` 没有翻译：
-它按"半径内有几个处理个体"给对照加权，周围对照多的处理个体权重更大，这不是半径
-匹配估计量的权重，`sp.stata` 会说明原因并拒绝。要做半径匹配请用
+`sp.psmatch2(method="kernel", kernel="normal", bwidth=0.06)`。`attr` 对应
+`sp.psmatch2(method="radius", caliper=r, radius_weights="pairs")`，但要留意它的
+权重：每个半径内的配对算一次，周围对照多的处理个体权重更大，这不是通常的半径
+匹配。同一份得分、同一个半径，`attr` 给 770.77，`psmatch2, radius` 给 1157.14。
+提供这个选项是为了能复现用 `attr` 得到的结果；新的分析请用默认的
 `sp.psmatch2(method="radius", caliper=r)`。
 
 匹配只处理可观测的混杂。`sp.sensemakr` 回答"遗漏变量要多强才能推翻结论"。
@@ -182,8 +184,8 @@ ar = sp.anderson_rubin_test(card, y="lwage", endog="educ",
                             instruments=["nearc4"], exog=["exper", "black"])
 ```
 
-`sp.estat(result, "firststage")` 现在连同 Stock-Yogo 临界值一起返回（一个内生
-变量时）。书里第 10 章的例子只有一个工具变量，第一阶段 F 是 13.69。它过了"大于
+`sp.estat(result, "firststage")` 现在连同最小特征值统计量（Cragg-Donald）和
+Stock-Yogo 临界值一起返回，内生变量可以不止一个。书里第 10 章的例子只有一个工具变量，第一阶段 F 是 13.69。它过了"大于
 10"的经验规则，却没到 16.38，也就是让名义 5% 的 Wald 检验实际水平不超过 10% 所需
 的值。经验规则和临界值不是一回事。
 

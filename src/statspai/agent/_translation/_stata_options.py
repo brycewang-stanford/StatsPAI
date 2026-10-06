@@ -277,6 +277,7 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "attnd": (("bootstrap", 4), ("detail", 3)),
     "attk": (("bootstrap", 4), ("detail", 3)),
     "atts": (("bootstrap", 4), ("detail", 3)),
+    "attr": (("bootstrap", 4), ("detail", 3)),
     "pscore": (("detail", 3),),
     "dcdensity": (("breakpoint", 5),),
     # [R] heckman: select(), minimum abbreviation sel(); twostep, two.
@@ -377,6 +378,7 @@ _DISPLAY_BY_COMMAND = {
     "attnd": {"detail", "dots", "nodots"},
     "attk": {"detail", "dots", "nodots"},
     "atts": {"detail", "dots", "nodots"},
+    "attr": {"detail", "dots", "nodots"},
     # nograph / graphname() / at(): the graph of the density and where it
     # is drawn; generate() stores the series the graph is drawn from
     "dcdensity": {"nograph", "graphname", "at", "generate"},

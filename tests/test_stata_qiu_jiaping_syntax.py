@@ -149,17 +149,61 @@ def test_a_long_chain_costs_one_evaluation_per_link():
     assert x.std() == pytest.approx(2 / np.sqrt(0.75), rel=0.05)
 
 
-def test_a_running_sum_of_the_variable_itself_is_refused_when_long():
-    """`sum()` reads the whole column, so the value on a row cannot be
-    computed from that row; the column is settled pass by pass, and a
-    chain of 30,000 passes is declined rather than run for minutes."""
+def test_running_sum_adds_up_the_rows_the_command_selects():
+    """gen s = sum(x) if mod(_n,2)==0 ; gen s2 = sum(x) in 3/6
+    Stata lists s = . 2 . 6 . 12 . 20 and s2 = . . 3 7 12 18 . . : the sum
+    advances on the selected rows only. It used to run over every row
+    (3 10 21 36)."""
+    data = _run("""
+        clear
+        set obs 8
+        gen x = _n
+        gen s = sum(x) if mod(_n,2)==0
+        gen s2 = sum(x) in 3/6
+        gen g = _n > 4
+        bysort g: gen s3 = sum(x) if mod(_n,2)==0
+        gen all = sum(x)
+        """).data
+    assert data["s"].iloc[1::2].tolist() == [2, 6, 12, 20]
+    assert data["s"].iloc[0::2].isna().all()
+    assert data["s2"].iloc[2:6].tolist() == [3, 7, 12, 18]
+    assert data["s3"].iloc[1::2].tolist() == [2, 6, 6, 14]
+    assert data["all"].tolist() == [1, 3, 6, 10, 15, 21, 28, 36]
+
+
+def test_replace_with_a_running_sum_of_its_own_rows():
+    """replace r = sum(r[_n-1]) + 1 in 2/l          -> 1 2 4 8 16 32 64 128
+    replace q = q[_n-1] + sum(q[_n-1]) if _n > 2    -> 1 1 2 5 13 34 89 233
+    bysort g: replace w = sum(w[_n-1]) + x if _n > 1 -> 1 3 7 15 | 1 7 15 31
+    (Stata 18). The rows are visited in order and a row that is not
+    selected leaves the sum where it is."""
+    data = _run("""
+        clear
+        set obs 8
+        gen x = _n
+        gen double r = 1
+        replace r = sum(r[_n-1]) + 1 in 2/l
+        gen double q = 1
+        replace q = q[_n-1] + sum(q[_n-1]) if _n > 2
+        gen g = _n > 4
+        gen double w = 1
+        bysort g: replace w = sum(w[_n-1]) + x if _n > 1
+        """).data
+    assert data["r"].tolist() == [1, 2, 4, 8, 16, 32, 64, 128]
+    assert data["q"].tolist() == [1, 1, 2, 5, 13, 34, 89, 233]
+    assert data["w"].tolist() == [1, 3, 7, 15, 1, 7, 15, 31]
+
+
+def test_a_long_chain_that_cannot_be_written_by_row_is_refused():
+    """A running sum of a running sum of the variable's own rows: nothing
+    here turns it into a value per row, so the column is settled pass by
+    pass, and 30,000 passes are declined rather than run for minutes."""
     session = _run("clear\nset obs 30000\ngen double x = 1")
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="chains more than"):
-        session.run("replace x = sum(x[_n-1]) + 1 in 2/l")
-    # the same line on a short column runs
-    short = _run("clear\nset obs 5\ngen double x = 1")
-    short.run("replace x = sum(x[_n-1]) + 1 in 2/l")
-    assert short.data["x"].notna().all()
+        session.run("replace x = x[_n-1] + 1 + 0 * sum(sum(x[_n-1])) in 2/l")
+    # one running sum of its own rows runs, however long
+    session.run("replace x = sum(x[_n-1]/_n) + 1 in 2/2000")
+    assert session.data["x"].iloc[:2000].notna().all()
 
 
 # ------------------------------------------------------------ small syntax
@@ -272,9 +316,9 @@ def test_attnd_and_psmatch2_on_the_stored_score(lalonde):
     assert session.output == pytest.approx(1981.076824530195, rel=5e-9)
 
 
-def test_atts_attk_and_the_declined_attr(lalonde):
-    """atts and attk on the stored score and blocks (Stata: 1214.747499089708
-    and 1157.954487565456); attr is declined with its reason."""
+def test_atts_attk_and_attr(lalonde):
+    """atts, attk and attr on the stored score and blocks (Stata:
+    1214.747499089708, 1157.954487565456 and 770.7656667486535)."""
     session = _run(
         f"pscore treat {COVS}, pscore(ps1) blockid(b1) logit comsup\n"
         "atts re78 treat, pscore(ps1) blockid(b1)",
@@ -284,10 +328,16 @@ def test_atts_attk_and_the_declined_attr(lalonde):
     assert session.output.se == pytest.approx(857.6768878405207, rel=1e-12)
     session.run("attk re78 treat, pscore(ps1)")
     assert session.output.att == pytest.approx(1157.954487565456, rel=1e-8)
-    with pytest.raises(
-        sp.exceptions.MethodIncompatibility, match="weights each control"
-    ):
-        session.run("attr re78 treat, pscore(ps1) radius(0.05)")
+    # attr: every pair within the radius counts once (r(attr), r(seattr))
+    session.run("attr re78 treat, pscore(ps1) radius(0.05)")
+    assert session.output.att == pytest.approx(770.7656667486535, rel=1e-8)
+    assert session.output.se == pytest.approx(762.5232076507449, rel=1e-8)
+    session.run("attr re78 treat, pscore(ps1) comsup")
+    assert session.output.att == pytest.approx(848.8874622067187, rel=2e-8)
+    assert session.output.se == pytest.approx(738.8400946480218, rel=1e-8)
+    # psmatch2's radius matching on the same score is another estimator
+    session.run("psmatch2 treat, pscore(ps1) outcome(re78) radius caliper(0.05)")
+    assert session.output.att == pytest.approx(1157.1386407630, rel=1e-11)
     # the region of attk, comsup is defined on a fitted score
     lost = sp.from_stata("attk y d x1 x2, comsup")["untranslated_options"]
     assert lost == ["comsup"]

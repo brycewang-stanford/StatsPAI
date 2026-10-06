@@ -6264,6 +6264,16 @@ def _build_registry() -> None:
                     "Column holding a fitted score to match on (Stata "
                     "pscore()); covariates= is then optional",
                 ),
+                ParamSpec(
+                    "radius_weights",
+                    "str",
+                    False,
+                    "treated",
+                    "Radius matching: 'treated' counts each matched treated "
+                    "unit once (psmatch2); 'pairs' counts each pair within "
+                    "the radius once (Becker-Ichino attr)",
+                    ["treated", "pairs"],
+                ),
             ],
             returns=(
                 "PSMatch2Result (.matched_data / .pstest() / .balance() / "

@@ -453,6 +453,70 @@ def test_first_stage_summary_after_iv():
     assert "16.38" in out["interpretation"]
 
 
+@pytest.mark.parametrize(
+    "formula, mineig, n_endog, n_excluded, bar",
+    [
+        # ivregress 2sls lwage black south (educ exper = nearc4 nearc2 z3 z4)
+        ("lwage ~ black + south + (educ + exper ~ nearc4 + nearc2 + z3 + z4)",
+         2.020231786200, 2, 4, {0.10: 16.87, 0.15: 9.93, 0.20: 7.54, 0.25: 6.28}),
+        # ivregress 2sls lwage black (educ exper smsa = nearc4 nearc2 z3 z4 z5)
+        ("lwage ~ black + (educ + exper + smsa ~ nearc4 + nearc2 + z3 + z4 + z5)",
+         1.400746790286, 3, 5, None),
+        # ivregress 2sls lwage black south (educ = nearc4 nearc2 z3)
+        ("lwage ~ black + south + (educ ~ nearc4 + nearc2 + z3)",
+         12.790638543688, 1, 3, {0.10: 22.30, 0.15: 12.83, 0.20: 9.54, 0.25: 7.80}),
+    ],
+)  # fmt: skip
+def test_minimum_eigenvalue_statistic(formula, mineig, n_endog, n_excluded, bar):
+    """r(mineig) of `estat firststage` on sp.datasets.card_1995() with
+    z3 = nearc4*south, z4 = nearc2*smsa, z5 = nearc4*black."""
+    d = sp.datasets.card_1995()
+    d = d.assign(z3=d.nearc4 * d.south, z4=d.nearc2 * d.smsa, z5=d.nearc4 * d.black)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        out = sp.estat(sp.ivreg(formula, data=d), "firststage", print_results=False)
+    assert out["minimum_eigenvalue"] == pytest.approx(mineig, rel=1e-11)
+    assert (out["n_endogenous"], out["n_excluded_instruments"]) == (n_endog, n_excluded)
+    assert out["stock_yogo"].get("size_2sls") == bar
+    if n_endog == 3:  # r(mineigcv): the bias row only
+        assert out["stock_yogo"] == {
+            "bias_2sls": {0.05: 9.53, 0.10: 6.61, 0.20: 4.99, 0.30: 4.30}
+        }
+    assert "not above" in out["interpretation"]
+
+
+def test_radius_matching_with_pooled_pairs(lalonde):
+    """attr re78 treat, pscore(ps1) radius(0.05)
+        r(attr) = 770.7656667486535, r(seattr) = 762.5232076507449, 184 treated
+    psmatch2 treat, pscore(ps1) outcome(re78) radius caliper(0.05)
+        r(att) = 1157.1386407630
+    The same score and radius: attr counts each pair once, psmatch2 each
+    matched treated unit once."""
+    data = sp.pscore(lalonde, "treat", COVARIATES).assign(lalonde, pscore="ps1")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        pairs = sp.psmatch2(data, treat="treat", pscore="ps1", outcome="re78",
+                            method="radius", caliper=0.05,
+                            radius_weights="pairs")  # fmt: skip
+        usual = sp.psmatch2(data, treat="treat", pscore="ps1", outcome="re78",
+                            method="radius", caliper=0.05)  # fmt: skip
+    # attr holds its sums in single precision
+    assert pairs.att == pytest.approx(770.7656667486535, rel=1e-8)
+    assert pairs.se == pytest.approx(762.5232076507449, rel=1e-8)
+    assert pairs.result.model_info["n_treated_matched"] == 184
+    assert usual.att == pytest.approx(1157.1386407630, rel=1e-11)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="method='radius'"):
+        sp.psmatch2(data, treat="treat", pscore="ps1", outcome="re78",
+                    radius_weights="pairs")  # fmt: skip
+    # with the same number of controls near every treated unit the two agree
+    from statspai.matching._radius_pairs import radius_pairs
+
+    p = np.array([0.20, 0.21, 0.19, 0.60, 0.61, 0.59])
+    t = np.array([1, 0, 0, 1, 0, 0])
+    y = np.array([5.0, 1.0, 2.0, 9.0, 4.0, 6.0])
+    assert radius_pairs(p, t, y, 0.05)["att"] == pytest.approx(7.0 - 13.0 / 4)
+
+
 def test_stock_yogo_table_is_stata_s():
     """r(mineigcv) after `estat firststage` in Stata 18, as printed for one
     endogenous regressor with 1 to 4 instruments and for three with 28 to

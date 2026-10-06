@@ -1120,6 +1120,17 @@ class _Parser:
                 )
             self.stored["random_draws"] = True
             return _draw(name, args, self.n, rng)
+        if name == "sum" and len(args) == 1:
+            # Stata's running sum advances on the observations the command
+            # is run on: `gen s = sum(x) if d` adds up the rows where d
+            # holds, not every row above. The data step that evaluates the
+            # expression says which rows those are.
+            rows = self.stored.get("_sum_rows")
+            if rows is not None and len(rows) == self.n:
+                x = np.asarray(_num(args[0], "sum()"), dtype=float)
+                if x.ndim == 0:
+                    x = np.full(self.n, float(x))
+                return fn(np.where(np.asarray(rows, dtype=bool), x, 0.0))
         return fn(*args)
 
     def _column(self, name: str) -> Value:

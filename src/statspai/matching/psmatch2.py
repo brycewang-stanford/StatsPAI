@@ -1084,6 +1084,7 @@ def psmatch2(
     ps_poly: int = 1,
     ps_model: str = "logit",
     pscore: Optional[str] = None,
+    radius_weights: str = "treated",
     distance: Optional[str] = None,
     bootstrap_reps: int = 200,
     bootstrap_seed: Optional[int] = None,
@@ -1146,6 +1147,18 @@ def psmatch2(
         (Stata default; uses ``neighbor`` / ``caliper``). ``'kernel'`` is
         kernel matching (uses ``kernel`` + ``bwidth``). ``'radius'`` is
         radius matching (all controls within ``caliper``; a uniform kernel).
+    radius_weights : {'treated', 'pairs'}, default 'treated'
+        How radius matching weighs the controls. ``'treated'`` averages the
+        controls within the radius of each treated unit, so every matched
+        treated unit counts once (Stata ``psmatch2, radius``). ``'pairs'``
+        counts every treated-control pair within the radius once, which
+        weighs a control by the number of treated units near it and a
+        treated unit by the number of controls near it: Becker and
+        Ichino's ``attr``, kept for reproducing results obtained with that
+        command. The two differ whenever treated units have different
+        numbers of controls within the radius. With ``'pairs'`` a pair is
+        within the radius when the scores differ by strictly less than
+        ``caliper``, and the standard error is ``attr``'s.
     kernel : {'epan', 'normal', 'biweight', 'uniform', 'tricube'}, default 'epan'
         Kernel type for ``method='kernel'`` (Stata ``kerneltype()``).
     bwidth : float, default 0.06
@@ -1342,6 +1355,22 @@ def psmatch2(
         se_method = "abadie_imbens"
         ai_matches = int(ai)
 
+    radius_weights = str(radius_weights).lower()
+    if radius_weights not in ("treated", "pairs"):
+        raise _psmatch2_error(
+            f"radius_weights must be 'treated' or 'pairs', got {radius_weights!r}.",
+            diagnostics={"radius_weights": radius_weights},
+            recovery_hint="Leave it at 'treated' (psmatch2's radius matching).",
+        )
+    pairs = radius_weights == "pairs"
+    if pairs and (method != "radius" or out_var is None or se_method != "psmatch2"):
+        raise _psmatch2_error(
+            "radius_weights='pairs' (Becker and Ichino's attr) needs "
+            "method='radius', an outcome and the default standard error.",
+            diagnostics={"method": method, "outcome": out_var, "se": se},
+            recovery_hint="Pass method='radius', caliper=<radius>, outcome=...",
+        )
+
     treated_support = str(common_support).lower() == "treated"
     if treated_support and not (ties or ate):
         if pscore is None:
@@ -1466,6 +1495,31 @@ def psmatch2(
             common_support=common_support,
             caliper=caliper,
             alpha=alpha,
+        )
+    if pairs:
+        from scipy import stats as _stats
+
+        from ._radius_pairs import radius_pairs
+
+        pooled = radius_pairs(
+            matched[_mf.COL_PSCORE].to_numpy(dtype=float),
+            matched[_mf.COL_TREATED].to_numpy(dtype=float),
+            data.loc[matched.index, out_var].to_numpy(dtype=float),
+            float(caliper),  # type: ignore[arg-type]
+        )
+        matched = matched.copy()
+        matched[_mf.COL_WEIGHT] = pooled["weight"]
+        att, se_att = float(pooled["att"]), float(pooled["se"])
+        crit = float(_stats.norm.ppf(1 - alpha / 2))
+        result.estimate, result.se = att, se_att
+        result.pvalue = float(2 * _stats.norm.sf(abs(att / se_att)))
+        result.ci = (att - crit * se_att, att + crit * se_att)
+        model_info.update(
+            {
+                "radius_weights": "pairs",
+                "n_treated_matched": pooled["n_treated"],
+                "n_control_used": pooled["n_control"],
+            }
         )
     if out_var is None:
         # Drop the synthetic outcome and its matched-outcome column; the ATT

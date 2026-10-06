@@ -468,6 +468,19 @@ are untouched. If you see the warning, the model is the thing to look at:
 usually the selection equation has no variable that is excluded from the
 outcome equation.
 
+**A running `sum()` under `if`, `in` or `by` in `sp.stata`.**
+
+```python
+sp.stata("gen s = sum(x) if d == 1", data)
+# before: on a row with d == 1, the sum of x over every row above it
+# now:    the sum of x over the rows with d == 1, as in Stata
+```
+
+A cumulative variable built this way and used later (a cumulative count
+within a subsample, a running total by group under a condition) was
+wrong. Rerun the snippet. `gen s = sum(x)` without a qualifier did not
+change.
+
 If a snippet relied on such a line, its later results were computed on
 missing values and should be rerun. `clear all` now empties the data in
 memory, so a snippet that simulates twice no longer carries the first

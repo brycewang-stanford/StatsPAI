@@ -227,16 +227,60 @@ def _h_atts(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_attr(cmd: StataCommand) -> Dict[str, Any]:
-    return _emit_error(
-        "attr is not translated. It weights each control by the number of "
-        "treated units within the radius of it, so a treated unit with many "
-        "controls nearby counts more than one with few; the radius estimator "
-        "of sp.psmatch2(method='radius', caliper=r) (Stata psmatch2, radius "
-        "caliper(r)) averages the controls of each treated unit first and "
-        "gives a different number.",
-        command="attr",
-        suggestions=["psmatch2"],
-    )
+    """``attr y d [x1 x2], [pscore(ps) logit radius(#) comsup]`` ->
+    ``sp.psmatch2(method='radius', radius_weights='pairs')``.
+
+    attr counts every treated-control pair within the radius once, which
+    is not what ``psmatch2, radius`` computes; the call asks for attr's
+    weights and the note says so.
+    """
+    names = _names(cmd)
+    if len(names) < 2:
+        return _bad(cmd, "expected `attr outcome treatment [covariates]`")
+    outcome, treat, covariates = names[0], names[1], names[2:]
+    given = (cmd.options.get("pscore") or "").strip()
+    args: Dict[str, Any] = {"treat": treat, "outcome": outcome}
+    notes: List[str] = [
+        "attr weighs each control by the number of treated units within the "
+        "radius of it (radius_weights='pairs'), so a treated unit with many "
+        "controls nearby counts more than one with few. Stata psmatch2, "
+        "radius and sp.psmatch2(method='radius') count each matched treated "
+        "unit once and give a different number."
+    ]
+    lost: List[str] = []
+    if given:
+        args["pscore"] = given
+        if covariates:
+            args["covariates"] = covariates
+        cmd.options.get("logit")
+    elif covariates:
+        args["covariates"] = covariates
+        args["ps_model"] = "logit" if "logit" in cmd.options else "probit"
+    else:
+        return _bad(cmd, "give the covariates of the score or pscore(varname)")
+    args["method"] = "radius"
+    radius = cmd.options.get("radius")
+    if radius is not None:
+        value = _number(radius)
+        if value is None or value <= 0:
+            lost.append("radius")
+        else:
+            args["caliper"] = value
+    else:
+        args["caliper"] = 0.1  # attr's default radius
+    args["radius_weights"] = "pairs"
+    if "comsup" in cmd.options:
+        if not given:
+            # the region is defined on the fitted score: fit it first
+            lost.append("comsup")
+        else:
+            args["common_support"] = "treated"
+    for option in ("index", "bootstrap", "reps"):
+        if option in cmd.options:
+            lost.append(option)
+    out = _emit("psmatch2", args, f"sp.psmatch2(data=df, {_kw(args)})", notes)
+    out["untranslated_options"] = lost
+    return out
 
 
 def _h_dcdensity(cmd: StataCommand) -> Dict[str, Any]:
