@@ -54,20 +54,24 @@ class _Smooth:
     penalty: np.ndarray  # (k - 1) x (k - 1), in the constrained basis
     root: np.ndarray  # (k - 2) x (k - 1) with root'root = penalty
     cols: slice = slice(0, 0)
+    by: Optional[str] = None  # the curve multiplies this column
 
     @property
     def label(self) -> str:
-        return f"s({self.var})"
+        return f"s({self.var})" if self.by is None else f"s({self.var}):{self.by}"
 
     def raw(self, x: np.ndarray) -> np.ndarray:
         basis = BSpline(self.knots, np.eye(self.k), _DEGREE, extrapolate=True)
         return np.asarray(basis(np.asarray(x, dtype=float)), dtype=float)
 
-    def design(self, x: np.ndarray) -> np.ndarray:
-        return np.asarray(self.raw(x) @ self.Q, dtype=float)
+    def design(self, x: np.ndarray, by: Optional[np.ndarray] = None) -> np.ndarray:
+        Z = np.asarray(self.raw(x) @ self.Q, dtype=float)
+        if by is not None:
+            Z = Z * np.asarray(by, dtype=float)[:, None]
+        return Z
 
 
-def _make_smooth(var: str, x: np.ndarray, k: int) -> _Smooth:
+def _make_smooth(var: str, x: np.ndarray, k: int, by: Optional[str] = None) -> _Smooth:
     if k < _DEGREE + 2:
         raise MethodIncompatibility(
             f"gam: s({var}, k={k}) needs k >= {_DEGREE + 2} basis functions.",
@@ -93,6 +97,10 @@ def _make_smooth(var: str, x: np.ndarray, k: int) -> _Smooth:
     raw = np.asarray(
         BSpline(knots, np.eye(k), _DEGREE, extrapolate=True)(x), dtype=float
     )
+    if by is not None:
+        # a curve that multiplies another column carries its own level
+        # (the coefficient on that column), so nothing is removed
+        return _Smooth(var=var, k=k, knots=knots, Q=np.eye(k), penalty=S, root=D, by=by)
     # sum-to-zero over the sample: f is identified apart from the intercept
     c = raw.sum(axis=0)[:, None]
     Qfull, _ = np.linalg.qr(c, mode="complete")
@@ -114,12 +122,13 @@ def _split_terms(rhs: str) -> List[str]:
     return [t for t in terms if t]
 
 
-def _parse_smooth(term: str, default_k: int) -> Tuple[str, int]:
+def _parse_smooth(term: str, default_k: int) -> Tuple[str, int, Optional[str]]:
     inside = _SMOOTH.match(term)
     assert inside is not None
     parts = [p.strip() for p in inside.group(1).split(",")]
     var = parts[0]
     k = default_k
+    by: Optional[str] = None
     for opt in parts[1:]:
         name, _, value = opt.partition("=")
         name, value = name.strip(), value.strip().strip("\"'")
@@ -130,6 +139,12 @@ def _parse_smooth(term: str, default_k: int) -> Tuple[str, int]:
                 raise MethodIncompatibility(
                     f"gam: k={value!r} in {term} is not an integer."
                 ) from exc
+        elif name == "by":
+            if not re.fullmatch(r"[A-Za-z_]\w*", value):
+                raise MethodIncompatibility(
+                    f"gam: by={value!r} in {term} must name one column."
+                )
+            by = value
         elif name == "bs":
             if value != "ps":
                 raise MethodIncompatibility(
@@ -140,7 +155,7 @@ def _parse_smooth(term: str, default_k: int) -> Tuple[str, int]:
         else:
             raise MethodIncompatibility(
                 f"gam: option {opt!r} in {term} is not understood; a smooth "
-                "takes a variable and, optionally, k=.",
+                "takes a variable and, optionally, k= and by=.",
             )
     if not re.fullmatch(r"[A-Za-z_]\w*", var):
         raise MethodIncompatibility(
@@ -148,7 +163,7 @@ def _parse_smooth(term: str, default_k: int) -> Tuple[str, int]:
             "or of expressions are not implemented.",
             recovery_hint="Create the transformed column first.",
         )
-    return var, k
+    return var, k, by
 
 
 @dataclass
@@ -205,6 +220,7 @@ class GAMResult(ResultProtocolMixin):
     link: str
     formula: str
     criterion: str = "gcv"
+    vce: str = "nonrobust"
     converged: bool = True
     alpha: float = 0.05
     fitted_values: Any = field(default=None, repr=False)
@@ -245,7 +261,11 @@ class GAMResult(ResultProtocolMixin):
                 recovery_hint="Drop or fill them before predicting.",
             )
         blocks = [P] + [
-            sm.design(data[sm.var].to_numpy(dtype=float)) for sm in self._smooths
+            sm.design(
+                data[sm.var].to_numpy(dtype=float),
+                None if sm.by is None else data[sm.by].to_numpy(dtype=float),
+            )
+            for sm in self._smooths
         ]
         return np.column_stack(blocks)
 
@@ -297,11 +317,23 @@ class GAMResult(ResultProtocolMixin):
     ) -> pd.DataFrame:
         """The estimated function of one smooth term, with a pointwise band.
 
-        ``term`` is ``"s(x)"`` or ``"x"``. The curve is centred (it sums to
-        zero over the sample) and is on the scale of the link.
+        ``term`` is a label from ``smooth_terms`` (``"s(x)"``,
+        ``"s(x):d"``) or, when it is not ambiguous, the variable name. A
+        plain smooth is centred (it sums to zero over the sample). A
+        ``by=`` smooth is the function that multiplies the ``by`` column,
+        level included: with a 0/1 treatment ``d`` in ``s(x) + s(x,
+        by=d)``, it is the effect of ``d`` as a function of ``x``. Both
+        are on the scale of the link.
         """
-        name = term[2:-1] if term.startswith("s(") and term.endswith(")") else term
-        match = [sm for sm in self._smooths if sm.var == name]
+        match = [sm for sm in self._smooths if sm.label == term]
+        if not match:
+            match = [sm for sm in self._smooths if sm.var == term]
+            if len(match) > 1:
+                raise MethodIncompatibility(
+                    f"gam: {term!r} is smoothed more than once; name one of "
+                    f"{[sm.label for sm in match]}.",
+                )
+        name = match[0].var if match else term
         if not match:
             raise MethodIncompatibility(
                 f"gam: no smooth of {name!r}; the model has "
@@ -357,6 +389,7 @@ class GAMResult(ResultProtocolMixin):
             f"  Total edf    : {self.edf:.3f}",
             f"  Scale        : {self.scale:.6g}",
             f"  {self.criterion.upper():<13s}: {self.gcv:.6g}",
+            f"  Std. errors  : {self.vce}",
             "",
             "  Parametric terms",
             f"    {'':<22s}{'coef':>12s}{'se':>12s}{'z':>9s}",
@@ -407,6 +440,8 @@ def gam(
     lambda_: Union[None, float, Sequence[float]] = None,
     method: str = "reml",
     gamma: float = 1.0,
+    vce: str = "nonrobust",
+    cluster: Optional[str] = None,
     maxiter: int = 100,
     tol: float = 1e-9,
     alpha: float = 0.05,
@@ -455,6 +490,21 @@ def gam(
         Under ``method="gcv"``, the factor on the effective degrees of
         freedom in the criterion. Values above 1 (1.4 is the usual
         suggestion) ask for smoother curves. Ignored by REML.
+    vce : {"nonrobust", "hc0", "robust"}, default "nonrobust"
+        Covariance of the coefficients. ``"nonrobust"`` is the Bayesian
+        ``scale (X'WX + S)^-1``. ``"hc0"`` is the sandwich ``B (sum u_i
+        u_i') B`` with ``B = (X'WX + S)^-1`` and ``u_i`` the score of
+        observation ``i``; it does not rely on the variance function
+        being right. ``"robust"`` is the same times ``N / (N - 1)``, the
+        package's convention for likelihood models. As the smoothing
+        parameters grow these become the sandwich of the GLM with linear
+        terms. (R ``vcov(gam, sandwich = TRUE)`` adds a finite-sample
+        adjustment of its own and is about 1% larger at n = 455.)
+    cluster : str, optional
+        Column of cluster identifiers. The scores are summed within
+        clusters before the sandwich is formed, with the factor ``G / (G
+        - 1)``, as in ``sp.glm(cluster=)``. Use it for panels and grouped
+        samples; the default covariance assumes independent rows.
     maxiter : int, default 100
         Iterations of penalised IRLS for non-Gaussian families.
     tol : float, default 1e-9
@@ -475,8 +525,17 @@ def gam(
     Each smooth is a cubic B-spline on evenly spaced knots with a
     second-difference penalty and is constrained to sum to zero over the
     sample, so the intercept carries the level. Standard errors and bands
-    are the Bayesian ones, ``scale (X'WX + S)^-1``; they condition on the
+    are the Bayesian ones, ``scale (X'WX + S)^-1``, unless ``vce=`` or
+    ``cluster=`` asks for a sandwich; either way they condition on the
     chosen smoothing parameters and are pointwise, not simultaneous.
+
+    ``s(x, by=d)`` is a curve that multiplies the numeric column ``d``:
+    the model gains ``d * f(x)``. With a 0/1 treatment, ``"y ~ s(x) +
+    s(x, by=d)"`` fits one curve for the untreated and adds ``f(x)`` for
+    the treated, so ``partial("s(x):d")`` is the difference between the
+    two groups as a function of ``x``, with a band. Such a term is not
+    centred (it contains the level shift), so ``d`` must not also enter
+    linearly.
 
     ``lambda_`` multiplies the plain difference penalty ``D'D``. mgcv
     divides that matrix by a constant (``S.scale`` in its fitted object)
@@ -532,9 +591,14 @@ def gam(
             "gam: the formula has no s() term.",
             recovery_hint="Use sp.glm or sp.regress for a model without smooths.",
         )
-    names_s = [v for v, _ in smooth_specs]
-    if len(set(names_s)) != len(names_s):
-        raise MethodIncompatibility("gam: a variable is smoothed twice.")
+    labels = [(v, b) for v, _, b in smooth_specs]
+    if len(set(labels)) != len(labels):
+        raise MethodIncompatibility("gam: the same smooth appears twice.")
+    names_s = list(
+        dict.fromkeys(
+            [v for v, _, _ in smooth_specs] + [b for _, _, b in smooth_specs if b]
+        )
+    )
     missing = [v for v in names_s if v not in data.columns]
     if missing:
         raise MethodIncompatibility(
@@ -544,10 +608,21 @@ def gam(
     for v in names_s:
         if not pd.api.types.is_numeric_dtype(data[v]):
             raise MethodIncompatibility(
-                f"gam: s({v}) needs a numeric column.",
-                recovery_hint=f"Enter {v} as C({v}).",
+                f"gam: {v} must be numeric to be smoothed or to multiply a " "smooth.",
+                recovery_hint=f"Enter {v} as C({v}), or code a by= variable " "as 0/1.",
             )
-    frame = data.dropna(subset=names_s)
+    key_vce = str(vce).lower()
+    if key_vce not in ("nonrobust", "hc0", "robust"):
+        raise MethodIncompatibility(
+            f"gam: vce={vce!r} is not 'nonrobust', 'hc0' or 'robust'.",
+            diagnostics={"vce": vce},
+        )
+    if cluster is not None and cluster not in data.columns:
+        raise MethodIncompatibility(
+            f"gam: cluster column {cluster!r} not found in data.",
+            diagnostics={"cluster": cluster},
+        )
+    frame = data.dropna(subset=names_s + ([cluster] if cluster else []))
     par_formula = f"{lhs.strip()} ~ {' + '.join(linear) if linear else '1'}"
     y_df, P_df = create_design_matrices(par_formula, frame)
     design_info = getattr(P_df, "design_info", None)
@@ -566,10 +641,13 @@ def gam(
     smooths: List[_Smooth] = []
     blocks = [P]
     at = P.shape[1]
-    for var, kk in smooth_specs:
+    for var, kk, by_name in smooth_specs:
         xv = frame.loc[rows, var].to_numpy(dtype=float)
-        sm = _make_smooth(var, xv, kk)
-        Z = sm.design(xv)
+        sm = _make_smooth(var, xv, kk, by=by_name)
+        by_values = (
+            None if by_name is None else frame.loc[rows, by_name].to_numpy(dtype=float)
+        )
+        Z = sm.design(xv, by_values)
         sm.cols = slice(at, at + Z.shape[1])
         at += Z.shape[1]
         smooths.append(sm)
@@ -753,6 +831,27 @@ def gam(
 
     beta = best["beta"]
     vcov = best["phi"] * best["B"]
+    vce_used = "nonrobust"
+    if cluster is not None or key_vce != "nonrobust":
+        mu_hat = best["mu"]
+        scores = (
+            M * ((y - mu_hat) / (fam.variance(mu_hat) * lnk.deriv(mu_hat)))[:, None]
+        )
+        if cluster is not None:
+            codes = pd.factorize(frame.loc[rows, cluster])[0]
+            G = int(codes.max()) + 1
+            if G < 2:
+                raise DataInsufficient("gam: cluster-robust SEs need two clusters.")
+            summed = np.zeros((G, p))
+            np.add.at(summed, codes, scores)
+            meat = summed.T @ summed * (G / (G - 1.0))
+            vce_used = f"cluster({cluster})"
+        else:
+            meat = scores.T @ scores
+            if key_vce == "robust":
+                meat = meat * (n / (n - 1.0))
+            vce_used = key_vce
+        vcov = best["B"] @ meat @ best["B"]
     se_all = np.sqrt(np.maximum(np.diag(vcov), 0.0))
     npar = P.shape[1]
     table = pd.DataFrame(
@@ -785,6 +884,7 @@ def gam(
         link=lnk.name,
         formula=formula,
         criterion="reml" if how == "reml" else ("ubre" if known_scale else "gcv"),
+        vce=vce_used,
         converged=bool(best["ok"]),
         alpha=alpha,
         fitted_values=np.asarray(best["mu"], dtype=float),

@@ -10484,7 +10484,9 @@ def _build_registry() -> None:
                     "str",
                     True,
                     description="e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; "
-                    "s(x) marks a smooth of one numeric column",
+                    "s(x) marks a smooth of one numeric column, s(x, by=d) a "
+                    "curve that multiplies column d (an effect of d varying "
+                    "with x)",
                 ),
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec(
@@ -10527,6 +10529,22 @@ def _build_registry() -> None:
                     "Under method='gcv', factor on the degrees of freedom "
                     "(1.4 asks for smoother curves)",
                 ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "nonrobust",
+                    "Covariance: Bayesian (default), sandwich, or sandwich "
+                    "times N/(N-1)",
+                    ["nonrobust", "hc0", "robust"],
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column for a cluster-robust sandwich (G/(G-1))",
+                ),
                 ParamSpec("maxiter", "int", False, 100),
                 ParamSpec("tol", "float", False, 1e-9),
                 ParamSpec("alpha", "float", False, 0.05),
@@ -10567,7 +10585,8 @@ def _build_registry() -> None:
                 "choice of smoothing parameters; use sp.dml",
                 "The regression function has a jump at a known point — use "
                 "sp.rdrobust",
-                "Clustered or panel data — standard errors assume " "independence",
+                "Clustered or panel data without cluster= — the default "
+                "standard errors assume independent rows",
             ],
             alternatives=["glm", "lpoly", "regress", "dml"],
             typical_n_min=100,

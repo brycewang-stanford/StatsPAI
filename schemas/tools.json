@@ -13320,13 +13320,18 @@
     "name": "g_estimation"
   },
   {
-    "description": "Generalized additive model: g(E[y]) = linear terms + smooth functions s(x) of numeric columns, each a penalised cubic B-spline (P-spline) with its own smoothing parameter chosen by REML (default) or GCV / UBRE. Same basis, penalty and criteria as R mgcv::gam with s(x, bs='ps'). Returns parametric coefficients with standard errors, the effective degrees of freedom of each curve, partial(term) for the estimated functions with bands, predict() and plot(). Validation: certified parity evidence. Do NOT use when: The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml; The regression function has a jump at a known point -- use sp.rdrobust; Clustered or panel data -- standard errors assume independence. Assumptions: The predictor is additive: each smoothed variable enters through its own function, with no interaction between them; Each function is smooth (no jumps or kinks); Independent observations with the stated family. Pre-conditions: Each smoothed column is numeric with at least k distinct values. Failure modes: A smooth uses nearly all of its k - 1 degrees of freedom -> Raise k fo...",
+    "description": "Generalized additive model: g(E[y]) = linear terms + smooth functions s(x) of numeric columns, each a penalised cubic B-spline (P-spline) with its own smoothing parameter chosen by REML (default) or GCV / UBRE. Same basis, penalty and criteria as R mgcv::gam with s(x, bs='ps'). Returns parametric coefficients with standard errors, the effective degrees of freedom of each curve, partial(term) for the estimated functions with bands, predict() and plot(). Validation: certified parity evidence. Do NOT use when: The target is a treatment effect with many controls -- the standard error of a linear term does not account for the choice of smoothing parameters; use sp.dml; The regression function has a jump at a known point -- use sp.rdrobust; Clustered or panel data without cluster= -- the default standard errors assume independent rows. Assumptions: The predictor is additive: each smoothed variable enters through its own function, with no interaction between them; Each function is smooth (no jumps or kinks); Independent observations with the stated family. Pre-conditions: Each smoothed column is numeric with at least k distinct values. Failure modes: A smooth uses nearly all of its k - 1...",
     "input_schema": {
       "properties": {
         "alpha": {
           "default": 0.05,
           "description": "One minus the level of the bands of ``predict`` and ``partial``.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column for a cluster-robust sandwich (G/(G-1))",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "family": {
           "default": "gaussian",
@@ -13340,7 +13345,7 @@
           "type": "string"
         },
         "formula": {
-          "description": "e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; s(x) marks a smooth of one numeric column",
+          "description": "e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; s(x) marks a smooth of one numeric column, s(x, by=d) a curve that multiplies column d (an effect of d varying with x)",
           "type": "string",
           "x-statspai-role": "formula"
         },
@@ -13383,6 +13388,16 @@
           "default": 1e-09,
           "description": "Convergence tolerance on the relative change of the deviance.",
           "type": "number"
+        },
+        "vce": {
+          "default": "nonrobust",
+          "description": "Covariance: Bayesian (default), sandwich, or sandwich times N/(N-1)",
+          "enum": [
+            "nonrobust",
+            "hc0",
+            "robust"
+          ],
+          "type": "string"
         }
       },
       "required": [

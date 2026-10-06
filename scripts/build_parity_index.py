@@ -599,7 +599,10 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Frozen-R fixture on the committed synthetic file. mgcv applies "
             "its sp to the difference penalty divided by S.scale; the test "
             "converts. REML scores are compared through the change between "
-            "two parameter values, since they are defined up to a constant."
+            "two parameter values, since they are defined up to a constant. "
+            "by= smooths are checked the same way. The sandwich covariances "
+            "are not part of this row: mgcv's differs by a finite-sample "
+            "adjustment and is not used as a reference."
         ),
     },
     "ridge": {

@@ -1107,7 +1107,10 @@ chapter map in `docs/guides/ding_linear_model.md`.
   effective degrees of freedom of each curve, `partial(term)` with a
   band, `predict` and `plot`. Same basis, penalty and criteria as
   `mgcv::gam` with `s(x, bs = "ps")`: 1e-9 at given smoothing parameters
-  in three families, 1e-4 on the parameters it selects.
+  in three families, 1e-4 on the parameters it selects. `s(x, by=d)`
+  fits a curve that multiplies `d` (the effect of a 0/1 treatment as a
+  function of `x`), and `vce=` / `cluster=` give sandwich standard
+  errors.
 - **`sp.conformal_regression`**: distribution-free prediction intervals
   for least squares by split conformal, jackknife+ or exact full
   conformal, also as `sp.conformal("regression", ...)`.

@@ -235,17 +235,45 @@ Bryce asked for what was left to be finished.
   `DeprecationWarning`, and are no longer listed when the dictionary is
   printed or exported. They go in 1.41.
 
+## Fourth round: what an applied user needs from the GAM
+
+Bryce asked again for the open decisions to be made. Of the four gaps
+listed for `sp.gam`, two were closed and two were left, on the grounds of
+who uses this package.
+
+- **Done: `s(x, by=d)`.** A curve that multiplies a numeric column. With
+  a 0/1 treatment, `"y ~ s(x) + s(x, by=d)"` gives the effect of `d` as a
+  function of `x` with a band, from `partial("s(x):d")`: the additive
+  model's answer to "for whom does it work". Matches mgcv's `by=` to 1e-9
+  (fit, edf, criterion, both curves and their standard errors).
+- **Done: `vce=` and `cluster=`.** The Bayesian covariance assumes
+  independent rows and a correct variance function, and most data this
+  package sees are clustered. The sandwich is `B (sum u u') B` with the
+  scores summed within clusters. The evidence is an identity: with the
+  curves pushed to straight lines it equals the `hc0`, `robust` and
+  clustered standard errors of `sp.poisson` to 1e-6. R's `vcov(gam,
+  sandwich = TRUE)` is about 1% larger on the committed file; it applies
+  a finite-sample adjustment that is neither HC2, HC3 nor `n / (n - edf)`,
+  and it is not claimed as a reference.
+- **Left: tensor-product and bivariate smooths.** The penalties of a
+  tensor term overlap, so the REML determinant no longer splits by term;
+  that is a second engine, and interactions between two continuous
+  variables are rarely the question here.
+- **Left: thin plate basis and random-effect terms.** The first would
+  only reproduce mgcv's default curve, which P-splines already match in
+  substance; the second is what `sp.multilevel` is for.
+
 ## Open items
 
-- **`sp.gam`** has univariate P-spline smooths only: no tensor products or
-  smooths of two variables, no thin plate basis, no random-effect terms,
-  and independence-based standard errors. Its bands are pointwise.
+- **`sp.gam`**: no tensor products, bivariate smooths, thin plate basis or
+  random-effect terms; `by=` takes a numeric column, not a factor; bands
+  are pointwise; no test of whether a smooth is needed at all.
 - **`sp.kaplan_meier`**: flip the default interval to `'log-log'` in 1.40.
 - **Zero-inflated `diagnostics`**: remove the deprecated keys in 1.41.
 
 ## Evidence
 
-- `tests/reference_parity/test_linear_model_extensions_parity.py`: 88
+- `tests/reference_parity/test_linear_model_extensions_parity.py`: 91
   tests on the committed synthetic file. R (`sandwich`, `MASS`, `leaps`,
   `gee`, `quantreg`, `survival`) to 1e-9 on closed forms and convex
   problems; Stata 18 (`xtgee`, `boxcox`, `stcox`, `sts`) to 1e-6, its own

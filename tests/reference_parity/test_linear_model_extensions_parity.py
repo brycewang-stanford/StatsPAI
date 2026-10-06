@@ -845,6 +845,80 @@ def test_gam_limits_and_refusals(df):
         sp.gam("ly ~ s(x1, k=6)", df, lambda_=1e-9)
 
 
+def test_gam_by_smooth_matches_mgcv_and_reads_as_an_effect_curve(df, R):
+    ref = R["gam"]["by"]
+    fit = sp.gam(
+        "ly ~ s(x1, k=10) + s(x1, k=8, by=treat)",
+        df,
+        lambda_=[2 / 16, 5 / 16],
+        method="gcv",
+    )
+    assert list(fit.smooth_terms["term"]) == ["s(x1)", "s(x1):treat"]
+    close(fit.params, [ref["intercept"]], EXACT)
+    close(fit.smooth_terms["edf"], ref["edf"], EXACT)
+    close(fit.gcv, ref["score"], EXACT)
+    close(fit.fitted_values, ref["fitted"], EXACT)
+    grid = [-1.0, 0.0, 1.0]
+    base = fit.partial("s(x1)", grid=grid)
+    effect = fit.partial("s(x1):treat", grid=grid)
+    close(base["fit"], ref["base"], 1e-8)
+    close(base["se"], ref["base_se"], 1e-8)
+    close(effect["fit"], ref["effect"], 1e-8)
+    close(effect["se"], ref["effect_se"], 1e-8)
+    # the by-curve is the treated-minus-untreated gap in predictions
+    at = pd.DataFrame({"x1": grid})
+    gap = fit.predict(at.assign(treat=1)) - fit.predict(at.assign(treat=0))
+    close(gap, effect["fit"], 1e-10)
+    with pytest.raises(sp.MethodIncompatibility, match="more than once"):
+        fit.partial("x1")
+
+
+def test_gam_recovers_an_effect_that_varies_with_a_covariate():
+    rng = np.random.default_rng(9)
+    n = 1500
+    x = rng.uniform(-2, 2, n)
+    d = rng.integers(0, 2, n)
+    tau = 1.0 + np.sin(1.5 * x)
+    data = pd.DataFrame(
+        {"x": x, "d": d, "y": np.cos(x) + d * tau + rng.normal(0, 0.5, n)}
+    )
+    fit = sp.gam("y ~ s(x) + s(x, by=d)", data)
+    grid = np.linspace(-1.8, 1.8, 13)
+    curve = fit.partial("s(x):d", grid=grid)
+    truth = 1.0 + np.sin(1.5 * grid)
+    assert np.max(np.abs(curve["fit"] - truth)) < 0.25
+    assert ((curve["lower"] <= truth) & (truth <= curve["upper"])).mean() >= 0.8
+
+
+def test_gam_sandwich_covariances_reduce_to_the_glm_ones(df):
+    # with the curves pushed to straight lines the model is the GLM, and
+    # so are its robust and clustered standard errors on the linear term
+    kw = dict(family="poisson", lambda_=1e10, tol=1e-13)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for gam_kw, glm_kw in [
+            ({"vce": "hc0"}, {"robust": "hc0"}),
+            ({"vce": "robust"}, {"robust": "robust"}),
+            ({"cluster": "id"}, {"cluster": "id"}),
+        ]:
+            g = sp.gam("c ~ s(x1) + treat", df, **kw, **gam_kw)
+            ref = sp.poisson("c ~ x1 + treat", df, tol=1e-13, **glm_kw)
+            assert g.std_errors["treat"] == pytest.approx(
+                ref.std_errors["treat"], rel=1e-6
+            )
+    assert g.vce == "cluster(id)"
+    plain = sp.gam("c ~ s(x1) + treat", df, family="poisson")
+    assert plain.vce == "nonrobust"
+    # predictions' bands use the covariance that was asked for
+    wide = g.predict(df.head(4), what="confidence")["se"]
+    narrow = sp.gam("c ~ s(x1) + treat", df, **kw).predict(
+        df.head(4), what="confidence"
+    )["se"]
+    assert (wide > narrow).all()
+    with pytest.raises(sp.MethodIncompatibility, match="vce"):
+        sp.gam("c ~ s(x1)", df, vce="hc3")
+
+
 # ---------------------------------------------------------------- conformal
 
 

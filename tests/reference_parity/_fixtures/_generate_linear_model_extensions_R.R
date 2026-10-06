@@ -139,6 +139,13 @@ out$gam$criteria = list(
                    gam(fpz, data = d, sp = c(20, 0.5), family = poisson, method = "REML", control = tightg)$gcv.ubre),
   gcv_gamma = gam(fg, data = d, sp = c(2, 5), gamma = 1.4)$gcv.ubre,
   ubre_gamma = gam(fpz, data = d, sp = c(1, 10), family = poisson, gamma = 1.4, control = tightg)$gcv.ubre)
+## a curve that multiplies the treatment dummy
+gb = gam(ly ~ s(x1, bs = "ps", k = 10) + s(x1, bs = "ps", k = 8, by = treat), data = d, sp = c(2, 5))
+at = data.frame(x1 = c(-1, 0, 1), treat = 1)
+tb = predict(gb, newdata = at, type = "terms", se.fit = TRUE)
+out$gam$by = list(intercept = unname(coef(gb)[1]), edf = unname(summary(gb)$s.table[, 1]), score = unname(gb$gcv.ubre),
+                  fitted = unname(fitted(gb)), base = unname(tb$fit[, 1]), base_se = unname(tb$se.fit[, 1]),
+                  effect = unname(tb$fit[, 2]), effect_se = unname(tb$se.fit[, 2]))
 ## curved outcomes built from the committed columns, so that the selected
 ## smoothing parameters are interior
 d$nl = d$ly + sin(2 * d$x1) + 0.3 * d$x3^2

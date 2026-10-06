@@ -72,6 +72,12 @@ wage.smooth_terms               # effective degrees of freedom of each curve
 wage.partial("s(exper)")        # the estimated function, with a band
 wage.plot("s(exper)")
 
+# the same, asking how the black-white gap moves with experience, with
+# standard errors that allow for arbitrary heteroskedasticity
+gap = sp.gam("logwk ~ s(educ) + s(exper) + s(exper, by=black)", census00,
+             vce="hc0")
+gap.partial("s(exper):black")   # the gap as a function of experience
+
 # Chapter 12: prediction intervals that do not lean on normal errors
 new = boston.sample(5, random_state=0)
 sp.conformal_regression("medv ~ rm + lstat + ptratio", boston, new, alpha=0.1)
