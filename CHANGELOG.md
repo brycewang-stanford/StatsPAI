@@ -4,6 +4,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.gam`: surfaces, random intercepts, thin plate splines, a test for each term
+
+- `te(x, z, k=)` fits a surface as the tensor product of two P-spline
+  margins, with one smoothing parameter per direction. `s(g, bs='re')`
+  adds a random intercept for each level of `g`; its `lambda` is the
+  residual variance over the variance of the effects. `s(x, bs='tp')` is
+  the thin plate regression spline [@wood2003thin], the basis `mgcv`
+  uses when none is named. All three match `mgcv::gam` at given
+  smoothing parameters to 1e-9 (coefficients, standard errors, effective
+  degrees of freedom, criterion, fitted values, predictions) and under
+  REML selection to 1e-5 for the surface and the thin plate curve.
+- `fit.smooth_terms` gains `ref_df`, `statistic` and `pvalue`: the test
+  that a term is zero [@wood2013pvalues], also printed by `summary()`.
+  Reference degrees of freedom match `summary.gam` to 1e-9 and p-values
+  to 5e-6. In 300 simulated samples with no effect the rejection rate of a
+  5% test is inside 2% to 9%. The test is not reported for random
+  effects.
+- `fit.partial(term, simultaneous=True)` returns a band that holds the
+  whole curve with the stated probability, by simulation from the
+  posterior of the coefficients. The pointwise band holds the whole
+  curve under 80% of the time at a nominal 95%.
+- `fit.plot()` draws a contour for a surface and estimates with
+  intervals for a random effect.
+
 ### Counterfactual identification
 
 - **`sp.identify_counterfactual(dag, event, given=)`**: the ID* and IDC*

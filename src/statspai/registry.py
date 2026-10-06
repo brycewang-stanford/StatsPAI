@@ -10863,13 +10863,16 @@ def _build_registry() -> None:
             category="regression",
             description=(
                 "Generalized additive model: g(E[y]) = linear terms + smooth "
-                "functions s(x) of numeric columns, each a penalised cubic "
-                "B-spline (P-spline) with its own smoothing parameter chosen "
-                "by REML (default) or GCV / UBRE. Same basis, penalty and "
-                "criteria as R mgcv::gam with s(x, bs='ps'). Returns "
-                "parametric coefficients with standard errors, the effective "
-                "degrees of freedom of each curve, partial(term) for the "
-                "estimated functions with bands, predict() and plot()."
+                "functions of numeric columns: P-spline or thin plate curves "
+                "s(x), effect curves s(x, by=d), tensor-product surfaces "
+                "te(x, z) and random intercepts s(g, bs='re'). Smoothing "
+                "parameters by REML (default) or GCV / UBRE. Same bases, "
+                "penalties and criteria as R mgcv::gam. Returns parametric "
+                "coefficients with standard errors (Bayesian, sandwich or "
+                "clustered), each term's effective degrees of freedom and "
+                "an approximate test that it is zero, partial(term) for "
+                "the estimated functions with pointwise or simultaneous "
+                "bands, predict() and plot()."
             ),
             params=[
                 ParamSpec(
@@ -10879,7 +10882,9 @@ def _build_registry() -> None:
                     description="e.g. 'y ~ s(x1) + s(x2, k=15) + z + C(g)'; "
                     "s(x) marks a smooth of one numeric column, s(x, by=d) a "
                     "curve that multiplies numeric column d (an effect of d "
-                    "varying with x) or, for a factor d, one curve per level",
+                    "varying with x) or, for a factor d, one curve per "
+                    "level; te(x, z) a surface; s(g, bs='re') a random "
+                    "intercept; s(x, bs='tp') a thin plate spline",
                 ),
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec(

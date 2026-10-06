@@ -261,19 +261,64 @@ who uses this package.
   whole sample, not over its own level; with that convention the
   coefficients and curves match to 1e-9. `sp.gam` warns when the factor
   itself is missing from the formula.
-- **Left: tensor-product and bivariate smooths.** The penalties of a
+- **Left then, done in the fifth round: tensor-product and bivariate smooths.** The penalties of a
   tensor term overlap, so the REML determinant no longer splits by term;
   that is a second engine, and interactions between two continuous
   variables are rarely the question here.
-- **Left: thin plate basis and random-effect terms.** The first would
+- **Left then, done in the fifth round: thin plate basis and random-effect terms.** The first would
   only reproduce mgcv's default curve, which P-splines already match in
   substance; the second is what `sp.multilevel` is for.
 
+## Fifth round: the rest of the GAM
+
+Bryce asked for everything left to be finished, so the items the fourth
+round set aside were done. The reasons given then were about priority,
+not about difficulty, and they no longer applied.
+
+- **Surfaces, `te(x, z, k=)`.** Two P-spline margins, one smoothing
+  parameter per direction. The engine now works on a list of penalties,
+  each with its own parameter, and takes the REML determinant from the
+  eigenvalues of the total penalty, since the two penalties of a surface
+  share coefficients. Three conventions of mgcv had to be found by
+  dumping its design and penalty matrices: each margin is re-expressed
+  so its coefficients are function values at `k` evenly spaced points,
+  each marginal penalty is divided by its largest eigenvalue, and the
+  parameter multiplies the penalty divided by `S.scale`.
+- **Thin plate regression splines, `s(x, bs='tp')`.** Kernel
+  `|r|^3 / 12` on the distinct values of `x`, cut to rank `k` by
+  eigenvalue. Above 2,000 distinct values an even subsample is used.
+- **Random intercepts, `s(g, bs='re')`.** A ridge penalty on one
+  coefficient per level. `lambda` is the residual variance over the
+  variance of the effects, so their standard deviation is
+  `sqrt(scale / lambda)`.
+- **A test for each term.** Wood's (2013) statistic. `ref_df` is the sum
+  of `2 diag(F) - diag(FF)` over the term's coefficients. The rank is
+  fractional, and the eigenvectors of the last block are defined up to a
+  sign that changes the statistic. The p-value is the average over the
+  two choices. `summary.gam` prints the statistic for one of them, so
+  the statistics agree only to about 12% while the p-values agree to
+  5e-6. This is the one place where a printed number of the reference
+  is not reproduced, and the reason is known.
+- **Simultaneous bands.** `partial(term, simultaneous=True)` simulates
+  from the posterior of the coefficients and widens the band until it
+  holds the whole curve.
+
+Evidence. At given smoothing parameters all three new terms match
+`mgcv::gam` to 1e-9 in the Gaussian and Poisson families. Under REML the
+surface and the thin plate curve match to 1e-5, with smoothing
+parameters to 1e-3. The random-effect model matches to 2e-3, because the
+curve fitted beside it is pushed to a straight line by both programs,
+each stopping at its own very large penalty. The test has its size in
+simulation (rejection between 2% and 9% at 5% in 300 null samples).
+The simultaneous band holds the whole curve more than 86% of the time
+at a nominal 95% where the pointwise one holds it less than 80%. These
+last two are simulation bounds, not parity.
+
 ## Open items
 
-- **`sp.gam`**: no tensor products, bivariate smooths, thin plate basis or
-  random-effect terms (left on purpose, see above); bands are pointwise;
-  no test of whether a smooth is needed at all.
+- **`sp.gam`**: no tensor product of more than two variables, no `ti()`,
+  no thin plate surface, no random slopes. The term test treats the
+  smoothing parameters as known.
 - **`sp.kaplan_meier`**: flip the default interval to `'log-log'` in 1.40.
 - **Zero-inflated `diagnostics`**: remove the deprecated keys in 1.41.
 

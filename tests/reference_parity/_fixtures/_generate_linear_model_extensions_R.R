@@ -153,6 +153,40 @@ tf = predict(gf, newdata = data.frame(x1 = c(-1, 0, 1), sf = factor(2, levels = 
 out$gam$by_factor = list(par = unname(coef(gf)[1:3]), edf = unname(summary(gf)$s.table[, 1]), score = unname(gf$gcv.ubre),
                          fitted = unname(fitted(gf)), level2 = unname(tf$fit[, "s(x1):sf2"]),
                          level2_se = unname(tf$se.fit[, "s(x1):sf2"]))
+## random-effect, tensor-product and thin plate terms: at given smoothing
+## parameters, and as REML selects them
+d$idf = factor(d$id)
+term_key = function(m, new, sp = NULL) list(par = unname(summary(m)$p.coeff), par_se = unname(summary(m)$se[seq_along(summary(m)$p.coeff)]),
+  edf = unname(summary(m)$s.table[, 1]), sp = if (is.null(sp)) unname(m$sp) else sp, s_scale = unname(unlist(lapply(m$smooth, function(s) s$S.scale))),
+  score = unname(m$gcv.ubre), scale = m$sig2, fitted = unname(fitted(m)),
+  pred = unname(predict(m, newdata = new, type = "response")),
+  pred_se = unname(predict(m, newdata = new, type = "response", se.fit = TRUE)$se.fit))
+newt = d[c(1, 50, 100, 200, 300, 400), ]
+f_re = ly ~ treat + s(x1, bs = "ps", k = 8) + s(idf, bs = "re")
+f_te = ly ~ treat + te(x1, x3, bs = "ps", k = c(5, 5))
+f_tp = ly ~ treat + s(x1, bs = "tp", k = 10)
+out$gam$terms = list(
+  re_fixed = term_key(gam(f_re, data = d, sp = c(2, 3)), newt, c(2, 3)),
+  re_reml = term_key(gam(f_re, data = d, method = "REML", control = ctl0 <- gam.control(epsilon = 1e-12)), newt),
+  re_poisson = term_key(gam(c ~ treat + s(idf, bs = "re"), family = poisson, data = d, sp = 4, control = tightg), newt, 4),
+  te_fixed = term_key(gam(f_te, data = d, sp = c(2, 7)), newt, c(2, 7)),
+  te_poisson = term_key(gam(c ~ treat + te(x1, x3, bs = "ps", k = c(5, 5)), family = poisson, data = d, sp = c(3, 1), control = tightg), newt, c(3, 1)),
+  tp_fixed = term_key(gam(f_tp, data = d, sp = 2), newt, 2),
+  tp_default = term_key(gam(ly ~ treat + s(x1), data = d, sp = 2), newt, 2))
+d$nl2 = d$ly + sin(2 * d$x1) * cos(d$x3) + 0.3 * d$x3^2
+out$gam$terms$te_reml = term_key(gam(nl2 ~ treat + te(x1, x3, bs = "ps", k = c(6, 6)), data = d, method = "REML", control = ctl0), newt)
+out$gam$terms$tp_reml = term_key(gam(nl2 ~ treat + s(x1, bs = "tp", k = 12), data = d, method = "REML", control = ctl0), newt)
+## approximate tests that a smooth is zero (summary.gam). The printed
+## statistic depends on the sign of two eigenvectors; the p-value does not.
+st1 = summary(gam(ly ~ s(x1, bs = "ps", k = 10) + s(x5, bs = "ps", k = 8) + s(x6, bs = "ps", k = 8) + treat,
+                  data = d, sp = c(2, 0.5, 30)))$s.table
+st2 = summary(gam(c ~ s(x1, bs = "ps", k = 10) + s(x3, bs = "ps", k = 8) + treat, family = poisson, data = d,
+                  sp = c(1, 10), control = tightg))$s.table
+st3 = summary(gam(f_te, data = d, sp = c(2, 7)))$s.table
+out$gam$tests = list(
+  gaussian = list(ref_df = unname(st1[, 2]), stat = unname(st1[, 3]), p = unname(st1[, 4])),
+  poisson = list(ref_df = unname(st2[, 2]), stat = unname(st2[, 3]), p = unname(st2[, 4])),
+  te = list(ref_df = unname(st3[, 2]), stat = unname(st3[, 3]), p = unname(st3[, 4])))
 ## curved outcomes built from the committed columns, so that the selected
 ## smoothing parameters are interior
 d$nl = d$ly + sin(2 * d$x1) + 0.3 * d$x3^2

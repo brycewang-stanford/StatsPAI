@@ -77,6 +77,12 @@ wage.plot("s(exper)")
 gap = sp.gam("logwk ~ s(educ) + s(exper) + s(exper, by=black)", census00,
              vce="hc0")
 gap.partial("s(exper):black")   # the gap as a function of experience
+gap.smooth_terms[["term", "edf", "ref_df", "statistic", "pvalue"]]
+gap.partial("s(exper):black", simultaneous=True)   # a band for the whole curve
+
+# a surface in schooling and experience instead of two curves
+surface = sp.gam("logwk ~ te(educ, exper) + black", census00)
+surface.plot("te(educ,exper)")
 
 # Chapter 12: prediction intervals that do not lean on normal errors
 new = boston.sample(5, random_state=0)
@@ -123,9 +129,11 @@ before smoothing and is an approximation; `sp.lpoly` is exact.
 
 `sp.gam` uses P-splines, mgcv's `s(x, bs = "ps")`, and picks smoothing
 parameters by REML. The book calls `gam` with mgcv's defaults, a thin
-plate basis and GCV. The curves are close and not identical; `method=
-'gcv'` gives mgcv's criterion, and with `bs = "ps"` on the R side the two
-agree to the digit.
+plate basis and GCV. The curves are close and not identical. To get the
+book's call, write `s(x, bs='tp')` and `method='gcv'`. The p-value of
+each term is the one `summary(gam)` prints. The F statistic beside it
+can differ by a few percent, because it depends on an arbitrary sign
+that the p-value averages over.
 
 For an AR(1) working correlation R and Stata estimate the parameter with
 different moments. `sp.gee(corstr='ar1')` is Stata's `xtgee, corr(ar 1)`

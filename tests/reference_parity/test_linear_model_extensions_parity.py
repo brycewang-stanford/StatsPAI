@@ -833,8 +833,8 @@ def test_gam_limits_and_refusals(df):
     assert lin.smooth_terms["edf"].iloc[0] == pytest.approx(1.0, abs=1e-6)
     with pytest.raises(sp.MethodIncompatibility, match="no s\\(\\) term"):
         sp.gam("ly ~ x1", df)
-    with pytest.raises(sp.MethodIncompatibility, match="only"):
-        sp.gam("ly ~ s(x1, bs='tp')", df)
+    with pytest.raises(sp.MethodIncompatibility, match="the bases are"):
+        sp.gam("ly ~ s(x1, bs='cr')", df)
     with pytest.raises(sp.DataInsufficient, match="distinct values"):
         sp.gam("ly ~ s(x4)", df)
     with pytest.raises(sp.MethodIncompatibility, match="intercept"):
@@ -939,6 +939,170 @@ def test_gam_sandwich_covariances_reduce_to_the_glm_ones(df):
     assert (wide > narrow).all()
     with pytest.raises(sp.MethodIncompatibility, match="vce"):
         sp.gam("c ~ s(x1)", df, vce="hc3")
+
+
+GAM_TERMS = {
+    "re_fixed": ("ly ~ treat + s(x1, k=8) + s(idf, bs='re')", {}),
+    "re_poisson": ("c ~ treat + s(idf, bs='re')", {"family": "poisson"}),
+    "te_fixed": ("ly ~ treat + te(x1, x3, k=5)", {}),
+    "te_poisson": ("c ~ treat + te(x1, x3, k=5)", {"family": "poisson"}),
+    "tp_fixed": ("ly ~ treat + s(x1, bs='tp', k=10)", {}),
+    # mgcv's plain s(x) is this basis with k = 10
+    "tp_default": ("ly ~ treat + s(x1, bs='tp', k=10)", {}),
+}
+
+
+@pytest.fixture(scope="module")
+def gdf(df):
+    return df.assign(
+        idf=df["id"].astype(str),
+        nl2=df["ly"] + np.sin(2 * df["x1"]) * np.cos(df["x3"]) + 0.3 * df["x3"] ** 2,
+    )
+
+
+@pytest.mark.parametrize("key", sorted(GAM_TERMS))
+def test_gam_random_effect_tensor_and_thin_plate_terms_match_mgcv(gdf, R, key):
+    ref = R["gam"]["terms"][key]
+    formula, kw = GAM_TERMS[key]
+    lam = np.atleast_1d(ref["sp"]) / np.atleast_1d(ref["s_scale"])
+    fit = sp.gam(formula, gdf, lambda_=lam, method="gcv", tol=1e-13, **kw)
+    close(fit.params, ref["par"], EXACT)
+    close(fit.std_errors, ref["par_se"], EXACT)
+    close(fit.smooth_terms["edf"], ref["edf"], EXACT)
+    close(fit.gcv, ref["score"], EXACT)
+    close(fit.fitted_values, ref["fitted"], EXACT)
+    new = gdf.iloc[[0, 49, 99, 199, 299, 399]]
+    pred = fit.predict(new, what="confidence")
+    close(pred["yhat"], ref["pred"], EXACT)
+    close(pred["se"], ref["pred_se"], 1e-8)
+
+
+@pytest.mark.parametrize(
+    "key,formula,rtol",
+    [
+        ("te_reml", "nl2 ~ treat + te(x1, x3, k=6)", 1e-5),
+        ("tp_reml", "nl2 ~ treat + s(x1, bs='tp', k=12)", 1e-5),
+        # the P-spline in this model is pushed to a line by both programs,
+        # each to its own very large penalty, which leaves 1e-3 between them
+        ("re_reml", "ly ~ treat + s(x1, k=8) + s(idf, bs='re')", 2e-3),
+    ],
+)
+def test_gam_reml_selection_with_the_new_terms_matches_mgcv(gdf, R, key, formula, rtol):
+    ref = R["gam"]["terms"][key]
+    fit = sp.gam(formula, gdf)
+    close(fit.params, ref["par"], rtol)
+    close(fit.smooth_terms["edf"], ref["edf"], rtol)
+    close(fit.scale, ref["scale"], rtol)
+    theirs = np.atleast_1d(ref["sp"]) / np.atleast_1d(ref["s_scale"])
+    if key == "re_reml":
+        assert fit.lambdas[1] == pytest.approx(theirs[1], rel=1e-3)
+        # lambda is residual variance over random-effect variance
+        sd = np.sqrt(fit.scale / fit.lambdas[1])
+        assert 0.25 < sd < 0.40  # mgcv: 0.306, interval 0.239 to 0.391
+    else:
+        close(fit.lambdas, theirs, 1e-3)
+        close(fit.fitted_values, ref["fitted"], rtol)
+
+
+def test_gam_term_tests_match_summary_gam(df, R):
+    ref = R["gam"]["tests"]
+    cases = {
+        "gaussian": sp.gam(
+            "ly ~ s(x1, k=10) + s(x5, k=8) + s(x6, k=8) + treat",
+            df,
+            lambda_=np.array([2, 0.5, 30]) / 16,
+            method="gcv",
+        ),
+        "poisson": sp.gam(
+            "c ~ s(x1, k=10) + s(x3, k=8) + treat",
+            df,
+            family="poisson",
+            lambda_=np.array([1, 10]) / 16,
+            method="gcv",
+            tol=1e-13,
+        ),
+    }
+    for key, fit in cases.items():
+        table = fit.smooth_terms
+        theirs = ref[key]
+        close(table["ref_df"], theirs["ref_df"], EXACT)
+        # mgcv evaluates the mixture tail by an approximation of its own
+        np.testing.assert_allclose(table["pvalue"], theirs["p"], atol=5e-6)
+        # its printed statistic is one of two sign choices; ours is their mean
+        np.testing.assert_allclose(table["statistic"], theirs["stat"], rtol=0.12)
+
+
+def test_gam_term_test_has_its_size_under_the_null():
+    rng = np.random.default_rng(31)
+    reject = 0
+    reps = 300
+    for _ in range(reps):
+        n = 200
+        data = pd.DataFrame({"x": rng.uniform(size=n), "z": rng.uniform(size=n)})
+        data["y"] = np.sin(6 * data["x"]) + rng.normal(size=n)
+        fit = sp.gam("y ~ s(x) + s(z)", data, method="gcv", gamma=1.4)
+        reject += fit.smooth_terms.set_index("term").loc["s(z)", "pvalue"] < 0.05
+    # binomial(300, 0.05) has standard deviation 0.0126
+    assert 0.02 <= reject / reps <= 0.09
+
+
+def test_gam_simultaneous_band_holds_the_whole_curve():
+    rng = np.random.default_rng(17)
+    grid = np.linspace(0.05, 0.95, 40)
+    inside_point, inside_all, wider = [], [], []
+    for _ in range(150):
+        n = 300
+        x = rng.uniform(size=n)
+        data = pd.DataFrame(
+            {"x": x, "y": np.sin(2 * np.pi * x) + rng.normal(0, 0.5, n)}
+        )
+        fit = sp.gam("y ~ s(x, k=12)", data)
+        truth = np.sin(2 * np.pi * grid) - np.sin(2 * np.pi * x).mean()
+        point = fit.partial("s(x)", grid=grid)
+        simul = fit.partial("s(x)", grid=grid, simultaneous=True)
+        inside_point.append(
+            bool(((point["lower"] <= truth) & (truth <= point["upper"])).all())
+        )
+        inside_all.append(
+            bool(((simul["lower"] <= truth) & (truth <= simul["upper"])).all())
+        )
+        wider.append(simul.attrs["critical_value"] > point.attrs["critical_value"])
+    assert all(wider)
+    # the pointwise band misses somewhere on the curve far more than 5% of
+    # the time; the simultaneous one is close to its level (smoothing bias
+    # keeps it a little under)
+    assert np.mean(inside_point) < 0.80
+    assert np.mean(inside_all) > 0.86
+
+
+def test_gam_new_terms_predict_plot_and_refuse(gdf):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    fit = sp.gam("ly ~ treat + te(x1, x3, k=5) + s(idf, bs='re')", gdf)
+    assert list(fit.smooth_terms["term"]) == ["te(x1,x3)", "s(idf)"]
+    assert np.isnan(fit.smooth_terms["pvalue"].iloc[1])  # no test for a variance
+    close(fit.predict(gdf.head(12)), fit.fitted_values[:12], 1e-10)
+    # a group the fit never saw is predicted at the population level
+    stranger = gdf.head(3).assign(idf="nobody")
+    base = fit.predict(stranger) - 0.0
+    effects = fit.partial("s(idf)")
+    assert len(effects) == gdf["idf"].nunique()
+    known = fit.predict(gdf.head(3))
+    shift = effects.set_index("idf").loc[gdf["idf"].head(3), "fit"].to_numpy()
+    close(known - base, shift, 1e-10)
+    surface = fit.partial("te(x1,x3)")
+    assert len(surface) == 625 and list(surface.columns[:2]) == ["x1", "x3"]
+    for term in ("te(x1,x3)", "s(idf)"):
+        fig, _ = fit.plot(term)
+        matplotlib.pyplot.close(fig)
+    assert "ref.df" in fit.summary()
+    with pytest.raises(sp.MethodIncompatibility, match="exactly two"):
+        sp.gam("ly ~ te(x1, x3, x5)", gdf)
+    with pytest.raises(sp.MethodIncompatibility, match="P-spline smooths only"):
+        sp.gam("ly ~ s(x1, bs='tp', by=treat)", gdf)
+    with pytest.raises(sp.MethodIncompatibility, match="penalty"):
+        sp.gam("ly ~ te(x1, x3)", gdf, lambda_=[1.0, 2.0, 3.0])
 
 
 # ---------------------------------------------------------------- conformal

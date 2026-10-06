@@ -603,7 +603,8 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     },
     "gam": {
         "status": "bit-exact",
-        "reference": "mgcv::gam with s(x, bs = 'ps'), methods GCV.Cp and REML",
+        "reference": "mgcv::gam with s(x, bs = 'ps' | 'tp' | 're'), te(x, z), "
+        "methods GCV.Cp and REML; summary.gam for the term tests",
         "reference_versions": {
             "R": "R version 4.5.2 (2025-10-31)",
             "mgcv": "1.9.3",
@@ -611,7 +612,10 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "tolerance": "at given smoothing parameters, Gaussian, binomial and "
         "Poisson: coefficients, SEs, edf, GCV / UBRE, scale, deviance and "
         "fitted values 1e-9 rel, predictions and term curves with SEs 1e-8; "
-        "selected smoothing parameters 1e-4 rel, the resulting fit 1e-5",
+        "selected smoothing parameters 1e-4 rel, the resulting fit 1e-5; "
+        "tensor, thin plate and random-effect terms 1e-9 at given "
+        "parameters, 1e-5 under REML (2e-3 for the random-effect model); "
+        "term tests: ref.df 1e-9, p-values 5e-6 abs",
         "sides": ["py", "R"],
         "test": [
             "tests/reference_parity/test_linear_model_extensions_parity.py",
@@ -622,7 +626,10 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "its sp to the difference penalty divided by S.scale; the test "
             "converts. REML scores are compared through the change between "
             "two parameter values, since they are defined up to a constant. "
-            "by= smooths are checked the same way. The sandwich covariances "
+            "by= smooths are checked the same way. The statistic of the term "
+            "test depends on a sign choice that the p-value averages over; "
+            "summary.gam prints one choice, so statistics agree to 12% only "
+            "and are not part of the claim. The sandwich covariances "
             "are not part of this row: mgcv's differs by a finite-sample "
             "adjustment and is not used as a reference."
         ),

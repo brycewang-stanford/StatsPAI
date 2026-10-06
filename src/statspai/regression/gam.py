@@ -34,12 +34,22 @@ from scipy.interpolate import BSpline
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ._gam_terms import (
+    make_random_effect,
+    make_tensor,
+    make_thin_plate,
+    smooth_term_test,
+)
 from .glm import FAMILIES, _get_link
 
 _KNOWN_SCALE = ("binomial", "poisson")
-_SMOOTH = re.compile(r"^s\((.*)\)$")
+_SMOOTH = re.compile(r"^(s|te)\((.*)\)$")
 _DEGREE = 3  # cubic B-splines
 _DIFF = 2  # second-difference penalty
+#: the search for smoothing parameters stops at exp(23), about 1e10. By then a
+#: curve is a straight line to nine digits, and beyond it the criterion is
+#: flat to within its own rounding error, which an optimiser will chase.
+_RHO_MAX = 23.0
 
 
 @dataclass
@@ -75,6 +85,28 @@ class _Smooth:
         return np.asarray(
             (data[self.by].astype(str) == str(self.level)).to_numpy(dtype=float)
         )
+
+    kind: str = "ps"
+
+    @property
+    def roots(self) -> List[np.ndarray]:
+        return [self.root]
+
+    def term_design(self, data: pd.DataFrame) -> np.ndarray:
+        return self.design(data[self.var].to_numpy(dtype=float), self.multiplier(data))
+
+    def partial_frame(
+        self, grid: Optional[Sequence[float]]
+    ) -> Tuple[pd.DataFrame, np.ndarray]:
+        if grid is None:
+            inner = self.knots[_DEGREE : len(self.knots) - _DEGREE]
+            span = inner[-1] - inner[0]
+            lo = inner[0] + 0.001 * span / 1.002
+            hi = inner[-1] - 0.001 * span / 1.002
+            xs = np.linspace(lo, hi, 100)
+        else:
+            xs = np.asarray(grid, dtype=float)
+        return pd.DataFrame({self.var: xs}), self.design(xs)
 
     def raw(self, x: np.ndarray) -> np.ndarray:
         basis = BSpline(self.knots, np.eye(self.k), _DEGREE, extrapolate=True)
@@ -156,19 +188,25 @@ def _split_terms(rhs: str) -> List[str]:
     return [t for t in terms if t]
 
 
-def _parse_smooth(term: str, default_k: int) -> Tuple[str, int, Optional[str]]:
+def _parse_smooth(term: str, default_k: int) -> Dict[str, Any]:
+    """Read ``s(x, k=, by=, bs=)`` or ``te(x, z, k=)`` into a specification."""
     inside = _SMOOTH.match(term)
     assert inside is not None
-    parts = [p.strip() for p in inside.group(1).split(",")]
-    var = parts[0]
-    k = default_k
-    by: Optional[str] = None
-    for opt in parts[1:]:
+    head = inside.group(1)
+    parts = [p.strip() for p in inside.group(2).split(",")]
+    names = [p for p in parts if "=" not in p]
+    spec: Dict[str, Any] = {
+        "kind": "ps",
+        "k": None,
+        "by": None,
+        "term": term,
+    }
+    for opt in [p for p in parts if "=" in p]:
         name, _, value = opt.partition("=")
         name, value = name.strip(), value.strip().strip("\"'")
         if name == "k":
             try:
-                k = int(value)
+                spec["k"] = int(value)
             except ValueError as exc:
                 raise MethodIncompatibility(
                     f"gam: k={value!r} in {term} is not an integer."
@@ -178,26 +216,53 @@ def _parse_smooth(term: str, default_k: int) -> Tuple[str, int, Optional[str]]:
                 raise MethodIncompatibility(
                     f"gam: by={value!r} in {term} must name one column."
                 )
-            by = value
+            spec["by"] = value
         elif name == "bs":
-            if value != "ps":
+            if value not in ("ps", "tp", "re"):
                 raise MethodIncompatibility(
-                    f"gam: {term} asks for the {value!r} basis; only "
-                    "P-splines (bs='ps') are implemented.",
-                    recovery_hint="Drop bs=, or use bs='ps'.",
+                    f"gam: {term} asks for the {value!r} basis; the bases "
+                    "are 'ps' (P-spline, the default), 'tp' (thin plate) and "
+                    "'re' (random effect).",
+                    recovery_hint="Drop bs=, or use one of the three.",
                 )
+            spec["kind"] = value
         else:
             raise MethodIncompatibility(
                 f"gam: option {opt!r} in {term} is not understood; a smooth "
-                "takes a variable and, optionally, k= and by=.",
+                "takes its variable(s) and, optionally, k=, by= and bs=.",
             )
-    if not re.fullmatch(r"[A-Za-z_]\w*", var):
-        raise MethodIncompatibility(
-            f"gam: {term} must name one column; smooths of several variables "
-            "or of expressions are not implemented.",
-            recovery_hint="Create the transformed column first.",
-        )
-    return var, k, by
+    for nm in names:
+        if not re.fullmatch(r"[A-Za-z_]\w*", nm):
+            raise MethodIncompatibility(
+                f"gam: {term} must name columns; smooths of expressions are "
+                "not implemented.",
+                recovery_hint="Create the transformed column first.",
+            )
+    if head == "te":
+        if len(names) != 2:
+            raise MethodIncompatibility(
+                f"gam: {term} must name exactly two columns; tensor products "
+                "of three or more are not implemented.",
+            )
+        if spec["by"] is not None or spec["kind"] != "ps":
+            raise MethodIncompatibility(
+                f"gam: {term} takes k= only (P-spline margins, no by=)."
+            )
+        spec["kind"] = "te"
+        spec["k"] = 5 if spec["k"] is None else spec["k"]
+    else:
+        if len(names) != 1:
+            raise MethodIncompatibility(
+                f"gam: {term} must name one column; use te(x, z) for a "
+                "smooth of two.",
+            )
+        if spec["kind"] != "ps" and spec["by"] is not None:
+            raise MethodIncompatibility(
+                f"gam: by= is available for P-spline smooths only ({term})."
+            )
+        spec["k"] = default_k if spec["k"] is None else spec["k"]
+    spec["vars"] = names
+    return spec
 
 
 @dataclass
@@ -211,9 +276,13 @@ class GAMResult(ResultProtocolMixin):
         errors (the square roots of the diagonal of ``scale (X'WX +
         S)^-1``).
     smooth_terms : pd.DataFrame
-        One row per ``s()`` term: ``edf`` (effective degrees of freedom; 1
+        One row per smooth term: ``edf`` (effective degrees of freedom; 1
         is a straight line, ``k - 1`` an unpenalised spline), ``lambda``
-        (its smoothing parameter) and ``k``.
+        (its smoothing parameter; ``lambda2`` holds the second one of a
+        tensor product), ``k``, and an approximate test that the term is
+        zero: ``ref_df``, ``statistic`` (F, or chi-squared when the scale
+        is known) and ``pvalue``. ``lambdas`` has every smoothing
+        parameter in order.
     edf : float
         Total effective degrees of freedom, parametric terms included.
     scale : float
@@ -236,7 +305,7 @@ class GAMResult(ResultProtocolMixin):
     >>> isinstance(fit, sp.GAMResult)
     True
     >>> list(fit.smooth_terms.columns)
-    ['term', 'edf', 'lambda', 'k']
+    ['term', 'edf', 'lambda', 'k', 'ref_df', 'statistic', 'pvalue']
     >>> fit.partial("s(x)").columns.tolist()
     ['x', 'fit', 'se', 'lower', 'upper']
     """
@@ -257,6 +326,7 @@ class GAMResult(ResultProtocolMixin):
     vce: str = "nonrobust"
     converged: bool = True
     alpha: float = 0.05
+    lambdas: Any = field(default=None, repr=False)
     fitted_values: Any = field(default=None, repr=False)
     residuals: Any = field(default=None, repr=False)
     _coef: Any = field(default=None, repr=False)
@@ -294,10 +364,7 @@ class GAMResult(ResultProtocolMixin):
                 "gam: the new data have missing values in the parametric terms.",
                 recovery_hint="Drop or fill them before predicting.",
             )
-        blocks = [P] + [
-            sm.design(data[sm.var].to_numpy(dtype=float), sm.multiplier(data))
-            for sm in self._smooths
-        ]
+        blocks = [P] + [sm.term_design(data) for sm in self._smooths]
         return np.column_stack(blocks)
 
     def predict(
@@ -343,10 +410,12 @@ class GAMResult(ResultProtocolMixin):
     def partial(
         self,
         term: str,
-        grid: Optional[Sequence[float]] = None,
+        grid: Optional[Any] = None,
         alpha: Optional[float] = None,
+        simultaneous: bool = False,
+        seed: Optional[int] = 0,
     ) -> pd.DataFrame:
-        """The estimated function of one smooth term, with a pointwise band.
+        """The estimated function of one smooth term, with a band.
 
         ``term`` is a label from ``smooth_terms`` (``"s(x)"``,
         ``"s(x):d"``) or, when it is not ambiguous, the variable name. A
@@ -355,6 +424,16 @@ class GAMResult(ResultProtocolMixin):
         level included: with a 0/1 treatment ``d`` in ``s(x) + s(x,
         by=d)``, it is the effect of ``d`` as a function of ``x``. Both
         are on the scale of the link.
+
+        ``grid`` is the points to evaluate at: values of the variable for
+        a curve, a frame or dict with both variables for ``te(x, z)`` (a
+        25 x 25 lattice by default), level names for a random effect.
+
+        The band is pointwise unless ``simultaneous=True``, in which case
+        its critical value is raised so that the whole curve over the
+        grid lies inside it with probability ``1 - alpha`` (10,000 draws
+        from the posterior of the coefficients, seeded by ``seed``; the
+        value used is in ``attrs["critical_value"]``).
         """
         match = [sm for sm in self._smooths if sm.label == term]
         if not match:
@@ -364,49 +443,82 @@ class GAMResult(ResultProtocolMixin):
                     f"gam: {term!r} is smoothed more than once; name one of "
                     f"{[sm.label for sm in match]}.",
                 )
-        name = match[0].var if match else term
         if not match:
             raise MethodIncompatibility(
-                f"gam: no smooth of {name!r}; the model has "
+                f"gam: no smooth term {term!r}; the model has "
                 f"{[sm.label for sm in self._smooths]}.",
             )
         sm = match[0]
-        if grid is None:
-            inner = sm.knots[_DEGREE : len(sm.knots) - _DEGREE]
-            span = inner[-1] - inner[0]
-            lo = inner[0] + 0.001 * span / 1.002
-            hi = inner[-1] - 0.001 * span / 1.002
-            xs = np.linspace(lo, hi, 100)
-        else:
-            xs = np.asarray(grid, dtype=float)
-        Z = sm.design(xs)
+        frame, Z = sm.partial_frame(grid)
         fit = Z @ self._coef[sm.cols]
         V = self._vcov[sm.cols, sm.cols]
         se = np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", Z, V, Z), 0.0))
         level = self.alpha if alpha is None else float(alpha)
-        z = float(stats.norm.ppf(1.0 - level / 2.0))
-        return pd.DataFrame(
-            {
-                name: xs,
-                "fit": fit,
-                "se": se,
-                "lower": fit - z * se,
-                "upper": fit + z * se,
-            }
-        )
+        if simultaneous:
+            # the multiplier that makes the band hold the whole curve at
+            # once: the 1 - alpha quantile, over draws from the posterior
+            # of the coefficients, of the largest standardised deviation
+            keep = se > 0
+            rng = np.random.default_rng(seed)
+            w, U = np.linalg.eigh((V + V.T) / 2.0)
+            half = U * np.sqrt(np.maximum(w, 0.0))
+            draws = rng.standard_normal((10000, V.shape[0])) @ half.T
+            dev = np.abs(draws @ Z[keep].T) / se[keep][None, :]
+            z = float(np.quantile(dev.max(axis=1), 1.0 - level))
+        else:
+            z = float(stats.norm.ppf(1.0 - level / 2.0))
+        out = frame.reset_index(drop=True)
+        out["fit"] = fit
+        out["se"] = se
+        out["lower"] = fit - z * se
+        out["upper"] = fit + z * se
+        out.attrs["critical_value"] = z
+        return out
 
     def plot(self, term: Optional[str] = None, ax: Any = None) -> Any:
-        """Plot one smooth (the first by default) with its pointwise band."""
+        """Plot one smooth term (the first by default): a curve with its
+        pointwise band, a contour map for ``te(x, z)``, or the predicted
+        effects with intervals for a random effect."""
         import matplotlib.pyplot as plt
 
-        sm = self._smooths[0].label if term is None else term
-        curve = self.partial(sm)
-        x = curve.columns[0]
+        label = self._smooths[0].label if term is None else term
+        curve = self.partial(label)
+        sm = [t for t in self._smooths if t.label == label or t.var == label][0]
         fig, ax = (ax.figure, ax) if ax is not None else plt.subplots(figsize=(6, 4))
+        if sm.kind == "te":
+            x, z = curve.columns[0], curve.columns[1]
+            side = int(round(np.sqrt(len(curve))))
+            shape = (side, side)
+            cs = ax.contourf(
+                curve[x].to_numpy().reshape(shape),
+                curve[z].to_numpy().reshape(shape),
+                curve["fit"].to_numpy().reshape(shape),
+                levels=15,
+            )
+            fig.colorbar(cs, ax=ax)
+            ax.set_xlabel(x)
+            ax.set_ylabel(z)
+            ax.set_title(sm.label)
+            return fig, ax
+        x = curve.columns[0]
+        if sm.kind == "re":
+            order = np.argsort(curve["fit"].to_numpy())
+            pos = np.arange(len(curve))
+            ax.errorbar(
+                pos,
+                curve["fit"].to_numpy()[order],
+                yerr=(curve["upper"] - curve["fit"]).to_numpy()[order],
+                fmt="o",
+                markersize=3,
+            )
+            ax.axhline(0.0, linewidth=0.8)
+            ax.set_xlabel(f"{x} (sorted)")
+            ax.set_ylabel(sm.label)
+            return fig, ax
         ax.fill_between(curve[x], curve["lower"], curve["upper"], alpha=0.25)
         ax.plot(curve[x], curve["fit"])
         ax.set_xlabel(x)
-        ax.set_ylabel(f"s({x})")
+        ax.set_ylabel(sm.label)
         return fig, ax
 
     def summary(self) -> str:
@@ -430,15 +542,24 @@ class GAMResult(ResultProtocolMixin):
                 f"    {str(name):<22s}{self.params[name]:>12.5g}"
                 f"{self.std_errors[name]:>12.5g}{z[name]:>9.2f}"
             )
+        test = "Chi.sq" if self.family in _KNOWN_SCALE else "F"
         lines += [
             "",
             "  Smooth terms",
-            f"    {'':<22s}{'edf':>12s}{'lambda':>12s}{'k':>9s}",
+            f"    {'':<22s}{'edf':>9s}{'ref.df':>9s}{test:>10s}{'p':>9s}"
+            f"{'lambda':>11s}",
         ]
         for _, row in self.smooth_terms.iterrows():
+            tested = np.isfinite(row["pvalue"])
             lines.append(
-                f"    {row['term']:<22s}{row['edf']:>12.3f}{row['lambda']:>12.4g}"
-                f"{int(row['k']):>9d}"
+                f"    {row['term']:<22s}{row['edf']:>9.3f}"
+                + (
+                    f"{row['ref_df']:>9.3f}{row['statistic']:>10.3f}"
+                    f"{row['pvalue']:>9.4f}"
+                    if tested
+                    else f"{'':>28s}"
+                )
+                + f"{row['lambda']:>11.4g}"
             )
         lines.append("=" * 64)
         text = "\n".join(lines)
@@ -490,7 +611,19 @@ def gam(
     formula : str
         ``"y ~ s(x1) + s(x2, k=15) + z + C(g)"``. A term ``s(x)`` is a
         smooth of the numeric column ``x``; everything else is an ordinary
-        formula term and enters linearly.
+        formula term and enters linearly. The smooth terms are
+
+        * ``s(x)`` or ``s(x, bs="ps")`` -- a P-spline curve (the default);
+        * ``s(x, bs="tp")`` -- a thin plate regression spline, mgcv's
+          default basis: no knots to place, built from the distinct
+          values of ``x`` (an even subsample of 2,000 when there are
+          more);
+        * ``s(x, by=d)`` -- a curve multiplying ``d``, or one per level of
+          a factor ``d`` (see Notes);
+        * ``te(x, z)`` -- a surface, the tensor product of two P-spline
+          margins with ``k`` (default 5) functions each and a smoothing
+          parameter per direction; it contains both main effects;
+        * ``s(g, bs="re")`` -- a random intercept for each level of ``g``.
     data : pd.DataFrame
         Rows with a missing value in any variable of the model are dropped.
     family : {"gaussian", "binomial", "poisson", "gamma"}, default "gaussian"
@@ -579,6 +712,14 @@ def gam(
     before applying its ``sp``, so ``lambda_ = sp / S.scale`` reproduces a
     given mgcv fit.
 
+    The test in ``smooth_terms`` is Wood's (2013) for the hypothesis that
+    a term is identically zero. It treats the smoothing parameters as
+    known, so its p-values are somewhat too small when a term was heavily
+    penalised by the selection, and it is not offered for random effects
+    (a variance on the boundary of its range). With a random effect,
+    ``lambda`` is the ratio of the residual variance to the variance of
+    the effects: their standard deviation is ``sqrt(scale / lambda)``.
+
     The additive structure is an assumption. Interactions between
     smoothed variables are not estimated, and a smooth of a confounder
     adjusts for it more flexibly than a linear term but no more credibly:
@@ -608,6 +749,8 @@ def gam(
     ----------
     [@eilers1996flexible]
     [@wood2017generalized]
+    [@wood2003thin]
+    [@wood2013pvalues]
     """
     fam_key = str(family).lower()
     if fam_key not in FAMILIES:
@@ -628,20 +771,24 @@ def gam(
             "gam: the formula has no s() term.",
             recovery_hint="Use sp.glm or sp.regress for a model without smooths.",
         )
-    labels = [(v, b) for v, _, b in smooth_specs]
+    labels = [(sp_["kind"], tuple(sp_["vars"]), sp_["by"]) for sp_ in smooth_specs]
     if len(set(labels)) != len(labels):
         raise MethodIncompatibility("gam: the same smooth appears twice.")
     names_s = list(
         dict.fromkeys(
-            [v for v, _, _ in smooth_specs] + [b for _, _, b in smooth_specs if b]
+            [v for sp_ in smooth_specs for v in sp_["vars"]]
+            + [sp_["by"] for sp_ in smooth_specs if sp_["by"]]
         )
     )
     # a by= column that is not numeric is a factor: one curve per level
     factor_by = {
-        b
-        for _, _, b in smooth_specs
-        if b and b in data.columns and not pd.api.types.is_numeric_dtype(data[b])
+        sp_["by"]
+        for sp_ in smooth_specs
+        if sp_["by"]
+        and sp_["by"] in data.columns
+        and not pd.api.types.is_numeric_dtype(data[sp_["by"]])
     }
+    grouping = {sp_["vars"][0] for sp_ in smooth_specs if sp_["kind"] == "re"}
     missing = [v for v in names_s if v not in data.columns]
     if missing:
         raise MethodIncompatibility(
@@ -649,10 +796,13 @@ def gam(
             diagnostics={"missing": missing},
         )
     for v in names_s:
-        if v not in factor_by and not pd.api.types.is_numeric_dtype(data[v]):
+        if v in factor_by or v in grouping:
+            continue
+        if not pd.api.types.is_numeric_dtype(data[v]):
             raise MethodIncompatibility(
                 f"gam: {v} must be numeric to be smoothed or to multiply a " "smooth.",
-                recovery_hint=f"Enter {v} as C({v}), or code a by= variable " "as 0/1.",
+                recovery_hint=f"Enter {v} as C({v}), as s({v}, bs='re'), or "
+                "code a by= variable as 0/1.",
             )
     key_vce = str(vce).lower()
     if key_vce not in ("nonrobust", "hc0", "robust"):
@@ -694,16 +844,36 @@ def gam(
                 UserWarning,
                 stacklevel=2,
             )
-    for var, kk, by_name in smooth_specs:
-        xv = used[var].to_numpy(dtype=float)
-        if by_name in factor_by:
-            made = []
-            for lv in sorted(used[by_name].astype(str).unique()):
-                made.append(_make_smooth(var, xv, kk, by=by_name, level=lv))
+    for sp_ in smooth_specs:
+        var, kk, by_name = sp_["vars"][0], sp_["k"], sp_["by"]
+        made: List[Any]
+        if sp_["kind"] == "re":
+            made = [make_random_effect(var, used[var])]
+        elif sp_["kind"] == "te":
+            var2 = sp_["vars"][1]
+            made = [
+                make_tensor(
+                    var,
+                    used[var].to_numpy(dtype=float),
+                    var2,
+                    used[var2].to_numpy(dtype=float),
+                    kk,
+                    kk,
+                )
+            ]
+        elif sp_["kind"] == "tp":
+            made = [make_thin_plate(var, used[var].to_numpy(dtype=float), kk)]
         else:
-            made = [_make_smooth(var, xv, kk, by=by_name)]
+            xv = used[var].to_numpy(dtype=float)
+            if by_name in factor_by:
+                made = [
+                    _make_smooth(var, xv, kk, by=by_name, level=lv)
+                    for lv in sorted(used[by_name].astype(str).unique())
+                ]
+            else:
+                made = [_make_smooth(var, xv, kk, by=by_name)]
         for sm in made:
-            Z = sm.design(xv, sm.multiplier(used))
+            Z = sm.term_design(used)
             sm.cols = slice(at, at + Z.shape[1])
             at += Z.shape[1]
             smooths.append(sm)
@@ -715,7 +885,10 @@ def gam(
             f"gam: {n} complete rows for {p} coefficients.",
             recovery_hint="Lower k.",
         )
-    J = len(smooths)
+    # one smoothing parameter per penalty; a tensor product has two
+    pens = [(sm, root) for sm in smooths for root in sm.roots]
+    owner = [i for i, sm in enumerate(smooths) for _ in sm.roots]
+    J = len(pens)
     known_scale = fam_key in _KNOWN_SCALE
     ones = np.ones(n)
     how = str(method).lower().replace("gcv.cp", "gcv").replace("ubre", "gcv")
@@ -727,14 +900,36 @@ def gam(
     if not np.isfinite(gamma) or gamma <= 0:
         raise MethodIncompatibility(f"gam: gamma must be positive, got {gamma}.")
     # rank of each penalty and the dimension it leaves unpenalised
-    ranks = [int(np.linalg.matrix_rank(sm.penalty)) for sm in smooths]
+    grams = [root.T @ root for _, root in pens]
+    ranks = [
+        int(np.linalg.matrix_rank(sum(g for g, o in zip(grams, owner) if o == i)))
+        for i in range(len(smooths))
+    ]
     null_dim = p - int(sum(ranks))
 
     def total_penalty(lams: np.ndarray) -> np.ndarray:
         S = np.zeros((p, p))
-        for lam, sm in zip(lams, smooths):
-            S[sm.cols, sm.cols] = lam * sm.penalty
+        for lam, (sm, _), g in zip(lams, pens, grams):
+            S[sm.cols, sm.cols] += lam * g
         return S
+
+    def log_penalty_det(lams: np.ndarray) -> float:
+        """log of the product of the non-zero eigenvalues of the penalty,
+        term by term. With one penalty it is rank * log(lambda) plus a
+        constant; with two overlapping ones it has to be computed."""
+        total = 0.0
+        for i in range(len(smooths)):
+            mine = [j for j, o in enumerate(owner) if o == i]
+            if len(mine) == 1:
+                with np.errstate(divide="ignore"):
+                    total += ranks[i] * float(np.log(lams[mine[0]]))
+            else:
+                block = sum(lams[j] * grams[j] for j in mine)
+                ev = np.linalg.eigvalsh((block + block.T) / 2.0)
+                top = np.sort(ev)[-ranks[i] :]
+                with np.errstate(divide="ignore"):
+                    total += float(np.sum(np.log(np.maximum(top, 0.0))))
+        return total
 
     # Every solve goes through the QR factor of the design stacked on the
     # square root of the penalty, [sqrt(W) M; E] with E'E = S, never through
@@ -747,9 +942,9 @@ def gam(
 
     def penalty_root(lams: np.ndarray) -> np.ndarray:
         rows = []
-        for lam, sm in zip(lams, smooths):
-            block = np.zeros((sm.root.shape[0], p))
-            block[:, sm.cols] = np.sqrt(lam) * sm.root
+        for lam, (sm, root) in zip(lams, pens):
+            block = np.zeros((root.shape[0], p))
+            block[:, sm.cols] = np.sqrt(lam) * root
             rows.append(block)
         return np.vstack(rows)
 
@@ -812,8 +1007,7 @@ def gam(
         # when it is unknown, which turns the first term into
         # (n - M0) log(D_p) / 2 (M0 = dimension left unpenalised).
         d_pen = dev + float(beta @ S @ beta)
-        with np.errstate(divide="ignore"):
-            log_pen = float(sum(r * np.log(lam) for r, lam in zip(ranks, lams)))
+        log_pen = log_penalty_det(lams)
         if known_scale:
             reml = 0.5 * d_pen + 0.5 * logdet - 0.5 * log_pen
         else:
@@ -840,20 +1034,21 @@ def gam(
             lams = np.repeat(lams, J)
         if lams.size != J or np.any(lams < 0) or not np.all(np.isfinite(lams)):
             raise MethodIncompatibility(
-                f"gam: lambda_ needs {J} non-negative number(s), one per smooth.",
+                f"gam: lambda_ needs {J} non-negative number(s), one per "
+                "penalty (a tensor product has two).",
             )
         best = fit_at(lams)
     else:
 
         def objective(rho: np.ndarray) -> float:
             try:
-                return float(fit_at(np.exp(rho))["score"])
+                return float(fit_at(np.exp(np.minimum(rho, _RHO_MAX)))["score"])
             except np.linalg.LinAlgError:
                 return np.inf
 
         # one smooth at a time over a coarse grid, then a joint polish
         rho = np.zeros(J)
-        coarse = np.linspace(-8.0, 24.0, 17)
+        coarse = np.linspace(-8.0, 22.0, 16)
         for _ in range(2):
             for j in range(J):
                 trial = []
@@ -866,7 +1061,7 @@ def gam(
             objective,
             rho,
             method="L-BFGS-B",
-            bounds=[(-12.0, 30.0)] * J,
+            bounds=[(-12.0, _RHO_MAX)] * J,
             options={"ftol": 1e-14, "gtol": 1e-10, "maxiter": 500},
         )
         polish = optimize.minimize(
@@ -876,7 +1071,7 @@ def gam(
             options={"xatol": 1e-8, "fatol": 1e-15, "maxiter": 400 * J},
         )
         rho = polish.x if polish.fun < res.fun else res.x
-        lams = np.exp(np.clip(rho, -12.0, 30.0))
+        lams = np.exp(np.clip(rho, -12.0, _RHO_MAX))
         best = fit_at(lams)
     if not best["ok"]:
         raise ConvergenceFailure(
@@ -914,11 +1109,50 @@ def gam(
         {
             "term": [sm.label for sm in smooths],
             "edf": [float(best["edf_each"][sm.cols].sum()) for sm in smooths],
-            "lambda": [float(v) for v in lams],
+            "lambda": [float(lams[owner.index(i)]) for i in range(len(smooths))],
             "k": [sm.k for sm in smooths],
         }
     )
-    for _, row in table.iterrows():
+    # approximate test that each smooth is zero (Wood 2013), on the
+    # Bayesian covariance whatever vce= was asked for
+    mu_fit = best["mu"]
+    w_fit = 1.0 / (fam.variance(mu_fit) * lnk.deriv(mu_fit) ** 2)
+    Mw = M * np.sqrt(w_fit)[:, None]
+    Fm = best["B"] @ (Mw.T @ Mw)
+    edf1 = 2.0 * np.diag(Fm) - np.einsum("ij,ji->i", Fm, Fm)
+    Vp = best["phi"] * best["B"]
+    ref_df, stats_, pvals = [], [], []
+    for sm in smooths:
+        if sm.kind == "re":
+            # a variance component on the boundary of its space: this test
+            # does not apply (use the size of the variance, or sp.lrtest)
+            ref_df.append(np.nan)
+            stats_.append(np.nan)
+            pvals.append(np.nan)
+            continue
+        r_j = float(edf1[sm.cols].sum())
+        stat, pval = smooth_term_test(
+            Mw[:, sm.cols],
+            beta[sm.cols],
+            Vp[sm.cols, sm.cols],
+            r_j,
+            None if known_scale else float(n - best["edf"]),
+        )
+        ref_df.append(r_j)
+        stats_.append(stat if known_scale else stat / r_j)
+        pvals.append(pval)
+    table["ref_df"] = ref_df
+    table["statistic"] = stats_
+    table["pvalue"] = pvals
+    if any(len(sm.roots) > 1 for sm in smooths):
+        # the second smoothing parameter of a tensor product
+        table["lambda2"] = [
+            float(lams[owner.index(i) + 1]) if len(sm.roots) > 1 else np.nan
+            for i, sm in enumerate(smooths)
+        ]
+    for (_, row), sm in zip(table.iterrows(), smooths):
+        if sm.kind in ("re", "te"):
+            continue
         if row["edf"] > 0.95 * (row["k"] - 1):
             warnings.warn(
                 f"gam: {row['term']} uses {row['edf']:.1f} of its "
@@ -947,6 +1181,7 @@ def gam(
         residuals=np.asarray(y - best["mu"], dtype=float),
         _coef=np.asarray(beta, dtype=float),
         _vcov=np.asarray(vcov, dtype=float),
+        lambdas=np.asarray(lams, dtype=float),
         _smooths=smooths,
         _design_info=design_info,
         _par_names=par_names,
