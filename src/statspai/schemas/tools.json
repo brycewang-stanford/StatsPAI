@@ -29718,6 +29718,10 @@
         "residuals": {
           "description": "In-sample one-step errors of every series",
           "type": "string"
+        },
+        "sd": {
+          "description": "Standard deviations of the base forecasts; gives reconciled sd and result.intervals(level)",
+          "type": "string"
         }
       },
       "required": [

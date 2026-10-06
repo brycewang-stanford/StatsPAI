@@ -12942,6 +12942,7 @@
         "adjustment": "Optional[pd.DataFrame]",
         "forecasts": "pd.DataFrame",
         "method": "str",
+        "sd": "Optional[pd.DataFrame]",
         "shrinkage": "Optional[float]",
         "weights": "Optional[np.ndarray]"
       }
@@ -12988,6 +12989,10 @@
           },
           "residuals": {
             "description": "In-sample one-step errors of every series",
+            "type": "string"
+          },
+          "sd": {
+            "description": "Standard deviations of the base forecasts; gives reconciled sd and result.intervals(level)",
             "type": "string"
           }
         },
