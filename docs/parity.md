@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 411 |
 | | aligned | 52 |
 | | **subtotal** | **463** |
-| **No external software reference** | analytical-only (T1) | 347 |
+| **No external software reference** | analytical-only (T1) | 351 |
 | | external-replication (published numbers) | 54 |
-| | **subtotal** | **401** |
-| No numerical evidence yet | unverified | 567 |
+| | **subtotal** | **405** |
+| No numerical evidence yet | unverified | 563 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 463 | 848 | 856 | 54.1% |
+| estimator callables | 463 | 852 | 856 | 54.1% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 355 | 0.0% |
-| **all registered** | 463 | 864 | 1431 | 32.4% |
+| **all registered** | 463 | 868 | 1431 | 32.4% |
 
 ### Coverage by estimator family
 
@@ -55,7 +55,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | causal | 151 | 333 | 335 |
 | regression | 43 | 55 | 55 |
 | inference | 28 | 47 | 47 |
-| timeseries | 12 | 35 | 38 |
+| timeseries | 12 | 38 | 38 |
 | panel | 28 | 34 | 34 |
 | spatial | 28 | 33 | 33 |
 | diagnostics | 23 | 31 | 31 |
@@ -93,7 +93,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | ope | 0 | 2 | 2 |
 | causal_text | 0 | 1 | 2 |
 | mediation | 2 | 2 | 2 |
-| forest | 0 | 0 | 1 |
+| forest | 0 | 1 | 1 |
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
@@ -635,7 +635,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 347 functions
+## analytical-only — 351 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -651,6 +651,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `assimilative_causal` | [`test_assimilation_parity.py`](../tests/reference_parity/test_assimilation_parity.py) |
 | `auto_cate` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `auto_cate_tuned` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
+| `bagged_forecast` | [`test_forecasting_toolkit.py`](../tests/test_forecasting_toolkit.py) |
 | `balke_pearl` | [`test_oct2026_correctness_fixes.py`](../tests/reference_parity/test_oct2026_correctness_fixes.py) |
 | `bayes_bootstrap` | [`test_bayes_regress_exact_posterior.py`](../tests/reference_parity/test_bayes_regress_exact_posterior.py) |
 | `bayes_did` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
@@ -673,6 +674,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `bjs_pretrend_joint` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `bootstrap` | [`test_bootstrap_parity.py`](../tests/reference_parity/test_bootstrap_parity.py) |
 | `bootstrap_edges` | [`test_hill_climb_bnlearn_parity.py`](../tests/reference_parity/test_hill_climb_bnlearn_parity.py) |
+| `bootstrap_series` | [`test_forecasting_toolkit.py`](../tests/test_forecasting_toolkit.py) |
 | `boundary_rd` | [`test_rd_open_R_parity.py`](../tests/reference_parity/test_rd_open_R_parity.py) |
 | `bradford_hill` | [`test_bradford_hill_parity.py`](../tests/reference_parity/test_bradford_hill_parity.py) |
 | `breakdown_frontier` | [`test_breakdown_frontier_parity.py`](../tests/reference_parity/test_breakdown_frontier_parity.py) |
@@ -928,6 +930,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `scalar_iv_projection` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
 | `scigan` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
 | `sdtest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
+| `seasonal_dummies` | [`test_forecasting_toolkit.py`](../tests/test_forecasting_toolkit.py) |
 | `select_pci_proxies` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `selection_bounds` | [`test_selection_bounds_parity.py`](../tests/reference_parity/test_selection_bounds_parity.py) |
 | `sensitivity_rr` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
@@ -970,6 +973,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `translog_design` | [`test_translog_design_parity.py`](../tests/reference_parity/test_translog_design_parity.py) |
 | `transport_generalize` | [`test_transport_parity.py`](../tests/reference_parity/test_transport_parity.py) |
 | `ts_features` | [`test_forecasting_r_parity.py`](../tests/reference_parity/test_forecasting_r_parity.py) |
+| `tune_causal_forest` | [`test_tune_causal_forest.py`](../tests/test_tune_causal_forest.py) |
 | `twfe_decomposition` | [`test_dcdh_textbook_stata_parity.py`](../tests/reference_parity/test_dcdh_textbook_stata_parity.py) (+2) |
 | `uniform_bands` | [`test_event_study_vcov_R_parity.py`](../tests/reference_parity/test_event_study_vcov_R_parity.py) (+1) |
 | `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+3) |
@@ -989,6 +993,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 567 functions
+## unverified — 563 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

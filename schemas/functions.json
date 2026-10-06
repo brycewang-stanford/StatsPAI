@@ -6367,7 +6367,7 @@
     }
   },
   {
-    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap.",
+    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bootstrap_series",
     "parameters": {
       "properties": {
@@ -6416,7 +6416,7 @@
     }
   },
   {
-    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval.",
+    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bagged_forecast",
     "parameters": {
       "properties": {
@@ -6475,7 +6475,7 @@
     }
   },
   {
-    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms.",
+    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "seasonal_dummies",
     "parameters": {
       "properties": {
@@ -7163,7 +7163,7 @@
     }
   },
   {
-    "description": "Choose causal-forest settings (minimum leaf size, sample fraction, mtry, honesty options) by random search on the out-of-bag R-loss, then fit the forest. A tuned setting is adopted only if it beats the defaults by more than twice the noise of the comparison. The criterion of grf's tune.parameters. Helps most when the effect varies little; it is not a free improvement. ",
+    "description": "Choose causal-forest settings (minimum leaf size, sample fraction, mtry, honesty options) by random search on the out-of-bag R-loss, then fit the forest. A tuned setting is adopted only if it beats the defaults by more than twice the noise of the comparison. The criterion of grf's tune.parameters. Helps most when the effect varies little; it is not a free improvement. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "tune_causal_forest",
     "parameters": {
       "properties": {

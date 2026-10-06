@@ -1438,7 +1438,7 @@
     "name": "bacon_plot"
   },
   {
-    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval. Alternatives: sp.ets, sp.tscv.",
+    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.ets, sp.tscv.",
     "input_schema": {
       "properties": {
         "block_size": {
@@ -2842,7 +2842,7 @@
     "name": "bootstrap"
   },
   {
-    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap. Alternatives: sp.bagged_forecast.",
+    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.bagged_forecast.",
     "input_schema": {
       "properties": {
         "block_size": {
@@ -32065,7 +32065,7 @@
     "name": "search_functions"
   },
   {
-    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms. Alternatives: sp.fourier_terms.",
+    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.fourier_terms.",
     "input_schema": {
       "properties": {
         "drop_first": {

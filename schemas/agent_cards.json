@@ -13307,18 +13307,22 @@
     "assumptions": [],
     "category": "timeseries",
     "cost_profile": "",
-    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap.",
+    "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
+      "reference": "properties the construction guarantees: the first column is the series, the draws are reproducible from the seed, and they keep its trend and seasonality",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "analytical-only",
+      "tests": [
+        "tests/test_forecasting_toolkit.py"
+      ],
+      "tolerance": "first column equal to the series (default assert_allclose); seasonal strength above 0.9 and trend strength above 0.95 in every draw; draw mean within 8% of the series"
     },
     "example": "sp.bootstrap_series(df[\"cement\"], 100, period=4)",
     "failure_modes": [],
@@ -13340,7 +13344,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap.",
+      "description": "Bootstrapped versions of a series that keep its trend, seasonal pattern and the autocorrelation of the remainder: Box-Cox transform, STL (or a loess trend), moving block bootstrap of the remainder, back-transform. The first series is the original. R forecast::bld.mbb.bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bootstrap_series",
       "parameters": {
         "properties": {
@@ -13390,8 +13394,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) vs properties the construction guarantees: the first column is the series, the draws are reproducible from the seed, and they keep its trend and seasonality; tolerance first column equal to the series (default assert_allclose); seasonal strength above 0.9 and trend strength above 0.95 in every draw; draw mean within 8% of the series -- tests/test_forecasting_toolkit.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -13402,18 +13408,22 @@
     "assumptions": [],
     "category": "timeseries",
     "cost_profile": "",
-    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval.",
+    "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
+      "reference": "the definition: the forecast is the mean of the member forecasts, and the member fitted to the series itself is the single-model forecast",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "analytical-only",
+      "tests": [
+        "tests/test_forecasting_toolkit.py"
+      ],
+      "tolerance": "mean and maximum of the members to assert_allclose defaults; first member equal to the single ETS forecast to 1e-9 rel"
     },
     "example": "sp.bagged_forecast(df[\"cement\"], \"ets\", horizon=12, period=4).forecast",
     "failure_modes": [],
@@ -13440,7 +13450,7 @@
       }
     },
     "signature": {
-      "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval.",
+      "description": "Bagged forecasts: forecast every bootstrapped version of a series (sp.bootstrap_series) and average. Averages over model choice and parameter estimates. With forecaster='ets' this is bagged ETS (R forecast::baggedETS). The range of the members is reported; it is not a prediction interval. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bagged_forecast",
       "parameters": {
         "properties": {
@@ -13500,8 +13510,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) vs the definition: the forecast is the mean of the member forecasts, and the member fitted to the series itself is the single-model forecast; tolerance mean and maximum of the members to assert_allclose defaults; first member equal to the single ETS forecast to 1e-9 rel -- tests/test_forecasting_toolkit.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -13511,18 +13523,22 @@
     "assumptions": [],
     "category": "timeseries",
     "cost_profile": "",
-    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms.",
+    "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
+      "reference": "the definition: indicator columns of the season of each period",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "analytical-only",
+      "tests": [
+        "tests/test_forecasting_toolkit.py"
+      ],
+      "tolerance": "exact equality of the indicator matrix; a trend-plus-season regression recovers the simulated coefficients"
     },
     "example": "X = sp.seasonal_dummies(len(y), 4)",
     "failure_modes": [],
@@ -13544,7 +13560,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms.",
+      "description": "Seasonal indicator regressors season_2 ... season_m for a regression with a seasonal pattern; start= gives the rows of the forecast periods. R forecast::seasonaldummy, the season term of tslm. For long periods use sp.fourier_terms. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "seasonal_dummies",
       "parameters": {
         "properties": {
@@ -13576,8 +13592,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) vs the definition: indicator columns of the season of each period; tolerance exact equality of the indicator matrix; a trend-plus-season regression recovers the simulated coefficients -- tests/test_forecasting_toolkit.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -14581,7 +14599,7 @@
       "mediation_decompose",
       "sem_gmm",
       "dag",
-      "sur"
+      "sureg"
     ],
     "assumptions": [
       "The path diagram is the causal structure: no omitted common cause of two linked variables, arrows in the stated direction",
@@ -15202,18 +15220,22 @@
     ],
     "category": "forest",
     "cost_profile": "",
-    "description": "Choose causal-forest settings (minimum leaf size, sample fraction, mtry, honesty options) by random search on the out-of-bag R-loss, then fit the forest. A tuned setting is adopted only if it beats the defaults by more than twice the noise of the comparison. The criterion of grf's tune.parameters. Helps most when the effect varies little; it is not a free improvement. ",
+    "description": "Choose causal-forest settings (minimum leaf size, sample fraction, mtry, honesty options) by random search on the out-of-bag R-loss, then fit the forest. A tuned setting is adopted only if it beats the defaults by more than twice the noise of the comparison. The criterion of grf's tune.parameters. Helps most when the effect varies little; it is not a free improvement. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
+      "reference": "a constant-effect design, where larger leaves are known to be better",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "analytical-only",
+      "tests": [
+        "tests/test_tune_causal_forest.py"
+      ],
+      "tolerance": "on four seeds: the tuned forest is adopted and beats the default out-of-bag error against the true effect in at least three, with min_samples_leaf above the default"
     },
     "example": "sp.tune_causal_forest(Y=y, T=w, X=X, n_draws=40, random_state=1)",
     "failure_modes": [],
@@ -15235,7 +15257,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Choose causal-forest settings (minimum leaf size, sample fraction, mtry, honesty options) by random search on the out-of-bag R-loss, then fit the forest. A tuned setting is adopted only if it beats the defaults by more than twice the noise of the comparison. The criterion of grf's tune.parameters. Helps most when the effect varies little; it is not a free improvement. ",
+      "description": "Choose causal-forest settings (minimum leaf size, sample fraction, mtry, honesty options) by random search on the out-of-bag R-loss, then fit the forest. A tuned setting is adopted only if it beats the defaults by more than twice the noise of the comparison. The criterion of grf's tune.parameters. Helps most when the effect varies little; it is not a free improvement. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "tune_causal_forest",
       "parameters": {
         "properties": {
@@ -15307,8 +15329,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) vs a constant-effect design, where larger leaves are known to be better; tolerance on four seeds: the tuned forest is adopted and beats the default out-of-bag error against the true effect in at least three, with min_samples_leaf above the default -- tests/test_tune_causal_forest.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

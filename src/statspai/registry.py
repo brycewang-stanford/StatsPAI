@@ -9674,7 +9674,7 @@ def _build_registry() -> None:
                 "ones, and multivariate normality; missing='listwise': "
                 "missing completely at random",
             ],
-            alternatives=["mediate", "mediation_decompose", "sem_gmm", "dag", "sur"],
+            alternatives=["mediate", "mediation_decompose", "sem_gmm", "dag", "sureg"],
         )
     )
 

@@ -7207,6 +7207,38 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "printed in the book (tests/test_ness_causal_ai_pass.py)."
         ),
     },
+    "seasonal_dummies": {
+        "status": "analytical-only",
+        "reference": "the definition: indicator columns of the season of each period",
+        "tolerance": "exact equality of the indicator matrix; a trend-plus-season regression recovers the simulated coefficients",
+        "sides": ["py"],
+        "test": ["tests/test_forecasting_toolkit.py"],
+        "note": "Known-truth check, no cross-package reference: column sums, the dropped first season, continuation from start=, and recovery of a simulated trend and seasonal contrast.",
+    },
+    "bootstrap_series": {
+        "status": "analytical-only",
+        "reference": "properties the construction guarantees: the first column is the series, the draws are reproducible from the seed, and they keep its trend and seasonality",
+        "tolerance": "first column equal to the series (default assert_allclose); seasonal strength above 0.9 and trend strength above 0.95 in every draw; draw mean within 8% of the series",
+        "sides": ["py"],
+        "test": ["tests/test_forecasting_toolkit.py"],
+        "note": "Behavioural check on a simulated seasonal series, no cross-package reference. The draws are random, so nothing beyond these properties is pinned.",
+    },
+    "bagged_forecast": {
+        "status": "analytical-only",
+        "reference": "the definition: the forecast is the mean of the member forecasts, and the member fitted to the series itself is the single-model forecast",
+        "tolerance": "mean and maximum of the members to assert_allclose defaults; first member equal to the single ETS forecast to 1e-9 rel",
+        "sides": ["py"],
+        "test": ["tests/test_forecasting_toolkit.py"],
+        "note": "Known-truth check, no cross-package reference. The bagged forecast is also required to lie within 5% of the single-model one on the test series.",
+    },
+    "tune_causal_forest": {
+        "status": "analytical-only",
+        "reference": "a constant-effect design, where larger leaves are known to be better",
+        "tolerance": "on four seeds: the tuned forest is adopted and beats the default out-of-bag error against the true effect in at least three, with min_samples_leaf above the default",
+        "sides": ["py"],
+        "test": ["tests/test_tune_causal_forest.py"],
+        "note": "Behavioural screen on a design with a known answer, no cross-package reference and not an equivalence test. grf::tune_causal_forest is not compared.",
+    },
     "identify_counterfactual": {
         "status": "analytical-only",
         "reference": "counterfactual probabilities computed by enumeration "
