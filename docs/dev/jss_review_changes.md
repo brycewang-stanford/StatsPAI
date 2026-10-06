@@ -2929,3 +2929,23 @@ only the recorded source hashes move.
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after the Rosenbaum pass (`sp.weighted_rank`, `sp.two_criteria_match` and eight more)
+
+- **Commits.** `81706b55` re-recorded the entries of Track A modules
+  03 13 15 24 25 26 27 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and rewrote
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `fe41236b`. The exercised file whose digest moved:
+  `src/statspai/__init__.py` (sixteen new exports).
+- **Reason.** Audit in `docs/dev/2026-10-06-rosenbaum-itos-review.md`. Ten
+  new functions in new files, for matched observational designs and their
+  sensitivity analysis. No estimator on a Track A or original-data path
+  changed, and no existing function changed its output.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in both trace files only `exercised_sources` digests and
+  `seconds` differ. The registry census the paper quotes moves to 1,486
+  registered functions across 89 submodules.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
