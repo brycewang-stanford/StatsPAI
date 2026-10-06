@@ -1,7 +1,7 @@
-# Draft note to Klaus Neusser on `KalmanSmootherTVP.m`
+# Note to Klaus Neusser on `KalmanSmootherTVP.m`
 
-Status: final text, to be sent by Bryce (decision delegated 2026-10-06:
-send). Not sent by the assistant.
+Status: sent by Bryce on 2026-10-07. The text below is what was drafted
+for him; any reply belongs in this file.
 
 ---
 
