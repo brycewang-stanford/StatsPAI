@@ -594,3 +594,41 @@ def test_everything_is_registered():
     # the reference keys resolve in paper.bib
     text = sp.bibtex(keys=["kozumi2011gibbs", "raftery1997bayesian", "plummer2006coda"])
     assert "Kozumi" in text and "Raftery" in text and "Plummer" in text
+
+
+def test_sur_shrink_and_mlogit_surface(df):
+    d = df.assign(y2=df["y"] * 0.5 + np.random.default_rng(4).normal(size=len(df)))
+    sur = sp.bayes_sur(["y ~ x1", "y2 ~ x2"], d, draws=800, burnin=200, seed=1)
+    assert sur.model == "sur" and "corr(y,y2)" in sur.params.index
+    assert sur.cite().startswith("zellner1962efficient")
+    with pytest.raises(sp.MethodIncompatibility, match="at least two"):
+        sp.bayes_sur(["y ~ x1"], d)
+    with pytest.raises(sp.MethodIncompatibility, match="different outcome"):
+        sp.bayes_sur(["y ~ x1", "y ~ x2"], d)
+    las = sp.bayes_shrink("y ~ x1 + x2", d, draws=800, burnin=200, seed=1)
+    assert list(las.params.index) == ["Intercept", "x1", "x2", "sigma2", "lam"]
+    assert las.predict(d.head(3)).shape == (3,)
+    ss = sp.bayes_shrink("y ~ x1 + x2", d, prior="ssvs", draws=800, burnin=200, seed=1)
+    assert ss.table.loc["x1", "pip"] > 0.9 and np.isnan(ss.table.loc["sigma2", "pip"])
+    # standardising makes the prior invariant to the units of a regressor
+    scaled = sp.bayes_shrink(
+        "y ~ big + x2",
+        d.assign(big=d["x1"] * 1000),
+        prior="ssvs",
+        draws=800,
+        burnin=200,
+        seed=1,
+    )
+    assert scaled.params["big"] * 1000 == pytest.approx(ss.params["x1"], rel=1e-6)
+    with pytest.raises(sp.MethodIncompatibility, match="'lasso' or 'ssvs'"):
+        sp.bayes_shrink("y ~ x1", d, prior="horseshoe")
+    with pytest.raises(sp.MethodIncompatibility, match="intercept"):
+        sp.bayes_shrink("y ~ x1 - 1", d)
+    with pytest.raises(sp.MethodIncompatibility, match="at least three"):
+        sp.bayes_regress("d ~ x1", d, model="mlogit", **FAST)
+    ml = sp.bayes_regress(
+        "grade ~ x1", d, model="mlogit", draws=600, burnin=200, seed=1
+    )
+    assert ml.model_info["base_level"] == "low" and "top:x1" in ml.params.index
+    with pytest.raises(sp.MethodIncompatibility, match="probabilities"):
+        ml.predict()

@@ -27,17 +27,21 @@ import statspai as sp
 | 6 | `MCMClogit`, `rbprobitGibbs` | `model='logit'`, `model='probit'` |
 | 6 | `rordprobitGibbs` | `model='oprobit'` |
 | 6 | negative binomial by Metropolis-Hastings | `model='negbin'`, also `model='poisson'` |
+| 6 | multinomial logit by Metropolis-Hastings | `model='mlogit'` |
 | 6 | `MCMCtobit` | `model='tobit', lower=, upper=` |
 | 6 | `MCMCquantreg` | `model='quantile', quantile=` |
 | 6 | heteroskedastic errors by a scale mixture (exercise) | `model='t', dof=` |
 | 6 | Bayesian bootstrap | `sp.bayes_bootstrap` |
 | 8 | `dlm::dlmModReg`, `dlmMLE`, `dlmFilter`, `dlmSmooth`, `dlmGibbsDIG` | `sp.dlm("y ~ x", df)`, `method='mle'` or `'gibbs'` |
 | 8 | Minnesota-prior VAR | `sp.bvar` |
+| 7 | `MCMCregress` on several outcomes, `bayesm::rsurGibbs` | `sp.bayes_sur(["y1 ~ x", "y2 ~ z"], df)` |
 | 7, 13 | `bayesm::rivGibbs` | `sp.bayes_ivreg("y ~ x + (d ~ z)", df)` |
 | 9 | `MCMChregress`, hierarchical logit and Poisson | `sp.bayes_mixed(family='normal' / 'logit' / 'poisson')` |
 | 10 | `BMA::bicreg`, `BMA::bic.glm` | `sp.bma(method='bic')` |
 | 10 | g-prior model averaging, MC3 | `sp.bma(method='gprior')` |
 | 10 | Savage-Dickey, Chib, Gelfand-Dey | `sp.savage_dickey`; `.log_marginal_likelihood(method=)` |
+| 12 | Bayesian lasso, stochastic search variable selection | `sp.bayes_shrink(prior='lasso' / 'ssvs')` |
+| 14 | variational Bayes for the linear model | `sp.bayes_regress(inference='vb')` |
 | 13 | Bayesian IV, DiD, RD | `sp.bayes_iv`, `sp.bayes_did`, `sp.bayes_rd`, `sp.bayes_fuzzy_rd` (PyMC) |
 
 Not covered yet: multinomial probit and logit, multivariate probit, SUR by

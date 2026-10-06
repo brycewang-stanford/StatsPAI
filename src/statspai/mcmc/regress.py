@@ -67,6 +67,10 @@ _CITATIONS = {
     "poisson": ("metropolis1953equation", "hastings1970monte"),
     "negbin": ("metropolis1953equation", "hastings1970monte"),
     "bayes_bootstrap": ("rubin1981bayesian",),
+    "mlogit": ("metropolis1953equation", "hastings1970monte"),
+    "sur": ("zellner1962efficient", "rossi2005bayesian"),
+    "lasso": ("park2008bayesian",),
+    "ssvs": ("george1993variable",),
     "iv": ("rossi2005bayesian",),
 }
 
@@ -388,10 +392,13 @@ class BayesRegressResult(ResultProtocolMixin):
         chain (for instance Raftery-Lewis on a short run) carries the
         reason instead.
         """
-        if self.model in ("conjugate", "bayes_bootstrap"):
+        if (
+            self.model in ("conjugate", "bayes_bootstrap")
+            or self.model_info.get("inference") == "vb"
+        ):
             raise MethodIncompatibility(
-                f"model='{self.model}' produces independent draws; there is "
-                "no Markov chain to diagnose."
+                f"model='{self.model}' here produces independent draws; "
+                "there is no Markov chain to diagnose."
             )
         first = self.chain_list()[0]
         out: Dict[str, Any] = {
@@ -445,9 +452,9 @@ class BayesRegressResult(ResultProtocolMixin):
         X = self._design(data)
         d = self.draws.to_numpy()
         if what == "probabilities":
-            if self.model != "oprobit":
+            if self.model not in ("oprobit", "mlogit"):
                 raise MethodIncompatibility(
-                    "what='probabilities' is for model='oprobit'."
+                    "what='probabilities' is for model='oprobit' and 'mlogit'."
                 )
             probs = self._model.category_probabilities(d, X)
             return pd.DataFrame(probs, columns=[str(v) for v in self._model.levels])
@@ -518,6 +525,11 @@ class BayesRegressResult(ResultProtocolMixin):
             raise MethodIncompatibility(
                 "The Bayesian bootstrap has no parametric likelihood and "
                 "therefore no marginal likelihood."
+            )
+        if self.model_info.get("inference") == "vb":
+            raise MethodIncompatibility(
+                "A variational fit has an evidence lower bound, "
+                "model_info['elbo'], not a marginal likelihood."
             )
         if not hasattr(mdl, "log_kernel") and self.model != "conjugate":
             raise MethodIncompatibility(
@@ -714,6 +726,7 @@ def bayes_regress(
     dof: float = 5.0,
     size_prior: Tuple[float, float] = (0.5, 0.1),
     cut_prior_var: float = 1.0,
+    inference: str = "mcmc",
 ) -> BayesRegressResult:
     """Bayesian regression by MCMC.
 
@@ -744,6 +757,9 @@ def bayes_regress(
         Chib (1992).
         ``'quantile'``  asymmetric Laplace likelihood at ``quantile=``,
         Kozumi and Kobayashi (2011).
+        ``'mlogit'``    multinomial logit, first level of the outcome as
+        the base; coefficients are named ``<level>:<term>``; random-walk
+        Metropolis.
     prior_mean : float or array, default 0
         Prior mean of the coefficients (scalar or one per coefficient,
         in the order of the design matrix).
@@ -791,6 +807,14 @@ def bayes_regress(
     cut_prior_var : float, default 1
         Prior variance of the log distance between consecutive cutpoints
         of the ordered probit (mean zero).
+    inference : {'mcmc', 'vb'}, default 'mcmc'
+        ``'vb'`` (``model='normal'`` only): mean-field variational Bayes,
+        ``q(beta) q(sigma2)`` by coordinate ascent. Fast and
+        deterministic; the means are close to the posterior means, the
+        standard deviations are too small when coefficients and variance
+        are dependent a posteriori. ``draws`` are then independent draws
+        from the approximation and ``model_info['elbo']`` is the evidence
+        lower bound.
 
     Returns
     -------
@@ -845,18 +869,19 @@ def bayes_regress(
 
     levels: List[Any] = []
     work = data
-    if model_key == "oprobit":
+    if model_key in ("oprobit", "mlogit"):
         lhs = formula.split("~", 1)[0].strip()
         if lhs not in data.columns:
             raise MethodIncompatibility(
-                f"For model='oprobit' the left-hand side must be a column of "
-                f"data; {lhs!r} is not."
+                f"For model='{model_key}' the left-hand side must be a column "
+                f"of data; {lhs!r} is not."
             )
         work = data.loc[data[lhs].notna()].copy()
         codes, levels = _ordered_codes(work[lhs])
         work[lhs] = codes
         rhs = formula.split("~", 1)[1]
-        if "-1" in rhs.replace(" ", "") or "+0" in rhs.replace(" ", ""):
+        no_const = "-1" in rhs.replace(" ", "") or "+0" in rhs.replace(" ", "")
+        if model_key == "oprobit" and no_const:
             raise MethodIncompatibility(
                 "The ordered probit has free cutpoints in place of an "
                 "intercept; write the formula without '- 1'."
@@ -882,9 +907,12 @@ def bayes_regress(
 
     default_prior = prior_var is None
     if prior_var is None:
-        prior_var = {"probit": 100.0, "logit": 100.0, "oprobit": 100.0}.get(
-            model_key, 1000.0
-        )
+        prior_var = {
+            "probit": 100.0,
+            "logit": 100.0,
+            "oprobit": 100.0,
+            "mlogit": 100.0,
+        }.get(model_key, 1000.0)
     a0, d0 = (float(v) for v in sigma2_prior)
 
     prior: Dict[str, Any] = {
@@ -946,9 +974,20 @@ def bayes_regress(
         )
         return res
 
+    inference = str(inference).lower()
+    if inference not in ("mcmc", "vb"):
+        raise MethodIncompatibility("inference must be 'mcmc' or 'vb'.")
+    if inference == "vb" and model_key != "normal":
+        raise MethodIncompatibility(
+            "inference='vb' is implemented for model='normal' only."
+        )
     if model_key == "normal":
         mdl: Any = M.NormalModel(y, X, xnames, prior_mean, prior_var, a0, d0)
         prior["sigma2"] = f"InvGamma({a0 / 2:g}, {d0 / 2:g})"
+        if inference == "vb":
+            res = _vb_normal(mdl, formula, draws, seed, level, prior, design_info)
+            _note_default_prior(res, default_prior, mdl.b0, mdl.B0)
+            return res
     elif model_key == "t":
         mdl = M.StudentTModel(y, X, xnames, prior_mean, prior_var, a0, d0, dof)
         prior["sigma2"] = f"InvGamma({a0 / 2:g}, {d0 / 2:g})"
@@ -984,6 +1023,10 @@ def bayes_regress(
             prior["sigma"] = f"InvGamma({n0 / 2:g}, {s0 / 2:g})"
         else:
             info["scale"] = float(scale)
+    elif model_key == "mlogit":
+        mdl = M.MultinomialLogitModel(y, X, xnames, prior_mean, prior_var, tune, levels)
+        info["levels"] = [str(v) for v in levels]
+        info["base_level"] = str(levels[0])
     else:  # oprobit
         if "Intercept" not in xnames:
             raise MethodIncompatibility(
@@ -1117,6 +1160,115 @@ def bayes_regress(
         warnings.warn(text, ConvergenceWarning, stacklevel=2)
     _note_default_prior(res, default_prior, mdl.b0, mdl.B0)
     return res
+
+
+def _vb_normal(
+    mdl: Any,
+    formula: str,
+    draws: int,
+    seed: Optional[int],
+    level: float,
+    prior: Dict[str, Any],
+    design_info: Any,
+) -> BayesRegressResult:
+    """Mean-field variational Bayes for the normal linear model.
+
+    ``q(beta) = N(m, S)``, ``q(sigma2) = InvGamma(an / 2, dn / 2)`` with
+    the coordinate ascent updates
+    ``S = (B0^{-1} + r X'X)^{-1}``, ``m = S (B0^{-1} b0 + r X'y)``,
+    ``dn = d0 + |y - X m|^2 + tr(X'X S)``, ``r = E_q[1 / sigma2] = an / dn``.
+    """
+    n, k = mdl.n, mdl.k
+    an = mdl.a0 + n
+    r = 1.0 / max(mdl._ssr(mdl._ols()) / max(n - k, 1), 1e-12)
+    logdet_b0 = np.linalg.slogdet(mdl.B0)[1]
+    elbo_old = -np.inf
+    elbo = -np.inf
+    m = np.zeros(k)
+    S = np.eye(k)
+    dn = 1.0
+    for it in range(500):
+        S = linalg.inv(mdl.B0inv + r * mdl.XtX)
+        S = 0.5 * (S + S.T)
+        m = S @ (mdl.B0inv_b0 + r * mdl.Xty)
+        dn = mdl.d0 + mdl._ssr(m) + float(np.trace(mdl.XtX @ S))
+        r_prev, r = r, an / dn
+        e_log_s2 = np.log(dn / 2.0) - special.digamma(an / 2.0)
+        dev = m - mdl.b0
+        elbo = float(
+            -0.5 * n * (np.log(2 * np.pi) + e_log_s2)
+            - 0.5 * r * (mdl._ssr(m) + np.trace(mdl.XtX @ S))
+            - 0.5 * (k * np.log(2 * np.pi) + logdet_b0)
+            - 0.5 * (dev @ mdl.B0inv @ dev + np.trace(mdl.B0inv @ S))
+            + 0.5 * mdl.a0 * np.log(mdl.d0 / 2.0)
+            - special.gammaln(mdl.a0 / 2.0)
+            - (mdl.a0 / 2.0 + 1.0) * e_log_s2
+            - 0.5 * mdl.d0 * r
+            + 0.5 * (k * (1 + np.log(2 * np.pi)) + np.linalg.slogdet(S)[1])
+            + an / 2.0
+            + np.log(dn / 2.0)
+            + special.gammaln(an / 2.0)
+            - (1.0 + an / 2.0) * special.digamma(an / 2.0)
+        )
+        if (
+            abs(elbo - elbo_old) < 1e-12 * (1.0 + abs(elbo))
+            and abs(r - r_prev) < 1e-13 * r
+        ):
+            break
+        elbo_old = elbo
+    rng = spawn_rngs(seed, 1)[0]
+    beta = rng.multivariate_normal(m, S, size=draws, method="cholesky")
+    s2 = (dn / 2.0) / rng.gamma(an / 2.0, size=draws)
+    d_df = pd.DataFrame(np.column_stack([beta, s2]), columns=mdl.names)
+    lo = (1.0 - level) / 2.0
+    sd_beta = np.sqrt(np.diag(S))
+    ig = stats.invgamma(an / 2.0, scale=dn / 2.0)
+    mean = np.append(m, dn / (an - 2.0))
+    sd = np.append(sd_beta, float(ig.std()))
+    zq = stats.norm.ppf(1.0 - lo)
+    table = pd.DataFrame(
+        {
+            "mean": mean,
+            "sd": sd,
+            "mcse": 0.0,
+            "ess": float(draws),
+            "lower": np.append(m - zq * sd_beta, ig.ppf(lo)),
+            "median": np.append(m, ig.ppf(0.5)),
+            "upper": np.append(m + zq * sd_beta, ig.ppf(1.0 - lo)),
+            "prob_positive": np.append(stats.norm.cdf(m / sd_beta), 1.0),
+        },
+        index=mdl.names,
+    )
+    return BayesRegressResult(
+        model="normal",
+        formula=formula,
+        params=table["mean"].copy(),
+        std_errors=table["sd"].copy(),
+        table=table,
+        draws=d_df,
+        chain=np.zeros(draws, dtype=int),
+        n_obs=n,
+        n_draws=draws,
+        burnin=0,
+        thin=1,
+        chains=1,
+        sampler="variational Bayes (mean field, coordinate ascent)",
+        acceptance_rate=None,
+        prior=prior,
+        level=level,
+        model_info={
+            "inference": "vb",
+            "elbo": elbo,
+            "iterations": it + 1,
+            "q_beta_mean": m,
+            "q_beta_cov": S,
+            "q_sigma2_shape": an / 2.0,
+            "q_sigma2_rate": dn / 2.0,
+        },
+        diagnostics_info={"warnings": []},
+        _model=mdl,
+        _design_info=design_info,
+    )
 
 
 def _note_default_prior(

@@ -996,6 +996,75 @@ class OrderedProbitModel(_Model):
         return np.asarray(np.diff(cdf, axis=2).mean(axis=0))
 
 
+class MultinomialLogitModel(_RWModel):
+    """Multinomial logit with the first outcome level as the base.
+
+    One coefficient vector per non-base level; reported as
+    ``<level>:<term>``. The stacked vector has the prior
+    ``N(prior_mean, prior_var)`` (scalars, or one entry per stacked
+    coefficient).
+    """
+
+    name = "mlogit"
+
+    def __init__(
+        self,
+        y: Any,
+        X: Any,
+        xnames: Any,
+        prior_mean: Any,
+        prior_var: Any,
+        tune: Any,
+        levels: Any,
+    ) -> None:
+        self.y = np.asarray(y, dtype=float)
+        self.X = np.asarray(X, dtype=float)
+        self.n, self.kx = self.X.shape
+        self.levels = list(levels)
+        self.J = len(self.levels)
+        if self.J < 3:
+            raise MethodIncompatibility(
+                "model='mlogit' needs an outcome with at least three "
+                f"categories; found {self.J}. Use model='logit'."
+            )
+        self.yi = self.y.astype(int)
+        if (np.bincount(self.yi, minlength=self.J) == 0).any():
+            raise DataInsufficient("An outcome category has no observations.")
+        base_names = [str(c) for c in xnames]
+        self.xnames = [f"{lv}:{c}" for lv in self.levels[1:] for c in base_names]
+        self.k = self.kx * (self.J - 1)
+        self.b0, self.B0, self.B0inv = normal_prior(
+            self.k, prior_mean, prior_var, self.xnames
+        )
+        self.B0inv_b0 = self.B0inv @ self.b0
+        self.aux_names = []
+        self._mode = None
+        self._mode_cov = None
+        self.tune = tune
+        self.onehot = np.zeros((self.n, self.J))
+        self.onehot[np.arange(self.n), self.yi] = 1.0
+
+    def _eta(self, theta: np.ndarray, X: np.ndarray) -> np.ndarray:
+        B = theta[: self.k].reshape(self.J - 1, self.kx)
+        return np.column_stack([np.zeros(X.shape[0]), X @ B.T])
+
+    def log_lik(self, theta: np.ndarray) -> float:
+        eta = self._eta(theta, self.X)
+        return float((self.onehot * eta).sum() - special.logsumexp(eta, axis=1).sum())
+
+    def category_probabilities(self, draws: np.ndarray, X: np.ndarray) -> np.ndarray:
+        out = np.zeros((X.shape[0], self.J))
+        for th in draws:
+            out += special.softmax(self._eta(th, X), axis=1)
+        return np.asarray(out / draws.shape[0])
+
+    def linear_predictor(self, draws: np.ndarray, X: np.ndarray) -> np.ndarray:
+        raise MethodIncompatibility(
+            "A multinomial logit has one index per category; use "
+            "predict(what='probabilities')."
+        )
+
+
 MODELS = (
     "normal",
     "conjugate",
@@ -1007,4 +1076,5 @@ MODELS = (
     "negbin",
     "tobit",
     "quantile",
+    "mlogit",
 )

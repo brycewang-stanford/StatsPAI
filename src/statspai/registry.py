@@ -16098,6 +16098,7 @@ def _build_registry() -> None:
                         "negbin",
                         "tobit",
                         "quantile",
+                        "mlogit",
                     ],
                 ),
                 ParamSpec(
@@ -16169,6 +16170,14 @@ def _build_registry() -> None:
                     False,
                     1.0,
                     "oprobit: prior variance of the log cutpoint increments",
+                ),
+                ParamSpec(
+                    "inference",
+                    "str",
+                    False,
+                    "mcmc",
+                    "'vb': mean-field variational Bayes (model='normal')",
+                    ["mcmc", "vb"],
                 ),
             ],
             returns="BayesRegressResult",
@@ -16434,6 +16443,121 @@ def _build_registry() -> None:
                 "use sp.structural_break",
             ],
             cost_profile="O(T k^3) per likelihood evaluation; Gibbs O(draws T k^3)",
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_sur",
+            category="bayes",
+            description=(
+                "Bayesian seemingly unrelated regressions by Gibbs sampling: "
+                "several linear equations with errors correlated across "
+                "equations, normal prior on the coefficients, "
+                "inverse-Wishart prior on the error covariance. The same "
+                "regressors in every equation give the multivariate "
+                "regression model. NumPy only."
+            ),
+            params=[
+                ParamSpec(
+                    "formulas",
+                    "list",
+                    True,
+                    description="One formula per equation, e.g. ['y1 ~ x', 'y2 ~ z']",
+                ),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("prior_mean", "float | list", False, 0.0),
+                ParamSpec("prior_var", "float | list | matrix", False, 1000.0),
+                ParamSpec(
+                    "sigma_prior",
+                    "tuple",
+                    False,
+                    None,
+                    "(df, scale): Sigma ~ InvWishart(df, scale); default (M + 1, 0.02)",
+                ),
+                ParamSpec("draws", "int", False, 10000),
+                ParamSpec("burnin", "int", False, 2000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("chains", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+            ],
+            returns="BayesRegressResult",
+            example='sp.bayes_sur(["y1 ~ x", "y2 ~ z"], df, seed=1)',
+            tags=["bayes", "mcmc", "sur", "system", "multivariate"],
+            reference="zellner1962efficient",
+            assumptions=["Jointly normal errors, independent across rows"],
+            alternatives=["sureg", "bayes_regress", "three_sls"],
+            not_recommended_when=[
+                "Regressors are endogenous across equations: SUR assumes "
+                "exogeneity; use sp.three_sls or sp.bayes_ivreg",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bayes_shrink",
+            category="bayes",
+            description=(
+                "Linear regression with a shrinkage or variable-selection "
+                "prior: the Bayesian lasso (Park and Casella 2008) or "
+                "stochastic search variable selection (George and McCulloch "
+                "1993) with posterior inclusion probabilities. Regressors "
+                "standardised for the prior, coefficients reported on the "
+                "original scale. NumPy only."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="'y ~ x1 + x2 + ...'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "prior",
+                    "str",
+                    False,
+                    "lasso",
+                    "Prior on the slopes",
+                    ["lasso", "ssvs"],
+                ),
+                ParamSpec(
+                    "lam", "float", False, None, "Lasso penalty; estimated when omitted"
+                ),
+                ParamSpec(
+                    "lam_prior",
+                    "tuple",
+                    False,
+                    (1.0, 1.0),
+                    "lam^2 ~ Gamma(shape, rate)",
+                ),
+                ParamSpec(
+                    "spike_sd", "float", False, 0.02, "SSVS spike sd, in sd(y) units"
+                ),
+                ParamSpec(
+                    "slab_sd", "float", False, 1.0, "SSVS slab sd, in sd(y) units"
+                ),
+                ParamSpec(
+                    "inclusion", "float", False, 0.5, "SSVS prior inclusion probability"
+                ),
+                ParamSpec("sigma2_prior", "tuple", False, (0.001, 0.001)),
+                ParamSpec(
+                    "standardize", "bool", False, True, "Scale regressors for the prior"
+                ),
+                ParamSpec("draws", "int", False, 10000),
+                ParamSpec("burnin", "int", False, 2000),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+            ],
+            returns="BayesRegressResult",
+            example='sp.bayes_shrink("y ~ x1 + x2 + x3", df, prior="ssvs", seed=1)',
+            tags=["bayes", "mcmc", "lasso", "shrinkage", "variable-selection", "ssvs"],
+            reference="park2008bayesian",
+            assumptions=["Linear mean, normal errors", "Sparse or small coefficients"],
+            alternatives=["bma", "lasso_select", "rlasso", "ridge", "shrinkage"],
+            not_recommended_when=[
+                "Inference on one coefficient with many controls is the "
+                "goal: shrunk intervals are not confidence intervals; use "
+                "sp.rlasso_effect or sp.dml",
+            ],
         )
     )
 

@@ -397,6 +397,15 @@ user guide is `docs/guides/bayesian_econometrics.md`.
   paths with intervals, forecasts, `constant=` for coefficients that do
   not move. Filter, smoother and likelihood agree with R `dlm` to 1e-9;
   the Gibbs sampler is checked against an exact posterior.
+- **`sp.bayes_sur`**: seemingly unrelated regressions (and multivariate
+  regression) by Gibbs sampling.
+- **`sp.bayes_shrink`**: the Bayesian lasso (Park and Casella 2008) and
+  stochastic search variable selection (George and McCulloch 1993) with
+  posterior inclusion probabilities; regressors standardised for the
+  prior, coefficients on the original scale.
+- `sp.bayes_regress(model='mlogit')`: multinomial logit.
+  `sp.bayes_regress(inference='vb')`: mean-field variational Bayes for the
+  normal model, with the evidence lower bound.
 - **`sp.bma`**: Bayesian model averaging. `method='bic'` with Occam's
   window for Gaussian, binomial, Poisson and gamma outcomes, and
   `method='gprior'` with the benchmark g-priors for Gaussian outcomes, by

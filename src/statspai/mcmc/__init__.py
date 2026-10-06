@@ -24,6 +24,8 @@ from .diagnostics import (
 from .iv import bayes_ivreg
 from .mixed import BayesMixedResult, bayes_mixed
 from .regress import BayesRegressResult, bayes_regress
+from .shrinkage import bayes_shrink
+from .sur import bayes_sur
 
 __all__ = [
     "MCMCDiagnostic",
@@ -36,6 +38,8 @@ __all__ = [
     "bayes_ivreg",
     "bayes_mixed",
     "bayes_regress",
+    "bayes_shrink",
+    "bayes_sur",
     "bma",
     "savage_dickey",
     "gelman_rubin",
