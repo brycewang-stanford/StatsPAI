@@ -18,6 +18,7 @@ Heckman, J.J. (1979).
 *Econometrica*, 47(1), 153-161. [@heckman1979sample]
 """
 
+import warnings
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -26,7 +27,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import AssumptionWarning, MethodIncompatibility
 from ._limited_dep_result import LimitedDepResult
 
 
@@ -245,6 +246,27 @@ def heckman(
     rss = float(np.sum(resid**2))
     sigma2 = rss / n_eff + beta_lambda**2 * float(np.mean(delta_v))
     rho2 = beta_lambda**2 / sigma2 if sigma2 > 0 else 0.0
+    # The two-step estimate of rho is not confined to [-1, 1]. Beyond it
+    # the weights 1 - rho^2 delta_i below can turn negative and the formula
+    # is no longer a variance. Stata sets rho to +/-1 and sigma to |lambda|
+    # (so that lambda = rho * sigma still holds) and says so; the same is
+    # done here.
+    rho_two_step = float(np.sign(beta_lambda) * np.sqrt(rho2))
+    rho_truncated = rho2 > 1.0
+    if rho_truncated:
+        warnings.warn(
+            f"heckman: the two-step estimate of rho is {rho_two_step:.4f}, "
+            "outside [-1, 1]; it is set to "
+            f"{np.sign(beta_lambda):+.0f} and sigma to |lambda| for the "
+            "standard errors, as Stata does. An estimate this far out "
+            "usually means the selection equation has no variable that is "
+            "excluded from the outcome equation, or the model does not fit. "
+            "method='ml' keeps rho inside the interval.",
+            AssumptionWarning,
+            stacklevel=2,
+        )
+        rho2 = 1.0
+        sigma2 = beta_lambda**2
 
     XtX_inv = np.linalg.pinv(X_v.T @ X_v)
     # Heteroskedastic contribution  X*'(I − ρ̂² D_δ) X*
@@ -321,6 +343,8 @@ def heckman(
         ),
         "sigma": float(np.sqrt(sigma2)),
         "rho": float(lambda_coef / np.sqrt(sigma2)) if sigma2 > 0 else np.nan,
+        "rho_two_step": rho_two_step,
+        "rho_truncated": bool(rho_truncated),
     }
     # the first step, which Stata prints as the `select` equation
     se_gamma = np.sqrt(np.maximum(np.diag(V_gamma), 0.0))

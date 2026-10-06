@@ -1138,7 +1138,9 @@ def psmatch2(
         ``'treated'`` is the region of Becker and Ichino's ``pscore`` /
         ``attnd, comsup``: every unit whose score lies outside the range of
         the *treated* scores is set aside, so controls outside it cannot be
-        matches. It is available with ``ties=True`` (or ``ate=True``).
+        matches. It is available with ``ties=True`` (or ``ate=True``), and
+        with any method when ``pscore`` names a fitted score (the rows
+        outside the region are then left out of the matched frame).
     method : {'neighbor', 'kernel', 'radius'}, default 'neighbor'
         Matching algorithm. ``'neighbor'`` is k-nearest-neighbour matching
         (Stata default; uses ``neighbor`` / ``caliper``). ``'kernel'`` is
@@ -1342,13 +1344,23 @@ def psmatch2(
 
     treated_support = str(common_support).lower() == "treated"
     if treated_support and not (ties or ate):
-        raise _psmatch2_error(
-            "common_support='treated' (the region of Becker and Ichino's "
-            "pscore / attnd) is implemented for ties=True or ate=True.",
-            diagnostics={"common_support": common_support, "ties": ties},
-            recovery_hint="Pass ties=True, or use common_support='minmax' "
-            "(psmatch2's rule: treated outside the range of the controls).",
-        )
+        if pscore is None:
+            raise _psmatch2_error(
+                "common_support='treated' (the region of Becker and Ichino's "
+                "pscore / attnd) is implemented for ties=True or ate=True, "
+                "and for any method when pscore= names a fitted score.",
+                diagnostics={"common_support": common_support, "ties": ties},
+                recovery_hint="Pass ties=True, give the score with pscore=, "
+                "or use common_support='minmax' (psmatch2's rule: treated "
+                "outside the range of the controls).",
+            )
+        # the score is given: the region is a filter on the rows
+        score = pd.to_numeric(data[pscore], errors="coerce")
+        arm = pd.to_numeric(data[treat], errors="coerce")
+        lo, hi = score[arm == 1].min(), score[arm == 1].max()
+        data = data.loc[score.isna() | ((score >= lo) & (score <= hi))]
+        common_support = "none"
+        treated_support = False
 
     # Stata's outcome() is optional: when omitted we still produce the
     # matched frame (the PSM-DID use case needs only _weight), so match on a

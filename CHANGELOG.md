@@ -259,6 +259,33 @@ guide in `docs/guides/qiu_jiaping.md`.
   pscore()`, `pstest`, `DCdensity`, `loneway`, `vif`, `r(att)` / `r(seatt)`
   after `psmatch2` (so `bootstrap r(att): psmatch2 ...` runs), `d` / `des`.
 
+#### Second round, the same day
+
+- ⚠️ **`sp.heckman` two-step with rho outside [-1, 1].** The two-step
+  estimate of rho is not confined to the unit interval. Beyond it the
+  variance formula has negative weights, and the standard errors were too
+  small (by a third on the case that showed it). rho is now set to +/-1 and
+  sigma to `|lambda|`, as Stata does, with an `AssumptionWarning`;
+  `model_info` keeps the raw value in `rho_two_step`. Fits with rho inside
+  the interval are unchanged. The summary prints the selection equation.
+- **`sp.stata`: a recursive `replace` of any length.** After one evaluation
+  of the column only the rows that read a changed row are evaluated again,
+  so a chain costs one small evaluation per link (50,000 rows in five
+  seconds; it was declined beyond 20,000).
+- **`sp.match(method='stratify', strata=)`** takes the strata from a column
+  (the blocks of `sp.pscore`): Becker and Ichino's `atts`, equal to Stata to
+  13 digits. `common_support='treated'` works with any method of
+  `sp.psmatch2` when `pscore=` is given.
+- **`sp.estat(result, 'firststage')` returns the Stock and Yogo critical
+  values** for one endogenous regressor (`stock_yogo`, with
+  `minimum_eigenvalue`). The table is the one Stata returns in
+  `r(mineigcv)`, read off by running the command. The threshold of 10 is
+  now called a rule of thumb, which is what it is.
+- **`sp.stata` / `sp.from_stata`**: `attk` and `atts` are translated. `attr`
+  is declined with the reason (its control weights are not those of a
+  radius estimator). `esttab` over models from different estimators has one
+  `_cons` row, and shows N for `etregress`.
+
 #### Changed
 
 - `scripts/stata_log_replay.py` reads logs as UTF-8 (a comment in Chinese

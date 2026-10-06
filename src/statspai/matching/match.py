@@ -225,6 +225,7 @@ def match(
     ps_poly: int = 1,
     ps_model: str = "logit",
     pscore: Optional[str] = None,
+    strata: Optional[str] = None,
     # --- common support ---
     common_support: str = "none",
     # --- kernel / radius matching ---
@@ -310,6 +311,11 @@ def match(
         ``ps_model`` / ``ps_poly`` are ignored. The standard error treats
         the score as known, so ``se_method='abadie_imbens_2016'``, which
         charges for the estimation of the score, is refused.
+    strata : str, optional
+        With ``method='stratify'``: a column that holds the stratum of
+        every row (the blocks of :func:`sp.pscore`), used in place of the
+        ``n_strata`` quantiles of the score. Rows where it is missing are
+        left out. This is Becker and Ichino's ``atts``.
     ps_poly : int, default 1
         Polynomial degree for the propensity score model.
         ``ps_poly=1`` uses linear terms only.
@@ -530,6 +536,7 @@ def match(
             ps_poly=ps_poly,
             ps_model=ps_model,
             pscore=pscore,
+            strata=strata,
             common_support=common_support,
             kernel=kernel,
             bwidth=bwidth,
@@ -562,6 +569,7 @@ def match(
         ps_poly=ps_poly,
         ps_model=ps_model,
         pscore=pscore,
+        strata=strata,
         common_support=common_support,
         kernel=kernel,
         bwidth=bwidth,
@@ -795,6 +803,7 @@ class MatchEstimator:
         ps_poly: int = 1,
         ps_model: str = "logit",
         pscore: Optional[str] = None,
+        strata: Optional[str] = None,
         common_support: str = "none",
         kernel: str = "epan",
         bwidth: float = 0.06,
@@ -871,6 +880,8 @@ class MatchEstimator:
         self.bias_correction = bias_correction
         self.ps_poly = _positive_int(ps_poly, name="ps_poly", context=context)
         self.pscore_col = pscore
+        self.strata_col = strata
+        self._given_strata: Optional[np.ndarray] = None
         self._given_pscore: Optional[np.ndarray] = None
         self.ps_model = str(ps_model).lower()
         if self.ps_model not in ("logit", "probit"):
@@ -934,6 +945,14 @@ class MatchEstimator:
         required = [self.y, self.treat] + self.covariates
         if self.pscore_col is not None:
             required = required + [self.pscore_col]
+        if self.strata_col is not None:
+            required = required + [self.strata_col]
+            if self.method != "stratify":
+                raise MethodIncompatibility(
+                    "match: strata= names the strata of method='stratify'; "
+                    f"got method={self.method!r}.",
+                    recovery_hint="Pass method='stratify', or drop strata=.",
+                )
         missing = [col for col in required if col not in self.data.columns]
         if missing:
             raise MethodIncompatibility(
@@ -1106,6 +1125,11 @@ class MatchEstimator:
         if self.pscore_col is not None and self.pscore_col not in cols:
             cols = cols + [self.pscore_col]
         clean = self.data[cols].dropna()
+        if self.strata_col is not None and self.strata_col not in cols:
+            cols = cols + [self.strata_col]
+            clean = self.data[cols].dropna()
+        if self.strata_col is not None:
+            self._given_strata = clean[self.strata_col].to_numpy()
         if self.pscore_col is not None:
             self._given_pscore = clean[self.pscore_col].to_numpy(dtype=float)
         T = clean[self.treat].values.astype(int)
@@ -1812,6 +1836,7 @@ class MatchEstimator:
                         ps_poly=self.ps_poly,
                         ps_model=self.ps_model,
                         pscore=self.pscore_col,
+                        strata=self.strata_col,
                         common_support=self.common_support,
                         kernel=self.kernel,
                         bwidth=self.bwidth,
@@ -2227,17 +2252,24 @@ class MatchEstimator:
         """
         pscore = self._score(X, T)
 
-        # Create strata from propensity score quantiles
-        boundaries = np.quantile(pscore, np.linspace(0, 1, self.n_strata + 1))
-        boundaries[0] -= 1e-6
-        boundaries[-1] += 1e-6
-        strata = np.digitize(pscore, boundaries) - 1
-        strata = np.clip(strata, 0, self.n_strata - 1)
+        if self._given_strata is not None:
+            # the strata as given (the blocks of sp.pscore)
+            labels, strata = np.unique(self._given_strata, return_inverse=True)
+            strata = np.ravel(strata)
+            n_strata = len(labels)
+        else:
+            # Create strata from propensity score quantiles
+            n_strata = self.n_strata
+            boundaries = np.quantile(pscore, np.linspace(0, 1, n_strata + 1))
+            boundaries[0] -= 1e-6
+            boundaries[-1] += 1e-6
+            strata = np.digitize(pscore, boundaries) - 1
+            strata = np.clip(strata, 0, n_strata - 1)
 
         # Collect per-stratum effects, weights, and variance components
         strata_results = []  # list of (tau, weight, var_t, var_c)
 
-        for s in range(self.n_strata):
+        for s in range(n_strata):
             in_s = strata == s
             t_in = in_s & (T == 1)
             c_in = in_s & (T == 0)
@@ -2284,7 +2316,7 @@ class MatchEstimator:
         # A unit is "kept" iff its stratum contained both arms, i.e. iff it
         # entered one of the within-stratum comparisons above.
         keep = np.zeros(len(T), dtype=bool)
-        for s in range(self.n_strata):
+        for s in range(n_strata):
             in_s = strata == s
             if (in_s & (T == 1)).any() and (in_s & (T == 0)).any():
                 keep |= in_s
@@ -2297,8 +2329,11 @@ class MatchEstimator:
         }
 
         extra = {
-            "n_strata": self.n_strata,
+            "n_strata": n_strata,
             "n_effective_strata": len(strata_results),
+            "strata_source": "given" if self._given_strata is not None else "quantiles",
+            "n_treated_in_strata": int((keep & (T == 1)).sum()),
+            "n_control_in_strata": int((keep & (T == 0)).sum()),
         }
         return att, se, balance, extra
 

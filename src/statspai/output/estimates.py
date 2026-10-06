@@ -287,6 +287,8 @@ def _full_vector_causal(result: Any) -> Optional[_ModelData]:
 def _extract_model_data(result: Any) -> _ModelData:
     """Unified extraction for EconometricResults and CausalResult."""
 
+    if isinstance(result, _ModelData):
+        return result  # extracted (and possibly renamed) by the caller
     if _is_causal(result):
         full = _full_vector_causal(result)
         if full is not None:
@@ -357,7 +359,8 @@ def _extract_model_data(result: Any) -> _ModelData:
 
     diag = getattr(result, "diagnostics", {}) or {}
     dinfo = getattr(result, "data_info", {}) or {}
-    n = diag.get("N") or dinfo.get("nobs")
+    # some estimators record the sample size as n_obs
+    n = diag.get("N") or dinfo.get("nobs") or dinfo.get("n_obs")
     stats = {"N": n}
     for k in (
         "R-squared",

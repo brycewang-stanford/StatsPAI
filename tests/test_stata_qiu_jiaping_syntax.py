@@ -128,10 +128,38 @@ def test_a_lag_is_read_from_the_data_as_they_are():
     )
 
 
-def test_a_chain_longer_than_the_limit_is_refused():
-    session = _run("clear\nset obs 20005\ngen t = _n\ngen x = 1 in 1")
+def test_a_long_chain_costs_one_evaluation_per_link():
+    """A recursion through the whole column, with the draw written inside
+    the expression: 30,000 links, each evaluated once."""
+    data = _run("""
+        clear
+        set obs 30000
+        set seed 3
+        gen t = _n
+        tsset t
+        gen double x = 0 in 1
+        replace x = 0.5*l.x + rnormal(0, 2) in 2/l
+        gen double n = 1 in 1
+        replace n = n[_n-1] + (_n > 1) in 2/l
+        """).data
+    assert (data["n"] == data["t"]).all()
+    x = data["x"].to_numpy()
+    assert np.isfinite(x).all()
+    assert np.corrcoef(x[1:], x[:-1])[0, 1] == pytest.approx(0.5, abs=0.03)
+    assert x.std() == pytest.approx(2 / np.sqrt(0.75), rel=0.05)
+
+
+def test_a_running_sum_of_the_variable_itself_is_refused_when_long():
+    """`sum()` reads the whole column, so the value on a row cannot be
+    computed from that row; the column is settled pass by pass, and a
+    chain of 30,000 passes is declined rather than run for minutes."""
+    session = _run("clear\nset obs 30000\ngen double x = 1")
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="chains more than"):
-        session.run("replace x = x[_n-1] + 1 in 2/l")
+        session.run("replace x = sum(x[_n-1]) + 1 in 2/l")
+    # the same line on a short column runs
+    short = _run("clear\nset obs 5\ngen double x = 1")
+    short.run("replace x = sum(x[_n-1]) + 1 in 2/l")
+    assert short.data["x"].notna().all()
 
 
 # ------------------------------------------------------------ small syntax
@@ -166,6 +194,28 @@ def test_describe_abbreviations_are_skipped():
     # a variable called d is still a variable
     session = _run("gen d = x > 2\nsum d", frame)
     assert float(session.output.loc["d", "Mean"]) == 0.6
+
+
+def test_esttab_has_one_row_for_the_constant():
+    """`regress` names its constant Intercept and `etregress` _cons; a
+    table of both built from Stata lines has one `_cons` row, and N for
+    both columns. The wrapper's deprecation notice is not passed on."""
+    data = sp.datasets.nsw_lalonde().drop(columns=["race"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        warnings.simplefilter("ignore", UserWarning)
+        table = sp.stata(
+            "reg re78 age educ treat\n"
+            "est store OLS\n"
+            "etregress re78 age educ, treat(treat = married black) twostep\n"
+            "est store ETR\n"
+            "esttab OLS ETR",
+            data,
+        )
+    text = str(table)
+    assert "Intercept" not in text and text.count("_cons") == 1
+    row = next(ln for ln in text.splitlines() if ln.startswith("N "))
+    assert row.split() == ["N", "614", "614"]
 
 
 def test_vif_is_estat_vif():
@@ -220,6 +270,27 @@ def test_attnd_and_psmatch2_on_the_stored_score(lalonde):
     assert session.stored["r"]["attnd"] == pytest.approx(1981.076824530195, rel=5e-9)
     session.run("display r(attnd)")
     assert session.output == pytest.approx(1981.076824530195, rel=5e-9)
+
+
+def test_atts_attk_and_the_declined_attr(lalonde):
+    """atts and attk on the stored score and blocks (Stata: 1214.747499089708
+    and 1157.954487565456); attr is declined with its reason."""
+    session = _run(
+        f"pscore treat {COVS}, pscore(ps1) blockid(b1) logit comsup\n"
+        "atts re78 treat, pscore(ps1) blockid(b1)",
+        lalonde,
+    )
+    assert session.output.estimate == pytest.approx(1214.747499089708, rel=1e-12)
+    assert session.output.se == pytest.approx(857.6768878405207, rel=1e-12)
+    session.run("attk re78 treat, pscore(ps1)")
+    assert session.output.att == pytest.approx(1157.954487565456, rel=1e-8)
+    with pytest.raises(
+        sp.exceptions.MethodIncompatibility, match="weights each control"
+    ):
+        session.run("attr re78 treat, pscore(ps1) radius(0.05)")
+    # the region of attk, comsup is defined on a fitted score
+    lost = sp.from_stata("attk y d x1 x2, comsup")["untranslated_options"]
+    assert lost == ["comsup"]
 
 
 def test_pstest_reads_what_psmatch2_left(lalonde):

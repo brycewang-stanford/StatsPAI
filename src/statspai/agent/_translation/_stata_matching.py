@@ -141,6 +141,104 @@ def _h_attnd(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
+def _h_attk(cmd: StataCommand) -> Dict[str, Any]:
+    """``attk y d [x1 x2], [pscore(ps) logit comsup epan bwidth(#)]`` ->
+    ``sp.psmatch2(method='kernel')``.
+
+    attk's default kernel is the Gaussian one with bandwidth 0.06, and it
+    prints no analytic standard error; psmatch2's kernel estimate is the
+    same number, and its standard error treats the weights as fixed.
+    """
+    names = _names(cmd)
+    if len(names) < 2:
+        return _bad(cmd, "expected `attk outcome treatment [covariates]`")
+    outcome, treat, covariates = names[0], names[1], names[2:]
+    given = (cmd.options.get("pscore") or "").strip()
+    args: Dict[str, Any] = {"treat": treat, "outcome": outcome}
+    notes: List[str] = [
+        "attk reports no analytic standard error; the one returned here is "
+        "psmatch2's, which takes the kernel weights as fixed."
+    ]
+    lost: List[str] = []
+    if given:
+        args["pscore"] = given
+        if covariates:
+            args["covariates"] = covariates
+        cmd.options.get("logit")
+    elif covariates:
+        args["covariates"] = covariates
+        args["ps_model"] = "logit" if "logit" in cmd.options else "probit"
+    else:
+        return _bad(cmd, "give the covariates of the score or pscore(varname)")
+    args["method"] = "kernel"
+    args["kernel"] = "epan" if "epan" in cmd.options else "normal"
+    width = cmd.options.get("bwidth")
+    if width is not None:
+        value = _number(width)
+        if value is None or value <= 0:
+            lost.append("bwidth")
+        else:
+            args["bwidth"] = value
+    else:
+        args["bwidth"] = 0.06
+    if "comsup" in cmd.options:
+        if not given:
+            # the region is defined on the fitted score: fit it first
+            lost.append("comsup")
+        else:
+            args["common_support"] = "treated"
+    for option in ("index", "bootstrap", "reps"):
+        if option in cmd.options:
+            lost.append(option)
+    out = _emit("psmatch2", args, f"sp.psmatch2(data=df, {_kw(args)})", notes)
+    out["untranslated_options"] = lost
+    return out
+
+
+def _h_atts(cmd: StataCommand) -> Dict[str, Any]:
+    """``atts y d, pscore(ps) blockid(b) [comsup]`` ->
+    ``sp.match(method='stratify', strata=b)``: the difference of means in
+    each block of ``pscore``, weighted by the treated in the block."""
+    names = _names(cmd)
+    if len(names) != 2:
+        return _bad(cmd, "expected `atts outcome treatment, pscore() blockid()`")
+    score = (cmd.options.get("pscore") or "").strip()
+    block = (cmd.options.get("blockid") or "").strip()
+    if not score or not block:
+        return _bad(cmd, "pscore(varname) and blockid(varname) are required")
+    args: Dict[str, Any] = {
+        "y": names[0], "treat": names[1], "covariates": [score], "pscore": score,
+        "method": "stratify", "strata": block, "estimand": "ATT",
+    }  # fmt: skip
+    notes: List[str] = []
+    lost: List[str] = []
+    if "comsup" in cmd.options:
+        notes.append(
+            "comsup: rows outside the range of the treated scores are left "
+            "out. A block number from `pscore, comsup` is missing on those "
+            "rows already, so they do not enter."
+        )
+    for option in ("bootstrap", "reps"):
+        if option in cmd.options:
+            lost.append(option)
+    out = _emit("match", args, f"sp.match(df, {_kw(args)})", notes)
+    out["untranslated_options"] = lost
+    return out
+
+
+def _h_attr(cmd: StataCommand) -> Dict[str, Any]:
+    return _emit_error(
+        "attr is not translated. It weights each control by the number of "
+        "treated units within the radius of it, so a treated unit with many "
+        "controls nearby counts more than one with few; the radius estimator "
+        "of sp.psmatch2(method='radius', caliper=r) (Stata psmatch2, radius "
+        "caliper(r)) averages the controls of each treated unit first and "
+        "gives a different number.",
+        command="attr",
+        suggestions=["psmatch2"],
+    )
+
+
 def _h_dcdensity(cmd: StataCommand) -> Dict[str, Any]:
     """``DCdensity x, breakpoint(c) [b(#) h(#)]`` -> ``sp.mccrary_test``."""
     names = _names(cmd)
@@ -196,6 +294,9 @@ def _h_pstest(cmd: StataCommand) -> Dict[str, Any]:
 HANDLERS = {
     "pscore": _h_pscore,
     "attnd": _h_attnd,
+    "attk": _h_attk,
+    "atts": _h_atts,
+    "attr": _h_attr,
     "dcdensity": _h_dcdensity,
     "loneway": _h_loneway,
     "pstest": _h_pstest,

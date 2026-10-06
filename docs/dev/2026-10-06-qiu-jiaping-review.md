@@ -192,20 +192,72 @@ staggered adoption and event studies with heterogeneous effects,
 sensitivity of the parallel-trends assumption, weak-instrument-robust
 inference, bias-corrected robust inference in regression discontinuity.
 
-## Left open
+## Second round: the five items left open
 
-1. **A recursion longer than 20,000 rows is refused.** The ordered
-   `replace` is computed by repeated passes over the column, one per link
-   of the chain, which is quadratic in the length of the chain. A chain of
-   5,000 rows takes two seconds. A single pass for expressions that are
-   linear in the lagged value would remove the limit.
-2. **Stock and Yogo critical values in `estat firststage`.** Stata prints
-   them. StatsPAI has the effective F and its critical values
-   (`sp.effective_f_test`), which is the current recommendation.
-3. **The summary of `sp.heckman` does not print the selection equation.** It
-   is in `model_info`.
-4. **`attk`, `attr`, `atts`**, the kernel, radius and stratification
-   companions of `attnd`. Not in this book. `sp.psmatch2(method='kernel' |
-   'radius')` and `sp.match(method='stratify')` are the estimators.
-5. **`esttab` in `sp.stata` prints the constant of `regress` as `Intercept`
-   and that of `etregress` as `_cons`**, on two rows of one table.
+The first round ended with five open items. All were taken up the same day.
+
+| # | Item | Outcome |
+| --- | --- | --- |
+| 21 | A recursion longer than 20,000 rows was refused | runs: one small evaluation per link |
+| 22 | `sp.heckman` summary did not print the selection equation | printed; and a wrong variance was found on the way (item 23) |
+| 23 | ⚠️ Two-step `heckman` with an estimate of rho outside [-1, 1] | Stata's truncation, with a warning |
+| 24 | `attk`, `atts`, `attr` | `attk` and `atts` translated and equal to Stata; `attr` declined with its reason |
+| 25 | `esttab` in `sp.stata` showed `Intercept` and `_cons` on two rows, and no N for `etregress` | one `_cons` row, N shown |
+| 26 | Stock and Yogo critical values in `estat firststage` | returned, from Stata's own table |
+
+Item 21. The ordered `replace` evaluated the whole column once per link of
+the chain, which is quadratic. It now rewrites the expression so that the
+value on a row depends on that row's columns alone. What counts rows is
+written into columns once: `_n` and `_N` (within the group under `by`), a
+subscript of another variable, every random draw. After one evaluation of
+the column only the rows that read a row whose value has just changed are
+evaluated again. A chain of 50,000 rows takes five seconds. A panel of
+300,000 rows with chains of 30 takes seven. The one form left on the old
+path is a running `sum()` of the variable being replaced, which reads the
+whole column by construction. It is still declined beyond 20,000 rows.
+
+Item 23. Writing the test for item 22 on the Lalonde data gave a two-step
+rho of -1.34. The variance formula of the two-step estimator weights each
+row by `1 - rho^2 delta_i`. With rho^2 above one those weights turn
+negative and the formula is no longer a variance. StatsPAI used it as it
+stood, and the standard errors were a third smaller than Stata's. Stata
+sets rho to +/-1 and sigma to `|lambda|` and prints a note. The same is
+done now, with an `AssumptionWarning` that names the usual cause (no
+excluded variable in the selection equation). The four standard errors,
+rho, sigma and the Wald statistic agree with Stata to six digits, which is
+where Stata's probit stops.
+
+Item 24. `attk` is kernel matching on the score with a Gaussian kernel and
+bandwidth 0.06. `sp.psmatch2(method='kernel', kernel='normal')` gives the
+same number (1157.9545 on the Lalonde data, to the eight digits `attk`
+holds). `atts` is the difference of means in each block of `pscore`,
+weighted by the treated in the block. `sp.match(method='stratify')` had the
+formula and took its strata from quantiles of the score. It now takes them
+from a column (`strata=`), and estimate and standard error equal Stata's to
+13 digits. `attr` is declined. It weights each control by the number of
+treated units within the radius of it, so a treated unit with many controls
+nearby counts more than one with few. The radius estimator of `psmatch2`
+averages the controls of each treated unit first and gives a different
+number (1157.14 against 770.77 on the same score). Copying the first would
+mean shipping an estimator whose weights nobody would choose on purpose.
+
+Item 26. The values were not typed in. `estat firststage` returns them in
+`r(mineigcv)`, and the matrix was read off by running the command for one
+to three endogenous regressors and up to 30 excluded instruments (199
+filled cells of three tables; the empty ones are empty in Stata too). They
+sit in `diagnostics/_stock_yogo.py` and `sp.estat(result, 'firststage')`
+attaches the row that applies. On the book's own example (chapter 10, one
+instrument) the first-stage F is 13.69. It passes the rule of thumb of 10
+and does not reach 16.38, the value for a 5% Wald test with true size at
+most 10%. The label "Stock-Yogo rule of thumb" that the output used for the
+threshold of 10 was dropped: the threshold is a rule of thumb and the
+critical values are something else.
+
+## Still open
+
+1. **`attr`**, for the reason above.
+2. **Cragg-Donald statistic with two or three endogenous regressors.** The
+   critical values are in the table. `sp.estat(result, 'firststage')`
+   attaches them for one endogenous regressor only, where the statistic is
+   the first-stage F.
+3. **A running `sum()` of the variable being replaced** beyond 20,000 rows.

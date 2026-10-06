@@ -574,27 +574,19 @@ class DataSteps:
         draws = None if rng is None else rng.bit_generator.state
         self._own()
         held = {c: self.data[c].to_numpy(copy=True) for c in lagged}
-        # Each pass settles the rows whose earlier rows are settled, so the
-        # passes needed are the length of the longest chain. A chain through
-        # the whole column settles one row per pass, which is quadratic:
-        # beyond `limit` rows it is refused, as soon as it shows.
+        # Two ways to run it. When the expression can be written so that a
+        # row's value depends on that row's columns alone (`_row_local`),
+        # only the rows that read a changed row are evaluated again, and a
+        # chain of any length costs one small evaluation per link.
+        # Otherwise (a running `sum()` of the variable itself) the whole
+        # column is evaluated per pass, the passes needed are the length of
+        # the longest chain, and beyond `limit` rows that is refused.
         limit = 20000
         too_long = StataExprError(
             f"`replace {name}` chains more than {limit} observations "
             "through its own earlier rows; that is not run here"
         )
-        # by group, an expression that reads nothing but the row it is on
-        # (no _n, _N, subscript or running sum left after the rewrite) and a
-        # condition that does not read the variable's earlier rows
-        counted = re.compile(r"(?<![\w.])(?:_n|_N)(?!\w)|\[|(?<![\w.])sum\s*\(")
-        reads_own = re.compile(
-            "|".join(rf"(?<![\w.]){re.escape(c)}(?!\w)" for c in sources)
-        )
-        row_local = (
-            groups is not None
-            and counted.search(expr_run) is None
-            and reads_own.search(cond_run or "") is None
-        )
+        extra: List[str] = []
         pending: List[int] = []
         settled = False
         stale: Optional[np.ndarray] = None
@@ -603,7 +595,12 @@ class DataSteps:
         for k, rows in enumerate(groups or []):
             group_of[rows] = k
         try:
-            for step in range(n + 1):
+            local = self._row_local(expr_run, cond_run, groups, sources, extra)
+            if local is not None:
+                current, mask = self._replace_row_by_row(
+                    local, sources, original, in_range, groups, single, name
+                )
+            for step in range(n + 1 if local is None else 0):
                 if step > limit:
                     raise too_long
                 if (
@@ -619,16 +616,7 @@ class DataSteps:
                 if draws is not None:
                     # the same random draws on every pass
                     rng.bit_generator.state = draws
-                if groups is not None and row_local:
-                    # the same value whichever group a row is in: one
-                    # evaluation of the column; the rows selected do not
-                    # change from pass to pass
-                    if step == 0:
-                        _, mask = self._evaluate_assignment(
-                            "0", cond_run, in_range, groups
-                        )
-                    value = evaluate(expr_run, self.data, self.stored)
-                elif groups is None or stale is None:
+                if groups is None or stale is None:
                     value, mask = self._evaluate_assignment(
                         expr_run, cond_run, in_range, groups
                     )
@@ -672,7 +660,7 @@ class DataSteps:
                 for col, values in held.items():
                     self.data[col] = values
             self.data = self.data.drop(
-                columns=list(rewritten.values()), errors="ignore"
+                columns=list(rewritten.values()) + extra, errors="ignore"
             )
         self.data[name] = current
         for col in lagged:
@@ -682,6 +670,177 @@ class DataSteps:
             )
         self._note_missing_codes(name, expr, whole=bool(mask.all()))
         return True
+
+    def _row_local(
+        self,
+        expr: str,
+        cond: Optional[str],
+        groups: Optional[List[np.ndarray]],
+        sources: Dict[str, np.ndarray],
+        made: List[str],
+    ) -> Optional[tuple]:
+        """Rewrite ``expr`` (and ``cond`` when it reads the variable's
+        earlier rows) so that the value on a row depends on that row's
+        columns alone.
+
+        What counts rows is written into columns once: ``_n`` and ``_N``
+        (within the group under ``by``), a subscript of another variable
+        (``y[_n-1]``) and every random draw. The names of the columns
+        added to the data are appended to ``made``. Returns ``(expr, cond,
+        columns the two read)``, with ``cond`` ``None`` when the rows
+        selected do not change, or ``None`` when a piece cannot be written
+        that way (a running ``sum()``, a draw whose arguments read the
+        variable).
+        """
+        from ._stata_expr import _RANDOM
+
+        reads_own = re.compile(
+            "|".join(rf"(?<![\w.]){re.escape(c)}(?!\w)" for c in sources)
+        )
+
+        def column_of(piece: str) -> str:
+            if groups is None:
+                values = evaluate(piece, self.data, self.stored)
+            else:
+                values, _ = self._evaluate_assignment(piece, None, None, groups)
+            if values.dtype == object:
+                raise StataExprError(f"{piece!r} is not a number")
+            col = f"__sp_m{len(made)}"
+            self.data[col] = values
+            made.append(col)
+            return col
+
+        def rewrite(text: str) -> Optional[str]:
+            # random draws, innermost call first
+            call = re.compile(
+                r"(?<![\w.])(" + "|".join(sorted(_RANDOM)) + r")\s*\(([^()]*)\)"
+            )
+            while True:
+                m = call.search(text)
+                if m is None:
+                    break
+                if reads_own.search(m.group(2)):
+                    return None
+                text = text[: m.start()] + column_of(m.group(0)) + text[m.end() :]
+            if re.search(r"(?<![\w.])(?:" + "|".join(_RANDOM) + r")\s*\(", text):
+                return None  # a draw with a call inside its arguments
+            other = re.compile(r"(?<![\w.])([A-Za-z_]\w*)\s*\[([^\[\]]*)\]")
+            while True:
+                m = other.search(text)
+                if m is None:
+                    break
+                if m.group(1) not in self.data.columns or reads_own.search(m.group(2)):
+                    return None
+                text = text[: m.start()] + column_of(m.group(0)) + text[m.end() :]
+            for token in ("_n", "_N"):
+                spot = re.compile(rf"(?<![\w.]){token}(?!\w)")
+                if spot.search(text):
+                    text = spot.sub(column_of(token), text)
+            if "[" in text or re.search(r"(?<![\w.])sum\s*\(", text):
+                return None
+            return text
+
+        expr_local = rewrite(expr)
+        if expr_local is None:
+            return None
+        cond_local = None
+        if cond and reads_own.search(cond):
+            cond_local = rewrite(cond)
+            if cond_local is None:
+                return None
+        names = set(re.findall(r"[A-Za-z_]\w*", expr_local + " " + (cond_local or "")))
+        # the reference columns are written into the data by the caller
+        known = list(self.data.columns)
+        known += [c for c in sources if c not in self.data.columns]
+        return (
+            expr_local,
+            cond_local,
+            cond,
+            [c for c in known if c in names],
+        )
+
+    def _replace_row_by_row(
+        self,
+        local: tuple,
+        sources: Dict[str, np.ndarray],
+        original: np.ndarray,
+        in_range: Optional[str],
+        groups: Optional[List[np.ndarray]],
+        single: bool,
+        name: str,
+    ) -> tuple:
+        """Settle a row-local ``replace``: evaluate every row once, then
+        only the rows that read a row whose value has just changed."""
+        expr, cond_local, cond, needed = local
+        n = len(original)
+        position = np.arange(n)
+
+        def stored_as(value: np.ndarray) -> np.ndarray:
+            if value.dtype == object:
+                raise StataExprError(
+                    f"type mismatch: {name!r} is numeric and the expression is a string"
+                )
+            if single:
+                with np.errstate(over="ignore"):
+                    value = value.astype(np.float32).astype(np.float64)
+                value = np.where(np.isfinite(value), value, np.nan)
+            return value
+
+        def seen(src: np.ndarray, rows: np.ndarray, current: np.ndarray) -> np.ndarray:
+            at = src[rows]
+            safe = np.where(at < 0, 0, at)
+            got = np.where(at < rows, current[safe], original[safe])
+            return np.where(at < 0, np.nan, got)
+
+        current = original.copy()
+        for col, src in sources.items():
+            self.data[col] = seen(src, position, current)
+        # the rows the qualifiers select; `in` and a condition that does not
+        # read the variable's earlier rows are settled here
+        _, mask = self._evaluate_assignment("0", cond, in_range, groups)
+        in_or_by = mask if cond_local is None else None
+        if cond_local is not None:
+            _, in_or_by = self._evaluate_assignment("0", None, in_range, groups)
+        value = stored_as(evaluate(expr, self.data, self.stored))
+        new = np.where(mask, value, original)
+        moved = np.flatnonzero(
+            ~((new == current) | (np.isnan(new) & np.isnan(current)))
+        )
+        current = new
+
+        # who reads whom: for each source, the readers of row j in one slice
+        order = {c: np.argsort(src, kind="stable") for c, src in sources.items()}
+        ranked = {c: sources[c][order[c]] for c in sources}
+        base = self.data[needed]
+        while moved.size:
+            readers = []
+            for c in sources:
+                lo = np.searchsorted(ranked[c], moved, side="left")
+                hi = np.searchsorted(ranked[c], moved, side="right")
+                for a, b, j in zip(lo, hi, moved):
+                    if b > a:
+                        rows = order[c][a:b]
+                        readers.append(rows[rows > j])  # a later row sees the change
+            if not readers:
+                break
+            rows = np.unique(np.concatenate(readers))
+            if rows.size == 0:
+                break
+            part = base.iloc[rows].reset_index(drop=True)
+            for col, src in sources.items():
+                if col in part.columns:
+                    part[col] = seen(src, rows, current)
+            value = stored_as(evaluate(expr, part, self.stored))
+            keep = mask[rows]
+            if cond_local is not None:
+                keep = in_or_by[rows] & sample_mask(cond_local, part, self.stored)
+                mask[rows] = keep
+            fresh = np.where(keep, value, original[rows])
+            before = current[rows]
+            changed = ~((fresh == before) | (np.isnan(fresh) & np.isnan(before)))
+            current[rows] = fresh
+            moved = rows[changed]
+        return current, mask
 
     def _assign_text(
         self, replace: bool, name: str, value: Any, mask: np.ndarray, typed: bool

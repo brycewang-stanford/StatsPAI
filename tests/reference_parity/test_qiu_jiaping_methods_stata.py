@@ -146,10 +146,44 @@ def test_match_on_a_given_score(lalonde):
     assert fitted.att == ties.att
 
 
+def test_stratification_on_the_blocks_and_kernel_on_the_score(lalonde):
+    """pscore ..., pscore(ps1) blockid(b1) logit comsup
+    atts re78 treat, pscore(ps1) blockid(b1)
+        r(atts) = 1214.747499089708, r(seatts) = 857.6768878405207, 180 treated
+    attk re78 treat, pscore(ps1)                    r(attk) = 1157.954487565456
+    attk re78 treat, pscore(ps1) comsup epan bwidth(0.1)
+                                                    r(attk) = 1250.43208865287"""
+    fit = sp.pscore(lalonde, "treat", COVARIATES, common_support=True)
+    data = fit.assign(lalonde, pscore="ps1", block="b1")
+    strat = sp.match(data, y="re78", treat="treat", covariates=["ps1"],
+                     pscore="ps1", method="stratify", strata="b1")  # fmt: skip
+    assert strat.estimate == pytest.approx(1214.747499089708, rel=1e-12)
+    assert strat.se == pytest.approx(857.6768878405207, rel=1e-12)
+    info = strat.model_info
+    assert info["strata_source"] == "given" and info["n_strata"] == 7
+    # the block with five treated and no control is left out; atts reports
+    # r(ncs) = 377 because it counts those five rows among the controls
+    assert info["n_treated_in_strata"] == 180 and info["n_control_in_strata"] == 372
+    # attk holds its sums in single precision
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        gauss = sp.psmatch2(data, treat="treat", pscore="ps1", outcome="re78",
+                            method="kernel", kernel="normal", bwidth=0.06)  # fmt: skip
+        region = sp.psmatch2(data, treat="treat", pscore="ps1", outcome="re78",
+                             method="kernel", kernel="epan", bwidth=0.1,
+                             common_support="treated")  # fmt: skip
+    assert gauss.att == pytest.approx(1157.954487565456, rel=1e-8)
+    assert region.att == pytest.approx(1250.43208865287, rel=1e-8)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="stratify"):
+        sp.match(data, y="re78", treat="treat", covariates=["ps1"], strata="b1")
+
+
 def test_given_score_refusals(lalonde):
     data = sp.pscore(lalonde, "treat", COVARIATES).assign(lalonde, pscore="ps1")
+    # the region of the treated scores needs the score before the matching:
+    # with ties, or with a score that is given
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="ties=True"):
-        sp.psmatch2(data, treat="treat", pscore="ps1", outcome="re78",
+        sp.psmatch2(lalonde, treat="treat", covariates=COVARIATES, outcome="re78",
                     common_support="treated")  # fmt: skip
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="no score is"):
         sp.match(data, y="re78", treat="treat", covariates=COVARIATES,
@@ -363,6 +397,45 @@ def test_heckman_twostep_reports_the_selection_equation(lalonde):
     assert res.model_info["wald_df"] == 2
 
 
+def test_heckman_twostep_rho_outside_the_unit_interval(lalonde):
+    """The same fit: Stata prints `note: two-step estimate of rho =
+    -1.3432926 is being truncated to -1`, rho = -1.00000, sigma =
+    20577.821, Wald chi2(2) = 7.83 and the standard errors below. With
+    rho^2 above one the two-step variance formula has negative weights;
+    it was used as it stood and gave standard errors a third smaller."""
+    data = lalonde.assign(y=lalonde.re78.where(lalonde.re78 > 0))
+    with pytest.warns(sp.exceptions.AssumptionWarning, match="outside"):
+        res = sp.heckman(data, y="y", x=["age", "educ"], z=["age", "educ", "married"])
+    info = res.model_info
+    assert info["rho_truncated"] and info["rho"] == -1.0
+    assert info["rho_two_step"] == pytest.approx(-1.3432926, abs=5e-8)
+    assert info["sigma"] == pytest.approx(20577.821, abs=5e-4)
+    assert info["wald_chi2"] == pytest.approx(7.8321020304, rel=5e-6)
+    se = res.detail.set_index("variable")["se"]
+    # six digits: the first step is Stata's probit, which stops earlier
+    assert se["age"] == pytest.approx(151.2717, rel=5e-6)
+    assert se["educ"] == pytest.approx(408.7517, rel=5e-6)
+    assert se["const"] == pytest.approx(7636.318, rel=5e-6)
+    assert se["lambda (IMR)"] == pytest.approx(17784.69, rel=5e-6)
+    assert "Selection Equation" in str(res.summary())
+
+
+def test_heckman_twostep_inside_the_interval_is_untouched():
+    rng = np.random.default_rng(5)
+    n = 3000
+    z = rng.normal(size=n)
+    x = rng.normal(size=n)
+    u, v = rng.multivariate_normal([0, 0], [[1, 0.5], [0.5, 1]], size=n).T
+    y = np.where(0.3 + z + 0.5 * x + v > 0, 1 + 2 * x + u, np.nan)
+    frame = pd.DataFrame({"y": y, "x": x, "z": z})
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", sp.exceptions.AssumptionWarning)
+        res = sp.heckman(frame, y="y", x=["x"], z=["x", "z"])
+    info = res.model_info
+    assert not info["rho_truncated"]
+    assert info["rho"] == info["rho_two_step"] == pytest.approx(0.5, abs=0.12)
+
+
 def test_first_stage_summary_after_iv():
     data = sp.datasets.card_1995()
     res = sp.ivreg("lwage ~ exper + black + (educ ~ nearc4)", data=data)
@@ -371,3 +444,44 @@ def test_first_stage_summary_after_iv():
     assert out["partial_r2"] == pytest.approx(stage["partial_r_squared"])
     assert out["statistic_label"] == f"F({out['df1']}, {out['df2']})"
     assert 0 <= out["pvalue"] <= 1
+    # one excluded instrument: the values Stata prints under `estat firststage`
+    assert out["n_excluded_instruments"] == 1
+    assert out["minimum_eigenvalue"] == pytest.approx(out["statistic"])
+    assert out["stock_yogo"]["size_2sls"] == {0.10: 16.38, 0.15: 8.96, 0.20: 6.66,
+                                              0.25: 5.53}  # fmt: skip
+    assert "bias_2sls" not in out["stock_yogo"]  # needs three instruments
+    assert "16.38" in out["interpretation"]
+
+
+def test_stock_yogo_table_is_stata_s():
+    """r(mineigcv) after `estat firststage` in Stata 18, as printed for one
+    endogenous regressor with 1 to 4 instruments and for three with 28 to
+    30; the rows are 2SLS relative bias, 2SLS size and LIML size."""
+    from statspai.diagnostics._stock_yogo import stock_yogo_critical_values as cv
+
+    assert cv(1, 2) == {
+        "size_2sls": {0.10: 19.93, 0.15: 11.59, 0.20: 8.75, 0.25: 7.25},
+        "size_liml": {0.10: 8.68, 0.15: 5.33, 0.20: 4.42, 0.25: 3.92},
+    }
+    assert cv(1, 3) == {
+        "bias_2sls": {0.05: 13.91, 0.10: 9.08, 0.20: 6.46, 0.30: 5.39},
+        "size_2sls": {0.10: 22.30, 0.15: 12.83, 0.20: 9.54, 0.25: 7.80},
+        "size_liml": {0.10: 6.46, 0.15: 4.36, 0.20: 3.69, 0.25: 3.32},
+    }
+    assert cv(1, 4)["bias_2sls"] == {0.05: 16.85, 0.10: 10.27, 0.20: 6.71, 0.30: 5.34}
+    assert cv(1, 4)["size_liml"] == {0.10: 5.44, 0.15: 3.87, 0.20: 3.30, 0.25: 2.98}
+    assert cv(3, 28) == {
+        "bias_2sls": {0.05: 20.18, 0.10: 10.75, 0.20: 5.88, 0.30: 4.19}
+    }
+    assert cv(3, 30) == {
+        "bias_2sls": {0.05: 20.27, 0.10: 10.77, 0.20: 5.87, 0.30: 4.17}
+    }
+    # not tabulated: more than 30 instruments, more than three regressors,
+    # fewer instruments than regressors
+    assert cv(1, 31) is None and cv(4, 6) is None and cv(2, 1) is None
+    # a stricter tolerance asks for a larger statistic
+    for n in (1, 2, 3):
+        for k in range(n, 31):
+            for row in (cv(n, k) or {}).values():
+                values = list(row.values())
+                assert values == sorted(values, reverse=True)

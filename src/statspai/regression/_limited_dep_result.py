@@ -104,6 +104,33 @@ class LimitedDepResult(CausalResult):
         return super().pvalues
 
     # ------------------------------------------------------------------
+    # Summary: a second equation, when the estimator reports one
+    # ------------------------------------------------------------------
+    def summary(self, *args: Any, **kwargs: Any) -> Any:
+        """The base summary, with the selection equation of a two-step
+        Heckman fit (``model_info['selection_equation']``) printed below
+        the outcome equation, as Stata prints the ``select`` block."""
+        text = super().summary(*args, **kwargs)
+        table = (self.model_info or {}).get("selection_equation")
+        if not isinstance(table, pd.DataFrame) or not isinstance(text, str):
+            return text
+        rule = "-" * 78
+        block = "\n".join(
+            [
+                rule,
+                "  Selection Equation (probit)",
+                rule,
+                table.to_string(index=False, float_format="%.4f"),
+                "",
+            ]
+        )
+        marker = f"{rule}\n  Observations:"
+        body = str(text)
+        if marker not in body:
+            return text
+        return type(text)(body.replace(marker, f"{block}\n{marker}", 1))
+
+    # ------------------------------------------------------------------
     # Convenience: full coefficient table as a tidy DataFrame
     # ------------------------------------------------------------------
     def coef_table(self) -> pd.DataFrame:

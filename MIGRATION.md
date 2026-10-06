@@ -393,7 +393,7 @@ meant. Where the kind matters, recode it into a variable of its own before
 calling `sp.stata`.
 <a id="oct2026-qiu-jiaping-fixes"></a>
 
-## 1.38.0 → next: ⚠️ propensity score matching with a redundant covariate or tied controls; `replace` in `sp.stata`
+## 1.38.0 → next: ⚠️ propensity score matching with a redundant covariate or tied controls; `replace` in `sp.stata`; two-step `heckman` with rho outside [-1, 1]
 
 **Matching on an estimated propensity score.** Three things changed in
 `sp.match`, `sp.psmatch2` and `teffects psmatch` run through `sp.stata`.
@@ -430,6 +430,22 @@ sp.stata("""
 # before: x missing from the third row on
 # now:    the AR(1) series
 ```
+
+**`sp.heckman(method='twostep')` when rho falls outside [-1, 1].** The
+standard errors are now computed with rho set to +/-1 and sigma to
+`|lambda|` (Stata's rule), and an `AssumptionWarning` is raised.
+
+```python
+res = sp.heckman(df, y="y", x=["age", "educ"], z=["age", "educ", "married"])
+res.model_info["rho"]            # before: -1.34; now: -1.0
+res.model_info["rho_two_step"]   # -1.34
+# standard errors: before a third too small; now Stata's
+```
+
+Coefficients do not change. Fits whose two-step rho is inside the interval
+are untouched. If you see the warning, the model is the thing to look at:
+usually the selection equation has no variable that is excluded from the
+outcome equation.
 
 If a snippet relied on such a line, its later results were computed on
 missing values and should be rerun. `clear all` now empties the data in

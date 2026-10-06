@@ -948,13 +948,13 @@ def _estat_firststage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     if weak:
         interp = (
             f"F = {float(f_stat):.2f} < 10: instruments are weak "
-            "(Stock-Yogo rule of thumb). Consider LIML, Fuller, or "
+            "(rule of thumb). Consider LIML, Fuller, or "
             "Anderson-Rubin confidence sets."
         )
     else:
         interp = (
             f"F = {float(f_stat):.2f} >= 10: instruments are not weak "
-            "(Stock-Yogo rule of thumb)."
+            "(rule of thumb)."
         )
 
     out: Dict[str, Any] = {
@@ -981,6 +981,31 @@ def _estat_firststage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
             out["statistic_label"] = f"F({out['df1']}, {out['df2']})"
         if stage.get("partial_r_squared") is not None:
             out["partial_r2"] = float(stage["partial_r_squared"])
+        # The minimum eigenvalue statistic (with one endogenous regressor,
+        # the first-stage F under homoskedasticity) and the critical values
+        # of Stock and Yogo that it is compared with.
+        design = (getattr(result, "data_info", None) or {}).get("iv") or {}
+        instruments = design.get("W")
+        n_exog = design.get("n_exog")
+        plain = stage.get("f_statistic_nonrobust")
+        if plain is not None and instruments is not None and n_exog is not None:
+            from ._stock_yogo import stock_yogo_critical_values
+
+            n_excluded = int(np.shape(instruments)[1]) - int(n_exog)
+            values = stock_yogo_critical_values(1, n_excluded)
+            out["minimum_eigenvalue"] = float(plain)
+            out["n_excluded_instruments"] = n_excluded
+            if values is not None:
+                out["stock_yogo"] = values
+                size = values.get("size_2sls", {}).get(0.10)
+                if size is not None:
+                    verdict = "above" if float(plain) > size else "not above"
+                    out["interpretation"] += (
+                        f" Minimum eigenvalue statistic {float(plain):.2f} is "
+                        f"{verdict} the Stock-Yogo critical value {size:.2f} "
+                        "(2SLS Wald test of nominal size 5% with true size at "
+                        "most 10%); these values assume homoskedastic errors."
+                    )
 
     return out
 

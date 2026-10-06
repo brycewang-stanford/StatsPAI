@@ -147,6 +147,13 @@ STAR 实验的回归加学校固定效应并按学校聚类，书里的做法今
     eb = sp.ebalance(lalonde, y="re78", treat="treat", covariates=covariates)
     ```
 
+Becker 和 Ichino 的另外几个命令也可以直接贴。`atts` 是按 `pscore` 的分块做分层
+估计，对应 `sp.match(method="stratify", strata="block")`。`attk` 是核匹配，对应
+`sp.psmatch2(method="kernel", kernel="normal", bwidth=0.06)`。`attr` 没有翻译：
+它按"半径内有几个处理个体"给对照加权，周围对照多的处理个体权重更大，这不是半径
+匹配估计量的权重，`sp.stata` 会说明原因并拒绝。要做半径匹配请用
+`sp.psmatch2(method="radius", caliper=r)`。
+
 匹配只处理可观测的混杂。`sp.sensemakr` 回答"遗漏变量要多强才能推翻结论"。
 
 ### 第 8、9 章 面板与双重差分
@@ -175,9 +182,13 @@ ar = sp.anderson_rubin_test(card, y="lwage", endog="educ",
                             instruments=["nearc4"], exog=["exper", "black"])
 ```
 
-第一阶段 F 大于 10 的经验规则对应的是同方差下的 Stock-Yogo 临界值。有异方差或
-聚类时应看有效 F（Montiel Olea 和 Pflueger 2013），结论依赖于 Anderson-Rubin
-置信集。
+`sp.estat(result, "firststage")` 现在连同 Stock-Yogo 临界值一起返回（一个内生
+变量时）。书里第 10 章的例子只有一个工具变量，第一阶段 F 是 13.69。它过了"大于
+10"的经验规则，却没到 16.38，也就是让名义 5% 的 Wald 检验实际水平不超过 10% 所需
+的值。经验规则和临界值不是一回事。
+
+这些临界值假定同方差。有异方差或聚类时应看有效 F（Montiel Olea 和 Pflueger
+2013），结论依赖于 Anderson-Rubin 置信集。
 
 ### 第 11 章 样本自选择
 
@@ -190,7 +201,8 @@ h = sp.heckman(data, y="y", x=["age", "educ"], z=["age", "educ", "married"])
 print(h.model_info["selection_equation"])
 ```
 
-这个例子里两步法估计的 rho 的绝对值大于 1，是模型设定有问题的信号。选择模型的
+这个例子里两步法估计的 rho 是 -1.34，落在 [-1, 1] 之外。StatsPAI 和 Stata 一样
+把它截到 -1 再算标准误，并给出警告。这是模型设定有问题的信号。选择模型的
 识别依赖排除性约束，即选择方程里要有不进入结果方程的变量。没有它时识别只来自
 函数形式，结果不可靠。
 

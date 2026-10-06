@@ -5939,6 +5939,14 @@ def _build_registry() -> None:
                     "Column holding a fitted score to match on (Stata "
                     "psmatch2, pscore()); no treatment model is fitted",
                 ),
+                ParamSpec(
+                    "strata",
+                    "str",
+                    False,
+                    None,
+                    "With method='stratify': column holding the stratum of "
+                    "each row (the blocks of sp.pscore; Stata atts)",
+                ),
             ],
             returns="CausalResult",
             example='sp.match(df, y="y", treat="treat", covariates=["x1","x2"])',

@@ -487,8 +487,30 @@ def _table(session: "StataSession", rest: str, line: str, *, command: str) -> bo
         warnings.filterwarnings(
             "ignore", message=r"esttab\(\) is now", category=FutureWarning
         )
-        session.output = sp.esttab(*results, **kwargs)
+        session.output = sp.esttab(*[_stata_named(r) for r in results], **kwargs)
     return True
+
+
+def _stata_named(result: Any) -> Any:
+    """``result`` as the table reads it, with the constant under the name
+    Stata prints. ``regress`` calls it ``Intercept`` here and ``etregress``
+    ``_cons``; in a table of both they are one row, ``_cons``, after the
+    slopes of the model that has it."""
+    from statspai.output.estimates import _extract_model_data
+
+    model = _extract_model_data(result)
+    names = list(model.params.index)
+    alias = [n for n in names if n in ("Intercept", "const")]
+    if not alias or "_cons" in names:
+        return model
+    order = [n for n in names if n not in alias] + alias[:1]
+    for field in ("params", "std_errors", "tvalues", "pvalues",
+                  "conf_int_lower", "conf_int_upper"):  # fmt: skip
+        series = getattr(model, field)
+        if isinstance(series, pd.Series):
+            renamed = series.reindex(order).rename({alias[0]: "_cons"})
+            setattr(model, field, renamed)
+    return model
 
 
 # ------------------------------------------------------------- by: prefix
