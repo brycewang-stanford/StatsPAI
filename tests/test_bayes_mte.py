@@ -40,10 +40,24 @@ def flat_mte_data():
     return _mte_dgp(600, mte_fn=lambda u: 1.5, seed=601)
 
 
+def _index_model_dgp(n, mte_coefs, seed, strength=1.5):
+    """Heckman-Vytlacil index model: ``D = 1{p(Z) > U_D}`` with
+    ``U_D ~ U(0, 1)`` and ``MTE(u) = sum_k c_k u^k``."""
+    rng = np.random.default_rng(seed)
+    Z = rng.normal(size=n)
+    U = rng.uniform(size=n)
+    D = (1.0 / (1.0 + np.exp(-strength * Z)) > U).astype(float)
+    tau = sum(c * U**k for k, c in enumerate(mte_coefs))
+    Y = 1.0 + tau * D + 0.3 * rng.normal(size=n)
+    return pd.DataFrame({"y": Y, "d": D, "z": Z})
+
+
 @pytest.fixture
 def monotone_mte_data():
-    # MTE increases with u: higher-propensity units gain more.
-    return _mte_dgp(600, mte_fn=lambda u: 0.5 + 2.0 * u, seed=602)
+    # MTE(u) = 0.5 + 2 u: units with more resistance to treatment gain more.
+    # Local IV identifies the slope from the variation in the propensity
+    # only, so it needs a few thousand observations and a strong instrument.
+    return _index_model_dgp(4000, (0.5, 2.0), seed=602)
 
 
 # ---------------------------------------------------------------------------
@@ -107,14 +121,13 @@ def test_bayes_mte_flat_mte_curve_is_approximately_flat(flat_mte_data):
 
 
 def test_bayes_mte_monotone_mte_recovers_slope(monotone_mte_data):
-    """An increasing-MTE DGP should produce an MTE curve that is
-    monotonically increasing on average."""
+    """An increasing MTE is recovered: intercept 0.5, slope 2."""
     r = bayes_mte(
         monotone_mte_data,
         y="y",
         treat="d",
         instrument="z",
-        poly_u=2,
+        poly_u=1,
         draws=500,
         tune=500,
         chains=2,
@@ -122,11 +135,13 @@ def test_bayes_mte_monotone_mte_recovers_slope(monotone_mte_data):
         random_state=32,
     )
     means = r.mte_curve["posterior_mean"].values
-    # High-u end should exceed low-u end
-    assert means[-1] > means[0], (
-        f"Monotone DGP: MTE at u=0.95 ({means[-1]:.3f}) should exceed "
-        f"u=0.05 ({means[0]:.3f})"
-    )
+    assert means[-1] > means[0]
+    b = r.trace.posterior["b_mte"].values.reshape(-1, 2)
+    assert (b[:, 1] > 0).mean() > 0.97
+    assert abs(b[:, 1].mean() - 2.0) < 4 * b[:, 1].std()
+    assert abs(b[:, 0].mean() - 0.5) < 4 * b[:, 0].std()
+    # ATE = 0.5 + 2 / 2 = 1.5
+    assert r.hdi_lower < 1.5 < r.hdi_upper
 
 
 # ---------------------------------------------------------------------------

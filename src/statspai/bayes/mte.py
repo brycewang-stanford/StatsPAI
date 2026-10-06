@@ -1,22 +1,21 @@
-"""Bayesian treatment-effect-at-propensity regression (Heckman-Vytlacil-style).
+"""Bayesian marginal treatment effects (Heckman-Vytlacil).
 
-**Labelling caveat (read first)**: the posterior curve returned as
-``mte_curve`` is the *treatment-effect-at-propensity function*
-``g(p) = E[Y | D=1, P=p] - E[Y | D=0, P=p]``, which we fit by
-projecting a polynomial in the propensity ``p`` onto the structural
-equation. Under the standard Heckman-Vytlacil (2005) linear-separable
-outcome model plus a bivariate-normal error assumption, ``g(p)``
-coincides with the textbook MTE ``tau(u) = E[Y_1 - Y_0 | U_D = u]``
-evaluated at ``u = p``. More generally — and in particular when gains
-are heterogeneous in ways that are not captured by the linear-in-``p``
-polynomial — ``g(p)`` is **LATE at propensity level ``p``**, which
-is a summary of the MTE but not literally ``MTE(u)``.
+The MTE is ``tau(u) = E[Y_1 - Y_0 | U_D = u]``, the effect on units at
+the margin of treatment when the propensity is ``u``. Three
+parameterisations are offered.
 
-We retain the "MTE" naming (for API continuity with v0.9.8 and because
-applied users expect the term) but describe the fit as
-"treatment-effect-at-propensity" in the method label. Users who need
-the textbook MTE under weaker functional-form assumptions should pair
-this with a bespoke structural model.
+``'polynomial'`` (default) is local instrumental variables. Under the
+Heckman-Vytlacil (2005) index model with additively separable
+covariates, ``E[Y | P = p] = E[Y_0] + int_0^p tau(u) du``. With a
+polynomial ``tau`` the right-hand side is linear in known functions of
+``p``, and the model is that regression. It assumes neither normal errors
+nor that the untreated outcome is unrelated to ``U_D``.
+
+Before 1.39 this mode fitted ``Y = alpha + D * g(p)`` and called ``g`` a
+"treatment-effect-at-propensity". That curve is the MTE only when the
+untreated outcome does not depend on ``U_D``; with selection on levels it
+is neither the MTE nor a LATE (in a normal design with a true MTE slope of
+-0.8 it returned -0.14).
 
 Model:
 
@@ -27,13 +26,16 @@ Model:
     # 'joint'  mode: pi ~ Normal priors, D_i ~ Bernoulli(sigmoid(pi'W_i))
 
     # MTE structural equation:
-    # 'polynomial' mode: g(p) = b_0 + b_1 p + ... (polynomial in propensity)
-    #                    Y_i = alpha + beta_X' X_i + D_i * g(p_i) + eps_i
+    # 'polynomial' mode: tau(u) = b_0 + b_1 a(u) + ...,  a(u) = u or Phi^{-1}(u)
+    #                    Y_i = alpha + beta_X' X_i
+    #                          + sum_k b_k int_0^{p_i} a(u)^k du + eps_i
     # 'hv_latent'  mode: tau(u) = b_0 + b_1 u + ... (polynomial in latent U_D)
     #                    raw_U_i ~ Uniform(0, 1)
     #                    U_D_i = raw_U_i * p_i               if D_i = 1
     #                          = p_i + raw_U_i * (1 - p_i)   if D_i = 0
-    #                    Y_i = alpha + beta_X' X_i + D_i * tau(U_D_i) + eps_i
+    #                    Y_i = alpha + beta_X' X_i + h(U_D_i)
+    #                          + D_i * tau(U_D_i) + eps_i
+    #                    (h: centred polynomial, E[Y_0 | U_D] - E[Y_0])
 
 HV-augmentation factorisation (``hv_latent`` + ``joint``)
 ---------------------------------------------------------
@@ -109,6 +111,36 @@ def _logit_propensity(
     return cast(np.ndarray, np.clip(ps, 1e-4, 1 - 1e-4))
 
 
+def integrated_mte_powers(
+    p: np.ndarray, poly_u: int, selection: str = "uniform"
+) -> np.ndarray:
+    """Regressors of the local IV form of a polynomial MTE.
+
+    Column ``k`` is ``K_k(p) = int_0^p a(u)^k du`` with ``a(u) = u``
+    (``selection='uniform'``) or ``a(u) = Phi^{-1}(u)``
+    (``selection='normal'``), so that for ``MTE(u) = sum_k b_k a(u)^k``
+
+        E[Y | P = p] = E[Y_0] + sum_k b_k K_k(p)
+
+    (Heckman and Vytlacil 2005). On the probit scale
+    ``K_k = int_{-inf}^{v} t^k phi(t) dt`` at ``v = Phi^{-1}(p)``:
+    ``K_0 = p``, ``K_1 = -phi(v)``,
+    ``K_k = -v^{k-1} phi(v) + (k - 1) K_{k-2}``.
+    """
+    p = np.asarray(p, dtype=float)
+    if selection != "normal":
+        return np.column_stack([p ** (k + 1) / (k + 1.0) for k in range(poly_u + 1)])
+    from scipy.stats import norm as _norm_dist
+
+    p_c = np.clip(p, PROBIT_CLIP, 1 - PROBIT_CLIP)
+    v = _norm_dist.ppf(p_c)
+    phi = _norm_dist.pdf(v)
+    cols = [p_c, -phi]
+    for k in range(2, poly_u + 1):
+        cols.append(-(v ** (k - 1)) * phi + (k - 1) * cols[k - 2])
+    return np.column_stack(cols[: poly_u + 1])
+
+
 def bayes_mte(
     data: pd.DataFrame,
     y: str,
@@ -162,25 +194,25 @@ def bayes_mte(
         ``'polynomial'``
         MTE parameterisation.
 
-        - ``'polynomial'`` : fit a polynomial in the propensity
-          ``p_i`` (v0.9.9 behaviour), ``Y = alpha + D * g(p) + ...``.
-          The untreated mean does not depend on ``p`` in this model, so
-          ``g`` is the MTE only when the untreated outcome is not
-          selected on (``Cov(U_0, V) = 0``). When it is, ``g`` and the
-          integrated ATE are biased: in a Heckman-Vytlacil normal design
-          with ``Cov(U_0, V) = 0.5``, ``Cov(U_1, V) = -0.3`` and a true
-          ATE of 1.0 the posterior mean averaged 0.89 over 12 samples of
-          1,000 and the 95% interval covered 1.0 in 7 to 9 of them, while
-          ``'bivariate_normal'`` averaged 0.99 and covered in 11. Under
-          arbitrary heterogeneity it is ``LATE-at-propensity g(p)``, NOT
-          the textbook ``MTE(u) = E[Y_1 - Y_0 | U_D = u]``. Prefer
-          ``'bivariate_normal'`` when a normal selection model is
-          acceptable.
+        - ``'polynomial'`` : local instrumental variables. With
+          ``MTE(u) = sum_k b_k a(u)^k`` (``a(u) = u``, or
+          ``Phi^{-1}(u)`` under ``selection='normal'``) the mean of the
+          outcome given the propensity is
+          ``E[Y | p] = alpha + sum_k b_k int_0^p a(u)^k du``
+          (Heckman and Vytlacil 2005), and that is the regression
+          fitted; ``alpha`` is ``E[Y_0]``. It needs additive
+          separability of the covariates and a polynomial MTE, not
+          normal errors, and it allows selection on the untreated
+          outcome. Before 1.39 this mode fitted
+          ``Y = alpha + D * g(p)``, whose ``g`` is the MTE only when
+          the untreated outcome does not depend on ``U_D``; see
+          ``MIGRATION.md``.
         - ``'hv_latent'`` : sample a latent ``U_D_i`` per unit from
           the HV-correct truncated uniform (via ``raw_U_i ~ U(0,1)``
           and a deterministic reparameterisation), then evaluate
-          the polynomial at ``U_D_i``. This recovers the textbook
-          MTE polynomial under linear-separable HV. Slower
+          the polynomial at ``U_D_i``. The untreated outcome has its
+          own polynomial in ``U_D_i`` (``b_sel``, added in 1.39), so
+          selection on levels is not read as a treatment effect. Slower
           (adds shape-n latent; ``O(n·draws·chains)`` memory) but
           mathematically faithful. A UserWarning is emitted if the
           expected latent storage exceeds ~50M floats.
@@ -455,18 +487,32 @@ def bayes_mte(
             # Φ^{-1}(p) = √2 · erfinv(2p - 1)
             return pt.sqrt(2.0) * pt.erfinv(2.0 * a_safe - 1.0)
 
+        def _integrated_powers_tensor(p_any: Any) -> list:
+            """:func:`integrated_mte_powers` on a PyMC tensor."""
+            if selection != "normal":
+                return [p_any ** (k + 1) / (k + 1.0) for k in range(poly_u + 1)]
+            import pytensor.tensor as pt
+
+            v = _abscissa(p_any, is_numpy=False)
+            p_c = pm.math.clip(p_any, PROBIT_CLIP, 1 - PROBIT_CLIP)
+            phi = pt.exp(-0.5 * v * v) / np.sqrt(2.0 * np.pi)
+            out = [p_c, -phi]
+            for k in range(2, poly_u + 1):
+                out.append(-(v ** (k - 1)) * phi + (k - 1) * out[k - 2])
+            return out[: poly_u + 1]
+
         if mte_method == "polynomial":
+            # Local IV: the mean of Y given the propensity is the
+            # untreated mean plus the MTE integrated up to p. D does not
+            # enter: conditioning on D as well would need a model of how
+            # the untreated outcome varies with U_D, which is what
+            # 'hv_latent' and 'bivariate_normal' add.
             if first_stage == "plugin":
-                # Closed-form constant powers + dot product with b_mte
-                abscissa = _abscissa(p_expr, is_numpy=True)
-                U_powers = np.column_stack([abscissa**k for k in range(poly_u + 1)])
-                DU_powers = D[:, None] * U_powers
-                mte_contribution = pm.math.dot(DU_powers, b_mte)
+                K_mat = integrated_mte_powers(p_expr, poly_u, selection)
+                mte_contribution = pm.math.dot(K_mat, b_mte)
             else:
-                abscissa = _abscissa(p_expr, is_numpy=False)
-                u_powers = [abscissa**k for k in range(poly_u + 1)]
-                mte_i = sum(b_mte[k] * u_powers[k] for k in range(poly_u + 1))
-                mte_contribution = D * mte_i
+                K = _integrated_powers_tensor(p_expr)
+                mte_contribution = sum(b_mte[k] * K[k] for k in range(poly_u + 1))
         elif mte_method == "bivariate_normal":
             # Full trivariate-normal HV:
             #   Y_1 = μ_1 + U_1,  Y_0 = μ_0 + U_0,  D = 1{Z'π > V}
@@ -523,6 +569,25 @@ def bayes_mte(
             u_powers = [abscissa**k for k in range(poly_u + 1)]
             tau_i = sum(b_mte[k] * u_powers[k] for k in range(poly_u + 1))
             mte_contribution = D_float * tau_i
+            # The untreated outcome may depend on U_D too (selection on
+            # levels, not only on gains): E[Y_0 | U_D] = alpha + h(U_D),
+            # with h a polynomial of the same order centred so that
+            # alpha stays E[Y_0]. Without h the treated-untreated
+            # contrast at a given U_D is read as the MTE even when it is
+            # partly selection.
+            if poly_u >= 1:
+                b_sel = pm.Normal("b_sel", mu=0.0, sigma=prior_mte_sigma, shape=poly_u)
+                for k in range(1, poly_u + 1):
+                    if selection == "normal":
+                        # E[V^k] for V ~ N(0, 1): 0 (odd), (k - 1)!! (even)
+                        centre = (
+                            0.0 if k % 2 else float(np.prod(np.arange(k - 1, 0, -2)))
+                        )
+                    else:
+                        centre = 1.0 / (k + 1.0)
+                    mte_contribution = mte_contribution + b_sel[k - 1] * (
+                        u_powers[k] - centre
+                    )
 
         structural = alpha + mte_contribution
         if X is not None:
@@ -716,13 +781,7 @@ def bayes_mte(
         "prior_noise": prior_noise,
     }
 
-    # Method label flags the MTE parameterisation up-front. For
-    # ``polynomial`` mode we continue to use "treatment-effect-at-
-    # propensity" to reflect that g(p) may only equal MTE(u) under
-    # the HV2005 linear-separable + bivariate-normal assumption. For
-    # ``hv_latent`` mode we explicitly say "MTE" because the model
-    # samples U_D_i per unit so the polynomial is evaluated at the
-    # textbook latent variable, not at the propensity.
+    # The method label names the parameterisation behind the curve.
     fs_label = "joint" if first_stage == "joint" else "plug-in"
     scale_label = "V scale (probit)" if selection == "normal" else "U_D scale (uniform)"
     if mte_method == "hv_latent":
@@ -741,7 +800,7 @@ def bayes_mte(
         )
     else:
         method_label = (
-            f"Bayesian treatment-effect-at-propensity on {scale_label} "
+            f"Bayesian local-IV MTE on {scale_label} "
             f"(poly_u={poly_u}, {fs_label} first stage)"
         )
     return BayesianMTEResult(

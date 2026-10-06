@@ -13559,9 +13559,10 @@ def _build_registry() -> None:
             category="bayes",
             description=(
                 "Bayesian Marginal Treatment Effect (Heckman-Vytlacil 2005). "
-                "Full posterior over the MTE curve under essential heterogeneity, "
-                "with bivariate-normal latent errors. Derives ATE / ATT / LATE / "
-                "PRTE as posterior linear functionals."
+                "Full posterior over the MTE curve under essential heterogeneity: "
+                "a polynomial MTE by local IV (default, no normality needed), a "
+                "latent-resistance model, or the trivariate-normal model. Derives "
+                "ATE / ATT / LATE / PRTE as posterior linear functionals."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),

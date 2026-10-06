@@ -196,6 +196,23 @@ user guide is `docs/guides/bayesian_econometrics.md`.
 - **`sp.bayes_iv(prior_first_stage_sigma=)` was accepted and ignored.** The
   first-stage coefficients used `prior_coef_sigma`. They now use the
   argument that is named after them (default 5).
+- **`sp.bayes_mte` with the default `mte_method='polynomial'` did not
+  estimate the marginal treatment effect.** It fitted
+  `Y = alpha + D * g(p)`, which has no term for how the untreated outcome
+  varies with the unobserved resistance to treatment. With selection on
+  levels, `g` is neither the MTE nor a LATE: in a Heckman-Vytlacil normal
+  design with MTE(v) = 1 - 0.8 v, two million observations give an
+  intercept of 0.89 and a slope of -0.14. The mode now fits the local IV
+  regression `E[Y | p] = alpha + sum_k b_k int_0^p a(u)^k du` (Heckman and
+  Vytlacil 2005), which returns 1.00 and -0.80 on the same data and needs
+  no normality. `mte_method='hv_latent'` had the same gap and gains a
+  centred polynomial for the untreated outcome (`b_sel`).
+  In PyMC, over 12 samples of 1,000 with a true ATE of 1.0, the old
+  default averaged 0.89 and covered in 7; after the change the polynomial
+  mode (plug-in and joint first stage), `hv_latent` and
+  `bivariate_normal` average 0.98 to 0.99 and each covers in 11.
+  Intervals from the polynomial mode are wider than before, because local
+  IV uses the variation in the propensity only.
 - **`sp.bayes_fuzzy_rd` treated the errors of the outcome and take-up
   equations as independent.** They are correlated whenever the effect is
   not zero, and that correlation enters the variance of the ratio of the
@@ -271,13 +288,6 @@ user guide is `docs/guides/bayesian_econometrics.md`.
 
 #### Changed
 
-- The docstring of `sp.bayes_mte` no longer says that
-  `mte_method='polynomial'` (the default) equals the MTE under a
-  Heckman-Vytlacil normal model. It does only when the untreated outcome
-  is not selected on. In a normal design with selection on both outcomes
-  and a true ATE of 1.0 it averaged 0.89, where
-  `mte_method='bivariate_normal'` averaged 0.99. The estimator itself is
-  unchanged; changing its default is left open.
 - `sp.bvar(...).summary()` labels the coefficient rows (`L1.gdp`, ...,
   `_cons`); `coef_names` and `coef_table()` expose them.
 

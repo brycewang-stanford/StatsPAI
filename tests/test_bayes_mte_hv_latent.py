@@ -65,7 +65,7 @@ def test_bayes_mte_hv_latent_runs(hv_decreasing_data):
     assert "HV-latent" in r.method
 
 
-def test_bayes_mte_polynomial_method_label_unchanged(hv_decreasing_data):
+def test_bayes_mte_polynomial_method_label(hv_decreasing_data):
     r = bayes_mte(
         hv_decreasing_data,
         y="y",
@@ -79,7 +79,7 @@ def test_bayes_mte_polynomial_method_label_unchanged(hv_decreasing_data):
         progressbar=False,
     )
     assert r.model_info["mte_method"] == "polynomial"
-    assert "treatment-effect-at-propensity" in r.method
+    assert "local-IV MTE" in r.method
 
 
 # ---------------------------------------------------------------------------
@@ -114,45 +114,42 @@ def test_hv_latent_recovers_true_mte_polynomial(hv_decreasing_data):
     assert abs(b1_mean - (-2.0)) < 1.0, f"b_1 drift {abs(b1_mean + 2.0):.3f}"
 
 
-def test_polynomial_mode_disagrees_with_hv_latent_on_hv_dgp(hv_decreasing_data):
-    """Key calibration: on a DGP where the TRUE outcome equation
-    uses U_D (not p), the polynomial-in-p mode should give a
-    *different* slope posterior than hv_latent. This confirms that
-    v0.9.10's honesty upgrade is doing real work, not a no-op."""
+def test_polynomial_mode_recovers_the_hv_mte():
+    """On a DGP whose outcome equation uses ``U_D``, the polynomial mode
+    (local IV since 1.39) recovers the MTE coefficients (2, -2).
+
+    Before 1.39 this test asserted that the polynomial mode *disagreed*
+    with ``hv_latent`` here ("biased toward 0"): the mode fitted
+    ``Y = alpha + D * g(p)``, which is not the MTE. Local IV uses only
+    the variation in the propensity, so it needs more data than
+    ``hv_latent`` for the same precision.
+    """
+    rng = np.random.default_rng(803)
+    n = 4000
+    Z = rng.normal(size=n)
+    U_D = rng.uniform(size=n)
+    D = (1.0 / (1.0 + np.exp(-1.5 * Z)) > U_D).astype(float)
+    Y = 1.0 + (2.0 - 2.0 * U_D) * D + 0.3 * rng.normal(size=n)
     r_poly = bayes_mte(
-        hv_decreasing_data,
+        pd.DataFrame({"y": Y, "d": D, "z": Z}),
         y="y",
         treat="d",
         instrument="z",
         mte_method="polynomial",
         poly_u=1,
-        draws=400,
-        tune=400,
+        draws=500,
+        tune=500,
         chains=2,
         progressbar=False,
         random_state=7,
     )
-    r_hv = bayes_mte(
-        hv_decreasing_data,
-        y="y",
-        treat="d",
-        instrument="z",
-        mte_method="hv_latent",
-        poly_u=1,
-        draws=400,
-        tune=400,
-        chains=2,
-        progressbar=False,
-        random_state=7,
-    )
-    b1_poly = float(r_poly.trace.posterior["b_mte"].values[..., 1].mean())
-    b1_hv = float(r_hv.trace.posterior["b_mte"].values[..., 1].mean())
-    # Polynomial is biased toward 0; hv_latent toward true -2.0.
-    # We only assert non-trivial disagreement.
-    assert abs(b1_poly - b1_hv) > 0.5, (
-        f"polynomial b_1 {b1_poly:.3f} vs hv_latent b_1 {b1_hv:.3f} "
-        "should meaningfully disagree on this DGP"
-    )
+    b = r_poly.trace.posterior["b_mte"].values.reshape(-1, 2)
+    assert abs(b[:, 0].mean() - 2.0) < 4 * b[:, 0].std()
+    assert abs(b[:, 1].mean() - (-2.0)) < 4 * b[:, 1].std()
+    assert (b[:, 1] < 0).mean() > 0.97
+    # alpha is E[Y_0] = 1
+    alpha = r_poly.trace.posterior["alpha"].values.ravel()
+    assert abs(alpha.mean() - 1.0) < 4 * alpha.std()
 
 
 # ---------------------------------------------------------------------------
@@ -211,8 +208,10 @@ def test_hv_latent_memory_warning_fires_above_threshold():
     short-circuiting the sampler so the test runs in milliseconds."""
     import warnings
     from unittest.mock import patch
+
     import numpy as np
     import pandas as pd
+
     import statspai as sp
 
     rng = np.random.default_rng(0)
@@ -281,8 +280,10 @@ def test_hv_latent_memory_warning_does_not_fire_at_small_n():
     noise-fatiguing users on normal workflows."""
     import warnings
     from unittest.mock import patch
+
     import numpy as np
     import pandas as pd
+
     import statspai as sp
 
     rng = np.random.default_rng(0)

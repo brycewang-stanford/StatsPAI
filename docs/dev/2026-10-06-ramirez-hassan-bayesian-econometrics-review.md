@@ -84,11 +84,36 @@ coverage was simulated under known truth.
    coverage between 93.5 and 98.5 percent. The outcome equation now has
    `lambda * (D - mu_D)` in its mean.
 4. **`sp.bvar(...).summary()` printed coefficient rows as 0, 1, 2.**
+5. **`sp.bayes_mte` with the default `mte_method='polynomial'` did not
+   estimate the MTE.** Found by a known-truth screen, not by the book.
+   The mode fitted `Y = alpha + D * g(p)` and reported `g`. In the
+   Heckman-Vytlacil model `E[Y | D = 0, p]` depends on `p` whenever the
+   untreated outcome is correlated with the resistance to treatment, and
+   this model has no term for it. With two million observations from a
+   normal design with MTE(v) = 1 - 0.8 v, least squares on the old
+   regressors gives an intercept of 0.89 and a slope of -0.14. The
+   suspected culprit, the plug-in first stage, makes no visible
+   difference: plug-in and joint posteriors agree to two digits.
+   The mode now fits the local IV regression
+   `E[Y | p] = E[Y_0] + int_0^p MTE(u) du`, which is linear in known
+   functions of `p` for a polynomial MTE (closed forms on the uniform and
+   the probit scale, `integrated_mte_powers`). The same least squares
+   check returns 1.00 and -0.80, and 2.0 and -3.0 for a uniform-scale
+   design with non-normal errors. `mte_method='hv_latent'` conditions on
+   `D` and a latent resistance, so it needed the missing term instead: a
+   centred polynomial for the untreated outcome. In PyMC, 12 samples of
+   1,000: the old default averaged 0.89 with 7 intervals covering; the new
+   polynomial mode, `hv_latent` and `bivariate_normal` average 0.98 to
+   0.99 with 11 covering each. The alternative of only switching the
+   default to `'bivariate_normal'` was rejected: it would have left a
+   wrong estimator one argument away, and it imposes normality that local
+   IV does not need.
 
 Items 1 and 3 are the same mistake: a two-step Bayesian model in which
 the first step's uncertainty, or its correlation with the second, never
-reaches the posterior. `sp.bayes_mte` already offers `first_stage='joint'`
-and documents the plug-in alternative; it was not changed.
+reaches the posterior. `sp.bayes_mte` offers `first_stage='joint'` and
+documents the plug-in alternative; in the screen behind item 5 the two
+agree, so that option was left alone.
 
 ## What was added
 
@@ -247,21 +272,9 @@ here gives the same number.
 - Chapter 13's Bayesian exponentially tilted empirical likelihood, general
   Bayes posteriors and doubly robust Bayesian inference have no
   counterpart.
-- **`sp.bayes_mte`'s default parameterisation.** A screen in a
-  Heckman-Vytlacil normal design (1,000 observations, 12 samples, true
-  ATE 1.0, `Cov(U_0, V) = 0.5`, `Cov(U_1, V) = -0.3`): the plug-in and the
-  joint first stage give the same posterior to two digits, so the first
-  stage is not the issue here. The default `mte_method='polynomial'` is:
-  it models `Y = alpha + D g(p)`, which has no selection term for the
-  untreated outcome. Its ATE averaged 0.89 (linear) and 0.90 (quadratic),
-  with coverage of 7 and 9 out of 12. `mte_method='bivariate_normal'`
-  averaged 0.99 with a posterior sd of 0.108 against a sampling sd of
-  0.106 and covered in 11. The docstring claimed the polynomial equals
-  the MTE in this design; it now states the condition (`Cov(U_0, V) = 0`)
-  and the numbers. Whether the default should become
-  `'bivariate_normal'`, or the polynomial model should be rebuilt as a
-  local IV regression of `Y` on a polynomial in `p`, is a design decision
-  that deserves its own pass.
+- `sp.bayes_mte(mte_method='hv_latent')` after the fix has a posterior sd
+  of 0.09 where the estimates vary by 0.12 across 12 samples. Twelve
+  samples cannot tell whether that is noise; it deserves a longer run.
 - Known-truth screens of the other PyMC estimators, 40 samples each, found
   nothing: `sp.bayes_rd` (posterior sd 0.993 of the least squares standard
   error, coverage 37/40), `sp.bayes_its` (1.014, 39/40), `sp.bayes_did`

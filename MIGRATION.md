@@ -36,6 +36,32 @@ matching without replacement, nor data with continuous covariates.
 **What to do.** Re-run. `ties='first'` gives the earlier number, with a
 warning that says how many units had ties.
 
+## 1.38.0 → next: ⚠️ `sp.bayes_mte` with `mte_method='polynomial'` or `'hv_latent'`
+
+**What changed.** The default `mte_method='polynomial'` fitted
+`Y = alpha + D * g(p)` and reported `g` as the MTE curve. That model
+assumes the untreated outcome does not vary with the unobserved
+resistance to treatment. When it does (selection on levels, the usual
+case), `g`, the ATE, ATT, ATU and every policy effect built on it were
+wrong, not just noisy. The mode now fits the local IV regression
+`E[Y | p] = alpha + sum_k b_k int_0^p a(u)^k du`, in which `b_k` are the
+coefficients of the MTE polynomial and `alpha` is `E[Y_0]`.
+
+`mte_method='hv_latent'` gains a centred polynomial `b_sel` for the
+untreated outcome, of the same order as the MTE polynomial.
+
+`mte_method='bivariate_normal'` is unchanged.
+
+The method label of the polynomial mode reads "Bayesian local-IV MTE"
+(was "Bayesian treatment-effect-at-propensity").
+
+**Who is affected.** Anyone who reported an MTE curve, ATE, ATT, ATU or
+policy effect from `sp.bayes_mte` without `mte_method='bivariate_normal'`.
+Results change in level and slope. Posterior intervals are wider: local
+IV identifies the MTE from variation in the propensity alone.
+
+**What to do.** Re-run. There is no switch for the earlier numbers.
+
 ## 1.38.0 → next: ⚠️ `sp.bayes_iv`, `sp.bayes_hte_iv` and `sp.bayes_fuzzy_rd` credible intervals
 
 **What changed.** `sp.bayes_iv` and `sp.bayes_hte_iv` used first-stage
