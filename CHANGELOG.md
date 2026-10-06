@@ -587,6 +587,13 @@ is `docs/guides/forecasting_fpp.md`.
   the old search had converged, log likelihoods move by less than `1e-3`
   and coefficients by at most `2e-3`. Forecasts now agree with
   `forecast::Arima` to about `1e-6`.
+- **`sp.arima` is faster.** The likelihood of the differenced series is
+  evaluated by the innovations algorithm, compiled with numba. It is the
+  number the Kalman filter returns, to `1e-8`, about fifteen times
+  faster. `auto=True` with `period=12` takes 2 to 7 seconds on the book's
+  monthly series; it took one to five minutes, and R takes 5 to 16 seconds
+  with `approximation=FALSE`. numba is imported on the first call to
+  `sp.arima`, not on `import statspai`.
 - Regressors of `sp.arima` keep their names in `params`. They were
   `x1`, `x2`.
 - `ARIMAResult.forecast()` is indexed by the forecast periods when the

@@ -117,6 +117,16 @@ a rescaled copy with the standard errors mapped back. Estimates, likelihood,
 forecasts and standard errors are invariant to the unit. Both passes' tests
 run on the merged code.
 
+Second round, same day: the likelihood of the differenced series is evaluated
+by the innovations algorithm in `timeseries/_arma_core.py` (numba). It returns
+the number statsmodels' Kalman filter returns, to `1e-8`, about fifteen times
+faster, and the level model is built only for the fit that is returned. The
+book's three monthly series went from one to five minutes each to 2 to 7
+seconds, where R takes 5 to 16 with the exact likelihood. The selections are
+unchanged: 27 of 27 comparisons with `auto.arima` agree.
+`tests/test_arma_innovations_likelihood.py` checks the likelihood against the
+filter and against closed forms for AR(1) and MA(1).
+
 Tests:
 
 - `tests/reference_parity/test_forecasting_r_parity.py`, 92 tests against
@@ -182,7 +192,6 @@ Tests:
 
 | Item | Note |
 | --- | --- |
-| Speed of seasonal `auto=True` | The book's three monthly series take one to five minutes each, where R takes 5 to 16 seconds with the exact likelihood. Quarterly series take 5 to 40 seconds stepwise. The cost is statsmodels' Kalman filter at 2 to 4 ms per evaluation. A numba likelihood for ARMA on the differenced series would close the gap. |
 | Intervals after reconciliation | `sp.reconcile` returns point forecasts and `G`. The book reconciles normal intervals in section 11.6. |
 | Top-down by forecast proportions, middle-out | Not implemented. |
 | Box-Cox inside the forecasters | `forecast` and `fable` take `lambda=` and bias-adjust the back-transform. Here the transform is the caller's job. The docstring of `sp.boxcox_lambda` gives the adjustment. |

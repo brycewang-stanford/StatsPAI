@@ -813,9 +813,12 @@ def arima(
             det: Optional[str],
             converged: bool,
             bse: Optional[np.ndarray] = None,
+            probe: Any = None,
         ) -> None:
             self.res = res  # statsmodels results in levels (forecasts)
             self.bse = bse  # standard errors, when not those of ``res``
+            # object carrying ``arroots`` / ``maroots`` of the estimates
+            self.probe = probe if probe is not None else res
             self.llf = float(llf)
             self.k = int(k)  # coefficients and the innovation variance
             self.n_eff = int(n_eff)
@@ -946,34 +949,120 @@ def arima(
             enforce_invertibility=True,
         )
 
+        # The likelihood of the differenced series is evaluated by the
+        # innovations algorithm (``_arma_core``): the same number the
+        # Kalman filter of ``est`` returns, about fifteen times faster.
+        # ``est`` supplies the starting values and the map between the
+        # unconstrained search space and stationary, invertible
+        # coefficients.
+        from types import SimpleNamespace
+
+        from scipy import optimize as _opt
+
+        from . import _arma_core as _ac
+
+        w_d = np.ascontiguousarray(np.asarray(est.endog)[:, 0], dtype=float)
+        X_d = None if X is None else np.asarray(est.exog, dtype=float)
+        k_x = 0 if X_d is None else X_d.shape[1]
+        orders = (
+            int(order_[0]),
+            int(order_[2]),
+            int(seas_sm[0]),
+            int(seas_sm[2]),
+            int(seas_sm[3]),
+        )
+        n_w = w_d.shape[0]
+
+        def evaluate(par: np.ndarray) -> Tuple[float, float]:
+            u = w_d if X_d is None else np.ascontiguousarray(w_d - X_d @ par[:k_x])
+            phi, th = _ac.expand(np.ascontiguousarray(par[k_x:]), *orders)
+            try:
+                ll, sig = _ac.arma_loglike(u, phi, th)
+            except np.linalg.LinAlgError:
+                return float("-inf"), float("nan")
+            return float(ll), float(sig)
+
+        def negative(u: np.ndarray) -> float:
+            try:
+                par = np.asarray(est.transform_params(u), dtype=float)
+            except (ValueError, FloatingPointError, np.linalg.LinAlgError):
+                return 1.0e10
+            if not np.isfinite(par).all():
+                return 1.0e10
+            ll = evaluate(par)[0]
+            return -ll / n_w if np.isfinite(ll) else 1.0e10
+
+        def summarise(par: np.ndarray, converged_: bool) -> Any:
+            ll, sig = evaluate(par)
+            phi, th = _ac.expand(np.ascontiguousarray(par[k_x:]), *orders)
+            ar_r = np.roots(np.r_[-phi[::-1], 1.0]) if phi.size else np.empty(0)
+            ma_r = np.roots(np.r_[th[::-1], 1.0]) if th.size else np.empty(0)
+            return SimpleNamespace(
+                params=par,
+                llf=ll,
+                scale=sig,
+                arroots=ar_r,
+                maroots=ma_r,
+                mle_retvals={"converged": bool(converged_)},
+            )
+
         def run(opt: str, maxiter: int, start: Any = None) -> Any:
             with _warnings.catch_warnings():
                 _warnings.simplefilter("ignore")
-                return est.fit(
-                    start_params=start, disp=False, method=opt, maxiter=maxiter
+                start_c = est.start_params if start is None else start
+                u0 = np.asarray(
+                    est.untransform_params(np.asarray(start_c, dtype=float)),
+                    dtype=float,
                 )
+                if not np.isfinite(u0).all():
+                    raise FloatingPointError("starting values on the boundary")
+                if opt == "lbfgs":
+                    out = _opt.minimize(
+                        negative,
+                        u0,
+                        method="L-BFGS-B",
+                        options={
+                            "maxiter": maxiter,
+                            "maxcor": 12,
+                            "gtol": 1e-8,
+                            "ftol": 1e2 * np.finfo(float).eps,
+                            "eps": 1e-8,
+                        },
+                    )
+                else:
+                    out = _opt.minimize(
+                        negative,
+                        u0,
+                        method="Nelder-Mead",
+                        options={"maxiter": maxiter, "xatol": 1e-4, "fatol": 1e-4},
+                    )
+                par = np.asarray(est.transform_params(out.x), dtype=float)
+            fit_ = summarise(par, bool(out.success))
+            if not np.isfinite(fit_.llf):
+                raise FloatingPointError("the likelihood is not finite at the optimum")
+            return fit_
 
         n_par = int(order_[0]) + int(order_[2]) + int(seas_sm[0]) + int(seas_sm[2])
         if est.k_params == 0:
             # a random walk without drift: nothing to optimise
-            with _warnings.catch_warnings():
-                _warnings.simplefilter("ignore")
-                best = est.smooth(np.empty(0))
+            best = summarise(np.empty(0), True)
         else:
-            best = run("lbfgs", 500 if effort >= 2 else 200)
+            try:
+                best = run("lbfgs", 500 if effort >= 2 else 200)
+            except (ValueError, FloatingPointError, np.linalg.LinAlgError) as exc:
+                from ..exceptions import NumericalInstability
+
+                raise NumericalInstability(
+                    f"arima: the likelihood of ARIMA{tuple(order_)}"
+                    + (f"x{tuple(seas_sm)}" if seas_ else "")
+                    + f" could not be maximised ({exc}).",
+                    recovery_hint=(
+                        "Check the series for constant stretches or extreme "
+                        "values, or fit a lower order."
+                    ),
+                ) from exc
             # a second start, from the conditional-sum-of-squares estimates
-            w_d, X_d = np.asarray(est.endog)[:, 0], None
-            if X is not None:
-                X_d = np.asarray(est.exog, dtype=float)
-            css = _css_start(
-                w_d,
-                X_d,
-                int(order_[0]),
-                int(order_[2]),
-                int(seas_sm[0]),
-                int(seas_sm[2]),
-                int(seas_sm[3]),
-            )
+            css = _css_start(w_d, X_d, *orders)
             if css is not None and css.shape[0] == est.k_params:
                 try:
                     alt = run("lbfgs", 500 if effort >= 2 else 200, css)
@@ -1015,6 +1104,10 @@ def arima(
         converged = (getattr(best, "mle_retvals", None) or {}).get(
             "converged"
         ) is not False
+        if effort < 2:
+            # a candidate of a search: its criterion and roots are enough
+            llf_c = float(best.llf) - n_eff * float(np.log(unit))
+            return _Fit(None, llf_c, k_all + 1, n_eff, det, converged, None, best)
         # the same parameters in the level model, for fitted values,
         # standard errors and forecasts
         full = SARIMAX(
@@ -1059,7 +1152,7 @@ def arima(
                     * to_y
                 )
                 res_full = full.smooth(theta, cov_type="none")
-        return _Fit(res_full, llf, len(theta), n_eff, det, converged, bse)
+        return _Fit(res_full, llf, len(theta), n_eff, det, converged, bse, best)
 
     constant: Optional[bool] = None
     candidates: Optional[pd.DataFrame] = None
@@ -1113,7 +1206,7 @@ def arima(
             except Exception:
                 n_failed += 1
                 return float(np.inf)
-            if _near_unit_root(res_c.res):
+            if _near_unit_root(res_c.probe):
                 return float(np.inf)
             val = res_c.aicc
             return val if np.isfinite(val) else float(np.inf)
@@ -1150,7 +1243,7 @@ def arima(
                 res_k = _fit((kp, d, kq), seas_k, want_k)
             except (ValueError, FloatingPointError, np.linalg.LinAlgError):
                 continue
-            if _near_unit_root(res_k.res):
+            if _near_unit_root(res_k.probe):
                 continue
             val_k = res_k.aicc
             if val_k < best_val:
