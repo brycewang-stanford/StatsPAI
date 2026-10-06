@@ -2568,3 +2568,25 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after backtick-quoted names in formulas
+
+- **Commits.** `badb893c` re-recorded the entries of every Track A and
+  original-data module whose estimation path reads a formula, in
+  `tests/r_parity/results/_implementation_trace.json` and
+  `tests/orig_parity/results/_implementation_trace.json`. The source that
+  staled them is in `9c88e2d2`: `src/statspai/core/utils.py`,
+  `src/statspai/regression/ols.py`, `src/statspai/regression/iv.py`,
+  `src/statspai/regression/count.py` and `src/statspai/regression/gam.py`.
+- **Reason.** Third round of
+  `docs/dev/2026-10-06-ness-causal-ai-review.md`. A column name written
+  between backticks is read as `Q("...")`; the IV parser no longer
+  rewrites a hyphen inside a quoted name. A formula without backticks or
+  quoted names takes the same path as before: the translation is skipped
+  unless the formula contains a backtick.
+- **Effect on the paper.** None. No committed result file changed. In both
+  trace files only `exercised_sources` digests and `seconds` differ; no
+  implementation classification moved.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
