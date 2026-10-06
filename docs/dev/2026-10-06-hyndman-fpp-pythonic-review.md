@@ -142,6 +142,33 @@ The same round fixed an import failure that was not this pass's: a dataclass in
 (`slice` is unhashable before 3.12). `import statspai` raised on 3.11. The
 repository venv is 3.10, where it does not show.
 
+Fourth round closed the rest of the list.
+
+- **Box-Cox inside the forecasters.** `sp.ets`, `sp.arima` and
+  `sp.simple_forecast` take `boxcox=` (a number or `"auto"`) and `biasadj=`.
+  Forecasts and intervals are back-transformed; with `biasadj=True` the point
+  forecast is the mean, not the median. Benchmark forecasts equal
+  `forecast::rwf` and `snaive` with `lambda=` to `1e-15`, with and without the
+  adjustment; ARIMA forecasts to `2e-6`. As in R, the automatic ETS choice is
+  among additive models when a transformation is given.
+- **Top-down by forecast proportions and middle-out** in `sp.reconcile`
+  (`proportions="forecast"`, `method="middle_out", middle=`). Equal to
+  hierarchicalforecast's `TopDown` and `MiddleOut` to `1e-15` on the tourism
+  hierarchy, for all three kinds of proportions.
+- **ETS with missing values.** At a missing period the states move on with a
+  zero innovation and the period is left out of the likelihood. R keeps the
+  longest stretch without gaps instead; this uses all the data.
+- **`sp.ts_features`.** 29 features of `tsfeatures`, for one series or a table
+  of series. Equal to R to `1e-13` on five of the book's series and on the
+  committed fixtures.
+- **`sp.bootstrap_series`, `sp.bagged_forecast`.** The Box-Cox, STL and moving
+  block bootstrap of Bergmeir, Hyndman and Benitez (2016), and forecasts
+  averaged over the bootstrapped series (section 12.5). The draws are random,
+  so the evidence is structural: the first series is the original, every
+  bootstrapped series keeps the trend and seasonal strength, the ensemble is
+  centred on the series, and the bagged forecast is the average of its members.
+- **`sp.seasonal_dummies`** for the regressions of chapter 7.
+
 Tests:
 
 - `tests/reference_parity/test_forecasting_r_parity.py`, 92 tests against
@@ -205,16 +232,15 @@ Tests:
 
 ## Open items
 
+Every item of the first three rounds is closed (see "Fourth round" above).
+What is left is outside the scope of the package or waits on a person.
+
 | Item | Note |
 | --- | --- |
-| Top-down by forecast proportions, middle-out | Not implemented. |
-| Box-Cox inside the forecasters | `forecast` and `fable` take `lambda=` and bias-adjust the back-transform. Here the transform is the caller's job. The docstring of `sp.boxcox_lambda` gives the adjustment. |
-| Bagged forecasts (section 12.5) | The block bootstrap of STL remainders is not packaged. |
-| Time series features (chapter 4) | Only the strength of trend and seasonality. The `tsfeatures` catalogue is not reproduced. |
-| ETS with missing values | Refused. `forecast::ets` interpolates. |
-| Prophet, neural networks, foundation models | Outside the scope of the package. |
-| Regression helpers of chapter 7 | `sp.regress` with `predict(what="prediction")` covers the examples. A trend and seasonal dummy shorthand does not exist. |
-| Report the `forecast.ets` variance issue upstream | Draft for Bryce to send. |
+| Prophet, neural networks, foundation models | Outside the scope of the package (sections 12.2, chapters 14 and 15). |
+| Features not reproduced | Spectral entropy, Hurst exponent, the Terasvirta nonlinearity statistic, GARCH features, and the decomposition features of a non-seasonal series, which `tsfeatures` takes from `supsmu`. |
+| Prediction intervals of bagged forecasts | `sp.bagged_forecast` reports the range of the ensemble, as `forecast::baggedETS` does. It is not a prediction interval. |
+| Report the `forecast.ets` variance issue upstream | Draft below, for Bryce to send. |
 
 ## Draft of an upstream report (for Bryce to send)
 

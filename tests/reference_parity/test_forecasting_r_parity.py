@@ -573,3 +573,57 @@ def test_reconcile_matches_hts(method):
     close(rec.forecasts.to_numpy(), arr(R["hts"][method]))
     f = rec.forecasts.to_numpy()
     np.testing.assert_allclose(f, f[:, 4:] @ S.T, atol=1e-9)
+
+
+# ----------------------------------------------------------------------
+# Box-Cox inside the forecasters, time series features
+# ----------------------------------------------------------------------
+BC = json.loads((FIX / "forecasting_boxcox_R.json").read_text(encoding="utf-8"))
+TSF = json.loads((FIX / "forecasting_tsfeatures_R.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("biasadj, tag", [(False, "med"), (True, "adj")])
+def test_boxcox_benchmark_forecasts_match_r(biasadj, tag):
+    r = BC[f"drift_log_{tag}"]
+    fc = sp.simple_forecast(
+        series("walk"), "drift", boxcox=0, biasadj=biasadj
+    ).forecast(10)
+    close(fc["forecast"], r["mean"])
+    close(fc["lower_80"], arr(r["lower"])[:, 0])
+    close(fc["upper_95"], arr(r["upper"])[:, 1])
+    r = BC[f"snaive_l3_{tag}"]
+    fc = sp.simple_forecast(
+        series("quarterly"), "snaive", period=4, boxcox=0.3, biasadj=biasadj
+    ).forecast(8)
+    close(fc["forecast"], r["mean"])
+    close(fc["lower_95"], arr(r["lower"])[:, 1])
+    close(fc["upper_80"], arr(r["upper"])[:, 0])
+
+
+@pytest.mark.parametrize("biasadj, tag", [(False, "med"), (True, "adj")])
+def test_boxcox_arima_forecasts_match_r(biasadj, tag):
+    r = BC[f"arima_l5_{tag}"]
+    fit = sp.arima(
+        series("quarterly"),
+        order=(1, 0, 0),
+        seasonal_order=(0, 1, 1, 4),
+        boxcox=0.5,
+        biasadj=biasadj,
+    )
+    assert fit.log_likelihood == pytest.approx(r["loglik"], abs=3e-3)
+    fc = fit.forecast(8, level=(80, 95), dof_adjust=True)
+    # two optimisers on one likelihood, mapped through the inverse transform
+    np.testing.assert_allclose(fc["forecast"], r["mean"], rtol=2e-3)
+    np.testing.assert_allclose(fc["lower_80"], arr(r["lower"])[:, 0], rtol=5e-3)
+    np.testing.assert_allclose(fc["upper_95"], arr(r["upper"])[:, 1], rtol=5e-3)
+
+
+@pytest.mark.parametrize("name", sorted(TSF["features"]))
+def test_ts_features_match_r_tsfeatures(name):
+    ref = TSF["features"][name]
+    got = sp.ts_features(series(name), period(name))
+    rename = {"arch_lm": "ARCH.LM"}
+    assert len(got) >= 18
+    for key, val in got.items():
+        target = ref[rename.get(key, key)]
+        assert val == pytest.approx(target, rel=1e-9, abs=1e-10), key

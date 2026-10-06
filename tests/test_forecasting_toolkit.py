@@ -148,10 +148,6 @@ def test_ets_refuses_bad_data():
     y = _seasonal_series()
     with pytest.raises(MethodIncompatibility, match="strictly positive"):
         sp.ets(y - y.mean(), "MNN")
-    gap = y.copy()
-    gap[10] = np.nan
-    with pytest.raises(MethodIncompatibility, match="missing value"):
-        sp.ets(gap, "ANN")
     with pytest.raises(DataInsufficient, match="constant"):
         sp.ets(np.ones(30), "ANN")
     with pytest.raises(DataInsufficient, match="too few"):
@@ -985,3 +981,257 @@ def test_gam_smooth_term_default_is_valid_on_every_supported_python():
     f = {x.name: x for x in dataclasses.fields(gam._Smooth)}["cols"]
     assert f.default is dataclasses.MISSING
     assert f.default_factory() == slice(0, 0)
+
+
+# ----------------------------------------------------------------------
+# Box-Cox inside the forecasters; ETS with gaps
+# ----------------------------------------------------------------------
+def test_boxcox_zero_is_the_model_of_the_logarithm():
+    y = _seasonal_series()
+    direct = sp.ets(np.log(y), "AAA", period=4)
+    wrapped = sp.ets(y, "AAA", period=4, boxcox=0)
+    assert wrapped.boxcox == 0.0
+    assert wrapped.log_likelihood == pytest.approx(direct.log_likelihood, abs=1e-8)
+    a, b = direct.forecast(6, level=90), wrapped.forecast(6, level=90)
+    np.testing.assert_allclose(b["forecast"], np.exp(a["forecast"]), rtol=1e-10)
+    np.testing.assert_allclose(b["lower_90"], np.exp(a["lower_90"]), rtol=1e-10)
+    np.testing.assert_allclose(wrapped.fitted_values, np.exp(direct.fitted_values))
+    # the bias-adjusted mean of a lognormal: exp(mu) (1 + sigma^2 / 2)
+    adj = sp.ets(y, "AAA", period=4, boxcox=0, biasadj=True).forecast(6, level=90)
+    sd = (a["upper_90"] - a["lower_90"]) / (2 * 1.6448536269514722)
+    np.testing.assert_allclose(
+        adj["forecast"], np.exp(a["forecast"]) * (1 + sd**2 / 2), rtol=1e-10
+    )
+    assert (adj["forecast"] > b["forecast"]).all()
+    np.testing.assert_allclose(adj["upper_90"], b["upper_90"])
+
+
+def test_boxcox_auto_and_validation():
+    y = _seasonal_series()
+    fit = sp.ets(y, period=4, boxcox="auto")
+    assert fit.boxcox == pytest.approx(sp.boxcox_lambda(y, 4))
+    assert "M" not in (fit.error, fit.trend, fit.season)  # additive only
+    ar = sp.arima(y, order=(1, 1, 0), boxcox=0.5)
+    assert ar.boxcox == 0.5
+    assert ar.forecast(3).shape == (3, 3) and (ar.forecast(3)["lower"] > 0).all()
+    # fitted values come back on the scale of the data
+    assert np.isfinite(ar.fitted_values[5:]).all() and (ar.fitted_values[5:] > 0).all()
+    assert 0.5 < np.median(ar.fitted_values[5:] / y[5:]) < 2.0
+    with pytest.raises(MethodIncompatibility, match="strictly positive"):
+        sp.simple_forecast(y - y.mean(), "naive", boxcox=0)
+    with pytest.raises(MethodIncompatibility, match="not a number or 'auto'"):
+        sp.ets(y, "ANN", boxcox="log")
+
+
+def test_ets_with_missing_values_skips_them_in_the_likelihood():
+    y = _seasonal_series(mult=False)
+    full = sp.ets(y, "AAA", period=4)
+    gap = y.copy()
+    gap[[20, 21, 50]] = np.nan
+    fit = sp.ets(gap, "AAA", period=4)
+    assert fit.n == len(y) - 3 and fit.n_missing == 3
+    assert np.isnan(fit.residuals[[20, 21, 50]]).all()
+    assert np.isfinite(fit.fitted_values).all()
+    # the fitted values at the gaps are forecasts of what was not seen
+    assert np.abs(fit.fitted_values[[20, 21, 50]] - y[[20, 21, 50]]).max() < 6.0
+    np.testing.assert_allclose(
+        fit.forecast(4)["forecast"], full.forecast(4)["forecast"], rtol=0.02
+    )
+    # with a zero innovation at the gap the level does not move
+    ses = sp.ets(np.r_[y[:30], np.nan, y[31:]], "ANN")
+    lvl = ses.states["level"].to_numpy()
+    assert lvl[31] == pytest.approx(lvl[30])
+
+
+# ----------------------------------------------------------------------
+# top-down by forecast proportions, middle-out
+# ----------------------------------------------------------------------
+def test_forecast_proportions_by_hand():
+    Sd, ids = _three_level()
+    base = pd.DataFrame([[100.0, 30.0, 60.0, 10.0, 30.0, 10.0, 40.0]], columns=ids)
+    rec = sp.reconcile(base, Sd, method="top_down", proportions="forecast").forecasts
+    # A gets 30 / 90 of the total, a1 gets 10 / 40 of A, and so on
+    np.testing.assert_allclose(rec["A"], 100 * 30 / 90)
+    np.testing.assert_allclose(rec["a1"], 100 * (30 / 90) * (10 / 40))
+    np.testing.assert_allclose(rec["b2"], 100 * (60 / 90) * (40 / 50))
+    np.testing.assert_allclose(rec["T"], 100.0)
+    np.testing.assert_allclose(
+        rec.to_numpy(), rec[ids[3:]].to_numpy() @ Sd.to_numpy().T
+    )
+
+
+def test_middle_out_keeps_the_middle_level_and_sums_above_it():
+    Sd, ids = _three_level()
+    base = pd.DataFrame([[100.0, 30.0, 60.0, 10.0, 30.0, 10.0, 40.0]], columns=ids)
+    rec = sp.reconcile(
+        base, Sd, method="middle_out", middle=["A", "B"], proportions="forecast"
+    ).forecasts
+    assert rec["A"].iloc[0] == pytest.approx(30.0)
+    assert rec["B"].iloc[0] == pytest.approx(60.0)
+    assert rec["T"].iloc[0] == pytest.approx(90.0)
+    assert rec["a1"].iloc[0] == pytest.approx(30 * 10 / 40)
+    hist = pd.DataFrame(
+        np.array([[4.0, 6.0, 1.0, 9.0], [6.0, 4.0, 3.0, 7.0]]) @ Sd.to_numpy().T,
+        columns=ids,
+    )
+    avg = sp.reconcile(base, Sd, method="middle_out", middle=["A", "B"], history=hist)
+    assert avg.forecasts["a1"].iloc[0] == pytest.approx(30 * np.mean([0.4, 0.6]))
+    assert np.isfinite(avg.G.to_numpy()).all()
+    # a level name works when the structure comes from sp.hierarchy
+    h = sp.hierarchy(
+        _long_table(n_t=12)
+        .groupby(["all", "state", "region", "t"], as_index=False)["v"]
+        .sum(),
+        [["all"], ["all", "state"], ["all", "state", "region"]],
+        time="t",
+        value="v",
+    )
+    b2 = h.Y.iloc[-2:].reset_index(drop=True) * 1.1
+    mo = sp.reconcile(
+        b2, h, method="middle_out", middle="all/state", proportions="forecast"
+    ).forecasts
+    np.testing.assert_allclose(mo[h.tags["all/state"]], b2[h.tags["all/state"]])
+
+
+def test_top_down_variants_validate_their_inputs():
+    Sd, ids = _three_level()
+    base = pd.DataFrame([[100.0, 30.0, 60.0, 10.0, 30.0, 10.0, 40.0]], columns=ids)
+    with pytest.raises(MethodIncompatibility, match="needs middle="):
+        sp.reconcile(base, Sd, method="middle_out", proportions="forecast")
+    with pytest.raises(MethodIncompatibility, match="does not split"):
+        sp.reconcile(
+            base, Sd, method="middle_out", middle=["A"], proportions="forecast"
+        )
+    with pytest.raises(MethodIncompatibility, match="needs history="):
+        sp.reconcile(base, Sd, method="top_down", proportions="average")
+    with pytest.raises(MethodIncompatibility, match="not a linear map"):
+        sp.reconcile(
+            base, Sd, method="top_down", proportions="forecast", sd=np.ones((1, 7))
+        )
+    grouped = pd.DataFrame(
+        [
+            [1, 1, 1, 1],
+            [1, 1, 0, 0],
+            [0, 0, 1, 1],
+            [1, 0, 1, 0],
+            [0, 1, 0, 1],
+            *np.eye(4),
+        ],
+        index=["T", "A", "B", "x", "y", "a1", "a2", "b1", "b2"],
+        columns=["a1", "a2", "b1", "b2"],
+        dtype=float,
+    )
+    with pytest.raises(MethodIncompatibility, match="strict hierarchy"):
+        sp.reconcile(
+            np.ones((1, 9)), grouped, method="top_down", proportions="forecast"
+        )
+
+
+# ----------------------------------------------------------------------
+# features, bootstrapped series, bagging, seasonal dummies
+# ----------------------------------------------------------------------
+def test_ts_features_values_and_table_input():
+    rng = np.random.default_rng(0)
+    t = np.arange(144)
+    wide = pd.DataFrame(
+        {
+            "seasonal": 5 * np.sin(2 * np.pi * t / 12) + rng.normal(size=144),
+            "trend": 0.2 * t + rng.normal(size=144),
+            "noise": rng.normal(size=144),
+        }
+    )
+    f = sp.ts_features(wide, period=12)
+    assert list(f.index) == ["seasonal", "trend", "noise"]
+    assert (
+        f.loc["seasonal", "seasonal_strength"]
+        > 0.9
+        > f.loc["noise", "seasonal_strength"]
+    )
+    assert f.loc["trend", "trend"] > 0.95 and f.loc["trend", "x_acf1"] > 0.9
+    assert abs(f.loc["noise", "x_acf1"]) < 0.3  # 3.6 standard errors at n = 144
+    assert f.loc["seasonal", "seas_acf1"] > 0.8
+    one = sp.ts_features(wide["noise"], period=12)
+    pd.testing.assert_series_equal(one, f.loc["noise"], check_names=False)
+    # scaling: the features of a shape do not depend on its units
+    pd.testing.assert_series_equal(
+        sp.ts_features(1000 * wide["seasonal"] + 7, 12),
+        f.loc["seasonal"],
+        check_names=False,
+        rtol=1e-9,
+    )
+    x = np.array([0.0, 1, 0, 1, 0, 1, 0, 1, 5, 5, 5, 5, 0, 1])
+    g = sp.ts_features(x, scale=False)
+    # the median is 1: only the run of fives lies above it, entered and left once
+    assert g["flat_spots"] == 4 and g["crossing_points"] == 2
+    assert "seasonal_strength" not in g.index
+    with pytest.raises(DataInsufficient, match="too few"):
+        sp.ts_features(x[:5])
+    with pytest.raises(DataInsufficient, match="constant"):
+        sp.ts_features(np.ones(40))
+
+
+def test_bootstrap_series_keeps_the_structure_of_the_series():
+    rng = np.random.default_rng(0)
+    idx = pd.period_range("2000Q1", periods=96, freq="Q")
+    t = np.arange(96)
+    y = pd.Series(
+        (50 + t)
+        * (1 + 0.2 * np.sin(2 * np.pi * t / 4))
+        * np.exp(rng.normal(0, 0.03, 96)),
+        index=idx,
+    )
+    boot = sp.bootstrap_series(y, 40, period=4, seed=1)
+    assert boot.shape == (96, 40) and boot.index.equals(idx)
+    np.testing.assert_allclose(boot["boot_0"], y)
+    assert (boot > 0).all().all()
+    again = sp.bootstrap_series(y, 40, period=4, seed=1)
+    pd.testing.assert_frame_equal(boot, again)
+    assert not np.allclose(boot["boot_1"], boot["boot_2"])
+    # every bootstrapped series is as seasonal and as trended as the original
+    feats = sp.ts_features(boot, period=4)
+    assert feats["seasonal_strength"].min() > 0.9 and feats["trend"].min() > 0.95
+    # the ensemble is centred on the series
+    assert np.abs(boot.iloc[:, 1:].mean(axis=1) / y - 1).max() < 0.08
+    flat = sp.bootstrap_series(100 + np.cumsum(rng.normal(size=60)), 5, boxcox=None)
+    assert flat.shape == (60, 5)
+    with pytest.raises(DataInsufficient, match="too few"):
+        sp.bootstrap_series(np.arange(6.0) + 1, 3)
+    with pytest.raises(MethodIncompatibility, match="block_size"):
+        sp.bootstrap_series(y, 3, period=4, block_size=500)
+
+
+def test_bagged_forecast_averages_its_members():
+    y = _seasonal_series(n=72)
+    bag = sp.bagged_forecast(y, "ets", horizon=4, n_boot=8, period=4, model="MAM")
+    assert bag.members.shape == (4, 8) and bag.n_boot == 8
+    np.testing.assert_allclose(bag.forecast["forecast"], bag.members.mean(axis=1))
+    np.testing.assert_allclose(bag.forecast["ensemble_max"], bag.members.max(axis=1))
+    single = sp.ets(y, "MAM", period=4).forecast(4)["forecast"].to_numpy()
+    np.testing.assert_allclose(bag.members["boot_0"], single, rtol=1e-9)
+    np.testing.assert_allclose(bag.forecast["forecast"], single, rtol=0.05)
+    fn = sp.bagged_forecast(
+        y, lambda s, h: np.full(h, s.iloc[-1]), horizon=2, n_boot=5, period=4
+    )
+    assert fn.forecast.shape == (2, 3) and "Bagged forecast" in fn.summary()
+    with pytest.raises(MethodIncompatibility, match="not a built-in"):
+        sp.bagged_forecast(y, "prophet", n_boot=3, period=4)
+
+
+def test_seasonal_dummies_and_regression_use():
+    X = sp.seasonal_dummies(8, 4)
+    assert list(X.columns) == ["season_2", "season_3", "season_4"]
+    assert X.sum().tolist() == [2, 2, 2] and X.iloc[0].sum() == 0
+    full = sp.seasonal_dummies(8, 4, drop_first=False)
+    assert (full.sum(axis=1) == 1).all()
+    fut = sp.seasonal_dummies(2, 4, start=9)
+    assert fut.values.tolist() == [[0, 0, 0], [1, 0, 0]]
+    y = _seasonal_series(mult=False)
+    df = pd.concat(
+        [pd.DataFrame({"y": y, "trend": np.arange(1, 97)}), sp.seasonal_dummies(96, 4)],
+        axis=1,
+    )
+    fit = sp.regress("y ~ trend + season_2 + season_3 + season_4", df)
+    assert fit.params["trend"] == pytest.approx(0.8, abs=0.02)
+    assert fit.params["season_2"] == pytest.approx(20 * (1.1 - 0.9), abs=0.8)
+    with pytest.raises(MethodIncompatibility, match="at least 2"):
+        sp.seasonal_dummies(8, 1)

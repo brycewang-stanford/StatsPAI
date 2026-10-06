@@ -84,6 +84,10 @@ class ARIMAResult(ResultProtocolMixin):
     #: deterministic regressor the fit carries in the level equation:
     #: ``"const"`` (a column of ones), ``"drift"`` (the time index) or None
     _det: Optional[str] = None
+    #: Box-Cox parameter the series was modelled under, and whether point
+    #: forecasts are bias-adjusted on the way back
+    boxcox: Optional[float] = None
+    biasadj: bool = False
 
     @property
     def period(self) -> int:
@@ -269,17 +273,28 @@ class ARIMAResult(ResultProtocolMixin):
             k = len(self.params) - 1
             if n_star - k > 0:
                 sd = sd * np.sqrt(n_star / (n_star - k))
-        from ._forecast_common import forecast_frame, future_index, normalise_levels
+        from ._forecast_common import (
+            back_transform_frame,
+            forecast_frame,
+            future_index,
+            normalise_levels,
+        )
 
         idx = future_index(self._index, self.n, h)
         if level is not None:
-            return forecast_frame(pred, normalise_levels(level), sd=sd, index=idx)
+            out = forecast_frame(pred, normalise_levels(level), sd=sd, index=idx)
+            if self.boxcox is not None:
+                out = back_transform_frame(out, self.boxcox, self.biasadj)
+            return out
         from scipy import stats
 
         z = float(stats.norm.ppf(1.0 - alpha / 2.0))
         out = pd.DataFrame(
             {"forecast": pred, "lower": pred - z * sd, "upper": pred + z * sd}
         )
+        if self.boxcox is not None:
+            out.attrs["level"] = 100.0 * (1.0 - alpha)
+            out = back_transform_frame(out, self.boxcox, self.biasadj)
         if not isinstance(idx, pd.RangeIndex):
             out.index = idx
         return out
@@ -514,6 +529,8 @@ def arima(
     max_P: int = 2,
     max_Q: int = 2,
     max_D: int = 1,
+    boxcox: Any = None,
+    biasadj: bool = False,
     data: Optional[pd.DataFrame] = None,
 ) -> ARIMAResult:
     """Fit ARIMA(p,d,q) or SARIMAX.
@@ -563,6 +580,14 @@ def arima(
         the path of the stepwise search.
     max_p, max_q, max_d, max_P, max_Q, max_D : int
         Bounds of the search.
+    boxcox : float or "auto", optional
+        Model a Box-Cox transform of the series (0 is the logarithm;
+        ``"auto"`` uses :func:`statspai.boxcox_lambda`). Coefficients,
+        residuals and the likelihood are on the transformed scale;
+        ``fitted_values`` and forecasts are back-transformed.
+    biasadj : bool, default False
+        The back-transformed point forecast is the median of the forecast
+        distribution; ``True`` returns its mean instead.
     method : {'statespace', 'css_ml', 'innovations_mle'}, default 'statespace'
         How the exact Gaussian likelihood is maximised. Both conventions
         maximise the same likelihood, of every observation, with the ARMA
@@ -716,6 +741,16 @@ def arima(
             exog_names = tuple(f"x{i + 1}" for i in range(exog.shape[1]))
     y = np.asarray(y, dtype=float).ravel()
     n = len(y)
+    from ._forecast_common import boxcox_forward, boxcox_inverse, resolve_boxcox
+
+    _lam = resolve_boxcox(
+        y,
+        boxcox,
+        int(period or (seasonal_order[3] if seasonal_order else 1)),
+        fn="arima",
+    )
+    if _lam is not None:
+        y = boxcox_forward(y, _lam)
     if isinstance(index, pd.RangeIndex) and index.start == 0 and index.step == 1:
         index = None
     if exog is not None:
@@ -1331,13 +1366,19 @@ def arima(
         aicc=float(fit_.aicc),
         log_likelihood=float(fit_.llf),
         residuals=np.asarray(res.resid),
-        fitted_values=np.asarray(res.fittedvalues),
+        fitted_values=(
+            np.asarray(res.fittedvalues)
+            if _lam is None
+            else boxcox_inverse(np.asarray(res.fittedvalues, dtype=float), _lam)
+        ),
         n=n,
         _model=res,
         exog_names=exog_names,
         candidates=candidates,
         _index=index,
         _det=fit_.det,
+        boxcox=_lam,
+        biasadj=bool(biasadj),
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

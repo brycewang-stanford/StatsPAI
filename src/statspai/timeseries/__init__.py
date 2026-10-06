@@ -12,6 +12,7 @@ from typing import Any
 
 from .ardl import ARDLResult, ardl
 from .arima import ARIMAResult, arima
+from .bagging import BaggedForecastResult, bagged_forecast, bootstrap_series
 from .bds import bds
 from .bvar import BVARResult, bvar
 from .chow import chow_test
@@ -26,7 +27,15 @@ from .simple_forecast import SimpleForecastResult, simple_forecast
 from .stl import DecompositionResult, classical_decompose, stl
 from .structural_break import StructuralBreakResult, cusum_test, structural_break
 from .svar import SVARResult, svar
-from .ts_tools import boxcox_lambda, fourier_terms, ljungbox, ndiffs, nsdiffs
+from .ts_features import ts_features
+from .ts_tools import (
+    boxcox_lambda,
+    fourier_terms,
+    ljungbox,
+    ndiffs,
+    nsdiffs,
+    seasonal_dummies,
+)
 from .unit_root import UnitRootResult, unitroot
 from .var import VARResult, granger_causality, irf, var
 from .var_diagnostics import varsoc
@@ -84,6 +93,11 @@ __all__ = [
     "Hierarchy",
     "reconcile",
     "ReconcileResult",
+    "ts_features",
+    "bootstrap_series",
+    "bagged_forecast",
+    "BaggedForecastResult",
+    "seasonal_dummies",
 ]
 
 

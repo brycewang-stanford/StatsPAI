@@ -40,6 +40,9 @@ train, test = trips.iloc[:64], trips.iloc[64:]
 | ARIMA, automatic ARIMA | `Arima`, `auto.arima` | `ARIMA`, `AutoARIMA` | `sp.arima` |
 | Regression with ARIMA errors | `Arima(xreg=)` | `AutoARIMA` with `X_df` | `sp.arima(exog=)` |
 | Fourier terms | `fourier` | `utilsforecast fourier` | `sp.fourier_terms` |
+| Seasonal dummies | `seasonaldummy` | `pd.get_dummies` | `sp.seasonal_dummies` |
+| Features | `tsfeatures` | `tsfeatures` | `sp.ts_features` |
+| Bootstrapped series, bagging | `bld.mbb.bootstrap`, `baggedETS` | hand-written | `sp.bootstrap_series`, `sp.bagged_forecast` |
 | Hierarchies | `hts`, `aggregate_key` | `hierarchicalforecast aggregate` | `sp.hierarchy` |
 | Reconciliation | `MinT`, `combinef`, `reconcile` | `HierarchicalReconciliation` | `sp.reconcile` |
 | VAR | `vars::VAR` | `statsmodels VAR` | `sp.var`, `sp.varsoc` |
@@ -72,6 +75,27 @@ sm_like = sp.stl(trips, 4, seasonal=7, seasonal_deg=1, inner_iter=5,
 
 Several seasonal periods give an MSTL decomposition with one seasonal
 component each, for example `sp.stl(y, [48, 336])` on half-hourly data.
+
+Instead of transforming by hand, the forecasters take the transformation
+themselves and back-transform their forecasts.
+
+```python
+fit_bc = sp.ets(train, period=4, boxcox="auto")       # Guerrero's lambda
+fit_bc.forecast(8)                                     # medians, on the scale of the data
+sp.ets(train, period=4, boxcox=0, biasadj=True).forecast(8)   # means of a log model
+```
+
+## Features (chapter 4)
+
+```python
+wide = pd.DataFrame({
+    "trips": trips.to_numpy(),
+    "noise": rng.normal(size=80),
+})
+sp.ts_features(wide, period=4)[["trend", "seasonal_strength", "x_acf1"]]
+```
+
+One row per series. The values are those of R's `tsfeatures`.
 
 ## Benchmarks, residual checks and accuracy (chapter 5)
 
@@ -201,6 +225,9 @@ future.insert(0, "trend", np.arange(len(df) + 1, len(df) + 9))
 dyn.forecast(8, level=95, exog=future)
 ```
 
+Seasonal dummies are `sp.seasonal_dummies(len(df), 4)`, with
+`start=len(df) + 1` for the forecast periods.
+
 A model with regressors forecasts conditionally on their future values. They
 must be supplied, as a scenario or as forecasts of their own. The intervals do
 not include their uncertainty.
@@ -246,16 +273,25 @@ rec = sp.reconcile(base, h, method="mint_shrink", residuals=resid, sd=sd)
 lower, upper = rec.intervals(95)
 ```
 
-Methods are `bottom_up`, `top_down`, `ols`, `wls_struct`, `wls_var`,
-`mint_shrink` and `mint_cov`. The results equal `hts::MinT` and `combinef`.
+Methods are `bottom_up`, `top_down`, `middle_out`, `ols`, `wls_struct`,
+`wls_var`, `mint_shrink` and `mint_cov`. Top-down and middle-out split by
+historical proportions or, with `proportions="forecast"`, by the shares of
+the forecasts themselves. The results equal `hts::MinT` and `combinef`.
 hierarchicalforecast centres the residual covariance in `mint_shrink`, which
 changes the third significant digit.
+
+## Bootstrapping and bagging (section 12.5)
+
+```python
+boot = sp.bootstrap_series(train, 20, period=4)       # 20 series, the first is the original
+bag = sp.bagged_forecast(train, "ets", horizon=8, n_boot=20, period=4)
+bag.forecast.head()
+```
 
 ## What is not here
 
 Prophet, neural networks and foundation models (sections 12.2, chapters 14 and
 15) are outside the scope of the package.
-Bagged forecasts and the full `tsfeatures` catalogue are not packaged.
 
 ## Reproducing the book's numbers
 

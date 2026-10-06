@@ -19,12 +19,16 @@ from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._forecast_common import (
     Levels,
+    back_transform_frame,
+    boxcox_forward,
+    boxcox_inverse,
     check_period,
     forecast_frame,
     future_index,
     normalise_levels,
     path_quantiles,
     read_series,
+    resolve_boxcox,
 )
 
 _ALIASES = {
@@ -84,6 +88,8 @@ class SimpleForecastResult(ResultProtocolMixin):
     n: int
     drift: Optional[float] = None
     mean: Optional[float] = None
+    boxcox: Optional[float] = None
+    biasadj: bool = False
     _y: np.ndarray = field(default_factory=lambda: np.empty(0), repr=False)
     _index: Optional[pd.Index] = field(default=None, repr=False)
     _name: str = "y"
@@ -91,6 +97,11 @@ class SimpleForecastResult(ResultProtocolMixin):
     @property
     def n_arma_params(self) -> int:
         return 0
+
+    def _back(self, frame: pd.DataFrame) -> pd.DataFrame:
+        if self.boxcox is None:
+            return frame
+        return back_transform_frame(frame, self.boxcox, self.biasadj)
 
     def _point(self, h: int) -> np.ndarray:
         y = self._y
@@ -176,14 +187,16 @@ class SimpleForecastResult(ResultProtocolMixin):
         idx = future_index(self._index, self.n, h)
         mean = self._point(h)
         if not bootstrap:
-            return forecast_frame(mean, levels, sd=self._sd(h), index=idx)
+            return self._back(forecast_frame(mean, levels, sd=self._sd(h), index=idx))
         res = self.residuals[np.isfinite(self.residuals)]
         res = res - res.mean()
         rng = np.random.default_rng(seed)
         innov = rng.choice(res, size=(int(n_paths), h), replace=True)
         paths = self._paths(h, innov)
-        return forecast_frame(
-            mean, levels, bounds=path_quantiles(paths, levels), index=idx
+        return self._back(
+            forecast_frame(
+                mean, levels, bounds=path_quantiles(paths, levels), index=idx
+            )
         )
 
     def simulate(
@@ -204,6 +217,8 @@ class SimpleForecastResult(ResultProtocolMixin):
         else:
             innov = rng.normal(0.0, self.sigma, size=(int(n_paths), h))
         paths = self._paths(h, innov)
+        if self.boxcox is not None:
+            paths = boxcox_inverse(paths, self.boxcox)
         return pd.DataFrame(
             paths.T,
             index=future_index(self._index, self.n, h),
@@ -234,6 +249,8 @@ def simple_forecast(
     method: str = "naive",
     *,
     period: int = 1,
+    boxcox: Any = None,
+    biasadj: bool = False,
     data: Optional[pd.DataFrame] = None,
 ) -> SimpleForecastResult:
     """Benchmark forecasting methods: mean, naive, seasonal naive, drift.
@@ -250,6 +267,14 @@ def simple_forecast(
         change, a line through the first and the last observation.
     period : int, default 1
         Seasonal period; required for ``"snaive"``.
+    boxcox : float or "auto", optional
+        Apply the method to a Box-Cox transform of the series (0 is the
+        logarithm; ``"auto"`` uses :func:`statspai.boxcox_lambda`) and
+        back-transform the forecasts and intervals. ``fitted_values`` are
+        on the scale of the data, ``residuals`` on the transformed scale.
+    biasadj : bool, default False
+        The back-transformed point forecast is the median of the forecast
+        distribution; ``True`` returns its mean instead.
     data : pd.DataFrame, optional
 
     Returns
@@ -290,6 +315,9 @@ def simple_forecast(
     hyndman2026fpppy
     """
     values, index, name = read_series(y, data, fn="simple_forecast")
+    lam = resolve_boxcox(values, boxcox, int(period), fn="simple_forecast")
+    if lam is not None:
+        values = boxcox_forward(values, lam)
     key = _ALIASES.get(str(method).lower().replace("-", "_").replace(" ", "_"))
     if key is None:
         raise MethodIncompatibility(
@@ -347,7 +375,9 @@ def simple_forecast(
     return SimpleForecastResult(
         method=key,
         period=m if key == "snaive" else 1,
-        fitted_values=fitted,
+        fitted_values=fitted if lam is None else boxcox_inverse(fitted, lam),
+        boxcox=lam,
+        biasadj=bool(biasadj),
         residuals=resid,
         sigma=sigma,
         n=n,

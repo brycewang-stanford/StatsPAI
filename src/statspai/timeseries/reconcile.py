@@ -28,6 +28,9 @@ _METHODS = {
     "top_down": "top_down",
     "td": "top_down",
     "topdown": "top_down",
+    "middle_out": "middle_out",
+    "mo": "middle_out",
+    "middleout": "middle_out",
     "ols": "ols",
     "wls_struct": "wls_struct",
     "structural": "wls_struct",
@@ -356,6 +359,7 @@ def reconcile(
     history: Any = None,
     proportions: str = "average",
     sd: Any = None,
+    middle: Any = None,
 ) -> ReconcileResult:
     """Reconcile base forecasts of a hierarchical or grouped structure.
 
@@ -370,8 +374,11 @@ def reconcile(
         or the :class:`Hierarchy` returned by :func:`statspai.hierarchy`.
     method : str, default "mint_shrink"
         - ``"bottom_up"``: sum the bottom-level forecasts.
-        - ``"top_down"``: split the forecast of the total by historical
-          proportions (needs ``history``).
+        - ``"top_down"``: split the forecast of the total by
+          ``proportions``.
+        - ``"middle_out"``: start from the forecasts of the level
+          ``middle``; sum them for the levels above and split them by
+          ``proportions`` for the levels below.
         - ``"ols"``: least squares projection on the coherent subspace.
         - ``"wls_struct"``: weights equal to the number of bottom series
           each series aggregates.
@@ -387,10 +394,16 @@ def reconcile(
         value are dropped.
     history : pd.DataFrame or array-like, optional
         The observed series (periods by series), for ``"top_down"``.
-    proportions : {"average", "of_averages"}, default "average"
+    proportions : {"average", "of_averages", "forecast"}, default "average"
         ``"average"``: mean over time of each bottom series' share of
         the total. ``"of_averages"``: its mean divided by the mean of
-        the total.
+        the total. Both need ``history``. ``"forecast"``: the shares of
+        the base forecasts themselves, taken level by level down the
+        tree (Athanasopoulos, Ahmed and Hyndman, 2009); they change with
+        the horizon and need no history.
+    middle : str or list of str, optional
+        For ``"middle_out"``: a level name (a key of ``Hierarchy.tags``)
+        or the list of its series.
 
     sd : pd.DataFrame or array-like, optional
         Standard deviations of the base forecasts, laid out like ``base``
@@ -447,9 +460,12 @@ def reconcile(
     References
     ----------
     wickramasuriya2019optimal, hyndman2011optimal, schafer2005shrinkage,
-    panagiotelis2023probabilistic, hyndman2026fpppy
+    panagiotelis2023probabilistic, athanasopoulos2009hierarchical,
+    hyndman2026fpppy
     """
+    tags: Dict[str, List[str]] = {}
     if isinstance(S, Hierarchy):
+        tags = S.tags
         S = S.S
     if not isinstance(S, pd.DataFrame):
         raise MethodIncompatibility(
@@ -462,8 +478,8 @@ def reconcile(
         raise MethodIncompatibility(
             f"reconcile: method={method!r} is not available.",
             recovery_hint=(
-                "Use 'bottom_up', 'top_down', 'ols', 'wls_struct', 'wls_var', "
-                "'mint_shrink' or 'mint_cov'."
+                "Use 'bottom_up', 'top_down', 'middle_out', 'ols', "
+                "'wls_struct', 'wls_var', 'mint_shrink' or 'mint_cov'."
             ),
         )
     ids = list(S.index)
@@ -505,6 +521,7 @@ def reconcile(
         )
     W: Optional[np.ndarray] = None
     lam: Optional[float] = None
+    direct: Optional[np.ndarray] = None
 
     def bottom_rows() -> List[int]:
         """Row of S of each bottom series: by label, else the last row
@@ -528,39 +545,138 @@ def reconcile(
         rows = bottom_rows()
         G = np.zeros((nb, n))
         G[np.arange(nb), rows] = 1.0
-    elif key == "top_down":
-        if history is None:
+    elif key in ("top_down", "middle_out"):
+        which = {
+            "average": "average",
+            "average_proportions": "average",
+            "of_averages": "of_averages",
+            "proportion_averages": "of_averages",
+            "forecast": "forecast",
+            "forecast_proportions": "forecast",
+        }.get(str(proportions).lower())
+        if which is None:
             raise MethodIncompatibility(
-                "reconcile: method='top_down' needs history= to compute the "
-                "proportions.",
-                recovery_hint="Pass the observed series (Hierarchy.Y).",
-            )
-        top = np.flatnonzero((Sm == 1.0).all(axis=1))
-        if top.size == 0:
-            raise MethodIncompatibility(
-                "reconcile: S has no series that is the total of every bottom "
-                "series.",
-                recovery_hint="Top-down needs a single top level.",
-            )
-        hist = align(history, "history")
-        hist = hist[np.isfinite(hist).all(axis=1)]
-        rows = bottom_rows()
-        tot = hist[:, top[0]]
-        bot = hist[:, rows]
-        which = proportions.lower()
-        if which in ("average", "average_proportions"):
-            with np.errstate(divide="ignore", invalid="ignore"):
-                p = np.nanmean(bot / tot[:, None], axis=0)
-        elif which in ("of_averages", "proportion_averages"):
-            p = bot.mean(axis=0) / tot.mean()
-        else:
-            raise MethodIncompatibility(
-                f"reconcile: proportions={proportions!r} is not 'average' or "
-                "'of_averages'.",
+                f"reconcile: proportions={proportions!r} is not 'average', "
+                "'of_averages' or 'forecast'.",
                 recovery_hint="Use proportions='average'.",
             )
-        G = np.zeros((nb, n))
-        G[:, top[0]] = p
+        # the tree: each series' set of bottom series, and its parent
+        desc = [frozenset(np.flatnonzero(Sm[i] != 0).tolist()) for i in range(n)]
+        for i in range(n):
+            for k in range(i + 1, n):
+                common = desc[i] & desc[k]
+                if common and not (desc[i] <= desc[k] or desc[k] <= desc[i]):
+                    raise MethodIncompatibility(
+                        f"reconcile: method={key!r} needs a strict hierarchy; "
+                        f"{ids[i]!r} and {ids[k]!r} overlap without nesting.",
+                        recovery_hint="Use 'ols', 'wls_struct' or 'mint_shrink' "
+                        "for a grouped structure.",
+                    )
+        rows = bottom_rows()
+
+        def parent_of(i: int) -> Optional[int]:
+            best_k: Optional[int] = None
+            for k in range(n):
+                if k == i or not desc[i] <= desc[k]:
+                    continue
+                # an aggregate with a single child shares its set: the row
+                # that comes first is the ancestor
+                if desc[k] == desc[i] and k > i:
+                    continue
+                if (
+                    best_k is None
+                    or len(desc[k]) < len(desc[best_k])
+                    or (len(desc[k]) == len(desc[best_k]) and k > best_k)
+                ):
+                    best_k = k
+            return best_k
+
+        parent = [parent_of(i) for i in range(n)]
+        if key == "top_down":
+            tops = np.flatnonzero((Sm == 1.0).all(axis=1))
+            if tops.size == 0:
+                raise MethodIncompatibility(
+                    "reconcile: S has no series that is the total of every "
+                    "bottom series.",
+                    recovery_hint="Top-down needs a single top level.",
+                )
+            start = [int(tops[0])]
+        else:
+            if middle is None:
+                raise MethodIncompatibility(
+                    "reconcile: method='middle_out' needs middle=, the level "
+                    "the forecasts start from.",
+                    recovery_hint="Pass a level name of the Hierarchy (a key of "
+                    ".tags) or the list of its series.",
+                )
+            names = tags.get(middle) if isinstance(middle, str) else list(middle)
+            if names is None:
+                raise MethodIncompatibility(
+                    f"reconcile: middle={middle!r} is not a level of the "
+                    f"hierarchy ({sorted(tags)}).",
+                    recovery_hint="Pass a key of Hierarchy.tags or a list of series.",
+                )
+            absent = [c for c in names if c not in ids]
+            if absent:
+                raise MethodIncompatibility(
+                    f"reconcile: middle series {absent[:5]} are not rows of S.",
+                    recovery_hint="Use the row labels of S.",
+                )
+            start = [ids.index(c) for c in names]
+            covered = sorted(j for k in start for j in desc[k])
+            if covered != list(range(nb)):
+                raise MethodIncompatibility(
+                    "reconcile: the middle level does not split the bottom "
+                    "series into disjoint groups that cover all of them.",
+                    recovery_hint="Give every series of one level.",
+                )
+        hist = None
+        if which != "forecast":
+            if history is None:
+                raise MethodIncompatibility(
+                    f"reconcile: proportions={which!r} needs history=, the "
+                    "observed series.",
+                    recovery_hint="Pass Hierarchy.Y, or use proportions='forecast'.",
+                )
+            hist = align(history, "history")
+            hist = hist[np.isfinite(hist).all(axis=1)]
+        bottom_fc = np.empty((yhat.shape[0], nb))
+        for k in start:
+            for j in desc[k]:
+                rj = rows[j]
+                if hist is not None:
+                    if which == "average":
+                        with np.errstate(divide="ignore", invalid="ignore"):
+                            pj = float(np.nanmean(hist[:, rj] / hist[:, k]))
+                    else:
+                        pj = float(hist[:, rj].mean() / hist[:, k].mean())
+                    bottom_fc[:, j] = yhat[:, k] * pj
+                    continue
+                # forecast proportions: at each step down the tree, a
+                # node's share of the forecasts of its parent's children
+                ratio = np.ones(yhat.shape[0])
+                node = rj
+                while node != k:
+                    par = parent[node]
+                    if par is None:
+                        raise MethodIncompatibility(
+                            f"reconcile: {ids[node]!r} has no parent below "
+                            f"{ids[k]!r}.",
+                            recovery_hint="Check the summing matrix.",
+                        )
+                    sibs = [c for c in range(n) if parent[c] == par]
+                    ratio = ratio * yhat[:, node] / yhat[:, sibs].sum(axis=1)
+                    node = par
+                bottom_fc[:, j] = yhat[:, k] * ratio
+        direct = bottom_fc @ Sm.T
+        if which != "forecast":
+            # constant proportions: the map is linear and has a matrix
+            G = np.zeros((nb, n))
+            for k in start:
+                for j in desc[k]:
+                    G[j, k] = bottom_fc[0, j] / yhat[0, k] if yhat[0, k] != 0 else 0.0
+        else:
+            G = np.full((nb, n), np.nan)
     else:
         if key == "ols":
             W = np.eye(n)
@@ -609,7 +725,7 @@ def reconcile(
                 f"reconcile: the weight matrix of {key!r} is singular.",
                 recovery_hint="Use method='mint_shrink' or 'wls_struct'.",
             ) from exc
-    rec = yhat @ (Sm @ G).T
+    rec = direct if direct is not None else yhat @ (Sm @ G).T
     if isinstance(base, pd.DataFrame):
         out = pd.DataFrame(rec, index=base.index, columns=ids)
         adj = out - base[ids]
@@ -617,6 +733,12 @@ def reconcile(
         out = pd.DataFrame(rec, columns=ids)
         adj = pd.DataFrame(rec - yhat, columns=ids)
     sd_rec: Optional[pd.DataFrame] = None
+    if sd is not None and not np.isfinite(G).all():
+        raise MethodIncompatibility(
+            "reconcile: sd= is not available with proportions='forecast', "
+            "which is not a linear map of the base forecasts.",
+            recovery_hint="Use historical proportions or a least squares method.",
+        )
     if sd is not None:
         sig = align(sd, "sd")
         if sig.shape != yhat.shape:

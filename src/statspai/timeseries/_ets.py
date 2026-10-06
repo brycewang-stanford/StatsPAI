@@ -23,6 +23,9 @@ from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibi
 from . import _ets_core as core
 from ._forecast_common import (
     Levels,
+    back_transform_frame,
+    boxcox_forward,
+    boxcox_inverse,
     check_period,
     classical_decomposition,
     forecast_frame,
@@ -30,6 +33,7 @@ from ._forecast_common import (
     normalise_levels,
     path_quantiles,
     read_series,
+    resolve_boxcox,
 )
 
 _CODE = {"N": 0, "A": 1, "M": 2}
@@ -118,6 +122,9 @@ class ETSResult(ResultProtocolMixin):
     converged: bool = True
     candidates: Optional[pd.DataFrame] = None
     fixed: Dict[str, float] = field(default_factory=dict)
+    boxcox: Optional[float] = None
+    biasadj: bool = False
+    n_missing: int = 0
     _y: np.ndarray = field(default_factory=lambda: np.empty(0), repr=False)
     _index: Optional[pd.Index] = field(default=None, repr=False)
     _name: str = "y"
@@ -126,7 +133,8 @@ class ETSResult(ResultProtocolMixin):
     @property
     def response_residuals(self) -> np.ndarray:
         """``y - fitted_values``, on the scale of the data."""
-        return np.asarray(self._y - self.fitted_values, dtype=float)
+        y = self._y if self.boxcox is None else boxcox_inverse(self._y, self.boxcox)
+        return np.asarray(y - self.fitted_values, dtype=float)
 
     @property
     def n_arma_params(self) -> int:
@@ -216,7 +224,7 @@ class ETSResult(ResultProtocolMixin):
         m = self.period if se else 1
         last = self._last_state()
         mean = core.point_forecast(h, m, tr, se, phi, last)
-        idx = future_index(self._index, self.n, h)
+        idx = future_index(self._index, self._y.shape[0], h)
         var: Optional[np.ndarray] = None
         if not (simulate or bootstrap):
             if err == 0 and tr < 2 and se < 2:
@@ -232,19 +240,27 @@ class ETSResult(ResultProtocolMixin):
                     h, m, tr, alpha, beta, gamma, phi, self.sigma2, last
                 )
         if var is not None:
-            return forecast_frame(mean, levels, sd=np.sqrt(var), index=idx)
+            return self._back(forecast_frame(mean, levels, sd=np.sqrt(var), index=idx))
         rng = np.random.default_rng(seed)
         if bootstrap:
-            pool = self.residuals - self.residuals.mean()
+            pool = self.residuals[np.isfinite(self.residuals)]
+            pool = pool - pool.mean()
             innov = rng.choice(pool, size=(int(n_paths), h), replace=True)
         else:
             innov = rng.normal(0.0, np.sqrt(self.sigma2), size=(int(n_paths), h))
         paths = core.simulate_paths(
             h, m, err, tr, se, alpha, beta, gamma, phi, last, innov
         )
-        return forecast_frame(
-            mean, levels, bounds=path_quantiles(paths, levels), index=idx
+        return self._back(
+            forecast_frame(
+                mean, levels, bounds=path_quantiles(paths, levels), index=idx
+            )
         )
+
+    def _back(self, frame: pd.DataFrame) -> pd.DataFrame:
+        if self.boxcox is None:
+            return frame
+        return back_transform_frame(frame, self.boxcox, self.biasadj)
 
     def simulate(
         self, horizon: int = 10, n_paths: int = 5, seed: Optional[int] = 0
@@ -259,9 +275,11 @@ class ETSResult(ResultProtocolMixin):
         paths = core.simulate_paths(
             h, m, err, tr, se, alpha, beta, gamma, phi, self._last_state(), innov
         )
+        if self.boxcox is not None:
+            paths = boxcox_inverse(paths, self.boxcox)
         return pd.DataFrame(
             paths.T,
-            index=future_index(self._index, self.n, h),
+            index=future_index(self._index, self._y.shape[0], h),
             columns=[f"path_{i}" for i in range(int(n_paths))],
         )
 
@@ -327,7 +345,7 @@ class ETSResult(ResultProtocolMixin):
             _, ax = plt.subplots(figsize=(10, 4))
         levels = normalise_levels(level)
         fc = self.forecast(horizon, levels)
-        x = np.arange(self.n) if self._index is None else self._index
+        x = np.arange(self._y.shape[0]) if self._index is None else self._index
         xf = fc.index
         if self._index is not None and isinstance(self._index, pd.PeriodIndex):
             x = self._index.to_timestamp()
@@ -425,7 +443,7 @@ class _Spec:
         bounds: str,
     ) -> None:
         self.y = y
-        self.n = y.shape[0]
+        self.n = int(np.isfinite(y).sum())  # observed periods
         self.error, self.trend, self.season = error, trend, season
         self.damped = damped and trend != "N"
         self.m = m if season != "N" else 1
@@ -449,9 +467,10 @@ class _Spec:
         self.n_state = 1 + int(trend != "N") + self.n_seas
         self.k = len(self.free) + self.n_state
         ncol = 2 + (self.m if season != "N" else 0)
-        self._states = np.zeros((self.n + 1, ncol))
-        self._fit = np.zeros(self.n)
-        self._res = np.zeros(self.n)
+        T = y.shape[0]
+        self._states = np.zeros((T + 1, ncol))
+        self._fit = np.zeros(T)
+        self._res = np.zeros(T)
         self.codes = (int(error == "M"), _CODE[trend], _CODE[season])
         self._pos = np.array(
             [self.free.index(nm) if nm in self.free else -1 for nm in _SMOOTH],
@@ -573,7 +592,12 @@ class _Spec:
             if phi is None:
                 phi = lo[3] + 0.99 * (up[3] - lo[3])
             vals["phi"] = float(phi)
-        l0, b0, seas = _initial_states(self.y, self.m, self.trend, self.season)
+        y0 = self.y
+        if np.isnan(y0).any():
+            # starting values only: fill the gaps by linear interpolation
+            ok = np.flatnonzero(np.isfinite(y0))
+            y0 = np.interp(np.arange(y0.shape[0]), ok, y0[ok])
+        l0, b0, seas = _initial_states(y0, self.m, self.trend, self.season)
         x = [vals[nm] for nm in self.free] + [l0]
         if b0 is not None:
             x.append(b0)
@@ -811,6 +835,8 @@ def ets(
     beta: Optional[float] = None,
     gamma: Optional[float] = None,
     phi: Optional[float] = None,
+    boxcox: Any = None,
+    biasadj: bool = False,
     ic: str = "aicc",
     additive_only: bool = False,
     allow_multiplicative_trend: bool = False,
@@ -830,8 +856,10 @@ def ets(
     ----------
     y : array-like, pd.Series or str
         The series, in time order; a column name when ``data`` is given.
-        It must have no missing values between its first and last
-        observation.
+        Missing values between the first and the last observation are
+        allowed: at a missing period the states move on with a zero
+        innovation and the period is left out of the likelihood. (R's
+        ``ets`` keeps the longest stretch without gaps instead.)
     model : str, default "ZZZ"
         Error, trend and seasonal component: ``N`` none, ``A`` additive,
         ``M`` multiplicative, ``Z`` chosen automatically. ``"ANN"`` is
@@ -847,6 +875,15 @@ def ets(
     alpha, beta, gamma, phi : float, optional
         Fix a smoothing parameter instead of estimating it. A fixed
         parameter is not counted in the information criteria.
+    boxcox : float or "auto", optional
+        Model a Box-Cox transform of the series (0 is the logarithm;
+        ``"auto"`` uses :func:`statspai.boxcox_lambda`) and back-transform
+        forecasts and intervals. The automatic choice is then among
+        additive models only, as in R. ``fitted_values`` are on the scale
+        of the data, ``residuals`` and ``states`` on the transformed one.
+    biasadj : bool, default False
+        The back-transformed point forecast is the median of the forecast
+        distribution; ``True`` returns its mean instead.
     ic : {"aicc", "aic", "bic"}, default "aicc"
         Criterion of the automatic choice.
     additive_only : bool, default False
@@ -915,8 +952,14 @@ def ets(
     hyndman2002state, hyndman2008forecasting, hyndman2008admissible,
     hyndman2026fpppy
     """
-    values, index, name = read_series(y, data, fn="ets")
+    values, index, name = read_series(y, data, fn="ets", allow_missing=True)
     m = check_period(period, fn="ets")
+    lam = resolve_boxcox(values, boxcox, m, fn="ets")
+    if lam is not None:
+        values = boxcox_forward(values, lam)
+        # as in R: with a transformation only additive models are searched
+        additive_only = True
+    missing = ~np.isfinite(values)
     err_l, tr_l, se_l, damped_in_name = _parse_model(model)
     if damped_in_name:
         damped = True
@@ -930,13 +973,13 @@ def ets(
             f"ets: bounds={bounds!r} is not one of 'both', 'usual', 'admissible'.",
             recovery_hint="Use bounds='both'.",
         )
-    n = values.shape[0]
+    n = int((~missing).sum())
     if n < 4:
         raise DataInsufficient(
             f"ets: {n} observations are too few to fit a model.",
             recovery_hint="At least 4 observations are needed.",
         )
-    if np.ptp(values) == 0:
+    if np.nanmax(values) == np.nanmin(values):
         raise DataInsufficient(
             "ets: the series is constant.",
             recovery_hint="There is nothing to smooth; the forecast is that value.",
@@ -964,12 +1007,12 @@ def ets(
                     "series, or use Fourier terms (sp.fourier_terms) in sp.arima."
                 ),
             )
-    positive = bool(values.min() > 0)
+    positive = bool(np.nanmin(values) > 0)
     for letter, what in ((err_l, "error"), (tr_l, "trend"), (se_l, "season")):
         if letter == "M" and not positive:
             raise MethodIncompatibility(
                 f"ets: a multiplicative {what} needs a strictly positive "
-                f"series; the minimum is {values.min():g}.",
+                f"series; the minimum is {np.nanmin(values):g}.",
                 recovery_hint="Use an additive model.",
             )
     fixed = {
@@ -1095,14 +1138,19 @@ def ets(
         params=params,
         initial_state=pd.Series(init, dtype=float),
         states=pd.DataFrame(cols),
-        fitted_values=best["fitted"],
-        residuals=best["resid"],
+        fitted_values=(
+            best["fitted"] if lam is None else boxcox_inverse(best["fitted"], lam)
+        ),
+        boxcox=lam,
+        biasadj=bool(biasadj),
+        n_missing=int(missing.sum()),
+        residuals=np.where(missing, np.nan, best["resid"]),
         sigma2=float(best["sse"] / (n - np_ + 1)),
         log_likelihood=float(-0.5 * best["neg2ll"]),
         aic=best["aic"],
         aicc=best["aicc"],
         bic=best["bic"],
-        mse=float(np.mean((values - best["fitted"]) ** 2)),
+        mse=float(np.nanmean((values - best["fitted"]) ** 2)),
         n=n,
         n_params=np_,
         converged=bool(best["converged"]),

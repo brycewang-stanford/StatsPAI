@@ -676,6 +676,27 @@ is `docs/guides/forecasting_fpp.md`.
   bottom-up, top-down, by OLS, structural or variance weights, or by
   minimum trace with a shrunk or sample covariance. Equal to `hts::MinT`
   and `combinef` to `1e-14`.
+- `boxcox=` and `biasadj=` in `sp.ets`, `sp.arima` and
+  `sp.simple_forecast`: model a Box-Cox transform of the series (a number
+  or `"auto"` for Guerrero's choice) and back-transform forecasts and
+  intervals, to the median or, with `biasadj=True`, to the mean. Equal to
+  `forecast::rwf` / `snaive` with `lambda=` to `1e-15`.
+- **`sp.ets` accepts missing values** between the first and the last
+  observation. A missing period moves the states on with a zero
+  innovation and adds nothing to the likelihood. R's `ets` keeps the
+  longest stretch without gaps.
+- `sp.reconcile(method="middle_out", middle=...)` and
+  `proportions="forecast"` (top-down by forecast proportions). Equal to
+  hierarchicalforecast's `MiddleOut` and `TopDown` to `1e-15`.
+- **`sp.ts_features`**: 29 summary features of a series or of every
+  column of a table of series (autocorrelation sums, strength of trend
+  and seasonality, spike, linearity, curvature, lumpiness, stability,
+  crossing points, flat spots, level and variance shifts, ARCH effect).
+  Equal to R `tsfeatures` to `1e-13`.
+- **`sp.bootstrap_series`** and **`sp.bagged_forecast`**: bootstrapped
+  versions of a series by Box-Cox, STL and a moving block bootstrap of
+  the remainder, and forecasts averaged over them (bagged ETS).
+- **`sp.seasonal_dummies`**: seasonal indicator regressors.
 - `sp.reconcile(sd=...)`: reconciled standard deviations and
   `result.intervals(level)`, the normal prediction intervals of the
   coherent forecasts. Interval widths equal hierarchicalforecast's

@@ -8270,6 +8270,21 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("phi", "float", False, None, "Fix the damping parameter"),
                 ParamSpec(
+                    "boxcox",
+                    "float|str",
+                    False,
+                    None,
+                    "Box-Cox parameter of the modelled series (0 = log, 'auto' = "
+                    "Guerrero); forecasts are back-transformed",
+                ),
+                ParamSpec(
+                    "biasadj",
+                    "bool",
+                    False,
+                    False,
+                    "Back-transform to the forecast mean instead of the median",
+                ),
+                ParamSpec(
                     "ic",
                     "str",
                     False,
@@ -8369,6 +8384,21 @@ def _build_registry() -> None:
                     ["naive", "snaive", "drift", "mean"],
                 ),
                 ParamSpec("period", "int", False, 1, "Seasonal period, for 'snaive'"),
+                ParamSpec(
+                    "boxcox",
+                    "float|str",
+                    False,
+                    None,
+                    "Box-Cox parameter of the modelled series (0 = log, 'auto' = "
+                    "Guerrero); forecasts are back-transformed",
+                ),
+                ParamSpec(
+                    "biasadj",
+                    "bool",
+                    False,
+                    False,
+                    "Back-transform to the forecast mean instead of the median",
+                ),
                 ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
             ],
             returns="SimpleForecastResult",
@@ -8923,6 +8953,7 @@ def _build_registry() -> None:
                     [
                         "bottom_up",
                         "top_down",
+                        "middle_out",
                         "ols",
                         "wls_struct",
                         "wls_var",
@@ -8949,8 +8980,8 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "average",
-                    "Top-down proportions",
-                    ["average", "of_averages"],
+                    "Top-down proportions: historical, or of the forecasts",
+                    ["average", "of_averages", "forecast"],
                 ),
                 ParamSpec(
                     "sd",
@@ -8959,6 +8990,14 @@ def _build_registry() -> None:
                     None,
                     "Standard deviations of the base forecasts; gives reconciled "
                     "sd and result.intervals(level)",
+                ),
+                ParamSpec(
+                    "middle",
+                    "str|list",
+                    False,
+                    None,
+                    "middle_out: the level the forecasts start from (a key of "
+                    "Hierarchy.tags or its series)",
                 ),
             ],
             returns="ReconcileResult",
@@ -8990,6 +9029,175 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=["hierarchy"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ts_features",
+            category="timeseries",
+            description=(
+                "Summary features of a time series, or of every column of a "
+                "table of series: autocorrelation and partial autocorrelation "
+                "sums (levels, first and second differences, seasonal lag), "
+                "strength of trend and seasonality, spike, linearity and "
+                "curvature from an STL decomposition, lumpiness, stability, "
+                "crossing points, flat spots, largest level and variance "
+                "shifts, ARCH effect. One row per series for plotting, "
+                "clustering or outlier screening. Values of R tsfeatures."
+            ),
+            params=[
+                ParamSpec(
+                    "y",
+                    "Series|DataFrame|array|str",
+                    True,
+                    None,
+                    "One series or a wide table of series",
+                ),
+                ParamSpec("period", "int", False, 1, "Seasonal period"),
+                ParamSpec(
+                    "scale", "bool", False, True, "Standardise each series first"
+                ),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="Series|DataFrame",
+            example="sp.ts_features(wide_df, period=4)",
+            tags=["timeseries", "features", "acf", "seasonality", "exploratory"],
+            reference="wang2006characteristic",
+            alternatives=["stl", "corrgram"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bootstrap_series",
+            category="timeseries",
+            description=(
+                "Bootstrapped versions of a series that keep its trend, "
+                "seasonal pattern and the autocorrelation of the remainder: "
+                "Box-Cox transform, STL (or a loess trend), moving block "
+                "bootstrap of the remainder, back-transform. The first "
+                "series is the original. R forecast::bld.mbb.bootstrap."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "The series, in time order"
+                ),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    100,
+                    "Number of series, the original included",
+                ),
+                ParamSpec("period", "int", False, 1, "Seasonal period"),
+                ParamSpec(
+                    "block_size",
+                    "int",
+                    False,
+                    None,
+                    "Block length; default 2 x period or min(8, n/2)",
+                ),
+                ParamSpec(
+                    "boxcox",
+                    "float|str",
+                    False,
+                    "auto",
+                    "Box-Cox parameter, 'auto' (Guerrero on [0, 1]) or None",
+                ),
+                ParamSpec("seed", "int", False, 0, "Random seed"),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="DataFrame",
+            example='sp.bootstrap_series(df["cement"], 100, period=4)',
+            tags=["timeseries", "bootstrap", "block-bootstrap", "bagging"],
+            reference="bergmeir2016bagging",
+            alternatives=["bagged_forecast"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="bagged_forecast",
+            category="timeseries",
+            description=(
+                "Bagged forecasts: forecast every bootstrapped version of a "
+                "series (sp.bootstrap_series) and average. Averages over "
+                "model choice and parameter estimates. With forecaster='ets' "
+                "this is bagged ETS (R forecast::baggedETS). The range of the "
+                "members is reported; it is not a prediction interval."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "Series|array|str", True, None, "The series, in time order"
+                ),
+                ParamSpec(
+                    "forecaster",
+                    "str|callable",
+                    False,
+                    "ets",
+                    "Method name or f(series, horizon)",
+                ),
+                ParamSpec("horizon", "int", False, 10, "Periods ahead"),
+                ParamSpec("n_boot", "int", False, 100, "Number of series forecast"),
+                ParamSpec("period", "int", False, 1, "Seasonal period"),
+                ParamSpec(
+                    "block_size", "int", False, None, "Block length of the bootstrap"
+                ),
+                ParamSpec(
+                    "boxcox",
+                    "float|str",
+                    False,
+                    "auto",
+                    "Box-Cox parameter of the bootstrap",
+                ),
+                ParamSpec("seed", "int", False, 0, "Random seed"),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding y"),
+            ],
+            returns="BaggedForecastResult",
+            example=(
+                'sp.bagged_forecast(df["cement"], "ets", horizon=12, period=4)'
+                ".forecast"
+            ),
+            tags=["timeseries", "forecasting", "bagging", "bootstrap", "ensemble"],
+            reference="bergmeir2016bagging",
+            alternatives=["ets", "tscv"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="seasonal_dummies",
+            category="timeseries",
+            description=(
+                "Seasonal indicator regressors season_2 ... season_m for a "
+                "regression with a seasonal pattern; start= gives the rows "
+                "of the forecast periods. R forecast::seasonaldummy, the "
+                "season term of tslm. For long periods use sp.fourier_terms."
+            ),
+            params=[
+                ParamSpec(
+                    "n",
+                    "int|Series|Index",
+                    True,
+                    None,
+                    "Number of rows, or an indexed object",
+                ),
+                ParamSpec("period", "int", True, None, "Seasonal period"),
+                ParamSpec("start", "int", False, 1, "Time of the first row"),
+                ParamSpec(
+                    "drop_first",
+                    "bool",
+                    False,
+                    True,
+                    "Leave out season 1 as the reference",
+                ),
+            ],
+            returns="DataFrame",
+            example="X = sp.seasonal_dummies(len(y), 4)",
+            tags=["timeseries", "seasonality", "regression", "dummies"],
+            reference="hyndman2026fpppy",
+            alternatives=["fourier_terms"],
         )
     )
 

@@ -207,6 +207,10 @@ FALSE_FRIENDS: Dict[str, Tuple[str, ...]] = {
         "boxcox_lambda",
         "fourier_terms",
         "arima",
+        "ts_features",
+        "bootstrap_series",
+        "bagged_forecast",
+        "seasonal_dummies",
     ),
     # Random-effects covariance *structure*, not an SE type.
     "cov_type": (

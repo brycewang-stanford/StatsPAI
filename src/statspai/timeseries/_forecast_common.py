@@ -248,3 +248,107 @@ def classical_decomposition(
     with np.errstate(divide="ignore", invalid="ignore"):
         rem = x / trend / seasonal if multiplicative else x - trend - seasonal
     return trend, seasonal, rem
+
+
+# ----------------------------------------------------------------------
+# Box-Cox transformation of the series a forecaster models
+# ----------------------------------------------------------------------
+def boxcox_forward(y: np.ndarray, lam: float) -> np.ndarray:
+    """``log(y)`` when ``lam`` is zero, ``(y^lam - 1) / lam`` otherwise."""
+    if lam == 0.0:
+        return np.asarray(np.log(y), dtype=float)
+    return np.asarray((np.power(y, lam) - 1.0) / lam, dtype=float)
+
+
+def boxcox_inverse(
+    x: np.ndarray, lam: float, fvar: Optional[np.ndarray] = None
+) -> np.ndarray:
+    """Back-transform; with ``fvar`` (the forecast variance on the
+    transformed scale) return the bias-adjusted mean instead of the median.
+
+    The adjustment is the second-order one of Hyndman and Athanasopoulos:
+    ``exp(x) (1 + fvar / 2)`` for the logarithm and
+    ``(lam x + 1)^(1/lam) (1 + fvar (1 - lam) / (2 (lam x + 1)^2))``
+    otherwise.
+    """
+    x = np.asarray(x, dtype=float)
+    with np.errstate(invalid="ignore", over="ignore"):
+        if lam == 0.0:
+            out = np.exp(x)
+            if fvar is not None:
+                out = out * (1.0 + 0.5 * fvar)
+            return np.asarray(out, dtype=float)
+        base = lam * x + 1.0
+        base = np.where(base > 0.0, base, np.nan)
+        out = np.power(base, 1.0 / lam)
+        if fvar is not None:
+            out = out * (1.0 + 0.5 * fvar * (1.0 - lam) / base**2)
+    return np.asarray(out, dtype=float)
+
+
+def resolve_boxcox(
+    values: np.ndarray, boxcox: Any, period: int, *, fn: str
+) -> Optional[float]:
+    """The Box-Cox parameter a forecaster was asked to use: ``None``, a
+    number, or ``"auto"`` for Guerrero's choice."""
+    if boxcox is None or boxcox is False:
+        return None
+    if isinstance(boxcox, str):
+        if boxcox.lower() != "auto":
+            raise MethodIncompatibility(
+                f"{fn}: boxcox={boxcox!r} is not a number or 'auto'.",
+                recovery_hint="Pass the parameter (0 is the logarithm) or 'auto'.",
+            )
+        from .ts_tools import boxcox_lambda
+
+        lam = float(boxcox_lambda(values, period))
+    else:
+        lam = float(boxcox)
+    if not np.isfinite(lam):
+        raise MethodIncompatibility(
+            f"{fn}: boxcox={boxcox!r} is not finite.",
+            recovery_hint="Pass a number such as 0 or 0.5.",
+        )
+    if np.nanmin(values) <= 0:
+        raise MethodIncompatibility(
+            f"{fn}: a Box-Cox transformation needs a strictly positive "
+            f"series; the minimum is {np.nanmin(values):g}.",
+            recovery_hint="Drop boxcox=, or shift the series.",
+        )
+    return lam
+
+
+def back_transform_frame(
+    frame: pd.DataFrame, lam: float, biasadj: bool
+) -> pd.DataFrame:
+    """Forecast table on the transformed scale -> table on the scale of
+    the data. Bounds are back-transformed as they are (quantiles commute
+    with a monotone map); the point forecast is the median, or with
+    ``biasadj`` the mean, using the variance implied by the widest
+    interval."""
+    out = frame.copy()
+    fvar: Optional[np.ndarray] = None
+    if biasadj:
+        best = None
+        for col in frame.columns:
+            if col.startswith("lower"):
+                lab = col[len("lower") :].lstrip("_")
+                up = "upper" + col[len("lower") :]
+                if up in frame.columns:
+                    pct = float(lab) if lab else float(frame.attrs.get("level", 95.0))
+                    if best is None or pct > best[0]:
+                        best = (pct, col, up)
+        if best is None:
+            raise MethodIncompatibility(
+                "biasadj=True needs prediction intervals to take the forecast "
+                "variance from.",
+                recovery_hint="Ask for at least one level.",
+            )
+        pct, lo_c, up_c = best
+        z = float(stats.norm.ppf(0.5 + pct / 200.0))
+        half = frame[up_c].to_numpy(dtype=float) - frame[lo_c].to_numpy(dtype=float)
+        fvar = (half / (2.0 * z)) ** 2
+    for col in frame.columns:
+        x = frame[col].to_numpy(dtype=float)
+        out[col] = boxcox_inverse(x, lam, fvar if col == "forecast" else None)
+    return out

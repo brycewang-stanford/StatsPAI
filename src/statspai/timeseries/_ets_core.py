@@ -86,23 +86,30 @@ def ets_filter(
             return sse, sumlog, 1
         if abs(f) < _TOL and (error == 1):
             return sse, sumlog, 1
-        if error == 0:
-            e = y[t] - f
+        yt = y[t]
+        if np.isnan(yt):
+            # a missing observation: the states move on with a zero
+            # innovation and the period adds nothing to the likelihood
+            yt = f
+            e = 0.0
         else:
-            e = (y[t] - f) / f
+            if error == 0:
+                e = yt - f
+            else:
+                e = (yt - f) / f
+            sse += e * e
+            sumlog += np.log(abs(f)) if error == 1 else 0.0
         fitted[t] = f
         resid[t] = e
-        sse += e * e
-        sumlog += np.log(abs(f)) if error == 1 else 0.0
         # level
         if season == 0:
-            p = y[t]
+            p = yt
         elif season == 1:
-            p = y[t] - s[ns - 1]
+            p = yt - s[ns - 1]
         else:
             if abs(s[ns - 1]) < _TOL:
                 return sse, sumlog, 1
-            p = y[t] / s[ns - 1]
+            p = yt / s[ns - 1]
         new_l = q + alpha * (p - q)
         # growth
         if trend > 0:
@@ -116,11 +123,11 @@ def ets_filter(
         # season
         if season > 0:
             if season == 1:
-                tt = y[t] - q
+                tt = yt - q
             else:
                 if abs(q) < _TOL:
                     return sse, sumlog, 1
-                tt = y[t] / q
+                tt = yt / q
             new_s = s[ns - 1] + gamma * (tt - s[ns - 1])
             for j in range(ns - 1, 0, -1):
                 s[j] = s[j - 1]
@@ -342,7 +349,11 @@ def ets_objective(
     )
     if bad != 0 or not np.isfinite(sse) or not sse > 0.0:
         return BAD
-    val = y.shape[0] * np.log(sse)
+    n_obs = 0
+    for t in range(y.shape[0]):
+        if not np.isnan(y[t]):
+            n_obs += 1
+    val = n_obs * np.log(sse)
     if error == 1:
         val += 2.0 * sumlog
     if not np.isfinite(val):

@@ -523,3 +523,75 @@ def fourier_terms(
     if index is not None:
         out.index = index
     return out
+
+
+def seasonal_dummies(
+    n: Any,
+    period: int,
+    *,
+    start: int = 1,
+    drop_first: bool = True,
+) -> pd.DataFrame:
+    """Seasonal indicator regressors for a regression with a seasonal
+    pattern.
+
+    Parameters
+    ----------
+    n : int, pd.Series, pd.DataFrame or pd.Index
+        Number of rows; or an object whose length and index are used.
+    period : int
+        Seasonal period.
+    start : int, default 1
+        Time of the first row; row ``t`` is in season
+        ``(t - 1) mod period + 1``. The rows of the ``h`` periods after a
+        sample of length ``T`` are ``seasonal_dummies(h, period,
+        start=T + 1)``.
+    drop_first : bool, default True
+        Leave out the indicator of season 1, the reference season of a
+        regression with an intercept (the "dummy variable trap").
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns ``season_2`` ... ``season_<period>`` of zeros and ones.
+
+    Notes
+    -----
+    R's ``forecast::seasonaldummy`` and the ``season`` term of ``tslm``
+    build the same columns (with the last season as the reference in
+    ``seasonaldummy``). With a long period prefer
+    :func:`statspai.fourier_terms`.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> sp.seasonal_dummies(5, 4).values.tolist()
+    [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]]
+
+    References
+    ----------
+    hyndman2026fpppy
+    """
+    index: Optional[pd.Index] = None
+    if isinstance(n, (pd.Series, pd.DataFrame)):
+        index = n.index
+        rows = len(n)
+    elif isinstance(n, pd.Index):
+        index = n
+        rows = len(n)
+    else:
+        rows = int(n)
+    m = check_period(period, fn="seasonal_dummies")
+    if m < 2 or rows < 1:
+        raise MethodIncompatibility(
+            "seasonal_dummies: period must be at least 2 and n at least 1.",
+            recovery_hint="E.g. sp.seasonal_dummies(len(y), 4).",
+        )
+    season = (np.arange(int(start), int(start) + rows) - 1) % m + 1
+    first = 2 if drop_first else 1
+    out = pd.DataFrame(
+        {f"season_{k}": (season == k).astype(int) for k in range(first, m + 1)}
+    )
+    if index is not None:
+        out.index = index
+    return out
