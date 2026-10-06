@@ -56,6 +56,16 @@ from ._core import weight_influence as _weight_influence
 #: (Conley-Taber 2011; Ferman-Pinto 2019). ``sp.audit`` uses the same cutoff.
 _FEW_TREATED_UNITS = 10
 
+#: A never-treated comparison group with fewer than this many units, plus one
+#: per covariate, is the size below which R ``did`` (>= 2.5.0) refuses
+#: ``control_group = "nevertreated"``. StatsPAI estimates and warns.
+_FEW_NEVER_TREATED_UNITS = 5
+
+
+def few_never_treated_cutoff(x: Optional[Sequence[str]]) -> int:
+    """Smallest never-treated group R ``did`` accepts as the comparison."""
+    return _FEW_NEVER_TREATED_UNITS + (len(x) if x else 0)
+
 
 class CallawayNotImplemented(MethodIncompatibility, NotImplementedError):
     """Unsupported CS branch that preserves historical NotImplementedError."""
@@ -339,7 +349,10 @@ def callaway_santanna(
            ``method(ipw)`` script means writing ``estimator='ipw_abadie'``;
            the two differ by O(1e-4) on ``mpdta``.
     control_group : str, default 'nevertreated'
-        Comparison group: 'nevertreated' or 'notyettreated'.
+        Comparison group: 'nevertreated' or 'notyettreated'. With
+        'nevertreated' and fewer than five never-treated units plus one
+        per covariate, an ``AssumptionWarning`` is raised and the
+        estimate is still returned; R ``did`` (>= 2.5.0) stops there.
     notyet_cutoff : str, default 'period'
         Only consulted when ``control_group='notyettreated'``. Which date
         must a unit still be untreated at to serve as a control for
@@ -694,6 +707,28 @@ def callaway_santanna(
                     "control_group": control_group,
                     "n_never_treated": 0,
                 },
+            )
+        # A handful of never-treated units carries every comparison. R `did`
+        # stops below five units plus one per covariate (did >= 2.5.0; the
+        # same guard never fired on did 2.3.0's default path). The estimate
+        # is still defined, so it is reported, with the warning.
+        _never_rows = (g_clean == 0).to_numpy()
+        if panel:
+            _n_never = int(data.loc[_never_rows, i].nunique())
+        else:
+            _n_never = int(_never_rows.sum() // max(int(data[t].nunique()), 1))
+        _never_cutoff = few_never_treated_cutoff(x)
+        if _n_never < _never_cutoff:
+            warnings.warn(
+                f"callaway_santanna: only {_n_never} never-treated "
+                f"{'units' if panel else 'observations per period'} serve as "
+                "the comparison group for every ATT(g, t). R `did` refuses "
+                f"control_group='nevertreated' below {_never_cutoff} (five "
+                "plus one per covariate). Each estimate rests on that many "
+                "comparison units; consider control_group='notyettreated' "
+                "and report sp.cs_jackknife (CV3) alongside.",
+                AssumptionWarning,
+                stacklevel=2,
             )
 
     # No never-treated units under 'notyettreated': R `did` (pre_process_did)

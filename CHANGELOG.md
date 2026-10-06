@@ -4,6 +4,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### A very small never-treated group is now announced
+
+#### Changed
+
+- **`sp.callaway_santanna` warns when the never-treated comparison group has
+  fewer than five units plus one per covariate** (`AssumptionWarning`,
+  `control_group='nevertreated'` only). No estimate changes. That is the
+  size below which R `did` 2.5.0 and later stop; `did` 2.3.0 had the same
+  guard but it never fired on its default path. The estimate is defined
+  there, so StatsPAI returns it and says how few units carry every
+  comparison.
+- **`sp.cs_jackknife` warns once when the full sample passes that size and
+  a delete-one sample does not.** The refits are silenced for whatever the
+  full fit already said, and this is something it never said. On such a
+  design (five never-treated clusters, for example) R `didjack` on
+  `did` 2.5.x cannot run; StatsPAI computes every replicate.
+
 ### R reference for Callaway-Sant'Anna moved to `did` 2.5.1 and `DRDID` 1.3.0
 
 #### Changed
