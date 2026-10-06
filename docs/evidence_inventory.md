@@ -11,7 +11,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 
 | Function | Cells | estimate | se | vcov | joint_test | diagnostic | Fully covered |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `callaway_santanna` | 512 | 62 / 512 | 31 / 512 | 1 / 512 | -- | -- | 31 / 512 |
+| `callaway_santanna` | 512 | 68 / 512 | 34 / 512 | 1 / 512 | -- | -- | 34 / 512 |
 | `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | 0 / 96 |
 | `did_imputation` | 240 | 18 / 240 | 7 / 240 | 1 / 240 | -- | -- | 6 / 240 |
 | `dml` | 9120 | 7 / 9120 | 7 / 9120 | -- | -- | -- | 7 / 9120 |
@@ -40,8 +40,8 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 
 | Function | Output | seed_equivalence (T3) | stochastic_screen (S) | coverage_simulation (B) | disclosure (T4) | not_covered |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `callaway_santanna` | estimate | 0 | 0 | 0 | 0 | 450 |
-| `callaway_santanna` | se | 0 | 2 | 0 | 0 | 479 |
+| `callaway_santanna` | estimate | 0 | 0 | 0 | 0 | 444 |
+| `callaway_santanna` | se | 0 | 2 | 0 | 0 | 476 |
 | `callaway_santanna` | coverage | 0 | 0 | 1 | 0 | 511 |
 | `callaway_santanna` | vcov | 0 | 0 | 0 | 0 | 511 |
 | `causal_forest` | estimate | 3 | 0 | 0 | 0 | 93 |
@@ -113,6 +113,7 @@ Dimensions: `estimator` in {dr, drimp, reg, ipw}; `control_group` in {nevertreat
 | T2 | estimate, se | estimator=dr/ipw/reg; control_group=nevertreated/notyettreated; weights=none/weighted; covariates=none/set; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_cs_weighted_parity.py` | `sp.callaway_santanna(...)` |
 | T2 | vcov | estimator=dr; control_group=nevertreated; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_aggte_vcov_r_parity.py` | `sp.aggte(type='dynamic')` |
 | T2 | estimate, se | estimator=dr; control_group=nevertreated; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=set | `tests/reference_parity/test_cs_rc_cluster_csdid_parity.py` | `sp.callaway_santanna(clustervars=...)` |
+| T2 | estimate, se | estimator=dr; control_group=nevertreated/notyettreated; weights=none; covariates=none; inference=analytic; base_period=universal/varying; anticipation=0; clustering=set | `tests/reference_parity/test_cs_cluster_analytic_parity.py` | `sp.callaway_santanna(clustervars=...)` |
 | T2 | estimate, se | estimator=dr/drimp; control_group=nevertreated/notyettreated; weights=none; covariates=set; inference=analytic; base_period=universal/varying; anticipation=0; clustering=none | `tests/reference_parity/test_stata_did_commands_parity.py` | `sp.callaway_santanna(estimator='drimp')` |
 | T2 | estimate, se | estimator=reg; control_group=notyettreated; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_stata_did_commands_parity.py` | `sp.callaway_santanna(estimator='reg')` |
 | S | se | estimator=dr; control_group=nevertreated; weights=none; covariates=none; inference=bootstrap; base_period=universal; anticipation=0; clustering=none/set | `tests/reference_parity/test_cs_inference_parity.py` | `sp.callaway_santanna(bstrap=True)` |

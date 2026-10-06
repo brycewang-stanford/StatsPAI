@@ -11,6 +11,11 @@
 # didFF is not on CRAN:
 #   remotes::install_github("pedrohcgs/didFF")
 #
+# control_group is passed explicitly. didFF 0.1.0 forwards its default,
+# the length-two c("nevertreated", "notyettreated"), to did. did <= 2.3.0
+# took the first element; did >= 2.5.0 rejects a non-scalar value. The
+# documented didFF default is "nevertreated", so the estimand is unchanged.
+#
 # Tolerance: rel < 1e-6 on the per-bin implied densities.
 
 .args <- commandArgs(trailingOnly = FALSE)
@@ -32,6 +37,7 @@ for (tag in c("pt", "rej")) {
   df <- as.data.frame(read_csv_strict(sprintf("%s_%s", MODULE, tag)))
   res <- suppressWarnings(didFF(
     data = df, yname = "y", tname = "t", idname = "id", gname = "g",
+    control_group = "nevertreated",
     nbins = N_BINS, seed = 0, numSims = 100000
   ))
   for (k in seq_len(nrow(res$table))) {

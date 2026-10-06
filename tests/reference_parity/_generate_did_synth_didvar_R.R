@@ -159,6 +159,14 @@ pull_dist <- function(res) {
 # bin's influence function is dropped as degenerate, because it builds the
 # output table from all bin levels but only the retained estimates. Such cases
 # are recorded as errors, not silently skipped.
+#
+# didFF 0.1.0 also forwards its default control_group, the length-two
+# c("nevertreated", "notyettreated"), to did. did <= 2.3.0 took the first
+# element; did >= 2.5.0 rejects a non-scalar value. The wrapper passes the
+# documented default explicitly, so every call below runs on both.
+distDD <- function(..., control_group = "nevertreated") {
+  didFF::distDD(..., control_group = control_group)
+}
 dd <- function(...) {
   tryCatch(
     pull_dist(suppressWarnings(distDD(data = mp, yname = "lemp", tname = "year",

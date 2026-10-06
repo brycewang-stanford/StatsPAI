@@ -1328,6 +1328,26 @@ _add(
             ),
             _Row(
                 "T2",
+                _RP + "test_cs_cluster_analytic_parity.py",
+                {
+                    "estimator": _vals("dr"),
+                    "control_group": _vals("nevertreated", "notyettreated"),
+                    "weights": _vals("none"),
+                    "covariates": _vals("none"),
+                    "inference": _vals("analytic"),
+                    "base_period": _vals("universal", "varying"),
+                    "anticipation": _vals("0"),
+                    "clustering": _vals("set"),
+                },
+                _EST_SE,
+                "clustered analytic SEs vs R did (>= 2.5.0) clustervars= to "
+                "1e-8 on nine clusters of unequal size: every ATT(g,t) and "
+                "the simple / dynamic / group / calendar aggregates, on a "
+                "balanced and an unbalanced panel",
+                "sp.callaway_santanna(clustervars=...)",
+            ),
+            _Row(
+                "T2",
                 _RP + "test_stata_did_commands_parity.py",
                 {
                     "estimator": _vals("dr", "drimp"),

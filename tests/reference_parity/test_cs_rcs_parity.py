@@ -12,9 +12,8 @@ Sant'Anna-Zhao estimator in :mod:`statspai.did._rcs`, which is what R
     est_method = "ipw"  ->  DRDID::std_ipw_did_rc
     est_method = "reg"  ->  DRDID::reg_did_rc
 
-Reference generation (R 4.5.2, did 2.3.0), on the package's own ``mpdta`` so
-the never-treated group survives (see the integer-column trap noted in
-``test_aggte_mpdta_parity.py``)::
+Reference generation (R 4.5.2, did 2.5.1, DRDID 1.3.0), on the locked
+``mpdta`` CSV::
 
     a <- att_gt(yname="lemp", tname="year", idname="countyreal",
                 gname="first.treat", data=mpdta, control_group=<cg>,
@@ -22,9 +21,14 @@ the never-treated group survives (see the integer-column trap noted in
                 bstrap=FALSE, cband=FALSE)
     aggte(a, type="simple", bstrap=FALSE, cband=FALSE)
 
-Point estimates are pinned tightly; standard errors carry a ~0.15% gap from
-small differences in how the aggregation denominator is formed, so they use a
-1% relative tolerance.
+Point estimates and standard errors are both pinned at 1e-8.
+
+``mpdta`` is a panel, so under ``panel=False`` the county id repeats across
+years. On such data did 2.3.0 reported aggregate standard errors 0.003% to
+0.08% away from the values below while every ATT(g, t) cell and its standard
+error agreed. These tests carried a 1% tolerance for that. did 2.5.0 reworked
+the aggregation of the influence function on the observation-level paths, and
+did 2.5.1 returns what StatsPAI already computed, to 1e-9 or better.
 
 References
 ----------
@@ -57,14 +61,14 @@ _MPDTA = (
 )
 _MPDTA_SHA256 = "1b789c34e12ff490b2f432217a1f70af334117523eb44d20eb842ed92a574661"
 
-# (est_method, control_group) -> (simple ATT, SE) from R did 2.3.0
+# (est_method, control_group) -> (simple ATT, SE) from R did 2.5.1
 R_RCS = {
-    ("dr", "nevertreated"): (-0.0417517721, 0.0460680525),
-    ("dr", "notyettreated"): (-0.0413516293, 0.0474594680),
-    ("ipw", "nevertreated"): (-0.0417770822, 0.1672310175),
-    ("ipw", "notyettreated"): (-0.0413894098, 0.1710682403),
-    ("reg", "nevertreated"): (-0.0419686124, 0.1497787162),
-    ("reg", "notyettreated"): (-0.0413747698, 0.1502463356),
+    ("dr", "nevertreated"): (-0.041751772061081, 0.0460317504889275),
+    ("dr", "notyettreated"): (-0.0413516292999427, 0.0474329482129552),
+    ("ipw", "nevertreated"): (-0.0417770821895978, 0.167226232158267),
+    ("ipw", "notyettreated"): (-0.0413894097517419, 0.171058030727509),
+    ("reg", "nevertreated"): (-0.041968612421581, 0.149762154610337),
+    ("reg", "notyettreated"): (-0.0413747697923552, 0.150232773334959),
 }
 
 
@@ -115,8 +119,8 @@ def test_rcs_simple_se_matches_r_did(mpdta, key):
     fit = _rcs_fit(mpdta, estimator, control_group, x=["lpop"])
     agg = sp.aggte(fit, type="simple", bstrap=False)
     assert agg.se == pytest.approx(
-        se_r, rel=0.01
-    ), f"{estimator}/{control_group}: SE {agg.se:.8f} vs R {se_r:.8f}"
+        se_r, rel=1e-8
+    ), f"{estimator}/{control_group}: SE {agg.se:.12f} vs R {se_r:.12f}"
 
 
 @pytest.mark.parametrize("estimator", ["dr", "ipw", "reg"])

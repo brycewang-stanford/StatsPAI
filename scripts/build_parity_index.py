@@ -5613,8 +5613,8 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "reference_versions": {
             "R": "R version 4.5.2 (2025-10-31)",
             "ptetools": "1.0.1",
-            "did": "2.3.0",
-            "DRDID": "1.2.3",
+            "did": "2.5.1",
+            "DRDID": "1.3.0",
         },
         "tolerance": "ATT(g,t) and overall ATT 1e-9 rel (observed 3.8e-15)",
         "sides": ["py", "R"],
@@ -5666,7 +5666,7 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "reference_versions": {
             "R": "R version 4.5.2 (2025-10-31)",
             "didFF": "0.1.0",
-            "did": "2.3.0",
+            "did": "2.5.1",
         },
         "tolerance": "per-bin effect & SE 1e-9 (observed est 2.6e-12 abs, SE 2.5e-10 "
         "rel)",
@@ -5693,7 +5693,7 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "base_period='universal') for every (cohort, horizon) cell; "
         "did::aggte(type='dynamic') for the event study under "
         "weighting='n_treated'",
-        "reference_versions": {"did": "2.3.0", "DRDID": "1.2.3"},
+        "reference_versions": {"did": "2.5.1", "DRDID": "1.3.0"},
         "tolerance": "Every 2x2 cell (ATT and SE) and every event-study horizon (ATT "
         "and SE) at 1e-9 relative; observed agreement 1.7e-14. The "
         "inverse-variance aggregate over horizons (the default headline) "
@@ -5914,7 +5914,7 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "did::aggte(type='simple') per group (direct / ring r, ring "
         "cohort = exposure onset); single cohort also fixest::feols(dbar "
         "~ treat + ring1 + ring2, vcov='hetero', ssc(adj=FALSE))",
-        "reference_versions": {"did": "2.3.0", "DRDID": "1.2.3", "fixest": "0.14.0"},
+        "reference_versions": {"did": "2.5.1", "DRDID": "1.3.0", "fixest": "0.14.0"},
         "tolerance": "Direct and ring effects, their SEs and every (group, onset "
         "cohort, period) cell at 1e-9 relative on a single-cohort and a "
         "staggered spatial panel; observed agreement 1e-14. The ring "
@@ -7041,14 +7041,14 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     },
     "event_study_vcov": {
         "status": "bit-exact",
-        "reference": "did::aggte(type='dynamic') 2.3.0 influence-function "
+        "reference": "did::aggte(type='dynamic') 2.5.1 influence-function "
         "covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); "
         "fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1; "
         "etwfe::emfx(type='event') 0.6.2; Stata 18 did_imputation "
         "(Borusyak, SSC, 2023-11-22)",
         "reference_versions": {
             "R": "R version 4.5.2 (2025-10-31)",
-            "did": "2.3.0",
+            "did": "2.5.1",
             "fixest": "0.14.0",
             "did2s": "1.2.1",
             "etwfe": "0.6.2",

@@ -55,19 +55,19 @@
       },
       "cells": 512,
       "overall": {
-        "covered": 31,
-        "estimate_only": 31,
-        "not_covered": 450
+        "covered": 34,
+        "estimate_only": 34,
+        "not_covered": 444
       },
       "by_output": {
         "estimate": {
-          "reference": 62,
-          "not_covered": 450
+          "reference": 68,
+          "not_covered": 444
         },
         "se": {
-          "reference": 31,
+          "reference": 34,
           "stochastic_screen": 2,
-          "not_covered": 479
+          "not_covered": 476
         },
         "coverage": {
           "coverage_simulation": 1,
@@ -226,6 +226,44 @@
             ]
           },
           "compares": "clustered analytic SEs vs Stata csdid (v1) cluster() to 1e-9: every ATT(g,t), group and simple aggregates, on a panel with a time-invariant cluster (mpdta) and on repeated cross-sections clustered on a row-level city x year"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_cluster_analytic_parity.py",
+          "entry_point": "sp.callaway_santanna(clustervars=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal",
+              "varying"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "set"
+            ]
+          },
+          "compares": "clustered analytic SEs vs R did (>= 2.5.0) clustervars= to 1e-8 on nine clusters of unequal size: every ATT(g,t) and the simple / dynamic / group / calendar aggregates, on a balanced and an unbalanced panel"
         },
         {
           "kind": "T2",
@@ -6639,16 +6677,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 844,
+      "reference": 850,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 45540
+      "not_covered": 45534
     },
     "se": {
-      "reference": 372,
+      "reference": 375,
       "stochastic_screen": 3,
       "disclosure": 17,
-      "not_covered": 45992
+      "not_covered": 45989
     },
     "coverage": {
       "coverage_simulation": 11,

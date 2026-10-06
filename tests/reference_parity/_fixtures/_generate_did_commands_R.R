@@ -1,5 +1,5 @@
 # R `did` reference for the time-varying covariate of did_commands_data.csv
-# (test_stata_did_commands_parity.py). did 2.3.0, DRDID 1.2.3.
+# (test_stata_did_commands_parity.py). did 2.5.1, DRDID 1.3.0 (did 2.3.0 / DRDID 1.2.3 give the same numbers).
 # Run from this folder: Rscript _generate_did_commands_R.R
 suppressMessages({library(did); library(jsonlite)})
 d <- read.csv("did_commands_data.csv")

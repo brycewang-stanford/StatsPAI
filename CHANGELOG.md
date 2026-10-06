@@ -4,6 +4,42 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### R reference for Callaway-Sant'Anna moved to `did` 2.5.1 and `DRDID` 1.3.0
+
+#### Changed
+
+- **The R reference environment now uses `did` 2.5.1 and `DRDID` 1.3.0**
+  (was 2.3.0 and 1.2.3). No StatsPAI estimate changes. Every Track A golden
+  value that runs through the two packages reproduces to the last digit
+  (modules 04, 38, 73, 74, 80), and so do the regenerated
+  `tests/reference_parity` fixtures (worst gap 1e-15). The one number that
+  moves is the simulated p-value of the functional-form test in module 79,
+  from 0.99998 to 0.99997. It is a count over 100,000 draws and one draw
+  changed side. The eight implied densities next to it are bit-identical.
+- **Two gaps against R are closed by the reference, not by a code change.**
+  On repeated cross-sections and unbalanced panels the aggregated
+  Callaway-Sant'Anna standard error differed from `did` 2.3.0 by 0.003% to
+  2.2% while every `ATT(g, t)` cell agreed, and two tests carried a 1% and
+  a 3% tolerance for it. `did` 2.5.0 records that `aggte()` misattributed
+  the estimated-weight influence term on unbalanced panels. `did` 2.5.1
+  returns what StatsPAI already computed, to 1e-15 on the twenty synthetic
+  cases and 4e-11 on `mpdta`, and both tests are now held to 1e-8
+  (`test_cs_no_never_unbalanced_parity.py`, `test_cs_rcs_parity.py`).
+- **Analytic cluster-robust standard errors of `sp.callaway_santanna` now
+  have an R reference** next to the Stata `csdid` one. `did` 2.3.0 had no
+  analytic clustered standard error, and its clustered bootstrap averaged
+  the influence function within cluster, which is the cluster-robust
+  variance only for equal cluster sizes. `did` 2.5.0 uses cluster sums, as
+  StatsPAI and `csdid` do. On nine clusters of sizes 150 to 1, for
+  balanced and unbalanced panels, both comparison groups and both base
+  periods, every cell and every aggregation agrees to 7e-13 or better
+  (`tests/reference_parity/test_cs_cluster_analytic_parity.py`, 50 tests).
+- **`didFF` 0.1.0 needs `control_group` spelled out under `did` 2.5.x.** It
+  forwards a length-two default to `did`, which the old version read as its
+  first element and the new one rejects. Module 79 and two fixture
+  generators now pass `"nevertreated"` explicitly. The edited scripts give
+  the same numbers under `did` 2.3.0.
+
 ### Missing data in `sp.path_analysis`
 
 #### Added

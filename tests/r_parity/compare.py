@@ -495,8 +495,9 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # designs agree at 1.2e-15. The 1e-3 budget exists for ONE row per
     # design -- the p-value, which is a 100k-draw simulation of the
     # least-favourable critical value on each side with different RNGs
-    # (observed gap 1e-5, i.e. one draw). Iterative tier for that reason
-    # alone; the substantive quantities are machine-exact.
+    # (observed gap 2e-5, i.e. two draws; 1e-5 against did 2.3.0). Iterative
+    # tier for that reason alone; the substantive quantities are
+    # machine-exact.
     "79_didff": {"rel_est": 1e-3},
     # dCDH intertemporal event study: across TWO designs -- absorbing, and
     # one where treatment switches off as well as on -- every effect,

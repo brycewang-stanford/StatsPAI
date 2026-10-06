@@ -1,7 +1,7 @@
 """``sp.harvest_did``, ``sp.spillover_did`` and ``sp.causal_impact`` vs R.
 
 Reference: ``_fixtures/did_synth_misc_R.json`` written by
-``_generate_did_synth_misc_R.R`` (R 4.5, did 2.3.0 / DRDID, fixest 0.14.0,
+``_generate_did_synth_misc_R.R`` (R 4.5, did 2.5.1 / DRDID 1.3.0, fixest 0.14.0,
 KFAS 1.6.0, CausalImpact 1.4.1 / bsts 0.9.11 -- exact versions are stored in
 the fixture's ``meta``) from the CSVs written by
 ``_generate_did_synth_misc_data.py`` (fixed seeds, ``%.17g``), so both sides

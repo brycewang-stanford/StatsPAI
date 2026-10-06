@@ -96,7 +96,7 @@ def test_fixture_meta():
     meta = _REF["meta"]
     assert meta["fixest_version"] == "0.14.0"
     assert meta["ptetools_version"] == "1.0.1"
-    assert meta["did_version"] == "2.3.0"
+    assert meta["did_version"] == "2.5.1"
     assert meta["didFF_version"] == "0.1.0"
 
 

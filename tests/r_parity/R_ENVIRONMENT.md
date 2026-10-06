@@ -121,11 +121,11 @@ closure, 354 packages) is [`renv.lock`](renv.lock), which
 | `censReg` | 0.5.38 | 41 (tobit) |
 | `clubSandwich` | 0.6.2 | 53 (CR2/CR3 cluster SE) |
 | `ddecompose` | 1.0.0 | 31 (DFL reweighting) |
-| `did` | 2.3.0 | 04 (Callaway–Sant'Anna) |
+| `did` | 2.5.1 | 04 (Callaway–Sant'Anna) |
 | `didimputation` | 0.5.1 | 16 (BJS imputation) |
 | `dineq` | 0.1.0 | 32 (RIF / UQR) |
 | `DoubleML` | 1.0.2 | 08 (DML PLR) |
-| `DRDID` | 1.2.3 | 38 (DR-DID) |
+| `DRDID` | 1.3.0 | 38 (DR-DID) |
 | `etwfe` | 0.6.2 | 17 (Wooldridge ETWFE) |
 | `EValue` | 4.1.4 | 23 (E-value) |
 | `fixest` | 0.14.0 | 03/15 (HDFE, cluster), 05 (`sunab`) |
@@ -210,8 +210,9 @@ install lines are recorded in `../stata_parity/_common.do`.
 
 ---
 
-*Captured 2026-05-29 and refreshed 2026-09-26 (lock regenerated from the
-installed reference library; all 89 R modules re-verified) via `Rscript -e 'sessionInfo()'` and Stata
+*Captured 2026-05-29, refreshed 2026-09-26 (lock regenerated from the
+installed reference library; all 89 R modules re-verified) and 2026-10-06
+(`did` 2.3.0 to 2.5.1, `DRDID` 1.2.3 to 1.3.0; all R modules re-verified) via `Rscript -e 'sessionInfo()'` and Stata
 `c(stata_version)` on the maintainer's macOS arm64 workstation. Refresh
 this file whenever the reference environment changes; the per-`_R.json`
 `provenance` block is the authoritative per-result record.*

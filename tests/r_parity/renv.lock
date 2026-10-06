@@ -373,7 +373,7 @@
     },
     "did": {
       "Package": "did",
-      "Version": "2.3.0",
+      "Version": "2.5.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -461,7 +461,7 @@
     },
     "DRDID": {
       "Package": "DRDID",
-      "Version": "1.2.3",
+      "Version": "1.3.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },

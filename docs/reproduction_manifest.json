@@ -6,7 +6,7 @@
   "sides": {
     "R": {
       "report": "tests/r_parity/results/REPRODUCIBILITY_REPORT.md",
-      "report_sha256": "8afc46a5182d14ee41bacadb1767f7a3db4a28ae3512484ee649948ba54d4d7e",
+      "report_sha256": "2816ae8a1507db94f8b9c4ed89d29ea16067094fe29490c731d56ed44d7734b4",
       "rederive_with": "python tests/r_parity/verify_reproduce.py",
       "last_reproduced": {
         "commit": "4cddc069",
@@ -65,12 +65,12 @@
           "statistics_shared": "19/19",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "bdcb2d74e3457e7977debaef353ce5a18a09d41a48377c4eb49d9fcc4a898b40",
+          "golden_sha256": "1787e7f60c3f3c3123b98982a9e0005756f931ec8d182322d9982bcf051909d7",
           "input_sha256": "719d57d053daea2b72b5e8247f7c1ec4f87afcded9b5d60a7dc3e5de924b7a02",
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5.2",
+            "running": "macOS Tahoe 26.6.2",
             "n_packages": 40
           },
           "rederived_in_ci": false
@@ -575,12 +575,12 @@
           "statistics_shared": "3/3",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "1f9705123f0cba4290ad2526ea8cd79b0eb955cc36351b707287a25d825a0e2d",
+          "golden_sha256": "8c5705da7d2f35d0b2101d290044bd97bf35016fbe930cc204f88f6d147062ef",
           "input_sha256": "db864d4a826238f971eab70d486ae8bc3e808f476d2d8798ac02d38cee3a34e5",
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5",
+            "running": "macOS Tahoe 26.6.2",
             "n_packages": 10
           },
           "rederived_in_ci": false
@@ -1143,7 +1143,7 @@
         "76_pretrends": {
           "status": "reproduces",
           "statistics_shared": "8/8",
-          "worst_rel_estimate": 0.000342,
+          "worst_rel_estimate": 0.000665,
           "worst_rel_se": 0.0,
           "golden_sha256": "79e6e7e86844d3f8ade0be3515679c7037979b63c6831b87ce8856c64e84a4c8",
           "input_sha256": null,
@@ -1190,12 +1190,12 @@
           "statistics_shared": "18/18",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "480eb641b8295b75c021ffe7bac246f5ad4a8c30e04321a06f2427be3c342dcb",
+          "golden_sha256": "98b919abc5bad47ba8f3bfcb8c6da25b4deb7f57da8df8ddc5413c50f1a91dca",
           "input_sha256": null,
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5.2",
+            "running": "macOS Tahoe 26.6.2",
             "n_packages": 45
           },
           "rederived_in_ci": false
@@ -1205,12 +1205,12 @@
           "statistics_shared": "30/30",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "8a3e99de416e2dedb6a278757cbc24028ade50f4e243ed13cb4ebdbb7dada462",
+          "golden_sha256": "563087f273d922222c8b0d9ab9f9036267fe2767b5369f51f1fe1569a05b6de9",
           "input_sha256": "af45124b5f4d93b48bad2029e43a14a5ab5e9608f3891b1efa2a4ec2923e6003",
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5.2",
+            "running": "macOS Tahoe 26.6.2",
             "n_packages": 51
           },
           "rederived_in_ci": false

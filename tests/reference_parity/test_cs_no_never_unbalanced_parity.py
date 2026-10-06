@@ -2,7 +2,7 @@
 with ``control_group='notyettreated'`` on unbalanced panels.
 
 Two silent errors found by the top-5 replications (QJE 2019 Princelings,
-QJE 2023 AI-tocracy), both against R ``did`` 2.3.0:
+QJE 2023 AI-tocracy), both found against R ``did`` 2.3.0:
 
 * **No never-treated units.** The late ATT(g, t) cells have no comparison
   units. StatsPAI returned them as ``att = 0, se = inf`` and averaged the
@@ -20,12 +20,17 @@ Fixture: ``_fixtures/_generate_cs_no_never_unbalanced_{data.py,R.R}`` --
 ``att_gt`` cells and ``aggte(type='simple', na.rm=TRUE)`` (``sp.aggte``) for panel and
 repeated cross-section data, both base periods, anticipation 0/1, ``reg`` and
 ``dr``; and the unbalanced panel under both control groups. Tolerance
-``rtol = 1e-8`` on every cell's ATT and SE and on the aggregate ATT; the
-aggregate SE is held to 1e-8 on the balanced panel; on the
-observation-level paths it carries the known aggregation gap documented in
-``test_cs_rcs_parity.py`` (under 0.1% on the repeated cross-section, 0.9% /
-2.2% on the unbalanced panel), held to 1% / 3%. That gap predates this fix
-and is the same for both control groups' cells, which agree to 1e-14.
+``rtol = 1e-8`` on every cell's ATT and SE, on the aggregate ATT and on the
+aggregate SE.
+
+The fixture is generated with did 2.5.1. Against did 2.3.0 the aggregate SE
+differed off the balanced panel (under 0.1% on the repeated cross-section,
+0.9% / 2.2% on the unbalanced panel) while every cell agreed, and this test
+held it to 1% / 3%. The difference was in the reference. did 2.5.0 records
+that ``aggte()`` added the estimated-weight influence term in id-sorted order
+to an influence function stored in first-appearance order on unbalanced
+panels. With that fixed, did 2.5.1 and StatsPAI agree to 1e-15 on all twenty
+cases.
 """
 
 from __future__ import annotations
@@ -85,12 +90,7 @@ def test_cells_and_simple_match_r(case):
     agg = sp.aggte(r, type="simple", bstrap=False)
     assert agg.estimate == pytest.approx(case["simple_att"], rel=1e-8)
     balanced_panel = case["panel"] and case["data"] == "no_never"
-    # Off the balanced panel the aggregate SE carries the known denominator
-    # gap of the observation-level paths (test_cs_rcs_parity.py): <0.1% on
-    # the repeated cross-section here, 0.9% (never) and 2.2% (not yet) on
-    # the unbalanced panel. The cells below are exact.
-    tol = 1e-8 if balanced_panel else (1e-2 if not case["panel"] else 3e-2)
-    assert agg.se == pytest.approx(case["simple_se"], rel=tol)
+    assert agg.se == pytest.approx(case["simple_se"], rel=1e-8)
     if balanced_panel:
         # the balanced-panel headline is the same aggregate
         assert r.estimate == pytest.approx(case["simple_att"], rel=1e-8)

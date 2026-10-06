@@ -15,27 +15,26 @@
 #   C. clustervars= with the multiplier bootstrap on UNEQUAL cluster
 #      sizes.
 #
-#      NOTE: no clustered reference is emitted here on purpose. CRAN did
-#      2.3.0 -- the version this script runs against -- aggregates the
-#      influence function to cluster *means* over n_clusters
-#      (`rowsum(inf.func, cluster)/cluster_n`, `se <- bSigma/sqrt(n_clusters)`),
-#      which is what StatsPAI mirrored and which only equals the
-#      cluster-robust variance when every cluster is the same size. On the
-#      lopsided cluster sizes below it inflates the SEs ~5x, because the
-#      size-1 and size-3 clusters enter with weight 1/|c|. Upstream did
-#      (GitHub master, post-2.3.0) switched to cluster *sums* with
-#      `se <- bSigma * sqrt(n_clusters)/n` for exactly this reason, and
-#      csdid tracks the corrected form. Pinning 2.3.0's clustered numbers
-#      would freeze the superseded convention, so only the UNCLUSTERED
-#      bootstrap -- identical in both -- is recorded, and the clustered
-#      path is covered by property-based tests instead.
+#      NOTE: no clustered reference is emitted here. This fixture was
+#      designed against did 2.3.0, which aggregated the influence function
+#      to cluster *means* over n_clusters
+#      (`rowsum(inf.func, cluster)/cluster_n`, `se <- bSigma/sqrt(n_clusters)`).
+#      That equals the cluster-robust variance only when every cluster is
+#      the same size; on the lopsided cluster sizes below it inflates the
+#      SEs ~5x, because the size-1 and size-3 clusters enter with weight
+#      1/|c|. did 2.5.0 switched to cluster *sums* with
+#      `se <- bSigma * sqrt(n_clusters)/n` and added analytic clustered
+#      standard errors, and csdid tracks the corrected form. The clustered
+#      reference on these panels is in
+#      _fixtures/_generate_cs_cluster_analytic_R.R; here only the
+#      UNCLUSTERED bootstrap, identical in both versions, is recorded.
 #
 # Writes:
 #   _fixtures/cs_gaps_panel.csv            balanced panel + unequal `state`
 #   _fixtures/cs_gaps_unbalanced_panel.csv same panel, 18% of rows deleted
 #   _fixtures/cs_gaps_reference.csv        one row per (case, g, t)
 #
-# R 4.x, did 2.3.0.
+# R 4.x. Last regenerated with did 2.5.1; did 2.3.0 gives the same numbers.
 
 suppressPackageStartupMessages(library(did))
 

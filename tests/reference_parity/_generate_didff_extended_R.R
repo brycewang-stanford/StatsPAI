@@ -19,6 +19,17 @@ suppressMessages({
 
 stopifnot(as.character(packageVersion("didFF")) == "0.1.0")
 
+# didFF 0.1.0 forwards its default control_group, the length-two
+# c("nevertreated", "notyettreated"), to did. did <= 2.3.0 took the first
+# element; did >= 2.5.0 rejects a non-scalar value. These wrappers pass the
+# documented default explicitly, so every call below runs on both.
+didFF <- function(..., control_group = "nevertreated") {
+  didFF::didFF(..., control_group = control_group)
+}
+distDD <- function(..., control_group = "nevertreated") {
+  didFF::distDD(..., control_group = control_group)
+}
+
 script_dir <- tryCatch(
   dirname(normalizePath(sys.frame(1)$ofile)),
   error = function(e) "tests/reference_parity"
