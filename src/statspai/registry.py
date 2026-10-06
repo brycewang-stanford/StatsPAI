@@ -13407,6 +13407,88 @@ def _build_registry() -> None:
     )
     register(
         FunctionSpec(
+            name="identify_counterfactual",
+            category="dag",
+            description=(
+                "ID* and IDC* (Shpitser and Pearl): decide whether a "
+                "counterfactual probability such as P(Y[X=0] = y | X = 1), "
+                "the effect of treatment on the treated, is a function of "
+                "interventional distributions on a graph with latent "
+                "confounding, return the formula, and say which of its "
+                "terms reduce to observational data."
+            ),
+            params=[
+                ParamSpec("dag", "DAG", True),
+                ParamSpec(
+                    "event",
+                    "list",
+                    True,
+                    None,
+                    "Counterfactual events: (variable, value) or "
+                    "(variable, value, {intervened: value})",
+                ),
+                ParamSpec(
+                    "given",
+                    "list",
+                    False,
+                    None,
+                    "Events to condition on, written the same way; they "
+                    "may belong to other worlds",
+                ),
+            ],
+            returns=(
+                "CounterfactualIdentification with .identifiable, .estimand, "
+                ".experiments, .observational, .from_observational_data, "
+                ".evaluate(net), .estimate(data), .summary()"
+            ),
+            example=(
+                'sp.identify_counterfactual(sp.dag("Z -> X; Z -> Y; X -> Y"), '
+                '[("Y", 1, {"X": 0})], given=[("X", 1)])'
+            ),
+            tags=["dag", "identification", "counterfactual", "ett", "pearl"],
+            reference="shpitser2008complete",
+            assumptions=[
+                "The graph, with its latent confounders, is the causal graph",
+                "Identifiable means: from the set of all interventional "
+                "distributions (experiments)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom=(
+                        "identifiable is False: the query needs one variable "
+                        "in two worlds that share its unobserved causes "
+                        "(probabilities of necessity and sufficiency)"
+                    ),
+                    exception="statspai.IdentificationFailure",
+                    remedy=(
+                        "No experiment determines it; state the structural "
+                        "model (sp.bayes_net(...).counterfactual, sp.SCM) or "
+                        "bound it"
+                    ),
+                    alternative="sp.bayes_net",
+                ),
+                FailureMode(
+                    symptom=".estimate(data) says a term needs an experiment",
+                    exception="statspai.IdentificationFailure",
+                    remedy=(
+                        "That interventional distribution is not identified "
+                        "observationally in this graph; see .observational"
+                    ),
+                ),
+                FailureMode(
+                    symptom="The conditioning events contradict each other",
+                    exception="statspai.AssumptionViolation",
+                    remedy="Check the values in given=",
+                ),
+            ],
+            alternatives=["identify", "bayes_net", "SCM", "manski_bounds"],
+            not_recommended_when=[
+                "The query is an ordinary P(Y | do(X)): use sp.identify",
+            ],
+        )
+    )
+    register(
+        FunctionSpec(
             name="bayes_net",
             category="dag",
             description=(

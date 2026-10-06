@@ -10140,6 +10140,37 @@
     }
   },
   {
+    "description": "ID* and IDC* (Shpitser and Pearl): decide whether a counterfactual probability such as P(Y[X=0] = y | X = 1), the effect of treatment on the treated, is a function of interventional distributions on a graph with latent confounding, return the formula, and say which of its terms reduce to observational data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The query is an ordinary P(Y | do(X)): use sp.identify.",
+    "name": "identify_counterfactual",
+    "parameters": {
+      "properties": {
+        "dag": {
+          "description": "The causal graph. Latent variables are declared with ``latent=[...]`` or as bidirected edges ``A <-> B``.",
+          "type": "string"
+        },
+        "event": {
+          "description": "Counterfactual events: (variable, value) or (variable, value, {intervened: value})",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "given": {
+          "description": "Events to condition on, written the same way; they may belong to other worlds",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "dag",
+        "event"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Discrete causal Bayesian network on a DAG: conditional probability tables estimated from categorical data or written by hand, with exact inference (variable elimination) for conditional queries, interventional queries P(Y | do(X)) by the truncated factorisation, expected utilities, simulation, and counterfactuals by a twin network when every non-root node is a deterministic function of its parents. Validation: certified parity evidence. Do NOT use when: Continuous outcomes or covariates that binning would distort; Unobserved confounders: the tables cannot be estimated; Very many parents per node: the tables are estimated cell by cell and thin out.",
     "name": "bayes_net",
     "parameters": {

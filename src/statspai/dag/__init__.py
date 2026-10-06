@@ -27,6 +27,7 @@ from collections.abc import Sequence
 
 from .bayes_net import BayesNet, bayes_net
 from .counterfactual import SCM
+from .counterfactual_id import CounterfactualIdentification, identify_counterfactual
 from .do_calculus import RuleCheck, apply_rules, rule1, rule2, rule3
 from .graph import (
     DAG,
@@ -83,6 +84,8 @@ __all__ = [
     "swig",
     "SWIGGraph",
     "SCM",
+    "identify_counterfactual",
+    "CounterfactualIdentification",
     "bayes_net",
     "BayesNet",
     "llm_dag",

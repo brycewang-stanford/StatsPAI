@@ -242,6 +242,10 @@ from .dag import recommend_estimator as dag_recommend_estimator
 from .dag.bayes_net import BayesNet as BayesNet
 from .dag.bayes_net import bayes_net as bayes_net
 from .dag.counterfactual import SCM as SCM
+from .dag.counterfactual_id import (
+    CounterfactualIdentification as CounterfactualIdentification,
+)
+from .dag.counterfactual_id import identify_counterfactual as identify_counterfactual
 from .dag.do_calculus import RuleCheck as RuleCheck
 from .dag.do_calculus import apply_rules as do_calculus_apply
 from .dag.do_calculus import rule1 as do_rule1

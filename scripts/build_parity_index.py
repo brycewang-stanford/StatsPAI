@@ -7131,6 +7131,33 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "printed in the book (tests/test_ness_causal_ai_pass.py)."
         ),
     },
+    "identify_counterfactual": {
+        "status": "analytical-only",
+        "reference": "counterfactual probabilities computed by enumeration "
+        "in random structural causal models; cfid::identifiable for the "
+        "verdict on eight textbook queries",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "cfid": "0.1.8",
+        },
+        "tolerance": "1e-9 abs between the returned formula and the true "
+        "counterfactual probability on every identified query of 220 "
+        "random ones; identifiable or not equal to cfid on eight queries",
+        "sides": ["py"],
+        "test": [
+            "tests/test_counterfactual_identification.py",
+            "tests/reference_parity/test_ness_causal_ai_parity.py",
+            "tests/reference_parity/_fixtures/ness_causal_ai_R.json",
+        ],
+        "note": (
+            "Graded as known-truth recovery, not cross-package parity: on "
+            "1,117 random queries cfid and this implementation agree on "
+            "1,025, and the disagreements examined are errors in cfid (it "
+            "returns 0 for the probability of necessity). Soundness is "
+            "established by the enumeration check; completeness is not "
+            "established."
+        ),
+    },
     "identify": {
         "status": "bit-exact",
         "reference": "causaleffect::causal.effect (Shpitser-Pearl ID) for "

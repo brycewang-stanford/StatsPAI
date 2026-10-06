@@ -29,6 +29,7 @@ from its `datasets/` folder.
 | 9 | abduction, action, prediction with continuous noise | `sp.SCM(...).counterfactual(evidence, intervention)` |
 | 10 | is `P(Y \| do(X))` identified, and by what formula | `sp.identify(g, x, y)`: `.identifiable`, `.estimand` |
 | 10 | the estimand evaluated on data | `sp.identify(g, x, y).estimate(df)` |
+| 10 | a counterfactual query: the effect of treatment on the treated | `sp.identify_counterfactual(g, event, given=)` |
 | 11 | backdoor, front-door and instrumental strategies | `g.recommend_estimator(x, y)` lists all the graph licenses |
 | 11 | regression, stratification, matching, weighting | `sp.regress`, `sp.match`, `sp.ipw`, `sp.aipw` |
 | 11 | double machine learning, T-learner | `sp.dml`, `sp.metalearner(learner="t")` |
@@ -120,6 +121,37 @@ res.estimate(df)    # P(Y | do(X)) from the observed columns only
 
 Rows come back missing, with a warning, for treatment values whose formula
 needs a conditional probability that has no data behind it.
+
+## Counterfactual queries
+
+The effect of treatment on the treated compares what the treated got with
+what they would have got untreated, `P(Y_{X=0} = y | X = 1)`. The evidence
+and the outcome live in different worlds, so `sp.identify` does not apply.
+
+```python
+g = sp.dag("T -> W -> A; B -> V -> A; C -> T; C -> A; C -> B")   # listing 10.7
+res = sp.identify_counterfactual(g, [("A", 1, {"T": 0})], given=[("T", 1)])
+print(res.summary())
+res.estimate(df)        # when res.from_observational_data
+```
+
+An event is `(variable, value)` for the world as it is and `(variable,
+value, {intervened: value})` for a world in which something was set. The
+result gives the formula in interventional distributions, says for each
+term whether observational data can replace the experiment, and evaluates
+it.
+
+Some counterfactuals no experiment can settle. The probability of
+necessity, `P(Y_{X=0} = 0 | X = 1, Y = 1)`, needs the joint behaviour of
+`Y` in two worlds:
+
+```python
+sp.identify_counterfactual(sp.dag("X -> Y"), [("Y", 0, {"X": 0})],
+                           given=[("X", 1), ("Y", 1)]).identifiable   # False
+```
+
+For those, state the structural model (`sp.bayes_net(...).counterfactual`,
+`sp.SCM`) or bound the quantity.
 
 ## One graph, three strategies
 

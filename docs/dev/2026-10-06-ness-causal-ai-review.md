@@ -267,10 +267,7 @@ in the test.
 
 ## Open items
 
-1. **Counterfactual identification.** Listing 10.8 identifies the effect
-   of treatment on the treated with y0's `idc_star`, and 10.9 to 10.12
-   build parallel-world and counterfactual graphs. `sp.identify`
-   implements ID only. ID* and IDC* are the natural next step.
+1. **Counterfactual identification: done in a second round, see below.**
 2. **Verma constraints.** The second chapter 4 notebook tests a functional
    constraint in a graph with a latent variable. Nothing in StatsPAI
    derives such constraints.
@@ -289,6 +286,65 @@ in the test.
 7. `DAG.adjustment_sets` enumerates up to size six and returns one pruned
    set above that. A graph with several minimal sets larger than six gets
    one of them.
+
+## Second round: counterfactual identification
+
+Listing 10.8 identifies the effect of treatment on the treated,
+`P(A_{T=-t} = +a | T = +t)`, with y0's `idc_star`. The first round left
+this open. `sp.identify_counterfactual(dag, event, given=)` now implements
+ID* and IDC* [@shpitser2008complete], written from the paper.
+
+What it returns. A verdict, the formula in interventional distributions,
+and for each interventional term its observational formula from
+`sp.identify` or the statement that it needs an experiment. When every
+term has one, `.estimate(data)` evaluates the whole thing on categorical
+observational data; `.evaluate(net)` evaluates it in a fully specified
+`sp.bayes_net`.
+
+Evidence.
+
+- *Soundness.* In random structural models (three to five binary
+  variables, random bidirected edges, random response functions) every
+  formula returned was evaluated and compared with the counterfactual
+  probability computed by enumerating the exogenous variables. Four seeds,
+  1,092 identified queries, largest difference zero to rounding. A
+  220-query version is in `tests/test_counterfactual_identification.py`.
+- *The paper and the book.* The paper's worked example
+  `P(y_x | x', z_d, d)` comes out as
+  `sum_w P_{z,w}(y, x') P_x(w) / P(x')`, as printed there. The book's
+  listing 10.8 gives the six factors y0 prints.
+- *cfid* (R, GPL, used as a black box). On 1,117 random queries the two
+  agree on 1,025. Of the 92 disagreements, 80 are queries cfid identifies
+  and StatsPAI does not, 12 the reverse. The 12 are covered by the
+  soundness check. For the 80 no general arbiter was built; the ones
+  examined by hand are cfid's errors. It answers the probability of
+  necessity `P(Y_{X=0} = 0 | X = 1, Y = 1)` on `X -> Y` with "0" (in the
+  model `Y = X` it is 1), and `P(V1 = v, V1_{V0=v0} = v)` on `V0 -> V1`
+  with `P_{v0}(v1)`, which two models with identical experiments
+  contradict. Among StatsPAI's 250 refusals, one had a joint probability
+  that was zero in every random model tried, and that one is zero only
+  because the variables are binary. Eight textbook verdicts are pinned
+  against cfid in the reference-parity file, and the necessity query is
+  pinned as a documented difference.
+
+Four things the paper's figure does not spell out, each found by the
+soundness check failing:
+
+1. In line 6 the term of a component fixes *everything* outside it. Giving
+   each node only its own outside parents put nodes of one component in
+   different worlds and the recursion did not terminate.
+2. In line 9 a variable that is both set to `x` and observed at `x` leaves
+   the subscript (consistency): `P(y_x, x) = P(y, x)`, not `P_x(y, x)`.
+3. Line 8's conflict includes a variable set in one world and left natural,
+   with no value known, in another inside the same component.
+4. In IDC*, the test that moves evidence into the subscripts has to
+   condition on the remaining evidence, has to be made on a world graph
+   whose merges do not depend on the values in the query, and has to carry
+   the moved value into the remaining evidence as well as the outcome.
+
+Completeness is not established. The algorithm is complete in the paper;
+this implementation is conservative where a value is a bound symbol, and
+the comparison with cfid cannot settle it.
 
 ## Rerun
 

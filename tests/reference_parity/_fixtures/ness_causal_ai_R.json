@@ -819,5 +819,16 @@
     ["X", "o-o", "W"],
     ["Y", "<->", "Z"],
     ["W", "o->", "Z"]
-  ]
+  ],
+  "cfid": {
+    "ett_backdoor": true,
+    "ett_bow": false,
+    "ett_frontdoor": true,
+    "ett_iv": false,
+    "effect": true,
+    "necessity": true,
+    "two_worlds": false,
+    "book_ett": true,
+    "paper_example": true
+  }
 }

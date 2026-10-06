@@ -23245,6 +23245,131 @@
     "alias_of": null,
     "alternatives": [
       "identify",
+      "bayes_net",
+      "SCM",
+      "manski_bounds"
+    ],
+    "assumptions": [
+      "The graph, with its latent confounders, is the causal graph",
+      "Identifiable means: from the set of all interventional distributions (experiments)"
+    ],
+    "category": "dag",
+    "cost_profile": "",
+    "description": "ID* and IDC* (Shpitser and Pearl): decide whether a counterfactual probability such as P(Y[X=0] = y | X = 1), the effect of treatment on the treated, is a function of interventional distributions on a graph with latent confounding, return the formula, and say which of its terms reduce to observational data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The query is an ordinary P(Y | do(X)): use sp.identify.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "counterfactual probabilities computed by enumeration in random structural causal models; cfid::identifiable for the verdict on eight textbook queries",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "cfid": "0.1.8"
+      },
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "analytical-only",
+      "tests": [
+        "tests/test_counterfactual_identification.py",
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
+      ],
+      "tolerance": "1e-9 abs between the returned formula and the true counterfactual probability on every identified query of 220 random ones; identifiable or not equal to cfid on eight queries"
+    },
+    "example": "sp.identify_counterfactual(sp.dag(\"Z -> X; Z -> Y; X -> Y\"), [(\"Y\", 1, {\"X\": 0})], given=[(\"X\", 1)])",
+    "failure_modes": [
+      {
+        "alternative": "sp.bayes_net",
+        "exception": "statspai.IdentificationFailure",
+        "remedy": "No experiment determines it; state the structural model (sp.bayes_net(...).counterfactual, sp.SCM) or bound it",
+        "symptom": "identifiable is False: the query needs one variable in two worlds that share its unobserved causes (probabilities of necessity and sufficiency)"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.IdentificationFailure",
+        "remedy": "That interventional distribution is not identified observationally in this graph; see .observational",
+        "symptom": ".estimate(data) says a term needs an experiment"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.AssumptionViolation",
+        "remedy": "Check the values in given=",
+        "symptom": "The conditioning events contradict each other"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "identify_counterfactual",
+    "not_recommended_when": [
+      "The query is an ordinary P(Y | do(X)): use sp.identify"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "shpitser2008complete",
+    "returns": {
+      "class": "CounterfactualIdentification",
+      "description": "CounterfactualIdentification with .identifiable, .estimand, .experiments, .observational, .from_observational_data, .evaluate(net), .estimate(data), .summary()",
+      "fields": {
+        "estimand": "str",
+        "experiments": "List[str]",
+        "explanation": "str",
+        "from_observational_data": "bool",
+        "identifiable": "bool",
+        "observational": "Dict[str, Optional[str]]",
+        "query": "str"
+      }
+    },
+    "signature": {
+      "description": "ID* and IDC* (Shpitser and Pearl): decide whether a counterfactual probability such as P(Y[X=0] = y | X = 1), the effect of treatment on the treated, is a function of interventional distributions on a graph with latent confounding, return the formula, and say which of its terms reduce to observational data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The query is an ordinary P(Y | do(X)): use sp.identify.",
+      "name": "identify_counterfactual",
+      "parameters": {
+        "properties": {
+          "dag": {
+            "description": "The causal graph. Latent variables are declared with ``latent=[...]`` or as bidirected edges ``A <-> B``.",
+            "type": "string"
+          },
+          "event": {
+            "description": "Counterfactual events: (variable, value) or (variable, value, {intervened: value})",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "given": {
+            "description": "Events to condition on, written the same way; they may belong to other worlds",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "dag",
+          "event"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) vs counterfactual probabilities computed by enumeration in random structural causal models; cfid::identifiable for the verdict on eight textbook queries; tolerance 1e-9 abs between the returned formula and the true counterfactual probability on every identified query of 220 random ones; identifiable or not equal to cfid on eight queries -- tests/test_counterfactual_identification.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "identify",
       "g_computation",
       "aipw",
       "SCM"

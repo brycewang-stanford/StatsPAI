@@ -11,7 +11,7 @@
 # script writes.
 #
 # Requires: dagitty (0.3.4), bnlearn (5.2.1), causaleffect (1.3.15),
-#           pcalg (2.7.12), jsonlite.
+#           pcalg (2.7.12), cfid (0.1.8), jsonlite.
 # Run:      Rscript tests/reference_parity/_fixtures/_generate_ness_causal_ai.R
 #           (from the repository root)
 # ---------------------------------------------------------------------------
@@ -215,6 +215,31 @@ ld <- round(data.frame(A = la, B = lb, X = lx, Y = ly, W = lw, Z = lz), 6)
 write.csv(ld, file.path(here, "ness_latent.csv"), row.names = FALSE)
 ld <- read.csv(file.path(here, "ness_latent.csv"))
 out$fci_latent <- pag_of(ld, 0.01)
+
+# --- counterfactual identification verdicts (ID* / IDC*, cfid) ----------------
+# cf(var, 0) is the event var = 0; the third argument is the intervention.
+cfq <- function(spec, gamma, delta = NULL) {
+  r <- if (is.null(delta)) cfid::identifiable(cfid::dag(spec), gamma) else
+    cfid::identifiable(cfid::dag(spec), gamma, delta)
+  r$id
+}
+y0 <- cfid::cf("Y", 1, c(X = 0)); x1 <- cfid::cf("X", 1); y1 <- cfid::cf("Y", 1)
+out$cfid <- list(
+  ett_backdoor   = cfq("Z -> X; Z -> Y; X -> Y", y0, x1),
+  ett_bow        = cfq("X -> Y; X <-> Y", y0, x1),
+  ett_frontdoor  = cfq("X -> W; W -> Y; X <-> Y", y0, x1),
+  ett_iv         = cfq("Z -> X; X -> Y; X <-> Y", y0, x1),
+  effect         = cfq("X -> Y; X <-> Z; Z -> Y", y0),
+  necessity      = cfq("X -> Y", cfid::cf("Y", 0, c(X = 0)), cfid::conj(x1, y1)),
+  two_worlds     = cfq("X -> Y", cfid::conj(cfid::cf("Y", 1, c(X = 0)),
+                                             cfid::cf("Y", 1, c(X = 1)))),
+  book_ett       = cfq("T -> W; W -> A; B -> V; V -> A; C -> T; C -> A; C -> B",
+                       cfid::cf("A", 1, c(T = 0)), cfid::cf("T", 1)),
+  paper_example  = cfq("X -> W; W -> Y; D -> Z; Z -> Y; X <-> Y",
+                       cfid::cf("Y", 1, c(X = 0)),
+                       cfid::conj(cfid::cf("X", 1), cfid::cf("Z", 1, c(D = 1)),
+                                  cfid::cf("D", 1)))
+)
 
 write_json(out, file.path(here, "ness_causal_ai_R.json"), auto_unbox = TRUE,
            digits = 15, pretty = TRUE)

@@ -267,3 +267,49 @@ def test_fci_draws_a_latent_common_cause_as_bidirected(ref):
         for a, m, b in sp.fci(pd.read_csv(FIX / "ness_latent.csv"), alpha=0.01).edges
     }
     assert ours[("Y", "Z")] == "<->"
+
+
+# --------------------------------------------------------------------------- #
+#  Counterfactual identification: ID* / IDC* against cfid
+# --------------------------------------------------------------------------- #
+
+_Y0 = [("Y", 1, {"X": 0})]
+_X1 = [("X", 1)]
+CF_QUERIES = {
+    "ett_backdoor": ("Z -> X; Z -> Y; X -> Y", _Y0, _X1),
+    "ett_bow": ("X -> Y; X <-> Y", _Y0, _X1),
+    "ett_frontdoor": ("X -> W -> Y; X <-> Y", _Y0, _X1),
+    "ett_iv": ("Z -> X -> Y; X <-> Y", _Y0, _X1),
+    "effect": ("X -> Y; X <-> Z; Z -> Y", _Y0, None),
+    "two_worlds": ("X -> Y", [("Y", 1, {"X": 0}), ("Y", 1, {"X": 1})], None),
+    "book_ett": (
+        "T -> W -> A; B -> V -> A; C -> T; C -> A; C -> B",
+        [("A", 1, {"T": 0})],
+        [("T", 1)],
+    ),
+    "paper_example": (
+        "X -> W -> Y; D -> Z -> Y; X <-> Y",
+        _Y0,
+        [("X", 1), ("Z", 1, {"D": 1}), ("D", 1)],
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(CF_QUERIES))
+def test_counterfactual_verdicts_match_cfid(ref, name):
+    spec, event, given = CF_QUERIES[name]
+    ours = sp.identify_counterfactual(sp.dag(spec), event, given=given)
+    assert ours.identifiable is ref["cfid"][name]
+
+
+def test_probability_of_necessity_is_where_cfid_differs(ref):
+    # cfid answers P(Y_{X=0} = 0 | X = 1, Y = 1) with the formula "0". In
+    # the model Y = X the probability is 1, so that answer cannot be right;
+    # the query is the textbook example of a counterfactual no experiment
+    # identifies (tests/test_counterfactual_identification.py shows two
+    # models that agree on every experiment and differ on it).
+    assert ref["cfid"]["necessity"] is True
+    ours = sp.identify_counterfactual(
+        sp.dag("X -> Y"), [("Y", 0, {"X": 0})], given=[("X", 1), ("Y", 1)]
+    )
+    assert not ours.identifiable

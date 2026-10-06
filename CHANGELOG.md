@@ -4,6 +4,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Counterfactual identification
+
+- **`sp.identify_counterfactual(dag, event, given=)`**: the ID* and IDC*
+  algorithms [@shpitser2008complete]. It decides whether a counterfactual
+  probability, such as the effect of treatment on the treated
+  `P(Y[X=0] = y | X = 1)`, is a function of interventional distributions
+  on a graph with latent confounding, returns the formula, and says for
+  each interventional term whether observational data can stand in for
+  the experiment. `.estimate(data)` evaluates it on categorical
+  observational data when they can, `.evaluate(net)` in a specified
+  `sp.bayes_net`. Queries no experiment settles (probabilities of
+  necessity and sufficiency) are reported as such. Every formula returned
+  on 1,092 random queries equals the counterfactual probability computed
+  by enumeration in random structural models; the paper's worked example
+  and the query of Ness's listing 10.8 come out as printed; eight
+  textbook verdicts match the R package `cfid`. This closes the first
+  open item of `docs/dev/2026-10-06-ness-causal-ai-review.md`, which has
+  the details, including where `cfid` and this implementation differ.
 ### Path analysis, and two decisions left open by the Das pass
 
 #### ⚠️ Correctness

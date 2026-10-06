@@ -78,6 +78,10 @@ net.counterfactual("Y", evidence={...}, do={...})   # structural models only
 
 res = sp.identify(g, "X", "Y")                      # Shpitser-Pearl ID
 res.estimand; res.estimate(df)                      # works with latent confounders
+
+ett = sp.identify_counterfactual(                   # ID* / IDC*
+    g, [("Y", 1, {"X": 0})], given=[("X", 1)])      # P(Y[X=0] = 1 | X = 1)
+ett.identifiable; ett.estimand; ett.estimate(df)
 ```
 
 ## Policy learning
