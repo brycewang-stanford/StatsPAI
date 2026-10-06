@@ -18577,6 +18577,23 @@
       "tolerance": "F-statistic & p-value 1e-10 rel (observed ~1e-13)"
     },
     {
+      "function": "residual_balance",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_residual_balance_balancehd.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "result_card",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."

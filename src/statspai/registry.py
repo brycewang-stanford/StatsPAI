@@ -32018,6 +32018,13 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "bandit_allocate": ["tests/test_wager_textbook_pass.py"],
     "bandit_experiment": ["tests/test_wager_textbook_pass.py"],
     "adaptive_inference": ["tests/test_wager_textbook_pass.py"],
+    "mswitch_lrtest": ["tests/test_mswitch_lrtest.py"],
+    "mixture_design": ["tests/test_doe.py"],
+    "sequential_design": ["tests/test_doe.py"],
+    "tvp_var_sv": [
+        "tests/test_tvp_var_sv.py",
+        "tests/reference_parity/test_tvp_var_sv_parity.py",
+    ],
     "network_hte": ["tests/test_interference_extensions.py"],
     "spillover": ["tests/test_phase9to14.py", "tests/test_dispatchers_v150.py"],
     "identify_transport": ["tests/test_transport.py"],

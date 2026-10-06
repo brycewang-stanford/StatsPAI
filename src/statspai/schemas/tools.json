@@ -16457,6 +16457,74 @@
     "name": "interference"
   },
   {
+    "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples. Assumptions: Every unit had the same probability of treatment (Bernoulli or completely randomized assignment); The focal set was chosen without reference to the realised assignment; No clustering in the assignment mechanism. Pre-conditions: Both treated and untreated units among those re-randomized. Alternatives: sp.network_exposure, sp.fisher_exact, sp.spillover.",
+    "input_schema": {
+      "properties": {
+        "Y": {
+          "description": "Outcome vector",
+          "type": "string"
+        },
+        "Z": {
+          "description": "Treatment vector (0/1)",
+          "type": "string"
+        },
+        "adjacency": {
+          "description": "n x n matrix or edge list; required for null='no_spillover'",
+          "type": "string"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "Alternative",
+          "enum": [
+            "two-sided",
+            "greater",
+            "less"
+          ],
+          "type": "string"
+        },
+        "focal": {
+          "default": 0.5,
+          "description": "Share of units drawn at random as focal units, or an array of focal indices chosen without looking at Z",
+          "type": "number"
+        },
+        "n_perm": {
+          "default": 2000,
+          "description": "Number of permutations; all assignments are enumerated when there are no more than this many",
+          "type": "integer"
+        },
+        "null": {
+          "default": "no_spillover",
+          "description": "Hypothesis tested",
+          "enum": [
+            "no_spillover",
+            "no_effect"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Seed",
+          "type": "integer"
+        },
+        "statistic": {
+          "description": "Test statistic (or a callable T(Y, Z, A, focal)); defaults to 'neighbor_share' for no_spillover and 'difference_in_means' for no_effect",
+          "enum": [
+            "neighbor_share",
+            "any_neighbor",
+            "difference_in_means"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "Y",
+        "Z"
+      ],
+      "type": "object"
+    },
+    "name": "interference_test"
+  },
+  {
     "description": "Conditional marginal effects of ``d`` across a moderator ``x`` Validation: certified parity evidence. Assumptions: Treatment is unconfounded given the covariates at every value of the moderator; The linear estimator assumes the marginal effect is linear in the moderator; the binning and kernel estimators relax that and are the check on it; Common support: every treatment level is observed across the range of the moderator over which effects are reported. Pre-conditions: Long (person-period) data with time-varying treatment and covariates in temporal order; a clear time zero for target-trial emulation. Failure modes: The moderator has sparse support in part of its range: marginal effects there are extrapolation -> Use the binning or kernel estimator and show the moderator histogram under the plot. Alternatives: sp.sp.gformula_mc, sp.sp.target_trial_emulate, sp.sp.msm.",
     "input_schema": {
       "properties": {
@@ -22809,7 +22877,7 @@
     "name": "negative_control_outcome"
   },
   {
-    "description": "Aronow-Samii Horvitz-Thompson estimator for arbitrary interference via a user-supplied exposure mapping. Handles Bernoulli randomisation designs with simulated conservative variance. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume. Assumptions: Exposure mapping is correctly specified (as4 / as3 / as2 -- Aronow-Samii hierarchy); Positivity: every exposure level has positive probability under the design; Network adjacency is fixed / known (measurement error in ties introduces bias). Pre-conditions: adjacency is a binary n x n matrix encoding network ties; Y, Z have same length n; randomisation design is known (bernoulli with p_treat, or complete). Failure modes: Some exposure level has < 5 observed units -> Switch to a coarser mapping (as4 -> as3) or increase sample size; Variance estimate extremely conservative (wide CI) -> HT-style variance is conservative by design -- use sp.spillover for...",
+    "description": "Direct and spillover effects on a known network through an exposure mapping: inverse-probability weighted means of the outcome at each exposure level (exact exposure probabilities under Bernoulli assignment) with standard errors that account for dependence between units sharing a neighbour. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume. Assumptions: The exposure mapping is correctly specified: a unit's outcome depends on the assignment only through its exposure level; Positivity: averages are over units for which every exposure level has positive probability under the design; Network adjacency is fixed / known (measurement error in ties introduces bias). Pre-conditions: adjacency encodes who can affect whom and was fixed before assignment; Y, Z have same length n; treatments were assigned independently with a known probability. Failure modes: Fewer than two units can receive every exposu...",
     "input_schema": {
       "properties": {
         "Y": {
@@ -22821,37 +22889,85 @@
           "type": "string"
         },
         "adjacency": {
-          "description": "Adjacency matrix (n x n) or sparse",
+          "description": "n x n matrix (dense, sparse or DataFrame) or edge list; row i marks the units whose treatment may affect unit i",
           "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "contrasts": {
+          "description": "Pairs (h1, h0) of exposure levels to contrast; defaults to the four named contrasts of 'as4'",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "design": {
           "default": "bernoulli",
           "description": "Randomisation design",
           "enum": [
-            "bernoulli",
-            "complete"
+            "bernoulli"
+          ],
+          "type": "string"
+        },
+        "estimator": {
+          "default": "hajek",
+          "description": "Self-normalised (Hajek) or Horvitz-Thompson means",
+          "enum": [
+            "hajek",
+            "ht"
           ],
           "type": "string"
         },
         "mapping": {
           "default": "as4",
-          "description": "Exposure mapping",
+          "description": "Exposure mapping: own treatment by any treated neighbour ('as4'), own treatment by binned share of treated neighbours ('fraction'), or a callable f(Z, A) returning one label per unit",
           "enum": [
             "as4",
-            "as3",
-            "as2",
-            "custom"
+            "fraction"
           ],
           "type": "string"
         },
+        "min_prob": {
+          "default": 0.0,
+          "description": "Exclude units with an exposure probability at or below this value for some level",
+          "type": "number"
+        },
         "n_sim": {
           "default": 2000,
-          "description": "Monte-Carlo replicates used to estimate exposure probabilities.",
+          "description": "Draws used to simulate exposure probabilities of a callable mapping; ignored for the built-in mappings",
           "type": "integer"
         },
         "p_treat": {
-          "description": "Marginal treatment probability",
+          "description": "Treatment probability of the design; defaults to the realised treated share",
           "type": "number"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Seed for those draws",
+          "type": "integer"
+        },
+        "thresholds": {
+          "default": [
+            0.0,
+            0.5
+          ],
+          "description": "Bin edges of the 'fraction' mapping",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "variance": {
+          "default": "hac_psd",
+          "description": "Network HAC variance; 'hac_psd' uses the positive semidefinite part of the dependency graph and is always conservative for the randomisation variance",
+          "enum": [
+            "hac_psd",
+            "hac"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -31451,6 +31567,93 @@
       "type": "object"
     },
     "name": "reset_test"
+  },
+  {
+    "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates and overlap; The outcome is linear and sparse in the covariates; The standard error conditions on the covariates, so the interval is for the average effect in the sample at hand. Alternatives: sp.sbw, sp.ebalance, sp.cbps, sp.dml.",
+    "input_schema": {
+      "properties": {
+        "allow_negative_weights": {
+          "default": false,
+          "description": "Drop the non-negativity constraint",
+          "type": "boolean"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Covariates (may exceed n)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "cv": {
+          "default": 10,
+          "description": "Cross-validation folds",
+          "type": "integer"
+        },
+        "estimand": {
+          "default": "ATE",
+          "description": "Target population",
+          "enum": [
+            "ATE",
+            "ATT",
+            "ATC"
+          ],
+          "type": "string"
+        },
+        "l1_ratio": {
+          "default": 0.9,
+          "description": "Elastic-net mixing",
+          "type": "number"
+        },
+        "outcome_model": {
+          "default": "elnet",
+          "description": "Outcome model fitted in each arm (or a scikit-learn linear estimator)",
+          "enum": [
+            "elnet",
+            "lasso",
+            "none"
+          ],
+          "type": "string"
+        },
+        "random_state": {
+          "default": 0,
+          "description": "Seed for the folds",
+          "type": "integer"
+        },
+        "standardize": {
+          "default": true,
+          "description": "Scale covariates by their sd",
+          "type": "boolean"
+        },
+        "treat": {
+          "description": "0/1 treatment column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "zeta": {
+          "default": 0.5,
+          "description": "Weight on imbalance relative to the sum of squared weights, in (0, 1)",
+          "type": "number"
+        }
+      },
+      "required": [
+        "covariates",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "residual_balance"
   },
   {
     "description": "Randomization inference p-value. Validation: certified parity evidence. Assumptions: Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata). Pre-conditions: Imputation: every analysis variable present in the imputation model; randomization inference: the assignment design is known. Failure modes: Permutations do not follow the actual assignment mechanism (blocks, clusters): the randomization p-value is not valid -> Permute within strata and at the level at which treatment was assigned. Alternatives: sp.sp.mice, sp.sp.romano_wolf.",

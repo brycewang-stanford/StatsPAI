@@ -3669,11 +3669,6 @@ _register_lazy(
     "adaptive_inference",
     "BanditExperimentResult",
     "AdaptiveInferenceResult",
-    "bandit_allocate",
-    "bandit_experiment",
-    "adaptive_inference",
-    "BanditExperimentResult",
-    "AdaptiveInferenceResult",
 )
 _register_lazy(
     "doe",

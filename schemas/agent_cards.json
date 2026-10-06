@@ -27682,7 +27682,7 @@
             "x-statspai-role": "columns"
           },
           "treatment_strategy": {
-            "description": "Either a static sequence of treatment values (e.g. ``[1, 1, 1]`` = always-treat) or a callable taking history and returning the intervention value.",
+            "description": "A static strategy: a sequence of treatment values (e.g. ``[1, 1, 1]`` = always-treat), a scalar applied at every time point, or a callable ``f(t)`` returning the value at time ``t``. Strategies that depend on the evolving covariate history are not supported here; use :func:`statspai.ltmle` with a callable regime for those.",
             "items": {
               "type": "string"
             },
@@ -36623,7 +36623,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_doe.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -37425,7 +37427,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_doe.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -40291,7 +40295,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_tvp_var_sv.py",
+      "API/unit contract evidence: tests/reference_parity/test_tvp_var_sv_parity.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -40492,7 +40499,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_mswitch_lrtest.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -53106,18 +53115,19 @@
   {
     "alias_of": null,
     "alternatives": [
+      "interference_test",
       "spillover",
       "peer_effects",
       "cluster_matched_pair"
     ],
     "assumptions": [
-      "Exposure mapping is correctly specified (as4 / as3 / as2 -- Aronow-Samii hierarchy)",
-      "Positivity: every exposure level has positive probability under the design",
+      "The exposure mapping is correctly specified: a unit's outcome depends on the assignment only through its exposure level",
+      "Positivity: averages are over units for which every exposure level has positive probability under the design",
       "Network adjacency is fixed / known (measurement error in ties introduces bias)"
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Aronow-Samii Horvitz-Thompson estimator for arbitrary interference via a user-supplied exposure mapping. Handles Bernoulli randomisation designs with simulated conservative variance. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume.",
+    "description": "Direct and spillover effects on a known network through an exposure mapping: inverse-probability weighted means of the outcome at each exposure level (exact exposure probabilities under Bernoulli assignment) with standard errors that account for dependence between units sharing a neighbour. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume.",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -53134,19 +53144,19 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.network_exposure(Y=y, Z=z, adjacency=A, mapping=\"as4\")",
+    "example": "sp.network_exposure(Y=y, Z=z, adjacency=A, p_treat=0.5)",
     "failure_modes": [
       {
         "alternative": "",
         "exception": "statspai.DataInsufficient",
-        "remedy": "Switch to a coarser mapping (as4 -> as3) or increase sample size.",
-        "symptom": "Some exposure level has < 5 observed units"
+        "remedy": "Use a coarser exposure mapping.",
+        "symptom": "Fewer than two units can receive every exposure level"
       },
       {
         "alternative": "sp.spillover",
         "exception": "statspai.AssumptionWarning",
-        "remedy": "HT-style variance is conservative by design -- use sp.spillover for cluster case.",
-        "symptom": "Variance estimate extremely conservative (wide CI)"
+        "remedy": "Set min_prob= to restrict to units with adequate overlap, or use mapping='fraction'.",
+        "symptom": "Some units have exposure probabilities below 0.01 (high degree under 'as4'), so a few units carry huge weights"
       }
     ],
     "inherits_from": null,
@@ -53156,10 +53166,9 @@
     "name": "network_exposure",
     "not_recommended_when": [],
     "pre_conditions": [
-      "adjacency is a binary n x n matrix encoding network ties",
+      "adjacency encodes who can affect whom and was fixed before assignment",
       "Y, Z have same length n",
-      "randomisation design is known (bernoulli with p_treat, or complete)",
-      "n_sim >= 2000 for stable Monte Carlo variance"
+      "treatments were assigned independently with a known probability"
     ],
     "provenance": {
       "alternatives": "curated",
@@ -53171,23 +53180,27 @@
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "Aronow & Samii (2017) AoAS",
+    "reference": "aronow2017estimating; leung2022causal; gao2025causal",
     "returns": {
       "class": "NetworkExposureResult",
-      "description": "NetworkExposureResult with per-exposure HT estimates",
+      "description": "NetworkExposureResult with per-exposure means and contrasts",
       "fields": {
+        "alpha": "float",
         "contrasts": "pd.DataFrame",
         "design": "str",
         "detail": "Dict[str, Any]",
         "estimates": "pd.DataFrame",
+        "estimator": "str",
         "exposure_levels": "List[str]",
         "mapping": "str",
+        "n_eligible": "int",
         "n_obs": "int",
-        "p_treat": "float"
+        "p_treat": "float",
+        "variance": "str"
       }
     },
     "signature": {
-      "description": "Aronow-Samii Horvitz-Thompson estimator for arbitrary interference via a user-supplied exposure mapping. Handles Bernoulli randomisation designs with simulated conservative variance. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume.",
+      "description": "Direct and spillover effects on a known network through an exposure mapping: inverse-probability weighted means of the outcome at each exposure level (exact exposure probabilities under Bernoulli assignment) with standard errors that account for dependence between units sharing a neighbour. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: design='complete' is reserved but not implemented; passing it raises NotImplementedError. Use design='bernoulli' with p_treat=K/N as an approximation only if that matches the assignment mechanism you are willing to assume.",
       "name": "network_exposure",
       "parameters": {
         "properties": {
@@ -53200,37 +53213,85 @@
             "type": "string"
           },
           "adjacency": {
-            "description": "Adjacency matrix (n x n) or sparse",
+            "description": "n x n matrix (dense, sparse or DataFrame) or edge list; row i marks the units whose treatment may affect unit i",
             "type": "string"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Level",
+            "type": "number"
+          },
+          "contrasts": {
+            "description": "Pairs (h1, h0) of exposure levels to contrast; defaults to the four named contrasts of 'as4'",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "design": {
             "default": "bernoulli",
             "description": "Randomisation design",
             "enum": [
-              "bernoulli",
-              "complete"
+              "bernoulli"
+            ],
+            "type": "string"
+          },
+          "estimator": {
+            "default": "hajek",
+            "description": "Self-normalised (Hajek) or Horvitz-Thompson means",
+            "enum": [
+              "hajek",
+              "ht"
             ],
             "type": "string"
           },
           "mapping": {
             "default": "as4",
-            "description": "Exposure mapping",
+            "description": "Exposure mapping: own treatment by any treated neighbour ('as4'), own treatment by binned share of treated neighbours ('fraction'), or a callable f(Z, A) returning one label per unit",
             "enum": [
               "as4",
-              "as3",
-              "as2",
-              "custom"
+              "fraction"
             ],
             "type": "string"
           },
+          "min_prob": {
+            "default": 0.0,
+            "description": "Exclude units with an exposure probability at or below this value for some level",
+            "type": "number"
+          },
           "n_sim": {
             "default": 2000,
-            "description": "Monte-Carlo replicates used to estimate exposure probabilities.",
+            "description": "Draws used to simulate exposure probabilities of a callable mapping; ignored for the built-in mappings",
             "type": "integer"
           },
           "p_treat": {
-            "description": "Marginal treatment probability",
+            "description": "Treatment probability of the design; defaults to the realised treated share",
             "type": "number"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Seed for those draws",
+            "type": "integer"
+          },
+          "thresholds": {
+            "default": [
+              0.0,
+              0.5
+            ],
+            "description": "Bin edges of the 'fraction' mapping",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "variance": {
+            "default": "hac_psd",
+            "description": "Network HAC variance; 'hac_psd' uses the positive semidefinite part of the dependency graph and is always conservative for the randomisation variance",
+            "enum": [
+              "hac_psd",
+              "hac"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -53245,7 +53306,724 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_interference_parity.py",
+      "API/unit contract evidence: tests/test_wager_textbook_pass.py",
       "API/unit contract evidence: tests/test_dispatchers_v150.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "network_exposure",
+      "fisher_exact",
+      "spillover"
+    ],
+    "assumptions": [
+      "Every unit had the same probability of treatment (Bernoulli or completely randomized assignment)",
+      "The focal set was chosen without reference to the realised assignment",
+      "No clustering in the assignment mechanism"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.interference_test(Y=y, Z=z, adjacency=A)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "interference_test",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "Both treated and untreated units among those re-randomized"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "aronow2012general; athey2018exact; basse2019randomization",
+    "returns": {
+      "class": "InterferenceTestResult",
+      "description": "InterferenceTestResult",
+      "fields": {
+        "alternative": "str",
+        "detail": "Dict[str, Any]",
+        "exact": "bool",
+        "focal": "np.ndarray",
+        "n_focal": "int",
+        "n_obs": "int",
+        "n_perm": "int",
+        "null": "str",
+        "null_distribution": "np.ndarray",
+        "pvalue": "float",
+        "statistic": "float",
+        "statistic_name": "str"
+      }
+    },
+    "signature": {
+      "description": "Randomization test on a network: of no treatment effect at all, or of no spillovers (outcomes depend only on a unit's own treatment), using focal units whose treatments are held fixed while the others are permuted. Exact in finite samples.",
+      "name": "interference_test",
+      "parameters": {
+        "properties": {
+          "Y": {
+            "description": "Outcome vector",
+            "type": "string"
+          },
+          "Z": {
+            "description": "Treatment vector (0/1)",
+            "type": "string"
+          },
+          "adjacency": {
+            "description": "n x n matrix or edge list; required for null='no_spillover'",
+            "type": "string"
+          },
+          "alternative": {
+            "default": "two-sided",
+            "description": "Alternative",
+            "enum": [
+              "two-sided",
+              "greater",
+              "less"
+            ],
+            "type": "string"
+          },
+          "focal": {
+            "default": 0.5,
+            "description": "Share of units drawn at random as focal units, or an array of focal indices chosen without looking at Z",
+            "type": "number"
+          },
+          "n_perm": {
+            "default": 2000,
+            "description": "Number of permutations; all assignments are enumerated when there are no more than this many",
+            "type": "integer"
+          },
+          "null": {
+            "default": "no_spillover",
+            "description": "Hypothesis tested",
+            "enum": [
+              "no_spillover",
+              "no_effect"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Seed",
+            "type": "integer"
+          },
+          "statistic": {
+            "description": "Test statistic (or a callable T(Y, Z, A, focal)); defaults to 'neighbor_share' for no_spillover and 'difference_in_means' for no_effect",
+            "enum": [
+              "neighbor_share",
+              "any_neighbor",
+              "difference_in_means"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "Y",
+          "Z"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_wager_textbook_pass.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "bandit_experiment",
+      "adaptive_inference",
+      "randomize"
+    ],
+    "assumptions": [
+      "Rewards of an arm are independent and identically distributed over time"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Assignment probabilities for the next subject of an adaptive experiment from the data so far: Thompson sampling, upper confidence bounds or epsilon-greedy.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.bandit_allocate(df, \"y\", \"arm\", prob_floor=0.05)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bandit_allocate",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "thompson1933likelihood; lai1985asymptotically",
+    "returns": {
+      "class": "Series",
+      "description": "Series of probabilities indexed by arm",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Assignment probabilities for the next subject of an adaptive experiment from the data so far: Thompson sampling, upper confidence bounds or epsilon-greedy.",
+      "name": "bandit_allocate",
+      "parameters": {
+        "properties": {
+          "algorithm": {
+            "default": "thompson",
+            "description": "Allocation rule",
+            "enum": [
+              "thompson",
+              "ucb",
+              "epsilon_greedy",
+              "uniform"
+            ],
+            "type": "string"
+          },
+          "arm": {
+            "description": "Assigned-arm column",
+            "type": "string"
+          },
+          "arms": {
+            "description": "All arm labels, including untried",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "Outcomes observed so far",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "epsilon": {
+            "default": 0.1,
+            "description": "Exploration share",
+            "type": "number"
+          },
+          "horizon": {
+            "description": "Planned sample size (ucb)",
+            "type": "integer"
+          },
+          "min_pulls": {
+            "default": 2,
+            "description": "Draws per arm before adapting",
+            "type": "integer"
+          },
+          "model": {
+            "default": "gaussian",
+            "description": "Reward model behind the posterior",
+            "enum": [
+              "gaussian",
+              "bernoulli"
+            ],
+            "type": "string"
+          },
+          "prob_floor": {
+            "default": 0.0,
+            "description": "Lower bound on every assignment probability",
+            "type": "number"
+          },
+          "sigma": {
+            "description": "Known reward sd (Gaussian); default pooled within-arm sd",
+            "type": "number"
+          },
+          "ucb_scale": {
+            "default": 2.0,
+            "description": "Width of the bound",
+            "type": "number"
+          },
+          "y": {
+            "description": "Reward column (larger is better)",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "arm"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_wager_textbook_pass.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "bandit_allocate",
+      "adaptive_inference"
+    ],
+    "assumptions": [
+      "Rewards of an arm are independent and identically distributed over time"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Run a sequential multi-armed bandit experiment (Thompson sampling, UCB, epsilon-greedy) on a reward sampler or a table of potential outcomes, recording the assignment probabilities needed for inference afterwards.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.bandit_experiment(lambda k, rng: mu[k] + rng.normal(), 500, n_arms=3, prob_floor=0.02)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bandit_experiment",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "thompson1933likelihood; lai1985asymptotically",
+    "returns": {
+      "class": "BanditExperimentResult",
+      "description": "BanditExperimentResult (.data, .arms, .regret)",
+      "fields": {
+        "algorithm": "str",
+        "arms": "pd.DataFrame",
+        "data": "pd.DataFrame",
+        "detail": "Dict[str, Any]",
+        "model": "str",
+        "n_periods": "int",
+        "regret": "Optional[float]"
+      }
+    },
+    "signature": {
+      "description": "Run a sequential multi-armed bandit experiment (Thompson sampling, UCB, epsilon-greedy) on a reward sampler or a table of potential outcomes, recording the assignment probabilities needed for inference afterwards.",
+      "name": "bandit_experiment",
+      "parameters": {
+        "properties": {
+          "algorithm": {
+            "default": "thompson",
+            "description": "Allocation rule",
+            "enum": [
+              "thompson",
+              "ucb",
+              "epsilon_greedy",
+              "uniform"
+            ],
+            "type": "string"
+          },
+          "batch_size": {
+            "default": 1,
+            "description": "Periods between updates",
+            "type": "integer"
+          },
+          "epsilon": {
+            "default": 0.1,
+            "description": "Exploration share",
+            "type": "number"
+          },
+          "min_pulls": {
+            "default": 2,
+            "description": "Draws per arm before adapting",
+            "type": "integer"
+          },
+          "model": {
+            "default": "gaussian",
+            "description": "Reward model",
+            "enum": [
+              "gaussian",
+              "bernoulli"
+            ],
+            "type": "string"
+          },
+          "n_arms": {
+            "description": "Number of arms",
+            "type": "integer"
+          },
+          "n_periods": {
+            "description": "Number of subjects",
+            "type": "integer"
+          },
+          "prob_floor": {
+            "default": 0.0,
+            "description": "Lower bound on every assignment probability",
+            "type": "number"
+          },
+          "reward": {
+            "description": "reward(k, rng) -> float, or a T x K table of potential outcomes",
+            "type": "string"
+          },
+          "seed": {
+            "description": "Seed",
+            "type": "integer"
+          },
+          "sigma": {
+            "description": "Known reward sd",
+            "type": "number"
+          },
+          "true_means": {
+            "description": "Arm means, to report regret",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ucb_scale": {
+            "default": 2.0,
+            "description": "Width of the bound",
+            "type": "number"
+          }
+        },
+        "required": [
+          "reward"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_wager_textbook_pass.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "bandit_experiment",
+      "ttest"
+    ],
+    "assumptions": [
+      "Potential outcomes are independent and identically distributed over time",
+      "The supplied probabilities are the ones actually used to assign",
+      "Assignment probabilities do not decay to zero too fast"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Confidence intervals for arm means and contrasts after an adaptive (bandit) experiment, using weights that restore asymptotic normality when assignment probabilities depended on earlier outcomes.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.adaptive_inference(df, \"reward\", \"arm\", \"prob\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Collect data with a randomized rule and a probability floor.",
+        "symptom": "Assignment was deterministic (e.g. UCB)"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "adaptive_inference",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hadad2021confidence",
+    "returns": {
+      "class": "AdaptiveInferenceResult",
+      "description": "AdaptiveInferenceResult (.estimates, .contrasts)",
+      "fields": {
+        "alpha": "float",
+        "contrasts": "pd.DataFrame",
+        "detail": "Dict[str, Any]",
+        "estimates": "pd.DataFrame",
+        "method": "str",
+        "n_obs": "int"
+      }
+    },
+    "signature": {
+      "description": "Confidence intervals for arm means and contrasts after an adaptive (bandit) experiment, using weights that restore asymptotic normality when assignment probabilities depended on earlier outcomes.",
+      "name": "adaptive_inference",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level",
+            "type": "number"
+          },
+          "arm": {
+            "description": "Assigned-arm column",
+            "type": "string"
+          },
+          "contrasts": {
+            "description": "Pairs (a, b) of arms to contrast",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "One row per subject, in order",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "method": {
+            "default": "aw",
+            "description": "'aw' and 'aipw' are valid under adaptive assignment; 'ipw' and 'mean' are reported for comparison only",
+            "enum": [
+              "aw",
+              "aipw",
+              "ipw",
+              "mean"
+            ],
+            "type": "string"
+          },
+          "prob": {
+            "description": "Column with the probability with which the assigned arm was chosen",
+            "type": "string"
+          },
+          "probs": {
+            "description": "Columns with every arm's assignment probability (dict {arm: column} or list in sorted arm order); needed for method='aipw'",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "time": {
+            "description": "Column giving the order",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "arm"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_wager_textbook_pass.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "sbw",
+      "ebalance",
+      "cbps",
+      "dml",
+      "aipw"
+    ],
+    "assumptions": [
+      "Unconfoundedness given the covariates and overlap",
+      "The outcome is linear and sparse in the covariates",
+      "The standard error conditions on the covariates, so the interval is for the average effect in the sample at hand"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_residual_balance_balancehd.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.residual_balance(df, \"y\", \"w\", covariates)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "residual_balance",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "athey2018approximate",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "residual_balance",
+      "parameters": {
+        "properties": {
+          "allow_negative_weights": {
+            "default": false,
+            "description": "Drop the non-negativity constraint",
+            "type": "boolean"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Level",
+            "type": "number"
+          },
+          "covariates": {
+            "description": "Covariates (may exceed n)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "cv": {
+            "default": 10,
+            "description": "Cross-validation folds",
+            "type": "integer"
+          },
+          "data": {
+            "description": "Input data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "estimand": {
+            "default": "ATE",
+            "description": "Target population",
+            "enum": [
+              "ATE",
+              "ATT",
+              "ATC"
+            ],
+            "type": "string"
+          },
+          "l1_ratio": {
+            "default": 0.9,
+            "description": "Elastic-net mixing",
+            "type": "number"
+          },
+          "outcome_model": {
+            "default": "elnet",
+            "description": "Outcome model fitted in each arm (or a scikit-learn linear estimator)",
+            "enum": [
+              "elnet",
+              "lasso",
+              "none"
+            ],
+            "type": "string"
+          },
+          "random_state": {
+            "default": 0,
+            "description": "Seed for the folds",
+            "type": "integer"
+          },
+          "standardize": {
+            "default": true,
+            "description": "Scale covariates by their sd",
+            "type": "boolean"
+          },
+          "treat": {
+            "description": "0/1 treatment column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "zeta": {
+            "default": 0.5,
+            "description": "Weight on imbalance relative to the sum of squared weights, in (0, 1)",
+            "type": "number"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_residual_balance_balancehd.py"
     ],
     "validation_status": "validated"
   },
@@ -89128,7 +89906,7 @@
       "parameters": {
         "properties": {
           "cate_model": {
-            "description": "Model for tau(X). Fit on pseudo-outcome.",
+            "description": "Model for tau(X), fitted to the pseudo-outcome with weights ``(D - e(X))**2``. Default: gradient boosting with at least 20 observations per leaf.",
             "type": "string"
           },
           "fold_indices": {
@@ -89229,7 +90007,7 @@
       "parameters": {
         "properties": {
           "cate_model": {
-            "description": "Final-stage model for tau(X).",
+            "description": "Final-stage model for tau(X). Default: gradient boosting with at least 20 observations per leaf.",
             "type": "string"
           },
           "fold_indices": {

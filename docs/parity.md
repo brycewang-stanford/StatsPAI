@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 423 |
 | | aligned | 52 |
 | | **subtotal** | **475** |
-| **No external software reference** | analytical-only (T1) | 386 |
+| **No external software reference** | analytical-only (T1) | 387 |
 | | external-replication (published numbers) | 56 |
-| | **subtotal** | **442** |
-| No numerical evidence yet | unverified | 600 |
+| | **subtotal** | **443** |
+| No numerical evidence yet | unverified | 607 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 475 | 901 | 909 | 52.3% |
+| estimator callables | 475 | 902 | 914 | 52.0% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
-| result / exception classes | 0 | 3 | 388 | 0.0% |
-| **all registered** | 475 | 917 | 1517 | 31.3% |
+| result / exception classes | 0 | 3 | 391 | 0.0% |
+| **all registered** | 475 | 918 | 1525 | 31.1% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 151 | 337 | 339 |
+| causal | 151 | 338 | 341 |
 | regression | 43 | 56 | 56 |
 | timeseries | 24 | 51 | 53 |
 | inference | 28 | 49 | 49 |
@@ -62,8 +62,8 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | spatial | 28 | 33 | 33 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
+| experimental | 3 | 17 | 23 |
 | mendelian | 18 | 20 | 20 |
-| experimental | 3 | 17 | 20 |
 | epi | 16 | 17 | 17 |
 | power | 7 | 12 | 12 |
 | structural | 6 | 11 | 11 |
@@ -649,7 +649,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 386 functions
+## analytical-only — 387 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -960,6 +960,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `rdsummary` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `regime` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `regression_forest` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
+| `residual_balance` | [`test_residual_balance_balancehd.py`](../tests/reference_parity/test_residual_balance_balancehd.py) |
 | `result_card` | [`test_hdfe_fit_stats_reghdfe.py`](../tests/reference_parity/test_hdfe_fit_stats_reghdfe.py) |
 | `robustness_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `romano_wolf` | [`test_romano_wolf_parity.py`](../tests/reference_parity/test_romano_wolf_parity.py) |
@@ -1042,6 +1043,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 600 functions
+## unverified — 607 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).
