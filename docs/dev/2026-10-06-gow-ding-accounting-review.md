@@ -265,9 +265,19 @@ the series produced a negative slice stop and took its estimation sample
 from the end of the series.
 
 Open from this round: `estudy`'s group row and its handling of a missing
-estimation return; rank and sign tests
-(Corrado; the generalized rank test `estudy` also offers); long-horizon
-buy-and-hold returns.
+estimation return; long-horizon buy-and-hold returns; rank and sign
+tests. Two were tried in the third round and not added. The generalized
+rank test of Kolari and Pynnonen (2011), written from the paper, came out
+1.5 percent below `estudy`'s statistic on the market-adjusted model, where
+the standardised CARs agree, and the difference was not located.
+`estudy`'s Wilcoxon row reports a statistic of 96 for twelve securities
+(the signed-rank sum cannot exceed 78) with a p-value of zero in every
+window, so it is not a reference for anything.
+
+Also in the third round: the `lmrob` standard errors were tried against
+several variants of the scale-correction term (the S residual in place of
+the MM one, a centred scale score, finite-sample factors on the term). No
+scalar factor closes the gap, which stays open.
 
 ## What a paper written now would do differently
 
