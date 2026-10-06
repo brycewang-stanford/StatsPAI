@@ -1255,6 +1255,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_bayes_more_exact_posterior.py",
         "tests/reference_parity/test_bayes_regress_exact_posterior.py"
       ],
       "also_verified_by": [
@@ -1273,6 +1274,40 @@
       "status": "external-replication",
       "test": [
         "tests/external_parity/test_ramirez_hassan_bayes.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "bayes_shrink",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_more_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "bayes_sur",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_more_exact_posterior.py"
       ],
       "tolerance": ""
     },
@@ -17814,6 +17849,7 @@
         "tests/reference_parity/test_accounting_research_parity.py",
         "tests/reference_parity/test_assimilation_parity.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/reference_parity/test_bayes_more_exact_posterior.py",
         "tests/reference_parity/test_conley_acreg_spacetime_parity.py",
         "tests/reference_parity/test_conley_parity.py",
         "tests/reference_parity/test_contrast_pwcompare_parity.py",

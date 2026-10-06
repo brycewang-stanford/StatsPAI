@@ -32555,6 +32555,15 @@
             "type": "string",
             "x-statspai-role": "formula"
           },
+          "inference": {
+            "default": "mcmc",
+            "description": "'vb': mean-field variational Bayes (model='normal')",
+            "enum": [
+              "mcmc",
+              "vb"
+            ],
+            "type": "string"
+          },
           "level": {
             "default": 0.95,
             "description": "Credible interval mass",
@@ -32577,7 +32586,8 @@
               "poisson",
               "negbin",
               "tobit",
-              "quantile"
+              "quantile",
+              "mlogit"
             ],
             "type": "string"
           },
@@ -32670,6 +32680,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ramirez_hassan_bayes.py",
+      "tests/reference_parity/test_bayes_more_exact_posterior.py",
       "tests/reference_parity/test_bayes_regress_exact_posterior.py"
     ],
     "validation_status": "validated"
@@ -33113,6 +33124,350 @@
       "Cross-language parity (bit-exact) vs dlm::dlmFilter, dlmSmooth, dlmLL, dlmMLE [R version 4.5.2 (2025-10-31), dlm 1.1.6.1]; tolerance filtered and smoothed means, filtered variances, one-step forecasts and the log likelihood 1e-9 rel at fixed variances; smoothed variances 1e-5 under the diffuse prior; maximum-likelihood variances 1e-5 with a likelihood at least as high -- tests/reference_parity/test_dlm_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "sureg",
+      "bayes_regress",
+      "three_sls"
+    ],
+    "assumptions": [
+      "Jointly normal errors, independent across rows"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Bayesian seemingly unrelated regressions by Gibbs sampling: several linear equations with errors correlated across equations, normal prior on the coefficients, inverse-Wishart prior on the error covariance. The same regressors in every equation give the multivariate regression model. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Regressors are endogenous across equations: SUR assumes exogeneity; use sp.three_sls or sp.bayes_ivreg.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_more_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bayes_sur([\"y1 ~ x\", \"y2 ~ z\"], df, seed=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_sur",
+    "not_recommended_when": [
+      "Regressors are endogenous across equations: SUR assumes exogeneity; use sp.three_sls or sp.bayes_ivreg"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "zellner1962efficient",
+    "returns": {
+      "class": "BayesRegressResult",
+      "description": "BayesRegressResult",
+      "fields": {
+        "acceptance_rate": "Optional[float]",
+        "burnin": "int",
+        "chain": "np.ndarray",
+        "chains": "int",
+        "diagnostics_info": "Dict[str, Any]",
+        "draws": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model": "str",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "prior": "Dict[str, Any]",
+        "sampler": "str",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame",
+        "thin": "int"
+      }
+    },
+    "signature": {
+      "description": "Bayesian seemingly unrelated regressions by Gibbs sampling: several linear equations with errors correlated across equations, normal prior on the coefficients, inverse-Wishart prior on the error covariance. The same regressors in every equation give the multivariate regression model. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Regressors are endogenous across equations: SUR assumes exogeneity; use sp.three_sls or sp.bayes_ivreg.",
+      "name": "bayes_sur",
+      "parameters": {
+        "properties": {
+          "burnin": {
+            "default": 2000,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "chains": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "data": {
+            "description": "Rows with a missing value in any equation are dropped from all.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 10000,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "formulas": {
+            "description": "One formula per equation, e.g. ['y1 ~ x', 'y2 ~ z']",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "number"
+          },
+          "prior_mean": {
+            "default": 0.0,
+            "description": "Normal prior of the stacked coefficients (equation by equation, in the order of ``formulas``): scalars, a vector or a matrix.",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
+          },
+          "prior_var": {
+            "default": 1000.0,
+            "description": "Normal prior of the stacked coefficients (equation by equation, in the order of ``formulas``): scalars, a vector or a matrix.",
+            "items": {
+              "type": "number"
+            },
+            "type": [
+              "array",
+              "number"
+            ]
+          },
+          "seed": {
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "sigma_prior": {
+            "description": "(df, scale): Sigma ~ InvWishart(df, scale); default (M + 1, 0.02)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "thin": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formulas",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_more_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "bma",
+      "lasso_select",
+      "rlasso",
+      "ridge",
+      "shrinkage"
+    ],
+    "assumptions": [
+      "Linear mean, normal errors",
+      "Sparse or small coefficients"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Linear regression with a shrinkage or variable-selection prior: the Bayesian lasso (Park and Casella 2008) or stochastic search variable selection (George and McCulloch 1993) with posterior inclusion probabilities. Regressors standardised for the prior, coefficients reported on the original scale. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Inference on one coefficient with many controls is the goal: shrunk intervals are not confidence intervals; use sp.rlasso_effect or sp.dml.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_more_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bayes_shrink(\"y ~ x1 + x2 + x3\", df, prior=\"ssvs\", seed=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_shrink",
+    "not_recommended_when": [
+      "Inference on one coefficient with many controls is the goal: shrunk intervals are not confidence intervals; use sp.rlasso_effect or sp.dml"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "park2008bayesian",
+    "returns": {
+      "class": "BayesRegressResult",
+      "description": "BayesRegressResult",
+      "fields": {
+        "acceptance_rate": "Optional[float]",
+        "burnin": "int",
+        "chain": "np.ndarray",
+        "chains": "int",
+        "diagnostics_info": "Dict[str, Any]",
+        "draws": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model": "str",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "prior": "Dict[str, Any]",
+        "sampler": "str",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame",
+        "thin": "int"
+      }
+    },
+    "signature": {
+      "description": "Linear regression with a shrinkage or variable-selection prior: the Bayesian lasso (Park and Casella 2008) or stochastic search variable selection (George and McCulloch 1993) with posterior inclusion probabilities. Regressors standardised for the prior, coefficients reported on the original scale. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Inference on one coefficient with many controls is the goal: shrunk intervals are not confidence intervals; use sp.rlasso_effect or sp.dml.",
+      "name": "bayes_shrink",
+      "parameters": {
+        "properties": {
+          "burnin": {
+            "default": 2000,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 10000,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "formula": {
+            "description": "'y ~ x1 + x2 + ...'",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "inclusion": {
+            "default": 0.5,
+            "description": "SSVS prior inclusion probability",
+            "type": "number"
+          },
+          "lam": {
+            "description": "Lasso penalty; estimated when omitted",
+            "type": "number"
+          },
+          "lam_prior": {
+            "default": [
+              1.0,
+              1.0
+            ],
+            "description": "lam^2 ~ Gamma(shape, rate)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "number"
+          },
+          "prior": {
+            "default": "lasso",
+            "description": "Prior on the slopes",
+            "enum": [
+              "lasso",
+              "ssvs"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "sigma2_prior": {
+            "default": [
+              0.001,
+              0.001
+            ],
+            "description": "``sigma2 ~ InvGamma(alpha0 / 2, delta0 / 2)``.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "slab_sd": {
+            "default": 1.0,
+            "description": "SSVS slab sd, in sd(y) units",
+            "type": "number"
+          },
+          "spike_sd": {
+            "default": 0.02,
+            "description": "SSVS spike sd, in sd(y) units",
+            "type": "number"
+          },
+          "standardize": {
+            "default": true,
+            "description": "Scale regressors for the prior",
+            "type": "boolean"
+          },
+          "thin": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "formula",
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_more_exact_posterior.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
