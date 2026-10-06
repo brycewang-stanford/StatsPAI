@@ -436,6 +436,7 @@
         "tests/external_parity/test_hyndman_fpp_pythonic.py",
         "tests/external_parity/test_maitra_static_dynamic.py",
         "tests/reference_parity/test_arima_default_stata_parity.py",
+        "tests/reference_parity/test_bayes_timeseries_exact_posterior.py",
         "tests/reference_parity/test_forecasting_r_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
@@ -1012,6 +1013,23 @@
         "tests/reference_parity/test_decomp_R_parity.py"
       ],
       "tolerance": "Logit: explained, unexplained, gap, Yun-weighted detailed explained and unexplained terms, their 6x6 delta-method covariance and the aggregate SEs at 1e-9. Probit aligned at 2e-6 (reference probit not fully converged; see note)."
+    },
+    {
+      "function": "bayes_arima",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_timeseries_exact_posterior.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "bayes_bootstrap",
@@ -20385,6 +20403,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_distributional_te_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "stochvol",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_timeseries_exact_posterior.py"
       ],
       "tolerance": ""
     },

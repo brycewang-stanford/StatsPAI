@@ -33128,6 +33128,346 @@
   {
     "alias_of": null,
     "alternatives": [
+      "garch",
+      "dlm"
+    ],
+    "assumptions": [
+      "Returns are conditionally normal with mean zero",
+      "Log variance is a stationary AR(1)"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Stochastic volatility model for returns by MCMC: the log variance follows a stationary AR(1) with its own shock. Returns the posterior of the level, persistence and volatility of volatility, and the whole volatility path with credible bands. Same priors as R stochvol. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Prices rather than returns: difference the logs first; Fewer than a few hundred observations: the volatility of volatility is then driven by its prior.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_timeseries_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.stochvol(returns, seed=1).model_info['volatility']",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "stochvol",
+    "not_recommended_when": [
+      "Prices rather than returns: difference the logs first",
+      "Fewer than a few hundred observations: the volatility of volatility is then driven by its prior"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "ramirezhassan2026introduction",
+    "returns": {
+      "class": "BayesRegressResult",
+      "description": "BayesRegressResult",
+      "fields": {
+        "acceptance_rate": "Optional[float]",
+        "burnin": "int",
+        "chain": "np.ndarray",
+        "chains": "int",
+        "diagnostics_info": "Dict[str, Any]",
+        "draws": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model": "str",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "prior": "Dict[str, Any]",
+        "sampler": "str",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame",
+        "thin": "int"
+      }
+    },
+    "signature": {
+      "description": "Stochastic volatility model for returns by MCMC: the log variance follows a stationary AR(1) with its own shock. Returns the posterior of the level, persistence and volatility of volatility, and the whole volatility path with credible bands. Same priors as R stochvol. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Prices rather than returns: difference the logs first; Fewer than a few hundred observations: the volatility of volatility is then driven by its prior.",
+      "name": "stochvol",
+      "parameters": {
+        "properties": {
+          "burnin": {
+            "default": 2000,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "chains": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "demean": {
+            "default": true,
+            "description": "Subtract the sample mean first.",
+            "type": "boolean"
+          },
+          "draws": {
+            "default": 10000,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "number"
+          },
+          "mu_prior": {
+            "default": [
+              0.0,
+              100.0
+            ],
+            "description": "(mean, variance) of the level",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "phi_prior": {
+            "default": [
+              5.0,
+              1.5
+            ],
+            "description": "(phi + 1) / 2 ~ Beta(a, b)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "seed": {
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "sigma_prior": {
+            "default": 1.0,
+            "description": "sigma^2 ~ Gamma(1/2, 1 / (2 B))",
+            "type": "number"
+          },
+          "thin": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "y": {
+            "description": "Returns",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_timeseries_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "arima",
+      "dlm",
+      "bvar"
+    ],
+    "assumptions": [
+      "Gaussian innovations",
+      "The differenced series is stationary and invertible"
+    ],
+    "category": "bayes",
+    "cost_profile": "",
+    "description": "Bayesian ARIMA(p, d, q) with the exact Gaussian likelihood (Kalman filter) and a proper uniform prior over the stationary and invertible region. Posterior of the coefficients, posterior predictive forecasts, and marginal likelihoods for comparing orders. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Seasonal models or exogenous regressors: use sp.arima; Comparing models with different d by marginal likelihood: the likelihoods are of different data.",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_bayes_timeseries_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bayes_arima(y, order=(1, 0, 1), horizon=8, seed=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bayes_arima",
+    "not_recommended_when": [
+      "Seasonal models or exogenous regressors: use sp.arima",
+      "Comparing models with different d by marginal likelihood: the likelihoods are of different data"
+    ],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "not_recommended_when": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "ramirezhassan2026introduction",
+    "returns": {
+      "class": "BayesRegressResult",
+      "description": "BayesRegressResult",
+      "fields": {
+        "acceptance_rate": "Optional[float]",
+        "burnin": "int",
+        "chain": "np.ndarray",
+        "chains": "int",
+        "diagnostics_info": "Dict[str, Any]",
+        "draws": "pd.DataFrame",
+        "formula": "str",
+        "level": "float",
+        "model": "str",
+        "model_info": "Dict[str, Any]",
+        "n_draws": "int",
+        "n_obs": "int",
+        "params": "pd.Series",
+        "prior": "Dict[str, Any]",
+        "sampler": "str",
+        "std_errors": "pd.Series",
+        "table": "pd.DataFrame",
+        "thin": "int"
+      }
+    },
+    "signature": {
+      "description": "Bayesian ARIMA(p, d, q) with the exact Gaussian likelihood (Kalman filter) and a proper uniform prior over the stationary and invertible region. Posterior of the coefficients, posterior predictive forecasts, and marginal likelihoods for comparing orders. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Seasonal models or exogenous regressors: use sp.arima; Comparing models with different d by marginal likelihood: the likelihoods are of different data.",
+      "name": "bayes_arima",
+      "parameters": {
+        "properties": {
+          "burnin": {
+            "default": 2000,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "chains": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "constant": {
+            "description": "Default True when d = 0, else False",
+            "type": "boolean"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "draws": {
+            "default": 10000,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "horizon": {
+            "default": 0,
+            "description": "Periods to forecast",
+            "type": "integer"
+          },
+          "level": {
+            "default": 0.95,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "number"
+          },
+          "mean_prior": {
+            "default": [
+              0.0,
+              1000000.0
+            ],
+            "description": "(mean, variance)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "order": {
+            "default": [
+              1,
+              0,
+              0
+            ],
+            "description": "(p, d, q)",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "seed": {
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "sigma2_prior": {
+            "default": [
+              0.001,
+              0.001
+            ],
+            "description": "IG(alpha0/2, delta0/2)",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "thin": {
+            "default": 1,
+            "description": "As in :func:`statspai.bayes_regress`.",
+            "type": "integer"
+          },
+          "tune": {
+            "description": "Scale of the proposal relative to the curvature at the mode. Default ``2.38 / sqrt(k)``.",
+            "type": "number"
+          },
+          "y": {
+            "description": "The series, or a column name of ``data``.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_timeseries_exact_posterior.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "sureg",
       "bayes_regress",
       "three_sls"
