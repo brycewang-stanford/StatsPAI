@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 412 |
 | | aligned | 52 |
 | | **subtotal** | **464** |
-| **No external software reference** | analytical-only (T1) | 356 |
+| **No external software reference** | analytical-only (T1) | 359 |
 | | external-replication (published numbers) | 55 |
-| | **subtotal** | **411** |
+| | **subtotal** | **414** |
 | No numerical evidence yet | unverified | 564 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 464 | 859 | 863 | 53.8% |
+| estimator callables | 464 | 862 | 866 | 53.6% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 356 | 0.0% |
-| **all registered** | 464 | 875 | 1439 | 32.2% |
+| **all registered** | 464 | 878 | 1442 | 32.2% |
 
 ### Coverage by estimator family
 
@@ -56,9 +56,9 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | regression | 43 | 56 | 56 |
 | inference | 28 | 47 | 47 |
 | timeseries | 13 | 39 | 39 |
+| bayes | 8 | 35 | 35 |
 | panel | 28 | 34 | 34 |
 | spatial | 28 | 33 | 33 |
-| bayes | 8 | 32 | 32 |
 | diagnostics | 23 | 31 | 31 |
 | decomposition | 20 | 24 | 24 |
 | network | 23 | 24 | 24 |
@@ -637,7 +637,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 356 functions
+## analytical-only — 359 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -665,7 +665,10 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `bayes_its` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `bayes_iv` | [`test_bayes_diagnostics_parity.py`](../tests/reference_parity/test_bayes_diagnostics_parity.py) |
 | `bayes_ivreg` | [`test_bayes_regress_exact_posterior.py`](../tests/reference_parity/test_bayes_regress_exact_posterior.py) |
+| `bayes_mixture` | [`test_bayes_latent_exact_posterior.py`](../tests/reference_parity/test_bayes_latent_exact_posterior.py) |
+| `bayes_mnprobit` | [`test_bayes_latent_exact_posterior.py`](../tests/reference_parity/test_bayes_latent_exact_posterior.py) |
 | `bayes_mte` | [`test_mte_local_iv_identity.py`](../tests/reference_parity/test_mte_local_iv_identity.py) (+1) |
+| `bayes_mvprobit` | [`test_bayes_latent_exact_posterior.py`](../tests/reference_parity/test_bayes_latent_exact_posterior.py) |
 | `bayes_rd` | [`test_bayes_diagnostics_parity.py`](../tests/reference_parity/test_bayes_diagnostics_parity.py) |
 | `bayes_shrink` | [`test_bayes_more_exact_posterior.py`](../tests/reference_parity/test_bayes_more_exact_posterior.py) |
 | `bayes_sur` | [`test_bayes_more_exact_posterior.py`](../tests/reference_parity/test_bayes_more_exact_posterior.py) |

@@ -1208,6 +1208,40 @@
       "tolerance": ""
     },
     {
+      "function": "bayes_mixture",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_latent_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "bayes_mnprobit",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_latent_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "bayes_mte",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -1222,6 +1256,23 @@
       "test": [
         "tests/reference_parity/test_mte_local_iv_identity.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "bayes_mvprobit",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bayes_latent_exact_posterior.py"
       ],
       "tolerance": ""
     },

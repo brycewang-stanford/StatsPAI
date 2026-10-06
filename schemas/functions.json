@@ -14227,6 +14227,266 @@
     }
   },
   {
+    "description": "Bayesian multivariate probit by Gibbs sampling: several binary outcomes with errors correlated across equations. Reports probit coefficients and the error correlations. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: One binary outcome: use sp.bayes_regress(model='probit'); An outcome is a regressor of another equation: that is a recursive system with an endogenous regressor.",
+    "name": "bayes_mvprobit",
+    "parameters": {
+      "properties": {
+        "burnin": {
+          "default": 2000,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "chains": {
+          "default": 1,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "default": 10000,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "formulas": {
+          "description": "One formula per binary outcome",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "number"
+        },
+        "prior_mean": {
+          "default": 0.0,
+          "description": "Normal prior of the stacked coefficients on the unrestricted latent scale.",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "prior_var": {
+          "default": 100.0,
+          "description": "Normal prior of the stacked coefficients on the unrestricted latent scale.",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "seed": {
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "sigma_prior": {
+          "description": "(df, scale) of the inverse-Wishart; default (M + 3, (M + 3) I)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "thin": {
+          "default": 1,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "formulas",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bayesian multinomial probit by Gibbs sampling: an unordered outcome with correlated normal utility errors, so independence of irrelevant alternatives is not imposed. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only decision-maker regressors and no interest in the error covariance: it is then nearly unidentified and the chain is slow; sp.bayes_regress(model='mlogit') is the practical choice; Regressors that vary across alternatives (prices): not supported.",
+    "name": "bayes_mnprobit",
+    "parameters": {
+      "properties": {
+        "burnin": {
+          "default": 2000,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "chains": {
+          "default": 1,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "default": 10000,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "formula": {
+          "description": "'choice ~ x1 + x2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "number"
+        },
+        "prior_mean": {
+          "default": 0.0,
+          "description": "Normal prior of the stacked coefficients on the unrestricted latent scale.",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "prior_var": {
+          "default": 100.0,
+          "description": "Normal prior of the stacked coefficients on the unrestricted latent scale.",
+          "items": {
+            "type": "number"
+          },
+          "type": [
+            "array",
+            "number"
+          ]
+        },
+        "seed": {
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "sigma_prior": {
+          "description": "(df, scale) of the inverse-Wishart; default (J + 2, (J + 2) I)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "thin": {
+          "default": 1,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bayesian mixture of normal regressions with a fixed number of components or a Dirichlet process. 'y ~ 1' gives density estimation and model-based clustering. Returns the number of clusters, the posterior similarity matrix, a partition and the density with bands. Collapsed Gibbs, NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Reading per-component coefficients when components overlap: labels are not identified; use the similarity matrix; Treating the number of occupied clusters as an estimate of the number of subpopulations: it is not consistent for it.",
+    "name": "bayes_mixture",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 1.0,
+          "description": "Dirichlet weight or DP concentration",
+          "type": "number"
+        },
+        "alpha_prior": {
+          "description": "Gamma (shape, rate), DP only",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "burnin": {
+          "default": 1000,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "chains": {
+          "default": 1,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "components": {
+          "default": 2,
+          "description": "Integer or 'dp'",
+          "type": "integer"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "default": 5000,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "formula": {
+          "description": "'y ~ 1' or 'y ~ x'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "grid": {
+          "default": 200,
+          "description": "Points of the density estimate (``\"y ~ 1\"`` only).",
+          "type": "integer"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "number"
+        },
+        "max_components": {
+          "description": "Dirichlet process only: cap on the number of occupied clusters (memory). Default ``min(n, 50)``.",
+          "type": "integer"
+        },
+        "prior_mean": {
+          "description": "Prior mean ``b0`` of every component's coefficients. Default: the pooled least-squares coefficients.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "prior_scale": {
+          "description": "``B0`` in ``beta_k | sigma_k^2 ~ N(b0, sigma_k^2 B0)``. Default ``100 * n * inv(X'X)``: a component mean can sit about ten component standard deviations away from the pooled fit.",
+          "type": "number"
+        },
+        "seed": {
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        },
+        "sigma2_prior": {
+          "description": "``sigma_k^2 ~ IG(a0 / 2, d0 / 2)``. Default ``a0 = 4`` and ``d0`` such that the prior mean of a component variance is a quarter of the pooled residual variance.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "thin": {
+          "default": 1,
+          "description": "As in :func:`statspai.bayes_regress`.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "formula",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Bayesian seemingly unrelated regressions by Gibbs sampling: several linear equations with errors correlated across equations, normal prior on the coefficients, inverse-Wishart prior on the error covariance. The same regressors in every equation give the multivariate regression model. NumPy only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Regressors are endogenous across equations: SUR assumes exogeneity; use sp.three_sls or sp.bayes_ivreg.",
     "name": "bayes_sur",
     "parameters": {
