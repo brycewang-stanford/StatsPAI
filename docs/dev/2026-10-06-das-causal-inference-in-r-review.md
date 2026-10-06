@@ -277,9 +277,14 @@ as a reference.
   limit of 0.91. The interval contains 1, so the E-value is 1, as
   `sp.evalue` and the `EValue` package return.
 - **Chapter 14, confidence intervals.** Built as prediction ± variance
-  rather than ± 1.96 standard errors; coverage 9.8% where the correct
-  interval covers 90%. The "RMSE" used for tuning compares the outcome with
-  the treatment effect.
+  rather than ± 1.96 standard errors, and without
+  `estimate.variance = TRUE`, so under grf 2.6.1 the script as written
+  prints a coverage of `NaN`. With the variance requested, prediction ±
+  variance covers 16.6% on the script's seed and prediction ± 1.96
+  standard errors covers 95.8% (rerun 2026-10-06; an earlier draft of
+  these notes quoted 9.8% and 90% from a different setup). The "RMSE" used
+  for tuning in the second script compares the outcome with the treatment
+  effect.
 - **Chapter 6, `senmv(data)`** is called on the unmatched data frame.
 - **Chapter 4** passes a character column to `lavCor`.
 
