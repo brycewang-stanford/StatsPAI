@@ -18527,12 +18527,12 @@
     ],
     "category": "timeseries",
     "cost_profile": "",
-    "description": "Event study on security returns: abnormal returns around each event from a market, market-adjusted, mean-adjusted or factor model fitted on a pre-event estimation window, cumulative abnormal returns with forecast-error standard errors, and tests of their mean (cross-sectional t, Patell, BMP, and the Kolari-Pynnonen adjustments for cross-correlation). Stata estudy. Not the event-study plot of a DiD design, which is sp.event_study. Validation: certified parity evidence. Do NOT use when: Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods; A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner; A policy evaluation with treated and control units over time: that is sp.did / sp.event_study.",
+    "description": "Event study on security returns: abnormal returns around each event from a market, market-adjusted, mean-adjusted or factor model fitted on a pre-event estimation window, cumulative abnormal returns with forecast-error standard errors, and tests of their mean (cross-sectional t, Patell, BMP, the Kolari-Pynnonen adjustments for cross-correlation, their generalized rank test, and the Wilcoxon signed-rank test). Stata estudy. Not the event-study plot of a DiD design, which is sp.event_study. Validation: certified parity evidence. Do NOT use when: Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods; A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner; A policy evaluation with treated and control units over time: that is sp.did / sp.event_study.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "Stata 18 estudy (Pacicco, Vena and Venegoni): abnormal returns and CARs of four models; Patell, BMP and Kolari-Pynnonen statistics",
+      "reference": "Stata 18 estudy (Pacicco, Vena and Venegoni): abnormal returns and CARs of four models; Patell, BMP and Kolari-Pynnonen statistics; Stata signrank for the signed-rank test",
       "reference_versions": {
         "Stata": "18"
       },
@@ -18618,7 +18618,7 @@
       }
     },
     "signature": {
-      "description": "Event study on security returns: abnormal returns around each event from a market, market-adjusted, mean-adjusted or factor model fitted on a pre-event estimation window, cumulative abnormal returns with forecast-error standard errors, and tests of their mean (cross-sectional t, Patell, BMP, and the Kolari-Pynnonen adjustments for cross-correlation). Stata estudy. Not the event-study plot of a DiD design, which is sp.event_study. Validation: certified parity evidence. Do NOT use when: Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods; A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner; A policy evaluation with treated and control units over time: that is sp.did / sp.event_study.",
+      "description": "Event study on security returns: abnormal returns around each event from a market, market-adjusted, mean-adjusted or factor model fitted on a pre-event estimation window, cumulative abnormal returns with forecast-error standard errors, and tests of their mean (cross-sectional t, Patell, BMP, the Kolari-Pynnonen adjustments for cross-correlation, their generalized rank test, and the Wilcoxon signed-rank test). Stata estudy. Not the event-study plot of a DiD design, which is sp.event_study. Validation: certified parity evidence. Do NOT use when: Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods; A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner; A policy evaluation with treated and control units over time: that is sp.did / sp.event_study.",
       "name": "abnormal_returns",
       "parameters": {
         "properties": {
@@ -18726,7 +18726,7 @@
     "stability": "stable",
     "typical_n_min": 20,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata 18 estudy (Pacicco, Vena and Venegoni): abnormal returns and CARs of four models; Patell, BMP and Kolari-Pynnonen statistics [Stata 18]; tolerance abnormal returns and CARs 5e-6 rel (estudy works in single precision); test statistics 1e-9 rel given the same standardised CARs, 5e-5 end to end for two models -- tests/reference_parity/test_event_study_returns_parity.py"
+      "Cross-language parity (bit-exact) vs Stata 18 estudy (Pacicco, Vena and Venegoni): abnormal returns and CARs of four models; Patell, BMP and Kolari-Pynnonen statistics; Stata signrank for the signed-rank test [Stata 18]; tolerance abnormal returns and CARs 5e-6 rel (estudy works in single precision); test statistics 1e-9 rel given the same standardised CARs, 5e-5 end to end for two models -- tests/reference_parity/test_event_study_returns_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -18749,7 +18749,7 @@
       "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "Stata 18 robreg m / s / mm (Jann); robustbase::lmrob (coefficients, scale, weights); MASS::rlm (M estimates and Huber-formula SE)",
+      "reference": "Stata 18 robreg m / s / mm (Jann); robustbase::lmrob (coefficients, scale, weights, covariance); MASS::rlm (M estimates and Huber-formula SE)",
       "reference_versions": {
         "MASS": "7.3.65",
         "R": "R version 4.5.2 (2025-10-31)",
@@ -18929,10 +18929,11 @@
           },
           "vce": {
             "default": "robust",
-            "description": "Sandwich of the stacked equations, or Huber's formula",
+            "description": "Sandwich of the stacked equations, Huber's formula, or lmrob's default covariance (MM only)",
             "enum": [
               "robust",
-              "huber"
+              "huber",
+              "avar1"
             ],
             "type": "string"
           }
@@ -18947,7 +18948,7 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata 18 robreg m / s / mm (Jann); robustbase::lmrob (coefficients, scale, weights); MASS::rlm (M estimates and Huber-formula SE) [MASS 7.3.65, R version 4.5.2 (2025-10-31), Stata 18, robustbase 0.99.7]; tolerance coefficients, scale and covariance 1e-6 rel (the references iterate to their own tolerance); lmrob scale 1e-9 rel -- tests/reference_parity/test_accounting_research_parity.py",
+      "Cross-language parity (bit-exact) vs Stata 18 robreg m / s / mm (Jann); robustbase::lmrob (coefficients, scale, weights, covariance); MASS::rlm (M estimates and Huber-formula SE) [MASS 7.3.65, R version 4.5.2 (2025-10-31), Stata 18, robustbase 0.99.7]; tolerance coefficients, scale and covariance 1e-6 rel (the references iterate to their own tolerance); lmrob scale 1e-9 rel -- tests/reference_parity/test_accounting_research_parity.py",
       "tests/external_parity/test_gow_ding_accounting.py"
     ],
     "validation_status": "certified"

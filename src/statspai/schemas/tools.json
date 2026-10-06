@@ -54,7 +54,7 @@
     "name": "a_learning"
   },
   {
-    "description": "Event study on security returns: abnormal returns around each event from a market, market-adjusted, mean-adjusted or factor model fitted on a pre-event estimation window, cumulative abnormal returns with forecast-error standard errors, and tests of their mean (cross-sectional t, Patell, BMP, and the Kolari-Pynnonen adjustments for cross-correlation). Stata estudy. Not the event-study plot of a DiD design, which is sp.event_study. Validation: certified parity evidence. Do NOT use when: Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods; A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner; A policy evaluation with treated and control units over time: that is sp.did / sp.event_study. Assumptions: The event date is known and the event was not anticipated before the event window; The model of normal returns fitted before the event still holds in the event window; No other event moves the same securities in the window. Pre-conditions: Daily (or periodic) returns per security in long format; An estima...",
+    "description": "Event study on security returns: abnormal returns around each event from a market, market-adjusted, mean-adjusted or factor model fitted on a pre-event estimation window, cumulative abnormal returns with forecast-error standard errors, and tests of their mean (cross-sectional t, Patell, BMP, the Kolari-Pynnonen adjustments for cross-correlation, their generalized rank test, and the Wilcoxon signed-rank test). Stata estudy. Not the event-study plot of a DiD design, which is sp.event_study. Validation: certified parity evidence. Do NOT use when: Long horizons (months to years): cumulative abnormal returns from a daily model are badly behaved; use buy-and-hold or calendar-time portfolio methods; A single common event date with many securities: the cross-section is one draw of the market; a calendar-time portfolio regression is cleaner; A policy evaluation with treated and control units over time: that is sp.did / sp.event_study. Assumptions: The event date is known and the event was not anticipated before the event window; The model of normal returns fitted before the event still holds in the event window; No other event moves the same securities in the window. Pre-conditions: Daily...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -30968,10 +30968,11 @@
         },
         "vce": {
           "default": "robust",
-          "description": "Sandwich of the stacked equations, or Huber's formula",
+          "description": "Sandwich of the stacked equations, Huber's formula, or lmrob's default covariance (MM only)",
           "enum": [
             "robust",
-            "huber"
+            "huber",
+            "avar1"
           ],
           "type": "string"
         }
