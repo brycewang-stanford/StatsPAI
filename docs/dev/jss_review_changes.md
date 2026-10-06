@@ -2634,3 +2634,16 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after missing='fiml' in sp.path_analysis
+
+- **Commits.** `93de0591` re-recorded the entries of Track A modules
+  none in
+  `tests/r_parity/results/_implementation_trace.json` and of modules
+  nonein `tests/orig_parity/results/_implementation_trace.json`.
+  The source that staled them is in `f70ee85f`.
+- **Reason.** sp.path_analysis gained a missing= option; the registry entry and the schema bundle changed with it. No Track A or original-data module calls the function.
+- **Effect on the paper.** None. No estimate in any table changes; only source hashes on the traced call paths moved.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
