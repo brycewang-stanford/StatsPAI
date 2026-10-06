@@ -3934,6 +3934,15 @@
           "description": "Column holding a fitted score to match on (Stata pscore()); covariates= is then optional",
           "type": "string"
         },
+        "radius_weights": {
+          "default": "treated",
+          "description": "Radius matching: 'treated' counts each matched treated unit once (psmatch2); 'pairs' counts each pair within the radius once (Becker-Ichino attr)",
+          "enum": [
+            "treated",
+            "pairs"
+          ],
+          "type": "string"
+        },
         "se": {
           "default": "psmatch2",
           "description": "Standard-error estimator. 'bootstrap' re-estimates the propensity score each replication and is the only valid choice for method='llr' (Stata reports seatt = . there).",
