@@ -1184,6 +1184,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_mte_local_iv_identity.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py"
       ],
       "tolerance": ""
