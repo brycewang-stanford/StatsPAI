@@ -5,6 +5,24 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.38.0 → next: ⚠️ aggregated SEs of weighted Callaway-Sant'Anna on repeated cross-sections
+
+**What changed.** After `sp.callaway_santanna(..., weights=...)` with
+`panel=False` or `allow_unbalanced_panel=True`, the share-estimation term
+of an aggregated variance now uses the observation weights, as R `did`
+does. It used head counts. The standard errors of aggregates that mix
+cohorts (simple, event study, calendar, the overall row of the group
+aggregation, and the headline of the fit) move by up to 1.2e-4 in relative
+terms on the data used to find it.
+
+**Who is affected.** Weighted fits on repeated cross-sections or on an
+unbalanced panel kept as one. Point estimates, ATT(g, t) and their
+standard errors are unchanged, and so is everything on a balanced panel or
+without weights.
+
+**What to do.** Nothing in calling code. A stored result will differ in
+those standard errors after the fifth significant digit or so.
+
 ## 1.38.0 → next: ⚠️ `sp.arima` on over-parameterised mixed models
 
 **What changed.** A final fit also searches from zero ARMA coefficients

@@ -4,6 +4,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Weighted Callaway-Sant'Anna on repeated cross-sections
+
+#### ⚠️ Correctness
+
+- **`sp.aggte` standard errors after `sp.callaway_santanna(panel=False,
+  weights=...)` left the weights out of the cohort-share term.** An
+  aggregate that mixes cohorts carries the influence of the estimated
+  cohort shares (R `did:::wif`), which under weights is built from
+  `w_i * 1{G_i = g}`. The repeated-cross-section route, which also serves
+  `allow_unbalanced_panel=True`, did not pass the weights on, so that
+  term used head counts while the shares used weight mass. Every
+  ATT(g, t), its standard error and every point estimate were right. The
+  standard errors of the simple, event-study, calendar and group-overall
+  aggregates, and the headline standard error of the fit, were off by up
+  to 1.2e-4 in relative terms on the county panel used to find it. They
+  now match R `did` 2.5.1 to 1e-10. Balanced panels and unweighted fits
+  did not change.
+  Found in a three-way run against Stata `csdid` 2.0.0 (pre-release) and
+  R `did` 2.5.1, more than 13,000 rows on which those two agree to 2e-9; the
+  regression test is
+  `tests/reference_parity/test_cs_rc_weighted_aggte_did_parity.py`.
+
 ### Matched observational designs: matching on two criteria, sensitivity analysis beyond pairs
 
 A pass over Rosenbaum, *An Introduction to the Theory of Observational

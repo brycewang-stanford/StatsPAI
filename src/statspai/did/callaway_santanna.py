@@ -3171,6 +3171,7 @@ def _callaway_santanna_rcs(
     # not head counts -- otherwise sp.aggte would weight cohorts by the
     # number of rows while the ATT(g, t) inside them answer a
     # population-weighted question.
+    slot_weights: Optional[np.ndarray] = None
     if w_arr is None:
         cohort_sizes = pd.Series(
             {g_val: float((cohort_by_slot == g_val).sum()) for g_val in cohorts}
@@ -3181,6 +3182,10 @@ def _callaway_santanna_rcs(
             w_by_slot[unit_codes] = w_arr
         else:
             w_by_slot = w_arr
+        # sp.aggte needs omega per influence row as well: the cohort
+        # shares are estimated, and their influence function (R
+        # ``did:::wif``) is built from ``omega_i * 1{G_i = g}``.
+        slot_weights = w_by_slot / w_by_slot.mean()
         cohort_sizes = pd.Series(
             {
                 g_val: float(w_by_slot[cohort_by_slot == g_val].sum())
@@ -3196,6 +3201,7 @@ def _callaway_santanna_rcs(
         n_scale,
         alpha,
         unit_cohorts=cohort_by_slot,
+        unit_weights=slot_weights,
         cluster_ids=rc_cluster_ids,
     )
     event_study = _aggregate_event_study(
@@ -3205,6 +3211,7 @@ def _callaway_santanna_rcs(
         n_scale,
         alpha,
         unit_cohorts=cohort_by_slot,
+        unit_weights=slot_weights,
         cluster_ids=rc_cluster_ids,
     )
     pretrend = _pretrend_test(
@@ -3261,6 +3268,7 @@ def _callaway_santanna_rcs(
         "_row_times": t_arr if unit_codes is None else None,
         "_unit_ids": (np.asarray(unit_uniques) if unbalanced else df.index.to_numpy()),
         "_unit_cohorts": cohort_by_slot,
+        "_unit_weights": slot_weights,
     }
     if covariate_info is not None:
         model_info.update(covariate_info)
