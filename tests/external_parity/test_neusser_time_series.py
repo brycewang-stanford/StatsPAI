@@ -126,6 +126,25 @@ def test_ar_garch_with_student_t_errors(smi):
     )
 
 
+def test_asymmetric_volatility_of_the_swiss_market_index(smi):
+    # Stata: arch r, arch(1) tarch(1) garch(1)   (log likelihood -5545.146;
+    # arch .2075198, tarch -.1832429, garch .8302283)
+    gjr = sp.garch("r", data=smi, model="gjr", vce="opg")
+    assert gjr.log_likelihood == pytest.approx(-5545.146, abs=2e-3)
+    assert gjr.gamma[0] == pytest.approx(0.1832429, abs=5e-4)
+    assert gjr.alpha[0] == pytest.approx(0.2075198 - 0.1832429, abs=5e-4)
+    assert gjr.beta[0] == pytest.approx(0.8302283, abs=5e-4)
+    # Stata: arch r, earch(1) egarch(1)   (log likelihood -5538.915)
+    eg = sp.garch("r", data=smi, model="egarch", vce="opg")
+    assert eg.log_likelihood == pytest.approx(-5538.915, abs=2e-3)
+    got = [eg.theta[0], eg.gamma[0], eg.beta[0], eg.omega]
+    np.testing.assert_allclose(
+        got, [-0.1040285, 0.1466918, 0.9571728, 0.0099986], atol=5e-4
+    )
+    # both asymmetric models beat the symmetric GARCH(1,1) by more than 50
+    assert min(gjr.log_likelihood, eg.log_likelihood) > -5599.372 + 50
+
+
 # ---------------------------------------------------------------- section 11.3
 def test_consumer_sentiment_leads_gdp_by_one_quarter():
     lead = _read("leading.csv")

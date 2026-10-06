@@ -10,8 +10,10 @@ The most common specification is GARCH(1,1) where
 
 and α + β < 1 for stationarity.
 
-The mean may carry autoregressive disturbances (``ar=``) and the
-standardised innovations may be Student t (``dist='t'``).
+The mean may carry autoregressive disturbances (``ar=``), the
+standardised innovations may be Student t (``dist='t'``), and the variance
+may respond asymmetrically to good and bad news (``model='gjr'`` or
+``'egarch'``).
 
 This module provides:
 - :func:`garch` — fit GARCH(p,q) by MLE (Gaussian or Student t)
@@ -77,6 +79,9 @@ class GARCHResult(ResultProtocolMixin):
     disturbances: Optional[np.ndarray] = None  # u_t = y_t - mu
     nu: Optional[float] = None  # degrees of freedom when dist == 't'
     dist: str = "normal"
+    model: str = "garch"  # 'garch', 'gjr' or 'egarch'
+    gamma: Optional[np.ndarray] = None  # asymmetry terms (gjr, egarch)
+    theta: Optional[np.ndarray] = None  # egarch: effect of the signed shock
 
     # ------------------------------------------------------------------
     # Agent-native accessors (params / std_errors / t / p), so GARCH
@@ -114,7 +119,14 @@ class GARCHResult(ResultProtocolMixin):
 
     @property
     def persistence(self) -> float:
-        return float(self.alpha.sum() + self.beta.sum())
+        """Sum of the coefficients that carry the variance forward:
+        ``sum(alpha) + sum(beta)``, plus half the threshold terms for
+        ``'gjr'`` (a symmetric innovation is negative half the time);
+        ``sum(beta)`` for ``'egarch'``."""
+        if self.model == "egarch":
+            return float(self.beta.sum())
+        half = 0.0 if self.gamma is None else 0.5 * float(np.sum(self.gamma))
+        return float(self.alpha.sum() + self.beta.sum() + half)
 
     def forecast(self, horizon: int = 1) -> np.ndarray:
         """Multi-step ahead variance forecast (analytic recursion).
@@ -122,18 +134,49 @@ class GARCHResult(ResultProtocolMixin):
         E[eps^2_{T+h}] = sigma^2_{T+h|T} for h >= 1, so future squared shocks
         are replaced by their forecasts; every ARCH and GARCH lag is used.
         """
-        eps2 = list(np.asarray(self.residuals, float) ** 2)
+        if self.model == "egarch":
+            return self._forecast_egarch(horizon)
+        eps = np.asarray(self.residuals, float)
+        eps2 = list(eps**2)
+        # squared negative shocks; a future one is half the variance for a
+        # symmetric innovation
+        neg2 = list(np.where(eps < 0, eps**2, 0.0))
+        gam = np.zeros(self.q) if self.gamma is None else np.asarray(self.gamma)
         s2 = list(np.asarray(self.sigma2, float))
         out = np.empty(horizon)
         for h in range(horizon):
             v = self.omega
             for i in range(self.q):
-                v += self.alpha[i] * eps2[-1 - i]
+                v += self.alpha[i] * eps2[-1 - i] + gam[i] * neg2[-1 - i]
             for j in range(self.p):
                 v += self.beta[j] * s2[-1 - j]
             out[h] = v
             eps2.append(v)
+            neg2.append(0.5 * v)
             s2.append(v)
+        return out
+
+    def _forecast_egarch(self, horizon: int) -> np.ndarray:
+        """``exp`` of the forecast of the log variance. Exact one step
+        ahead; further out it is the exponential of the expected log
+        variance, which is below the expected variance."""
+        z = list(np.asarray(self.std_residuals, float))
+        ls = list(np.log(np.asarray(self.sigma2, float)))
+        th = np.zeros(self.q) if self.theta is None else np.asarray(self.theta)
+        ga = np.zeros(self.q) if self.gamma is None else np.asarray(self.gamma)
+        kappa = float(np.sqrt(2.0 / np.pi))
+        n = len(z)
+        out = np.empty(horizon)
+        for h in range(horizon):
+            v = self.omega
+            for i in range(self.q):
+                idx = n + h - 1 - i
+                if idx < n:  # an observed shock; future ones have mean zero
+                    v += th[i] * z[idx] + ga[i] * (abs(z[idx]) - kappa)
+            for j in range(self.p):
+                v += self.beta[j] * ls[-1 - j]
+            ls.append(v)
+            out[h] = np.exp(v)
         return out
 
     def forecast_mean(self, horizon: int = 1) -> np.ndarray:
@@ -171,7 +214,8 @@ class GARCHResult(ResultProtocolMixin):
         return float(self.forecast_mean(1)[0] + sd * quantile)
 
     def summary(self) -> str:
-        head = f"GARCH({self.p},{self.q})"
+        label = {"garch": "GARCH", "gjr": "GJR-GARCH", "egarch": "EGARCH"}
+        head = f"{label.get(self.model, 'GARCH')}({self.p},{self.q})"
         n_ar = 0 if self.ar is None else int(np.size(self.ar))
         if n_ar:
             head = f"AR({n_ar})-" + head
@@ -306,9 +350,14 @@ def _variance_path(
     beta: np.ndarray,
     e2: np.ndarray,
     presample: str,
+    gamma: Optional[np.ndarray] = None,
+    neg2: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Conditional variances by linear filtering; the same recursion and
-    pre-sample rules as :func:`_garch_filter`, without the Python loop."""
+    pre-sample rules as :func:`_garch_filter`, without the Python loop.
+
+    ``gamma`` and ``neg2`` add ``sum gamma_i neg2_{t-i}`` (threshold terms
+    on the squared negative shocks, zero before the sample)."""
     from scipy.signal import lfilter, lfiltic
 
     T = e2.shape[0]
@@ -319,6 +368,10 @@ def _variance_path(
         ext = np.concatenate([np.full(q, m), e2])
         kernel = np.concatenate([[0.0], alpha])
         c = c + np.convolve(ext, kernel)[q : q + T]
+        if gamma is not None and neg2 is not None:
+            ext_n = np.concatenate([np.zeros(q), neg2])
+            kernel_n = np.concatenate([[0.0], gamma])
+            c = c + np.convolve(ext_n, kernel_n)[q : q + T]
     r0 = max(p, q) if presample == "rugarch" else 0
     if p == 0:
         s2 = c.copy()
@@ -332,6 +385,57 @@ def _variance_path(
     return s2
 
 
+def _egarch_loop(
+    eps: np.ndarray,
+    omega: float,
+    th: np.ndarray,
+    ga: np.ndarray,
+    beta: np.ndarray,
+    log_m: float,
+    kappa: float,
+) -> np.ndarray:
+    """Log variances of an EGARCH model. Pre-sample log variances equal
+    ``log_m`` and pre-sample shocks contribute nothing."""
+    n = eps.shape[0]
+    q = th.shape[0]
+    p = beta.shape[0]
+    ls = np.empty(n)
+    z = np.empty(n)
+    for t in range(n):
+        v = omega
+        for i in range(q):
+            k = t - 1 - i
+            if k >= 0:
+                v += th[i] * z[k] + ga[i] * (abs(z[k]) - kappa)
+        for j in range(p):
+            k = t - 1 - j
+            v += beta[j] * (ls[k] if k >= 0 else log_m)
+        if v > 700.0:
+            v = 700.0
+        elif v < -700.0:
+            v = -700.0
+        ls[t] = v
+        z[t] = eps[t] / np.exp(0.5 * v)
+    return ls
+
+
+_COMPILED: dict = {}
+
+
+def _egarch_kernel() -> Any:
+    """:func:`_egarch_loop`, compiled by numba on first use when numba is
+    installed (it is imported here so that ``import statspai`` stays
+    light)."""
+    if "egarch" not in _COMPILED:
+        try:
+            from numba import njit  # type: ignore[import-untyped]
+
+            _COMPILED["egarch"] = njit(cache=True)(_egarch_loop)
+        except ImportError:  # pragma: no cover - numba is a core dependency
+            _COMPILED["egarch"] = _egarch_loop
+    return _COMPILED["egarch"]
+
+
 def _general_filter(
     theta: np.ndarray,
     y: np.ndarray,
@@ -341,13 +445,16 @@ def _general_filter(
     n_ar: int,
     dist: str,
     presample: str,
+    model: str = "garch",
 ) -> Any:
     """Variances, innovations, disturbances and log-likelihood terms of the
     model with AR(``n_ar``) disturbances and normal or Student t errors.
 
-    theta = (mu?, rho_1..rho_k, omega, alpha_1..alpha_q, beta_1..beta_p,
-    nu?). The disturbance ``u_t = y_t - mu`` follows
-    ``u_t = sum rho_k u_{t-k} + eps_t`` with pre-sample ``u`` equal to 0.
+    theta = (mu?, rho_1..rho_k, omega, alpha_1..alpha_q, [gamma_1..gamma_q],
+    beta_1..beta_p, nu?); for ``'egarch'`` the ``alpha`` block holds the
+    coefficients of the signed shock. The disturbance ``u_t = y_t - mu``
+    follows ``u_t = sum rho_k u_{t-k} + eps_t`` with pre-sample ``u`` equal
+    to 0.
     """
     from scipy.signal import lfilter
     from scipy.special import gammaln
@@ -358,11 +465,32 @@ def _general_filter(
     j += n_ar
     omega = float(theta[j])
     alpha = theta[j + 1 : j + 1 + q]
-    beta = theta[j + 1 + q : j + 1 + q + p]
+    g = q if model != "garch" else 0
+    gamma = theta[j + 1 + q : j + 1 + q + g]
+    beta = theta[j + 1 + q + g : j + 1 + q + g + p]
     u = y - mu
     eps = lfilter(np.concatenate([[1.0], -rho]), [1.0], u) if n_ar else u
     e2 = eps * eps
-    s2 = _variance_path(omega, alpha, beta, e2, presample)
+    if model == "egarch":
+        log_m = float(np.log(e2.mean()))
+        ls = _egarch_kernel()(
+            np.ascontiguousarray(eps, dtype=float),
+            omega,
+            np.ascontiguousarray(alpha, dtype=float),
+            np.ascontiguousarray(gamma, dtype=float),
+            np.ascontiguousarray(beta, dtype=float),
+            log_m,
+            float(np.sqrt(2.0 / np.pi)),
+        )
+        s2 = np.exp(ls)
+    elif model == "gjr":
+        # the threshold term is one more "news" series; before the sample
+        # it is zero (Stata's tarch, written on positive shocks, starts
+        # from the full pre-sample value, which is the same thing)
+        neg2 = np.where(eps < 0, e2, 0.0)
+        s2 = _variance_path(omega, alpha, beta, e2, presample, gamma, neg2)
+    else:
+        s2 = _variance_path(omega, alpha, beta, e2, presample)
     with np.errstate(divide="ignore", invalid="ignore"):
         if dist == "t":
             nu = float(theta[-1])
@@ -446,6 +574,7 @@ def garch(
     *,
     ar: int = 0,
     dist: str = "normal",
+    model: str = "garch",
     data: Optional[pd.DataFrame] = None,
 ) -> GARCHResult:
     """Fit GARCH(p,q) by conditional maximum likelihood.
@@ -488,6 +617,23 @@ def garch(
         ``nu > 2`` estimated (Stata ``distribution(t)``, ``rugarch``
         ``'std'``). Stata reports ``ln(nu - 2)``; ``nu`` itself is the
         parameter here.
+    model : {'garch', 'gjr', 'egarch'}, default 'garch'
+        The variance equation.
+
+        ``'gjr'`` (threshold GARCH of Glosten, Jagannathan and Runkle):
+        ``sigma2_t = omega + sum_i (alpha_i + gamma_i 1[eps_{t-i} < 0])
+        eps2_{t-i} + sum_j beta_j sigma2_{t-j}``. ``gamma > 0`` is the
+        leverage effect: bad news raises the variance more than good news.
+        Stata's ``arch, arch() tarch() garch()`` writes the threshold term
+        on positive shocks, so ``gamma = -tarch`` and ``alpha = arch +
+        tarch``; the likelihood is the same.
+
+        ``'egarch'`` (Nelson's exponential GARCH): ``ln sigma2_t = omega +
+        sum_i [theta_i z_{t-i} + gamma_i (|z_{t-i}| - sqrt(2 / pi))] +
+        sum_j beta_j ln sigma2_{t-j}`` with ``z = eps / sigma``.
+        ``theta < 0`` is the leverage effect. Stata's ``earch()`` is
+        ``theta`` and its ``earch_a`` is ``gamma``; ``q`` counts the shock
+        lags and ``p`` the lagged log variances.
 
     Notes
     -----
@@ -502,9 +648,21 @@ def garch(
     coefficient at zero) raises a ``RuntimeWarning``: its standard error is
     not meaningful and the lower-order model fits as well.
 
-    With ``ar > 0`` or ``dist='t'`` the scores and the Hessian are
-    numerical (central differences), so standard errors agree with Stata
-    to about five significant digits rather than to rounding.
+    With ``ar > 0``, ``dist='t'`` or an asymmetric ``model`` the scores
+    and the Hessian are numerical (central differences), so standard errors
+    agree with Stata to about four or five significant digits rather than
+    to rounding.
+
+    Asymmetric models start the recursion as Stata does: pre-sample squared
+    shocks and variances at the mean squared residual, no pre-sample
+    threshold or EGARCH shock term. EGARCH centres ``|z|`` at
+    ``sqrt(2 / pi)``, its mean under normality, under Student t innovations
+    too (as Stata does); the difference is absorbed by ``omega``.
+    ``'gjr'`` requires ``alpha >= 0``, ``alpha + gamma >= 0`` and
+    ``sum(alpha) + sum(gamma) / 2 + sum(beta) < 1``; ``'egarch'`` only
+    ``|sum(beta)| < 1``. The multi-step :meth:`GARCHResult.forecast` of an
+    EGARCH model is the exponential of the forecast log variance, which is
+    below the expected variance beyond one step.
 
     Releases through 1.38.0 used a single simplex search. For GARCH(p,q)
     with ``p >= 2`` it could stop with a lagged-variance coefficient at
@@ -542,13 +700,22 @@ def garch(
     ['mu', 'ar[1]', 'omega', 'alpha[1]', 'beta[1]', 'nu']
     >>> bool(t_fit.value_at_risk(0.01) < 0)
     True
+
+    A threshold model, in which a negative shock may move the variance by
+    more than a positive one:
+
+    >>> gjr = sp.garch(eps, model="gjr")
+    >>> list(gjr.params.index)
+    ['mu', 'omega', 'alpha[1]', 'gamma[1]', 'beta[1]']
     >>> print(res.summary())  # doctest: +SKIP
 
     References
     ----------
     [@engle1982autoregressive],
     [@bollerslev1986generalized],
-    [@bollerslev1987conditionally]
+    [@bollerslev1987conditionally],
+    [@glosten1993relation],
+    [@nelson1991conditional]
     """
     y = _series_argument(y, data, "garch")
     T = len(y)
@@ -584,23 +751,47 @@ def garch(
     n_ar = int(ar)
     if n_ar < 0 or n_ar != ar:
         raise MethodIncompatibility("garch: ar is a non-negative lag count.")
+    if model not in ("garch", "gjr", "egarch"):
+        raise MethodIncompatibility(
+            f"garch: model={model!r} is not 'garch', 'gjr' or 'egarch'.",
+            recovery_hint="'gjr' is the threshold model (Stata tarch), "
+            "'egarch' Nelson's exponential model.",
+        )
+    if model != "garch" and presample != "stata":
+        raise MethodIncompatibility(
+            f"garch: presample={presample!r} is defined for model='garch' " "only.",
+            recovery_hint="Leave presample at its default for 'gjr' and 'egarch'.",
+        )
     y_mean = float(y.mean()) if mean else 0.0
     j0 = int(mean)
     jv = j0 + n_ar  # position of omega
-    n_var = 1 + q + p
+    n_g = q if model != "garch" else 0  # asymmetry terms
+    n_var = 1 + q + n_g + p
     K = jv + n_var + int(dist == "t")
 
     def _terms(theta: np.ndarray) -> np.ndarray:
         return np.asarray(
-            _general_filter(theta, y, p, q, mean, n_ar, dist, presample)[3]
+            _general_filter(theta, y, p, q, mean, n_ar, dist, presample, model)[3]
         )
 
     def _feasible(theta: np.ndarray) -> bool:
         omega = theta[jv]
-        ab = theta[jv + 1 : jv + n_var]
+        a = theta[jv + 1 : jv + 1 + q]
+        g = theta[jv + 1 + q : jv + 1 + q + n_g]
+        b = theta[jv + 1 + q + n_g : jv + n_var]
         if dist == "t" and not theta[-1] > 2.0:
             return False
-        return bool(omega > 0 and np.all(ab >= 0) and ab.sum() < 1.0)
+        if model == "egarch":
+            # the log variance needs no sign restriction, only stationarity
+            return bool(abs(b.sum()) < 1.0)
+        if model == "gjr":
+            # variance after a positive shock (alpha) and after a negative
+            # one (alpha + gamma) both non-negative
+            ok = np.all(a >= 0) and np.all(a + g >= 0) and np.all(b >= 0)
+            return bool(omega > 0 and ok and a.sum() + 0.5 * g.sum() + b.sum() < 1.0)
+        return bool(
+            omega > 0 and np.all(a >= 0) and np.all(b >= 0) and a.sum() + b.sum() < 1.0
+        )
 
     def _fast_neg_ll(theta: np.ndarray) -> float:
         theta = np.asarray(theta, dtype=float)
@@ -642,14 +833,31 @@ def garch(
         omega = var0 * max(1.0 - sum(a) - sum(b), 0.05)
         head = ([y_mean] if mean else []) + list(rho0)
         tail = [8.0] if dist == "t" else []
-        return np.asarray(head + [omega] + a + b + tail, float)
+        if model == "egarch":
+            # no sign effect, a magnitude effect of twice the ARCH share,
+            # and the unconditional log variance
+            omega = float(np.log(var0)) * (1.0 - sum(b))
+            mid = [0.0] * q + [2.0 * v for v in a]
+        elif model == "gjr":
+            # the same persistence, all of the news effect on bad news
+            mid = [0.2 * v for v in a] + [1.6 * v for v in a]
+        else:
+            mid = a
+        return np.asarray(head + [omega] + mid + b + tail, float)
 
-    bounds = (
-        [(None, None)] * jv
-        + [(1e-12 * max(var0, 1e-300), None)]
-        + [(0.0, 0.9999)] * (q + p)
-        + ([(2.01, 1e4)] if dist == "t" else [])
-    )
+    wide = [(None, None)]
+    if model == "egarch":
+        var_bounds = wide * (1 + 2 * q) + [(-0.9999, 0.9999)] * p
+    elif model == "gjr":
+        var_bounds = (
+            [(1e-12 * max(var0, 1e-300), None)]
+            + [(0.0, 0.9999)] * q
+            + [(-0.9999, 1.9999)] * q
+            + [(0.0, 0.9999)] * p
+        )
+    else:
+        var_bounds = [(1e-12 * max(var0, 1e-300), None)] + [(0.0, 0.9999)] * (q + p)
+    bounds = wide * jv + var_bounds + ([(2.01, 1e4)] if dist == "t" else [])
     grid = [(0.1, 0.8), (0.05, 0.9), (0.2, 0.6), (0.3, 0.3)]
     shapes = ["equal"] if max(p, q) <= 1 else ["equal", "first", "decay"]
     best_theta = _start(0.1, 0.8, "equal")
@@ -667,7 +875,7 @@ def garch(
             if np.isfinite(res.fun) and res.fun < best_fun - 1e-9:
                 best_fun, best_theta = float(res.fun), np.asarray(res.x, float)
 
-    general = bool(n_ar or dist == "t")
+    general = bool(n_ar or dist == "t" or model != "garch")
     scores: np.ndarray
     if not general:
 
@@ -753,29 +961,36 @@ def garch(
             )
             if float(simplex.fun) < _fast_neg_ll(theta):
                 theta = np.asarray(simplex.x, float)
-        s2, eps, u, ll_t = _general_filter(theta, y, p, q, mean, n_ar, dist, presample)
+        s2, eps, u, ll_t = _general_filter(
+            theta, y, p, q, mean, n_ar, dist, presample, model
+        )
         scores = _numeric_scores(_terms, theta)
         H = _numeric_hessian(_fast_neg_ll, theta)
 
     mu = float(theta[0]) if mean else 0.0
     rho = np.asarray(theta[j0:jv], float)
     omega = float(theta[jv])
-    alpha = theta[jv + 1 : jv + 1 + q]
-    beta = theta[jv + 1 + q : jv + 1 + q + p]
+    first = np.asarray(theta[jv + 1 : jv + 1 + q], float)
+    gamma_hat = np.asarray(theta[jv + 1 + q : jv + 1 + q + n_g], float)
+    beta = theta[jv + 1 + q + n_g : jv + n_var]
     nu = float(theta[-1]) if dist == "t" else None
+    # 'egarch' has no alpha: its first block multiplies the signed shock
+    alpha = np.zeros(0) if model == "egarch" else first
+    first_name = "theta" if model == "egarch" else "alpha"
 
     param_names = (
         (["mu"] if mean else [])
         + [f"ar[{k + 1}]" for k in range(n_ar)]
         + ["omega"]
-        + [f"alpha[{i + 1}]" for i in range(q)]
+        + [f"{first_name}[{i + 1}]" for i in range(q)]
+        + [f"gamma[{i + 1}]" for i in range(n_g)]
         + [f"beta[{j + 1}]" for j in range(p)]
         + (["nu"] if dist == "t" else [])
     )
     on_boundary = [
         nm
         for nm, val in zip(param_names[jv + 1 : jv + n_var], theta[jv + 1 :])
-        if val <= 1e-8
+        if model != "egarch" and not nm.startswith("gamma") and val <= 1e-8
     ]
     if on_boundary:
         import warnings
@@ -835,6 +1050,9 @@ def garch(
         ar=rho,
         nu=nu,
         dist=dist,
+        model=model,
+        gamma=gamma_hat if n_g else None,
+        theta=first if model == "egarch" else None,
     )
     _result.vce = vce
     _result.presample = presample
@@ -854,6 +1072,7 @@ def garch(
                 "vce": vce,
                 "ar": n_ar,
                 "dist": dist,
+                "model": model,
             },
             data=None,
             overwrite=False,

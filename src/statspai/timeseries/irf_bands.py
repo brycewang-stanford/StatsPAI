@@ -72,7 +72,7 @@ def _commutation(k: int) -> np.ndarray:
     return Kmat
 
 
-def asymptotic_se(
+def _jacobians(
     B: np.ndarray,
     sigma: np.ndarray,
     xtx_inv: np.ndarray,
@@ -81,9 +81,10 @@ def asymptotic_se(
     p: int,
     periods: int,
     orthogonal: bool,
-    cumulative: bool,
-) -> np.ndarray:
-    """Delta-method standard errors, same layout as :func:`response_array`.
+) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
+    """Derivatives of ``vec(response_s)``, ``s = 0..periods``, with respect
+    to the lag coefficients and to ``vech(sigma)``, and the covariances of
+    those two blocks (which are asymptotically independent).
 
     ``sigma`` is the residual covariance that orthogonalises the shocks and
     ``xtx_inv`` the inverse cross-product of the regressors; the lag block
@@ -116,16 +117,11 @@ def asymptotic_se(
         for m in range(i):
             g += np.kron(J @ powers[i - 1 - m], phi[m])
         G.append(g)
-    if cumulative:
-        G = list(np.cumsum(np.stack(G), axis=0))
-        phi = list(np.cumsum(np.stack(phi), axis=0))
 
-    out = np.zeros((periods + 1, k, k))
+    n_half = k * (k + 1) // 2
     if not orthogonal:
-        for i in range(periods + 1):
-            v = np.einsum("ij,jk,ik->i", G[i], cov_alpha, G[i])
-            out[i] = np.sqrt(np.clip(v, 0.0, None)).reshape(k, k, order="F")
-        return out
+        zero = [np.zeros((k * k, n_half)) for _ in range(periods + 1)]
+        return G, zero, cov_alpha, np.zeros((n_half, n_half))
 
     P = np.linalg.cholesky(sigma)
     L = _elimination(k)
@@ -136,13 +132,82 @@ def asymptotic_se(
     )
     cov_sigma = 2.0 * D_plus @ np.kron(sigma, sigma) @ D_plus.T / n_obs
     PI = np.kron(P.T, np.eye(k))
+    C = [PI @ g for g in G]
+    Cbar = [np.kron(np.eye(k), f) @ Hmat for f in phi]
+    return C, Cbar, cov_alpha, cov_sigma
+
+
+def asymptotic_se(
+    B: np.ndarray,
+    sigma: np.ndarray,
+    xtx_inv: np.ndarray,
+    n_obs: int,
+    k: int,
+    p: int,
+    periods: int,
+    orthogonal: bool,
+    cumulative: bool,
+) -> np.ndarray:
+    """Delta-method standard errors, same layout as :func:`response_array`."""
+    C, Cbar, cov_alpha, cov_sigma = _jacobians(
+        B, sigma, xtx_inv, n_obs, k, p, periods, orthogonal
+    )
+    if cumulative:
+        C = list(np.cumsum(np.stack(C), axis=0))
+        Cbar = list(np.cumsum(np.stack(Cbar), axis=0))
+    out = np.zeros((periods + 1, k, k))
     for i in range(periods + 1):
-        C = PI @ G[i]
-        Cbar = np.kron(np.eye(k), phi[i]) @ Hmat
-        v = np.einsum("ij,jk,ik->i", C, cov_alpha, C) + np.einsum(
-            "ij,jk,ik->i", Cbar, cov_sigma, Cbar
+        v = np.einsum("ij,jk,ik->i", C[i], cov_alpha, C[i]) + np.einsum(
+            "ij,jk,ik->i", Cbar[i], cov_sigma, Cbar[i]
         )
         out[i] = np.sqrt(np.clip(v, 0.0, None)).reshape(k, k, order="F")
+    return out
+
+
+def fevd_se(
+    B: np.ndarray,
+    sigma: np.ndarray,
+    xtx_inv: np.ndarray,
+    n_obs: int,
+    k: int,
+    p: int,
+    periods: int,
+) -> np.ndarray:
+    """Delta-method standard errors of the forecast-error variance
+    decomposition, ``out[h, i, j]`` for the share of shock ``j`` in the
+    ``h``-step forecast-error variance of variable ``i`` (zero at
+    ``h = 0``).
+
+    The share is a function of the orthogonalised responses at horizons
+    ``0 .. h - 1``; its gradient is chained through their joint
+    derivatives with respect to the lag coefficients and the residual
+    covariance.
+    """
+    theta = response_array(B, sigma, k, p, periods, True, False)
+    C, Cbar, cov_alpha, cov_sigma = _jacobians(
+        B, sigma, xtx_inv, n_obs, k, p, periods, True
+    )
+    out = np.zeros((periods + 1, k, k))
+    for h in range(1, periods + 1):
+        sq = theta[:h] ** 2  # (h, i, j)
+        share_num = sq.sum(axis=0)  # S[i, j]
+        mse = share_num.sum(axis=1)  # M[i]
+        for i in range(k):
+            for j in range(k):
+                ga = np.zeros(cov_alpha.shape[0])
+                gs = np.zeros(cov_sigma.shape[0])
+                for s in range(h):
+                    for col in range(k):
+                        # d share / d theta[s, i, col]
+                        d = -2.0 * share_num[i, j] * theta[s, i, col]
+                        if col == j:
+                            d += 2.0 * theta[s, i, j] * mse[i]
+                        d /= mse[i] ** 2
+                        row = col * k + i  # position in vec(theta_s)
+                        ga += d * C[s][row]
+                        gs += d * Cbar[s][row]
+                v = ga @ cov_alpha @ ga + gs @ cov_sigma @ gs
+                out[h, i, j] = np.sqrt(max(float(v), 0.0))
     return out
 
 

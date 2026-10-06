@@ -100,7 +100,17 @@ fit.value_at_risk(0.01)    # 1% quantile of the next observation
 
 `p` counts lagged variances and `q` lagged squared innovations. `ar=`
 adds autoregressive terms to the mean and `dist="t"` estimates the degrees
-of freedom of a Student t innovation. A coefficient estimated at zero is
+of freedom of a Student t innovation.
+
+```python
+sp.garch("ret", data=df, model="gjr")       # threshold GARCH
+sp.garch("ret", data=df, model="egarch")    # exponential GARCH
+```
+
+Both let bad news move the variance by more than good news. In the
+threshold model `gamma > 0` is that leverage effect; in EGARCH it is
+`theta < 0`. Stata's `tarch` coefficient has the opposite sign of `gamma`
+because Stata attaches it to positive shocks. A coefficient estimated at zero is
 on the boundary of the parameter space, where the usual standard errors do
 not apply; the fit warns, and the lower-order model is the one to report.
 
@@ -130,6 +140,7 @@ fit.forecast(8)
 out = sp.irf(fit, periods=20, ci="asymptotic")        # delta method
 out = sp.irf(fit, periods=20, ci="bootstrap", reps=1000, seed=1)
 out["irf"]["x -> y"], out["lower"]["x -> y"], out["upper"]["x -> y"]
+fit.fevd(20, ci="asymptotic")        # variance shares with standard errors
 ```
 
 Orthogonalised responses depend on the order of the variables. The

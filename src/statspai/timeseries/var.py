@@ -150,7 +150,15 @@ class VARResult(ResultProtocolMixin):
             **kwargs,
         )
 
-    def fevd(self, periods: int = 20) -> pd.DataFrame:
+    def fevd(
+        self,
+        periods: int = 20,
+        *,
+        ci: Optional[str] = None,
+        alpha: float = 0.05,
+        reps: int = 1000,
+        seed: Optional[int] = None,
+    ) -> pd.DataFrame:
         """Forecast-error variance decomposition under the Cholesky
         ordering of the variables.
 
@@ -159,23 +167,105 @@ class VARResult(ResultProtocolMixin):
         orthogonalised innovation of ``shock`` (zero at ``period = 0``, as
         in Stata's ``irf table fevd``). The orthogonalisation uses the same
         residual covariance as :meth:`irf`.
+
+        Parameters
+        ----------
+        periods : int, default 20
+        ci : {None, 'asymptotic', 'bootstrap'}, optional
+            Add ``se``, ``lower`` and ``upper``. ``'asymptotic'`` is the
+            delta method (Stata's ``irf table fevd, stderr``), with the
+            band ``fevd -/+ z se``, which can leave the unit interval.
+            ``'bootstrap'`` is the residual bootstrap of :func:`irf` with
+            percentile bands, which cannot.
+        alpha : float, default 0.05
+        reps : int, default 1000
+        seed : int, optional
+
+        Notes
+        -----
+        A share of exactly zero or one (the first-ordered variable one
+        step ahead) is on the boundary: its asymptotic standard error is
+        zero and no normal band applies to it.
         """
         from .svar import fevd_shares
 
         names = self.var_names
+        k = len(names)
         paths = self.irf(periods=periods, orthogonal=True)["irf"]
-        theta = np.zeros((periods + 1, len(names), len(names)))
+        theta = np.zeros((periods + 1, k, k))
         for j, shock in enumerate(names):
             for i, response in enumerate(names):
                 theta[:, i, j] = paths[f"{shock} -> {response}"]
         shares = fevd_shares(theta)
-        rows = [
-            {"shock": shock, "response": response, "period": s,
-             "fevd": float(shares[s, i, j])}
-            for j, shock in enumerate(names)
-            for i, response in enumerate(names)
-            for s in range(periods + 1)
-        ]  # fmt: skip
+        extra: Dict[str, np.ndarray] = {}
+        if ci is not None:
+            from scipy import stats
+
+            from . import irf_bands
+
+            if not 0.0 < alpha < 1.0:
+                raise MethodIncompatibility("fevd: alpha must be in (0, 1).")
+            unbiased = str(self.se_df).lower() in {"r", "unbiased"}
+            if self._B is None or self._XtX_inv is None or self._X is None:
+                raise MethodIncompatibility(
+                    "fevd: this VARResult does not carry its data; re-fit "
+                    "with sp.var(...)."
+                )
+            m = self._B.shape[0]
+            sigma = np.asarray(self.sigma_u, dtype=float)
+            if unbiased:
+                sigma = sigma * self.n_obs / (self.n_obs - m)
+            kind = str(ci).lower()
+            if kind == "asymptotic":
+                se = irf_bands.fevd_se(
+                    np.asarray(self._B, float),
+                    sigma,
+                    np.asarray(self._XtX_inv, float),
+                    int(self.n_obs),
+                    k,
+                    int(self._lags),
+                    periods,
+                )
+                z = float(stats.norm.ppf(1.0 - alpha / 2.0))
+                extra = {"se": se, "lower": shares - z * se, "upper": shares + z * se}
+            elif kind == "bootstrap":
+                if reps < 20:
+                    raise MethodIncompatibility(
+                        f"fevd: reps={reps} is too few for percentile bands."
+                    )
+                draws = np.stack(
+                    [
+                        fevd_shares(
+                            irf_bands.response_array(
+                                Bb, sb, k, int(self._lags), periods, True, False
+                            )
+                        )
+                        for Bb, sb in irf_bands.bootstrap_fits(
+                            self, unbiased, reps, seed
+                        )
+                    ]
+                )
+                extra = {
+                    "se": draws.std(axis=0, ddof=1),
+                    "lower": np.quantile(draws, alpha / 2.0, axis=0),
+                    "upper": np.quantile(draws, 1.0 - alpha / 2.0, axis=0),
+                }
+            else:
+                raise MethodIncompatibility(
+                    f"fevd: ci={ci!r} is not None, 'asymptotic' or 'bootstrap'."
+                )
+        rows = []
+        for j, shock in enumerate(names):
+            for i, response in enumerate(names):
+                for s in range(periods + 1):
+                    row = {
+                        "shock": shock,
+                        "response": response,
+                        "period": s,
+                        "fevd": float(shares[s, i, j]),
+                    }
+                    row.update({key: float(v[s, i, j]) for key, v in extra.items()})
+                    rows.append(row)
         return pd.DataFrame(rows)
 
     def granger_test(self, caused: str, causing: str) -> Dict[str, Any]:

@@ -55,3 +55,22 @@ def test_responses_and_standard_errors(data, stata, irfname, se_df, cols):
             np.testing.assert_allclose(
                 out["se"][key], rows[cols[1]].to_numpy(), rtol=1e-6, atol=1e-7
             )
+
+
+@pytest.mark.parametrize("irfname,se_df", [("base", "stata"), ("dfk", "unbiased")])
+def test_variance_decomposition_and_its_standard_errors(data, stata, irfname, se_df):
+    # Stata: irf table fevd, stderr. Same single-precision file.
+    fit = sp.var(data, variables=NAMES, lags=2, se_df=se_df)
+    out = fit.fevd(8, ci="asymptotic")
+    ref = stata[stata["irfname"] == irfname]
+    for imp in NAMES:
+        for resp in NAMES:
+            rows = ref[(ref["impulse"] == imp) & (ref["response"] == resp)]
+            rows = rows.sort_values("step")
+            ours = out[(out["shock"] == imp) & (out["response"] == resp)]
+            np.testing.assert_allclose(
+                ours["fevd"], rows["fevd"].to_numpy(), rtol=1e-6, atol=1e-7
+            )
+            np.testing.assert_allclose(
+                ours["se"], rows["stdfevd"].to_numpy(), rtol=1e-6, atol=1e-7
+            )

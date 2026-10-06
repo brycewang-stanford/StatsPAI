@@ -76,7 +76,8 @@ right and are unchanged (`urca` to 1e-8 in three deterministic cases).
 | Topic | Before | Now |
 | --- | --- | --- |
 | AR terms and heavy tails in GARCH (8.4) | constant mean, normal errors | `sp.garch(ar=, dist='t')`, `forecast_mean`, `value_at_risk` |
-| Bands for impulse responses (15.4) | point estimates only | `sp.irf(ci='asymptotic' / 'bootstrap')`, `SVARResult.irf(ci='bootstrap')` |
+| Asymmetric volatility (8.1) | none | `sp.garch(model='gjr' / 'egarch')` |
+| Bands for impulse responses (15.4) | point estimates only | `sp.irf(ci='asymptotic' / 'bootstrap')`, `SVARResult.irf(ci='bootstrap')`, `VARResult.fevd(ci=)` |
 | Restrictions on the cointegration space (16.5) | rank test only | `sp.johansen_lrtest` |
 | Unit root with a break (7) | none | `sp.zivot_andrews` |
 | Cross-correlation and prewhitening (11) | none | `sp.xcorr` |
@@ -92,7 +93,8 @@ next to the reference file:
 | Function | Reference | Agreement |
 | --- | --- | --- |
 | `sp.garch(ar=, dist='t')` | Stata 18 `arch, ar() distribution(t)` | coefficients 5e-5, standard errors 5e-4, log-likelihood 1e-8 |
-| `sp.irf(ci='asymptotic')` | Stata 18 `irf create` | simple, orthogonalised and cumulative responses and standard errors to 1e-6, the precision of Stata's single-precision `.irf` file |
+| `sp.garch(model='gjr' / 'egarch')` | Stata 18 `arch, tarch()` and `arch, earch() egarch()` | log-likelihood 1e-8, coefficients 2e-4, standard errors 2e-3, with normal and t errors and an AR term |
+| `sp.irf(ci='asymptotic')`, `fevd(ci='asymptotic')` | Stata 18 `irf create` | simple, orthogonalised and cumulative responses, variance shares and their standard errors to 1e-6, the precision of Stata's single-precision `.irf` file |
 | `sp.irf(ci='bootstrap')` | known truth | 90% bands cover between 80% and 97% over 150 samples; spread within a fifth of the delta method at T = 600 |
 | `sp.johansen_lrtest` | `urca` `blrtest`, `bh5lrtest`, `alrtest` | statistic 1e-8, degrees of freedom equal, three deterministic cases |
 | `sp.zivot_andrews` | `urca::ur.za` | statistic, path over break dates and regression to 1e-7, break date equal |
@@ -120,6 +122,9 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
   177 points above the normal model. `rugarch` with its hybrid solver
   returned a mean of 3.64 for ARCH(1) on returns whose mean is 0.04; that
   is a failure of the reference, noted so that nobody compares against it.
+  The leverage effect is large on this index. The threshold model reaches
+  -5545.146 and EGARCH -5538.915, both more than 50 log-likelihood points
+  above GARCH(1,1), and both equal to Stata.
 - **11.3, consumer sentiment as a leading indicator.** The book's residual
   columns are reproduced by an AR(8) on each series (3.5e-13). Their
   cross-correlation is outside the 95% band at one lag only, sentiment one
@@ -173,6 +178,12 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
 - `sp.periodogram` keeps the Fourier frequencies of the sample; R pads to
   a length with factors 2, 3 and 5 unless told not to. `fast=True`
   reproduces R.
+- `sp.garch(model='gjr')` writes the threshold term on negative shocks
+  (`gamma > 0` is leverage). Stata's `tarch` is on positive shocks, so
+  `gamma = -tarch` and `alpha = arch + tarch`. The likelihood is the same.
+  Stata starts the threshold recursion with the full pre-sample value and
+  centres EGARCH's `|z|` at `sqrt(2/pi)` under t errors too; both were
+  identified by evaluating our likelihood at Stata's estimates.
 - `sp.tsfilter(method='cf')` removes a drift by default, as the authors
   and statsmodels do; Stata does not. `drift=False` reproduces Stata.
 
@@ -180,8 +191,8 @@ Opt-in tests: `tests/external_parity/test_neusser_time_series.py` and
 
 | Item | Why it is open |
 | --- | --- |
-| EGARCH, threshold GARCH, ARCH in mean | Chapter 8 names them; `sp.garch` has none. `sp.from_stata` reports `tarch()` and `archm` as untranslated and refuses `earch()`. |
-| Standard errors of the variance decomposition | Stata's `irf table fevd` has them; `fevd()` returns shares only. |
+| ARCH in mean; threshold terms at fewer lags than ARCH terms | `sp.garch(model='gjr')` has one threshold term per ARCH lag. `sp.from_stata` reports `archm` as untranslated and refuses `tarch()` with a different lag list. |
+| Bands for the variance decomposition of a structural VAR | `VARResult.fevd(ci=)` covers the recursive case; `SVARResult.fevd` returns shares only. |
 | Bias-corrected bootstrap for impulse responses | Kilian's correction is the usual choice for persistent VARs. `boot='hall'` is the only alternative to the percentile band. |
 | Exact diffuse initialisation in `sp.kalman_filter` | The large-variance approximation is used and said so. `burn=` removes the affected likelihood terms. |
 | Beveridge-Nelson from an ARMA model | AR(p) only. |
@@ -197,6 +208,7 @@ python tests/external_parity/neusser_convert.py <book folder>     # needs xlrd
 STATSPAI_NEUSSER_DIR=<book folder> pytest tests/external_parity/test_neusser_time_series.py \
     tests/external_parity/test_neusser_quarterly_gdp.py
 pytest tests/reference_parity/test_garch_extensions_stata_parity.py \
+    tests/reference_parity/test_garch_asymmetric_stata_parity.py \
     tests/reference_parity/test_irf_bands_stata_parity.py \
     tests/reference_parity/test_johansen_lrtest_parity.py \
     tests/reference_parity/test_zivot_andrews_parity.py \

@@ -139,3 +139,92 @@ def test_bad_distribution_and_ar_are_refused():
         sp.garch(y, dist="ged")
     with pytest.raises(sp.exceptions.MethodIncompatibility):
         sp.garch(y, ar=-1)
+
+
+# ---------------------------------------------------------------------------
+# Asymmetric models
+# ---------------------------------------------------------------------------
+
+
+def _simulate_leverage(seed=7, n=3000):
+    rng = np.random.default_rng(seed)
+    omega, alpha, gamma, beta = 0.04, 0.03, 0.14, 0.86
+    s2 = np.full(n + 300, omega / (1 - alpha - gamma / 2 - beta))
+    eps = np.zeros(n + 300)
+    for t in range(1, n + 300):
+        bad = gamma * eps[t - 1] ** 2 * (eps[t - 1] < 0)
+        s2[t] = omega + alpha * eps[t - 1] ** 2 + bad + beta * s2[t - 1]
+        eps[t] = np.sqrt(s2[t]) * rng.standard_normal()
+    return eps[300:]
+
+
+def test_gjr_recovers_the_leverage_effect_and_nests_garch():
+    y = _simulate_leverage()
+    gjr = sp.garch(y, model="gjr")
+    assert gjr.gamma[0] == pytest.approx(0.14, abs=4 * gjr.std_errors["gamma[1]"])
+    assert gjr.pvalues["gamma[1]"] < 0.001
+    # gamma = 0 is the symmetric model
+    assert gjr.log_likelihood > sp.garch(y).log_likelihood + 5
+    assert gjr.persistence == pytest.approx(
+        gjr.alpha.sum() + 0.5 * gjr.gamma.sum() + gjr.beta.sum()
+    )
+    assert "GJR-GARCH(1,1)" in gjr.summary()
+
+
+def test_gjr_without_asymmetry_matches_garch():
+    y = _simulate_general(rho=0.0)
+    sym = sp.garch(y)
+    gjr = sp.garch(y, model="gjr")
+    # the symmetric DGP: gamma is insignificant and the fits coincide
+    assert abs(gjr.gamma[0]) < 3 * gjr.std_errors["gamma[1]"]
+    assert gjr.log_likelihood >= sym.log_likelihood - 1e-6
+    assert gjr.log_likelihood < sym.log_likelihood + 4
+
+
+def test_egarch_sees_the_leverage_effect_and_forecasts():
+    y = _simulate_leverage()
+    eg = sp.garch(y, model="egarch")
+    assert eg.theta[0] < -3 * eg.std_errors["theta[1]"]  # bad news raises variance
+    assert eg.gamma[0] > 0
+    assert eg.alpha.size == 0
+    assert 0 < eg.persistence < 1
+    path = eg.forecast(5)
+    assert np.all(path > 0)
+    # one step ahead is the recursion itself
+    z, kappa = eg.std_residuals[-1], np.sqrt(2 / np.pi)
+    one = eg.omega + eg.theta[0] * z + eg.gamma[0] * (abs(z) - kappa)
+    one += eg.beta[0] * np.log(eg.sigma2[-1])
+    assert path[0] == pytest.approx(np.exp(one), rel=1e-10)
+
+
+def test_gjr_forecast_uses_half_the_threshold_term_for_future_shocks():
+    gjr = sp.garch(_simulate_leverage(), model="gjr")
+    f = gjr.forecast(3)
+    step = gjr.omega + gjr.persistence * f[1]
+    assert f[2] == pytest.approx(step, rel=1e-10)
+
+
+def test_asymmetric_model_argument_errors():
+    y = np.random.default_rng(1).standard_normal(300)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="model"):
+        sp.garch(y, model="tgarch")
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="presample"):
+        sp.garch(y, model="egarch", presample="rugarch")
+
+
+def test_stata_asymmetric_arch_commands_are_translated():
+    gjr = sp.from_stata("arch r, arch(1) tarch(1) garch(1)")
+    assert gjr["arguments"]["model"] == "gjr"
+    assert any("gamma = -tarch" in note for note in gjr["semantics"])
+    eg = sp.from_stata("arch r, earch(1/2) egarch(1) distribution(t)")
+    assert eg["arguments"] == {
+        "y": "r",
+        "p": 1,
+        "q": 2,
+        "model": "egarch",
+        "dist": "t",
+        "vce": "opg",
+    }
+    # one threshold term per ARCH lag, or no translation
+    assert not sp.from_stata("arch r, arch(1/2) tarch(1) garch(1)").get("python_code")
+    assert not sp.from_stata("arch r, earch(1) garch(1)").get("python_code")

@@ -47,6 +47,17 @@ Guide: `docs/guides/time_series_econometrics.md`.
   Student t innovations with estimated degrees of freedom, as Stata's
   `arch, ar() distribution(t)`. `GARCHResult.forecast_mean()` and
   `.value_at_risk()`. `sp.from_stata` translates both options.
+- **`sp.garch(model="gjr" | "egarch")`**: threshold GARCH (Glosten,
+  Jagannathan and Runkle) and Nelson's exponential GARCH, with normal or t
+  innovations and AR terms. Six specifications against Stata 18 `arch,
+  tarch()` and `arch, earch() egarch()`: log-likelihood to 1e-8,
+  coefficients to 2e-4, standard errors to 2e-3. The threshold term is on
+  negative shocks, so `gamma = -tarch`; `sp.from_stata` translates both
+  commands and says so. On the Swiss Market Index the two models sit more
+  than 50 log-likelihood points above GARCH(1,1).
+- **`VARResult.fevd(ci="asymptotic" | "bootstrap")`**: standard errors and
+  bands for the variance decomposition. The delta-method standard errors
+  equal Stata's `irf table fevd, stderr`.
 - **`sp.irf(ci="asymptotic" | "bootstrap")`**: standard errors and bands for
   impulse responses. The delta-method standard errors equal Stata's
   `irf create` for simple, orthogonalised and cumulative responses, with
@@ -102,7 +113,7 @@ Guide: `docs/guides/time_series_econometrics.md`.
   unaffected; variances are too large by up to 0.134, so the band in the
   book's figure is too wide.
 
-Eighteen references added to `paper.bib`, each verified against the
+Twenty references added to `paper.bib`, each verified against the
 Crossref and OpenAlex records of its DOI.
 
 ### R reference for Callaway-Sant'Anna moved to `did` 2.5.1 and `DRDID` 1.3.0

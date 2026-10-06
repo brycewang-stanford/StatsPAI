@@ -148,3 +148,65 @@ def test_sign_restricted_svar_refuses_a_bootstrap_band(fit):
         res.irf(4, ci="bootstrap")
     with pytest.raises(MethodIncompatibility, match="ci="):
         sp.svar(fit, B=[[np.nan, 0], [np.nan, np.nan]]).irf(4, ci="asymptotic")
+
+
+# ---------------------------------------------------------------------------
+# Variance decomposition
+# ---------------------------------------------------------------------------
+
+
+def test_fevd_without_ci_keeps_its_columns(fit):
+    assert list(fit.fevd(3).columns) == ["shock", "response", "period", "fevd"]
+
+
+def test_fevd_standard_error_matches_a_numerical_delta_method(fit):
+    # the analytic gradient against finite differences of the shares in
+    # the coefficients and the residual covariance
+    from statspai.timeseries import irf_bands
+    from statspai.timeseries.svar import fevd_shares
+
+    B, k, p = np.asarray(fit._B, float), 2, 1
+    sigma = np.asarray(fit.sigma_u, float)
+    xtx = np.asarray(fit._XtX_inv, float)
+    se = irf_bands.fevd_se(B, sigma, xtx, fit.n_obs, k, p, 4)
+
+    def shares(a_vec, s_vech):
+        Bn = B.copy()
+        Bn[: k * p, :] = a_vec.reshape(k, k * p, order="F").T
+        S = np.array([[s_vech[0], s_vech[1]], [s_vech[1], s_vech[2]]])
+        return fevd_shares(irf_bands.response_array(Bn, S, k, p, 4, True, False))
+
+    a0 = B[: k * p, :].T.reshape(-1, order="F")
+    s0 = np.array([sigma[0, 0], sigma[1, 0], sigma[1, 1]])
+    x0 = np.concatenate([a0, s0])
+    jac = []
+    for i in range(x0.size):
+        h = 1e-6 * max(abs(x0[i]), 1e-3)
+        up, dn = x0.copy(), x0.copy()
+        up[i] += h
+        dn[i] -= h
+        jac.append((shares(up[:4], up[4:]) - shares(dn[:4], dn[4:])) / (2 * h))
+    jac = np.stack(jac, axis=-1)  # (h, i, j, parameter)
+    D = np.array([[1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1]], float)
+    Dp = np.linalg.solve(D.T @ D, D.T)
+    cov = np.zeros((7, 7))
+    cov[:4, :4] = np.kron(xtx[: k * p, : k * p], sigma)
+    cov[4:, 4:] = 2 * Dp @ np.kron(sigma, sigma) @ Dp.T / fit.n_obs
+    numeric = np.sqrt(np.einsum("hijp,pq,hijq->hij", jac, cov, jac))
+    np.testing.assert_allclose(se, numeric, rtol=1e-5, atol=1e-9)
+
+
+def test_fevd_bands(fit):
+    asy = fit.fevd(4, ci="asymptotic")
+    boot = fit.fevd(4, ci="bootstrap", reps=200, seed=5)
+    # bootstrap bands stay inside the unit interval
+    assert boot["lower"].min() >= 0.0 and boot["upper"].max() <= 1.0
+    inner = asy[(asy.period >= 2) & (asy.shock == "a") & (asy.response == "b")]
+    other = boot[(boot.period >= 2) & (boot.shock == "a") & (boot.response == "b")]
+    np.testing.assert_allclose(other["se"], inner["se"], rtol=0.25)
+    # the first-ordered variable explains all of its own one-step error
+    first = asy[(asy.shock == "a") & (asy.response == "a") & (asy.period == 1)]
+    assert float(first["fevd"].iloc[0]) == pytest.approx(1.0)
+    assert float(first["se"].iloc[0]) == pytest.approx(0.0, abs=1e-12)
+    with pytest.raises(MethodIncompatibility, match="ci="):
+        fit.fevd(3, ci="bayes")

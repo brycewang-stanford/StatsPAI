@@ -470,15 +470,48 @@ def _h_arch(cmd: StataCommand) -> Dict[str, Any]:
             "models a constant mean",
         )
     opts = cmd.options
-    q_ = _order(opts.get("arch"), cmd, "arch")
-    if isinstance(q_, dict):
-        return q_
-    p_ = _order(opts.get("garch"), cmd, "garch")
-    if isinstance(p_, dict):
-        return p_
-    if q_ == 0:
-        return _bad(cmd, "needs arch(), the lags of the squared innovations")
+    model = "garch"
+    if "earch" in opts or "egarch" in opts:
+        # exponential GARCH: earch() carries both the signed shock and its
+        # magnitude, egarch() the lagged log variances
+        if any(k in opts for k in ("arch", "garch", "tarch")):
+            return _bad(
+                cmd,
+                "earch() / egarch() mixed with arch(), garch() or tarch() "
+                "is not translated; sp.garch fits one variance equation",
+            )
+        q_ = _order(opts.get("earch"), cmd, "earch")
+        if isinstance(q_, dict):
+            return q_
+        p_ = _order(opts.get("egarch"), cmd, "egarch")
+        if isinstance(p_, dict):
+            return p_
+        if q_ == 0:
+            return _bad(cmd, "needs earch(), the lags of the standardised shock")
+        model = "egarch"
+    else:
+        q_ = _order(opts.get("arch"), cmd, "arch")
+        if isinstance(q_, dict):
+            return q_
+        p_ = _order(opts.get("garch"), cmd, "garch")
+        if isinstance(p_, dict):
+            return p_
+        if q_ == 0:
+            return _bad(cmd, "needs arch(), the lags of the squared innovations")
+        if "tarch" in opts:
+            t_ = _order(opts.get("tarch"), cmd, "tarch")
+            if isinstance(t_, dict):
+                return t_
+            if t_ != q_:
+                return _bad(
+                    cmd,
+                    f"tarch({opts.get('tarch')}) with arch({opts.get('arch')}): "
+                    "sp.garch(model='gjr') has one threshold term per ARCH lag",
+                )
+            model = "gjr"
     args: Dict[str, Any] = {"y": cmd.varlist[0], "p": p_, "q": q_}
+    if model != "garch":
+        args["model"] = model
     if "noconstant" in opts:
         args["mean"] = False
     if "ar" in opts:
@@ -516,6 +549,17 @@ def _h_arch(cmd: StataCommand) -> Dict[str, Any]:
         "Stata's arch reports OPG standard errors by default, sp.garch the "
         "observed information; vce= is written out.",
     ]
+    if model == "gjr":
+        semantics.append(
+            "Stata writes the threshold term on positive shocks, sp.garch on "
+            "negative ones: gamma = -tarch and alpha = arch + tarch. The "
+            "likelihood, the fitted variances and beta are the same."
+        )
+    if model == "egarch":
+        semantics.append(
+            "theta is Stata's earch (signed shock) and gamma its earch_a "
+            "(magnitude of the shock)."
+        )
     return _emit("garch", args, f"sp.garch(data=df, {_kw(args)})", semantics=semantics)
 
 
