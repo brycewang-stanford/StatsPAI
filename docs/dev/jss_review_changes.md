@@ -31,6 +31,23 @@ Rules:
 
 ## Entries
 
+### 2026-10-06 — call traces re-recorded after the weighted repeated-cross-section fix in `sp.aggte`
+
+Commit `ada363aa`. On the repeated-cross-section route of
+`sp.callaway_santanna`, the observation weights are now passed to the
+aggregation, so the share-estimation term of an aggregated variance uses
+weight mass. The edit is in `did/callaway_santanna.py`, which Track A
+modules 04 and 79 and the original-data module 02 execute, so their
+source hashes in the traces changed.
+
+Effect on the paper: none. None of the three modules uses weights on
+repeated cross-sections. They were run on the source before and after the
+change and their result files are byte-identical; only the recorded
+source hashes move.
+
+- `tests/r_parity/results/_implementation_trace.json`
+- `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-05 — call traces re-recorded after the weight diagnostic reached logit, probit, glm and iv
 
 Commit `8cdfa8d8`. `sp.logit`, `sp.probit`, `sp.glm` and `sp.iv` now record
