@@ -68,9 +68,9 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `metalearners` | 5,165 | 10 | 25 |
 | `frontier` | 4,986 | 8 | 12 |
 | `utils` | 4,831 | 11 | 35 |
+| `structural` | 4,772 | 11 | 14 |
 | `survival` | 4,531 | 6 | 15 |
 | `workflow` | 4,512 | 5 | 3 |
-| `structural` | 4,433 | 10 | 14 |
 | `gmm` | 4,277 | 12 | 4 |
 | `qte` | 4,152 | 9 | 13 |
 | `robustness` | 3,968 | 8 | 14 |
@@ -128,7 +128,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **582,757** | **986** | **1429** |
+| **Total** | **583,143** | **987** | **1429** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.
