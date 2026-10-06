@@ -2325,3 +2325,22 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call trace of module 39 re-recorded after the `sp.arima` likelihood change
+
+- **Commits.** `c3c01c13` re-recorded the entries of Track A modules 39 in
+  `tests/r_parity/results/_implementation_trace.json`. The source that
+  staled them is in `2d82b3f8`: `src/statspai/timeseries/arima.py`.
+- **Reason.** Second round of the audit in
+  `docs/dev/2026-10-06-hyndman-fpp-pythonic-review.md`. `sp.arima` with the
+  default `method='statespace'` evaluates the likelihood of the
+  differenced series by the innovations algorithm
+  (`timeseries/_arma_core.py`) instead of statsmodels' Kalman filter; the
+  two agree to 1e-8. Module 39 runs `method='innovations_mle'`, which is
+  unchanged: `python tests/r_parity/verify_reproduce_py.py 39_arima
+  --no-report` reported 1 reproduce, 0 drift.
+- **Effect on the paper.** No estimate, standard error or table cell
+  changes; in the trace file only `exercised_sources` digests and
+  `seconds` differ. The registry census stays at 1,413 registered functions.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
