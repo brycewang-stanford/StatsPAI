@@ -2895,3 +2895,37 @@ only the recorded source hashes move.
   `var.py` and `seconds` differ.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — LaLonde PSM row regenerated after the propensity fit was carried further; traces re-recorded
+
+- **Commits.** `235598f2` changed the logit behind the matching estimators
+  (`src/statspai/matching/match.py`, new `src/statspai/matching/_binary_fit.py`)
+  and regenerated `tests/r_parity/results/11_psm_py.json` with it. The
+  commit after it re-recorded the entries of Track A modules 03 11 13 15 24 25 26 27 43 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and the 12 modules of
+  `tests/orig_parity/results/_implementation_trace.json`, refreshed
+  `tests/r_parity/TIER_A_FIXTURE_LOCK.json` and rewrote the two rendered
+  tables.
+- **Reason.** The pass recorded in
+  `docs/dev/2026-10-06-qiu-jiaping-review.md`. The fit now runs on the
+  standardised design and leaves out a redundant covariate. Module 11 has
+  no redundant covariate, so its matches and its ATT are the same bytes.
+  The fit is carried further (scaled gradient 2e-13, was 2e-9), which moves
+  the one row that uses the fitted model's covariance.
+- **Effect on the paper.** One number, in the ninth digit. `se_teffects_ai`
+  of module 11 goes from 621.7932847377471 to 621.793287288746 (its
+  components `c_V_c` from 74904.55949690941 to 74904.55669351933 and
+  `d_V_d` from 8035.781492164042 to 8035.7818611619605). Stata's value is
+  621.79324512017217. The relative gap moves from 6.4e-8 to 6.8e-8, inside
+  the 1e-6 budget and inside what the note on that row attributes to
+  Stata's stopping rule. `att_psm` is unchanged. The original-data modules
+  04 and 04b reproduce their committed results byte for byte. The registry
+  census the paper quotes moves to 1,470 registered functions across 89
+  submodules.
+- **Paths.**
+  - `tests/r_parity/results/11_psm_py.json`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

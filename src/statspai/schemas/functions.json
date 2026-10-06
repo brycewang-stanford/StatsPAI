@@ -3697,6 +3697,10 @@
           ],
           "type": "string"
         },
+        "pscore": {
+          "description": "Column holding a fitted score to match on (Stata psmatch2, pscore()); no treatment model is fitted",
+          "type": "string"
+        },
         "se_method": {
           "default": "auto",
           "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw. 'abadie_imbens_2016' is the Abadie-Imbens (2016) estimated-propensity-score variance Stata teffects psmatch reports (population ATT; the score-estimation term can be negative).",
@@ -3751,6 +3755,62 @@
     }
   },
   {
+    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "pscore",
+    "parameters": {
+      "properties": {
+        "common_support": {
+          "default": false,
+          "description": "Keep rows whose score lies in the range of the treated (Stata comsup)",
+          "type": "boolean"
+        },
+        "covariates": {
+          "description": "Covariates of the treatment model",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "level": {
+          "default": 0.01,
+          "description": "Significance level of the tests",
+          "type": "number"
+        },
+        "n_blocks": {
+          "default": 5,
+          "description": "Equal intervals of [0, 1] the block search starts from",
+          "type": "integer"
+        },
+        "ps_model": {
+          "default": "logit",
+          "description": "Treatment model. Stata pscore fits a probit unless its logit option is given",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
+        },
+        "treat": {
+          "description": "Binary treatment column (0/1)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "treat",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: certified parity evidence.",
     "name": "psmatch2",
     "parameters": {
@@ -3793,7 +3853,7 @@
           "type": "string"
         },
         "covariates": {
-          "description": "Pre-treatment covariates entering the propensity-score model.",
+          "description": "Pre-treatment covariates entering the propensity-score model. Optional when ``pscore`` names a fitted score.",
           "items": {
             "type": "string"
           },
@@ -3854,6 +3914,10 @@
             "logit",
             "probit"
           ],
+          "type": "string"
+        },
+        "pscore": {
+          "description": "Column holding a fitted score to match on (Stata pscore()); covariates= is then optional",
           "type": "string"
         },
         "se": {
@@ -7670,6 +7734,44 @@
         },
         "y": {
           "description": "Variable to compare",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "by"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "One-way analysis of variance read as a random-effects model (Stata loneway): the intraclass correlation with its asymptotic standard error and interval, the standard deviations of the group effect and of the within-group error, and the reliability of a group mean. The intraclass correlation is the input of a design effect or Moulton factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "loneway",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "One minus the interval's level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping column (the cluster)",
+          "type": "string"
+        },
+        "data": {
+          "description": "Data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "exact": {
+          "default": false,
+          "description": "Exact F-based interval (groups of equal size)",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Response",
           "type": "string",
           "x-statspai-role": "column"
         }

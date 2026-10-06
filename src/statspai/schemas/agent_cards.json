@@ -912,6 +912,7 @@
       "Cross-language parity (bit-exact) vs sampleSelection::heckit [R version 4.5.2 (2025-10-31), sampleSelection 1.2.14]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 43_heckman -- tests/r_parity/43_heckman.py",
       "tests/reference_parity/test_heckman_se_parity.py",
       "tests/reference_parity/test_ldv_design_stata_parity.py",
+      "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
       "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
     ],
     "validation_status": "certified"
@@ -7829,6 +7830,10 @@
             ],
             "type": "string"
           },
+          "pscore": {
+            "description": "Column holding a fitted score to match on (Stata psmatch2, pscore()); no treatment model is fitted",
+            "type": "string"
+          },
           "se_method": {
             "default": "auto",
             "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw. 'abadie_imbens_2016' is the Abadie-Imbens (2016) estimated-propensity-score variance Stata teffects psmatch reports (population ATT; the score-estimation term can be negative).",
@@ -7892,6 +7897,140 @@
       "tests/reference_parity/test_match_fw_stata_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "psmatch2",
+      "match",
+      "ps_balance",
+      "balance_table"
+    ],
+    "assumptions": [
+      "Unconfoundedness given the covariates",
+      "Overlap of the score between treated and controls"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_qiu_jiaping_methods_stata.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.pscore(df, 'treat', ['age', 'educ', 'married', 're74'], common_support=True)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "pscore",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "binary treatment 0/1",
+      "covariates are pre-treatment"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "becker2002estimation",
+    "returns": {
+      "class": "PScoreResult",
+      "description": "PScoreResult (.pscore / .block / .support / .n_blocks / .balanced / .unbalanced / .blocks / .coefficients / .assign(df))",
+      "fields": {
+        "block": "pd.Series",
+        "blocks": "pd.DataFrame",
+        "coefficients": "pd.DataFrame",
+        "common_support": "bool",
+        "covariates": "List[str]",
+        "level": "float",
+        "loglik": "float",
+        "n_blocks": "int",
+        "n_obs": "int",
+        "ps_model": "str",
+        "pscore": "pd.Series",
+        "support": "pd.Series",
+        "support_range": "Tuple[float, float]",
+        "treat": "str",
+        "unbalanced": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "pscore",
+      "parameters": {
+        "properties": {
+          "common_support": {
+            "default": false,
+            "description": "Keep rows whose score lies in the range of the treated (Stata comsup)",
+            "type": "boolean"
+          },
+          "covariates": {
+            "description": "Covariates of the treatment model",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "level": {
+            "default": 0.01,
+            "description": "Significance level of the tests",
+            "type": "number"
+          },
+          "n_blocks": {
+            "default": 5,
+            "description": "Equal intervals of [0, 1] the block search starts from",
+            "type": "integer"
+          },
+          "ps_model": {
+            "default": "logit",
+            "description": "Treatment model. Stata pscore fits a probit unless its logit option is given",
+            "enum": [
+              "logit",
+              "probit"
+            ],
+            "type": "string"
+          },
+          "treat": {
+            "description": "Binary treatment column (0/1)",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "treat",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_qiu_jiaping_methods_stata.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -8027,7 +8166,7 @@
             "type": "string"
           },
           "covariates": {
-            "description": "Pre-treatment covariates entering the propensity-score model.",
+            "description": "Pre-treatment covariates entering the propensity-score model. Optional when ``pscore`` names a fitted score.",
             "items": {
               "type": "string"
             },
@@ -8090,6 +8229,10 @@
             ],
             "type": "string"
           },
+          "pscore": {
+            "description": "Column holding a fitted score to match on (Stata pscore()); covariates= is then optional",
+            "type": "string"
+          },
           "se": {
             "default": "psmatch2",
             "description": "Standard-error estimator. 'bootstrap' re-estimates the propensity score each replication and is the only valid choice for method='llr' (Stata reports seatt = . there).",
@@ -8125,6 +8268,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 MP + psmatch2 4.0.12 / pstest 4.2.2 (Leuven & Sianesi 2003) [Stata 18 MP, psmatch2 4.0.12]; tolerance Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9). -- tests/reference_parity/test_psmatch2_parity.py",
       "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py",
+      "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
       "tests/reference_parity/test_teffects_probit_stata.py"
     ],
     "validation_status": "certified"
@@ -16431,6 +16575,110 @@
       "Cross-language parity (bit-exact) vs Stata 18 robvar [Stata 18]; tolerance W0, W50 and W10 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "oneway",
+      "icc",
+      "mixed"
+    ],
+    "assumptions": [
+      "Groups are a sample of exchangeable groups (random effects)",
+      "Homoskedastic errors within groups"
+    ],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "One-way analysis of variance read as a random-effects model (Stata loneway): the intraclass correlation with its asymptotic standard error and interval, the standard deviations of the group effect and of the within-group error, and the reliability of a group mean. The intraclass correlation is the input of a design effect or Moulton factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_qiu_jiaping_methods_stata.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.loneway(df, \"score\", by=\"school\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "loneway",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "donner1986review",
+    "returns": {
+      "class": "ClassicTestResult",
+      "description": "ClassicTestResult",
+      "fields": {
+        "df": "Any",
+        "estimates": "Dict[str, Any]",
+        "method": "str",
+        "n_obs": "int",
+        "pvalue": "float",
+        "statistic": "float",
+        "statistic_name": "str",
+        "table": "Optional[pd.DataFrame]"
+      }
+    },
+    "signature": {
+      "description": "One-way analysis of variance read as a random-effects model (Stata loneway): the intraclass correlation with its asymptotic standard error and interval, the standard deviations of the group effect and of the within-group error, and the reliability of a group mean. The intraclass correlation is the input of a design effect or Moulton factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "loneway",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "One minus the interval's level",
+            "type": "number"
+          },
+          "by": {
+            "description": "Grouping column (the cluster)",
+            "type": "string"
+          },
+          "data": {
+            "description": "Data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "exact": {
+            "default": false,
+            "description": "Exact F-based interval (groups of equal size)",
+            "type": "boolean"
+          },
+          "y": {
+            "description": "Response",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "by"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_qiu_jiaping_methods_stata.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

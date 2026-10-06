@@ -6375,6 +6375,7 @@
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
+        "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
         "tests/reference_parity/test_stata_did_commands_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
@@ -8765,6 +8766,7 @@
       "additional_tests": [
         "tests/reference_parity/test_heckman_se_parity.py",
         "tests/reference_parity/test_ldv_design_stata_parity.py",
+        "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
       ],
       "also_verified_by": [
@@ -10069,6 +10071,7 @@
         "tests/reference_parity/test_oct2026_third_pass.py",
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
+        "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
         "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
@@ -11329,6 +11332,23 @@
       "tolerance": "chi-square 1e-10 rel (observed ~8e-16); p-value 1e-10 abs"
     },
     {
+      "function": "loneway",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_qiu_jiaping_methods_stata.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "long_term_from_short",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -11888,6 +11908,7 @@
         "tests/reference_parity/test_nnmatch_teffects_parity.py",
         "tests/reference_parity/test_psmatch2_llr_parity.py",
         "tests/reference_parity/test_psmatch2_parity.py",
+        "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
         "tests/reference_parity/test_teffects_probit_stata.py",
         "tests/reference_parity/test_the_effect_stata_parity.py"
       ],
@@ -16349,6 +16370,23 @@
       "tolerance": ""
     },
     {
+      "function": "pscore",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_qiu_jiaping_methods_stata.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_match_fw_stata_parity.py"
       ],
@@ -16403,6 +16441,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py",
+        "tests/reference_parity/test_qiu_jiaping_methods_stata.py",
         "tests/reference_parity/test_teffects_probit_stata.py"
       ],
       "also_verified_by": [
