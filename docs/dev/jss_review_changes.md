@@ -2621,3 +2621,16 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — call traces re-recorded after sp.mmpc and sp.mmhc
+
+- **Commits.** `646dbf4d` re-recorded the entries of Track A modules
+  03 13 15 24 25 26 27 53 65 66 in
+  `tests/r_parity/results/_implementation_trace.json` and of modules
+  08 in `tests/orig_parity/results/_implementation_trace.json`.
+  The source that staled them is in `00f36f67`.
+- **Reason.** Two functions were added to the registry (sp.mmpc, sp.mmhc), which changes registry.py and the package __init__ on every traced call path. No Track A or original-data module calls them.
+- **Effect on the paper.** None. No estimate in any table changes; the registered-function count the paper quotes is pinned to the anchored release.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
