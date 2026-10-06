@@ -249,7 +249,7 @@ Guide: `docs/guides/time_series_econometrics.md`.
   defines it. Stata 18 itself computes something else for `cf,
   stationary`: the weight on the first and last observation is the ideal
   weight of the neighbouring lag. A test rebuilds Stata's numbers from
-  that rule to 1e-9 and a draft note to StataCorp is in `docs/dev/`.
+  that rule to 1e-9.
 - **`sp.zivot_andrews`**: `lags="ttest"`, lag selection at every break
   date (`lag_selection="break"`), and options that reproduce Stata's
   `zandrews` (statistic to 5e-13, break date and lag order equal, 48

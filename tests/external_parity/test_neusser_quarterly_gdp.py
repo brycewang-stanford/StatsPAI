@@ -224,3 +224,40 @@ def test_quarterly_path(fit, frame, y):
     seco = frame["bip_seco"].to_numpy(float)
     assert np.corrcoef(q, seco)[0, 1] == pytest.approx(0.46294, abs=1e-4)
     assert np.sqrt(np.mean((q - seco) ** 2)) == pytest.approx(0.98519, abs=1e-4)
+
+
+def test_the_books_smoother_variance_line_has_a_transpose_missing(fit, y):
+    """``KalmanSmootherTVP.m`` updates the smoothed variance with
+    ``Pt*F*inv(Ptp1)*(PT - Ptp1)*inv(Ptp1)*Pt``. The fixed-interval
+    recursion is ``Pt*F'*inv(Ptp1)*(PT - Ptp1)*inv(Ptp1)*F*Pt``. Ported both
+    ways from our filtered moments: the corrected line reproduces our
+    smoother, the shipped line does not. Smoothed means do not use it."""
+    mats = build(fit.params.to_numpy())
+    F, Q = np.asarray(mats["F"], float), np.asarray(mats["Q"], float)
+    Pf = np.asarray(fit.filter.filtered_cov)
+    ours = np.asarray(fit.filter.smoothed_cov)
+    n = len(y)
+
+    def smooth(corrected: bool) -> np.ndarray:
+        PT = np.zeros_like(Pf)
+        PT[-1] = Pf[-1]
+        for t in range(n - 1, 0, -1):
+            pred = F @ Pf[t - 1] @ F.T + Q
+            inv = np.linalg.pinv(pred)  # Q is singular in this model
+            if corrected:
+                left, right = Pf[t - 1] @ F.T @ inv, inv @ F @ Pf[t - 1]
+            else:
+                left, right = Pf[t - 1] @ F @ inv, inv @ Pf[t - 1]
+            PT[t - 1] = Pf[t - 1] + left @ (PT[t] - pred) @ right
+        return PT
+
+    good, shipped = smooth(True), smooth(False)
+    np.testing.assert_allclose(good, ours, atol=1e-12)
+    assert np.abs(shipped - ours).max() == pytest.approx(0.134, abs=1e-3)
+    # the quarterly growth state, away from the end of the sample
+    inner_good, inner_shipped = good[:-4, 0, 0], shipped[:-4, 0, 0]
+    assert inner_good.min() == pytest.approx(0.029, abs=1e-3)
+    assert inner_good.max() == pytest.approx(0.048, abs=1e-3)
+    assert inner_shipped.min() == pytest.approx(0.044, abs=1e-3)
+    assert inner_shipped.max() == pytest.approx(0.057, abs=1e-3)
+    assert good[-1, 0, 0] == pytest.approx(shipped[-1, 0, 0], rel=1e-12)
