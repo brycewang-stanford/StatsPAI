@@ -2368,3 +2368,36 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-06 — the Lalonde matching row after `sp.match` keeps tied matches by default
+
+- **Commits.** `4d79e7b2` rewrote
+  `tests/orig_parity/results/04_lalonde_original_py.json`. `b627761f`
+  regenerated the rollup that reads it
+  (`tests/orig_parity/results/parity_table_orig.md`) and re-recorded the
+  entries of Track A module 11 in
+  `tests/r_parity/results/_implementation_trace.json` and of modules 04 and
+  04b in `tests/orig_parity/results/_implementation_trace.json`. The source
+  that staled them is in `4d79e7b2`: `src/statspai/matching/match.py`.
+- **Reason.** Decision recorded in
+  `docs/dev/2026-10-06-das-causal-inference-in-r-review.md`. With
+  replacement, `sp.match` now keeps every control tied at the nearest
+  distance (`ties='all'`) instead of the first in data order, so the
+  estimate no longer depends on the order of the rows.
+- **Effect on the paper.** One row of the original-data table moves.
+  Module 04 (`psm_att`, Lalonde, 614 rows): the StatsPAI estimate goes from
+  1967.94 to 1968.80 (the table prints 1968, now 1969) and its standard
+  error from 1192.17 to 1181.66. The relative gaps to R `MatchIt` (0.019)
+  and to the published value (0.097) are unchanged at the precision
+  printed. The new value equals Stata 18
+  `teffects psmatch (re78) (treat ..., logit), atet` (1968.799715855857) to
+  the last digit. Module 04b (NSW with PSID-1) and Track A module 11
+  (NSW-DW) have no exact ties and did not move:
+  `python tests/r_parity/verify_reproduce_py.py --no-report 11_psm` reports
+  the fixture byte-identical. In the Track A trace only the
+  `exercised_sources` digest of module 11 differs.
+- **Paths.**
+  - `tests/orig_parity/results/04_lalonde_original_py.json`
+  - `tests/orig_parity/results/parity_table_orig.md`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
