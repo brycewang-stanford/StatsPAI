@@ -2484,6 +2484,33 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Regenerate via _generate_power_R.R."
         ),
     },
+    "path_analysis": {
+        "status": "bit-exact",
+        "reference": "R lavaan::sem (ML, expected information, fixed.x) and "
+        'estimator = "MLM"',
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "lavaan": "0.6.21",
+        },
+        "tolerance": "estimates / SEs / standardised solution 2e-5 rel "
+        "(lavaan's optimiser; 1e-12 on the closed-form models); fit measures "
+        "and the scaled test 1e-6",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_path_analysis_lavaan_parity.py",
+            "tests/reference_parity/_fixtures/path_analysis_lavaan_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: four observed-variable path models (parallel "
+            "mediators with a residual covariance and defined effects, an "
+            "over-identified chain, an equality-constrained model with a "
+            "fixed coefficient, a saturated system). Parameter table, "
+            "standardised solution, chi-square, CFI / TLI / RMSEA / SRMR, "
+            "log-likelihood and the Satorra-Bentler robust SEs and scaled "
+            "test equal lavaan. Regenerate via "
+            "_generate_path_analysis_lavaan.R."
+        ),
+    },
     "power_ttest": {
         "status": "bit-exact",
         "reference": "Stata 18 MP power onemean / twomeans / pairedmeans; "

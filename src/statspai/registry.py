@@ -9347,6 +9347,70 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="path_analysis",
+            category="structural",
+            description=(
+                "Path analysis: a structural equation model among observed "
+                "variables, written in lavaan syntax (y ~ a*x + m; m1 ~~ m2; "
+                "indirect := a*b) and fitted by normal-theory maximum "
+                "likelihood. Returns path coefficients, residual "
+                "(co)variances, defined effects such as indirect and total "
+                "effects through several mediators with delta-method "
+                "standard errors, the standardised solution, the chi-square "
+                "test of the over-identifying restrictions and CFI / TLI / "
+                "RMSEA / SRMR. Equal labels constrain paths to be equal. "
+                "Reproduces lavaan::sem (and estimator='MLM' with "
+                "se='robust'). Latent variables are not implemented. "
+            ),
+            params=[
+                ParamSpec(
+                    "model",
+                    "str",
+                    True,
+                    None,
+                    "Model in lavaan syntax, one statement per line: "
+                    "'y ~ b*m + c*x' (regression, optional labels), "
+                    "'m1 ~~ m2' (residual covariance), "
+                    "'ind := a*b' (defined parameter)",
+                ),
+                ParamSpec("data", "DataFrame", True, None, "Data"),
+                ParamSpec(
+                    "se",
+                    "str",
+                    False,
+                    "standard",
+                    "Expected-information standard errors, or the "
+                    "Satorra-Bentler sandwich with a scaled test",
+                    ["standard", "robust"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="PathAnalysisResult",
+            example=("sp.path_analysis('m ~ a*x\\ny ~ b*m + c*x\\nind := a*b', df)"),
+            tags=[
+                "sem",
+                "path analysis",
+                "mediation",
+                "lavaan",
+                "indirect effect",
+                "structural equation",
+            ],
+            assumptions=[
+                "The path diagram is the causal structure: no omitted common "
+                "cause of two linked variables, arrows in the stated direction",
+                "Linear relations with additive disturbances",
+                "Disturbances of different equations uncorrelated unless a "
+                "covariance (~~) is declared",
+                "Multivariate normality for se='standard' and for the "
+                "chi-square test; se='robust' relaxes it",
+                "Exogenous variables are conditioned on (lavaan fixed.x)",
+            ],
+            alternatives=["mediate", "mediation_decompose", "sem_gmm", "dag", "sur"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="cor_test",
             category="inference",
             description=(

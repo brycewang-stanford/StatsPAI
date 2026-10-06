@@ -188,6 +188,7 @@ from statspai import SLearner, TLearner, XLearner, RLearner, DRLearner
 | `pwr::pwr.t.test(d = 0.5, power = 0.8)`        | `sp.power_ttest(delta=0.5, power=0.8)`. `n` is the total over both groups; `params["n_exact"] / 2` is pwr's per-group figure |
 | `survival::cox.zph(fit)`                       | `sp.cox(...).ph_test()`; `transform=` as in `cox.zph` |
 | `AER::dispersiontest(fit, trafo = 2)`          | `sp.poisson(...).diagnostics["Overdispersion test (C-T)"]` |
+| `lavaan::sem(model, data)` (observed variables) | `sp.path_analysis(model, df)` with the same model string; `se="robust"` for `estimator = "MLM"`. `fit.effect("indirect")` reads a `:=` row |
 | `rbounds::psens(x, y, Gamma = 2)`              | `sp.rosenbaum_bounds(x, y, gamma_grid=[1, 1.5, 2])`   |
 | `MatchIt::matchit(method = "subclass")`        | `sp.match(df, y=, treat=, covariates=, method="stratify", n_strata=6)` |
 

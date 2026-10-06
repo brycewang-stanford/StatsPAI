@@ -2187,6 +2187,8 @@ __all__ = [
     # Structural Estimation
     "blp",
     "BLPResult",
+    "path_analysis",
+    "PathAnalysisResult",
     # Production functions (proxy-variable estimators)
     "prod_fn",
     "olley_pakes",
@@ -3541,6 +3543,8 @@ _register_lazy(
     "structural",
     "blp",
     "BLPResult",
+    "path_analysis",
+    "PathAnalysisResult",
     "prod_fn",
     "olley_pakes",
     "opreg",

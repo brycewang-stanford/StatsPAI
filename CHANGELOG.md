@@ -4,7 +4,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
-### Two decisions left open by the Das pass
+### Path analysis, and two decisions left open by the Das pass
 
 #### ⚠️ Correctness
 
@@ -28,6 +28,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 #### Added
 
+- **`sp.path_analysis`**: structural equation models among observed
+  variables, in lavaan syntax. Regressions with labelled paths
+  (`y ~ b*m + c*x`), residual covariances (`m1 ~~ m2`), equality
+  constraints by repeating a label, fixed coefficients, product terms
+  (`x:w`) and defined effects (`indirect := a1*b1 + a2*b2`) with
+  delta-method standard errors. It returns the standardised solution, the
+  chi-square test of the over-identifying restrictions, CFI, TLI, RMSEA
+  with its interval and SRMR. `se='robust'` gives the Satorra-Bentler
+  sandwich and scaled test. On four models (two mediators with a residual
+  covariance, a rejected chain, a constrained model, a saturated one) the
+  parameter table, the fit measures and the robust results equal
+  `lavaan::sem` and `estimator = "MLM"`: to 1e-12 where the solution is
+  closed-form, to lavaan's optimiser tolerance elsewhere. This was the
+  largest gap the Das pass found: chapter 11's multiple-mediator model had
+  no counterpart, and `sp.sem` is the spatial error model. Latent
+  variables and mean structures are not implemented and are refused by
+  name.
 - **`sp.pc_algorithm(collider_conflict='last')`** reproduces `pcalg::pc`
   when a sample contradicts itself. Two colliders can claim one edge in
   opposite directions; the algorithm does not say which wins. The default

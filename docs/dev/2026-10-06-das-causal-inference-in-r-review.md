@@ -31,7 +31,7 @@ proportional-hazards diagnostics, effect sizes, power.
 | 8 | `t.test`, `shapiro.test`, `var.test`, `effsize::cohen.d`, `pwr.t.test`, `p.adjust` | `sp.ttest`, `sp.swilk`, `sp.sdtest`, `sp.esize` (new), `sp.power_ttest` (new), `sp.adjust_pvalues` | Tests equal. No effect size, no exact t-test power, three `p.adjust` methods missing. **All added.** |
 | 9 | AIPW by hand, HC1, `tmle` | `sp.aipw`, `sp.regress(robust='hc1')`, `sp.tmle` | AIPW (no cross-fitting) to 2e-9, HC1 to 1e-8, Hajek IPW to 2e-7, TMLE with a GLM library to 3e-4 (6e-6 relative; the two propensity fits are not the same optimizer). |
 | 10 | `AER::ivreg` with diagnostics, `gmm`, Wald test | `sp.ivreg`, `sp.iv_diag`, `sp.test` | Coefficients, SEs, weak-instrument F, Wu-Hausman, Sargan all equal. The `y ~ x \| z` formula was refused. **Now read.** |
-| 11 | `mediation::mediate`, `lavaan::sem` | `sp.mediate` | Linear product of coefficients equal. Logit outcome model and SEM not available. |
+| 11 | `mediation::mediate`, `lavaan::sem` | `sp.mediate` | Linear product of coefficients equal. The multiple-mediator SEM now runs in `sp.path_analysis` and equals lavaan. Logit outcome model not available. |
 | 12 | Complete-case and mean-imputed t tests, E-value from an odds ratio | `sp.ttest`, `sp.evalue` | Equal, and equal to the `EValue` package for the common-outcome and rare-outcome conversions. |
 | 13 | `matchit` with factor covariates, `fixest::feols` | `sp.match`, `sp.feols` | `feols` coefficients and SEs equal to the six digits compared. |
 | 14 | `grf::causal_forest` | `sp.causal_forest` | ATE 2.1005 (0.0796) against grf's 2.094 to 2.114 (0.079 to 0.080) over five seeds. Screen only, as the forest is random. |
@@ -209,12 +209,14 @@ they are on main.** What it leaves for that line:
 
 ## Not done
 
-1. **Structural equation models.** `lavaan::sem` with several mediators,
-   labelled paths and `:=` defined effects (chapter 11) has no counterpart.
-   `sp.sem` is the spatial error model. A path-analysis estimator for
-   observed variables (ML, robust SEs, delta-method indirect effects, the
-   usual fit indices) is the largest gap this pass found and is a
-   self-contained piece of work that can be validated against lavaan.
+1. **Structural equation models.** Closed 2026-10-06 for observed
+   variables: `sp.path_analysis` takes the lavaan model string of chapter
+   11 as written (after dropping `missing = "ML"`, which the complete data
+   do not need) and returns lavaan's estimates and standard errors for the
+   paths and for the three defined effects. Parity fixture:
+   `tests/reference_parity/test_path_analysis_lavaan_parity.py`. Still
+   open: latent variables (`=~`), mean structures, full-information ML for
+   missing data, multiple groups, and the chapter's `growth()` call.
 2. **Mediation with a binary outcome.** `sp.mediate` fits a linear outcome
    model. `mediation::mediate` and Stata 18 `mediate` accept a logit or
    probit outcome. On the book's data the two answers are 4.9e-5 and
