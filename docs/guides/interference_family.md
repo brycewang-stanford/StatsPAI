@@ -438,24 +438,24 @@ access to the whole family, see `sp.interference(design=...)`.*
 ## For Agents
 
 **Pre-conditions**
-- adjacency is a binary n × n matrix encoding network ties
+- adjacency encodes who can affect whom and was fixed before assignment
 - Y, Z have same length n
-- randomisation design is known (bernoulli with p_treat, or complete)
-- n_sim ≥ 2000 for stable Monte Carlo variance
+- treatments were assigned independently with a known probability
 
 **Identifying assumptions**
-- Exposure mapping is correctly specified (as4 / as3 / as2 — Aronow-Samii hierarchy)
-- Positivity: every exposure level has positive probability under the design
+- The exposure mapping is correctly specified: a unit's outcome depends on the assignment only through its exposure level
+- Positivity: averages are over units for which every exposure level has positive probability under the design
 - Network adjacency is fixed / known (measurement error in ties introduces bias)
 
 **Failure modes → recovery**
 
 | Symptom | Exception | Remedy | Try next |
 | --- | --- | --- | --- |
-| Some exposure level has < 5 observed units | `statspai.DataInsufficient` | Switch to a coarser mapping (as4 → as3) or increase sample size. |  |
-| Variance estimate extremely conservative (wide CI) | `statspai.AssumptionWarning` | HT-style variance is conservative by design — use sp.spillover for cluster case. | `sp.spillover` |
+| Fewer than two units can receive every exposure level | `statspai.DataInsufficient` | Use a coarser exposure mapping. |  |
+| Some units have exposure probabilities below 0.01 (high degree under 'as4'), so a few units carry huge weights | `statspai.AssumptionWarning` | Set min_prob= to restrict to units with adequate overlap, or use mapping='fraction'. | `sp.spillover` |
 
 **Alternatives (ranked)**
+- `sp.interference_test`
 - `sp.spillover`
 - `sp.peer_effects`
 - `sp.cluster_matched_pair`
