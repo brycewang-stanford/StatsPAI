@@ -119,7 +119,8 @@ rob.model_info["n_zero_weight"]  # 915 of 9,036 on the book's data
 
 Defaults follow Stata's `robreg mm`. To reproduce `lmrob` exactly pass
 `tuning=4.685061` (or the chapter's 3.4437), `tuning_s=1.54764` and
-`small=False`; `sp.from_r("lmrob(...)")` writes that call. The book then
+`vce="avar1"`, which is `lmrob`'s own covariance;
+`sp.from_r("lmrob(...)")` writes that call. The book then
 feeds the robustness weights to a weighted regression with clustered
 standard errors:
 
@@ -152,7 +153,7 @@ res = sp.abnormal_returns(
 )
 res.events    # one row per event: CAR, standard error, t, p
 res.aar       # average abnormal return by relative day, and its running sum
-res.tests     # cross-sectional t, Patell, BMP, and the adjusted versions
+res.tests     # cross-sectional t, Patell, BMP, adjusted versions, rank tests
 ```
 
 `model="market_adjusted"` is the book's own choice (return minus market
@@ -167,6 +168,13 @@ dates cluster in calendar time, as with a regulatory change that hits
 every firm on one day, abnormal returns are correlated across firms and
 all three over-reject; `adj_patell` and `kp` correct for the average
 correlation.
+
+Two rows make no distributional assumption. `grank` is the generalized
+rank test [@kolari2011nonparametric], which ranks each CAR against that
+security's own estimation-window returns and holds up under event-induced
+variance and thick tails. `sign_rank` is Wilcoxon's signed-rank test on
+the CARs, for a median of zero. With few events its p-value cannot be
+small: fifteen CARs of one sign give 0.0007 at best.
 
 This is not `sp.event_study`, which draws the event-time coefficients of a
 difference-in-differences design.

@@ -24,6 +24,12 @@ Tests of the mean CAR
 * ``adj_patell`` and ``kp`` [@kolari2010event]: the two above corrected for
   cross-sectional correlation of abnormal returns, which matters when
   event dates cluster in calendar time.
+* ``grank`` [@kolari2011nonparametric]: the generalized rank test. Each
+  standardised CAR is ranked among that security's own standardised
+  estimation-window abnormal returns; no distribution is assumed, and the
+  test stays valid under event-induced variance and clustered dates.
+* ``sign_rank``: Wilcoxon's signed-rank test on the CARs, for a median of
+  zero.
 
 Reference implementation: Stata ``estudy`` [@pacicco2018event].
 """
@@ -185,6 +191,53 @@ def _car_tests(
     return out
 
 
+def _grank(standardised: Dict[Any, pd.Series], scar: np.ndarray) -> Tuple[float, float]:
+    """Generalized rank test of Kolari and Pynnonen (2011).
+
+    ``standardised`` holds each event's estimation-window abnormal returns
+    over their standard deviation, indexed by relative day. The event
+    window is squeezed into one observation per event: its standardised
+    CAR, rescaled by the cross-sectional standard deviation of the
+    standardised CARs so that event-induced variance does not move the
+    ranks. With ``T`` observations per event (estimation days plus that
+    one), ``U = rank / (T + 1) - 1/2`` has mean zero; the statistic is the
+    mean of ``U`` on the event observation over the standard deviation of
+    the daily means, referred to ``t(T - 2)`` after the usual
+    transformation.
+    """
+    from scipy import stats
+
+    frame = pd.DataFrame(standardised)
+    cross_sd = float(np.std(scar, ddof=1))
+    if not cross_sd > 0:
+        return np.nan, np.nan
+    event_row = pd.DataFrame([scar / cross_sd], columns=frame.columns, index=["event"])
+    full = pd.concat([frame, event_row])
+    counts = full.notna().sum(axis=0)
+    u = full.rank(axis=0) / (counts + 1.0) - 0.5
+    daily = u.mean(axis=1)
+    share = u.notna().sum(axis=1) / u.shape[1]
+    t_len = len(full)
+    s2 = float(np.sum(share * daily**2)) / t_len
+    if not s2 > 0:
+        return np.nan, np.nan
+    z = float(daily.loc["event"]) / np.sqrt(s2)
+    inside = t_len - 1 - z * z
+    if inside <= 0:
+        return np.nan, np.nan
+    t = z * np.sqrt((t_len - 2) / inside)
+    return float(t), float(2 * stats.t.sf(abs(t), t_len - 2))
+
+
+def _sign_rank(car: np.ndarray) -> Tuple[float, float]:
+    """Wilcoxon signed-rank z and p for a median CAR of zero (the
+    statistic of ``sp.signrank``, Stata's ``signrank``)."""
+    from ..inference.rank_tests import signrank
+
+    res = signrank(pd.DataFrame({"car": car}), "car")
+    return float(res.statistic), float(res.pvalue)
+
+
 def _mean_correlation(residuals: Dict[Any, pd.Series]) -> float:
     """Average pairwise correlation of the residual series, over the
     index values each pair shares."""
@@ -284,8 +337,17 @@ def abnormal_returns(
     and a slightly different market term, so its market-model standard
     deviations are about ``1 / (2n)`` smaller; for a factor model it uses
     ``L * RSS / (n - 1)`` with no coefficient-error term, 1 to 6 percent
-    smaller on eleven-day windows; given the same standardised CARs the test
-    statistics here and there are equal. For the Patell statistic it
+    smaller on eleven-day windows; given the same standardised CARs the
+    parametric test statistics here and there are equal. Its group row is
+    the sum over the window of ``log(mean(exp(AR)))``, a log-return
+    aggregation that exceeds the mean CAR reported here by half the
+    cross-sectional variance of the abnormal returns. Its generalized
+    rank statistic scales ranks by ``L1 + 1`` and counts ``L1``
+    observations where there are ``T = L1 + 1``; this function follows
+    [@kolari2011nonparametric] and is 1 to 2 percent smaller. Its
+    ``Wilcoxon`` option ranks each CAR within its own security's series
+    and is not the signed-rank test reported here, which is Stata's
+    ``signrank`` on the CARs. For the Patell statistic it
     takes ``(M - 2) / (M - 4)`` as the variance of a standardised CAR
     under the market-adjusted and mean-adjusted models too, where the
     variance estimate has ``M - 1`` degrees of freedom and this function
@@ -320,7 +382,7 @@ def abnormal_returns(
     References
     ----------
     brown1985using, patell1976corporate, boehmer1991event, kolari2010event,
-    pacicco2018event
+    kolari2011nonparametric, pacicco2018event
     """
     from scipy import stats
 
@@ -392,6 +454,7 @@ def abnormal_returns(
     records: List[Dict[str, Any]] = []
     ar_columns: Dict[Any, pd.Series] = {}
     residuals: Dict[Any, pd.Series] = {}
+    standardised: Dict[Any, pd.Series] = {}
     skipped: List[Dict[str, Any]] = []
     rel_index = np.arange(ev_lo, ev_hi + 1)
     for label, row in ev.iterrows():
@@ -476,6 +539,7 @@ def abnormal_returns(
         ar_columns[label] = pd.Series(ar, index=rel_index)
         key = est[date].to_numpy() if corr_key == "calendar" else rel_est
         residuals[label] = pd.Series(res_est, index=key)
+        standardised[label] = pd.Series(res_est / np.sqrt(s2), index=rel_est)
 
     if skipped:
         warnings.warn(
@@ -505,6 +569,9 @@ def abnormal_returns(
         table["car"].to_numpy(dtype=float),
         r_bar,
     )
+    scar = table["scar"].to_numpy(dtype=float)
+    tests.loc["grank"] = _grank(standardised, scar)
+    tests.loc["sign_rank"] = _sign_rank(table["car"].to_numpy(dtype=float))
     return AbnormalReturnsResult(
         events=table,
         ar=ar_frame,

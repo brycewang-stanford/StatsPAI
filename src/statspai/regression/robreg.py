@@ -376,13 +376,23 @@ def _huber_cov(X: np.ndarray, r: np.ndarray, scale: float, psi: _Psi) -> np.ndar
 
 
 def _stacked_cov(
-    G: np.ndarray, scores: np.ndarray, n: int, k: int, small: bool
+    G: np.ndarray,
+    scores: np.ndarray,
+    n: int,
+    k: int,
+    small: bool,
+    scale_score_ss: Optional[float] = None,
 ) -> np.ndarray:
     """Sandwich of a stacked system: G^{-1} (sum g g') G^{-T}, times
-    ``n / (n - k)`` when ``small``; ``G`` is the summed Jacobian."""
+    ``n / (n - k)`` when ``small``; ``G`` is the summed Jacobian.
+    ``scale_score_ss`` replaces the sum of squares of the last score (the
+    scale equation's)."""
     Ginv = np.linalg.inv(G)
     factor = n / (n - k) if small else 1.0
-    return np.asarray(factor * Ginv @ (scores.T @ scores) @ Ginv.T, dtype=float)
+    meat = scores.T @ scores
+    if scale_score_ss is not None:
+        meat[-1, -1] = scale_score_ss
+    return np.asarray(factor * Ginv @ meat @ Ginv.T, dtype=float)
 
 
 # ---------------------------------------------------------------------------
@@ -451,7 +461,17 @@ def robreg(
         heteroskedastic and asymmetric errors (Stata ``robreg``; ``lmrob``
         with ``small=False``). ``'huber'``: Huber's formula with his finite-sample
         correction, which assumes errors that are symmetric and
-        independent of the regressors (``summary.rlm``).
+        independent of the regressors (``summary.rlm``). ``'avar1'``
+        (MM only): ``lmrob``'s default covariance. It is the same sandwich
+        with one entry changed. The S scale solves ``sum(rho) / (n - k) =
+        b``, so the scale equation's score ``rho - b`` has sample mean
+        ``-b k / n``. ``'robust'`` takes its sum of squares as it is;
+        ``lmrob`` takes ``sum(rho^2) - n b^2``, the variance the score
+        would have if its mean were zero, which is smaller by about ``2 k
+        b^2``. No ``n / (n - k)`` factor is applied. With
+        ``tuning_s=1.54764`` this is ``vcov(lmrob(...))`` to 1e-9. The
+        two choices differ in the fourth digit of a standard error at
+        ``n = 800`` and agree as ``n`` grows.
     small : bool, default True
         With ``vce='robust'``: multiply the sandwich by ``n / (n - k)``,
         as ``robreg`` does. ``lmrob`` does not.
@@ -519,9 +539,14 @@ def robreg(
             f"robreg: method must be 'm', 's' or 'mm', got {method!r}."
         )
     vce_key = str(vce).lower()
-    if vce_key not in ("robust", "huber"):
+    if vce_key not in ("robust", "huber", "avar1"):
         raise MethodIncompatibility(
-            f"robreg: vce must be 'robust' or 'huber', got {vce!r}."
+            f"robreg: vce must be 'robust', 'huber' or 'avar1', got {vce!r}."
+        )
+    if vce_key == "avar1" and method_key != "mm":
+        raise MethodIncompatibility(
+            "robreg: vce='avar1' is lmrob's covariance of an MM fit; "
+            f"method={method!r} has no counterpart. Use vce='robust'."
         )
     psi_key = (psi or ("huber" if method_key == "m" else "bisquare")).lower()
     if psi_key in ("biweight", "tukey"):
@@ -715,7 +740,13 @@ def robreg(
                 G[2 * p, p : 2 * p] = G_sig_s
                 G[2 * p, 2 * p] = G_sig_sig
                 scores = np.column_stack([X * psi_fn.psi(u)[:, None], g_s, g_sig])
-                full = _stacked_cov(G, scores, n, p, small)
+                ss = None
+                if vce_key == "avar1":
+                    # the variance of the scale score as E[rho^2] - b^2,
+                    # with b the target and not the sample mean of rho
+                    target = breakdown * chi.rho_max
+                    ss = float(np.sum(chi.rho(u0) ** 2)) - n * target**2
+                full = _stacked_cov(G, scores, n, p, small and vce_key != "avar1", ss)
                 cov = full[:p, :p]
                 info["scale_se"] = float(np.sqrt(full[2 * p, 2 * p]))
         info.update(iterations=it, converged=converged)

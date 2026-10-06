@@ -31,7 +31,7 @@ local w2 "0_0"
 local w3 "m5_p5"
 foreach model in SIM MAM HMM MFM {
     local index = cond("`model'" == "MFM", "mkt smb hml", "mkt")
-    foreach test in Norm Patell ADJPatell BMP KP {
+    foreach test in Norm Patell ADJPatell BMP KP GRANK Wilcoxon {
         quietly estudy s01-s12, datevar(date) evdate(secname evd) modt(`model') indexlist(`index') diagn(`test') lb1(-1) ub1(1) lb2(0) ub2(0) lb3(-5) ub3(5) eswlb(-200) eswub(-11)
         matrix C = r(cars)
         matrix S = r(sd)
@@ -46,6 +46,25 @@ foreach model in SIM MAM HMM MFM {
                 post `H' ("`model'") ("`test'") ("`w`j''") ("`sec'") ("pv") (P[`i', `j'])
             }
         }
+    }
+}
+* Stata's own signed-rank test on the twelve CARs of each model and window
+foreach model in SIM MAM HMM MFM {
+    local index = cond("`model'" == "MFM", "mkt smb hml", "mkt")
+    quietly estudy s01-s12, datevar(date) evdate(secname evd) modt(`model') indexlist(`index') diagn(Norm) lb1(-1) ub1(1) lb2(0) ub2(0) lb3(-5) ub3(5) eswlb(-200) eswub(-11)
+    matrix C = r(cars)
+    forvalues j = 1/3 {
+        preserve
+        clear
+        quietly set obs 12
+        quietly gen double car = .
+        forvalues i = 1/12 {
+            quietly replace car = C[`i', `j'] in `i'
+        }
+        quietly signrank car = 0
+        restore
+        post `H' ("`model'") ("signrank") ("`w`j''") ("group") ("stat") (r(z))
+        post `H' ("`model'") ("signrank") ("`w`j''") ("group") ("pv") (r(p))
     }
 }
 postclose `H'

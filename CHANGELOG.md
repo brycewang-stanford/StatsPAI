@@ -39,6 +39,37 @@ All notable changes to StatsPAI will be documented in this file.
   24 data sets the score is never below `bnlearn::mmhc`'s, equal on 18 and
   higher on 6. `sp.bootstrap_edges(method='mmhc')` is accepted.
 
+### Event-study rank tests and the `lmrob` covariance
+
+#### Added
+
+- **`sp.abnormal_returns` reports two nonparametric tests.**
+  `res.tests.loc["grank"]` is the generalized rank test of Kolari and
+  Pynnonen (2011): each standardised CAR is ranked among that security's
+  standardised estimation-window abnormal returns, and the mean rank on
+  the event day is compared with its variation over all days.
+  `res.tests.loc["sign_rank"]` is Wilcoxon's signed-rank test on the CARs
+  and equals Stata `signrank` to 1e-9. Stata `estudy`'s `GRANK` writes L1
+  where the test has T = L1 + 1 observations; with its constants the
+  statistic here equals its number to 1e-6, with the paper's it is 1.5
+  percent smaller. `estudy`'s `Wilcoxon` row ranks each CAR within its own
+  security's time series and is not a signed-rank test (it reports 96
+  for twelve securities); the test rebuilds it to show what it is.
+- **`sp.robreg(vce='avar1')`** is `robustbase::lmrob`'s default covariance
+  of an MM fit, equal to `vcov(lmrob(...))` to 1e-6 with
+  `tuning_s=1.54764`. It is the stacked sandwich with one entry changed:
+  the sum of squares of the scale equation's score is taken as
+  `sum(rho^2) - n b^2`, where the default (and Stata `robreg`) squares
+  `rho - b` as it is. Standard errors differ by up to 3e-4 at n = 800.
+  `sp.from_r("lmrob(...)")` now writes this option.
+
+#### Changed
+
+- `res.tests` of `sp.abnormal_returns` has two more rows. Code that
+  indexes the table by label is unaffected; code that asserts on every row
+  should note that a signed-rank p-value is bounded below by the number of
+  events (6.5e-4 for fifteen).
+
 ### Latent variables in `sp.path_analysis`
 
 #### Added

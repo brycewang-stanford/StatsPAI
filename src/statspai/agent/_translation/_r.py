@@ -879,13 +879,14 @@ def _h_lmrob(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
             "covers the MM estimator.",
             command="lmrob",
         )
-    # lmrob's defaults: 95% efficiency, the rounded S constant, no
-    # small-sample factor on the covariance
+    # lmrob's defaults: 95% efficiency, the rounded S constant, its own
+    # covariance (.vcov.avar1, no small-sample factor)
     args: Dict[str, Any] = {
         "formula": formula,
         "method": "mm",
         "tuning": 4.685061,
         "tuning_s": 1.54764,
+        "vce": "avar1",
         "small": False,
     }
     notes: List[str] = []
@@ -905,8 +906,8 @@ def _h_lmrob(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
     )
     notes.append(
         "The S step is a random search; sp.robreg and lmrob agree on the "
-        "coefficients when both reach the global minimum. lmrob's standard "
-        "errors differ from sp.robreg's in the sixth digit."
+        "coefficients when both reach the global minimum. vce='avar1' is "
+        "lmrob's default covariance."
     )
     return _unread(_emit("robreg", args, f"sp.robreg({code})", notes), kw, tuple(read))
 

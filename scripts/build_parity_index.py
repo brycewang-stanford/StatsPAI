@@ -135,7 +135,8 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "status": "bit-exact",
         "reference": "Stata 18 estudy (Pacicco, Vena and Venegoni): "
         "abnormal returns and CARs of four models; Patell, BMP and "
-        "Kolari-Pynnonen statistics",
+        "Kolari-Pynnonen statistics; Stata signrank for the signed-rank "
+        "test",
         "reference_versions": {"Stata": "18"},
         "tolerance": "abnormal returns and CARs 5e-6 rel (estudy works in "
         "single precision); test statistics 1e-9 rel given the same "
@@ -148,9 +149,14 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "note": (
             "Frozen-Stata fixture on committed synthetic returns. estudy's "
             "market-model standard deviation follows a different "
-            "finite-sample rule, located and rebuilt in the test; its "
-            "factor-model standard deviations and its group CAAR are not "
-            "reproduced and not compared."
+            "finite-sample rule, located and rebuilt in the test, as are "
+            "its factor-model standard deviations, its group row (log of "
+            "the mean gross abnormal return) and its rule for a missing "
+            "estimation return. Its generalized rank statistic uses L1 "
+            "where the test has T = L1 + 1; ours follows the paper and "
+            "reproduces estudy's number under estudy's constants. Its "
+            "Wilcoxon row is not a signed-rank test and is not a "
+            "reference."
         ),
     },
     "fama_macbeth": {
@@ -179,7 +185,7 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     "robreg": {
         "status": "bit-exact",
         "reference": "Stata 18 robreg m / s / mm (Jann); robustbase::lmrob "
-        "(coefficients, scale, weights); MASS::rlm (M estimates and "
+        "(coefficients, scale, weights, covariance); MASS::rlm (M estimates and "
         "Huber-formula SE)",
         "reference_versions": {
             "R": "R version 4.5.2 (2025-10-31)",
@@ -197,9 +203,9 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         ],
         "note": (
             "Frozen-R and frozen-Stata fixtures. The sandwich covariance is "
-            "compared with robreg; lmrob's default standard errors differ by "
-            "up to 8e-6 for a reason not located and are bounded, not "
-            "claimed. The scale of robreg m is compared at robreg's own "
+            "compared with robreg, vce='avar1' with lmrob. The two differ "
+            "in how the scale equation's score is squared (located and "
+            "rebuilt in the test). The scale of robreg m is compared at robreg's own "
             "value: its rule for dropping zero LAD residuals depends on "
             "rounding."
         ),

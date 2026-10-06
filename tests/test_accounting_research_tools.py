@@ -517,7 +517,12 @@ def test_abnormal_returns_recovers_a_planted_effect(market_data):
     res = sp.abnormal_returns(data, events, market="mkt", event_window=(0, 0))
     assert res.n_events == 15 and not res.skipped
     assert abs(res.caar - 0.04) < 0.01
-    assert (res.tests["pvalue"] < 1e-4).all()
+    parametric = res.tests.drop(index="sign_rank")
+    assert (parametric["pvalue"] < 1e-4).all()
+    # fifteen CARs of one sign: the signed-rank statistic is at its
+    # largest possible value, which for n = 15 is z = 3.41
+    assert res.tests.loc["sign_rank", "statistic"] == pytest.approx(3.4078, abs=1e-3)
+    assert res.tests.loc["sign_rank", "pvalue"] < 1e-3
     # a window that misses the event day finds nothing
     before = sp.abnormal_returns(
         data, events, market="mkt", event_window=(-8, -3), estimation_window=(-200, -11)

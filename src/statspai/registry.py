@@ -11466,8 +11466,9 @@ def _build_registry() -> None:
                 "factor model fitted on a pre-event estimation window, "
                 "cumulative abnormal returns with forecast-error standard "
                 "errors, and tests of their mean (cross-sectional t, "
-                "Patell, BMP, and the Kolari-Pynnonen adjustments for "
-                "cross-correlation). Stata estudy. Not the event-study plot "
+                "Patell, BMP, the Kolari-Pynnonen adjustments for "
+                "cross-correlation, their generalized rank test, and the "
+                "Wilcoxon signed-rank test). Stata estudy. Not the event-study plot "
                 "of a DiD design, which is sp.event_study."
             ),
             params=[
@@ -11674,8 +11675,9 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "robust",
-                    "Sandwich of the stacked equations, or Huber's formula",
-                    ["robust", "huber"],
+                    "Sandwich of the stacked equations, Huber's formula, or "
+                    "lmrob's default covariance (MM only)",
+                    ["robust", "huber", "avar1"],
                 ),
                 ParamSpec(
                     "small",

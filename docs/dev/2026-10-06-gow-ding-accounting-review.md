@@ -171,19 +171,26 @@ factor levels; winsorizing at the type-2 quantile; the rank AUC.
   error. `sp.feols` applies it to pyfixest's matrix (second round below),
   so `sp.feols` and R's `fixest` agree and bare pyfixest does not.
 
-## One comparison that is not a parity claim
+## The `lmrob` covariance (located in the fourth round)
 
-`lmrob`'s default standard errors (`.vcov.avar1`) and ours differ by 5e-7
-to 8e-6 after the n / (n - k) factor is removed, with coefficients, scale
-and weights equal to 1e-9. The estimator here is the sandwich of the
-stacked estimating equations of the M step, the S step and the scale; it
-equals Stata `robreg`'s covariance to 1e-8 for M, S and MM. Centring the
-scale equation's score does not close the gap. The cause is not located,
-so the tests bound the gap and do not call it agreement.
+`lmrob`'s default standard errors (`.vcov.avar1`) and the stacked sandwich
+differ by 5e-7 to 3e-4 after the n / (n - k) factor is removed, with
+coefficients, scale and weights equal to 1e-9. The two are the same
+sandwich with one entry of the middle matrix different. The S scale
+solves `sum(rho) / (n - k) = b`, so the scale equation's score `rho - b`
+has sample mean `-b k / n`, not zero. The sandwich here, and Stata
+`robreg`'s, squares that score as it is. `lmrob` takes `sum(rho^2) - n
+b^2`, which is what the sum of squares would be if the mean were zero. On
+the test file (n = 800, k = 4) the two numbers are 112.76 and 110.76, a
+difference of `2 k b^2`. Writing `lmrob`'s matrix as base + c1 * cross
+term + c2 * squared term and solving for c1 and c2 gives 1 and 0.98226,
+and the fit is exact to 7e-15. `sp.robreg(vce='avar1')` now computes it,
+and `sp.from_r("lmrob(...)")` writes that option.
 
 ## Open items
 
-1. The remaining gap to `lmrob`'s standard errors (above).
+1. Closed in the fourth round: the gap to `lmrob`'s standard errors
+   (`vce='avar1'`).
 2. The S search is a random search and proves nothing about the global
    minimum. On 9,036 Compustat firm-years (a leverage ratio of 157, a
    market-to-book of 16,021) the scale has a second local minimum 0.4
@@ -238,10 +245,10 @@ three windows, five tests. What the comparison found:
   market model `estudy` divides the residual sum of squares by `n - 1`
   (the forecast-error variance has `n - 2`) and scales the market term by
   `(n - 1) / n`. Rebuilt from our numbers, its standard deviation matches
-  to 5e-6 for the eleven securities with a complete estimation window. For
-  the twelfth, which has one missing return, the rebuilt number is 6e-5
-  off on the eleven-day window; how `estudy` counts the missing day was
-  not worked out. For the market-adjusted and mean-adjusted models the
+  to 5e-6 for the eleven securities with a complete estimation window. The
+  twelfth has one missing return. There `estudy` keeps the market's mean
+  and variance over all 190 estimation days and uses the 189 traded days
+  for the residual variance and for n (fourth round; rebuilt to 5e-6). For the market-adjusted and mean-adjusted models the
   standard deviations agree, and there the whole pipeline matches end to
   end to 5e-5.
 - For the factor model `estudy`'s standard deviations are 1 to 6 percent
@@ -254,30 +261,46 @@ three windows, five tests. What the comparison found:
   by calendar date, which is the correlation that clustering induces;
   `correlation='event'` gives `estudy`'s.
 - `estudy`'s group CAAR is not the mean of its own security rows (3 to 7
-  percent away on this file). It is not a portfolio of event-time average
-  returns either. The rule was not identified, so the group row's level
-  and its `Norm` test are not compared. Here the mean CAR is the mean of
-  the CARs.
+  percent away on this file). Located in the fourth round: each day it
+  takes the log of the mean of `exp(AR)` across securities and sums those,
+  a log-return aggregation. The gap to the mean CAR is half the
+  cross-sectional variance of the abnormal returns, summed over the
+  window. Its variance is the sum of the CAR variances over N squared.
+  Both are rebuilt in the test. Here the mean CAR is the mean of the CARs.
 
 A unit test written for the function found one bug in it before it
 shipped: an event within the estimation-window distance of the start of
 the series produced a negative slice stop and took its estimation sample
 from the end of the series.
 
-Open from this round: `estudy`'s group row and its handling of a missing
-estimation return; long-horizon buy-and-hold returns; rank and sign
-tests. Two were tried in the third round and not added. The generalized
-rank test of Kolari and Pynnonen (2011), written from the paper, came out
-1.5 percent below `estudy`'s statistic on the market-adjusted model, where
-the standardised CARs agree, and the difference was not located.
-`estudy`'s Wilcoxon row reports a statistic of 96 for twelve securities
-(the signed-rank sum cannot exceed 78) with a p-value of zero in every
-window, so it is not a reference for anything.
+Open from this round: long-horizon buy-and-hold returns.
 
-Also in the third round: the `lmrob` standard errors were tried against
-several variants of the scale-correction term (the S residual in place of
-the MM one, a centred scale score, finite-sample factors on the term). No
-scalar factor closes the gap, which stays open.
+## Fourth round: the five items that had stayed open
+
+All five were located by reading `estudy.ado` (its licence allows it) and,
+for `lmrob`, by treating the reported matrix as a black box (robustbase is
+GPL; its source was not read).
+
+1. **`lmrob` standard errors.** See the section above. `vce='avar1'`.
+2. **Generalized rank test.** There are T = L1 + 1 observations per
+   security: the L1 standardised estimation-window abnormal returns and
+   the standardised CAR. Kolari and Pynnonen centre the ranks with
+   `rank / (T + 1) - 1/2` and use T in the variance and T - 2 degrees of
+   freedom. `estudy` writes L1 for each T: `rank / (L1 + 1)`, L1 in the
+   variance, L1 - 2 degrees of freedom. Its ranks then have mean
+   `1 / (2 T)`, not zero. With its constants our statistic equals its
+   number to 1e-6; with the paper's it is 1.5 percent smaller.
+   `res.tests.loc["grank"]` follows the paper.
+3. **Wilcoxon.** `estudy` ranks each security's |CAR| among that
+   security's own absolute abnormal returns over time, sums those ranks
+   over securities with a positive CAR, and then centres and scales the
+   sum with `n (n + 1) / 4` and `n (n + 1) (2 n + 1) / 24` for n = 12
+   securities. The ranks run to 191, the normalisation assumes they run to
+   12. That is the statistic of 96. Rebuilt to 1e-6 in the test to show
+   what it is. `res.tests.loc["sign_rank"]` is the signed-rank test across
+   securities and equals Stata's own `signrank` on the CARs to 1e-9.
+4. **Group CAAR.** Log of the mean gross abnormal return, above.
+5. **Missing estimation return.** Market moments over all days, above.
 
 ## What a paper written now would do differently
 

@@ -20,8 +20,8 @@ Tolerances. ``EXACT`` (1e-9 relative) where both sides evaluate a closed
 form. ``ITER`` (1e-6) where the reference stops an iteration at its own
 tolerance (``lmrob``, ``robreg``, ``glm``) or stores intermediate results
 in single precision (``xtfmb`` keeps the per-period coefficients as
-floats). One comparison is *not* a parity claim and says so where it is
-made: ``lmrob``'s standard errors.
+floats). ``lmrob``'s covariance is compared with ``vce='avar1'``; how it
+differs from the default sandwich is rebuilt in its own test.
 """
 
 from __future__ import annotations
@@ -264,16 +264,48 @@ def test_robreg_mm_matches_lmrob(cross, R, psi):
 
 
 @pytest.mark.parametrize("psi", [3.4437, 4.685061])
-def test_robreg_mm_standard_errors_are_close_to_lmrob_but_not_claimed_equal(
+def test_robreg_avar1_is_lmrobs_covariance(cross, R, psi):
+    """lmrob's default covariance (.vcov.avar1) is the stacked sandwich with
+    one entry of the meat changed: the sum of squares of the scale
+    equation's score, rho - b, is taken as sum(rho^2) - n b^2."""
+    ref = R[f"lmrob_{psi}"]
+    res = sp.robreg(ROB, cross, tuning=psi, tuning_s=1.54764, vce="avar1")
+    assert rel(res.std_errors[ROB_R], ref["se"]) < ITER
+    assert rel(res.params[ROB_R], ref["coef"]) < ITER
+
+
+@pytest.mark.parametrize("psi", [3.4437, 4.685061])
+def test_the_gap_between_the_two_mm_covariances_is_the_scale_score_variance(
     cross, R, psi
 ):
-    """Not a parity claim. lmrob's default covariance (.vcov.avar1) and the
-    stacked sandwich here agree to about 1e-5 once the n / (n - k) factor is
-    dropped; the remaining gap is not explained (review document, open
-    items). The same sandwich matches Stata robreg to 1e-8 above."""
+    """The S scale solves sum(rho) / (n - k) = b, so rho - b has mean
+    -b k / n in the sample. The stacked sandwich squares the score as it
+    is; lmrob's is smaller by 2 k b^2 (1 - k / (2 n)) in rho's own units,
+    here 2 of 112.8. Standard errors move by up to 3e-4."""
     ref = R[f"lmrob_{psi}"]
-    res = sp.robreg(ROB, cross, tuning=psi, tuning_s=1.54764, small=False)
-    assert rel(res.std_errors[ROB_R], ref["se"]) < 5e-4
+    robust = sp.robreg(ROB, cross, tuning=psi, tuning_s=1.54764, small=False)
+    avar1 = sp.robreg(ROB, cross, tuning=psi, tuning_s=1.54764, vce="avar1")
+    gap = rel(robust.std_errors[ROB_R], ref["se"])
+    assert 1e-7 < gap < 5e-4
+    assert (robust.std_errors >= avar1.std_errors - 1e-15).all()
+    # the score's sum of squares under each convention
+    from statspai.regression.robreg import _Psi
+
+    chi = _Psi("bisquare", 1.54764)
+    X = np.column_stack([np.ones(len(cross))] + [cross[c] for c in ROB_R[1:]])
+    y = cross[ROB.split("~")[0].strip()].to_numpy()
+    s_coef = robust.model_info["s_coefficients"].to_numpy()
+    rho = chi.rho((y - X @ s_coef) / robust.model_info["scale"]) / chi.rho_max
+    n, k = X.shape
+    assert rho.sum() / (n - k) == pytest.approx(0.5, rel=1e-9)
+    as_is = np.sum((rho - 0.5) ** 2)
+    lmrob = np.sum(rho**2) - n * 0.25
+    assert as_is - lmrob == pytest.approx(2 * k * 0.25, rel=1e-9)
+
+
+def test_robreg_avar1_is_for_mm_only(cross):
+    with pytest.raises(Exception, match="avar1"):
+        sp.robreg(ROB, cross, method="s", vce="avar1")
 
 
 @pytest.mark.parametrize(
