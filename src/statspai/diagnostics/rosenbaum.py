@@ -267,6 +267,15 @@ def rosenbaum_bounds(
         upper-bound p-value exceeds ``alpha``. It is ``inf`` if the study
         is insensitive across the grid, and ``1.0`` if already sensitive.
 
+    See Also
+    --------
+    weighted_rank : matched sets with several controls or several treated
+        individuals, weights with higher design sensitivity, and the exact
+        Gamma at which the bound crosses ``alpha``.
+    rosenbaum_stratified : strata of any size.
+    noether_test : sign test on the pairs with the largest differences.
+    amplify : reading Gamma as two odds ratios.
+
     Examples
     --------
     Two parallel arrays of matched-pair outcomes (Wilcoxon bound):

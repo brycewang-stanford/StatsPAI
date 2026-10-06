@@ -91,9 +91,14 @@ from .core.ssc_presets import ssc  # noqa: E402
 # "PEP 562 collision" note at the bottom of this file.
 from .deepiv import DeepIV, deepiv
 from .diagnostics import (
+    EvidenceFactorsResult,
     KitagawaResult,
     RosenbaumResult,
+    SensitivityTestResult,
     WeakRobustResult,
+    WeightedRankPowerResult,
+    WeightedRankResult,
+    amplify,
     anderson_rubin_test,
     bias_factor,
     cmtest,
@@ -106,6 +111,7 @@ from .diagnostics import (
     evalue,
     evalue_from_result,
     evalue_rd,
+    evidence_factors,
     hausman,
     hausman_test,
     het_test,
@@ -114,16 +120,21 @@ from .diagnostics import (
     logit_gof,
     logit_influence,
     mccrary_test,
+    noether_test,
     oster_bounds,
     rddensity,
     reset_test,
     rosenbaum_bounds,
     rosenbaum_gamma,
+    rosenbaum_stratified,
     sensemakr,
     tF_critical_value,
+    truncated_product,
     vif,
     vuong,
     weakrobust,
+    weighted_rank,
+    weighted_rank_power,
 )
 
 # (lazy) forest: see _LAZY_SUBMODULES / _LAZY_ATTRS below.  Eagerly
@@ -313,6 +324,7 @@ from .inference import (
 )
 from .matching import (
     BalanceDiagnosticsResult,
+    BalanceRandomizationResult,
     CardinalityMatchResult,
     GenMatchResult,
     MatchEstimator,
@@ -321,7 +333,9 @@ from .matching import (
     PScoreResult,
     PSMatch2Result,
     SBWResult,
+    TwoCriteriaMatchResult,
     balance_diagnostics,
+    balance_vs_randomization,
     balanceplot,
     cardinality_match,
     cbps,
@@ -342,7 +356,9 @@ from .matching import (
     psmatch2,
     psplot,
     sbw,
+    tighten_blocks,
     trimming,
+    two_criteria_match,
 )
 from .mediation import (
     FourWayResult,
@@ -3006,6 +3022,24 @@ __all__ = [
     "rosenbaum_bounds",
     "rosenbaum_gamma",
     "RosenbaumResult",
+    # Sensitivity analysis for block designs and strata; design of matched
+    # samples (Rosenbaum, Introduction to the Theory of Observational Studies)
+    "weighted_rank",
+    "weighted_rank_power",
+    "WeightedRankResult",
+    "WeightedRankPowerResult",
+    "rosenbaum_stratified",
+    "noether_test",
+    "evidence_factors",
+    "truncated_product",
+    "amplify",
+    "SensitivityTestResult",
+    "EvidenceFactorsResult",
+    "two_criteria_match",
+    "tighten_blocks",
+    "TwoCriteriaMatchResult",
+    "balance_vs_randomization",
+    "BalanceRandomizationResult",
 ]
 
 

@@ -4,6 +4,71 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Matched observational designs: matching on two criteria, sensitivity analysis beyond pairs
+
+A pass over Rosenbaum, *An Introduction to the Theory of Observational
+Studies* (2025) and the three R packages it uses (`iTOS` 1.0.3,
+`weightedRank` 0.7.0, `tightenBlock` 0.1.7). Before it, StatsPAI could bound a
+matched-pair analysis (`sp.rosenbaum_bounds`) and match one-to-one by total
+distance (`sp.optimal_match`). The book's designs are matched sets with
+several controls, built with fine balance, and its analyses put most of the
+weight on the sets where an effect can be seen. No existing estimate
+changes. The comparisons below were run on the book's data and are pinned
+in the test suite on simulated data of the same shape, since the book's
+data are not redistributed. Review in `docs/dev/2026-10-06-rosenbaum-itos-review.md`, guide in
+`docs/guides/observational_block_designs.md`.
+
+#### Added
+
+- **`sp.weighted_rank`**: sensitivity analysis for block designs (matched
+  sets with one or more treated individuals per set) with weighted rank
+  statistics. Stratified Wilcoxon, Quade, the U-statistic weights `u868` /
+  `u878` / `u888` / `u858` / `mixed` or any `(m, m1, m2)`, custom within-set
+  scores, the gap in place of the range. Returns the bound on the p-value at
+  each `gamma`, the `gamma_critical` at which it crosses `alpha` (solved, not
+  read off a grid), and with `estimates=True` the bounds on the
+  Hodges-Lehmann estimate and confidence interval. A list of `phi` gives the
+  adaptive test that pays for choosing among weights. `conditional=True`
+  gives the test on extreme responses. Equals `weightedRank::wgtRank`,
+  `dwgtRank`, `gwgtRank`, `gwgtRankC` and `wgtRanktt` to 1e-9 or better on
+  the book's data, and `wgtRankCI` to the 1e-5 that function solves to.
+- **`sp.weighted_rank_power`**: jackknife estimate of the power of such an
+  analysis from pilot data. Equals `weightedRank::estPower` at
+  `ssratio = 1`. For other ratios `estPower` 0.7.0 divides the bounding
+  standard deviation by the ratio where its square root belongs; a
+  simulation in the tests shows the square root tracks the true power and the
+  ratio does not (estimated power 0 where the truth is 0.2 to 0.9).
+- **`sp.rosenbaum_stratified`**: Rosenbaum bounds for strata of any size and
+  composition, with the separable approximation and the Taylor bound that
+  does not depend on it; in a single stratum the worst case is searched
+  directly. Scores can be overall ranks, within-stratum ranks, aligned ranks
+  or the outcome. The moments come from Fisher's noncentral hypergeometric
+  distribution computed exactly. Equals `senstrat(method="RK")` and
+  `sen2sample` to 1e-9.
+- **`sp.noether_test`**, **`sp.evidence_factors`**, **`sp.truncated_product`**,
+  **`sp.amplify`**: the sign test on the largest pair differences with its
+  exact bound, two evidence factors from a design with two control groups,
+  the truncated product of p-values (Fisher's method at `trunc=1`), and the
+  amplification of `Gamma` into two odds ratios.
+- **`sp.two_criteria_match`**: optimal matching by minimum-cost flow with one
+  distance for pairing and another for balance. Fine and near-fine balance,
+  near-exact matching, symmetric and directional calipers, rank-based
+  Mahalanobis distance, 1:k matching, a cost for using a control, and
+  optimal subset matching. The solver is a compiled successive-shortest-path
+  routine. On the book's largest match (206 treated, 3,919 controls) it takes
+  half a second and reaches the value an LP solver reaches. `iTOS::makematch`
+  truncates every cost to an integer before solving (inside
+  `rcbalance::callrelax`); on truncated costs the two optimal values are the
+  same number, and on the costs as given the StatsPAI match is the cheaper
+  one (268.1 against 326.8).
+- **`sp.tighten_blocks`**: tightens a block design into smaller or fewer
+  blocks balanced on further covariates, with controls kept in their block.
+- **`sp.balance_vs_randomization`**: balance of a matched sample set against
+  simulated completely randomized experiments on the same individuals.
+- 25 bibliography entries, each checked against the Crossref API and
+  OpenAlex (refs verified via Crossref, OpenAlex and doi.org content
+  negotiation; page ranges that none of the registries carry are left out).
+
 ### A very small never-treated group is now announced
 
 #### Changed

@@ -106,6 +106,29 @@ r = sp.ipw(df, y='y', treat='d', covariates=['x1', 'x2'],
 With `ties='all'` every control at the smallest score distance is kept.
 Units with the same covariates have the same score, so they tie.
 
+### Matched sets as a design
+
+When the matched sample itself is the product (matched sets you will
+report, balance tables, an outcome analysis by set), build it with
+`sp.two_criteria_match`. It is optimal matching with several controls per
+treated unit, near-exact matching, calipers and fine balance, and it does
+not look at the outcome.
+
+```python
+m = sp.two_criteria_match(
+    df, 'd', ps=['x1', 'x2', 'x3'], ratio=2,
+    pair=[{'type': 'mahalanobis', 'on': ['x1', 'x2']},
+          {'type': 'caliper', 'on': 'pscore', 'penalty': 100}],
+    balance=[{'type': 'near_exact', 'on': 'x3'}])
+sp.balance_vs_randomization(m.matched, 'd', ['x1', 'x2', 'x3'])
+sp.weighted_rank('y', data=m.matched, treat='d', block='mset',
+                 gamma=[1, 1.5, 2])
+```
+
+The last call bounds the p-value under hidden bias of each size and
+reports the bias at which the conclusion would change. See
+[Matched designs and sensitivity analysis](observational_block_designs.md).
+
 ## 3. Covariate Balancing Propensity Score (CBPS)
 
 Imai-Ratkovic (2014). Fits the propensity score to balance covariates

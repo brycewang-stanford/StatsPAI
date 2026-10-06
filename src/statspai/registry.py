@@ -9786,6 +9786,623 @@ def _build_registry() -> None:
         )
     )
 
+    # -------------------------------------------------------------- #
+    #  Sensitivity analysis beyond matched pairs, and the design of
+    #  matched samples (Rosenbaum 2025, Introduction to the Theory of
+    #  Observational Studies)
+    # -------------------------------------------------------------- #
+    _GAMMA = ParamSpec(
+        "gamma",
+        "float | list[float]",
+        False,
+        1.0,
+        "Sensitivity parameter(s), >= 1: the factor by which two matched "
+        "individuals may differ in their odds of treatment because of an "
+        "unobserved covariate. 1 is a randomization test",
+    )
+    _ALT3 = ParamSpec(
+        "alternative",
+        "str",
+        False,
+        "greater",
+        "Direction of the effect; 'two-sided' doubles the smaller one-sided bound",
+        ["greater", "less", "two-sided"],
+    )
+    register(
+        FunctionSpec(
+            name="weighted_rank",
+            category="diagnostics",
+            description=(
+                "Sensitivity analysis for an observational block design (matched "
+                "sets with one or more treated individuals) using a weighted rank "
+                "statistic: bounds the p-value under hidden bias of magnitude "
+                "Gamma, solves for the Gamma at which the conclusion changes, and "
+                "optionally bounds the Hodges-Lehmann estimate and confidence "
+                "interval. Covers the stratified Wilcoxon and Quade tests, the "
+                "U-statistic weights with higher design sensitivity, the adaptive "
+                "choice among weights, and the test conditional on extreme "
+                "responses (R weightedRank: wgtRank, wgtRankCI, wgtRanktt, "
+                "dwgtRank, gwgtRank, gwgtRankC)."
+            ),
+            params=[
+                ParamSpec(
+                    "y",
+                    "array | str",
+                    True,
+                    None,
+                    "Blocks-by-individuals outcome array, or with data= the "
+                    "outcome column",
+                ),
+                ParamSpec("data", "DataFrame", False, None, "Long-format data"),
+                ParamSpec("treat", "str", False, None, "0/1 treatment column of data"),
+                ParamSpec(
+                    "block", "str", False, None, "Block identifier column of data"
+                ),
+                ParamSpec(
+                    "treated",
+                    "int | array",
+                    False,
+                    1,
+                    "For an array y: number of leading treated columns, or a 0/1 "
+                    "array of the shape of y",
+                ),
+                _GAMMA,
+                ParamSpec(
+                    "phi",
+                    "str | tuple | callable | list",
+                    False,
+                    "u868",
+                    "Block weight as a function of the block's dispersion rank: "
+                    "'wilcoxon', 'quade', 'u868', 'u878', 'u888', 'u858', 'mixed', "
+                    "a triple (m, m1, m2), or a callable. A list of two or more "
+                    "requests the adaptive test",
+                ),
+                _ALT3,
+                ParamSpec(
+                    "scores",
+                    "list[float]",
+                    False,
+                    None,
+                    "Within-block scores replacing the ranks 1..J",
+                ),
+                ParamSpec(
+                    "block_scale",
+                    "str",
+                    False,
+                    "range",
+                    "Dispersion by which blocks are ranked",
+                    ["range", "gap"],
+                ),
+                ParamSpec(
+                    "conditional",
+                    "bool",
+                    False,
+                    False,
+                    "Use only the largest and smallest response of each block",
+                ),
+                ParamSpec(
+                    "estimates",
+                    "bool",
+                    False,
+                    False,
+                    "Also bound the Hodges-Lehmann estimate and confidence interval",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+                ParamSpec(
+                    "bound",
+                    "str",
+                    False,
+                    "separable",
+                    "Separable approximation, or the Taylor bound that does not "
+                    "rely on it",
+                    ["separable", "taylor"],
+                ),
+            ],
+            returns="WeightedRankResult",
+            example="sp.weighted_rank(y, gamma=[1, 2, 3], phi='u878')",
+            tags=["sensitivity", "matching", "rosenbaum", "observational", "ranks"],
+            reference="rosenbaum2023bahadur; rosenbaum2011new; rosenbaum2025conditioning",
+            assumptions=[
+                "Blocks are matched for the observed covariates; within a block, "
+                "two individuals differ in their odds of treatment by at most Gamma",
+                "Under the null hypothesis the treatment changes no one's outcome",
+                "The interval for an effect assumes it is additive and constant",
+            ],
+            pre_conditions=[
+                "Every block has the same number of individuals",
+                "Each block used has at least one treated individual and one control",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="blocks must all have the same size",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Analyse each block size separately and combine the "
+                    "p-values with sp.truncated_product, or use "
+                    "sp.rosenbaum_stratified.",
+                    alternative="sp.rosenbaum_stratified",
+                ),
+            ],
+            alternatives=[
+                "rosenbaum_bounds",
+                "rosenbaum_stratified",
+                "sensemakr",
+                "evalue",
+            ],
+            not_recommended_when=[
+                "The matched sets vary in size — use sp.rosenbaum_stratified",
+                "The phi with the best p-value was picked after looking — pass "
+                "the candidates as a list so the choice is accounted for",
+            ],
+            typical_n_min=30,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="weighted_rank_power",
+            category="diagnostics",
+            description=(
+                "Jackknife estimate, from pilot blocks, of the power of a weighted "
+                "rank sensitivity analysis at each Gamma, for a study with "
+                "sample_ratio times as many blocks (R weightedRank::estPower). A "
+                "design tool for choosing weights and sample size."
+            ),
+            params=[
+                ParamSpec(
+                    "y", "array | str", True, None, "Outcomes, as in weighted_rank"
+                ),
+                ParamSpec("gammas", "list[float]", True, None, "Values of Gamma, >= 1"),
+                ParamSpec("data", "DataFrame", False, None, "Long-format data"),
+                ParamSpec("treat", "str", False, None, "0/1 treatment column"),
+                ParamSpec("block", "str", False, None, "Block identifier column"),
+                ParamSpec("treated", "int | array", False, 1, "Treated columns of y"),
+                ParamSpec(
+                    "phi", "str | tuple | callable", False, "u868", "Block weights"
+                ),
+                ParamSpec(
+                    "sample_ratio",
+                    "float",
+                    False,
+                    1.0,
+                    "Blocks planned divided by blocks observed",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the one-sided test"),
+            ],
+            returns="WeightedRankPowerResult",
+            example="sp.weighted_rank_power(y, gammas=[2, 3, 4], phi='u868')",
+            tags=["sensitivity", "power", "design", "rosenbaum"],
+            reference="rosenbaum2023bahadur",
+            assumptions=[
+                "Blocks are an independent sample from a population of blocks",
+                "The pilot data carry a treatment effect and no unmeasured bias",
+            ],
+            alternatives=["weighted_rank", "power"],
+            not_recommended_when=[
+                "Choosing phi by estimated power and then testing the same "
+                "outcomes — use the adaptive test, sp.weighted_rank(phi=[...])",
+            ],
+            typical_n_min=30,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="rosenbaum_stratified",
+            category="diagnostics",
+            description=(
+                "Rosenbaum bounds for a treated-versus-control comparison within "
+                "strata of any size and composition, or in one stratum (the "
+                "two-sample case): bounds the p-value of the sum of treated scores "
+                "under hidden bias Gamma (R senstrat and sen2sample)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per individual"),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec("treat", "str", True, None, "0/1 treatment column"),
+                ParamSpec(
+                    "strata", "str", False, None, "Stratum column; None for one stratum"
+                ),
+                _GAMMA,
+                ParamSpec(
+                    "score",
+                    "str",
+                    False,
+                    "rank",
+                    "Scores summed over the treated: overall ranks, within-stratum "
+                    "ranks, aligned ranks, or the outcome itself",
+                    ["rank", "stratum_rank", "aligned_rank", "raw"],
+                ),
+                _ALT3,
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+                ParamSpec(
+                    "bound",
+                    "str",
+                    False,
+                    "taylor",
+                    "Taylor bound (holds for any strata) or separable approximation",
+                    ["taylor", "separable"],
+                ),
+            ],
+            returns="SensitivityTestResult",
+            example='sp.rosenbaum_stratified(df, "y", "z", "stratum", gamma=1.5)',
+            tags=["sensitivity", "rosenbaum", "strata", "observational"],
+            reference="rosenbaum2018sensitivity; rosenbaum1990sensitivity",
+            assumptions=[
+                "Within a stratum, two individuals differ in their odds of "
+                "treatment by at most Gamma",
+                "Under the null hypothesis the treatment changes no one's outcome",
+            ],
+            pre_conditions=[
+                "At least one stratum holds both a treated individual and a control",
+            ],
+            alternatives=["weighted_rank", "rosenbaum_bounds", "sensemakr", "evalue"],
+            cost_profile=(
+                "Time O(sum over strata of N_s * n_treated_s) per Gamma; a "
+                "stratum of 2,000 with 500 treated takes about a tenth of a second."
+            ),
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="noether_test",
+            category="diagnostics",
+            description=(
+                "Sign test restricted to the matched pairs with the largest "
+                "absolute differences, with its exact bound under hidden bias "
+                "Gamma (R iTOS::noether). Less sensitive to unmeasured bias than "
+                "the sign test or Wilcoxon's test when the effect is not small."
+            ),
+            params=[
+                ParamSpec(
+                    "treated",
+                    "array",
+                    True,
+                    None,
+                    "Treated outcomes, or pair differences when control is omitted",
+                ),
+                ParamSpec("control", "array", False, None, "Control outcomes"),
+                ParamSpec(
+                    "f",
+                    "float",
+                    False,
+                    2 / 3,
+                    "Fraction of pairs set aside, 0 <= f < 1",
+                ),
+                _GAMMA,
+                _ALT3,
+                ParamSpec("alpha", "float", False, 0.05, "Level for gamma_critical"),
+            ],
+            returns="SensitivityTestResult",
+            example="sp.noether_test(treated, control, gamma=2)",
+            tags=["sensitivity", "rosenbaum", "pairs", "nonparametric"],
+            reference="noether1973some; rosenbaum2012exact",
+            assumptions=[
+                "Independent matched pairs",
+                "Within a pair the odds of treatment differ by at most Gamma",
+            ],
+            alternatives=["rosenbaum_bounds", "weighted_rank", "signrank"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="evidence_factors",
+            category="diagnostics",
+            description=(
+                "Two evidence factors from blocks with one treated individual and "
+                "one control from each of two control groups: treated versus the "
+                "first control, and the second control versus the other two, each "
+                "with its own sensitivity parameter, combined by the truncated "
+                "product (R weightedRank::ef2C)."
+            ),
+            params=[
+                ParamSpec(
+                    "y",
+                    "array",
+                    True,
+                    None,
+                    "I x 3 outcomes: treated, first control, second control",
+                ),
+                ParamSpec("gamma", "float", False, 1.0, "Bias allowed in factor 1"),
+                ParamSpec("upsilon", "float", False, 1.0, "Bias allowed in factor 2"),
+                ParamSpec(
+                    "alternative",
+                    "str",
+                    False,
+                    "greater",
+                    "Direction",
+                    ["greater", "less"],
+                ),
+                ParamSpec("trunc", "float", False, 0.2, "Truncation point"),
+                ParamSpec(
+                    "phi", "tuple", False, None, "Block weights of the two factors"
+                ),
+                ParamSpec(
+                    "scores", "list[float]", False, None, "Scores of the second factor"
+                ),
+                ParamSpec(
+                    "block_scale",
+                    "str",
+                    False,
+                    "gap",
+                    "Block dispersion of the second factor",
+                    ["gap", "range"],
+                ),
+            ],
+            returns="EvidenceFactorsResult",
+            example="sp.evidence_factors(y, gamma=2.3, upsilon=1.45)",
+            tags=["sensitivity", "rosenbaum", "control groups", "evidence factors"],
+            reference="rosenbaum2023second; rosenbaum2011some",
+            assumptions=[
+                "The second control group is not affected by the treatment",
+                "The two comparisons are open to different unmeasured biases",
+            ],
+            pre_conditions=["Three columns: treated, first control, second control"],
+            alternatives=["weighted_rank", "truncated_product"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="truncated_product",
+            category="inference",
+            description=(
+                "Combine independent p-values by the truncated product: the "
+                "product of those at most trunc, referred to its exact null "
+                "distribution. trunc=1 is Fisher's method (R "
+                "sensitivitymv::truncatedP)."
+            ),
+            params=[
+                ParamSpec("pvalues", "list[float]", True, None, "Independent p-values"),
+                ParamSpec("trunc", "float", False, 0.2, "Truncation point in (0, 1]"),
+            ],
+            returns="float",
+            example="sp.truncated_product([0.01, 0.3])",
+            tags=["inference", "meta-analysis", "p-values", "sensitivity"],
+            reference="zaykin2002truncated",
+            assumptions=[
+                "The p-values are independent, or jointly no smaller than that"
+            ],
+            alternatives=["adjust_pvalues"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="amplify",
+            category="diagnostics",
+            description=(
+                "Amplification of a sensitivity analysis: express the sensitivity "
+                "parameter Gamma of a matched-pair analysis as pairs (Lambda, "
+                "Delta), the factor by which an unobserved covariate multiplies "
+                "the odds of treatment and the odds of a positive outcome "
+                "difference (R iTOS::amplify)."
+            ),
+            params=[
+                ParamSpec("gamma", "float", True, None, "Sensitivity parameter, > 1"),
+                ParamSpec(
+                    "treatment_odds",
+                    "float | list[float]",
+                    True,
+                    None,
+                    "Lambda: effect on the odds of treatment, each > gamma",
+                ),
+            ],
+            returns="float | ndarray",
+            example="sp.amplify(4, 7)",
+            tags=["sensitivity", "rosenbaum", "interpretation"],
+            reference="rosenbaum2009amplification",
+            alternatives=["evalue"],
+        )
+    )
+
+    _TERMS = (
+        "list of cost terms, each a dict with 'type' in mahalanobis / near_exact "
+        "/ integer / caliper / quantile, the column(s) it is 'on' and a 'penalty'; "
+        "or a treated-by-control matrix"
+    )
+    register(
+        FunctionSpec(
+            name="two_criteria_match",
+            category="causal",
+            description=(
+                "Optimal matching by minimum-cost flow with two distances: one "
+                "decides who is paired with whom, the other only which controls "
+                "are selected, so that covariates can be matched closely within "
+                "sets or balanced between groups. Fine and near-fine balance, "
+                "near-exact matching, calipers, directional penalties, 1:k "
+                "matching and optimal subset matching (R iTOS::makematch). "
+                "Outcomes are not used."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per unit"),
+                ParamSpec("treat", "str", True, None, "0/1 treatment column"),
+                ParamSpec(
+                    "pair",
+                    "list[dict] | array",
+                    False,
+                    None,
+                    "Pairing distance: " + _TERMS,
+                ),
+                ParamSpec(
+                    "balance",
+                    "list[dict] | array",
+                    False,
+                    None,
+                    "Balance distance: " + _TERMS,
+                ),
+                ParamSpec("ratio", "int", False, 1, "Controls per treated unit"),
+                ParamSpec(
+                    "ps",
+                    "str | list[str]",
+                    False,
+                    None,
+                    "Propensity score column, or covariates of a logit fitted to "
+                    "make one; terms refer to it as 'pscore'",
+                ),
+                ParamSpec(
+                    "control_cost",
+                    "str | array",
+                    False,
+                    None,
+                    "Non-negative cost of using each control",
+                ),
+                ParamSpec(
+                    "subset_cost",
+                    "float",
+                    False,
+                    None,
+                    "Price of leaving a treated unit unmatched (ratio=1)",
+                ),
+            ],
+            returns="TwoCriteriaMatchResult",
+            example=(
+                'sp.two_criteria_match(df, "z", ps=["age", "female"], '
+                'pair=[{"type": "mahalanobis", "on": ["age", "female"]}], '
+                'balance=[{"type": "near_exact", "on": "female"}])'
+            ),
+            tags=["matching", "design", "fine balance", "optimal", "observational"],
+            reference="zhang2023matching; rosenbaum1989optimal; rosenbaum2007minimum",
+            assumptions=[
+                "Matching removes bias from the covariates it balances and from "
+                "nothing else; unmeasured bias is the business of a sensitivity "
+                "analysis",
+            ],
+            pre_conditions=[
+                "At least ratio controls per treated unit, unless subset_cost is given",
+                "Columns used by the terms have no missing values",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="cannot give each treated unit ratio distinct controls",
+                    exception="statspai.DataInsufficient",
+                    remedy="Lower ratio or pass subset_cost.",
+                ),
+                FailureMode(
+                    symptom="too many pairs for dense cost matrices",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Match within exact strata of a coarse covariate.",
+                    alternative="sp.match",
+                ),
+            ],
+            alternatives=[
+                "optimal_match",
+                "cardinality_match",
+                "match",
+                "tighten_blocks",
+            ],
+            cost_profile=(
+                "Memory O(n_treated * n_control) for two dense cost matrices "
+                "(refused above 6e7 cells); 206 treated by 3,919 controls solves "
+                "in about half a second."
+            ),
+            not_recommended_when=[
+                "An effect estimate is wanted in the same call — this builds "
+                "the design; analyse .matched afterwards, e.g. with sp.weighted_rank",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="tighten_blocks",
+            category="causal",
+            description=(
+                "Tighten an existing block design (one treated individual and "
+                "several controls per block) into smaller or fewer blocks that "
+                "are also balanced on further covariates, keeping controls within "
+                "their own block (R tightenBlock::tighten)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "The block design"),
+                ParamSpec("treat", "str", True, None, "0/1 treatment column"),
+                ParamSpec("block", "str", True, None, "Block identifier"),
+                ParamSpec(
+                    "covariates",
+                    "list[str]",
+                    False,
+                    None,
+                    "Covariates of the within-block Mahalanobis distance",
+                ),
+                ParamSpec(
+                    "fine_balance",
+                    "list[str]",
+                    False,
+                    None,
+                    "Nominal covariates to balance between the retained groups",
+                ),
+                ParamSpec("ratio", "int", False, 1, "Controls kept per block"),
+                ParamSpec(
+                    "subset_cost", "float", False, None, "Price of dropping a block"
+                ),
+                ParamSpec(
+                    "penalty_scale",
+                    "float",
+                    False,
+                    10.0,
+                    "Factor separating priorities",
+                ),
+            ],
+            returns="TwoCriteriaMatchResult",
+            example=(
+                'sp.tighten_blocks(df, "z", "block", covariates=["age"], '
+                'fine_balance=["bmi_cat"], ratio=2)'
+            ),
+            tags=["matching", "design", "blocks", "fine balance"],
+            reference="rosenbaum2012optimal; zhang2023matching",
+            pre_conditions=[
+                "Every block holds exactly one treated individual and at least "
+                "ratio controls",
+            ],
+            alternatives=["two_criteria_match"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="balance_vs_randomization",
+            category="causal",
+            description=(
+                "Judge the covariate balance of a matched sample against the "
+                "balance complete randomization would produce: two-sample tests "
+                "per covariate, their minimum and truncated product, and the share "
+                "of simulated randomized experiments that are better balanced (R "
+                "iTOS::evalBal)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "The matched sample"),
+                ParamSpec("treat", "str", True, None, "0/1 treatment column"),
+                ParamSpec("covariates", "list[str]", True, None, "Numeric covariates"),
+                ParamSpec("n_sim", "int", False, 1000, "Simulated experiments"),
+                ParamSpec(
+                    "test",
+                    "str",
+                    False,
+                    "auto",
+                    "Two-sample test; 'auto' is chi-square for covariates with at "
+                    "most max_levels values and Wilcoxon otherwise",
+                    ["auto", "wilcoxon", "t"],
+                ),
+                ParamSpec("max_levels", "int", False, 2, "See test"),
+                ParamSpec("trunc", "float", False, 0.2, "Truncation of the product"),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "Threshold for small p-values"
+                ),
+                ParamSpec("random_state", "int", False, None, "Seed"),
+            ],
+            returns="BalanceRandomizationResult",
+            example='sp.balance_vs_randomization(matched, "z", ["age", "female"])',
+            tags=["matching", "balance", "diagnostics", "randomization"],
+            reference="hansen2008covariate; pimentel2015large",
+            alternatives=["balance_diagnostics", "ps_balance", "love_plot"],
+            not_recommended_when=[
+                "Reading the p-values as tests — they are a yardstick; a matched "
+                "sample was not randomized",
+            ],
+        )
+    )
+
     register(
         FunctionSpec(
             name="kwallis",

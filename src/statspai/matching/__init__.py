@@ -43,6 +43,7 @@ from typing import Any, Dict, List, Optional
 from .._aliases import accepts_aliases
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import MethodIncompatibility
+from .balance_randomization import BalanceRandomizationResult, balance_vs_randomization
 from .cbps import cbps
 from .ebalance import ebalance
 from .genmatch import GenMatchResult, genmatch
@@ -73,6 +74,7 @@ from .ps_weights import energy_distance, ess, implied_weights, ps_weights
 from .pscore import PScoreResult, pscore
 from .psmatch2 import PSMatch2Result, PSTestResult, psmatch2
 from .sbw import SBWResult, sbw
+from .two_criteria import TwoCriteriaMatchResult, tighten_blocks, two_criteria_match
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Unified dispatcher — sp.match(..., method=...)
@@ -379,6 +381,11 @@ __all__ = [
     "cardinality_match",
     "OptimalMatchResult",
     "CardinalityMatchResult",
+    "two_criteria_match",
+    "tighten_blocks",
+    "TwoCriteriaMatchResult",
+    "balance_vs_randomization",
+    "BalanceRandomizationResult",
     "ps_weights",
     "ess",
     "energy_distance",

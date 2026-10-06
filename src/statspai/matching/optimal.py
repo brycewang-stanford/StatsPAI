@@ -191,6 +191,11 @@ def optimal_match(
     caliper : float, optional
         Drop any pair with distance greater than ``caliper``.
 
+    See Also
+    --------
+    two_criteria_match : optimal matching with several controls per treated
+        unit, fine balance, near-exact matching and penalised calipers.
+
     Examples
     --------
     Simulated observational data with two confounders (true ATT = 2):

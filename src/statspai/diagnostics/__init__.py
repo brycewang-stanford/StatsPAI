@@ -16,6 +16,15 @@ from .influence import influence_measures, logit_gof, logit_influence
 from .late_test import KitagawaResult, kitagawa_test
 from .rddensity import rddensity
 from .rosenbaum import RosenbaumResult, rosenbaum_bounds, rosenbaum_gamma
+from .rosenbaum_strata import (
+    EvidenceFactorsResult,
+    SensitivityTestResult,
+    amplify,
+    evidence_factors,
+    noether_test,
+    rosenbaum_stratified,
+    truncated_product,
+)
 from .sensemakr import sensemakr
 from .sensitivity import mccrary_test, oster_bounds
 from .tests import diagnose, het_test, reset_test, vif
@@ -26,6 +35,12 @@ from .weak_iv import (
     effective_f_test,
     tF_critical_value,
     weakrobust,
+)
+from .weighted_rank import (
+    WeightedRankPowerResult,
+    WeightedRankResult,
+    weighted_rank,
+    weighted_rank_power,
 )
 
 __all__ = [
@@ -62,4 +77,15 @@ __all__ = [
     "rosenbaum_bounds",
     "rosenbaum_gamma",
     "RosenbaumResult",
+    "weighted_rank",
+    "weighted_rank_power",
+    "WeightedRankResult",
+    "WeightedRankPowerResult",
+    "rosenbaum_stratified",
+    "noether_test",
+    "evidence_factors",
+    "truncated_product",
+    "amplify",
+    "SensitivityTestResult",
+    "EvidenceFactorsResult",
 ]
