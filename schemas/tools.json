@@ -21064,6 +21064,88 @@
     "name": "model_average"
   },
   {
+    "description": "Multinomial probit choice model for long data (one row per case and alternative): regressors that vary over alternatives, case-specific regressors with one coefficient per alternative, and jointly normal errors with an independent or unstructured covariance. The choice probabilities are integrated by Gauss-Legendre quadrature when there are at most four alternatives, so the likelihood has no simulation noise and no seed. Parameterised and normalised as Stata cmmprobit, whose simulated estimates it reproduces to three or four digits. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Independence of irrelevant alternatives is acceptable -- sp.clogit is far cheaper and its coefficients are odds ratios; More than four alternatives with an unstructured covariance -- the probabilities are then simulated and the covariance is rarely identified in practice. Assumptions: Every case faces the same set of alternatives; Errors are jointly normal across alternatives and independent across cases. Failure modes: ConvergenceWarning, or NumericalInstability: the information matrix is singular -> The covariance parameters of an...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "alt": {
+          "description": "Alternatives variable",
+          "type": "string"
+        },
+        "base": {
+          "description": "Alternative fixing location",
+          "type": "string"
+        },
+        "case_vars": {
+          "description": "Case-specific regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "chid": {
+          "description": "Case identifier",
+          "type": "string"
+        },
+        "constants": {
+          "default": true,
+          "description": "Alternative-specific constants",
+          "type": "boolean"
+        },
+        "correlation": {
+          "default": "unstructured",
+          "description": "Correlation of the errors",
+          "enum": [
+            "unstructured",
+            "independent"
+          ],
+          "type": "string"
+        },
+        "n_points": {
+          "description": "Quadrature points per dimension",
+          "type": "integer"
+        },
+        "scale": {
+          "description": "Alternative fixing scale",
+          "type": "string"
+        },
+        "stddev": {
+          "default": "heteroskedastic",
+          "description": "Standard deviations of the errors",
+          "enum": [
+            "heteroskedastic",
+            "homoskedastic"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Alternative-specific regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "1 on the chosen alternative",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "alt",
+        "chid",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "mprobit"
+  },
+  {
     "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence. Assumptions: Relevance: SNPs predict exposure (F-statistic >= 10 per SNP or set-F); Independence: SNPs perp confounders of exposure-outcome; Exclusion restriction: SNPs affect outcome only through exposure (InSIDE for Egger; >= 50% valid for median; modal for mode-based). Pre-conditions: SNP-summary statistics for exposure and outcome aligned by SNP; beta_exposure / beta_outcome / se_exposure / se_outcome arrays of equal length; >= 10 genetic instruments for reliable IVW/median/mode; >= 20 for robust Egger intercept. Failure modes: Egger intercept p < 0.05 -- directional pleiotropy -> Use weighted-median or mode-based estimator; report Egger intercept + I2 as pleiotropy diagnostic; Q-statistic rejects homogeneity (Co...",
     "input_schema": {
       "properties": {
@@ -21892,6 +21974,10 @@
           "description": "Alternative id",
           "type": "string"
         },
+        "base": {
+          "description": "Alternative whose constant is zero (default: first)",
+          "type": "string"
+        },
         "chid": {
           "description": "Choice-situation id",
           "type": "string"
@@ -21910,6 +21996,10 @@
           "default": true,
           "description": "Alternative-specific constants (first alternative is the base)",
           "type": "boolean"
+        },
+        "fixed_lambda": {
+          "description": "{nest: value}: dissimilarity parameters held fixed",
+          "type": "object"
         },
         "nests": {
           "description": "{nest name: [alternatives]}; every alternative in exactly one nest",
@@ -38212,6 +38302,20 @@
         },
         "id": {
           "description": "Unit identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "method": {
+          "default": "ht",
+          "description": "Hausman-Taylor, or Amemiya-MaCurdy (balanced panels)",
+          "enum": [
+            "ht",
+            "amacurdy"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Period identifier (for amacurdy)",
           "type": "string",
           "x-statspai-role": "column"
         },

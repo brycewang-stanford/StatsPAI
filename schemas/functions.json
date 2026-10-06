@@ -801,6 +801,10 @@
           "description": "Alternative id",
           "type": "string"
         },
+        "base": {
+          "description": "Alternative whose constant is zero (default: first)",
+          "type": "string"
+        },
         "chid": {
           "description": "Choice-situation id",
           "type": "string"
@@ -824,6 +828,10 @@
           "description": "Long format",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "fixed_lambda": {
+          "description": "{nest: value}: dissimilarity parameters held fixed",
+          "type": "object"
         },
         "nests": {
           "description": "{nest name: [alternatives]}; every alternative in exactly one nest",
@@ -5322,6 +5330,183 @@
     }
   },
   {
+    "description": "Series (sieve) regression of y on a flexible function of one variable, a polynomial or a spline, with other regressors entering linearly. The polynomial degree or the number of knots is chosen by leave-one-out cross-validation, computed from the leverages without refitting. Returns the fitted function and its derivative on a grid with pointwise standard errors, and the cross-validation table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Behaviour at the edge of the support matters and the basis is a high-order polynomial -- use a spline or sp.lpoly; Several regressors need a flexible form -- use sp.gam.",
+    "name": "series",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "basis": {
+          "default": "polynomial",
+          "description": "Basis of the approximation",
+          "enum": [
+            "polynomial",
+            "spline"
+          ],
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Column to cluster on",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "The data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "degree": {
+          "default": 3,
+          "description": "Degree of the spline pieces",
+          "type": "integer"
+        },
+        "formula": {
+          "description": "'y ~ 1' or 'y ~ z1 + z2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "grid": {
+          "description": "Where the function is shown",
+          "type": "integer"
+        },
+        "knots": {
+          "default": "quantile",
+          "description": "Knot placement",
+          "enum": [
+            "quantile",
+            "uniform"
+          ],
+          "type": "string"
+        },
+        "order": {
+          "description": "Polynomial degree or number of knots (default: by CV)",
+          "type": "integer"
+        },
+        "orders": {
+          "description": "Candidates for cross-validation",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "vce": {
+          "default": "robust",
+          "description": "Covariance estimator ('robust' is HC1)",
+          "enum": [
+            "robust",
+            "ols",
+            "hc0",
+            "hc2",
+            "hc3"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Variable with a flexible effect",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "formula",
+        "data",
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Multinomial probit choice model for long data (one row per case and alternative): regressors that vary over alternatives, case-specific regressors with one coefficient per alternative, and jointly normal errors with an independent or unstructured covariance. The choice probabilities are integrated by Gauss-Legendre quadrature when there are at most four alternatives, so the likelihood has no simulation noise and no seed. Parameterised and normalised as Stata cmmprobit, whose simulated estimates it reproduces to three or four digits. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Independence of irrelevant alternatives is acceptable -- sp.clogit is far cheaper and its coefficients are odds ratios; More than four alternatives with an unstructured covariance -- the probabilities are then simulated and the covariance is rarely identified in practice.",
+    "name": "mprobit",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "alt": {
+          "description": "Alternatives variable",
+          "type": "string"
+        },
+        "base": {
+          "description": "Alternative fixing location",
+          "type": "string"
+        },
+        "case_vars": {
+          "description": "Case-specific regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "chid": {
+          "description": "Case identifier",
+          "type": "string"
+        },
+        "constants": {
+          "default": true,
+          "description": "Alternative-specific constants",
+          "type": "boolean"
+        },
+        "correlation": {
+          "default": "unstructured",
+          "description": "Correlation of the errors",
+          "enum": [
+            "unstructured",
+            "independent"
+          ],
+          "type": "string"
+        },
+        "data": {
+          "description": "Long-form choice data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "n_points": {
+          "description": "Quadrature points per dimension",
+          "type": "integer"
+        },
+        "scale": {
+          "description": "Alternative fixing scale",
+          "type": "string"
+        },
+        "stddev": {
+          "default": "heteroskedastic",
+          "description": "Standard deviations of the errors",
+          "enum": [
+            "heteroskedastic",
+            "homoskedastic"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Alternative-specific regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "1 on the chosen alternative",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "chid",
+        "alt"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Threshold regression with an unknown threshold: the intercept and the coefficients named in regime= change when the threshold variable crosses gamma, which is estimated by least squares over candidate values. kink=True fits the continuous model in which only the slope of the threshold variable changes. Threshold model: likelihood-ratio confidence interval for gamma (Hansen 2000), coefficient standard errors given gamma; reproduces Stata threshold. Kink model: gamma is jointly normal with the slopes and gets a standard error (Hansen 2017); reproduces Stata nl at the global minimum. n_boot= adds a multiplier-bootstrap test of the linear model. absorb= removes fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The break is in time and its date is the object -- use sp.structural_break; The threshold is known -- interact a dummy in sp.regress; the usual standard errors are then exact; The linearity test does not reject -- the threshold and its interval describe noise.",
     "name": "threshold",
     "parameters": {
@@ -5441,6 +5626,20 @@
         },
         "id": {
           "description": "Unit identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "method": {
+          "default": "ht",
+          "description": "Hausman-Taylor, or Amemiya-MaCurdy (balanced panels)",
+          "enum": [
+            "ht",
+            "amacurdy"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Period identifier (for amacurdy)",
           "type": "string",
           "x-statspai-role": "column"
         },

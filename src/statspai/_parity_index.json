@@ -12731,6 +12731,23 @@
       "tolerance": "Statistic 5e-16; the p-value at 1e-7 once X is supplied so the Cliff-Ord regression-residual null can be formed. Both spdep alternatives are recorded because lm.morantest defaults to one-sided."
     },
     {
+      "function": "mprobit",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_mr_ivw_parity.py"
       ],
@@ -19409,6 +19426,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_synth_rest_R_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "series",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_hansen_econometrics_logs.py"
       ],
       "tolerance": ""
     },

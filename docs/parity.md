@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 411 |
 | | aligned | 52 |
 | | **subtotal** | **463** |
-| **No external software reference** | analytical-only (T1) | 351 |
-| | external-replication (published numbers) | 54 |
-| | **subtotal** | **405** |
+| **No external software reference** | analytical-only (T1) | 352 |
+| | external-replication (published numbers) | 55 |
+| | **subtotal** | **407** |
 | No numerical evidence yet | unverified | 563 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 463 | 852 | 856 | 54.1% |
+| estimator callables | 463 | 854 | 858 | 54.0% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 355 | 0.0% |
-| **all registered** | 463 | 868 | 1431 | 32.4% |
+| **all registered** | 463 | 870 | 1433 | 32.3% |
 
 ### Coverage by estimator family
 
@@ -53,7 +53,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
 | causal | 151 | 333 | 335 |
-| regression | 43 | 55 | 55 |
+| regression | 43 | 56 | 56 |
 | inference | 28 | 47 | 47 |
 | timeseries | 12 | 38 | 38 |
 | panel | 28 | 34 | 34 |
@@ -66,12 +66,12 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | epi | 16 | 17 | 17 |
 | power | 7 | 12 | 12 |
 | structural | 6 | 11 | 11 |
+| nonparametric | 2 | 9 | 9 |
 | robustness | 4 | 9 | 9 |
 | dag | 2 | 9 | 9 |
 | conformal_causal | 0 | 9 | 9 |
 | survival | 8 | 9 | 9 |
 | frontier | 5 | 9 | 9 |
-| nonparametric | 2 | 8 | 8 |
 | causal_discovery | 2 | 7 | 7 |
 | postestimation | 6 | 7 | 7 |
 | experimental | 3 | 6 | 7 |
@@ -574,7 +574,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 54 functions
+## external-replication — 55 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -619,6 +619,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `reconcile` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `refute` | [`test_ness_causal_ai.py`](../tests/external_parity/test_ness_causal_ai.py) |
 | `rolling` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
+| `series` | [`test_hansen_econometrics_logs.py`](../tests/external_parity/test_hansen_econometrics_logs.py) |
 | `shrinkage` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) |
 | `simple_forecast` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `stepwise` | [`test_ding_linear_model.py`](../tests/external_parity/test_ding_linear_model.py) |
@@ -635,7 +636,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 351 functions
+## analytical-only — 352 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -833,6 +834,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `ml_bounds` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `mmhc` | [`test_mmhc_bnlearn_parity.py`](../tests/reference_parity/test_mmhc_bnlearn_parity.py) |
 | `model_average` | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) |
+| `mprobit` | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) |
 | `mr_clust` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `mr_lap` | [`test_mr_lap_parity.py`](../tests/reference_parity/test_mr_lap_parity.py) |
 | `multi_arm_forest` | [`test_grf_family_statistical_parity.py`](../tests/reference_parity/test_grf_family_statistical_parity.py) |
