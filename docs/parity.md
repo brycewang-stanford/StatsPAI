@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 409 |
+| **Compared against R/Stata** (T2) | bit-exact | 410 |
 | | aligned | 52 |
-| | **subtotal** | **461** |
-| **No external software reference** | analytical-only (T1) | 345 |
+| | **subtotal** | **462** |
+| **No external software reference** | analytical-only (T1) | 346 |
 | | external-replication (published numbers) | 54 |
-| | **subtotal** | **399** |
-| No numerical evidence yet | unverified | 566 |
+| | **subtotal** | **400** |
+| No numerical evidence yet | unverified | 567 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 461 | 844 | 851 | 54.2% |
+| estimator callables | 462 | 846 | 854 | 54.1% |
 | infrastructure (parity N/A) | 0 | 13 | 220 | 0.0% |
 | result / exception classes | 0 | 3 | 355 | 0.0% |
-| **all registered** | 461 | 860 | 1426 | 32.3% |
+| **all registered** | 462 | 862 | 1429 | 32.3% |
 
 ### Coverage by estimator family
 
@@ -80,10 +80,10 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | interference | 0 | 6 | 6 |
 | fairness | 0 | 6 | 6 |
 | neural_causal | 0 | 5 | 5 |
+| causal_discovery | 1 | 5 | 5 |
 | longitudinal | 0 | 5 | 5 |
 | bartik | 4 | 4 | 4 |
 | other | 2 | 4 | 4 |
-| causal_discovery | 0 | 3 | 3 |
 | surrogate | 0 | 3 | 3 |
 | causal_rl | 0 | 3 | 3 |
 | assimilation | 0 | 3 | 3 |
@@ -93,10 +93,11 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | ope | 0 | 2 | 2 |
 | causal_text | 0 | 1 | 2 |
 | mediation | 2 | 2 | 2 |
+| forest | 0 | 0 | 1 |
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 409 functions
+## bit-exact — 410 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -201,7 +202,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `event_study_vcov` | did::aggte(type='dynamic') 2.3.0 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1; etwfe::emfx(type='event') 0.6.2; Stata 18 did_imputation (Borusyak, SSC, 2023-11-22) | R 4.5.2; did 2.3.0; fixest 0.14.0; did2s 1.2.1; etwfe 0.6.2; marginaleffects 0.32.0; Stata 18 | full joint covariance (every off-diagonal entry) 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 6.7e-11 did2s), 1e-8 did_imputation (observed 1.2e-9), 1e-6 etwfe (observed 3.4e-9 not-yet / 8.1e-8 never); coefficients 1e-9 (observed <= 3.3e-10) | — / — | [`test_event_study_vcov_R_parity.py`](../tests/reference_parity/test_event_study_vcov_R_parity.py) (+3) |
 | `fairlie` | Stata fairlie 1.0.7 (Jann, SSC) | Stata 18.0 MP; fairlie 1.0.7 16jun2008 (SSC) | tightly converged logit/probit: contributions and SEs 1e-12 rel (observed 4.5e-15 / 5.4e-14); at Stata's default logit tolerance contributions 1e-8 and SEs 1e-5 (observed 1.6e-10 / 1.6e-6) | — / — | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) (+1) |
 | `fama_macbeth` | plm::pmg; sandwich::NeweyWest on the coefficient series; Stata 18 xtfmb (with and without lag()) | R 4.5.2; plm 2.6.7; sandwich 3.1.1; Stata 18 | coefficients, covariance and Newey-West SE 1e-9 rel (R); 1e-6 rel (xtfmb keeps the per-period estimates as floats) | — / — | [`test_accounting_research_parity.py`](../tests/reference_parity/test_accounting_research_parity.py) (+2) |
-| `fci` | pcalg::fci(skel.method = 'stable') with gaussCItest | R 4.5.2; pcalg 2.7.12 | partial ancestral graphs compared for equality, every edge with the mark at each end, on three designs | — / — | [`test_ness_causal_ai_parity.py`](../tests/reference_parity/test_ness_causal_ai_parity.py) (+1) |
+| `fci` | pcalg::fci(skel.method = 'stable') with gaussCItest | R 4.5.2; pcalg 2.7.12 | partial ancestral graphs compared for equality, every edge with the mark at each end, on 39 data sets | — / — | [`test_fci_pcalg_parity.py`](../tests/reference_parity/test_fci_pcalg_parity.py) (+3) |
 | `fect` | fect::fect(Y ~ D + X1 + X2, method=, force="two-way", se=FALSE, CV=FALSE, tol=1e-12, max.iteration=20000); Stata side uses the authors' fect_stata (GitHub, installed into a local ado path) | R 4.5.2; fect 2.4.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.8e-13 / 9.8e-10 | [`86_fect.py`](../tests/r_parity/86_fect.py) (+2) |
 | `feglm` | fixest::feglm (family="logit") / fixest::fepois | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=5e-05 | 9.7e-09 / 1.8e-09 | [`67_panel_glm.py`](../tests/r_parity/67_panel_glm.py) (+2) |
 | `feols` | fixest::feols | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=1e-06 | 5.2e-15 / 2.9e-15 | [`03_hdfe.py`](../tests/r_parity/03_hdfe.py) (+3) |
@@ -240,6 +241,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `heidel_diag` | coda::heidel.diag | R 4.5.2; coda 0.19.4.1 | stationarity decision and start equal; p-value, mean and half-width 1e-9 rel | — / — | [`test_bayes_mcmc_parity.py`](../tests/reference_parity/test_bayes_mcmc_parity.py) (+1) |
 | `het_test` | lmtest::bptest (studentized Breusch-Pagan) | R 4.5.2; lmtest 0.9.40 | statistic & p-value 1e-10 rel (observed ~1e-13) | — / — | [`test_diagnostics_parity.py`](../tests/reference_parity/test_diagnostics_parity.py) (+1) |
 | `heterogeneity_of_effect` | R metafor::rma(method = 'DL') | metafor 5.0.1 | 1e-12 rel | — / — | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
+| `hill_climb` | R bnlearn::score(type = "bic" / "bic-g") and hc() | R 4.5.2; bnlearn 5.2.1 | BIC of eight fixed graphs 1e-12 rel; the score hc() ends at 1e-10 rel on the two fixture data sets | — / — | [`test_hill_climb_bnlearn_parity.py`](../tests/reference_parity/test_hill_climb_bnlearn_parity.py) (+1) |
 | `holm` | base R stats::p.adjust(method='holm') | R 4.5.2 | exact (atol 1e-15; observed 0) | — / — | [`test_mht_parity.py`](../tests/reference_parity/test_mht_parity.py) (+1) |
 | `honest_did` | HonestDiD::createSensitivityResults (exact quantile) + closed form at M = 0 | R 4.5.2; HonestDiD 0.2.8 | abs_est<=1e-06, abs_se<=1e-06 | 1.4e-08 / 9.4e-09 | [`10_honest_did.py`](../tests/r_parity/10_honest_did.py) (+2) |
 | `horowitz_manski` | Stata tebounds 1.8 worst-case bounds (identical estimand for ATE worst-case bounds) | Stata 18; tebounds 1.8 (SJ15-2 st0386) | 1e-12 rel / 1e-15 abs on both bounds | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
@@ -632,7 +634,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 345 functions
+## analytical-only — 346 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -669,6 +671,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `bidirectional_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `bjs_pretrend_joint` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `bootstrap` | [`test_bootstrap_parity.py`](../tests/reference_parity/test_bootstrap_parity.py) |
+| `bootstrap_edges` | [`test_hill_climb_bnlearn_parity.py`](../tests/reference_parity/test_hill_climb_bnlearn_parity.py) |
 | `boundary_rd` | [`test_rd_open_R_parity.py`](../tests/reference_parity/test_rd_open_R_parity.py) |
 | `bradford_hill` | [`test_bradford_hill_parity.py`](../tests/reference_parity/test_bradford_hill_parity.py) |
 | `breakdown_frontier` | [`test_breakdown_frontier_parity.py`](../tests/reference_parity/test_breakdown_frontier_parity.py) |
@@ -984,6 +987,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 566 functions
+## unverified — 567 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

@@ -6914,6 +6914,192 @@
     }
   },
   {
+    "description": "Score-based structure learning: greedy hill climbing over DAGs (add, delete or reverse one arc at a time) on the BIC, for categorical data (multinomial BIC) or continuous data (linear-Gaussian BIC). R bnlearn::hc; the score equals bnlearn's. Returns the DAG, its equivalence class (CPDAG) and the score. Assumes no hidden common causes. Validation: certified parity evidence.",
+    "name": "hill_climb",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "data_type": {
+          "default": "auto",
+          "description": "Treat columns as categorical or continuous; 'auto' refuses a mixture",
+          "enum": [
+            "auto",
+            "discrete",
+            "gaussian"
+          ],
+          "type": "string"
+        },
+        "forbidden": {
+          "description": "Arcs (from, to) not allowed",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "max_iter": {
+          "default": 10000,
+          "description": "Iteration cap",
+          "type": "integer"
+        },
+        "max_parents": {
+          "description": "Cap on parents",
+          "type": "integer"
+        },
+        "perturb": {
+          "default": 3,
+          "description": "Arc changes per restart",
+          "type": "integer"
+        },
+        "required": {
+          "description": "Arcs (from, to) that must be in",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "restarts": {
+          "default": 0,
+          "description": "Random restarts",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Seed of the restarts",
+          "type": "integer"
+        },
+        "variables": {
+          "description": "Columns to use",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Stability of a learned graph: refit a structure-learning algorithm (pc, hill_climb, ges, fci, lingam, notears or a callable) on bootstrap resamples and report, for each pair of variables, the share of resamples in which they are adjacent (strength) and the share in which the arc points each way (direction). R bnlearn::boot.strength. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "bootstrap_edges",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "method": {
+          "default": "pc",
+          "description": "Algorithm name, or a callable taking a DataFrame",
+          "enum": [
+            "pc",
+            "hill_climb",
+            "ges",
+            "fci",
+            "lingam",
+            "notears"
+          ],
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Bootstrap resamples",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Random seed",
+          "type": "integer"
+        },
+        "threshold": {
+          "default": 0.5,
+          "description": "Strength to call an edge stable",
+          "type": "number"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Choose causal-forest settings (minimum leaf size, sample fraction, mtry, honesty options) by random search on the out-of-bag R-loss, then fit the forest. A tuned setting is adopted only if it beats the defaults by more than twice the noise of the comparison. The criterion of grf's tune.parameters. Helps most when the effect varies little; it is not a free improvement. ",
+    "name": "tune_causal_forest",
+    "parameters": {
+      "properties": {
+        "T": {
+          "description": "Treatment",
+          "type": "string"
+        },
+        "X": {
+          "description": "Covariates",
+          "type": "string",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "Y": {
+          "description": "Outcome",
+          "type": "string"
+        },
+        "data": {
+          "description": "Data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "formula": {
+          "description": "y ~ treat | covariates",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "n_draws": {
+          "default": 40,
+          "description": "Random settings tried",
+          "type": "integer"
+        },
+        "n_estimators": {
+          "default": 2000,
+          "description": "Trees in the final forest",
+          "type": "integer"
+        },
+        "parameters": {
+          "default": [
+            "min_samples_leaf",
+            "max_samples",
+            "mtry"
+          ],
+          "description": "Settings to tune",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "random_state": {
+          "description": "Seed",
+          "type": "integer"
+        },
+        "tune_reps": {
+          "default": 2,
+          "description": "Trial forests per setting",
+          "type": "integer"
+        },
+        "tune_trees": {
+          "default": 200,
+          "description": "Trees per trial forest",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
     "description": "Pearson's correlation, or the partial correlation given covariates, with its t test and Fisher-z confidence interval (R cor.test and ggm::pcor.test; the significance level of Stata pwcorr, sig). A zero partial correlation is what a causal graph implies for two d-separated nodes under linearity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cor_test",
     "parameters": {
@@ -9847,10 +10033,28 @@
           "description": "Bootstrap reps for NDE/NIE CIs",
           "type": "integer"
         },
+        "outcome_model": {
+          "default": "linear",
+          "description": "Outcome model (inference='robust'). Non-linear models give effects on the scale of the outcome's mean and integrate the mediator out; equal to Stata mediate.",
+          "enum": [
+            "linear",
+            "logit",
+            "probit",
+            "poisson"
+          ],
+          "type": "string"
+        },
         "treat": {
           "description": "Binary treatment",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "treat_values": {
+          "description": "(control, treated) levels to contrast when the treatment is not 0/1 (inference='robust').",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "y": {
           "description": "Outcome",
@@ -55062,6 +55266,11 @@
         "max_cond_size": {
           "description": "Max size of conditioning set.",
           "type": "integer"
+        },
+        "possible_dsep": {
+          "default": true,
+          "description": "Run the Possible-D-SEP pass, which FCI needs to be correct when there are latent common causes: without it an edge can survive that no subset of either node's neighbours separates but a larger set does. ``False`` keeps the PC skeleton, which is faster on wide data and is what this function returned before 1.39.",
+          "type": "boolean"
         },
         "variables": {
           "description": "Columns to use; defaults to all numeric columns.",

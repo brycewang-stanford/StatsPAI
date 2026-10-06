@@ -12018,6 +12018,11 @@
           "description": "Max size of conditioning set.",
           "type": "integer"
         },
+        "possible_dsep": {
+          "default": true,
+          "description": "Run the Possible-D-SEP pass, which FCI needs to be correct when there are latent common causes: without it an edge can survive that no subset of either node's neighbours separates but a larger set does. ``False`` keeps the PC skeleton, which is faster on wide data and is what this function returned before 1.39.",
+          "type": "boolean"
+        },
         "variables": {
           "description": "Columns to use; defaults to all numeric columns.",
           "items": {
@@ -19979,10 +19984,28 @@
           "description": "Bootstrap reps for NDE/NIE CIs",
           "type": "integer"
         },
+        "outcome_model": {
+          "default": "linear",
+          "description": "Outcome model (inference='robust'). Non-linear models give effects on the scale of the outcome's mean and integrate the mediator out; equal to Stata mediate.",
+          "enum": [
+            "linear",
+            "logit",
+            "probit",
+            "poisson"
+          ],
+          "type": "string"
+        },
         "treat": {
           "description": "Binary treatment",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "treat_values": {
+          "description": "(control, treated) levels to contrast when the treatment is not 0/1 (inference='robust').",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "y": {
           "description": "Outcome",
@@ -38694,5 +38717,114 @@
       "type": "object"
     },
     "name": "zinb"
+  },
+  {
+    "description": "Zero-Inflated Poisson (ZIP) regression via MLE. Validation: certified parity evidence. Do NOT use when: the outcome is a rate with a known exposure -- model the count with an exposure offset rather than the ratio. Assumptions: The conditional mean is exp(x'b); Poisson pseudo-ML is consistent for the mean under this alone, but its default SEs assume equidispersion -- use robust / clustered SEs; Zero-inflated and hurdle models assume a separate process generates the excess zeros; they are not a fix for over-dispersion by itself; Observations are independent conditional on covariates or the dependence is declared (cluster= / random effects). Pre-conditions: Outcome is a non-negative integer count (or non-negative real for PPML gravity-type models); For ppmlhdfe: fixed effects that perfectly predict zeros are dropped along with their observations -- check the reported count. Failure modes: Over-dispersion: Poisson deviance / Pearson chi-square far above degrees of freedom -> Switch to negative binomial (sp.nbreg / sp.zinb) or keep Poisson with robust SEs; the mean is still consistently estimated; Separation: a fixed effect or covariate perfectly predicts zero outcomes -> ppmlhdfe drop...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster variable name for clustered standard errors.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "formula": {
+          "description": "Patsy-style formula for the count equation, e.g. \"y ~ x1 + x2\".",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "inflate": {
+          "description": "Inflation-equation regressors. Default: same as count regressors.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maxiter": {
+          "default": 200,
+          "description": "Maximum iterations for optimizer.",
+          "type": "integer"
+        },
+        "robust": {
+          "default": "nonrobust",
+          "description": "\"nonrobust\", \"HC0\", \"HC1\", etc.",
+          "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
+          "x-canonical": "vce"
+        },
+        "tol": {
+          "default": 1e-08,
+          "description": "Convergence tolerance.",
+          "type": "number"
+        },
+        "x": {
+          "description": "Count-equation regressors (alternative to formula).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable name (alternative to formula).",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "zip_model"
+  },
+  {
+    "description": "z test on a mean or on a difference of two means when the population standard deviation is known (Stata ztest / ztesti). Takes data or summary statistics (n=, mean=). Returns the estimate, its standard error, z, the two-sided and both one-sided p-values and the confidence interval. Use sp.ttest when the standard deviation is estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: sd is the sample standard deviation -- use sp.ttest, which accounts for estimating it. Assumptions: The population standard deviation is known, not estimated from the sample being tested; Independent observations; a normal population, or a sample large enough for the mean to be approximately normal. Alternatives: sp.ttest.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping column with exactly two values; the estimate is mean(lower group) - mean(higher group)",
+          "type": "string"
+        },
+        "mean": {
+          "description": "Sample mean (summary form)",
+          "type": "number"
+        },
+        "mu": {
+          "default": 0.0,
+          "description": "Null value",
+          "type": "number"
+        },
+        "n": {
+          "description": "Observations (summary form)",
+          "type": "integer"
+        },
+        "other": {
+          "description": "Second, independent variable",
+          "type": "string"
+        },
+        "sd": {
+          "default": 1.0,
+          "description": "Known population standard deviation, or one per sample",
+          "type": "number"
+        },
+        "y": {
+          "description": "Variable whose mean is tested",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "ztest"
   }
 ]

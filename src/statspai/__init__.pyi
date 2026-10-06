@@ -126,6 +126,8 @@ from .causal_discovery.fci import FCIResult as FCIResult
 from .causal_discovery.fci import fci as fci
 from .causal_discovery.ges import GESResult as GESResult
 from .causal_discovery.ges import ges as ges
+from .causal_discovery.hill_climb import bootstrap_edges as bootstrap_edges
+from .causal_discovery.hill_climb import hill_climb as hill_climb
 from .causal_discovery.icp import ICPResult as ICPResult
 from .causal_discovery.icp import icp as icp
 from .causal_discovery.icp import nonlinear_icp as nonlinear_icp
@@ -571,6 +573,7 @@ from .forest.regression_forests import quantile_forest as quantile_forest
 from .forest.regression_forests import regression_forest as regression_forest
 from .forest.survival_forest import SurvivalForestResult as SurvivalForestResult
 from .forest.survival_forest import survival_forest as survival_forest
+from .forest.tuning import tune_causal_forest as tune_causal_forest
 from .frontier.malmquist import MalmquistResult as MalmquistResult
 from .frontier.malmquist import malmquist as malmquist
 from .frontier.malmquist import translog_design as translog_design
@@ -750,6 +753,7 @@ from .mcmc.diagnostics import hpd_interval as hpd_interval
 from .mcmc.diagnostics import mcmc_ess as mcmc_ess
 from .mcmc.diagnostics import mcmc_summary as mcmc_summary
 from .mcmc.diagnostics import raftery_diag as raftery_diag
+from .mcmc.iv import bayes_ivreg as bayes_ivreg
 from .mcmc.mixed import BayesMixedResult as BayesMixedResult
 from .mcmc.mixed import bayes_mixed as bayes_mixed
 from .mcmc.regress import BayesRegressResult as BayesRegressResult
@@ -1440,6 +1444,9 @@ from .timeseries.ardl import ARDLResult as ARDLResult
 from .timeseries.ardl import ardl as ardl
 from .timeseries.arima import ARIMAResult as ARIMAResult
 from .timeseries.arima import arima as arima
+from .timeseries.bagging import BaggedForecastResult as BaggedForecastResult
+from .timeseries.bagging import bagged_forecast as bagged_forecast
+from .timeseries.bagging import bootstrap_series as bootstrap_series
 from .timeseries.bds import bds as bds
 from .timeseries.bvar import BVARResult as BVARResult
 from .timeseries.bvar import bvar as bvar
@@ -1473,11 +1480,13 @@ from .timeseries.structural_break import cusum_test as cusum_test
 from .timeseries.structural_break import structural_break as structural_break
 from .timeseries.svar import SVARResult as SVARResult
 from .timeseries.svar import svar as svar
+from .timeseries.ts_features import ts_features as ts_features
 from .timeseries.ts_tools import boxcox_lambda as boxcox_lambda
 from .timeseries.ts_tools import fourier_terms as fourier_terms
 from .timeseries.ts_tools import ljungbox as ljungbox
 from .timeseries.ts_tools import ndiffs as ndiffs
 from .timeseries.ts_tools import nsdiffs as nsdiffs
+from .timeseries.ts_tools import seasonal_dummies as seasonal_dummies
 from .timeseries.unit_root import UnitRootResult as UnitRootResult
 from .timeseries.unit_root import unitroot as unitroot
 from .timeseries.var import VARResult as VARResult

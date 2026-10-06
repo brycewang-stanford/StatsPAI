@@ -46,7 +46,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `rd` | 23,110 | 34 | 56 |
 | `timeseries` | 17,664 | 33 | 58 |
 | `smart` | 16,690 | 21 | 31 |
-| `forest` | 15,974 | 17 | 31 |
+| `forest` | 16,231 | 18 | 32 |
 | `inference` | 15,083 | 30 | 55 |
 | `output` | 14,193 | 22 | 42 |
 | `matching` | 12,612 | 18 | 29 |
@@ -62,6 +62,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mcmc` | 6,251 | 10 | 19 |
 | `plots` | 6,015 | 7 | 8 |
 | `multilevel` | 5,384 | 9 | 11 |
+| `causal_discovery` | 5,352 | 13 | 22 |
 | `bayes` | 5,273 | 12 | 20 |
 | `mendelian` | 5,187 | 13 | 41 |
 | `metalearners` | 5,165 | 10 | 25 |
@@ -69,7 +70,6 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `utils` | 4,831 | 11 | 35 |
 | `survival` | 4,531 | 6 | 15 |
 | `workflow` | 4,512 | 5 | 3 |
-| `causal_discovery` | 4,448 | 11 | 20 |
 | `structural` | 4,433 | 10 | 14 |
 | `gmm` | 4,277 | 12 | 4 |
 | `qte` | 4,152 | 9 | 13 |
@@ -85,10 +85,10 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `rlasso` | 2,840 | 7 | 10 |
 | `crossval` | 2,809 | 7 | 2 |
 | `epi` | 2,645 | 6 | 21 |
+| `mediation` | 2,603 | 6 | 6 |
 | `datasets` | 2,460 | 4 | 3 |
 | `interference` | 2,460 | 10 | 20 |
 | `fixest` | 2,272 | 3 | 4 |
-| `mediation` | 2,188 | 5 | 6 |
 | `question` | 2,102 | 3 | 6 |
 | `policy_learning` | 2,072 | 5 | 8 |
 | `proximal` | 2,052 | 8 | 13 |
@@ -128,7 +128,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 154 | 2 | 0 |
 | `causal` | 124 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **580,812** | **982** | **1426** |
+| **Total** | **582,554** | **986** | **1429** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

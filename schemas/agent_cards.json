@@ -14690,6 +14690,362 @@
   {
     "alias_of": null,
     "alternatives": [
+      "pc_algorithm",
+      "ges",
+      "fci",
+      "bootstrap_edges",
+      "bayes_net"
+    ],
+    "assumptions": [
+      "Causal sufficiency: no unmeasured common cause of two variables in the data",
+      "Faithfulness, and a correctly specified local model (multinomial tables, or linear-Gaussian regressions)",
+      "The result is a local optimum of the score and one member of its Markov equivalence class; read directions off the CPDAG"
+    ],
+    "category": "causal_discovery",
+    "cost_profile": "",
+    "description": "Score-based structure learning: greedy hill climbing over DAGs (add, delete or reverse one arc at a time) on the BIC, for categorical data (multinomial BIC) or continuous data (linear-Gaussian BIC). R bnlearn::hc; the score equals bnlearn's. Returns the DAG, its equivalence class (CPDAG) and the score. Assumes no hidden common causes. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "R bnlearn::score(type = \"bic\" / \"bic-g\") and hc()",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "bnlearn": "5.2.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_hill_climb_bnlearn_parity.py",
+        "tests/reference_parity/_fixtures/hill_climb_bnlearn_R.json"
+      ],
+      "tolerance": "BIC of eight fixed graphs 1e-12 rel; the score hc() ends at 1e-10 rel on the two fixture data sets"
+    },
+    "example": "sp.hill_climb(df, data_type=\"discrete\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "hill_climb",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "dict",
+      "description": "dict (DAGDict)",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Score-based structure learning: greedy hill climbing over DAGs (add, delete or reverse one arc at a time) on the BIC, for categorical data (multinomial BIC) or continuous data (linear-Gaussian BIC). R bnlearn::hc; the score equals bnlearn's. Returns the DAG, its equivalence class (CPDAG) and the score. Assumes no hidden common causes. Validation: certified parity evidence.",
+      "name": "hill_climb",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "data_type": {
+            "default": "auto",
+            "description": "Treat columns as categorical or continuous; 'auto' refuses a mixture",
+            "enum": [
+              "auto",
+              "discrete",
+              "gaussian"
+            ],
+            "type": "string"
+          },
+          "forbidden": {
+            "description": "Arcs (from, to) not allowed",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "max_iter": {
+            "default": 10000,
+            "description": "Iteration cap",
+            "type": "integer"
+          },
+          "max_parents": {
+            "description": "Cap on parents",
+            "type": "integer"
+          },
+          "perturb": {
+            "default": 3,
+            "description": "Arc changes per restart",
+            "type": "integer"
+          },
+          "required": {
+            "description": "Arcs (from, to) that must be in",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "restarts": {
+            "default": 0,
+            "description": "Random restarts",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Seed of the restarts",
+            "type": "integer"
+          },
+          "variables": {
+            "description": "Columns to use",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs R bnlearn::score(type = \"bic\" / \"bic-g\") and hc() [R version 4.5.2 (2025-10-31), bnlearn 5.2.1]; tolerance BIC of eight fixed graphs 1e-12 rel; the score hc() ends at 1e-10 rel on the two fixture data sets -- tests/reference_parity/test_hill_climb_bnlearn_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "pc_algorithm",
+      "hill_climb",
+      "fci"
+    ],
+    "assumptions": [
+      "Independent rows (the bootstrap resamples rows)",
+      "Stability under resampling is not validity: an edge the algorithm's assumptions get wrong can be perfectly stable"
+    ],
+    "category": "causal_discovery",
+    "cost_profile": "",
+    "description": "Stability of a learned graph: refit a structure-learning algorithm (pc, hill_climb, ges, fci, lingam, notears or a callable) on bootstrap resamples and report, for each pair of variables, the share of resamples in which they are adjacent (strength) and the share in which the arc points each way (direction). R bnlearn::boot.strength. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_hill_climb_bnlearn_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.bootstrap_edges(df, \"pc\", n_boot=200, seed=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "bootstrap_edges",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Stability of a learned graph: refit a structure-learning algorithm (pc, hill_climb, ges, fci, lingam, notears or a callable) on bootstrap resamples and report, for each pair of variables, the share of resamples in which they are adjacent (strength) and the share in which the arc points each way (direction). R bnlearn::boot.strength. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "bootstrap_edges",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "Data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "method": {
+            "default": "pc",
+            "description": "Algorithm name, or a callable taking a DataFrame",
+            "enum": [
+              "pc",
+              "hill_climb",
+              "ges",
+              "fci",
+              "lingam",
+              "notears"
+            ],
+            "type": "string"
+          },
+          "n_boot": {
+            "default": 200,
+            "description": "Bootstrap resamples",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Random seed",
+            "type": "integer"
+          },
+          "threshold": {
+            "default": 0.5,
+            "description": "Strength to call an edge stable",
+            "type": "number"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_hill_climb_bnlearn_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "causal_forest",
+      "auto_cate_tuned",
+      "forest_diagnostics"
+    ],
+    "assumptions": [
+      "Those of the causal forest: unconfoundedness given X, overlap",
+      "The R-loss ranks settings by fit to the residualised outcome; a lower loss is evidence for, not proof of, a better effect estimate"
+    ],
+    "category": "forest",
+    "cost_profile": "",
+    "description": "Choose causal-forest settings (minimum leaf size, sample fraction, mtry, honesty options) by random search on the out-of-bag R-loss, then fit the forest. A tuned setting is adopted only if it beats the defaults by more than twice the noise of the comparison. The criterion of grf's tune.parameters. Helps most when the effect varies little; it is not a free improvement. ",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.tune_causal_forest(Y=y, T=w, X=X, n_draws=40, random_state=1)",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "tune_causal_forest",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "dict",
+      "description": "dict",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Choose causal-forest settings (minimum leaf size, sample fraction, mtry, honesty options) by random search on the out-of-bag R-loss, then fit the forest. A tuned setting is adopted only if it beats the defaults by more than twice the noise of the comparison. The criterion of grf's tune.parameters. Helps most when the effect varies little; it is not a free improvement. ",
+      "name": "tune_causal_forest",
+      "parameters": {
+        "properties": {
+          "T": {
+            "description": "Treatment",
+            "type": "string"
+          },
+          "X": {
+            "description": "Covariates",
+            "type": "string",
+            "x-aliases": [
+              "covariates"
+            ]
+          },
+          "Y": {
+            "description": "Outcome",
+            "type": "string"
+          },
+          "data": {
+            "description": "Data",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "formula": {
+            "description": "y ~ treat | covariates",
+            "type": "string",
+            "x-statspai-role": "formula"
+          },
+          "n_draws": {
+            "default": 40,
+            "description": "Random settings tried",
+            "type": "integer"
+          },
+          "n_estimators": {
+            "default": 2000,
+            "description": "Trees in the final forest",
+            "type": "integer"
+          },
+          "parameters": {
+            "default": [
+              "min_samples_leaf",
+              "max_samples",
+              "mtry"
+            ],
+            "description": "Settings to tune",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "random_state": {
+            "description": "Seed",
+            "type": "integer"
+          },
+          "tune_reps": {
+            "default": 2,
+            "description": "Trial forests per setting",
+            "type": "integer"
+          },
+          "tune_trees": {
+            "default": 200,
+            "description": "Trees per trial forest",
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "spearman",
       "ktau",
       "pwcorr",
@@ -22359,10 +22715,28 @@
             "description": "Bootstrap reps for NDE/NIE CIs",
             "type": "integer"
           },
+          "outcome_model": {
+            "default": "linear",
+            "description": "Outcome model (inference='robust'). Non-linear models give effects on the scale of the outcome's mean and integrate the mediator out; equal to Stata mediate.",
+            "enum": [
+              "linear",
+              "logit",
+              "probit",
+              "poisson"
+            ],
+            "type": "string"
+          },
           "treat": {
             "description": "Binary treatment",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "treat_values": {
+            "description": "(control, treated) levels to contrast when the treatment is not 0/1 (inference='robust').",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "y": {
             "description": "Outcome",
@@ -22384,6 +22758,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=0.1; parity module 36_mediation -- tests/r_parity/36_mediation.py",
       "tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_mediate_nonlinear_stata_parity.py",
       "tests/reference_parity/test_mediate_potential_outcomes.py"
     ],
     "validation_status": "certified"
@@ -117943,10 +118318,12 @@
       "source": "reference_parity_frozen",
       "status": "bit-exact",
       "tests": [
+        "tests/reference_parity/test_fci_pcalg_parity.py",
+        "tests/reference_parity/_fixtures/fci_pcalg_R.json",
         "tests/reference_parity/test_ness_causal_ai_parity.py",
         "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
       ],
-      "tolerance": "partial ancestral graphs compared for equality, every edge with the mark at each end, on three designs"
+      "tolerance": "partial ancestral graphs compared for equality, every edge with the mark at each end, on 39 data sets"
     },
     "example": "res = sp.fci(data, alpha=0.05)",
     "failure_modes": [
@@ -117984,6 +118361,7 @@
         "ci_test": "str",
         "edges": "List[Tuple[str, str, str]]",
         "n_obs": "int",
+        "n_removed_by_possible_dsep": "int",
         "pag_left": "pd.DataFrame",
         "pag_right": "pd.DataFrame",
         "separating_sets": "Dict[Tuple[str, str], Set[str]]",
@@ -118015,6 +118393,11 @@
             "description": "Max size of conditioning set.",
             "type": "integer"
           },
+          "possible_dsep": {
+            "default": true,
+            "description": "Run the Possible-D-SEP pass, which FCI needs to be correct when there are latent common causes: without it an edge can survive that no subset of either node's neighbours separates but a larger set does. ``False`` keeps the PC skeleton, which is faster on wide data and is what this function returned before 1.39.",
+            "type": "boolean"
+          },
           "variables": {
             "description": "Columns to use; defaults to all numeric columns.",
             "items": {
@@ -118032,7 +118415,7 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs pcalg::fci(skel.method = 'stable') with gaussCItest [R version 4.5.2 (2025-10-31), pcalg 2.7.12]; tolerance partial ancestral graphs compared for equality, every edge with the mark at each end, on three designs -- tests/reference_parity/test_ness_causal_ai_parity.py",
+      "Cross-language parity (bit-exact) vs pcalg::fci(skel.method = 'stable') with gaussCItest [R version 4.5.2 (2025-10-31), pcalg 2.7.12]; tolerance partial ancestral graphs compared for equality, every edge with the mark at each end, on 39 data sets -- tests/reference_parity/test_fci_pcalg_parity.py",
       "tests/reference_parity/test_fci_parity.py"
     ],
     "validation_status": "certified"
