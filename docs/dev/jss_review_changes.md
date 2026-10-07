@@ -3385,3 +3385,56 @@ only the recorded source hashes move.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-07 — Track C re-timed on an idle machine, R reference did 2.5.1
+
+- **Commits.** `6d9958f0` replaces every Track C timing and re-records
+  `_timed_path.json`. Run id `20261007T170004`, measured on tree
+  `53927dd3` (StatsPAI 1.38.0 plus later commits) with
+  `tests/perf/run_when_idle.sh`: each step started at a 1-minute load
+  below 1.5 and none peaked above 1.4.
+- **Reason.** The R reference moved to `did` 2.5.1 (entry of 2026-10-06),
+  whose `att_gt` is several times faster, and `trace_perf_path.py --check`
+  had been listing modules 01 to 04 as stale against main.
+- **Effect on the paper.** Section 6 and `track_c_perf.tex`. Seconds are
+  medians, ratio is reference over StatsPAI.
+  1. **Callaway-Sant'Anna.** R leg 0.045 / 0.114 / 0.457 to
+     0.012 / 0.023 / 0.080; StatsPAI leg 0.0076 / 0.0110 / 0.0283 to
+     0.0080 / 0.0117 / 0.0305. Ratio 5.91 / 10.40 / 16.15 to
+     1.49 / 1.96 / 2.62. The text prints 5.9x at 5,000 observations and
+     16.1x at 125,000 (0.028 against 0.457 seconds); both go. The gap
+     still widens with size, by much less.
+  2. **Classical SCM.** StatsPAI leg 3.08 / 91.06 / 264.02 to
+     0.69 / 1.17 / 1.27; `Synth` 0.713 / 1.301 / 4.579 to
+     0.693 / 1.283 / 4.358. Ratio 0.23 / 0.01 / 0.02 to
+     1.01 / 1.09 / 3.42. The text says `Synth` is 4.3x faster at 20
+     donors and 57.7x at 100 (4.6 against 264 seconds) and attributes
+     99% of the time to the nested V search; none of that holds now. The
+     two sides still solve the same task and their estimates agree to
+     5e-5 or better. The StatsPAI change comes from the commits to
+     `synth/scm.py` and `synth/_core.py` since the anchored release;
+     which one removed the cost was not isolated, and the paragraph
+     should not be rewritten until it is. The package-default timings in
+     the second SCM table fall as well (7.465 to 0.043 seconds at 100
+     donors with placebos).
+  3. **HDFE.** Unchanged: ratio 1.80 / 0.85 / 0.62 to 1.81 / 0.84 / 0.62.
+  4. **DML.** Unchanged: ratio 1.25 / 1.15 / 1.10 to 1.20 / 1.12 / 1.08.
+- **Still stale.** After rebasing onto main, `trace_perf_path.py --check`
+  lists `01_hdfe` because `src/statspai/__init__.py` changed (a function
+  was added and 1.39.0 was cut after the measured tree). The file is on
+  the timed path of that module only through the import. Modules 02 to
+  04 are current.
+- **Paths.**
+  - `tests/perf/results/01_hdfe_R.json`
+  - `tests/perf/results/01_hdfe_py.json`
+  - `tests/perf/results/02_csdid_R.json`
+  - `tests/perf/results/02_csdid_py.json`
+  - `tests/perf/results/03_scm_R.json`
+  - `tests/perf/results/03_scm_py.json`
+  - `tests/perf/results/04_dml_doubleml_py.json`
+  - `tests/perf/results/04_dml_py.json`
+  - `tests/perf/results/_timed_path.json`
+  - `tests/perf/results/perf_table.md`
+  - `tests/perf/results/perf_table.tex`
+  - `tests/perf/figures/track_c_loglog.pdf`
+  - `tests/perf/figures/track_c_loglog.png`
